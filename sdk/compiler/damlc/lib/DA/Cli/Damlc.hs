@@ -438,7 +438,7 @@ cmdTest numProcessors =
       [ "Test the current Daml package or the given files by running all test declarations."
       , "Must be in Daml package if --files is not set."
       ]
-    cmd = runTestsInProjectOrFiles
+    cmd = runTestsInPackageOrFiles
       <$> packageLocationOpts "daml test"
       <*> filesOpt
       <*> fmap RunAllOption runAllOption
@@ -474,7 +474,7 @@ cmdTest numProcessors =
       Options.Applicative.option (Options.Applicative.readerAsk >>= fmap CoverageFilter . makeRegexM) $
         long "coverage-ignore-choice" <> help "Remove choices matching a regex from the coverage report. The full name of a local choice takes the format '<module>:<template name>:<choice name>', preceded by '<package id>:' for nonlocal packages."
 
-runTestsInProjectOrFiles ::
+runTestsInPackageOrFiles ::
        SdkVersion.Class.SdkVersioned
     => PackageLocationOpts
     -> Maybe [FilePath]
@@ -490,7 +490,7 @@ runTestsInProjectOrFiles ::
     -> CoveragePaths
     -> [CoverageFilter]
     -> Command
-runTestsInProjectOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+runTestsInPackageOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnly True) coverage _ _ _ _ _ _ coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = do
           when (getRunAllTests allTests) $ do
             hPutStrLn stderr "Cannot specify --all and --load-coverage-only at the same time."
@@ -501,7 +501,7 @@ runTestsInProjectOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnl
               exitFailure
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
-runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+runTestsInPackageOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withExpectPackageRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ PackagePath pPath }
@@ -514,7 +514,7 @@ runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color m
             -- if source points to a specific file.
             files <- getDamlRootFiles pSrc
             execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
-runTestsInProjectOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
+runTestsInPackageOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mPackageRoot relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mPackageRoot }
@@ -701,7 +701,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
-          pkgPath <- getCanonDefaultProjectPath
+          pkgPath <- getCanonDefaultPackagePath
           mPkgConfig <- withMaybeConfig (withPackageConfig pkgPath) pure
           let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
           options <- updateUpgradePath "ide" pkgPath options pkgConfUpgradeDar
@@ -824,15 +824,15 @@ execLint inputFiles opts =
                exitFailure
      getInputFiles relativize = \case
        [] -> do
-           withPackageConfig defaultProjectPath $ \PackageConfigFields {pSrc} -> do
+           withPackageConfig defaultPackagePath $ \PackageConfigFields {pSrc} -> do
            getDamlRootFiles pSrc
        fs -> forM fs $ fmap toNormalizedFilePath' . relativize
 
-defaultProjectPath :: PackagePath
-defaultProjectPath = PackagePath "."
+defaultPackagePath :: PackagePath
+defaultPackagePath = PackagePath "."
 
-getCanonDefaultProjectPath :: IO PackagePath
-getCanonDefaultProjectPath = fmap PackagePath $ canonicalizePath $ unwrapPackagePath defaultProjectPath
+getCanonDefaultPackagePath :: IO PackagePath
+getCanonDefaultPackagePath = fmap PackagePath $ canonicalizePath $ unwrapPackagePath defaultPackagePath
 
 -- | If we're in a daml package, read the daml.yaml field, install the dependencies and create the
 -- package local package database. Otherwise do nothing.
@@ -847,17 +847,17 @@ execInit opts packageLocationOpts =
 installDepsAndInitPackageDb :: SdkVersion.Class.SdkVersioned => Options -> InitPkgDb -> IO ()
 installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
-        isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
+        isProject <- withPackageConfig defaultPackagePath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
             packageRoot <- getCurrentDirectory
             opts <- addResolutionData opts
-            withPackageConfig defaultProjectPath $
+            withPackageConfig defaultPackagePath $
               setupPackageDbFromPackageConfig (toNormalizedFilePath' packageRoot) opts
 
 getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe PackagePath)
 getMultiPackagePath multiPackageLocation searchPath =
   case multiPackageLocation of
-    MPLSearch -> findMultiPackageConfig $ maybe defaultProjectPath PackagePath searchPath
+    MPLSearch -> findMultiPackageConfig $ maybe defaultPackagePath PackagePath searchPath
     MPLPath path -> do
       hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
       unless hasMultiPackage $ do
@@ -895,7 +895,7 @@ execBuild packageLocationOpts opts mbOutFile incrementalBuild initPkgDb enableMu
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache
 
-    pkgPath <- liftIO getCanonDefaultProjectPath
+    pkgPath <- liftIO getCanonDefaultPackagePath
     mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig pkgPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       -- If running build --all, search from invocation location, as package location is irrelevant
