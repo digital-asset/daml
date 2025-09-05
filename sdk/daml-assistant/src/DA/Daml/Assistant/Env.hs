@@ -34,7 +34,7 @@ import Data.Foldable (asum)
 import Data.Maybe
 
 -- | Calculate the environment variables in which to run daml commands.
-getDamlEnv :: DamlPath -> LookForProjectPath -> IO Env
+getDamlEnv :: DamlPath -> LookForPackagePath -> IO Env
 getDamlEnv envDamlPath lookForProjectPath = do
     envDamlAssistantPath <- getDamlAssistantPath envDamlPath
     envProjectPath <- getPackagePath lookForProjectPath
@@ -201,9 +201,9 @@ getCachePath =
 --
 -- The project path can be overriden by passing the DAML_PROJECT
 -- environment variable.
-getPackagePath :: LookForProjectPath -> IO (Maybe PackagePath)
-getPackagePath (LookForProjectPath False) = pure Nothing
-getPackagePath (LookForProjectPath True) = wrapErr "Detecting daml project." $ do
+getPackagePath :: LookForPackagePath -> IO (Maybe PackagePath)
+getPackagePath (LookForPackagePath False) = pure Nothing
+getPackagePath (LookForPackagePath True) = wrapErr "Detecting daml project." $ do
         pathM <- overrideWithEnvVarsMaybe @SomeException [packagePathEnvVar, projectPathEnvVar] makeAbsolute Right $ do
             cwd <- getCurrentDirectory
             findM hasProjectConfig (ascendants cwd)

@@ -64,7 +64,7 @@ main = withSdkVersions $ do
                 env <- getDamlEnv damlPath (commandWantsProjectPath builtinCommand)
                 handleCommand env logger builtinCommand
             Nothing -> do
-                env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForProjectPath True)
+                env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForPackagePath True)
 
                 -- We already know we can't parse the command without an installed SDK.
                 -- So if we can't find it, let the user know. This will happen whenever
@@ -91,8 +91,8 @@ main = withSdkVersions $ do
                         versionChecks env
                         handleCommand env logger userCommand
 
-commandWantsProjectPath :: Command -> LookForProjectPath
-commandWantsProjectPath cmd = LookForProjectPath $
+commandWantsProjectPath :: Command -> LookForPackagePath
+commandWantsProjectPath cmd = LookForPackagePath $
     case cmd of
         Builtin (Install InstallOptions{..})
             | Just RawInstallTarget_Project <- iTargetM -> True

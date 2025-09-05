@@ -44,7 +44,7 @@ data BuiltinCommand
     | Uninstall UnresolvedReleaseVersion
     deriving (Eq, Show)
 
-newtype LookForProjectPath = LookForProjectPath
+newtype LookForPackagePath = LookForPackagePath
     { unLookForProjectPath :: Bool }
 
 data Command

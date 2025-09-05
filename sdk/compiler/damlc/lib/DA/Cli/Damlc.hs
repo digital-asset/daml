@@ -161,7 +161,7 @@ import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                projectPathEnvVar,
                                packagePathEnvVar)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import DA.Daml.Assistant.Types (LookForProjectPath(..))
+import DA.Daml.Assistant.Types (LookForPackagePath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
@@ -1459,7 +1459,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       releaseVersion <- if damlAssistantIsSet
           then do
             damlPath <- getDamlPath
-            damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+            damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
             wrapErr "running doc test" $
               resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
