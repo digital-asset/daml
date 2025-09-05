@@ -18,7 +18,7 @@ module DA.Daml.Project.Consts
     , multiPackageConfigName
     , damlEnvVars
     , getDamlPath
-    , getProjectPath
+    , getPackagePath
     , getSdkPath
     , tryGetSdkPath
     , getSdkVersion
@@ -146,8 +146,8 @@ getDamlPath = getEnv damlPathEnvVar
 
 -- | Returns the path of the current daml package or
 --`Nothing` if invoked outside of a package.
-getProjectPath :: IO (Maybe FilePath)
-getProjectPath = do
+getPackagePath :: IO (Maybe FilePath)
+getPackagePath = do
     let nullToNothing p = if null p then Nothing else Just p
     mbPackagePath <- lookupEnv packagePathEnvVar
     mbProjectPath <- lookupEnv projectPathEnvVar
@@ -198,7 +198,7 @@ data PackageLocationCheck = PackageLocationCheck String Bool
 
 -- | Execute an action within the project root, if available.
 --
--- Determines the project root, if available, using 'getProjectPath' unless it
+-- Determines the project root, if available, using 'getPackagePath' unless it
 -- is passed explicitly.
 --
 -- If no project root is found and 'PackageLocationCheck' requires a project root, then
@@ -215,7 +215,7 @@ withPackageRoot
     -> IO a
 withPackageRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
     previousCwd <- getCurrentDirectory
-    mbProjectPath <- maybe getProjectPath (pure . Just . unwrapPackagePath) mbProjectDir
+    mbProjectPath <- maybe getPackagePath (pure . Just . unwrapPackagePath) mbProjectDir
     case mbProjectPath of
         Nothing -> do
             when check $ do

@@ -12,7 +12,7 @@ module DA.Daml.Assistant.Env
     , testDamlEnv
     , getDamlPath
     , getCachePath
-    , getProjectPath
+    , getPackagePath
     , getSdk
     , getDispatchEnv
     , envUseCache
@@ -23,7 +23,7 @@ module DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Version
-import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
+import DA.Daml.Project.Consts hiding (getDamlPath, getPackagePath)
 import System.Directory
 import System.FilePath
 import System.Environment.Blank
@@ -37,7 +37,7 @@ import Data.Maybe
 getDamlEnv :: DamlPath -> LookForProjectPath -> IO Env
 getDamlEnv envDamlPath lookForProjectPath = do
     envDamlAssistantPath <- getDamlAssistantPath envDamlPath
-    envProjectPath <- getProjectPath lookForProjectPath
+    envProjectPath <- getPackagePath lookForProjectPath
     envCachePath <- getCachePath
     let useCache = mkUseCache envCachePath envDamlPath
     envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion useCache
@@ -201,9 +201,9 @@ getCachePath =
 --
 -- The project path can be overriden by passing the DAML_PROJECT
 -- environment variable.
-getProjectPath :: LookForProjectPath -> IO (Maybe PackagePath)
-getProjectPath (LookForProjectPath False) = pure Nothing
-getProjectPath (LookForProjectPath True) = wrapErr "Detecting daml project." $ do
+getPackagePath :: LookForProjectPath -> IO (Maybe PackagePath)
+getPackagePath (LookForProjectPath False) = pure Nothing
+getPackagePath (LookForProjectPath True) = wrapErr "Detecting daml project." $ do
         pathM <- overrideWithEnvVarsMaybe @SomeException [packagePathEnvVar, projectPathEnvVar] makeAbsolute Right $ do
             cwd <- getCurrentDirectory
             findM hasProjectConfig (ascendants cwd)

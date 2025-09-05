@@ -44,7 +44,7 @@ import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Cache
 import DA.Daml.Project.Config
-import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
+import DA.Daml.Project.Consts hiding (getDamlPath, getPackagePath)
 import System.Environment.Blank
 import Control.Exception.Safe
 import Control.Exception (mapException)

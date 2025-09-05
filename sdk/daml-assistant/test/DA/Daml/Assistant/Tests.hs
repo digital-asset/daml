@@ -11,7 +11,7 @@ import DA.Daml.Assistant.Cache (UseCache (DontUseCache))
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Version as V hiding (UseCache(..))
-import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
+import DA.Daml.Project.Consts hiding (getDamlPath, getPackagePath)
 import DA.Daml.Project.Config
 import System.Directory
 import System.Environment.Blank
@@ -104,70 +104,70 @@ testGetDamlPathPosix = Tasty.testGroup "posix-specific tests"
     ]
 
 testGetProjectPath :: Tasty.TestTree
-testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
-    [ Tasty.testCase "getProjectPath returns environment variable" $ do
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
+    [ Tasty.testCase "getPackagePath returns environment variable" $ do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             let expected = dir </> "project"
             setCurrentDirectory dir
             createDirectory expected
-            Just got <- withEnv [(packagePathEnvVar, Just expected)] getProjectPath'
+            Just got <- withEnv [(packagePathEnvVar, Just expected)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath expected) got
             return ()
 
-    , Tasty.testCase "getProjectPath returns environment variable (made absolute)" $ do
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+    , Tasty.testCase "getPackagePath returns environment variable (made absolute)" $ do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             let expected = dir </> "project"
             setCurrentDirectory dir
             createDirectory expected
-            Just got <- withEnv [(packagePathEnvVar, Just "project")] getProjectPath'
+            Just got <- withEnv [(packagePathEnvVar, Just "project")] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath expected) got
             return ()
 
-    , Tasty.testCase "getProjectPath returns nothing" $ do
+    , Tasty.testCase "getPackagePath returns nothing" $ do
         -- This test assumes there's no daml.yaml above the temp directory.
-        -- ... this might be an ok assumption, but maybe getProjectPath
+        -- ... this might be an ok assumption, but maybe getPackagePath
         -- should also check that the project path is owned by the user,
         -- or something super fancy like that.
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             setCurrentDirectory dir
-            Nothing <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
+            Nothing <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             return ()
 
-    , Tasty.testCase "getProjectPath returns current directory" $ do
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+    , Tasty.testCase "getPackagePath returns current directory" $ do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory dir
-            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath dir) path
 
-    , Tasty.testCase "getProjectPath returns parent directory" $ do
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+    , Tasty.testCase "getPackagePath returns parent directory" $ do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             createDirectory (dir </> "foo")
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo")
-            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath dir) path
 
-    , Tasty.testCase "getProjectPath returns grandparent directory" $ do
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+    , Tasty.testCase "getPackagePath returns grandparent directory" $ do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             createDirectoryIfMissing True (dir </> "foo" </> "bar")
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
-            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath dir) path
 
-    , Tasty.testCase "getProjectPath prefers parent over grandparent" $ do
-        withSystemTempDirectory "test-getProjectPath" $ \dir -> do
+    , Tasty.testCase "getPackagePath prefers parent over grandparent" $ do
+        withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             createDirectoryIfMissing True (dir </> "foo" </> "bar")
             writeFileUTF8 (dir </> projectConfigName) ""
             writeFileUTF8 (dir </> "foo" </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
-            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath (dir </> "foo")) path
 
     ]
     where
-        getProjectPath' = getProjectPath (LookForProjectPath True)
+        getPackagePath' = getPackagePath (LookForProjectPath True)
 
 testGetSdk :: Tasty.TestTree
 testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
