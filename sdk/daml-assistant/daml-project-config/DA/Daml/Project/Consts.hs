@@ -209,13 +209,13 @@ data PackageLocationCheck = PackageLocationCheck String Bool
 -- otherwise on 'Nothing'. Additionally, it is passed a function to make
 -- filepaths relative to the new working directory.
 withProjectRoot
-    :: Maybe ProjectPath
+    :: Maybe PackagePath
     -> PackageLocationCheck
     -> (Maybe FilePath -> (FilePath -> IO FilePath) -> IO a)
     -> IO a
 withProjectRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
     previousCwd <- getCurrentDirectory
-    mbProjectPath <- maybe getProjectPath (pure . Just . unwrapProjectPath) mbProjectDir
+    mbProjectPath <- maybe getProjectPath (pure . Just . unwrapPackagePath) mbProjectDir
     case mbProjectPath of
         Nothing -> do
             when check $ do
@@ -230,7 +230,7 @@ withProjectRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
 
 -- | Same as 'withProjectRoot' but always requires project root.
 withExpectProjectRoot
-    :: Maybe ProjectPath  -- ^ optionally specified project root
+    :: Maybe PackagePath  -- ^ optionally specified project root
     -> String  -- ^ command name for error message
     -> (FilePath -> (FilePath -> IO FilePath) -> IO a)  -- ^ action
     -> IO a

@@ -64,7 +64,7 @@ import Module
 import qualified Module as Ghc
 import HscTypes
 import qualified Data.SemVer as V
-import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion(..))
+import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion(..))
 
 import SdkVersion.Class (SdkVersioned)
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
@@ -114,7 +114,7 @@ buildDar ::
     -> FromDalf
     -> UpgradeInfo
     -> WarningFlags TypeCheckerError.ErrorOrWarning
-    -> Maybe ProjectPath
+    -> Maybe PackagePath
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
 buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath = do
     liftIO $
@@ -164,7 +164,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
-                 let mbNormalizedProjectPath = toNormalizedFilePath' . unwrapProjectPath <$> mbProjectPath
+                 let mbNormalizedProjectPath = toNormalizedFilePath' . unwrapPackagePath <$> mbProjectPath
                  rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedProjectPath
                  pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedProjectPath
                  let rootDepsDalfs = mapMaybe (flip Map.lookup $ getPackageMap pkgMap) rootDepsUnitIds

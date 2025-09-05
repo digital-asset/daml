@@ -89,7 +89,7 @@ data InstallEnvF a = InstallEnv
     , installingFromOutside :: Bool
         -- ^ daml install is running from outside daml path
         -- (e.g. when running install script).
-    , projectPathM :: Maybe ProjectPath
+    , projectPathM :: Maybe PackagePath
         -- ^ project path (for "daml install project")
     , artifactoryApiKeyM :: Maybe DAVersion.ArtifactoryApiKey
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
@@ -519,7 +519,7 @@ latestInstall env@InstallEnv{..} =
         versionInstall env { targetVersionM = version }
 
 -- | Install the SDK version of the current project.
-projectInstall :: InstallEnvWithoutVersion -> ProjectPath -> IO ()
+projectInstall :: InstallEnvWithoutVersion -> PackagePath -> IO ()
 projectInstall env projectPath = do
     wrapErr "Installing daml version in project config (daml.yaml)" $ do
     projectConfig <- readProjectConfig projectPath
@@ -542,7 +542,7 @@ pattern RawInstallTarget_Latest :: RawInstallTarget
 pattern RawInstallTarget_Latest = RawInstallTarget "latest"
 
 -- | Run install command.
-install :: InstallOptions -> DamlPath -> UseCache -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
+install :: InstallOptions -> DamlPath -> UseCache -> Maybe PackagePath -> Maybe DamlAssistantSdkVersion -> IO ()
 install options damlPath useCache projectPathM assistantVersion =
     wrapErr "Running daml install command" $ do
         missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)

@@ -5,7 +5,7 @@
 module DA.Daml.Assistant.Env
     ( EnvF (..)
     , DamlPath (..)
-    , ProjectPath (..)
+    , PackagePath (..)
     , SdkPath (..)
     , SdkVersion (..)
     , getDamlEnv
@@ -126,7 +126,7 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
     , ( maybe (pure False) (doesDirectoryExist . unwrapSdkPath) envSdkPath
       ,  "The SDK directory does not exist. Please check if DAML_SDK or DAML_SDK_VERSION "
       <> "are incorrectly set, or run \"daml install\" to install the appropriate SDK version.")
-    , ( maybe (pure True) (doesDirectoryExist . unwrapProjectPath) envProjectPath
+    , ( maybe (pure True) (doesDirectoryExist . unwrapPackagePath) envProjectPath
       , "The project directory does not exist. Please check if DAML_PROJECT is incorrectly set.")
     ]
 
@@ -201,13 +201,13 @@ getCachePath =
 --
 -- The project path can be overriden by passing the DAML_PROJECT
 -- environment variable.
-getProjectPath :: LookForProjectPath -> IO (Maybe ProjectPath)
+getProjectPath :: LookForProjectPath -> IO (Maybe PackagePath)
 getProjectPath (LookForProjectPath False) = pure Nothing
 getProjectPath (LookForProjectPath True) = wrapErr "Detecting daml project." $ do
         pathM <- overrideWithEnvVarsMaybe @SomeException [packagePathEnvVar, projectPathEnvVar] makeAbsolute Right $ do
             cwd <- getCurrentDirectory
             findM hasProjectConfig (ascendants cwd)
-        pure (ProjectPath <$> pathM)
+        pure (PackagePath <$> pathM)
 
     where
         hasProjectConfig :: FilePath -> IO Bool
@@ -220,7 +220,7 @@ getProjectPath (LookForProjectPath True) = wrapErr "Detecting daml project." $ d
 -- and have the other be inferred).
 getSdk :: UseCache
        -> DamlPath
-       -> Maybe ProjectPath
+       -> Maybe PackagePath
        -> IO (Maybe UnresolvedReleaseVersion, Maybe SdkPath)
 getSdk useCache damlPath projectPathM =
     wrapErr "Determining SDK version and path." $ do
@@ -261,8 +261,8 @@ getDispatchEnv Env{..} = do
     pure $ filter ((`notElem` damlEnvVars) . fst) originalEnv
         ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (damlCacheEnvVar, unwrapCachePath envCachePath)
-           , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
-           , (packagePathEnvVar, maybe "" unwrapProjectPath envProjectPath)
+           , (projectPathEnvVar, maybe "" unwrapPackagePath envProjectPath)
+           , (packagePathEnvVar, maybe "" unwrapPackagePath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            , (sdkVersionLatestEnvVar, maybe "" versionToString envFreshStableSdkVersionForCheck)

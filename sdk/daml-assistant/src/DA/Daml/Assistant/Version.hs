@@ -114,7 +114,7 @@ getSdkVersionFromSdkPath sdkPath = do
     requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
 
-getUnresolvedReleaseVersionFromProjectPath :: ProjectPath -> IO UnresolvedReleaseVersion
+getUnresolvedReleaseVersionFromProjectPath :: PackagePath -> IO UnresolvedReleaseVersion
 getUnresolvedReleaseVersionFromProjectPath projectPath =
     requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
         configE <- tryConfig $ readProjectConfig projectPath
@@ -124,25 +124,25 @@ getUnresolvedReleaseVersionFromProjectPath projectPath =
             Left (ConfigFileInvalid _ raw) ->
                 throwIO $ assistantErrorDetails
                     (projectConfigName <> " is an invalid YAML file")
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    [("path", unwrapPackagePath projectPath </> projectConfigName)
                     ,("internal", displayException raw)]
             Right Nothing ->
                 throwIO $ assistantErrorDetails
                     ("sdk-version field is missing from " <> projectConfigName)
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)]
+                    [("path", unwrapPackagePath projectPath </> projectConfigName)]
             Left (ConfigFieldMissing _ _) ->
                 throwIO $ assistantErrorDetails
                     ("sdk-version field is missing from " <> projectConfigName)
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)]
+                    [("path", unwrapPackagePath projectPath </> projectConfigName)]
             Left (ConfigFieldInvalid _ _ raw) ->
                 throwIO $ assistantErrorDetails
                     ("sdk-version field is invalid in " <> projectConfigName)
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    [("path", unwrapPackagePath projectPath </> projectConfigName)
                     ,("internal", raw)]
 
 -- | Determine SDK version from project root. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getSdkVersionFromProjectPath :: UseCache -> ProjectPath -> IO ReleaseVersion
+getSdkVersionFromProjectPath :: UseCache -> PackagePath -> IO ReleaseVersion
 getSdkVersionFromProjectPath useCache projectPath =
     requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
         v <- getUnresolvedReleaseVersionFromProjectPath projectPath
@@ -151,7 +151,7 @@ getSdkVersionFromProjectPath useCache projectPath =
             Left resolveErr ->
                 throwIO $ assistantErrorDetails
                     ("sdk-version field in " <> projectConfigName <> " is not a valid Daml version. Validating version from the internet failed.")
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    [("path", unwrapPackagePath projectPath </> projectConfigName)
                     ,("internal", displayException resolveErr)]
             Right version -> pure version
 

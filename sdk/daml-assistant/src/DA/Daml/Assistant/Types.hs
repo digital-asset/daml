@@ -21,7 +21,7 @@ data EnvF f = Env
     , envCachePath :: CachePath
     , envDamlAssistantPath :: DamlAssistantPath
     , envDamlAssistantSdkVersion :: Maybe DamlAssistantSdkVersion
-    , envProjectPath   :: Maybe ProjectPath
+    , envProjectPath   :: Maybe PackagePath
     , envSdkPath       :: Maybe SdkPath
     , envSdkVersion    :: Maybe UnresolvedReleaseVersion
     , envFreshStableSdkVersionForCheck :: f (Maybe ReleaseVersion)

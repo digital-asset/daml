@@ -216,7 +216,7 @@ stringsSepBy sep = eitherReader sepBy'
             items = map trim $ splitOn [sep] input
 
 data PackageLocationOpts = PackageLocationOpts
-    { packageRoot :: Maybe ProjectPath
+    { packageRoot :: Maybe PackagePath
     -- ^ An explicit package path specified by the user.
     , packageLocationCheck :: PackageLocationCheck
     -- ^ Throw an error if this is not run in a package.
@@ -225,10 +225,10 @@ data PackageLocationOpts = PackageLocationOpts
 packageLocationOpts :: String -> Parser PackageLocationOpts
 packageLocationOpts name = PackageLocationOpts <$> packageRootOpt <*> packageLocationCheckOpt name
     where
-        packageRootOpt :: Parser (Maybe ProjectPath)
+        packageRootOpt :: Parser (Maybe PackagePath)
         packageRootOpt =
             optional $
-            fmap ProjectPath $
+            fmap PackagePath $
             strOptionOnce $
             long "project-root" <>
             help

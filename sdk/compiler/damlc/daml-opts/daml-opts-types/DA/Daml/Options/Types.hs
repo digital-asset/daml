@@ -50,7 +50,7 @@ module DA.Daml.Options.Types
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.Project.Types (ProjectPath)
+import DA.Daml.Project.Types (PackagePath)
 import DA.Daml.Resolution.Config (ResolutionData)
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -86,7 +86,7 @@ data Options = Options
     -- ^ Name of the package (version not included, so this is not the unit id)
   , optMbPackageVersion :: Maybe LF.PackageVersion
     -- ^ Version of the package
-  , optMbPackageConfigPath :: Maybe ProjectPath
+  , optMbPackageConfigPath :: Maybe PackagePath
     -- ^ Path to the daml.yaml
   , optIfaceDir :: Maybe FilePath
     -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.

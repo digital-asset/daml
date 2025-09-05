@@ -67,8 +67,8 @@ newtype DamlAssistantPath = DamlAssistantPath
     } deriving (Eq, Show)
 
 -- | File path of project root.
-newtype ProjectPath = ProjectPath
-    { unwrapProjectPath :: FilePath
+newtype PackagePath = PackagePath
+    { unwrapPackagePath :: FilePath
     } deriving (Eq, Show)
 
 -- | File path of sdk root.
