@@ -45,6 +45,7 @@ def extract_test_name_map(mapping_filename: str):
     with keys being the short names and values being the long names.
     """
     with open(mapping_filename) as f:
+        print(f"exists: {f.exists}")
         return json.load(f)
 
 def print_failed_test(branck: str, test_name: str):
@@ -170,6 +171,7 @@ if __name__ == "__main__":
     [_, access_token, branch, report_filename, mapping_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
+    print(f"mapping file: {mapping_filename}")
     test_name_map = extract_test_name_map(mapping_filename)
     print(f"^^^^ {test_name_map}")
     for test_name in failing_tests:
