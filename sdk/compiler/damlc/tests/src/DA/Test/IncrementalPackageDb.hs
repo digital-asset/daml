@@ -185,16 +185,16 @@ tests damlc =
             let depDar = dir </> "dependency" </> "dep.dar"
             writeFiles dir proj
             writeFiles depDir dependency
-            callProcessSilent damlc ["build", "--project-root", depDir, "-o", depDar]
-            callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
+            callProcessSilent damlc ["build", "--package-root", depDir, "-o", depDar]
+            callProcessSilent damlc ["build", "--package-root", dir, "-o", dar]
             metaModTime <- getModificationTime metaFp
             writeFiles dir projModification
             unless (null dependencyModification) $ do
                 writeFiles depDir dependencyModification
-                callProcessSilent damlc ["build", "--project-root", depDir, "-o", depDar]
+                callProcessSilent damlc ["build", "--package-root", depDir, "-o", depDar]
             if shouldSucceed
-                then callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
-                else callProcessSilentError damlc ["build", "--project-root", dir, "-o", dar]
+                then callProcessSilent damlc ["build", "--package-root", dir, "-o", dar]
+                else callProcessSilentError damlc ["build", "--package-root", dir, "-o", dar]
             newMetaModTime <- getModificationTime metaFp
             when expectReinitialization $
                 assertBool "package-db was not re-initialized" $ newMetaModTime /= metaModTime

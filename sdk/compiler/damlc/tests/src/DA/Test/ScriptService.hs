@@ -1309,7 +1309,7 @@ writeAndBuildProject lfVersion damlc (packagePath, projectFiles) = do
     writeFile (packagePath </> file) $ T.unpack $ T.unlines fileContent
   callProcessSilent damlc
     [ "build"
-    , "--project-root"
+    , "--package-root"
     , packagePath
     , "--target=" <> LF.renderVersion lfVersion
     ]

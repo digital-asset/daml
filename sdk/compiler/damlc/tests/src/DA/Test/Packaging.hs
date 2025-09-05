@@ -429,7 +429,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             [ "module A.B.C where"
             , "data C = C Int"
             ]
-        (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+        (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--package-root", projDir] ""
         out @?= ""
         assertInfixOf "Running single package build of proj as no multi-package.yaml was found.\n" err
         assertInfixOf "collision between module prefix A.B (from A.B.C) and variant A:B" err
@@ -780,7 +780,7 @@ tests Tools{damlc} = testGroup "Packaging" $
               ]
           buildProjectError (tmpDir </> "b") "" "Targeted LF version 2.dev but dependencies have different LF versions"
 
-    , testCase "build-options + project-root" $ withTempDir $ \projDir -> do
+    , testCase "build-options + package-root" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -795,7 +795,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "f : Optional a -> a"
             , "f (Some a) = a"
             ]
-          (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+          (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--package-root", projDir] ""
           exitCode @?= ExitFailure 1
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
 
@@ -1095,7 +1095,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             ]
           callProcessSilent
             damlc
-            ["build", "--project-root", dir </> "dep1", "-o", dir </> "dep1" </> "dep1.dar"]
+            ["build", "--package-root", dir </> "dep1", "-o", dir </> "dep1" </> "dep1.dar"]
           createDirectoryIfMissing True (dir </> "dep2")
           writeFileUTF8 (dir </> "dep2" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1110,7 +1110,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             ]
           callProcessSilent
             damlc
-            ["build", "--project-root", dir </> "dep2", "-o", dir </> "dep2" </> "dep2.dar"]
+            ["build", "--package-root", dir </> "dep2", "-o", dir </> "dep2" </> "dep2.dar"]
           step "Building main"
           createDirectoryIfMissing True (dir </> "main")
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
@@ -1132,7 +1132,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "import Dep2.A"
             , "main = dep1 + dep2"
             ]
-          callProcessSilent damlc ["build", "--project-root", dir </> "main", "-o", "main.dar"]
+          callProcessSilent damlc ["build", "--package-root", dir </> "main", "-o", "main.dar"]
           step "Changing module prefixes"
           writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1164,7 +1164,7 @@ tests Tools{damlc} = testGroup "Packaging" $
           let outDir = dir </> "out"
           createDirectoryIfMissing True outDir
           withCurrentDirectory outDir $
-            callProcessSilent damlc ["build", "--project-root", dir, "-o", "A.dar"]
+            callProcessSilent damlc ["build", "--package-root", dir, "-o", "A.dar"]
           assertFileExists $ outDir </> "A.dar"
     ] <>
     [ lfVersionTests damlc

@@ -223,20 +223,28 @@ data PackageLocationOpts = PackageLocationOpts
     }
 
 packageLocationOpts :: String -> Parser PackageLocationOpts
-packageLocationOpts name = PackageLocationOpts <$> packageRootOpt <*> packageLocationCheckOpt name
+packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> packageLocationCheckOpt name
     where
-        packageRootOpt :: Parser (Maybe PackagePath)
-        packageRootOpt =
-            optional $
+        packageRootOptDesc :: [String]
+        packageRootOptDesc =
+            [ "Path to the root of a package containing daml.yaml. "
+            , "You should prefer the DAML_PACKAGE environment variable over this option."
+            , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
+            ]
+        packageOrProjectRootOpt :: Parser (Maybe PackagePath)
+        packageOrProjectRootOpt = optional $ packageRootOpt <|> projectRootOpt
+        projectRootOpt :: Parser PackagePath
+        projectRootOpt =
             fmap PackagePath $
             strOptionOnce $
             long "project-root" <>
-            help
-                (mconcat
-                     [ "Path to the root of a project containing daml.yaml. "
-                     , "You should prefer the DAML_PROJECT environment variable over this option."
-                     , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
-                     ])
+            help (mconcat $ packageRootOptDesc ++ ["(project-root is deprecated, please use --package-root)"])
+        packageRootOpt :: Parser PackagePath
+        packageRootOpt =
+            fmap PackagePath $
+            strOptionOnce $
+            long "package-root" <>
+            help (mconcat packageRootOptDesc)
         packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
                help "Check if running in Daml project."
             <> long "project-check"
