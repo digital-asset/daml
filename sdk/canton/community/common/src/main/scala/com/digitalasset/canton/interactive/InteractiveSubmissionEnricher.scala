@@ -22,7 +22,7 @@ class InteractiveSubmissionEnricher(engine: Engine, packageResolver: PackageReso
     engine,
     // TODO(i21582) Because we do not hash suffixed CIDs, we need to disable validation of suffixed CIDs otherwise enrichment
     // will fail
-    requireContractIdSuffix = false,
+    forbidLocalContractIds = false,
     // Add type info for the pretty-printed prepared transaction
     addTypeInfo = true,
     // Add field names for the pretty-printed prepared transaction
