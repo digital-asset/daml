@@ -136,14 +136,14 @@ getProjectLedgerAccessToken = do
 
 getProjectConfig :: Maybe T.Text -> IO ProjectConfig
 getProjectConfig argM = do
-    projectPath <-
+    packagePath <-
         required
             (case argM of
               Nothing -> "Must be called from within a project."
               Just arg -> "This command needs to be either run from within a project \
                           \ or the argument " <> arg <> " needs to be specified.") =<<
         getPackagePath
-    readPackageConfig (PackagePath projectPath)
+    readPackageConfig (PackagePath packagePath)
 
 requiredE :: Exception e => T.Text -> Either e t -> IO t
 requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)

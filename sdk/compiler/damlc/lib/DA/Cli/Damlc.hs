@@ -524,7 +524,7 @@ runTestsInProjectOrFiles packageLocationOpts (Just inFiles) allTests _ coverage 
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
           mPkgConfig <- case mProjectPath of
-            Just projectPath -> withMaybeConfig (withPackageConfig (PackagePath projectPath)) pure
+            Just packagePath -> withMaybeConfig (withPackageConfig (PackagePath packagePath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
           execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
@@ -1026,8 +1026,8 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
           pure (pkgConf { pUpgradeDar = uiUpgradedPackagePath (optUpgradeInfo opts) }, opts)
 
 updateUpgradePath :: T.Text -> PackagePath -> Options -> Maybe FilePath -> IO Options
-updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = do
-  let projectFilePath = unwrapPackagePath projectPath
+updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newPkgPath = do
+  let projectFilePath = unwrapPackagePath packagePath
   optCanonPath <- traverse canonicalizePath $ uiUpgradedPackagePath optUpgradeInfo
   pkgCanonPath <- withCurrentDirectory projectFilePath $ traverse canonicalizePath newPkgPath
   -- optUpgradeInfo is normalised to current directory
@@ -1699,9 +1699,9 @@ onDamlYaml def f mbProjectOpts = do
     -- and this is simple enough so we inline it here.
     mbEnvProjectPath <- fmap PackagePath <$> getPackagePath
     let mbProjectPath = packageRoot =<< mbProjectOpts
-    let projectPath = fromMaybe (PackagePath ".") (mbProjectPath <|> mbEnvProjectPath)
+    let packagePath = fromMaybe (PackagePath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
-        project <- readPackageConfig projectPath
+        project <- readPackageConfig packagePath
         either throwIO pure $ f project
 
 cliArgsFromDamlYaml :: Maybe PackageLocationOpts -> IO [String]

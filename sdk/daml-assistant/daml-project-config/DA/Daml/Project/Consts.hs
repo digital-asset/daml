@@ -222,11 +222,11 @@ withPackageRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
                 hPutStrLn stderr (cmdName <> ": Not in project.")
                 exitFailure
             act Nothing pure
-        Just projectPath -> do
-            projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act (Just projectPath) $ \f -> do
+        Just packagePath -> do
+            packagePath <- canonicalizePath packagePath
+            withCurrentDirectory packagePath $ act (Just packagePath) $ \f -> do
                 absF <- canonicalizePath (previousCwd </> f)
-                pure (projectPath `makeRelative` absF)
+                pure (packagePath `makeRelative` absF)
 
 -- | Same as 'withPackageRoot' but always requires project root.
 withExpectPackageRoot
@@ -237,4 +237,4 @@ withExpectPackageRoot
 withExpectPackageRoot mbProjectDir cmdName act = do
     withPackageRoot mbProjectDir (PackageLocationCheck cmdName True) $ \case
         Nothing -> error "withPackageRoot should terminated the program"
-        Just projectPath -> act projectPath
+        Just packagePath -> act packagePath

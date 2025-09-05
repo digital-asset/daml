@@ -307,8 +307,8 @@ envVarAddedVersion = either throw id $ parseUnresolvedVersion "2.9.0-snapshot.20
 dispatchWithEnvVarWarning :: SdkVersioned => Env -> FilePath -> [String] -> IO ()
 dispatchWithEnvVarWarning env@Env{..} path args = do
   case (envSdkVersion, envProjectPath) of
-    (Just ver, Just projectPath) -> do
-        hasEnvVars <- packageConfigUsesEnvironmentVariables projectPath
+    (Just ver, Just packagePath) -> do
+        hasEnvVars <- packageConfigUsesEnvironmentVariables packagePath
         let sdkMissingEnvSupport = ver < envVarAddedVersion && not (isHeadVersion ver)
         if hasEnvVars && sdkMissingEnvSupport
             then do

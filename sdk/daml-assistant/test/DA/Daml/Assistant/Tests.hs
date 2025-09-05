@@ -175,7 +175,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Nothing
+                packagePath = Nothing
                 expected1 = "10.10.10"
                 expected2 = base </> "sdk"
 
@@ -185,7 +185,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath packagePath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -193,7 +193,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Nothing
+                packagePath = Nothing
                 expected1 = "0.12.5-version"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
@@ -205,7 +205,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath packagePath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -213,7 +213,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Nothing
+                packagePath = Nothing
                 expected1 = "0.3.4"
                 expected2 = base </> "sdk2"
 
@@ -224,7 +224,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath packagePath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -232,7 +232,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Just $ PackagePath (base </> "project")
+                packagePath = Just $ PackagePath (base </> "project")
                 expected1 = "10.10.2-version.af29bef"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
@@ -246,7 +246,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath packagePath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -254,7 +254,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Just $ PackagePath (base </> "project")
+                packagePath = Just $ PackagePath (base </> "project")
                 expected1 = "0.9.8-ham"
                 expected2 = base </> "sdk3"
                 projVers = "5.2.1"
@@ -270,7 +270,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Nothing)
                         , (sdkPathEnvVar, Just expected2)
-                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath packagePath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
@@ -278,7 +278,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Just $ PackagePath (base </> "project")
+                packagePath = Just $ PackagePath (base </> "project")
                 expected1 = "0.0.0"
                 expected2 = base </> "daml" </> "sdk" </> expected1
                 projVers = "0.0.1"
@@ -293,7 +293,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
                         , (sdkPathEnvVar, Nothing)
-                        ] (getSdk (mkUseCache cachePath damlPath) damlPath projectPath)
+                        ] (getSdk (mkUseCache cachePath damlPath) damlPath packagePath)
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
