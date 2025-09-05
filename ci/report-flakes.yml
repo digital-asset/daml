@@ -16,7 +16,9 @@ steps:
         eval "$(dev-env/bin/dade assist)"
       fi
       cd ..
+      echo "mapping:" 
       cat sdk/scala-test-suite-name-map.json
+      echo "<<done"
 
       report="sdk/test-events.json"
       if [ -f $report ]; then
