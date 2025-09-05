@@ -104,11 +104,13 @@ case class ProjectConfig(
 
 object ProjectConfig {
 
-  /** The DAML_PROJECT environment variable determines the path of
-    * the current daml project. By default, this is done by traversing
+  /** The DAML_PACKAGE environment variable determines the path of
+    * the current daml package. By default, this is done by traversing
     * up the directory structure until we find a "daml.yaml" file.
+    * DAML_PROJECT is the legacy name for this variable
     */
   val envVarProjectPath = "DAML_PROJECT"
+  val envVarPackagePath = "DAML_PACKAGE"
 
   /** File name of config file in DAML_PROJECT (the project path). */
   val projectConfigName = "daml.yaml"
@@ -118,8 +120,13 @@ object ProjectConfig {
     */
   def projectPath(): Either[ConfigLoadingError, String] =
     sys.env
-      .get(envVarProjectPath)
-      .toRight(ConfigMissing(s"Environment variable $envVarProjectPath not found"))
+      .get(envVarPackagePath)
+      .orElse(sys.env.get(envVarProjectPath))
+      .toRight(
+        ConfigMissing(
+          s"Neither $envVarPackagePath or $envVarProjectPath set, could not find package."
+        )
+      )
 
   /** Returns the path of the current daml project config file, if any.
     * The path is given by environment variables set by the SDK Assistant.

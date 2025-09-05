@@ -6,5 +6,6 @@ kind: Component
 spec:
   jar-commands:
     - path: binary.jar
-      name: codegen
+      name: codegen-java
       desc: Daml to Java compiler
+      jar-args: ["java"]

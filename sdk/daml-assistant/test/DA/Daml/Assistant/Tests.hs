@@ -110,7 +110,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             let expected = dir </> "project"
             setCurrentDirectory dir
             createDirectory expected
-            Just got <- withEnv [(projectPathEnvVar, Just expected)] getProjectPath'
+            Just got <- withEnv [(packagePathEnvVar, Just expected)] getProjectPath'
             Tasty.assertEqual "project path" (ProjectPath expected) got
             return ()
 
@@ -119,7 +119,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             let expected = dir </> "project"
             setCurrentDirectory dir
             createDirectory expected
-            Just got <- withEnv [(projectPathEnvVar, Just "project")] getProjectPath'
+            Just got <- withEnv [(packagePathEnvVar, Just "project")] getProjectPath'
             Tasty.assertEqual "project path" (ProjectPath expected) got
             return ()
 
@@ -130,14 +130,14 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
         -- or something super fancy like that.
         withSystemTempDirectory "test-getProjectPath" $ \dir -> do
             setCurrentDirectory dir
-            Nothing <- withEnv [(projectPathEnvVar, Nothing)] getProjectPath'
+            Nothing <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
             return ()
 
     , Tasty.testCase "getProjectPath returns current directory" $ do
         withSystemTempDirectory "test-getProjectPath" $ \dir -> do
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory dir
-            Just path <- withEnv [(projectPathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
             Tasty.assertEqual "project path" (ProjectPath dir) path
 
     , Tasty.testCase "getProjectPath returns parent directory" $ do
@@ -145,7 +145,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             createDirectory (dir </> "foo")
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo")
-            Just path <- withEnv [(projectPathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
             Tasty.assertEqual "project path" (ProjectPath dir) path
 
     , Tasty.testCase "getProjectPath returns grandparent directory" $ do
@@ -153,7 +153,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             createDirectoryIfMissing True (dir </> "foo" </> "bar")
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
-            Just path <- withEnv [(projectPathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
             Tasty.assertEqual "project path" (ProjectPath dir) path
 
     , Tasty.testCase "getProjectPath prefers parent over grandparent" $ do
@@ -162,7 +162,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             writeFileUTF8 (dir </> projectConfigName) ""
             writeFileUTF8 (dir </> "foo" </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
-            Just path <- withEnv [(projectPathEnvVar, Nothing)] getProjectPath'
+            Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
             Tasty.assertEqual "project path" (ProjectPath (dir </> "foo")) path
 
     ]

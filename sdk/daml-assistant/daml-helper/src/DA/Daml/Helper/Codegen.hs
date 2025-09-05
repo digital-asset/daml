@@ -9,7 +9,6 @@ module DA.Daml.Helper.Codegen
 import Control.Exception
 import Control.Exception.Safe (catchIO)
 import DA.Daml.Helper.Util
-import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import qualified Data.Text as T
 import System.FilePath
@@ -30,28 +29,8 @@ runCodegen :: Lang -> [String] -> IO ()
 runCodegen lang args =
   case lang of
     JavaScript -> do
-      args' <-
-        if null args
-          then do
-            darPath <- getDarPath
-            projectConfig <- getProjectConfig Nothing
-            outputPath <-
-              requiredE
-                "Failed to read output directory for JavaScript code generation" $
-              queryProjectConfigRequired
-                ["codegen", showLang lang, "output-directory"]
-                projectConfig
-            mbNpmScope :: Maybe FilePath <-
-              requiredE "Failed to read NPM scope for JavaScript code generation" $
-              queryProjectConfig
-                ["codegen", showLang lang, "npm-scope"]
-                projectConfig
-            pure $
-              [darPath, "-o", outputPath] ++
-              ["-s" <> npmScope | Just npmScope <- [mbNpmScope]]
-          else pure args
       daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
-      withProcessWait_' (proc daml2js args') (const $ pure ()) `catchIO`
+      withProcessWait_' (proc daml2js args) (const $ pure ()) `catchIO`
         (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
     Java ->
       runJar

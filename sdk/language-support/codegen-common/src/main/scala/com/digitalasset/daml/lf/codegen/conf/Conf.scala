@@ -42,11 +42,11 @@ object Conf {
   private[conf] final val PackageAndClassRegex =
     """(?:(\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+(?:\.\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+)*)\.)(\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}+)""".r
 
-  def parse(args: Array[String]): Option[Conf] =
-    parser.parse(args, Conf(Map.empty, Paths.get(".")))
+  def parse(args: Array[String], parserName: String = "codegen"): Option[Conf] =
+    parser(parserName).parse(args, Conf(darFiles = Map.empty, outputDirectory = Paths.get(".")))
 
-  def parser: OptionParser[Conf] = new scopt.OptionParser[Conf]("codegen") {
-    head("codegen", BuildInfo.Version)
+  def parser(parserName: String): OptionParser[Conf] = new scopt.OptionParser[Conf](parserName) {
+    head(parserName, BuildInfo.Version)
     note("Code generator for the Daml ledger bindings.\n")
 
     arg[(Path, Option[String])]("<DAR-file[=package-prefix]>...")(

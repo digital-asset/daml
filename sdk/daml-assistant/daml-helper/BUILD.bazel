@@ -157,6 +157,7 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/canton-test-utils",
         "//libs-haskell/test-utils",

@@ -6,5 +6,5 @@ kind: Component
 spec:
   commands:
     - path: daml2js-dist/daml2js${EXE}
-      name: daml2js
+      name: codegen-js
       desc: Daml to JavaScript compiler

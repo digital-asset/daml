@@ -25,6 +25,7 @@ import DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.SdkInstall
+import DA.Daml.Project.Consts (projectPathEnvVar, packagePathEnvVar)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), PackageResolutionData (..), ResolutionData (..), resolutionFileEnvVar)
 import Data.Foldable (traverse_)
 import qualified Data.Map as Map
@@ -223,7 +224,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
 -- Returns process handle and optional filepath temp resolution file for removal
 runSubProc :: MultiIdeState -> PackageHome -> Maybe (ValidPackageResolution, FilePath) -> IO (Process Handle Handle Handle, Maybe FilePath)
 runSubProc miState home mPackageResolution = do
-  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK", resolutionFileEnvVar] . fst) <$> getEnvironment
+  assistantEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK", resolutionFileEnvVar] . fst) <$> getEnvironment
 
   (assistantPath, mResolutionPath, assistantEnv') <-
     case mPackageResolution of

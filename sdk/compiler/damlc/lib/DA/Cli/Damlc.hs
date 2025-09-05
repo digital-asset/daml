@@ -146,7 +146,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
-import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -158,9 +158,9 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                withExpectProjectRoot,
                                withProjectRoot,
                                damlAssistantIsSet,
-                               projectPathEnvVar)
+                               projectPathEnvVar,
+                               packagePathEnvVar)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import qualified DA.Daml.Assistant.Env as AssistantEnv
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -255,8 +255,7 @@ import qualified Options.Applicative.Types as Options.Applicative (readerAsk)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
-import System.Environment hiding (setEnv)
-import System.Environment.Blank (setEnv)
+import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -1113,8 +1112,8 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           Just assistantPath -> pure $ const $ pure assistantPath
           Nothing -> error "Couldn't find DPM or Daml Assistant. Please run damlc via one of these package managers."
 
-  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  damlcEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+  -- Must drop DAML_PACKAGE + DAML_PROJECT from env var so it can be repopulated based on `cwd`
+  damlcEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   let damlcRunner = DamlcRunner $ \location args -> do
         damlcPath <- getDamlcPath location
@@ -1743,8 +1742,6 @@ main = do
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
-    -- Dpm does not provide DAML_PROJECT var as legacy assistant did, inject it pre-emptively
-    injectDamlProjectForDpm
 
     numProcessors <- getNumProcessors
     cliArgs <- getArgs
@@ -1786,11 +1783,3 @@ addResolutionData opts@Options{optResolutionData = Nothing} = do
   pure $ opts {optResolutionData = resolutionData}
 -- No need to reparse if its already available
 addResolutionData opts = pure opts
-
--- If DPM detected, this injects the DAML_PROJECT env var by finding the daml.yaml
-injectDamlProjectForDpm :: IO ()
-injectDamlProjectForDpm = do
-  mResolutionVar <- lookupEnv resolutionFileEnvVar
-  forM_ mResolutionVar $ const $ do
-    mPackagePath <- fmap unwrapProjectPath <$> AssistantEnv.getProjectPath (LookForProjectPath True)
-    forM_ mPackagePath $ \path -> setEnv projectPathEnvVar path False

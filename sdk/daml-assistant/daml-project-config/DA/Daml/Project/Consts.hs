@@ -5,6 +5,7 @@ module DA.Daml.Project.Consts
     ( damlPathEnvVar
     , damlCacheEnvVar
     , projectPathEnvVar
+    , packagePathEnvVar
     , sdkPathEnvVar
     , sdkVersionEnvVar
     , sdkVersionLatestEnvVar
@@ -29,6 +30,7 @@ module DA.Daml.Project.Consts
     , withExpectProjectRoot
     ) where
 
+import Control.Applicative ((<|>))
 import Control.Monad
 import System.Directory
 import System.Environment
@@ -58,8 +60,17 @@ damlCacheEnvVar = "DAML_CACHE"
 -- | The DAML_PROJECT environment variable determines the path of
 -- the current daml project. By default, this is done by traversing
 -- up the directory structure until we find a "daml.yaml" file.
+-- (deprecated, replaced by packagePathEnvVar, check for both in 3.4)
 projectPathEnvVar :: String
 projectPathEnvVar = "DAML_PROJECT"
+
+-- | The DAML_PACKAGE environment variable determines the path of
+-- the current daml package. By default, this is done by traversing
+-- up the directory structure until we find a "daml.yaml" file.
+-- This variable replaces the deprecated `DAML_PROJECT` environment variable
+-- in DPM
+packagePathEnvVar :: String
+packagePathEnvVar = "DAML_PACKAGE"
 
 -- | The DAML_SDK environment variable determines the path of the
 -- sdk folder. By default, this is calculated as
@@ -118,6 +129,7 @@ damlEnvVars =
     [ damlPathEnvVar
     , damlCacheEnvVar
     , projectPathEnvVar
+    , packagePathEnvVar
     , sdkPathEnvVar
     , sdkVersionEnvVar
     , sdkVersionLatestEnvVar
@@ -132,12 +144,14 @@ damlEnvVars =
 getDamlPath :: IO FilePath
 getDamlPath = getEnv damlPathEnvVar
 
--- | Returns the path of the current daml project or
---`Nothing` if invoked outside of a project.
+-- | Returns the path of the current daml package or
+--`Nothing` if invoked outside of a package.
 getProjectPath :: IO (Maybe FilePath)
 getProjectPath = do
+    let nullToNothing p = if null p then Nothing else Just p
+    mbPackagePath <- lookupEnv packagePathEnvVar
     mbProjectPath <- lookupEnv projectPathEnvVar
-    pure ((\p -> if null p then Nothing else Just p) =<< mbProjectPath)
+    pure $ (mbPackagePath >>= nullToNothing) <|> (mbProjectPath >>= nullToNothing)
 
 -- | Returns the path of the sdk folder.
 --
