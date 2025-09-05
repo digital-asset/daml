@@ -17,9 +17,8 @@ steps:
       fi
       cd ..
       echo "mapping:" 
-      cat sdk/scala-test-suite-name-map.json
-      echo "<<done"
-
+      echo ">>$(cat sdk/scala-test-suite-name-map.json)<<"
+      
       report="sdk/test-events.json"
       mapping="sdk/scala-test-suite-name-map.json"
       if [ -f $report ]; then
