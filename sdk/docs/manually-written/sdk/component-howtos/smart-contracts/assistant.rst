@@ -178,14 +178,20 @@ an alternative is to change the location of these directories before the install
 To do so, call the installer with ``DAML_HOME`` and ``TMPDIR`` environment variables pointing to directories that have sufficient space:
 
 * On Windows, first set the environment variables. Then run the installation as usual.
-* On Linus and MacOS, run in a terminal:
+* On Linux and MacOS, run in a terminal:
 
 .. code-block: sh
   
   DAML_HOME=<YOUR-TARGET-DIR> TMPDIR=<YOUR-TEMPDIR> curl -sSL https://get.daml.com/ | sh
 
-Avoid choosing directories for ``DAML_HOME`` and ``TMPDIR`` environment variables that are located inside the unzipped installation
-directory ``sdk-x.x.x``, as otherwise the installer fails.
+**Important**: Avoid choosing directories for ``DAML_HOME`` and ``TMPDIR`` environment variables that are located inside the unzipped installation
+directory ``sdk-x.x.x``, as otherwise the installer will hang or fail. These directories must be located outside the installation folder.
+
+**Example**: If you have downloaded and extracted the SDK to ``/tmp/sdk-2.8.0/``, set your environment variables to directories outside this folder:
+
+.. code-block: sh
+  
+  DAML_HOME=/home/user/daml-root TMPDIR=/home/user/tmp curl -sSL https://get.daml.com/ | sh
 
 Contribute
 **********
