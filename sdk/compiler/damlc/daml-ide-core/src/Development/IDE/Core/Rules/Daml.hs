@@ -378,7 +378,7 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
-extractImports :: [LF.ModuleWithImports'] -> ([LF.Module], Maybe LF.PackageIds)
+extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Maybe LF.PackageIds)
 extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
@@ -808,7 +808,7 @@ hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
     toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
-readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports'
+readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -824,7 +824,7 @@ readDalfFromFile dalfFile = do
             Left err -> fail (show err)
             Right mod -> pure mod
 
-writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports' -> Action ()
+writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports -> Action ()
 writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $

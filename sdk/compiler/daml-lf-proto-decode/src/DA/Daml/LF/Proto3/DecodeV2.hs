@@ -191,7 +191,7 @@ decodePackageMetadata LF2.PackageMetadata{..} = do
     upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
     pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
-decodeSinglePackageModule :: LF.Version -> LF2.Package -> Either Error ModuleWithImports'
+decodeSinglePackageModule :: LF.Version -> LF2.Package -> Either Error ModuleWithImports
 decodeSinglePackageModule version protoPkg = do
     Package { packageModules = modules, importedPackages = imports } <- decodePackage version SelfPackageId protoPkg
     pure (head $ NM.toList modules, imports)
