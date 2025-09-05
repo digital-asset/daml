@@ -91,7 +91,7 @@ import DA.Daml.Project.Types
       isHeadVersion,
       ConfigError(..),
       PackagePath(..),
-      ProjectConfig,
+      PackageConfig,
       unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Assistant.Util (wrapErr)
@@ -147,7 +147,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                withPackageConfig,
                                withMultiPackageConfig)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
-import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readPackageConfig)
+import DA.Daml.Project.Config (queryPackageConfig, queryPackageConfigRequired, readPackageConfig)
 import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                damlCacheEnvVar,
                                damlPathEnvVar,
@@ -1644,9 +1644,9 @@ scrapeOutputFlag args =
       pure mbOutFile
 
 -- | Query the optional `--output` flag from the daml.yaml build-options
-queryProjectConfigBuildOutput :: ProjectConfig -> Either ConfigError (Maybe FilePath)
-queryProjectConfigBuildOutput project = do
-  mBuildOptions <- queryProjectConfig ["build-options"] project
+queryPackageConfigBuildOutput :: PackageConfig -> Either ConfigError (Maybe FilePath)
+queryPackageConfigBuildOutput project = do
+  mBuildOptions <- queryPackageConfig ["build-options"] project
   pure $ mBuildOptions >>= scrapeOutputFlag
 
 -- | Calculates the canonical path to the DAR for a given package, overriding with a given mOutput if needed
@@ -1662,30 +1662,30 @@ darPathFromDamlYaml path = do
     onDamlYaml 
       (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
       (\project -> do
-        name <- queryProjectConfigRequired ["name"] project
-        version <- queryProjectConfigRequired ["version"] project
-        mOutput <- queryProjectConfigBuildOutput project
+        name <- queryPackageConfigRequired ["name"] project
+        version <- queryPackageConfigRequired ["version"] project
+        mOutput <- queryPackageConfigBuildOutput project
         pure (name, version, mOutput)
       ) mbProjectOpts
   deriveDarPath path name version mOutput
   where
     mbProjectOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
--- | Subset of parseProjectConfig to get only what we need for deferring to the correct build call with multi-package build
+-- | Subset of parsePackageConfig to get only what we need for deferring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
     (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
     (\project -> do
-      bmSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-      bmName <- queryProjectConfigRequired ["name"] project
-      bmVersion <- queryProjectConfigRequired ["version"] project
-      bmSourceDaml <- queryProjectConfigRequired ["source"] project
-      dataDeps <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-      deps <- fromMaybe [] <$> queryProjectConfig ["dependencies"] project
-      upgradesDar <- maybe [] pure <$> queryProjectConfig ["upgrades"] project
+      bmSdkVersion <- queryPackageConfigRequired ["sdk-version"] project
+      bmName <- queryPackageConfigRequired ["name"] project
+      bmVersion <- queryPackageConfigRequired ["version"] project
+      bmSourceDaml <- queryPackageConfigRequired ["source"] project
+      dataDeps <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] project
+      deps <- fromMaybe [] <$> queryPackageConfig ["dependencies"] project
+      upgradesDar <- maybe [] pure <$> queryPackageConfig ["upgrades"] project
       let bmDarDeps = dataDeps <> filter (\dep -> takeExtension dep == ".dar") deps <> upgradesDar
-      bmOutput <- queryProjectConfigBuildOutput project
+      bmOutput <- queryPackageConfigBuildOutput project
       pure $ BuildMultiPackageConfig {..}
     )
     mbProjectOpts
@@ -1693,7 +1693,7 @@ buildMultiPackageConfigFromDamlYaml path =
     mbProjectOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
-onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe PackageLocationOpts -> IO t
+onDamlYaml :: (ConfigError -> t) -> (PackageConfig -> Either ConfigError t) -> Maybe PackageLocationOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withPackageRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
@@ -1706,7 +1706,7 @@ onDamlYaml def f mbProjectOpts = do
 
 cliArgsFromDamlYaml :: Maybe PackageLocationOpts -> IO [String]
 cliArgsFromDamlYaml =
-  onDamlYaml (const []) $ \project -> Right $ case queryProjectConfigRequired ["build-options"] project of
+  onDamlYaml (const []) $ \project -> Right $ case queryPackageConfigRequired ["build-options"] project of
     Left _ -> []
     Right xs -> xs
 

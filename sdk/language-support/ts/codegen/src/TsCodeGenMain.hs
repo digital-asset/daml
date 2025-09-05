@@ -180,19 +180,19 @@ deriveOptionsFromDamlYaml = go `catch` \(e :: AssistantError) -> do
       projectConfig <- readPackageConfig (PackagePath packagePath)
       projectName <-
         DAUtil.requiredE "Failed to read project name from project config" $
-          queryProjectConfigRequired ["name"] projectConfig
+          queryPackageConfigRequired ["name"] projectConfig
       projectVersion <-
         DAUtil.requiredE "Failed to read project version from project config" $
-          queryProjectConfigRequired ["version"] projectConfig
+          queryPackageConfigRequired ["version"] projectConfig
       let darPath = ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
       outputPath <-
         DAUtil.requiredE "Failed to read output directory for JavaScript code generation" $
-          queryProjectConfigRequired
+          queryPackageConfigRequired
             ["codegen", "js", "output-directory"]
             projectConfig
       mbNpmScope <-
         DAUtil.requiredE "Failed to read NPM scope for JavaScript code generation" $
-          queryProjectConfig
+          queryPackageConfig
             ["codegen", "js", "npm-scope"]
             projectConfig
       pure $ Options [darPath] outputPath $ Scope $ fromMaybe "daml.js" mbNpmScope

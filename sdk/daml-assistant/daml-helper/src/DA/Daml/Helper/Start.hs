@@ -83,12 +83,12 @@ waitForJsonApi sandboxPh (JsonApiPort jsonApiPort) = do
         waitForHttpServer 240 (unsafeProcessHandle sandboxPh) (putStr "." *> threadDelay 500000)
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
 
-withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
+withOptsFromProjectConfig :: T.Text -> [String] -> PackageConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
     optsYaml :: [String] <-
         fmap (fromMaybe []) $
         requiredE ("Failed to parse " <> fieldName) $
-        queryProjectConfig [fieldName] projectConfig
+        queryPackageConfig [fieldName] projectConfig
     pure (optsYaml ++ cliOpts)
 
 data StartOptions = StartOptions
@@ -115,7 +115,7 @@ runStart startOptions@StartOptions{..} =
     darPath <- getDarPath
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
-        queryProjectConfig ["init-script"] projectConfig
+        queryPackageConfig ["init-script"] projectConfig
     sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOptions projectConfig
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOptions projectConfig
     doBuild
@@ -151,7 +151,7 @@ runStart startOptions@StartOptions{..} =
           forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
             mbOutputPath :: Maybe String <-
               requiredE ("Failed to parse codegen entry for " <> showLang lang) $
-              queryProjectConfig
+              queryPackageConfig
                 ["codegen", showLang lang, "output-directory"]
                 projectConfig
             whenJust mbOutputPath $ \_outputPath -> do

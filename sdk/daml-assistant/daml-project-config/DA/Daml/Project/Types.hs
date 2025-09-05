@@ -43,8 +43,8 @@ newtype SdkConfig = SdkConfig
     { unwrapSdkConfig :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
-newtype ProjectConfig = ProjectConfig
-    { unwrapProjectConfig :: Y.Value
+newtype PackageConfig = PackageConfig
+    { unwrapPackageConfig :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
 newtype MultiPackageConfig = MultiPackageConfig

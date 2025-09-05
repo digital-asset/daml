@@ -7,7 +7,7 @@
 module DA.Daml.Package.Config
     ( MultiPackageConfigFields (..)
     , PackageConfigFields (..)
-    , parseProjectConfig
+    , parsePackageConfig
     , overrideSdkVersion
     , withPackageConfig
     , findMultiPackageConfig
@@ -63,19 +63,19 @@ data PackageConfigFields = PackageConfigFields
     }
 
 -- | Parse the daml.yaml for package specific config fields.
-parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
-parseProjectConfig project = do
-    pName <- queryProjectConfigRequired ["name"] project
-    pSrc <- queryProjectConfigRequired ["source"] project
+parsePackageConfig :: PackageConfig -> Either ConfigError PackageConfigFields
+parsePackageConfig project = do
+    pName <- queryPackageConfigRequired ["name"] project
+    pSrc <- queryPackageConfigRequired ["source"] project
     pExposedModules <-
         fmap (map Ghc.mkModuleName) <$>
-        queryProjectConfig ["exposed-modules"] project
-    pVersion <- Just <$> queryProjectConfigRequired ["version"] project
-    pDependencies <- queryProjectConfigRequired ["dependencies"] project
-    pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    pModulePrefixes <- fromMaybe Map.empty <$> queryProjectConfig ["module-prefixes"] project
-    pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-    pUpgradeDar <- queryProjectConfig ["upgrades"] project
+        queryPackageConfig ["exposed-modules"] project
+    pVersion <- Just <$> queryPackageConfigRequired ["version"] project
+    pDependencies <- queryPackageConfigRequired ["dependencies"] project
+    pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] project
+    pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] project
+    pSdkVersion <- queryPackageConfigRequired ["sdk-version"] project
+    pUpgradeDar <- queryPackageConfig ["upgrades"] project
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]
@@ -170,9 +170,9 @@ fullDamlYamlFields = Set.fromList
   ]
 
 -- Determines if a daml.yaml is for defining a package (returns true) or simply for setting sdk-version (false)
-isDamlYamlForPackage :: ProjectConfig -> Bool
+isDamlYamlForPackage :: PackageConfig -> Bool
 isDamlYamlForPackage project =
-  case unwrapProjectConfig project of
+  case unwrapPackageConfig project of
     A.Object obj -> any ((`Set.member` fullDamlYamlFields) . A.toString) (A.keys obj)
     _ -> False
 
@@ -188,7 +188,7 @@ withPackageConfig packagePath f = do
     throwIO $ ConfigFileInvalid "package" $ Y.InvalidYaml $ Just $ Y.YamlException $
       packageConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
 
-  pkgConfig <- either throwIO pure (parseProjectConfig project)
+  pkgConfig <- either throwIO pure (parsePackageConfig project)
   pkgConfig' <- overrideSdkVersion pkgConfig
   f pkgConfig'
 
