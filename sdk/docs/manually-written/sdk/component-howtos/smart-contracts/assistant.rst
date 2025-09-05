@@ -19,11 +19,19 @@ For Linux and MacOS, run
 
 .. code:: bash
 
-  curl -sSL https://get.daml.com/ | sh -s 3.3.0-snapshot.20250507.0
+  curl -sSL https://get.daml.com/ | sh
+
+This will install the latest stable Daml SDK. To install a specific version, run:
+
+.. code:: bash
+
+  curl -sSL https://get.daml.com/ | sh -s 3.4.0
 
 For Windows 10/11, download and run the installer from the `GitHub releases page <https://github.com/digital-asset/daml/releases>`__.
 
-These methods will install the most recent Daml SDK with its Daml Assistant, and add daml to your PATH, though you may need to restart your terminal for this to take effect.
+These methods will install the Daml SDK with its Daml Assistant, and add daml to your PATH, though you may need to restart your terminal for this to take effect.
+
+Available SDK versions can be found on the `GitHub releases page <https://github.com/digital-asset/daml/releases>`__.
 
 Configure
 *********
