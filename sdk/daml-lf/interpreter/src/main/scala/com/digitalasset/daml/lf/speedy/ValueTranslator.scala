@@ -11,12 +11,11 @@ import com.digitalasset.daml.lf.language.{LookupError, TypeDestructor}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
-    requireContractIdSuffix: Boolean,
+    forbidLocalContractIds: Boolean,
     shouldCheckDataSerializable: Boolean = true,
 ) {
 
@@ -28,31 +27,8 @@ private[lf] final class ValueTranslator(
 
   }
 
-  @throws[TranslationError.Error]
-  private[this] def labeledRecordToMap(
-      fields: ImmArray[(Option[Ref.Name], Value)]
-  ): Either[String, Option[Map[Ref.Name, Value]]] = {
-    @tailrec
-    def go(
-        fields: FrontStack[(Option[Ref.Name], Value)],
-        map: Map[Ref.Name, Value],
-    ): Either[String, Option[Map[Ref.Name, Value]]] = {
-      fields.pop match {
-        case None => Right(Some(map))
-        case Some(((None, _), _)) => Right(None)
-        // Retain error on duplicate label behaviour from pre-upgrades
-        case Some(((Some(label), _), _)) if map.contains(label) =>
-          Left(s"Duplicate label $label in record")
-        case Some(((Some(label), value), tail)) =>
-          go(tail, map + (label -> value))
-      }
-    }
-
-    go(fields.toFrontStack, Map.empty)
-  }
-
   val validateCid: ContractId => Unit =
-    if (requireContractIdSuffix) {
+    if (forbidLocalContractIds) {
       case cid: ContractId.V1 =>
         if (cid.suffix.isEmpty)
           throw TranslationError.NonSuffixedV1ContractId(cid)
@@ -72,7 +48,7 @@ private[lf] final class ValueTranslator(
   }
 
   // For efficiency reasons we do not produce here the monad Result[SValue] but rather throw
-  // exception in case of error or package missing.
+  // exceptions in case of error or package missing.
   @throws[TranslationError.Error]
   def unsafeTranslateValue(
       ty: Type,
@@ -81,8 +57,6 @@ private[lf] final class ValueTranslator(
     import TypeDestructor.SerializableTypeF._
     val Destructor = TypeDestructor(pkgInterface)
 
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    //   Should we consider factorizing this code with Seedy.Machine#importValues
     def go(ty0: Type, value0: Value, nesting: Int): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw TranslationError.ValueNesting(value)
@@ -181,95 +155,75 @@ private[lf] final class ValueTranslator(
             )
           // records
           case (
-                RecordF(tyCon, _, fieldNames, filedTypes),
+                RecordF(tyCon, _, fieldNames, fieldTypes),
                 ValueRecord(mbId, sourceElements),
               ) =>
-            checkUserTypeId(tyCon, mbId)
+            // Fail if the record ID or any label is present in the record value.
+            if (mbId.isDefined)
+              throw TranslationError.InvalidValue(
+                value0,
+                s"Unexpected type id ${mbId} in record value.",
+              )
+            sourceElements.foreach { case (mbLabel, _) =>
+              mbLabel.foreach(label =>
+                throw TranslationError.InvalidValue(
+                  value0,
+                  s"Unexpected label ${label} in record value.",
+                )
+              )
+            }
 
-            def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
-              destruct(ty) match {
-                // If missing field is optional, fill it with None
-                case OptionalF(_) => (Some(lbl), Value.ValueOptional(None))
-                // Else, throw error
-                case _ =>
-                  typeError(
-                    s"Missing non-optional field \"$lbl\", cannot upgrade non-optional fields."
-                  )
-              }
+            // This code implements the compatibility transformation used for up/down-grading
+            // And handles the cases:
+            // - UPGRADE:   numT > numS : creates a None for each missing field.
+            // - DOWNGRADE: numS > numT : drops each extra field, ensuring it is None.
+            // When numS == numT, we won't hit the code marked either as UPGRADE or DOWNGRADE.
+            val numS: Int = sourceElements.length
+            val numT: Int = fieldTypes.length
 
-            val oLabeledFlds = labeledRecordToMap(sourceElements).fold(typeError, identity _)
-
-            // correctFields: (correct only by label/position) gives the value and type, length == targetFieldsAndTypes
-            //   filled with Nones when type is Optional
-            // extraFields: Unknown additional fields with name and value
-            val (correctFields, extraFields): (
-                List[(Ref.Name, Value, Type)],
-                List[(Option[Ref.Name], Value)],
-            ) =
-              oLabeledFlds match {
-                // Not fully labelled (or reordering disabled), so order dependent
-                // Additional fields should downgrade, missing fields should upgrade
-                case None => {
-                  val correctFields = (fieldNames.view zip filedTypes).zipWithIndex.map {
-                    case ((lbl, ty), i) =>
-                      val (mbLbl, v) =
-                        sourceElements.get(i).getOrElse(addMissingField(lbl, ty))
-                      mbLbl.foreach(lbl_ =>
-                        if (lbl_ != lbl)
-                          typeError(
-                            s"Mismatching record field label '$lbl_' (expecting '$lbl') for record $tyCon"
-                          )
-                      )
-                      (lbl, v, ty)
-                  }.toList
-                  val numS = sourceElements.length
-                  val numT = filedTypes.length
-                  // We have extra fields
-                  val extraFields =
-                    if (numS > numT)
-                      sourceElements.strictSlice(numT, numS).toList
-                    else
-                      List.empty
-
-                  (correctFields, extraFields)
+            // traverse the sourceElements, getting the corresponding target type
+            // when there is no corresponding type, we must be downgrading, and so we insist the value is None
+            val values0: List[SValue] =
+              sourceElements.toSeq.view.zipWithIndex.flatMap { case ((_, v), i) =>
+                fieldTypes.lift(i) match {
+                  case Some(targetFieldType) =>
+                    val sv: SValue = go(targetFieldType, v, newNesting)
+                    List(sv)
+                  case None => // DOWNGRADE
+                    // i ranges from 0 to numS-1. So i >= numT implies numS > numT
+                    assert((numS > i) && (i >= numT))
+                    v match {
+                      case Value.ValueOptional(None) =>
+                        List.empty // ok, drop
+                      case Value.ValueOptional(Some(_)) =>
+                        typeError(
+                          s"Found an optional contract field with a value of Some at index $i, may not be dropped during downgrading."
+                        )
+                      case _ =>
+                        typeError(
+                          s"Found non-optional extra field at index $i, cannot remove for downgrading."
+                        )
+                    }
                 }
-                // Fully labelled and allowed to re-order
-                case Some(labeledFlds) =>
-                  // new logic
-                  // iterate the expected fields, replace any missing with none
-                  val correctFields = (fieldNames.view zip filedTypes).map { case (lbl, ty) =>
-                    (lbl, labeledFlds.getOrElse(lbl, addMissingField(lbl, ty)._2), ty)
-                  }.toList
-                  val extraFields = (labeledFlds -- fieldNames).view.map { case (lbl, v) =>
-                    (Some(lbl), v)
-                  }.toList
-                  (correctFields, extraFields)
+              }.toList
+
+            val values: ArraySeq[SValue] = {
+              if (numT > numS) {
+                // UPGRADE
+                fieldTypes.view.drop(numS).map(Destructor.destruct(_)).foreach {
+                  case Right(OptionalF(_)) =>
+                  case _ =>
+                    typeError(
+                      "Unexpected non-optional extra template field type encountered during upgrading."
+                    )
+                }
+                values0.padTo(numT, SValue.SValue.None)
+              } else {
+                values0
               }
+            }.to(ArraySeq)
 
-            // Recursive substitution
-            val translatedCorrectFields = correctFields.map { case (lbl, v, typ) =>
-              lbl -> go(typ, v, newNesting)
-            }
-
-            extraFields.foreach {
-              // If additional field is None, do nothing
-              case (_, ValueOptional(None)) =>
-              // Else, error depending on type
-              case (oLbl, ValueOptional(Some(_))) =>
-                typeError(
-                  s"An optional contract field${oLbl.fold("")(lbl => s" (\"$lbl\")")} with a value of Some may not be dropped during downgrading."
-                )
-              case (oLbl, _) =>
-                typeError(
-                  s"Found non-optional extra field${oLbl.fold("")(lbl => s" \"$lbl\"")}, cannot remove for downgrading."
-                )
-            }
-
-            SValue.SRecord(
-              tyCon,
-              ImmArray.from(translatedCorrectFields.map(_._1)),
-              translatedCorrectFields.map(_._2).to(ArraySeq),
-            )
+            SValue.SRecord(tyCon, fieldNames.to(ImmArray), values)
           case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
             checkUserTypeId(tyCon, mbId)
             val rank = handleLookup(eF.consRank(constructor))

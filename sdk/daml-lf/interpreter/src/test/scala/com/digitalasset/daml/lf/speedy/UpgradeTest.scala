@@ -37,8 +37,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
-  import SpeedyTestLib.UpgradeVerificationRequest
-
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
@@ -321,10 +319,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     pkg1.pkgName
   }
 
-  val pkg1Ver = pkg1.metadata.version
-  val pkg2Ver = pkg2.metadata.version
-  val pkg3Ver = pkg3.metadata.version
-
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
       Map(
@@ -347,7 +341,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val theCid = ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
-  type Success = (SValue, Value, List[UpgradeVerificationRequest])
+  type Success = (SValue, Value)
 
   def go(
       e: Expr,
@@ -367,11 +361,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
     SpeedyTestLib
-      .runCollectRequests(machine)
-      .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
-      }
+      .run(machine)
+      .map(sv => (sv, sv.toNormalizedValue))
   }
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
@@ -394,7 +385,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(
+      .run(
         machine,
         getContract = Map(
           theCid -> TransactionBuilder
@@ -409,10 +400,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             )
         ),
       )
-      .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
-      }
+      .map(sv => (sv, sv.toNormalizedValue))
   }
 
   // The given contractSValue is wrapped as a disclosedContract
@@ -443,11 +431,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     machine.addDisclosedContracts(theCid, contractInfo)
 
     SpeedyTestLib
-      .runCollectRequests(machine)
-      .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
-      }
+      .run(machine)
+      .map(sv => (sv, sv.toNormalizedValue))
   }
 
   def makeRecord(fields: Value*): Value = {
@@ -509,7 +494,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List(bob),
           contractKeyWithMaintainers = Some(v_missingFieldKey),
         )
-      ) { case Right((sv, v, _)) =>
+      ) { case Right((sv, v)) =>
         sv shouldBe sv_extendedWithNone
         v shouldBe v_missingField
       }
@@ -535,10 +520,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List.empty,
           contractKeyWithMaintainers = Some(v_missingFieldKey),
         )
-      ) { case Left(SError.SErrorCrash(_, reason)) =>
-        reason should include(
-          "Unexpected non-optional extra template field type encountered during upgrading"
-        )
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                )
+              )
+            ) =>
+          reason should include(
+            "Unexpected non-optional extra template field type encountered during upgrading."
+          )
       }
     }
 
@@ -574,10 +567,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       forEvery(positiveTestCases) { tyCon =>
         inside(
           go(e"'-pkg3-':M:do_fetch", pkgName, tyCon, v, List(alice), List(bob), Some(key(tyCon)))
-        ) { case Left(e) =>
-          // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
-          //    on import.
-          e shouldBe a[SError.SErrorCrash]
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(
+                    _,
+                    IE.Dev.TranslationError(error),
+                  )
+                )
+              ) =>
+            error shouldBe a[IE.Dev.TranslationError.LookupError]
         }
       }
     }
@@ -598,12 +597,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           contractKeyWithMaintainers = Some(v2_key),
         )
 
-      inside(res) { case Right((_, v, _)) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe v1_base
       }
     }
 
-    "extra field (text) - something is very wrong" in {
+    "extra field (text)" in {
       // should be caught by package upgradability check
 
       val v1_extraText =
@@ -631,10 +630,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           contractKeyWithMaintainers = Some(v1_extraTextKey),
         )
 
-      inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
-        reason should include(
-          "Unexpected non-optional extra contract field encountered during downgrading"
-        )
+      inside(res) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                )
+              )
+            ) =>
+          reason should include(
+            "Found non-optional extra field at index 3, cannot remove for downgrading."
+          )
       }
     }
 
@@ -664,8 +671,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         Some(v1_extraSomeKey),
       )
 
-      inside(res) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeDropDefinedField(t"'-pkg2-':M:T", 3, v1_extraSome)
+      inside(res) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                )
+              )
+            ) =>
+          reason should include(
+            "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading."
+          )
       }
     }
 
@@ -696,7 +713,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           contractKeyWithMaintainers = Some(v1_extraNoneKey),
         )
 
-      inside(res) { case Right((_, v, _)) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe v1_base
       }
     }
@@ -719,8 +736,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List(bob),
           contractKeyWithMaintainers = None,
         )
-      ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeFailed(t"'-variant-v2-':M:D", tag)
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(error),
+                )
+              )
+            ) =>
+          error shouldBe a[IE.Dev.TranslationError.LookupError]
       }
     }
 
@@ -742,8 +767,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List(bob),
           contractKeyWithMaintainers = None,
         )
-      ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(error),
+                )
+              )
+            ) =>
+          error shouldBe a[IE.Dev.TranslationError.LookupError]
       }
     }
   }
@@ -776,7 +809,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -790,7 +823,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -803,7 +836,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -817,7 +850,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -835,14 +868,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
 
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res: Either[SError, (SValue, Value, List[UpgradeVerificationRequest])] = go(
+      val res: Either[SError, (SValue, Value)] = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
@@ -880,9 +913,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-        case Right((_, v, _)) =>
-          v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((_, v)) =>
+        v shouldBe v1_base
       }
     }
 
@@ -903,9 +935,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-        case Right((_, v, _)) =>
-          v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((_, v)) =>
+        v shouldBe v1_base
       }
     }
   }

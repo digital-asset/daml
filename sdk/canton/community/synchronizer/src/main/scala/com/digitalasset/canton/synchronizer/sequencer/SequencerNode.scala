@@ -235,6 +235,7 @@ class SequencerNodeBootstrap(
         // are not closed properly
         arguments.metrics.trafficControl.purchaseCache.closeAcquired()
         arguments.metrics.trafficControl.consumedCache.closeAcquired()
+        arguments.metrics.eventBuffer.closeAcquired()
       }
     })
 
@@ -593,7 +594,7 @@ class SequencerNodeBootstrap(
             .right(
               TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
                 synchronizerTopologyStore,
-                psid,
+                synchronizerPredecessor = None,
                 crypto.pureCrypto,
                 parameters,
                 clock,

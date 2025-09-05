@@ -22,6 +22,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   CryptoParseAndValidationError,
   DeserializationError,
+  DeterministicEncoding,
   ProtoConverter,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -69,7 +70,7 @@ trait EncryptionOps {
   ): Either[EncryptionError, AsymmetricEncrypted[M]]
 
   /** Deterministically encrypts the given bytes using the given public key. This is unsafe for
-    * general use, and it's only used to encrypt the decryption key of each view
+    * general use, and it's only used to encrypt the decryption key of each view.
     */
   def encryptDeterministicWith[M <: HasToByteString](
       message: M,
@@ -200,11 +201,25 @@ final case class AsymmetricEncrypted[+M](
 
   override protected def companionObj: AsymmetricEncrypted.type = AsymmetricEncrypted
 
-  def toProtoV30 = v30.AsymmetricEncrypted(
+  def toProtoV30: v30.AsymmetricEncrypted = v30.AsymmetricEncrypted(
     ciphertext,
     encryptionAlgorithmSpec.toProtoEnum,
     fingerprint = encryptedFor.toProtoPrimitive,
   )
+
+  /** Computes a deterministic hash of this asymmetric-encrypted object, binding together:
+    *   - the ciphertext,
+    *   - the encryption algorithm used, and
+    *   - the fingerprint of the key used for encryption (`encryptedFor`).
+    */
+  private[canton] def computeHash(hashAlgorithm: HashAlgorithm): Hash =
+    HashBuilderFromMessageDigest
+      .apply(hashAlgorithm, HashPurpose.EncryptedSessionKey)
+      .add(ciphertext)
+      .add(DeterministicEncoding.encodeInt(encryptionAlgorithmSpec.toProtoEnum.value))
+      .add(DeterministicEncoding.encodeString(encryptedFor.toProtoPrimitive))
+      .finish()
+
 }
 
 object AsymmetricEncrypted extends HasVersionedMessageCompanion[AsymmetricEncrypted[?]] {
@@ -301,7 +316,7 @@ object EncryptionKeySpec {
   /** Converts an old EncryptionKeyScheme enum to the new key scheme, ensuring backward
     * compatibility with existing data.
     */
-  def fromProtoEnumEncryptionKeyScheme(
+  private def fromProtoEnumEncryptionKeyScheme(
       field: String,
       schemeP: v30.EncryptionKeyScheme,
   ): ParsingResult[EncryptionKeySpec] =
@@ -341,18 +356,6 @@ object EncryptionAlgorithmSpec {
       : CantonConfigValidator[EncryptionAlgorithmSpec] =
     CantonConfigValidatorDerivation[EncryptionAlgorithmSpec]
 
-  /* This hybrid scheme (https://www.secg.org/sec1-v2.pdf) from JCE/Bouncy Castle is intended to be used to
-   * encrypt the key for the view payload data.
-   */
-  case object EciesHkdfHmacSha256Aes128Gcm extends EncryptionAlgorithmSpec {
-    override val name: String = "ECIES_HMAC256_AES128-GCM"
-    override val supportDeterministicEncryption: Boolean = false
-    override val supportedEncryptionKeySpecs: NonEmpty[Set[EncryptionKeySpec]] =
-      NonEmpty.mk(Set, EncryptionKeySpec.EcP256)
-    override def toProtoEnum: v30.EncryptionAlgorithmSpec =
-      v30.EncryptionAlgorithmSpec.ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128GCM
-  }
-
   /* This hybrid scheme (https://www.secg.org/sec1-v2.pdf) from JCE/Bouncy Castle is intended to be used to encrypt
    * the key for the view payload data and can be made deterministic (e.g. using the hash(message ++ public key)
    * as our source of randomness). This way, every recipient of the view message can check that every other recipient
@@ -390,8 +393,6 @@ object EncryptionAlgorithmSpec {
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.EncryptionAlgorithmSpec.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.EncryptionAlgorithmSpec.ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128GCM =>
-        Right(EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm)
       case v30.EncryptionAlgorithmSpec.ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC =>
         Right(EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc)
       case v30.EncryptionAlgorithmSpec.ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 =>

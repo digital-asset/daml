@@ -60,7 +60,7 @@ def _daml_sdk_impl(ctx):
     else:
         stripPrefix = "ledger/test-common"
 
-    for lib in ["types", "ledger"]:
+    for lib in ["types"]:
         tarball_name = "daml_{}_tarball".format(lib)
         if getattr(ctx.attr, tarball_name):
             ctx.symlink(
@@ -123,7 +123,7 @@ cc_binary(
   data = [":sdk/bin/daml", ":sdk/sdk/{version}/checksums"],
   deps = ["@bazel_tools//tools/cpp/runfiles:runfiles"],
 )
-exports_files(["daml-types.tgz", "daml-ledger.tgz"])
+exports_files(["daml-types.tgz"])
 """.format(version = ctx.attr.version),
     )
     return None
@@ -136,9 +136,7 @@ _daml_sdk = repository_rule(
         "sdk_sha256": attr.string_dict(mandatory = False),
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
         "daml_types_tarball": attr.label(allow_single_file = True, mandatory = False),
-        "daml_ledger_tarball": attr.label(allow_single_file = True, mandatory = False),
         "daml_types_sha256": attr.string(mandatory = False),
-        "daml_ledger_sha256": attr.string(mandatory = False),
     },
 )
 
@@ -149,13 +147,12 @@ def daml_sdk(version, **kwargs):
         **kwargs
     )
 
-def daml_sdk_head(sdk_tarball, daml_types_tarball, daml_ledger_tarball, **kwargs):
+def daml_sdk_head(sdk_tarball, daml_types_tarball, **kwargs):
     version = "0.0.0"
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
         sdk_tarball = sdk_tarball,
         daml_types_tarball = daml_types_tarball,
-        daml_ledger_tarball = daml_ledger_tarball,
         **kwargs
     )

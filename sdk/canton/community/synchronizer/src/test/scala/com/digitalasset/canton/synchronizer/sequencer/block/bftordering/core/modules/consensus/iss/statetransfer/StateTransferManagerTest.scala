@@ -373,7 +373,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
               prePrepare.canonicalCommitSet,
             ),
             prePrepare.viewNumber,
-            from = commitCert.prePrepare.from,
+            originalLeader = commitCert.prePrepare.from,
             isLastInEpoch = true,
             mode = OrderedBlockForOutput.Mode.FromStateTransfer,
           )

@@ -2484,7 +2484,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       if (withKey)
         Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toNormalizedValue(txVersion), Set(maintainer), pkgName)
+            .assertBuild(templateId, key.toNormalizedValue, Set(maintainer), pkgName)
         )
       else
         None
@@ -2494,7 +2494,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           coid = contractId,
           packageName = pkg.pkgName,
           templateId = templateId,
-          arg = sarg.toNormalizedValue(txVersion),
+          arg = sarg.toNormalizedValue,
           signatories = Set(maintainer),
           stakeholders = Set(maintainer),
           keyOpt = keyOpt,

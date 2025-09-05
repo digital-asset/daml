@@ -389,12 +389,12 @@ class GrpcSynchronizerConnectivityService(
             SynchronizerRegistryError.fromSequencerInfoLoaderError(err)
           )
       _ <- aliasManager
-        .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
+        .processHandshake(connectionConfig.synchronizerAlias, result.psid)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
         .leftWiden[CantonBaseError]
     } yield v30.GetSynchronizerIdResponse(
-      physicalSynchronizerId = result.synchronizerId.toProtoPrimitive,
-      synchronizerId = result.synchronizerId.logical.toProtoPrimitive,
+      physicalSynchronizerId = result.psid.toProtoPrimitive,
+      synchronizerId = result.psid.logical.toProtoPrimitive,
     )
     _mapErrNewEUS(ret)
   }

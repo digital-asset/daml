@@ -30,31 +30,45 @@ async function scenario() {
             const finalContracts = await acs(alice, Iou.Iou.templateId, lastUpdate.completionOffset);
             showAcs(finalContracts, ["owner", "amount", "currency"], c => [c.owner, c.amount, c.currency]);
 
+            if(finalContracts.length > 0){
+                console.log("Transactions that involved Iou templates")
+                const txs = await transactions(alice, Iou.Iou.templateId, lastUpdate.completionOffset)
+                const updateIds = txs.map((tx) => tx.value.updateId)
+                console.log(updateIds)
+            }
+
             console.log("End of scenario");
         }
     }
 
 }
 
-async function acs(userParty: string, templateId: string, ledger_offset: number): Promise<components["schemas"]["CreatedEvent"][]> {
+function eventFormat(userParty: string, templateId: string): components["schemas"]["EventFormat"] {
     const templateFilter: components["schemas"]["TemplateFilter"] = {
         value: {
             templateId: templateId,
             includeCreatedEventBlob: false,
         }
     };
-    const filter: components["schemas"]["GetActiveContractsRequest"] = {
-        "filter": {
-            "filtersByParty": {},
-            "filtersForAnyParty": {
-                "cumulative": [{
+    return {
+        filtersByParty: {
+            [userParty]: {
+                cumulative: [{
                     identifierFilter: {
                         TemplateFilter: templateFilter
                     }
                 }]
             }
-        }, "verbose": false,
-        "activeAtOffset": ledger_offset,
+        },
+        verbose: false
+    };
+}
+
+async function acs(userParty: string, templateId: string, ledger_offset: number): Promise<components["schemas"]["CreatedEvent"][]> {
+    const filter: components["schemas"]["GetActiveContractsRequest"] = {
+        eventFormat: eventFormat(userParty, templateId),
+        verbose: false,
+        activeAtOffset: ledger_offset,
     };
 
     const {data, error} = await client.POST("/v2/state/active-contracts", {
@@ -81,9 +95,32 @@ function showAcs(created: components["schemas"]["CreatedEvent"][],
     console.log(table.toString());
 }
 
+async function transactions(userParty: string, templateId: string, ledger_offset: number): Promise<components["schemas"]["Transaction"][]> {
+    const updateFormat: components["schemas"]["UpdateFormat"] = {
+        includeTransactions: {
+            eventFormat: eventFormat(userParty, templateId),
+            transactionShape: "TRANSACTION_SHAPE_LEDGER_EFFECTS"
+        }
+    }
+
+    const request: components["schemas"]["GetUpdatesRequest"] = {
+        beginExclusive: 0,
+        endInclusive: ledger_offset,
+        updateFormat: updateFormat,
+        verbose: false,
+    }
+
+    const {data, error} = await client.POST("/v2/updates", {
+        body: request
+    });
+    if (data === undefined) {
+        return Promise.reject(error);
+    } else {
+        const transactions: components["schemas"]["Transaction"][] = data.map((res) => res.update)
+            .filter((upd) => "Transaction" in upd)
+            .map((res) => res.Transaction);
+        return Promise.resolve(transactions);
+    }
+}
 
 scenario();
-
-
-
-

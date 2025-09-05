@@ -13,10 +13,11 @@ import com.digitalasset.canton.http.json.v2.SchemaProcessorsImpl.{
   ResultOps,
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
+import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NotFound.PackageNamesNotFound
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageRef}
@@ -33,15 +34,17 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class SchemaProcessorsImpl(
-    fetchSignatures: ErrorLoggingContext => PackageSignatures
+    fetchSignatures: ErrorLoggingContext => PackageSignatures,
+    val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SchemaProcessors {
+    extends SchemaProcessors
+    with NamedLogging {
 
   override def contractArgFromJsonToProto(
       template: value.Identifier,
       jsonArgsValue: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -53,7 +56,7 @@ class SchemaProcessorsImpl(
       template: value.Identifier,
       protoArgs: value.Record,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -66,7 +69,7 @@ class SchemaProcessorsImpl(
       choiceName: IdString.Name,
       jsonArgsValue: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -82,7 +85,7 @@ class SchemaProcessorsImpl(
       choiceName: IdString.Name,
       protoArgs: value.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -97,7 +100,7 @@ class SchemaProcessorsImpl(
       template: value.Identifier,
       protoArgs: value.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -109,7 +112,7 @@ class SchemaProcessorsImpl(
       template: value.Identifier,
       protoArgs: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -122,7 +125,7 @@ class SchemaProcessorsImpl(
       choiceName: IdString.Name,
       v: value.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -138,7 +141,7 @@ class SchemaProcessorsImpl(
       choiceName: IdString.Name,
       value: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Option[Value]] = value match {
     case ujson.Null => Future(None)
     case _ =>
@@ -153,53 +156,39 @@ class SchemaProcessorsImpl(
   }
 
   private def invalidChoiceException(templateId: Ref.Identifier, choiceName: IdString.Name)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): StatusRuntimeException =
     InvalidArgument.Reject(s"Invalid template:$templateId or choice:$choiceName").asGrpcError
 
   private def resolveIdentifier(
       template: value.Identifier
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Either[StatusRuntimeException, Ref.Identifier] =
     PackageRef
       .fromString(template.packageId)
       .left
       .map(err => invalidField("package reference", err))
       .flatMap {
-        case PackageRef.Name(name) =>
-          resolvePackageNameReference(name, template)
-        case PackageRef.Id(id) => Right(template)
+        case PackageRef.Name(_) =>
+          Left(
+            LedgerApiErrors.InternalError
+              .Generic(
+                s"Unexpected package-name format for identifier $template, expected package id. This is likely a programming error. Please contact support"
+              )
+              .asGrpcError
+          )
+        case PackageRef.Id(_) => Right(template)
       }
       .map(IdentifierConverters.lfIdentifier)
 
-  private def resolvePackageNameReference(
-      packageName: String,
-      template: Identifier,
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, value.Identifier] =
-    for {
-      packageNameRef <- Ref.PackageName
-        .fromString(packageName)
-        .left
-        .map(err => invalidField("package name", err))
-      result <- fetchSignatures(errorLoggingContext).view
-        .filter(_._2.metadata.name == packageNameRef)
-        .maxByOption { case (_pkgId, signature) => signature.metadata.version }
-        .toRight(PackageNamesNotFound.Reject(Set(packageNameRef)).asGrpcError)
-        .map { case (mostPreferredPackageId, _pkgSig) =>
-          template.copy(packageId = mostPreferredPackageId)
-        }
-    } yield result
-
   private def prepareProtoDict(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Dictionary[Converter[ujson.Value, Value]]] =
     memoizedDictionaries(errorLoggingContext).map(_._1)
 
   private def prepareJsonDict(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Dictionary[Converter[value.Value, ujson.Value]]] =
     memoizedDictionaries(errorLoggingContext).map(_._2)
 
@@ -277,7 +266,7 @@ class SchemaProcessorsImpl(
   }
 
   private def extractTemplateValue[V](map: Map[Ref.Identifier, V])(key: Ref.Identifier)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[V] =
     map
       .get(key)

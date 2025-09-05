@@ -37,6 +37,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
           // Required to test the pruning query batching
           maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
         ),
+        sequencerMetrics = sequencerMetrics(),
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -55,6 +56,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
           // Required to test the pruning query batching
           maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
         ),
+        sequencerMetrics = sequencerMetrics(),
       )
     )
   }
@@ -75,6 +77,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
           // Required to test the pruning query batching
           maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
         ),
+        sequencerMetrics = sequencerMetrics(),
       )
     )
   }

@@ -69,7 +69,6 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       requiredEncryptionSpecs = RequiredEncryptionSpecs(
         NonEmpty.mk(
           Set,
-          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
           EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
         ),
         NonEmpty.mk(
@@ -81,6 +80,7 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
       requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
       requiredSignatureFormats = NonEmpty.mk(Set, SignatureFormat.Der),
+      enableTransparencyChecks = false,
       protocolVersion = testedProtocolVersion,
       serial = NonNegativeInt.zero,
     )

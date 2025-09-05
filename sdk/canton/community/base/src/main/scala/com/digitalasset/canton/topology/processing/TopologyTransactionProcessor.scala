@@ -12,7 +12,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -57,7 +57,6 @@ import scala.math.Ordering.Implicits.*
   * The processor works together with the StoreBasedSynchronizerTopologyClient
   */
 class TopologyTransactionProcessor(
-    synchronizerId: PhysicalSynchronizerId,
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
@@ -74,6 +73,8 @@ class TopologyTransactionProcessor(
     )
     with NamedLogging
     with FlagCloseable {
+
+  private val psid = store.storeId.psid
 
   override protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
@@ -264,7 +265,7 @@ class TopologyTransactionProcessor(
     for {
       _ <- ErrorUtil.requireStateAsyncShutdown(
         initialised.get(),
-        s"Topology client for $synchronizerId is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
+        s"Topology client for $psid is not initialized. Cannot process sequenced event with counter $sc at $sequencedTime",
       )
     } yield {
       val txs = updates.flatMap(_.signedTransactions)
@@ -536,7 +537,7 @@ object TopologyTransactionProcessor {
 
   def createProcessorAndClientForSynchronizer(
       topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
-      synchronizerId: PhysicalSynchronizerId,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       pureCrypto: SynchronizerCryptoPureApi,
       parameters: CantonNodeParameters,
       clock: Clock,
@@ -549,9 +550,7 @@ object TopologyTransactionProcessor {
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[(TopologyTransactionProcessor, SynchronizerTopologyClientWithInit)] = {
-
     val processor = new TopologyTransactionProcessor(
-      synchronizerId,
       pureCrypto,
       topologyStore,
       _ => (),
@@ -565,6 +564,7 @@ object TopologyTransactionProcessor {
     val cachingClientF = CachingSynchronizerTopologyClient.create(
       clock,
       topologyStore,
+      synchronizerPredecessor,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       parameters.cachingConfigs,
       parameters.batchingConfig,

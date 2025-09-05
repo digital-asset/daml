@@ -63,8 +63,7 @@ object KmsDriverSpecsConverter {
   def convertToDriverEncryptionAlgoSpec(
       spec: crypto.EncryptionAlgorithmSpec
   ): Either[String, EncryptionAlgoSpec] = spec match {
-    case crypto.EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm |
-        crypto.EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
+    case crypto.EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
       Left(s"$spec unsupported by KMS drivers")
     case crypto.EncryptionAlgorithmSpec.RsaOaepSha256 =>
       EncryptionAlgoSpec.RsaEsOaepSha256.asRight

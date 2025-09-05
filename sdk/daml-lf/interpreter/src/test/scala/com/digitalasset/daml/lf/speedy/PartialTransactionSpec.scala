@@ -88,7 +88,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
         .get
 
     def endExercises_ : PartialTransaction =
-      ptx.endExercises(_ => Value.ValueNone)
+      ptx.endExercises(Value.ValueNone)
 
     def rollbackTry_ : PartialTransaction =
       ptx.rollbackTry()

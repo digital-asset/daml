@@ -1616,7 +1616,7 @@ final class SequencerClientTest
 
     override def start()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError.TimeoutError, Unit] = ???
+    ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError, Unit] = ???
 
     override def config: SequencerConnectionXPool.SequencerConnectionXPoolConfig = ???
 
@@ -1649,7 +1649,8 @@ final class SequencerClientTest
     override def isThresholdStillReachable(
         threshold: PositiveInt,
         ignored: Set[ConnectionXConfig],
-    ): Boolean = true
+        extraUndecided: NonNegativeInt,
+    )(implicit traceContext: TraceContext): Boolean = true
   }
 
   private object MockPool {

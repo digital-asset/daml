@@ -441,4 +441,3 @@ makeRelative' a b =
     -- Note that NormalizedFilePath only takes care of normalizing slashes.
     -- Here we also want to normalise things like ./a to a
     makeRelative (normalise $ fromNormalizedFilePath a) (normalise $ fromNormalizedFilePath b)
-

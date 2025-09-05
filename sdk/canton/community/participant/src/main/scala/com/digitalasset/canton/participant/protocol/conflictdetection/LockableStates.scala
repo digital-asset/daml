@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyRequestId
 import com.digitalasset.canton.participant.store.{ConflictDetectionStore, HasPrunable}
 import com.digitalasset.canton.participant.util.StateChange
 import com.digitalasset.canton.tracing.TraceContext
@@ -73,7 +74,7 @@ private[conflictdetection] class LockableStates[
       state
     }
 
-    val ActivenessCheck(fresh, free, active, lock, lockMaybeUnknown, needPriorState) = check
+    val ActivenessCheck(fresh, free, active, lock, _, needPriorState) = check
     val toBeFetchedM = mutable.Map.empty[Key, MutableLockableState[Status]]
 
     // always holds a fresh mutable state object that we insert into `states`
@@ -255,7 +256,7 @@ private[conflictdetection] class LockableStates[
 
       if (wasUnlocked) {
         ifUnlocked(id)(state.versionedState.getOrElse(throwOnNotPrefetched(id)))
-        if (!doLock) tryEvict(rc, id, state)
+        if (!doLock) tryEvict(id, state, withRC(rc, ""))
       } else {
         logger.trace(withRC(rc, s"${lockableStatus.kind} $id was already locked"))
         ifLocked(id)(state.versionedState.getOrElse(throwOnNotPrefetched(id)))
@@ -397,6 +398,10 @@ private[conflictdetection] class LockableStates[
     */
   def signalWriteAndTryEvict(rc: RequestCounter, id: Key)(implicit
       traceContext: TraceContext
+  ): Unit = signalWriteAndTryEvictInternal(id, withRC(rc, ""))
+
+  private[this] def signalWriteAndTryEvictInternal(id: Key, logContext: String)(implicit
+      traceContext: TraceContext
   ): Unit = {
     val state = states.getOrElse(
       id,
@@ -405,15 +410,19 @@ private[conflictdetection] class LockableStates[
       ),
     )
     state.signalWrite()
-    tryEvict(rc, id, state)
+    tryEvict(id, state, logContext)
   }
+
+  def signalWriteAndTryEvictNonRequest(addPartyRequestId: AddPartyRequestId, id: Key)(implicit
+      traceContext: TraceContext
+  ): Unit = signalWriteAndTryEvictInternal(id, s"Add party $addPartyRequestId: ")
 
   /** Must not be called concurrently with other methods of this class unless stated otherwise. */
   def releaseLock(rc: RequestCounter, id: Key)(implicit traceContext: TraceContext): Unit = {
     val cs = getLockedState(rc, id)
     logger.trace(withRC(rc, s"Releasing lock on ${lockableStatus.kind} $id: $cs"))
     cs.unlock()
-    tryEvict(rc, id, cs)
+    tryEvict(id, cs, withRC(rc, ""))
   }
 
   /** Must not be called concurrently with other methods of this class unless stated otherwise. */
@@ -426,16 +435,26 @@ private[conflictdetection] class LockableStates[
     cs.setStatePendingWrite(newState)
   }
 
+  /** Must not be called concurrently with other methods of this class. */
+  def setStatePendingWriteNonRequest(id: Key, newState: StateChange[Status]): Unit = {
+    // When not writing state on behalf of a request, don't modify the locked state. Also, the
+    // state tends to not be in memory, so create a lockable state such that concurrent requests
+    // can find and lock the key if needed.
+    val newMutableState = new MutableLockableState[Status](Some(Some(newState)))
+    val cs = states.putIfAbsent(id, newMutableState).getOrElse(newMutableState)
+    cs.setStatePendingWriteWithoutLocking(newState)
+  }
+
   /** Evicts the given state if it is not locked The state `expectedState` must be what `stores`
     * maps `id` to.
     */
   private[this] def tryEvict(
-      rc: RequestCounter,
       id: Key,
       expectedState: MutableLockableState[Status],
+      logContext: String,
   )(implicit traceContext: TraceContext): Unit =
     if (expectedState.safeToEvict) {
-      logger.trace(withRC(rc, s"Evicting ${lockableStatus.kind} $id with state $expectedState"))
+      logger.trace(s"${logContext}Evicting ${lockableStatus.kind} $id with state $expectedState")
       val foundState = states.remove(id)
       if (!foundState.contains(expectedState))
         throw IllegalConflictDetectionStateException(
@@ -462,6 +481,7 @@ private[conflictdetection] class LockableStates[
       pendingActivenessChecks: collection.Map[RequestCounter, A],
       locked: collection.Map[RequestCounter, B],
       pendingEvictions: collection.Map[RequestCounter, C],
+      pendingReplicatedContractEvictions: collection.Map[AddPartyRequestId, Seq[Key]],
   )(
       selectorActiveness: A => Set[Key],
       selectorLocked: B => Seq[Key],
@@ -549,15 +569,16 @@ private[conflictdetection] class LockableStates[
 
     def assertStatesWithPendingWritesAreMarkedAsPendingTheCorrectNumberOfTimes(): Unit = {
       states.foreach { case (id, state) =>
+        def countPending[ID, E](evictions: collection.Map[ID, E], selector: E => Seq[Key]): Int =
+          evictions.count { case (_, pendingEviction) => selector(pendingEviction).contains(id) }
+
         val pendingWritesCount = state.pendingWrites
-        val pendingEvictionsCount = pendingEvictions.foldLeft(0) {
-          case (count, (_, pendingEviction)) =>
-            val pending = if (selectorPending(pendingEviction).contains(id)) 1 else 0
-            count + pending
-        }
+        val pendingEvictionsCount = countPending(pendingEvictions, selectorPending) +
+          countPending(pendingReplicatedContractEvictions, identity[Seq[Key]])
+
         if (pendingEvictionsCount != pendingWritesCount)
           throw IllegalConflictDetectionStateException(
-            show"${lockableStatus.kind.unquoted} $id with $pendingEvictionsCount pending writes has $pendingWritesCount pending writes marked."
+            show"${lockableStatus.kind.unquoted} $id with $pendingEvictionsCount pending evictions has $pendingWritesCount pending writes marked."
           )
       }
 
@@ -569,12 +590,23 @@ private[conflictdetection] class LockableStates[
             )
         }
       }
+      pendingReplicatedContractEvictions.foreach { case (addPartyRequestId, pendingEvictions) =>
+        pendingEvictions.foreach { id =>
+          if (!states.contains(id))
+            throw IllegalConflictDetectionStateException(
+              show"${lockableStatus.kind.unquoted} $id with pending writes by add-party request $addPartyRequestId is not in memory."
+            )
+        }
+      }
     }
 
     def assertEvictableStatesAreQueuedForEviction(): Unit = {
       val pendingEvictedStates = mapUnion(pendingEvictions.values)(selectorPending(_).toSet)
       states.foreach { case (id, state) =>
-        if (state.safeToEvict && !pendingEvictedStates.contains(id))
+        if (
+          state.safeToEvict && !(pendingEvictedStates.contains(id) ||
+            pendingReplicatedContractEvictions.values.exists(_.contains(id)))
+        )
           throw IllegalConflictDetectionStateException(
             show"${lockableStatus.kind.unquoted} $id is safe to evict, but will not be evicted"
           )

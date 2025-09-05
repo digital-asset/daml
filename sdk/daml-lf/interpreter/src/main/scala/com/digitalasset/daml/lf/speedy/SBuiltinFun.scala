@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash.hashContractInstance
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.Hash.{HashingMethod, hashContractInstance}
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -1174,7 +1175,7 @@ private[lf] object SBuiltinFun {
         val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
-        val chosenValue = args(0).toNormalizedValue(exerciseVersion)
+        val chosenValue = args(0).toNormalizedValue
         val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args(2))
         machine.enforceChoiceControllersLimit(
           controllers,
@@ -1511,10 +1512,10 @@ private[lf] object SBuiltinFun {
       val srcPkgName = machine.tmplId2PackageName(dstTplId)
       val dstPkgName = machine.tmplId2PackageName(srcTplId)
       if (srcPkgName == dstPkgName) {
-        // This isn't ideal as its a large uncached computation in a non Update primative.
+        // This isn't ideal as it's a large uncached computation in a non Update primitive.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toUnnormalizedValue) { templateArg =>
+        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
           k(Some(templateArg))
         }
       } else {
@@ -1700,7 +1701,7 @@ private[lf] object SBuiltinFun {
       val keyVersion = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args(0))
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, args(0))
       val mbCoid = args(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1778,10 +1779,9 @@ private[lf] object SBuiltinFun {
       val templateId = operation.templateId
 
       val keyValue = args(0)
-      val version = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
@@ -2287,15 +2287,14 @@ private[lf] object SBuiltinFun {
 
   private[this] def extractKey(
       location: String,
-      packageTxVersion: TransactionVersion,
-      pkgName: Ref.PackageName,
-      templateId: Ref.TypeConId,
+      pkgName: PackageName,
+      templateId: TypeConId,
       v: SValue,
-  ): CachedKey =
+  ) =
     v match {
       case SStruct(_, vals) =>
         val keyValue = vals(keyIdx)
-        val gkey = Speedy.Machine.assertGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
+        val gkey = Speedy.Machine.assertGlobalKey(pkgName, templateId, keyValue)
         CachedKey(
           packageName = pkgName,
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(
@@ -2348,7 +2347,7 @@ private[lf] object SBuiltinFun {
         val mbKey = vals(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
-              extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, _)
+              extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, _)
             )
           case v =>
             throw SErrorCrash(
@@ -2463,15 +2462,78 @@ private[lf] object SBuiltinFun {
           )(f(Some(templateArg), _))
         }
       case None =>
-        machine.lookupContract(coid)((coinst, _, _) =>
-          machine.ensurePackageIsLoaded(
-            NameOf.qualifiedNameOfCurrentFunc,
-            coinst.templateId.packageId,
-            language.Reference.Template(coinst.templateId.toRef),
-          ) { () =>
-            importContractInfo(machine, coinst)(f(None, _))
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            machine.ensurePackageIsLoaded(
+              NameOf.qualifiedNameOfCurrentFunc,
+              coinst.templateId.packageId,
+              language.Reference.Template(coinst.templateId.toRef),
+            ) { () =>
+              importContractInfo(machine, coinst)(f(None, _))
+            }
           }
         )
+    }
+  }
+
+  /** Authenticates the provided FatContractInstance using [hashingMethod] if [hashingMethod] is
+    * one of [[HashingMethod.Legacy]] or [[HashingMethod.UpgradeFriendly]]. Does nothing if the
+    * hashing method is [[HashingMethod.TypedNormalForm]].
+    */
+  private def authenticateIfLegacyContract(
+      coid: V.ContractId,
+      coinst: FatContractInstance,
+      hashingMethod: Hash.HashingMethod,
+      authenticator: Hash => Boolean,
+  )(k: () => Control[Question.Update]): Control[Question.Update] = {
+    val mbValueHash = hashingMethod match {
+      case HashingMethod.Legacy =>
+        Some(
+          hashContractInstance(
+            coinst.templateId,
+            coinst.createArg,
+            coinst.packageName,
+            upgradeFriendly = false,
+          )
+        )
+      case HashingMethod.UpgradeFriendly =>
+        Some(
+          hashContractInstance(
+            coinst.templateId,
+            coinst.createArg,
+            coinst.packageName,
+            upgradeFriendly = true,
+          )
+        )
+      case HashingMethod.TypedNormalForm =>
+        None
+    }
+    mbValueHash match {
+      case Some(errorOrHash) =>
+        errorOrHash match {
+          case Right(hash) =>
+            if (authenticator(hash)) {
+              k()
+            } else {
+              Control.Error(
+                IE.Dev(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  IE.Dev
+                    .AuthenticationError(coid, coinst.createArg, s"failed to authenticate contract"),
+                )
+              )
+            }
+          case Left(msg) =>
+            Control.Error(
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.AuthenticationError(coid, coinst.createArg, msg),
+              )
+            )
+        }
+      // This is not a legacy contract, we do nothing. It will be authenticated after translation to SValue.
+      case None => k()
     }
   }
 
@@ -2495,15 +2557,11 @@ private[lf] object SBuiltinFun {
       coinst.contractKeyWithMaintainers match {
         case None => cont(None)
         case Some(key) =>
-          importKey(machine, coinst.version, key)(cachedKey => cont(Some(cachedKey)))
+          importKey(machine, key)(cachedKey => cont(Some(cachedKey)))
       }
     }
 
-  private def importKey[Q](
-      machine: Machine[Q],
-      version: TransactionVersion,
-      key: GlobalKeyWithMaintainers,
-  )(
+  private def importKey[Q](machine: Machine[Q], key: GlobalKeyWithMaintainers)(
       f: CachedKey => Control[Q]
   ): Control[Q] = {
     // TODO(https://github.com/digital-asset/daml/issues/21667): once the engine is defensive about contract imports,
@@ -2531,7 +2589,7 @@ private[lf] object SBuiltinFun {
           // comparing them against the recomputed ones. So we normalize them on import for now.
           globalKeyWithMaintainers = key.copy(globalKey =
             GlobalKey
-              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue(version))
+              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue)
           ),
           key = keySValue,
         )

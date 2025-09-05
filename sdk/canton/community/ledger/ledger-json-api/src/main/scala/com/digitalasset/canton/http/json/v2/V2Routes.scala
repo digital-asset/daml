@@ -11,6 +11,7 @@ import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.Materializer
@@ -63,6 +64,7 @@ object V2Routes {
       ledgerClient: LedgerClient,
       metadataServiceEnabled: Boolean,
       packageSyncService: PackageSyncService,
+      packagePreferenceBackend: PackagePreferenceBackend,
       executionContext: ExecutionContext,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -74,9 +76,16 @@ object V2Routes {
     implicit val ec: ExecutionContext = executionContext
 
     val schemaProcessors = new SchemaProcessorsImpl(
-      packageSyncService.getPackageMetadataSnapshot(_).packages
+      packageSyncService.getPackageMetadataSnapshot(_).packages,
+      loggerFactory,
     )
-    val protocolConverters = new ProtocolConverters(schemaProcessors)
+
+    val transcodePackageIdResolver = TranscodePackageIdResolver.topologyStateBacked(
+      packagePreferenceBackend,
+      packageSyncService.getPackageMetadataSnapshot(_),
+      loggerFactory,
+    )
+    val protocolConverters = new ProtocolConverters(schemaProcessors, transcodePackageIdResolver)
     val commandService =
       new JsCommandService(ledgerClient, protocolConverters, loggerFactory)
 

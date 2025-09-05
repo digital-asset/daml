@@ -11,6 +11,7 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.tracing.NoTracing
 import io.grpc.Channel
 import org.apache.pekko.actor.ActorSystem
@@ -29,6 +30,7 @@ object HttpApiServer extends NoTracing {
       packageSyncService: PackageSyncService,
       loggerFactory: NamedLoggerFactory,
       authInterceptor: AuthInterceptor,
+      packagePreferenceBackend: PackagePreferenceBackend,
   )(implicit
       jsonApiMetrics: HttpApiMetrics
   ): ResourceOwner[Unit] = {
@@ -45,6 +47,7 @@ object HttpApiServer extends NoTracing {
           httpsConfiguration,
           channel,
           packageSyncService,
+          packagePreferenceBackend,
           loggerFactory,
         )(
           actorSystem,

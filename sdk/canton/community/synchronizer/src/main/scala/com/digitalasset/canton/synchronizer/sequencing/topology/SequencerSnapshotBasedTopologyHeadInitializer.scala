@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
 
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.client.{
@@ -27,7 +28,8 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
 ) extends SynchronizerTopologyClientHeadStateInitializer {
 
   override def initialize(
-      client: SynchronizerTopologyClientWithInit
+      client: SynchronizerTopologyClientWithInit,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -37,7 +39,11 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
       .map { maxTopologyStoreTimestamp =>
         val snapshotLastTsEffective = EffectiveTime(snapshot.lastTs)
         // Use the highest possible effective time.
-        val maxEffectiveTime = maxTopologyStoreTimestamp
+        val maxEffectiveTime = SynchronizerTopologyClientHeadStateInitializer
+          .computeInitialHeadUpdate(
+            maxTopologyStoreTimestamp,
+            synchronizerPredecessor,
+          )
           .fold(snapshotLastTsEffective) { case (_, maxStoreEffectiveTime) =>
             maxStoreEffectiveTime.max(snapshotLastTsEffective)
           }

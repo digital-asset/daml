@@ -162,11 +162,13 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
         LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> ImportedPackageId . PackageId . fst <$> lookupString strId
         LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
           ImportedPackageId . (V.! fromIntegral strId) <$> view (importsLens . _Right)
-          
+
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
+decodeImports :: Maybe LF2.PackageImports -> Maybe PackageIds
+decodeImports = fmap (S.fromList . V.toList . V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages)
 
 decodeImports :: LF2.PackageImportsSum -> Either NoPkgImportsReason (V.Vector PackageId)
 decodeImports = \case
@@ -936,4 +938,3 @@ decodeSet mkDuplicateError decode1 xs = do
         if S.member item accum
           then throwError (mkDuplicateError item)
           else pure (S.insert item accum)
-

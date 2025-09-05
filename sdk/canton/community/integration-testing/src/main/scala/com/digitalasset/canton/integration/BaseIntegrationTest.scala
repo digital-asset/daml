@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration
 
+import com.daml.ledger.javaapi.data.Event
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -178,5 +179,25 @@ private[integration] trait BaseIntegrationTest
         templateId.getModuleName,
         templateId.getEntityName,
       )
+  }
+
+  implicit class EnrichedEvent(events: Event) {
+    def asScalaProtoEvent: com.daml.ledger.api.v2.event.Event =
+      com.daml.ledger.api.v2.event.Event.fromJavaProto(events.toProtoEvent)
+
+    def asScalaProtoCreated: Option[com.daml.ledger.api.v2.event.CreatedEvent] =
+      com.daml.ledger.api.v2.event.Event.fromJavaProto(events.toProtoEvent).event.created
+  }
+
+  implicit class EnrichedEvents(events: java.util.List[Event]) {
+    def asScalaProtoEvents: List[com.daml.ledger.api.v2.event.Event] =
+      events.asScala.iterator
+        .map(_.asScalaProtoEvent)
+        .toList
+
+    def asScalaProtoCreatedContracts: List[com.daml.ledger.api.v2.event.CreatedEvent] =
+      events.asScala.iterator
+        .flatMap(_.asScalaProtoCreated)
+        .toList
   }
 }

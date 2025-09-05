@@ -71,7 +71,7 @@ object DAMLe {
         stackTraceMode = enableStackTraces,
         profileDir = profileDir,
         snapshotDir = snapshotDir,
-        requireSuffixedGlobalContractId = true,
+        forbidLocalContractIds = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         paranoid = paranoidMode,
@@ -157,7 +157,7 @@ class DAMLe(
   // TODO(i21582) Because we do not hash suffixed CIDs, we need to disable validation of suffixed CIDs otherwise enrichment
   // will fail. Remove this when we hash and sign suffixed CIDs
   private lazy val engineForEnrichment = new Engine(
-    engine.config.copy(requireSuffixedGlobalContractId = false)
+    engine.config.copy(forbidLocalContractIds = false)
   )
   private lazy val interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
     engineForEnrichment,
@@ -394,11 +394,6 @@ class DAMLe(
             case Left(abort) => FutureUnlessShutdown.pure(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
           }
-        case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
-          throw new UnsupportedOperationException(
-            s"This callback is no longer used and will be removed in a future release [$unexpected]"
-          )
-
         case ResultPrefetch(_, _, resume) =>
           // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3
           handleResultInternal(contracts, resume())

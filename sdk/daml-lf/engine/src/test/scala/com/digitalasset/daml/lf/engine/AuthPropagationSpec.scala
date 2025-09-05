@@ -82,8 +82,8 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
       packageName = pkg.pkgName,
       template = "T1",
       arg = ValueRecord(
-        Some("T1"),
-        ImmArray((Some[Name]("party"), ValueParty(party))),
+        None /* T1 */,
+        ImmArray((None /* party */, ValueParty(party))),
       ),
     )
 
@@ -93,8 +93,8 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
       pkg.pkgName,
       "X1",
       ValueRecord(
-        Some("X1"),
-        ImmArray((Some[Name]("party"), ValueParty(party))),
+        None /* X1 */,
+        ImmArray((None /* party */, ValueParty(party))),
       ),
     )
 

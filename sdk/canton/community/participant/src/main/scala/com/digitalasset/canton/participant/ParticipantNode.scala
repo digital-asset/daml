@@ -47,11 +47,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   CommandDeduplicatorImpl,
   InFlightSubmissionTracker,
 }
-import com.digitalasset.canton.participant.pruning.{
-  AcsCommitmentProcessor,
-  PruningProcessor,
-  SortedReconciliationIntervalsProviderFactory,
-}
+import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
@@ -639,11 +635,6 @@ class ParticipantNodeBootstrap(
         pruningProcessor = new PruningProcessor(
           persistentState,
           syncPersistentStateManager,
-          new SortedReconciliationIntervalsProviderFactory(
-            syncPersistentStateManager,
-            futureSupervisor,
-            loggerFactory,
-          ),
           parameters.batchingConfig.maxPruningBatchSize,
           arguments.metrics.pruning,
           exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,

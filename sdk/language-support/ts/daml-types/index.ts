@@ -322,7 +322,7 @@ export interface Unit {
   // `Unit extends {[key: string]: string} ? true : false` is `false`,
   // whereas `{} extends {[key: string]: string} ? true : false` is `true`.
   // This might become important for defining a better version of the
-  // `Query<T>` type in @daml/ledger.
+  // `Query<T>` type.
 }
 
 /**

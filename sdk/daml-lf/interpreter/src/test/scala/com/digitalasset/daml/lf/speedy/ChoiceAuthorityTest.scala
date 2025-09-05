@@ -97,9 +97,7 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
       ),
     )
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, transactionSeed, example, committers)
-    SpeedyTestLib
-      .buildTransactionCollectRequests(machine)
-      .map { case (x, _) => x } // ignoring any UpgradeVerificationRequest
+    SpeedyTestLib.buildTransaction(machine)
   }
 
   "Happy" - {

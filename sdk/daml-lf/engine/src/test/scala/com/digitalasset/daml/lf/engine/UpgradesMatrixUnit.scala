@@ -57,7 +57,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
   def normalize(value: Value, typ: Ast.Type): Value = {
     Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-      case Right(sValue) => sValue.toNormalizedValue(cases.langVersion)
+      case Right(sValue) => sValue.toNormalizedValue
     }
   }
 
@@ -162,6 +162,11 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
+        }
+      case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
+        inside(result) {
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
+            error shouldBe a[IE.Dev.TranslationError]
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(error) =>

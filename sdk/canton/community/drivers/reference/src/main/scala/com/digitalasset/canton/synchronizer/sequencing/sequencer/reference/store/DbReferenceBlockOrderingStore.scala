@@ -63,6 +63,7 @@ class DbReferenceBlockOrderingStore(
           traceparent,
           v.value.tag,
           v.value.body,
+          v.value.orderingSequencerId,
           v.value.microsecondsSinceEpoch,
         )
       pp.setBytes(protoRequest.toByteArray)
@@ -207,6 +208,7 @@ object DbReferenceBlockOrderingStore {
         protoRequest.microsecondsSinceEpoch,
         protoRequest.tag,
         protoRequest.body,
+        protoRequest.orderingSequencerId,
       )
     val traceContext = W3CTraceContext(protoRequest.traceparent).toTraceContext
     Traced(request)(traceContext)

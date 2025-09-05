@@ -105,9 +105,11 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     val valueTranslator = new ValueTranslator(
       compiledPackage.pkgInterface,
-      requireContractIdSuffix = false,
+      forbidLocalContractIds = false,
     )
-    import valueTranslator.unsafeTranslateValue
+
+    def unsafeTranslateValue(typ: Ast.Type, value: Value): speedy.SValue =
+      valueTranslator.unsafeTranslateValue(typ, value, extendLocalIdForbiddanceToRelativeV2 = false)
 
     val testCases = Table[Ast.Type, Value, speedy.SValue](
       ("type", "value", "svalue"),
@@ -223,16 +225,17 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
     }
 
-    val TRecordUpgradable =
-      t"Mod:Record Int64 Text Party Unit"
-
-    val TVariantUpgradable =
-      t"Mod:Variant Int64 Text"
-
-    val TEnumUpgradable =
-      t"Mod:Enum"
-
     "return proper mismatch error for upgrades" in {
+
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+
+      val TRecordUpgradable = t"Mod:Record Int64 Text Party Unit"
+
+      val TVariantUpgradable = t"Mod:Variant Int64 Text Unit"
+
+      val TEnumUpgradable = t"Mod:Enum"
+
       val testCases = Table[Ast.Type, Value, PartialFunction[Error.Preprocessing.Error, _]](
         ("type", "value", "error"),
         (
@@ -350,11 +353,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           },
         ),
       )
-      forEvery(testCases)((typ, value, _) =>
+      forEvery(testCases)((typ, value, checkError) =>
         inside(Try(unsafeTranslateValue(typ, value))) {
-          case Failure(_: Error.Preprocessing.Error) =>
-            ()
-          // checkError(error)
+          case Failure(error: Error.Preprocessing.Error) =>
+            checkError(error)
         }
       )
     }
@@ -584,7 +586,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = false,
+        forbidLocalContractIds = false,
       )
       val unsuffixedCidV1 = ContractId.V1
         .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty)
@@ -602,16 +604,22 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       cids.foreach(cid =>
         forEvery(testCasesForCid(cid))((typ, value) =>
-          Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+          Try(
+            valueTranslator.unsafeTranslateValue(
+              typ,
+              value,
+              extendLocalIdForbiddanceToRelativeV2 = false,
+            )
+          ) shouldBe a[Success[_]]
         )
       )
     }
 
-    "reject non suffixed V1/V2 Contract IDs when requireContractIdSuffix is true" in {
+    "reject non suffixed V1/V2 Contract IDs when forbidLocalContractIds is true" in {
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = true,
+        forbidLocalContractIds = true,
       )
       val legalCidV1 =
         ContractId.V1.assertBuild(
@@ -633,20 +641,99 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val failureV2 =
         Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(illegalCidV2))
 
+      // We want to see rejections independent of extending the forbiddance.
+      val extendLocalIdForbiddanceToRelativeV2 = false
+
       forEvery(testCasesForCid(legalCidV1))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+        Try(
+          valueTranslator.unsafeTranslateValue(typ, value, extendLocalIdForbiddanceToRelativeV2)
+        ) shouldBe a[Success[_]]
       )
       forEvery(testCasesForCid(legalCidV2))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+        Try(
+          valueTranslator.unsafeTranslateValue(
+            typ,
+            value,
+            extendLocalIdForbiddanceToRelativeV2,
+          )
+        ) shouldBe a[Success[_]]
       )
       forEvery(testCasesForCid(illegalCidV1))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failureV1
+        Try(
+          valueTranslator.unsafeTranslateValue(
+            typ,
+            value,
+            extendLocalIdForbiddanceToRelativeV2,
+          )
+        ) shouldBe failureV1
       )
       forEvery(testCasesForCid(illegalCidV2))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failureV2
+        Try(
+          valueTranslator.unsafeTranslateValue(
+            typ,
+            value,
+            extendLocalIdForbiddanceToRelativeV2,
+          )
+        ) shouldBe failureV2
       )
     }
 
-  }
+    "reject relative V2 Contract IDs when extendLocalIdForbiddanceToRelativeV2 is false" in {
 
+      val valueTranslator = new ValueTranslator(
+        compiledPackage.pkgInterface,
+        forbidLocalContractIds = true,
+      )
+      val relativeCidV2 =
+        ContractId.V2.assertSuffixed(
+          Time.Timestamp.Epoch,
+          crypto.Hash.hashPrivateKey("a relative contract ID"),
+          Bytes.assertFromString("00ff"),
+        )
+      val absoluteCidV2 =
+        ContractId.V2.assertSuffixed(
+          Time.Timestamp.Epoch,
+          crypto.Hash.hashPrivateKey("an absolute contract ID"),
+          Bytes.assertFromString("80ff"),
+        )
+      val legalCidV1 = ContractId.V1.assertBuild(
+        crypto.Hash.hashPrivateKey("a legal Contract ID"),
+        Bytes.assertFromString("00"),
+      )
+
+      forEvery(testCasesForCid(relativeCidV2))((typ, value) =>
+        Try(
+          valueTranslator.unsafeTranslateValue(
+            typ,
+            value,
+            extendLocalIdForbiddanceToRelativeV2 = true,
+          )
+        ) shouldBe Failure(
+          Error.Preprocessing.IllegalContractId.RelativeContractId(relativeCidV2)
+        )
+      )
+      forEvery(Table[ContractId]("contract ID", legalCidV1, absoluteCidV2)) { cid =>
+        forEvery(testCasesForCid(cid))((typ, value) =>
+          Try(
+            valueTranslator.unsafeTranslateValue(
+              typ,
+              value,
+              extendLocalIdForbiddanceToRelativeV2 = true,
+            )
+          ) shouldBe a[Success[_]]
+        )
+      }
+      forEvery(Table[ContractId]("contract ID", legalCidV1, relativeCidV2, absoluteCidV2)) { cid =>
+        forEvery(testCasesForCid(cid))((typ, value) =>
+          Try(
+            valueTranslator.unsafeTranslateValue(
+              typ,
+              value,
+              extendLocalIdForbiddanceToRelativeV2 = false,
+            )
+          ) shouldBe a[Success[_]]
+        )
+      }
+    }
+  }
 }

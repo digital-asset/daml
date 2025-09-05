@@ -83,11 +83,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
           ConfigTransforms.updateParticipantConfig("participant1")(
             _.focus(_.parameters.journalGarbageCollectionDelay)
               .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-          ) :+
-          // TODO(#25744): PartyReplicationTargetParticipantProcessor needs to update the in-memory lock state
-          //   along with the ActiveContractStore to prevent racy LockableStates internal consistency check failures
-          //   such as #26384. Until then, disable the "additional consistency checks".
-          ConfigTransforms.disableAdditionalConsistencyChecks)*
+          ))*
       )
       .withSetup { implicit env =>
         import env.*

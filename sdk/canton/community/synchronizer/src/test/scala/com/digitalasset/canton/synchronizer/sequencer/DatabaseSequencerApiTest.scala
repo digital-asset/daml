@@ -47,6 +47,7 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(),
+      sequencerMetrics = metrics,
     )
     DatabaseSequencer.single(
       dbConfig,

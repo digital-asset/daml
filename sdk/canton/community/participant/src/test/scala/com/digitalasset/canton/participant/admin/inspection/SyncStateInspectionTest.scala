@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
   ParticipantNodePersistentState,
+  SynchronizerConnectionConfigStore,
 }
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
@@ -118,6 +119,7 @@ sealed trait SyncStateInspectionTest
     val syncStateInspection = new SyncStateInspection(
       stateManager,
       Eval.now(participantNodePersistentState),
+      mock[SynchronizerConnectionConfigStore],
       timeouts,
       JournalGarbageCollectorControl.NoOp,
       mock[ConnectedSynchronizersLookup],

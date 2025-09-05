@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.SuppressingLogger
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.common.EventIdSource
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
@@ -200,15 +201,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             )
           val assignedEvents =
             executeSql(
-              backend.event.assignEventBatch(1L to 100L, Some(Set.empty))
+              backend.event.assignEventBatch(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.rawCreatedEvent.contractId)
           val unassignedEvents =
             executeSql(
-              backend.event.unassignEventBatch(1L to 100L, Some(Set.empty))
+              backend.event.unassignEventBatch(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.contractId)
           val topologyPartyEvents =
             executeSql(
-              backend.event.topologyPartyEventBatch(1L to 100L)
+              backend.event.topologyPartyEventBatch(IdRange(1L, 100L))
             ).map(_.partyId)
           contractsCreated.get(hashCid("#101")) should not be empty
           contractsCreated.get(hashCid("#201")) should not be empty
@@ -269,15 +270,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             )
           val assignedEvents =
             executeSql(
-              backend.event.assignEventBatch(1L to 100L, Some(Set.empty))
+              backend.event.assignEventBatch(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.rawCreatedEvent.contractId)
           val unassignedEvents =
             executeSql(
-              backend.event.unassignEventBatch(1L to 100L, Some(Set.empty))
+              backend.event.unassignEventBatch(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.contractId)
           val topologyPartyEvents =
             executeSql(
-              backend.event.topologyPartyEventBatch(1L to 100L)
+              backend.event.topologyPartyEventBatch(IdRange(1L, 100L))
             ).map(_.partyId)
           contractsCreated.get(hashCid("#101")) should not be empty
           contractsCreated.get(hashCid("#201")) shouldBe empty
@@ -330,15 +331,15 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             )
           val assignedEvents =
             executeSql(
-              backend.event.assignEventBatch(1L to 100L, Some(Set.empty))
+              backend.event.assignEventBatch(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.rawCreatedEvent.contractId)
           val unassignedEvents =
             executeSql(
-              backend.event.unassignEventBatch(1L to 100L, Some(Set.empty))
+              backend.event.unassignEventBatch(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.contractId)
           val topologyPartyEvents =
             executeSql(
-              backend.event.topologyPartyEventBatch(1L to 100L)
+              backend.event.topologyPartyEventBatch(IdRange(1L, 100L))
             ).map(_.partyId)
           contractsCreated.get(hashCid("#101")) shouldBe None
           contractsAssigned.get(hashCid("#103")) shouldBe empty

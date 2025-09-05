@@ -21,7 +21,7 @@ import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
@@ -254,10 +254,11 @@ object EncryptedViewMessageFactory {
             .leftMap(FailedToCreateEncryptionKey.apply)
         )
         // generates the session key map, which contains the session key randomness encrypted for all informee participants
-        sessionKeyMap <- createDataMap(
+        sessionKeyMap <- createRandomnessMap(
           informeeParticipants.forgetNE.to(LazyList),
           sessionKeyRandomness,
           cryptoSnapshot,
+          cryptoSnapshot.crypto.staticSynchronizerParameters.enableTransparencyChecks,
         ).map(_.values.toSeq)
       } yield ViewKeyData(sessionKeyRandomness, sessionKey, sessionKeyMap)
 
@@ -405,19 +406,20 @@ object EncryptedViewMessageFactory {
 
   }
 
-  private def createDataMap[M <: HasToByteString](
+  private def createRandomnessMap(
       participants: LazyList[ParticipantId],
-      data: M,
+      randomness: SecureRandomness,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
+      deterministicEncryption: Boolean,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageCreationError, Map[
     ParticipantId,
-    AsymmetricEncrypted[M],
+    AsymmetricEncrypted[SecureRandomness],
   ]] =
     cryptoSnapshot
-      .encryptFor(data, participants)
+      .encryptFor(randomness, participants, deterministicEncryption)
       .leftMap { case (member, error) =>
         UnableToDetermineKey(
           member,

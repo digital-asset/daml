@@ -65,7 +65,7 @@ private[preprocessing] final class TransactionPreprocessor(
   def unsafeTranslateTransactionRoots(
       tx: SubmittedTransaction
   ): ImmArray[speedy.Command] = {
-
+    val extendLocalIdForbiddanceToRelativeV2 = false
     val result = tx.roots.foldLeft(BackStack.empty[speedy.Command]) { (acc, id) =>
       tx.nodes.get(id) match {
         case Some(node: Node.Action) =>
@@ -74,6 +74,7 @@ private[preprocessing] final class TransactionPreprocessor(
               acc :+ commandPreprocessor.unsafePreprocessCreate(
                 create.templateId,
                 create.arg,
+                extendLocalIdForbiddanceToRelativeV2,
               )
             case exe: Node.Exercise =>
               val cmd = exe.keyOpt match {
@@ -83,6 +84,7 @@ private[preprocessing] final class TransactionPreprocessor(
                     key.globalKey.key,
                     exe.choiceId,
                     exe.chosenValue,
+                    extendLocalIdForbiddanceToRelativeV2,
                   )
                 case _ =>
                   commandPreprocessor.unsafePreprocessExerciseTemplate(
@@ -90,6 +92,7 @@ private[preprocessing] final class TransactionPreprocessor(
                     exe.targetCoid,
                     exe.choiceId,
                     exe.chosenValue,
+                    extendLocalIdForbiddanceToRelativeV2,
                   )
               }
               acc :+ cmd

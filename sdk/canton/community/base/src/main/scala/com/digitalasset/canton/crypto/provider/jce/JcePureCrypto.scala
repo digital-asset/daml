@@ -31,12 +31,11 @@ import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.HasToByteString
 import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
-import com.google.crypto.tink.hybrid.subtle.AeadOrDaead
 import com.google.crypto.tink.internal.EllipticCurvesUtil
 import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
-import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
+import com.google.crypto.tink.{PublicKeySign, PublicKeyVerify}
 import com.google.protobuf.ByteString
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
@@ -270,26 +269,6 @@ class JcePureCrypto(
         )
         .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
     } yield ByteString.copyFrom(plaintext)
-
-  // Internal helper class for the symmetric encryption as part of the hybrid encryption scheme.
-  private object Aes128GcmDemHelper extends EciesAeadHkdfDemHelper {
-
-    override def getSymmetricKeySizeInBytes: Int = SymmetricKeyScheme.Aes128Gcm.keySizeInBytes
-
-    override def getAeadOrDaead(symmetricKeyValue: Array[Byte]): AeadOrDaead = new AeadOrDaead(
-      new Aead {
-        override def encrypt(plaintext: Array[Byte], associatedData: Array[Byte]): Array[Byte] = {
-          val encrypter = new AesGcmJce(symmetricKeyValue)
-          encrypter.encrypt(plaintext, associatedData)
-        }
-
-        override def decrypt(ciphertext: Array[Byte], associatedData: Array[Byte]): Array[Byte] = {
-          val decrypter = new AesGcmJce(symmetricKeyValue)
-          decrypter.decrypt(ciphertext, associatedData)
-        }
-      }
-    )
-  }
 
   /** Produces an EC-DSA signature with the given private signing key.
     *
@@ -598,43 +577,6 @@ class JcePureCrypto(
     } yield ()
   }
 
-  private def encryptWithEciesP256HmacSha256Aes128Gcm[M <: HasToByteString](
-      message: M,
-      publicKey: EncryptionPublicKey,
-  ): Either[EncryptionError, AsymmetricEncrypted[M]] =
-    for {
-      ecPublicKey <- toJavaPublicKey(
-        publicKey,
-        { case k: ECPublicKey => Right(k) },
-        EncryptionError.InvalidEncryptionKey.apply,
-      )
-      encrypter <- Either
-        .catchOnly[GeneralSecurityException](
-          new EciesAeadHkdfHybridEncrypt(
-            ecPublicKey,
-            Array[Byte](),
-            "HmacSha256",
-            EllipticCurves.PointFormatType.UNCOMPRESSED,
-            Aes128GcmDemHelper,
-          )
-        )
-        .leftMap(err => EncryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err)))
-      ciphertext <- Either
-        .catchOnly[GeneralSecurityException](
-          encrypter
-            .encrypt(
-              message.toByteString.toByteArray,
-              Array[Byte](),
-            )
-        )
-        .leftMap(err => EncryptionError.FailedToEncrypt(ErrorUtil.messageWithStacktrace(err)))
-      encrypted = new AsymmetricEncrypted[M](
-        ByteString.copyFrom(ciphertext),
-        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
-        publicKey.fingerprint,
-      )
-    } yield encrypted
-
   private def encryptWithEciesP256HmacSha256Aes128Cbc[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
@@ -731,11 +673,6 @@ class JcePureCrypto(
           ),
       )
       .flatMap {
-        case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
-          encryptWithEciesP256HmacSha256Aes128Gcm(
-            message,
-            publicKey,
-          )
         case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
           encryptWithEciesP256HmacSha256Aes128Cbc(
             message,
@@ -778,12 +715,6 @@ class JcePureCrypto(
         )
 
         scheme match {
-          case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
-            Left(
-              EncryptionError.UnsupportedSchemeForDeterministicEncryption(
-                s"${EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm.name} does not support deterministic asymmetric/hybrid encryption"
-              )
-            )
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
             encryptWithEciesP256HmacSha256Aes128Cbc(
               message,
@@ -824,36 +755,6 @@ class JcePureCrypto(
         )
       plaintext <-
         encrypted.encryptionAlgorithmSpec match {
-          case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
-            for {
-              ecPrivateKey <- toJavaPrivateKey(
-                privateKey,
-                { case k: ECPrivateKey => Right(k) },
-                DecryptionError.InvalidEncryptionKey.apply,
-              )
-              decrypter <- Either
-                .catchOnly[GeneralSecurityException](
-                  new EciesAeadHkdfHybridDecrypt(
-                    ecPrivateKey,
-                    Array[Byte](),
-                    "HmacSha256",
-                    EllipticCurves.PointFormatType.UNCOMPRESSED,
-                    Aes128GcmDemHelper,
-                  )
-                )
-                .leftMap(err =>
-                  DecryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err))
-                )
-              plaintext <- Either
-                .catchOnly[GeneralSecurityException](
-                  decrypter.decrypt(encrypted.ciphertext.toByteArray, Array[Byte]())
-                )
-                .leftMap(err =>
-                  DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
-                )
-              message <- deserialize(ByteString.copyFrom(plaintext))
-                .leftMap(DecryptionError.FailedToDeserialize.apply)
-            } yield message
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
             for {
               ecPrivateKey <- toJavaPrivateKey(

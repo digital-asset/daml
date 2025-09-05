@@ -34,6 +34,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*
 import com.digitalasset.canton.synchronizer.block.UninitializedBlockHeight
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.{
   CommitMode,
   SequencerMemberStatus,
@@ -72,6 +73,7 @@ class DbSequencerStore(
     override val blockSequencerMode: Boolean,
     cachingConfigs: CachingConfigs,
     override val batchingConfig: BatchingConfig,
+    override protected val sequencerMetrics: SequencerMetrics,
     overrideCloseContext: Option[CloseContext] = None,
 )(protected implicit val executionContext: ExecutionContext)
     extends SequencerStore

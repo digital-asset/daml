@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -23,6 +22,8 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{config, integration}
+import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
 /** Objective: Ensure OnPR is resilient against sequencer restarts and SP-synchronizer reconnects.
@@ -72,10 +73,14 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         (ConfigTransforms.unsafeEnableOnlinePartyReplication(
           Map("participant1" -> (() => createSourceParticipantTestInterceptor()))
         ) :+
-          // TODO(#25744): PartyReplicationTargetParticipantProcessor needs to update the in-memory lock state
-          //   along with the ActiveContractStore to prevent racy LockableStates internal consistency check failures
-          //   such as #26384. Until then, disable the "additional consistency checks".
-          ConfigTransforms.disableAdditionalConsistencyChecks)*
+          // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
+          //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
+          //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
+          //  in this test.
+          ConfigTransforms.updateParticipantConfig("participant1")(
+            _.focus(_.parameters.journalGarbageCollectionDelay)
+              .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
+          ))*
       )
       .withSetup { implicit env =>
         import env.*

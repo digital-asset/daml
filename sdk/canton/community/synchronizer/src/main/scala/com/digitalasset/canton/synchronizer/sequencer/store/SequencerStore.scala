@@ -9,6 +9,7 @@ import cats.kernel.Order
 import cats.syntax.either.*
 import cats.syntax.order.*
 import cats.{Functor, Show}
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
@@ -21,6 +22,7 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, Messa
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore.SequencerPruningResult
@@ -444,6 +446,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   protected def batchingConfig: BatchingConfig
 
+  protected def sequencerMetrics: SequencerMetrics
+
   /** Whether the sequencer store operates is used for a block sequencer or a standalone database
     * sequencer.
     */
@@ -515,7 +519,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   @VisibleForTesting
   lazy val eventsBufferEnabled: Boolean = bufferedEventsMaxMemory.toLong > 0L
 
-  protected val eventsBuffer = new EventsBuffer(bufferedEventsMaxMemory, loggerFactory)
+  protected val eventsBuffer =
+    new EventsBuffer(bufferedEventsMaxMemory, loggerFactory, sequencerMetrics.eventBuffer)
 
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(
@@ -648,7 +653,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): FutureUnlessShutdown[ReadEvents] = {
     logger.debug(
       s"Reading events for member $member from timestamp (exclusive) $fromExclusiveO with limit $limit"
@@ -675,6 +681,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             logger.debug(
               s"Serving ${events.length} events from the buffer"
             )
+            sequencerMetrics.eventBuffer.hitCount.inc()
 
             if (events.nonEmpty) {
               FutureUnlessShutdown.pure(
@@ -692,6 +699,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             logger.debug(
               s"Falling back to database access for events"
             )
+            sequencerMetrics.eventBuffer.missCount.inc()
             // If the buffer does not start earlier than the `fromExclusive` timestamp,
             // we cannot serve the request with the buffer only, we need to fallback to read from the database
             readEventsInternal(memberId, fromExclusiveO, limit)
@@ -700,6 +708,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         logger.debug(
           s"Falling back to the database access for events"
         )
+        sequencerMetrics.eventBuffer.missCount.inc()
         // In case we start from the beginning of events, we cannot determine if we can rely on the buffer
         readEventsInternal(memberId, fromExclusiveO, limit)
     }
@@ -984,6 +993,7 @@ object SequencerStore {
       blockSequencerMode: Boolean,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
+      sequencerMetrics: SequencerMetrics,
       overrideCloseContext: Option[CloseContext] = None,
   )(implicit executionContext: ExecutionContext): SequencerStore =
     storage match {
@@ -993,6 +1003,7 @@ object SequencerStore {
           sequencerMember,
           blockSequencerMode = blockSequencerMode,
           loggerFactory,
+          sequencerMetrics = sequencerMetrics,
         )
       case dbStorage: DbStorage =>
         new DbSequencerStore(
@@ -1006,6 +1017,7 @@ object SequencerStore {
           blockSequencerMode = blockSequencerMode,
           cachingConfigs = cachingConfigs,
           batchingConfig = batchingConfig,
+          sequencerMetrics = sequencerMetrics,
           overrideCloseContext = overrideCloseContext,
         )
     }

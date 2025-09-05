@@ -178,9 +178,7 @@ object PekkoP2PGrpcNetworking {
               outstandingMessages.decrementAndGet(),
             )(metricsContext)
           case _: Initialize =>
-            logger.debug(
-              s"Connection-managing actor $actorName received Initialize"
-            )
+            logger.debug(s"Connection-managing actor $actorName received Initialize")
           case _ =>
         }
 
@@ -188,9 +186,7 @@ object PekkoP2PGrpcNetworking {
 
       connectionManager.getPeerSenderOrStartConnection(p2pEndpoint) match {
         case Some(peerSender) =>
-          logger.debug(
-            s"Connection-managing actor $actorName found connection available"
-          )
+          logger.debug(s"Connection-managing actor $actorName found connection available for Send")
           whenConnected(peerSender)
         case _ =>
           message match {
@@ -249,7 +245,7 @@ object PekkoP2PGrpcNetworking {
       Behaviors
         .receiveMessage[PekkoP2PGrpcConnectionManagerActorMessage] {
           case initMsg: Initialize =>
-            logger.debug(s"Connection-managing actor $actorName initializing")
+            logger.info(s"Connection-managing actor $actorName initializing")
             scheduleMessageIfNotConnectedBehavior(initMsg)(_ => ())
             Behaviors.same
           case sendMsg: SendMessage =>
@@ -269,7 +265,7 @@ object PekkoP2PGrpcNetworking {
               } catch {
                 case exception: Exception =>
                   logger.debug(
-                    s"Connection-managing actor $actorName failed sending message to sender $peerSender",
+                    s"Connection-managing actor $actorName failed sending message $msg to sender $peerSender",
                     exception,
                   )
                   peerSender.onError(exception) // Required by the gRPC streaming API
@@ -281,7 +277,7 @@ object PekkoP2PGrpcNetworking {
                   val newAttemptNumber = sendMsg.attemptNumber + 1
                   if (newAttemptNumber <= MaxAttempts) {
                     logger.info(
-                      s"Connection-managing actor $actorName couldn't send $msg, " +
+                      s"Connection-managing actor $actorName couldn't send a message to sender $peerSender, " +
                         s"invalidating the connection and retrying in $SendRetryDelay, " +
                         s"attempt $newAttemptNumber out of $MaxAttempts",
                       exception,

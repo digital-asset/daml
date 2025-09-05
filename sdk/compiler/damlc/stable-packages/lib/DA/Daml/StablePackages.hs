@@ -888,4 +888,3 @@ daInternalFailTypes version = Package
       , (mkField "message", TText)
       , (mkField "meta", TTextMap TText)
       ]
-

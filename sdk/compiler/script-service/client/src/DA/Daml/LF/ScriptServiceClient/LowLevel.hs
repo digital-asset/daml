@@ -327,7 +327,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
-          (Just $ convPackageMetadata updPackageMetadata) 
+          (Just $ convPackageMetadata updPackageMetadata)
   pure (void res)
   where
     updModules =
@@ -352,7 +352,7 @@ mangleModuleName (LF.ModuleName modName) =
     map (fromRight (error "Failed to mangle script module name") . mangleIdentifier) modName
 
 mangleScriptName :: LF.ModuleName -> LF.ExprValName -> TL.Text
-mangleScriptName modName scriptName = 
+mangleScriptName modName scriptName =
   TL.fromStrict $
   mangleModuleName modName
   <> ":"

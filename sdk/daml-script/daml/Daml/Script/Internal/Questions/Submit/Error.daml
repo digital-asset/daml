@@ -50,7 +50,7 @@ data CryptoErrorType
 -- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
-  | WronglyTypedContractSoft
+  | TranslationError
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 

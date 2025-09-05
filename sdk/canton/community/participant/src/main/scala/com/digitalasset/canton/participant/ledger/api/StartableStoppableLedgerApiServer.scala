@@ -375,7 +375,7 @@ class StartableStoppableLedgerApiServer(
       // When CIDs are suffixed, we can re-use the LfValueTranslation from the index service created above
       packageLoader = new DeduplicatingPackageLoader()
       interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
-        new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
+        new Engine(config.engine.config.copy(forbidLocalContractIds = false)),
         packageResolver = packageId =>
           implicit traceContext =>
             FutureUnlessShutdown.outcomeF(
@@ -442,7 +442,7 @@ class StartableStoppableLedgerApiServer(
         keepAlive = config.serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
       )
-      _ <- startHttpApiIfEnabled(timedSyncService, authInterceptor)
+      _ <- startHttpApiIfEnabled(timedSyncService, authInterceptor, packagePreferenceBackend)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId
         .fold(ResourceOwner.unit) { rawUserId =>
           ResourceOwner.forFuture { () =>
@@ -555,6 +555,7 @@ class StartableStoppableLedgerApiServer(
   private def startHttpApiIfEnabled(
       packageSyncService: PackageSyncService,
       authInterceptor: AuthInterceptor,
+      packagePreferenceBackend: PackagePreferenceBackend,
   ): ResourceOwner[Unit] =
     config.jsonApiConfig
       .fold(ResourceOwner.unit) { jsonApiConfig =>
@@ -578,6 +579,7 @@ class StartableStoppableLedgerApiServer(
             packageSyncService,
             loggerFactory,
             authInterceptor,
+            packagePreferenceBackend = packagePreferenceBackend,
           )(
             config.jsonApiMetrics
           ).afterReleased(noTracingLogger.info("JSON-API HTTP Server is released"))

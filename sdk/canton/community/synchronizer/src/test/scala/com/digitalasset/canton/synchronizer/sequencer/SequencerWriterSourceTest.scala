@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -37,6 +38,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
   InMemorySequencerStore,
   PayloadId,
   Presequenced,
+  ReadEvents,
   SavePayloadsError,
   Sequenced,
   SequencerMemberId,
@@ -81,6 +83,8 @@ class SequencerWriterSourceTest
     with HasExecutionContext
     with ProtocolVersionChecksAsyncWordSpec
     with FailOnShutdown {
+
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   class MockEventSignaller extends EventSignaller {
     private val listenerRef =
@@ -128,13 +132,14 @@ class SequencerWriterSourceTest
     lazy val sequencerMember: Member = SequencerId(
       UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
     )
-    class InMemoryStoreWithTimeAdvancement(lFactory: NamedLoggerFactory)(implicit
+    class InMemoryStoreWithTimeAdvancement(loggerFactory: NamedLoggerFactory)(implicit
         ec: ExecutionContext
     ) extends InMemorySequencerStore(
           testedProtocolVersion,
           sequencerMember,
           blockSequencerMode = blockSequencerMode,
-          lFactory,
+          loggerFactory = loggerFactory,
+          sequencerMetrics = SequencerMetrics.noop("sequencer-writer-source-test"),
         )(
           ec
         ) {
@@ -152,6 +157,16 @@ class SequencerWriterSourceTest
         clock.advance(timeAdvancement.get())
         super.savePayloads(payloadsToInsert, instanceDiscriminator)
       }
+
+      override def readEvents(
+          memberId: SequencerMemberId,
+          member: Member,
+          fromExclusiveO: Option[CantonTimestamp] = None,
+          limit: Int = 100,
+      )(implicit
+          traceContext: TraceContext,
+          metricsContext: MetricsContext,
+      ): FutureUnlessShutdown[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
     }
 
     val store =

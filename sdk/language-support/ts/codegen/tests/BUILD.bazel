@@ -44,8 +44,7 @@ daml_compile(
 #  json-api connected to the ledger.
 #
 #  The main inputs to 'build-and-lint' are:
-#     - Bazel artifacts : '@daml/types' and '@daml/ledger' (these are
-#       npm packages);
+#     - Bazel artifacts : '@daml/types' (this is an npm packages);
 #     - Source artifacts:
 #       - 'ts/codegen/tests/daml/*'
 #         The Daml that goes into the DAR ('build-and-lint-1.0.0.dar');
@@ -70,7 +69,6 @@ daml_compile(
 #      node_modules/
 #        @daml/
 #          types/
-#          ledger/
 #        ...
 #
 # In more detail, the actions of 'build-and-lint' are to:
@@ -101,7 +99,6 @@ sh_test(
         "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
         "$(location //language-support/ts/daml-types:npm_package)",
-        "$(location //language-support/ts/daml-ledger:npm_package)",
         sdk_version,
         # TODO(#14706): revert to model-tests-default once the default major
         #  version is 2
@@ -117,7 +114,6 @@ sh_test(
         "//:java",
         "//:yarn",
         "//canton:community_app_deploy.jar",
-        "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
         # TODO(#14706): revert to model-tests-default once the default major
         #  version is 2
@@ -216,7 +212,6 @@ da_haskell_test(
         "//:yarn",
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2js",
-        "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
     ],
     hackage_deps = [

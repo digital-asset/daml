@@ -34,7 +34,7 @@ class JsonDamlDefinitionsServiceTest
     with HttpServiceUserFixture.UserToken {
 
   private val RootTestResources =
-    "community/ledger/ledger-json-api/target/scala-2.13/test-classes/daml-definitions-service-test-resources"
+    "community/ledger/ledger-json-api/target/scala-2.13/resource_managed/test"
 
   private val GoldenTestResources =
     "community/ledger/ledger-json-api/src/test/resources/daml-definitions-service-test-resources"
@@ -121,7 +121,8 @@ class JsonDamlDefinitionsServiceTest
       }
     }
 
-    "validate the definitions in the golden DAR against the golden files" onlyRunWithOrGreaterThan ProtocolVersion.dev in httpTestFixture {
+    // TODO(#27652): re-enable after using DARs generated with SBT or non-dev dars
+    "validate the definitions in the golden DAR against the golden files" onlyRunWithOrGreaterThan ProtocolVersion.dev ignore httpTestFixture {
       fixture =>
         val darContent: ByteString =
           protobuf.ByteString.copyFrom(Files.readAllBytes(File(GoldenTestDar).path))

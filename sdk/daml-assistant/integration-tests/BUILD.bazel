@@ -66,7 +66,6 @@ genrule(
 
 ts_libraries = [
     "//language-support/ts/daml-types:npm_package",
-    "//language-support/ts/daml-ledger:npm_package",
 ]
 
 da_haskell_library(

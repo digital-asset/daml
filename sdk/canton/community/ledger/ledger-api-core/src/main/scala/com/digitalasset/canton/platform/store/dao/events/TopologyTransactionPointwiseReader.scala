@@ -10,6 +10,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 
@@ -34,7 +35,11 @@ final class TopologyTransactionPointwiseReader(
   ): Future[Vector[RawParticipantAuthorization]] =
     dbDispatcher.executeSql(
       dbMetrics.topologyTransactionsPointwise.fetchTopologyPartyEventPayloads
-    )(eventStorageBackend.topologyPartyEventBatch(firstEventSequentialId to lastEventSequentialId))
+    )(
+      eventStorageBackend.topologyPartyEventBatch(
+        IdRange(firstEventSequentialId, lastEventSequentialId)
+      )
+    )
 
   private def fetchAndFilterEvents(
       fetchRawEvents: Future[Vector[RawParticipantAuthorization]],

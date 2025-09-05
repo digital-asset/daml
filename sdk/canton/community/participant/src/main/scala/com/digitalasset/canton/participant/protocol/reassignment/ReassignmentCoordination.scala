@@ -270,7 +270,7 @@ class ReassignmentCoordination(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
       reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(unassignmentData.targetSynchronizer.map(_.logical))
+        reassignmentStoreFor(unassignmentData.targetPSId.map(_.logical))
       )
       _ <- reassignmentStore
         .addUnassignmentData(unassignmentData)

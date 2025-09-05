@@ -150,7 +150,11 @@ jobs:
       cd sdk
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
-
+      
+      gh auth status
+      export GITHUB_TOKEN=$(gh auth token)
+      git config --global url.https://${GITHUB_TOKEN}@github.com/.insteadOf https://github.com/
+      
       branch="notices-update-$(Build.BuildId)"
 
       tr -d '\015' < digital_asset_daml_$(Build.SourceBranchName)_Black_Duck_Notices_Report.txt | grep -v digital-asset_daml > NOTICES
@@ -158,10 +162,13 @@ jobs:
           echo "NOTICES file already up-to-date."
           setvar need_to_build false
       else
+          
           git add NOTICES
-          open_pr "$branch" "update NOTICES file"
+          open_pr "$branch" "update NOTICES file"  "" "" "$(Build.SourceBranchName)"
           setvar need_to_build true
       fi
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
     displayName: 'Open PR to update NOTICES file'
     name: out
     condition: and(succeeded(),

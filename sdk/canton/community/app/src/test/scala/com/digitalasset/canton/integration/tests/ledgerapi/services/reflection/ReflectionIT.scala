@@ -7,7 +7,7 @@ import com.daml.grpc.test.StreamConsumer
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
-import io.grpc.reflection.v1alpha.{
+import io.grpc.reflection.v1.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
   ServerReflectionResponse,

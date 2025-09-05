@@ -158,54 +158,10 @@ class ParticipantPartiesAdministrationGroup(
       namespace: Namespace = participantId.namespace,
       synchronizer: Option[SynchronizerAlias] = None,
       synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
-      mustFullyAuthorize: Boolean = true,
       synchronize: Option[config.NonNegativeDuration] = Some(
         consoleEnvironment.commandTimeouts.unbounded
       ),
-  ): PartyId = {
-    def synchronizersPartyIsRegisteredOn(participant: ParticipantReference, partyId: PartyId) =
-      participant.parties
-        .list(filterParty = partyId.filterString, filterParticipant = participantId.filterString)
-        .flatMap(_.participants.flatMap(_.synchronizers))
-        .map(_.synchronizerId)
-        .toSet
-
-    def retryE(condition: => Boolean, message: => String): Either[String, Unit] =
-      AdminCommandRunner
-        .retryUntilTrue(consoleEnvironment.commandTimeouts.ledgerCommand)(condition)
-        .toEither
-        .leftMap(_ => message)
-
-    def waitForParty(
-        partyId: PartyId,
-        synchronizerId: SynchronizerId,
-        queriedParticipant: ParticipantReference,
-    ): Either[String, Unit] =
-      retryE(
-        synchronizersPartyIsRegisteredOn(queriedParticipant, partyId).contains(synchronizerId),
-        show"Party $partyId did not appear for $queriedParticipant on synchronizer $synchronizerId}",
-      )
-
-    def waitForPartyAndSyncWithParticipants(partyId: PartyId, synchronizerId: SynchronizerId) =
-      for {
-        _ <- waitForParty(partyId, synchronizerId, reference)
-        _ <- retryE(
-          reference.ledger_api.parties.list().map(_.party).contains(partyId),
-          show"The party $partyId never appeared on the ledger API server",
-        )
-        // find the additional participants that are connected to the same synchronizer
-        additionalSync = synchronizeParticipants.filter(
-          _.synchronizers.is_connected(synchronizerId)
-        )
-        _ <- additionalSync.traverse_ { p =>
-          waitForParty(
-            partyId,
-            synchronizerId,
-            p,
-          )
-        }
-      } yield ()
-
+  ): PartyId =
     consoleEnvironment.run {
       ConsoleCommandResult.fromEither {
         for {
@@ -217,17 +173,20 @@ class ParticipantPartiesAdministrationGroup(
           _ <- runPartyCommand(
             partyId,
             synchronizerId,
-            mustFullyAuthorize,
             synchronize,
           ).toEither
 
           _ <- Applicative[Either[String, *]].whenA(synchronize.nonEmpty)(
-            waitForPartyAndSyncWithParticipants(partyId, synchronizerId.logical)
+            PartiesAdministration.Allocation.waitForPartyKnown(
+              partyId = partyId,
+              hostingParticipant = reference,
+              synchronizeParticipants = synchronizeParticipants,
+              synchronizerId = synchronizerId.logical,
+            )(consoleEnvironment)
           )
         } yield partyId
       }
     }
-  }
 
   /** @return
     *   if SynchronizerAlias is set, the SynchronizerId that corresponds to the alias. if
@@ -254,7 +213,6 @@ class ParticipantPartiesAdministrationGroup(
   private def runPartyCommand(
       partyId: PartyId,
       synchronizerId: PhysicalSynchronizerId,
-      mustFullyAuthorize: Boolean,
       synchronize: Option[config.NonNegativeDuration],
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
     // determine the next serial
@@ -280,7 +238,7 @@ class ParticipantPartiesAdministrationGroup(
           signedBy = Seq.empty,
           serial = nextSerial,
           store = synchronizerId,
-          mustFullyAuthorize = mustFullyAuthorize,
+          mustFullyAuthorize = true,
           change = TopologyChangeOp.Replace,
           forceChanges = ForceFlags.none,
           waitToBecomeEffective = synchronize,
@@ -560,9 +518,9 @@ class ParticipantPartiesAdministrationGroup(
   )
   def export_acs(
       parties: Set[PartyId],
-      ledgerOffset: NonNegativeLong,
       synchronizerId: Option[SynchronizerId] = None,
       exportFilePath: String = "canton-acs-export.gz",
+      ledgerOffset: NonNegativeLong,
       contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =
@@ -641,6 +599,82 @@ class ParticipantPartiesAdministrationGroup(
         cleanupOnError = () => file.delete(),
       )
     }
+}
+
+private[canton] object PartiesAdministration {
+  object Allocation {
+
+    /** Ensure a new party is known by some participants
+      * @param partyId
+      *   Party to be known
+      * @param hostingParticipant
+      *   The party hosting the patry
+      * @param synchronizeParticipants
+      *   All the participants that need to know the party
+      * @param synchronizerId
+      *   Synchronizer
+      */
+    def waitForPartyKnown(
+        partyId: PartyId,
+        hostingParticipant: ParticipantReference,
+        synchronizeParticipants: Seq[ParticipantReference],
+        synchronizerId: SynchronizerId,
+    )(implicit consoleEnvironment: ConsoleEnvironment): Either[String, Unit] =
+      for {
+        _ <- retryE(
+          hostingParticipant.ledger_api.parties.list().map(_.party).contains(partyId),
+          show"The party $partyId never appeared on the ledger API server",
+        )
+
+        // Party is known on relevant participants
+        otherParticipants = synchronizeParticipants.filter(
+          _.synchronizers.is_connected(synchronizerId)
+        )
+        _ <- (hostingParticipant +: otherParticipants).traverse_(p =>
+          waitForParty(
+            partyId,
+            synchronizerId,
+            hostingParticipant = hostingParticipant.id,
+            queriedParticipant = p,
+          )
+        )
+      } yield ()
+
+    private def synchronizersPartyIsRegisteredOn(
+        hostingParticipant: ParticipantId,
+        participant: ParticipantReference,
+        partyId: PartyId,
+    ): Set[SynchronizerId] =
+      participant.parties
+        .list(
+          filterParty = partyId.filterString,
+          filterParticipant = hostingParticipant.filterString,
+        )
+        .flatMap(_.participants.flatMap(_.synchronizers))
+        .map(_.synchronizerId)
+        .toSet
+
+    private def waitForParty(
+        partyId: PartyId,
+        synchronizerId: SynchronizerId,
+        hostingParticipant: ParticipantId,
+        queriedParticipant: ParticipantReference,
+    )(implicit consoleEnvironment: ConsoleEnvironment): Either[String, Unit] =
+      retryE(
+        synchronizersPartyIsRegisteredOn(hostingParticipant, queriedParticipant, partyId).contains(
+          synchronizerId
+        ),
+        show"Party $partyId did not appear for $queriedParticipant on synchronizer $synchronizerId}",
+      )
+  }
+
+  private def retryE(condition: => Boolean, message: => String)(implicit
+      consoleEnvironment: ConsoleEnvironment
+  ): Either[String, Unit] =
+    AdminCommandRunner
+      .retryUntilTrue(consoleEnvironment.commandTimeouts.ledgerCommand)(condition)
+      .toEither
+      .leftMap(_ => message)
 }
 
 private object TopologyTxFiltering {

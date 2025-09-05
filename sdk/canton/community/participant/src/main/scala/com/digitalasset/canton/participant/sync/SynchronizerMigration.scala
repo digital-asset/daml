@@ -220,7 +220,7 @@ class SynchronizerMigration(
         aliasManager
           .processHandshake(
             target.unwrap.synchronizerAlias,
-            targetSynchronizerInfo.unwrap.synchronizerId,
+            targetSynchronizerInfo.unwrap.psid,
           )
           .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
           .leftMap[SyncServiceError](err =>

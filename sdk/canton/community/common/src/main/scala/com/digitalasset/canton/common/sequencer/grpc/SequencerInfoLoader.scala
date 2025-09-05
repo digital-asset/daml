@@ -465,7 +465,7 @@ object SequencerInfoLoader {
   }
 
   final case class SequencerAggregatedInfo(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       sequencerConnections: SequencerConnections,
@@ -678,8 +678,7 @@ object SequencerInfoLoader {
             .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers.apply)
             .map(connections =>
               SequencerAggregatedInfo(
-                synchronizerId =
-                  validSequencerConnectionsNE.head1.synchronizerClientBootstrapInfo.psid,
+                psid = validSequencerConnectionsNE.head1.synchronizerClientBootstrapInfo.psid,
                 staticSynchronizerParameters =
                   validSequencerConnectionsNE.head1.staticSynchronizerParameters,
                 expectedSequencers = expectedSequencers,

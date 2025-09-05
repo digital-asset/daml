@@ -26,10 +26,7 @@ import com.digitalasset.canton.synchronizer.block.{
   SequencerDriverHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
-  SignedOrderingRequest,
-  SignedOrderingRequestOps,
-}
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.{
@@ -56,7 +53,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   CloseableActorSystem,
   PekkoModuleSystem,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.DefaultAuthenticationTokenManagerConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
+  DefaultAuthenticationTokenManagerConfig,
+  P2PConnectionManagementConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
@@ -106,6 +106,7 @@ import org.apache.pekko.stream.{KillSwitch, Materializer}
 
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 
@@ -123,6 +124,7 @@ final class BftBlockOrderer(
     sequencerSubscriptionInitialHeight: Long,
     override val orderingTimeFixMode: OrderingTimeFixMode,
     sequencerSnapshotInfo: Option[SequencerSnapshot.ImplementationSpecificInfo],
+    exitOnFatalFailures: Boolean,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
@@ -258,6 +260,8 @@ final class BftBlockOrderer(
       )
   }
 
+  private val isOrdererHealthy = new AtomicBoolean(true)
+
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(
     actorSystem,
     initResult,
@@ -279,6 +283,8 @@ final class BftBlockOrderer(
       "bftOrderingPekkoModuleSystem",
       createSystemInitializer(),
       createNetworkManager,
+      exitOnFatalFailures,
+      isOrdererHealthy,
       metrics,
       loggerFactory,
     )
@@ -317,7 +323,8 @@ final class BftBlockOrderer(
         logger.info("BFT P2P endpoints from configuration written to the store (overwriting mode)")
       } else {
         logger.info(
-          "Using initial BFT network endpoints already present in the store instead of the configuration"
+          "Using initial BFT network endpoints already present in the store (populated with the configuration " +
+            "if the store is empty) instead of the configuration"
         )
       }
     }
@@ -401,6 +408,9 @@ final class BftBlockOrderer(
       }
     new P2PGrpcConnectionManager(
       thisNode,
+      config.initialNetwork
+        .map(_.connectionManagementConfig)
+        .getOrElse(P2PConnectionManagementConfig()),
       p2pGrpcConnectionState,
       maybeGrpcNetworkingAuthenticationInitialState,
       getServerToClientAuthenticationEndpoint(config),
@@ -477,13 +487,18 @@ final class BftBlockOrderer(
   }
 
   override def send(
-      signedOrderingRequest: SignedOrderingRequest
+      signedSubmissionRequest: SignedSubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
-    logger.debug(s"sending submission")
+    logger.debug(
+      "sending submission " +
+        s"with message ID ${signedSubmissionRequest.content.sender} " +
+        s"from ${signedSubmissionRequest.content.sender} " +
+        s"to ${signedSubmissionRequest.content.batch.allRecipients} "
+    )
     sendToMempool(
       SendTag,
-      signedOrderingRequest.submissionRequest.sender,
-      signedOrderingRequest.toByteString,
+      signedSubmissionRequest.content.sender,
+      signedSubmissionRequest.toByteString,
     )
   }
 
@@ -500,11 +515,18 @@ final class BftBlockOrderer(
   }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
-    val isStorageActive = localStorage.isActive
-    val description = if (isStorageActive) None else Some("BFT orderer can't connect to database")
+    val isStorageInactive = !localStorage.isActive
+    val isOrdererUnhealthy = !isOrdererHealthy.get
+
+    val description =
+      if (isStorageInactive) Some("BFT orderer can't connect to database")
+      else if (isOrdererUnhealthy)
+        Some("BFT orderer encountered a problem, check the logs for errors")
+      else None
+
     Future.successful(
       SequencerDriverHealthStatus(
-        isActive = isStorageActive,
+        isActive = description.isEmpty,
         description,
       )
     )

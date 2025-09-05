@@ -152,7 +152,7 @@ tests damlc daml2js = testGroup "daml2js tests"
   where
     setupYarnEnvironment :: IO ()
     setupYarnEnvironment = do
-      setupYarnEnv "." (Workspaces ["daml2js"]) [DamlTypes, DamlLedger]
+      setupYarnEnv "." (Workspaces ["daml2js"]) [DamlTypes]
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)

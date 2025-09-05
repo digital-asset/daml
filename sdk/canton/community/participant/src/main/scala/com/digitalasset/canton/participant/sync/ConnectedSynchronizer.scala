@@ -707,9 +707,7 @@ class ConnectedSynchronizer(
           case Right(()) => ()
         }
 
-        pendingReassignments.lastOption.map(t =>
-          t.unassignmentTs -> t.sourceSynchronizer.map(_.logical)
-        )
+        pendingReassignments.lastOption.map(t => t.unassignmentTs -> t.sourcePSId.map(_.logical))
       }
 
       resF.map {

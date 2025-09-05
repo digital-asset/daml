@@ -248,15 +248,44 @@ object BlockSequencerConfig {
   }
 
   final case class CircuitBreakerConfig(
+      messages: CircuitBreakerByMessageTypeConfig = CircuitBreakerByMessageTypeConfig()
+  ) extends UniformCantonConfigValidation
+  object CircuitBreakerConfig {
+    implicit val circuitBreakerConfigValidator: CantonConfigValidator[CircuitBreakerConfig] =
+      CantonConfigValidatorDerivation[CircuitBreakerConfig]
+  }
+
+  private val default1 = IndividualCircuitBreakerConfig(maxFailures = 10)
+  private val default2 = IndividualCircuitBreakerConfig(maxFailures = 20)
+  private val default3 = IndividualCircuitBreakerConfig(maxFailures = 30)
+
+  final case class CircuitBreakerByMessageTypeConfig(
+      confirmationRequest: IndividualCircuitBreakerConfig = default1,
+      topology: IndividualCircuitBreakerConfig = default1,
+      timeProof: IndividualCircuitBreakerConfig = default2,
+      commitment: IndividualCircuitBreakerConfig = default2,
+      topUp: IndividualCircuitBreakerConfig = default2,
+      confirmationResponse: IndividualCircuitBreakerConfig = default3,
+      verdict: IndividualCircuitBreakerConfig = default3,
+      acknowledgement: IndividualCircuitBreakerConfig = default1,
+  ) extends UniformCantonConfigValidation
+  object CircuitBreakerByMessageTypeConfig {
+    implicit val circuitBreakerByMessageTypeConfigValidator
+        : CantonConfigValidator[CircuitBreakerByMessageTypeConfig] =
+      CantonConfigValidatorDerivation[CircuitBreakerByMessageTypeConfig]
+  }
+
+  final case class IndividualCircuitBreakerConfig(
       allowedBlockDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
       maxFailures: Int = 10,
       resetTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
       exponentialBackoffFactor: Double = 1.0,
       maxResetTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(36500),
   ) extends UniformCantonConfigValidation
-  object CircuitBreakerConfig {
-    implicit val circuitBreakerConfigValidator: CantonConfigValidator[CircuitBreakerConfig] =
-      CantonConfigValidatorDerivation[CircuitBreakerConfig]
+  object IndividualCircuitBreakerConfig {
+    implicit val individualCircuitBreakerConfigValidator
+        : CantonConfigValidator[IndividualCircuitBreakerConfig] =
+      CantonConfigValidatorDerivation[IndividualCircuitBreakerConfig]
   }
 }
 

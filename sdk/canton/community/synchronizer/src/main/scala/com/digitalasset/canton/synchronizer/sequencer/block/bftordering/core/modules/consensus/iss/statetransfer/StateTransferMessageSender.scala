@@ -50,7 +50,7 @@ final class StateTransferMessageSender[E <: Env[E]](
       to: BftNodeId,
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(
-      s"State transfer: sending a block transfer request for epoch ${blockTransferRequest.message.epoch} to '$to'"
+      s"Sending a block transfer request for epoch ${blockTransferRequest.message.epoch} to '$to'"
     )
     consensusDependencies.p2pNetworkOut.asyncSend(
       P2PNetworkOut.send(wrapSignedMessage(blockTransferRequest), to)
@@ -68,14 +68,14 @@ final class StateTransferMessageSender[E <: Env[E]](
     val latestCompletedEpochNumber = latestCompletedEpoch.info.number
     if (latestCompletedEpochNumber < forEpoch) {
       logger.info(
-        s"State transfer: nothing to transfer to '$to' for epoch $forEpoch, " +
+        s"Nothing to state transfer to '$to' for epoch $forEpoch, " +
           s"latest locally completed epoch is $latestCompletedEpochNumber"
       )
       val response =
         StateTransferMessage.BlockTransferResponse.create(commitCertificate = None, from = thisNode)
       sendResponse(response, activeCryptoProvider, to)
     } else {
-      logger.info(s"State transfer: loading blocks from epoch $forEpoch (length=$epochLength)")
+      logger.debug(s"Loading blocks from epoch $forEpoch (length=$epochLength)")
       context.pipeToSelf(
         // We load only one epoch at a time to avoid OOM errors.
         epochStore.loadCompleteBlocks(forEpoch, forEpoch)
@@ -91,7 +91,7 @@ final class StateTransferMessageSender[E <: Env[E]](
           val commitCerts = blocks.map(_.commitCertificate)
           val startBlockNumber = blocks.map(_.blockNumber).minOption
           logger.info(
-            s"State transfer: sending block responses from epoch $forEpoch (start block number = $startBlockNumber) to '$to'"
+            s"Sending block transfer responses from epoch $forEpoch (start block number = $startBlockNumber) to '$to'"
           )
           commitCerts.foreach { commitCert =>
             // We send only one block at a time to avoid exceeding the max gRPC message size.

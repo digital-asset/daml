@@ -131,25 +131,6 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
     context.abort(failure)
   }
 
-  // Aborting initialization in Canton shouldn't kill the whole process, as it may contain several nodes,
-  //  but rather only the module/sequencer.
-  final protected def abortInit(
-      msg: String
-  ): Nothing = {
-    // Ensure that the log contains the failure, as exceptions may be swallowed by the actor framework
-    logError(msg)(TraceContext.empty)
-    sys.error(msg)
-  }
-
-  final protected def abortInit(
-      msg: String,
-      failure: Throwable,
-  ): Nothing = {
-    // Ensure that the log contains the failure, as exceptions may be swallowed by the actor framework
-    logError(msg, failure)(TraceContext.empty)
-    throw failure
-  }
-
   private def logError(msg: String, failure: Throwable)(implicit
       traceContext: TraceContext
   ): Unit =

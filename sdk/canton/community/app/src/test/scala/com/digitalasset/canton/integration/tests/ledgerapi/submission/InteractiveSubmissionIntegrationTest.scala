@@ -18,7 +18,7 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
 import com.daml.ledger.api.v2.value.Value
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.javaapi.data.codegen.ContractId as CodeGenCID
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.SigningKeyUsage
@@ -33,8 +33,8 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.interactive.ExternalPartyUtils.ExternalParty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.topology.ExternalParty
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import monocle.Optional
@@ -58,11 +58,13 @@ trait InteractiveSubmissionIntegrationTestSetup
       res => res.copy(preparedTransaction = Some(tx))
     )
 
-  protected val preparedTxResponseInputContractsOpt = preparedSubmissionResponseOpt
-    .andThen(preparedTxMetadataOpt)
-    .andThen(
-      GenLens[Metadata](_.inputContracts)
-    )
+  protected val preparedTxResponseInputContractsOpt
+      : Optional[PrepareSubmissionResponse, Seq[Metadata.InputContract]] =
+    preparedSubmissionResponseOpt
+      .andThen(preparedTxMetadataOpt)
+      .andThen(
+        GenLens[Metadata]((m: Metadata) => m.inputContracts)
+      )
 
   protected var aliceE: ExternalParty = _
 
@@ -184,7 +186,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
     "create a transaction with multiple nodes" in { implicit env =>
       val createdEvent = externalSubmit(
-        DummyFactory.create(aliceE.primitiveId),
+        DummyFactory.create(aliceE.toProtoPrimitive),
         aliceE,
         epn(env),
       ).events.loneElement.getCreated
@@ -264,7 +266,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
           val pn = if (epnIsCpn) cpn(env) else epn(env)
           val expectedSize = if (expectsEvents) 1L else 0L
           val transaction = pn.ledger_api.interactive_submission
-            .executeAndWaitForTransaction(
+            .execute_and_wait_for_transaction(
               prepared.preparedTransaction.value,
               signTxAs(prepared, aliceE),
               UUID.randomUUID().toString,
@@ -367,7 +369,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
       // Now exercise the archiveMe choice with explicit disclosure using contract1
       val archiveCmd = new T.TrailingNone.ContractId(contract1.contractId)
-        .exerciseArchiveMe(aliceE.primitiveId)
+        .exerciseArchiveMe(aliceE.toProtoPrimitive)
 
       externalSubmit(
         archiveCmd,
@@ -386,7 +388,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
       // And now with contract2, using the cpn to prepare as well so we don't need to explicitly disclose the contract
       val archiveCmd2 = new T.TrailingNone.ContractId(contract2.contractId)
-        .exerciseArchiveMe(aliceE.primitiveId)
+        .exerciseArchiveMe(aliceE.toProtoPrimitive)
 
       externalSubmit(
         archiveCmd2,
@@ -659,8 +661,8 @@ class InteractiveSubmissionIntegrationTestTimeouts
     env.sequencer1.topology.synchronizer_parameters.propose_update(
       env.sequencer1.synchronizer_id,
       _.update(
-        confirmationResponseTimeout = NonNegativeFiniteDuration.ofSeconds(2),
-        mediatorReactionTimeout = NonNegativeFiniteDuration.ofSeconds(2),
+        confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(2),
+        mediatorReactionTimeout = config.NonNegativeFiniteDuration.ofSeconds(2),
       ),
     )
 

@@ -242,19 +242,6 @@ private[lf] object Pretty {
                 case None => text("by template")
                 case Some(interfaceId) => text("by interface") & prettyTypeConId(interfaceId)
               })
-          case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
-            text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
-              text("Expected contract of type") & prettyTypeConId(expected) & (
-                if (accepted.nonEmpty)
-                  intercalate(comma + lineOrSpace, accepted.map(prettyTypeConId))
-                    .tightBracketBy(text("or one of its ancestors: ("), char(')'))
-                else
-                  Doc.empty
-              ) & text(
-                "but got"
-              ) & prettyTypeConId(
-                actual
-              )
           case Dev.TranslationError(translationError) =>
             translationError match {
               case TranslationError.LookupError(lookupError) => text(lookupError.pretty)
@@ -265,7 +252,12 @@ private[lf] object Pretty {
                 text("non-suffixed V1 Contract IDs are forbidden")
               case TranslationError.NonSuffixedV2ContractId(_) =>
                 text("non-suffixed V2 Contract IDs are forbidden")
+              case TranslationError.InvalidValue(value, message) =>
+                text("invalid value") & prettyValue(verbose = true)(value) / text(message)
             }
+          case Dev.AuthenticationError(coid, value, message) =>
+            text("Authentication error for contract") & prettyContractId(coid) /
+              text("with argument") & prettyValue(verbose = false)(value) / text(message)
         }
     }
   }

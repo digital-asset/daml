@@ -13,10 +13,11 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.SuppressionRule.FullSuppression
-import com.digitalasset.canton.logging.{LogEntry, SuppressionRule, TracedLogger}
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SynchronizerSequencingTestUtils.*
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.store.*
@@ -42,9 +43,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, SinkQueueWithCancel, Source}
 import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
-import org.scalatest.{Assertion, FutureOutcome}
-import org.slf4j.event.Level
 
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -125,6 +125,7 @@ class SequencerReaderTest
       sequencerMember = topologyClientMember,
       blockSequencerMode = true,
       loggerFactory = loggerFactory,
+      sequencerMetrics = SequencerMetrics.noop("sequencer-reader-test"),
     )
     val instanceIndex: Int = 0
     // create a spy so we can add verifications on how many times methods were called
@@ -158,25 +159,22 @@ class SequencerReaderTest
         timestampInclusive: Option[CantonTimestamp],
         take: Int,
     ): FutureUnlessShutdown[Seq[SequencedSerializedEvent]] =
-      loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
-        FutureUnlessShutdown.outcomeF(
-          valueOrFail(reader.read(member, timestampInclusive).failOnShutdown)(
-            s"Events source for $member"
-          ) flatMap { eventSource =>
-            eventSource
-              .take(take.toLong)
-              .idleTimeout(defaultTimeout)
-              .map {
-                case Right(event) => event
-                case Left(err) =>
-                  fail(
-                    s"The DatabaseSequencer's SequencerReader does not produce tombstone-errors: $err"
-                  )
-              }
-              .runWith(Sink.seq)
-          }
-        ),
-        ignoreWarningsFromLackOfTopologyUpdates,
+      FutureUnlessShutdown.outcomeF(
+        valueOrFail(reader.read(member, timestampInclusive).failOnShutdown)(
+          s"Events source for $member"
+        ) flatMap { eventSource =>
+          eventSource
+            .take(take.toLong)
+            .idleTimeout(defaultTimeout)
+            .map {
+              case Right(event) => event
+              case Left(err) =>
+                fail(
+                  s"The DatabaseSequencer's SequencerReader does not produce tombstone-errors: $err"
+                )
+            }
+            .runWith(Sink.seq)
+        }
       )
 
     def readWithQueueFUS(
@@ -223,19 +221,10 @@ class SequencerReaderTest
         .idleTimeout(defaultTimeout)
         .runWith(Sink.queue())
 
-    // We don't update the topology client, so we expect to get a couple of warnings about unknown topology snapshots
-    private def ignoreWarningsFromLackOfTopologyUpdates(entries: Seq[LogEntry]): Assertion =
-      forEvery(entries) {
-        _.warningMessage should fullyMatch regex ".*Using approximate topology snapshot .* for desired timestamp.*"
-      }
-
     def pullFromQueue(
         queue: SinkQueueWithCancel[SequencedSerializedEvent]
     ): FutureUnlessShutdown[Option[SequencedSerializedEvent]] =
-      loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
-        FutureUnlessShutdown.outcomeF(queue.pull()),
-        ignoreWarningsFromLackOfTopologyUpdates,
-      )
+      FutureUnlessShutdown.outcomeF(queue.pull())
 
     def waitFor(duration: FiniteDuration): FutureUnlessShutdown[Unit] =
       FutureUnlessShutdown.outcomeF {

@@ -31,8 +31,6 @@ import scala.collection.mutable
   *   - The contract id of a create node is not referenced before the node.
   *   - The contract id of a rolled back create node is not referenced outside its rollback scope in
   *     an active-contracts position.
-  *   - The unsuffixed local contract IDs of create nodes are unique among all local prefixes that
-  *     appear in the transaction.
   *   - Every action node has at least one signatory.
   *   - Every signatory is also a stakeholder.
   *   - Fetch actors are defined.
@@ -236,14 +234,9 @@ object WellFormedTransaction {
     var rbContext = RollbackContext.empty
     val referenced = mutable.Map.empty[LfContractId, LfNodeId]
     val created = mutable.Map.empty[LfContractId, (LfNodeId, RollbackScope)]
-    val createdBareLocals = mutable.Map.empty[LocalContractId, LfNodeId]
-
-    // used only in stages without suffixes
-    // TODO(#23971) Decide whether this check still makes sense as it's stricter than what Daml Engine enforces nowadays.
-    val referencedLocalContracts = mutable.Map.empty[LocalContractId, LfNodeId]
 
     val suffixViolations = mutable.ListBuffer.newBuilder[LfNodeId]
-    val absoluteSuffixViolatons = mutable.ListBuffer.newBuilder[LfContractId]
+    val absoluteSuffixViolations = mutable.ListBuffer.newBuilder[LfContractId]
 
     // Check that references to a locally created contract are within the rollback scope of the creation.
     // Must only be checked for inputs to a node because reference inside an LF value can happen,
@@ -265,52 +258,34 @@ object WellFormedTransaction {
 
     def addReference(nodeId: LfNodeId)(
         refId: LfContractId
-    ): Checked[Nothing, String, Unit] = {
+    ): Unit = {
       referenced += (refId -> nodeId)
-
-      val localPrefix = LocalContractId.extractFromContractId(refId)
-      if (!stage.withSuffixes)
-        referencedLocalContracts += (localPrefix -> nodeId)
       if (stage.onlyAbsoluteSuffixes && !refId.isAbsolute)
-        absoluteSuffixViolatons += refId
-      if (!refId.isLocal) {
-        Checked.fromEitherNonabort(())(
-          createdBareLocals
-            .get(localPrefix)
-            .toLeft(())
-            .leftMap(createNodeId =>
-              s"Local contract Id $localPrefix created in $createNodeId is not fresh due to contract Id ${refId.coid} in $nodeId"
-            )
-        )
-      } else Checked.unit
+        absoluteSuffixViolations += refId
     }
 
-    def addReferencesByLfValue(
-        nodeId: LfNodeId,
-        refIds: LazyList[LfContractId],
-    ): Checked[Nothing, String, Unit] =
-      refIds.traverse_(addReference(nodeId))
+    def addReferencesByLfValue(nodeId: LfNodeId, refIds: LazyList[LfContractId]): Unit =
+      refIds.foreach(addReference(nodeId))
 
     LfTransactionUtil
       .foldExecutionOrderM(tx.transaction, ()) { (nodeId, nodeExercise, _) =>
         val argRefs = nodeExercise.chosenValue.cids
+        addReference(nodeId)(nodeExercise.targetCoid)
+        addReferencesByLfValue(nodeId, argRefs.to(LazyList))
         checkRollbackVisibility(nodeId)(nodeExercise.targetCoid)
-          .product(addReference(nodeId)(nodeExercise.targetCoid))
-          .product(addReferencesByLfValue(nodeId, argRefs.to(LazyList)))
-          .void
       } {
         case (nodeId, nf: LfNodeFetch, _) =>
+          addReference(nodeId)(nf.coid)
           checkRollbackVisibility(nodeId)(nf.coid)
-            .product(addReference(nodeId)(nf.coid))
-            .void
         case (nodeId, lookup: LfNodeLookupByKey, _) =>
           lookup.result.traverse_ { cid =>
-            checkRollbackVisibility(nodeId)(cid).product(addReference(nodeId)(cid).void)
+            addReference(nodeId)(cid)
+            checkRollbackVisibility(nodeId)(cid)
           }
         case (nodeId, nc: LfNodeCreate, _) =>
           val argRefs = nc.arg.cids
+          addReferencesByLfValue(nodeId, argRefs.to(LazyList))
           for {
-            _ <- addReferencesByLfValue(nodeId, argRefs.to(LazyList))
             _ <- referenced.get(nc.coid).traverse_ { otherNodeId =>
               Checked.continue(
                 s"Contract id ${nc.coid.coid} created in node $nodeId is referenced before in $otherNodeId"
@@ -323,22 +298,11 @@ object WellFormedTransaction {
                 )
             }
             _ = if (nc.coid.isLocal == stage.withSuffixes) suffixViolations += nodeId else ()
-            _ <-
-              if (nc.coid.isLocal && !stage.withSuffixes) {
-                val localContractId = LocalContractId.extractFromContractId(nc.coid)
-                createdBareLocals += (localContractId -> nodeId)
-                referencedLocalContracts
-                  .get(localContractId)
-                  .traverse_ { otherNodeId =>
-                    Checked.continue(
-                      s"Local contract Id $localContractId created in $nodeId is not fresh due to $otherNodeId"
-                    )
-                  }
-              } else Checked.result(())
           } yield ()
       } { (nodeId, ne, _) =>
         val resultRefs = ne.exerciseResult.map(_.cids).getOrElse(Set.empty)
         addReferencesByLfValue(nodeId, resultRefs.to(LazyList))
+        Checked.unit
       } { (_, _, _) =>
         rbContext = rbContext.enterRollback
         Checked.unit
@@ -360,7 +324,7 @@ object WellFormedTransaction {
         )
       }
       .flatMap { _ =>
-        val absoluteSuffixProblems = absoluteSuffixViolatons.result()
+        val absoluteSuffixProblems = absoluteSuffixViolations.result()
         Checked.fromEitherNonabort(())(
           Either.cond(
             absoluteSuffixProblems.isEmpty,

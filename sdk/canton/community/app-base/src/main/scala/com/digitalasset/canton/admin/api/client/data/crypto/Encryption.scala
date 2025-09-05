@@ -39,10 +39,6 @@ sealed trait EncryptionAlgorithmSpec extends Product with Serializable with Pret
 }
 
 object EncryptionAlgorithmSpec {
-  case object EciesHkdfHmacSha256Aes128Gcm extends EncryptionAlgorithmSpec {
-    override val name: String = "ECIES_HMAC256_AES128-GCM"
-  }
-
   case object EciesHkdfHmacSha256Aes128Cbc extends EncryptionAlgorithmSpec {
     override val name: String = "ECIES_HMAC256_AES128-CBC"
   }

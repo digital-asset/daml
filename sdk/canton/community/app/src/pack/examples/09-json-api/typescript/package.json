@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "prebuild" : "npm run generate_api && npm run generate_daml_bindings",
+    "build": "npx tsc",
     "compile": "npx tsc",
     "scenario": "node -r tsconfig-paths/register dist/index.js",
     "generate_api": "npx openapi-typescript openapi.yaml -o ./generated/api/ledger-api.d.ts",
@@ -17,7 +19,6 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@daml/ledger": "^2.10.0",
     "@daml/types": "^2.10.0",
     "@types/lodash": "^4.17.16",
     "cli-table3": "^0.6.5",

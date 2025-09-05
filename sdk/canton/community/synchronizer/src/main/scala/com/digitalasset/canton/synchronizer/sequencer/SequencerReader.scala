@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.order.*
 import cats.syntax.traverse.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
@@ -304,6 +305,10 @@ class SequencerReader(
       topologyClientMemberId: SequencerMemberId,
       override protected val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
+
+    private implicit val metricsContext: MetricsContext = MetricsContext(
+      "subscriber" -> member.toProtoPrimitive
+    )
 
     import SequencerReader.*
 

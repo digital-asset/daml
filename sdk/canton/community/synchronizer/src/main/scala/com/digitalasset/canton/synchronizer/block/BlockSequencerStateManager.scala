@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.Success
 
 /** Thrown if the ephemeral state does not match what is expected in the persisted store. This is
   * not expected to be able to occur, but if it does likely means that the ephemeral state is
@@ -139,7 +138,7 @@ class BlockSequencerStateManager(
           logger.debug(
             s"Processing block $height with ${blockEvents.events.size} block events.${blockEvents.events
                 .map(_.value)
-                .collectFirst { case LedgerBlockEvent.Send(timestamp, _, _) =>
+                .collectFirst { case LedgerBlockEvent.Send(timestamp, _, _, _) =>
                   s" First timestamp in block: $timestamp"
                 }
                 .getOrElse("")}"
@@ -171,7 +170,7 @@ class BlockSequencerStateManager(
       dbSequencerIntegration: SequencerIntegration
   ): Flow[Traced[BlockUpdate], Traced[CantonTimestamp], NotUsed] = {
     implicit val traceContext = TraceContext.empty
-    Flow[Traced[BlockUpdate]].statefulMapAsync(getHeadState) { (priorHead, update) =>
+    Flow[Traced[BlockUpdate]].statefulMapAsyncUSAndDrain(getHeadState) { (priorHead, update) =>
       implicit val traceContext = update.traceContext
       val currentBlockNumber = priorHead.block.height + 1
       val fut = update.value match {
@@ -191,7 +190,6 @@ class BlockSequencerStateManager(
       }
       fut
         .map(newHead => newHead -> Traced(newHead.block.lastTs))
-        .failOnShutdownToAbortException("BlockSequencerStateManagerBase.applyBlockUpdate")
     }
   }
 
@@ -288,11 +286,7 @@ class BlockSequencerStateManager(
       newHead
     }).valueOr(e =>
       ErrorUtil.internalError(new RuntimeException(s"handleChunkUpdate failed with error: $e"))
-    ).transform {
-      case Success(UnlessShutdown.AbortedDueToShutdown) =>
-        Success(UnlessShutdown.Outcome(priorHead))
-      case other => other
-    }
+    )
   }
 
   private def handleComplete(priorHead: HeadState, newBlock: BlockInfo)(implicit

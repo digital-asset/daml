@@ -9,11 +9,11 @@ import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   CantonConfigValidator,
-  NonNegativeFiniteDuration,
   ProcessingTimeout,
   UniformCantonConfigValidation,
 }
@@ -21,6 +21,7 @@ import com.digitalasset.canton.crypto.{Fingerprint, Nonce, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient}
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthentication.{
@@ -36,7 +37,14 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.ErrorKind.{FatalErrorKind, TransientErrorKind}
-import com.digitalasset.canton.util.retry.{ErrorKind, ExceptionRetryPolicy, Pause}
+import com.digitalasset.canton.util.retry.{
+  Backoff,
+  ErrorKind,
+  ExceptionRetryPolicy,
+  Jitter,
+  Pause,
+  RetryWithDelay,
+}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.{Status, StatusRuntimeException}
 
@@ -48,11 +56,24 @@ import scala.concurrent.ExecutionContext
   *   how much time before the auth token expires should we fetch a new one?
   */
 final case class AuthenticationTokenManagerConfig(
-    refreshAuthTokenBeforeExpiry: NonNegativeFiniteDuration =
+    refreshAuthTokenBeforeExpiry: config.NonNegativeFiniteDuration =
       AuthenticationTokenManagerConfig.defaultRefreshAuthTokenBeforeExpiry,
     retries: NonNegativeInt = AuthenticationTokenManagerConfig.defaultRetries,
-    pauseRetries: NonNegativeFiniteDuration = AuthenticationTokenManagerConfig.defaultPauseRetries,
+    minRetryInterval: config.NonNegativeFiniteDuration =
+      AuthenticationTokenManagerConfig.defaultMinRetryInterval,
+    backoff: Option[AuthenticationTokenManagerExponentialBackoffConfig] = None,
 ) extends UniformCantonConfigValidation
+
+final case class AuthenticationTokenManagerExponentialBackoffConfig(
+    base: NonNegativeInt = NonNegativeInt.tryCreate(2),
+    maxRetryInterval: config.NonNegativeFiniteDuration =
+      AuthenticationTokenManagerExponentialBackoffConfig.defaultMaxRetryInterval,
+    jitter: Option[AuthenticationTokenManagerExponentialBackoffJitterConfig] =
+      AuthenticationTokenManagerExponentialBackoffConfig.defaultJitter,
+) extends UniformCantonConfigValidation
+
+sealed trait AuthenticationTokenManagerExponentialBackoffJitterConfig
+    extends UniformCantonConfigValidation
 
 object AuthenticationTokenManagerConfig {
   implicit val authenticationTokenManagerConfigCantonConfigValidator
@@ -60,10 +81,32 @@ object AuthenticationTokenManagerConfig {
     import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
     CantonConfigValidatorDerivation[AuthenticationTokenManagerConfig]
   }
-  val defaultRefreshAuthTokenBeforeExpiry: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(20)
-  val defaultRetries: NonNegativeInt = NonNegativeInt.tryCreate(20)
-  val defaultPauseRetries: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(500)
+  private val defaultRefreshAuthTokenBeforeExpiry: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofSeconds(20)
+  private val defaultRetries: NonNegativeInt = NonNegativeInt.tryCreate(20)
+  private val defaultMinRetryInterval: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofMillis(500)
+}
+
+object AuthenticationTokenManagerExponentialBackoffConfig {
+  implicit val authenticationTokenManagerExponentialBackoffConfigValidator
+      : CantonConfigValidator[AuthenticationTokenManagerExponentialBackoffConfig] = {
+    import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[AuthenticationTokenManagerExponentialBackoffConfig]
+  }
+  private val defaultMaxRetryInterval: config.NonNegativeFiniteDuration =
+    config.NonNegativeFiniteDuration.ofMinutes(2)
+  private val defaultJitter: Option[AuthenticationTokenManagerExponentialBackoffJitterConfig] =
+    None
+}
+
+object AuthenticationTokenManagerExponentialBackoffJitterConfig {
+  final case object Equal extends AuthenticationTokenManagerExponentialBackoffJitterConfig
+  final case object Full extends AuthenticationTokenManagerExponentialBackoffJitterConfig
+
+  implicit val authenticationTokenManagerExponentialBackoffJitterConfigValidator
+      : CantonConfigValidator[AuthenticationTokenManagerExponentialBackoffJitterConfig] =
+    CantonConfigValidatorDerivation[AuthenticationTokenManagerExponentialBackoffJitterConfig]
 }
 
 /** Fetch an authentication token from the sequencer by using the sequencer authentication service
@@ -81,40 +124,73 @@ class AuthenticationTokenProvider(
     with FlagCloseable {
 
   def generateToken(
-      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub]
+      endpoint: Endpoint,
+      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] = {
     def generateTokenET: FutureUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]] =
       synchronizeWithClosing(functionFullName) {
         (for {
-          challenge <- getChallenge(authenticationClient)
+          challenge <- getChallenge(endpoint, authenticationClient)
           nonce <- Nonce
             .fromProtoPrimitive(challenge.nonce)
             .leftMap(err => Status.INVALID_ARGUMENT.withDescription(s"Invalid nonce: $err"))
             .toEitherT[FutureUnlessShutdown]
-          token <- authenticate(authenticationClient, nonce, challenge.fingerprints)
+          token <- authenticate(endpoint, authenticationClient, nonce, challenge.fingerprints)
         } yield token).value
       }
 
-    EitherT {
-      Pause(
-        logger,
-        this,
-        maxRetries = config.retries.value,
-        delay = config.pauseRetries.underlying,
-        operationName = "generate sequencer authentication token",
-      ).unlessShutdown(generateTokenET, AuthenticationTokenProvider.exceptionRetryPolicy)
-    }
+    val operation = "generate sequencer authentication token"
+    val maxRetriesInt = config.retries.value
+    val minRetryDuration = config.minRetryInterval.underlying
+    val retryWithDelay =
+      config.backoff.fold[RetryWithDelay](
+        Pause(
+          logger,
+          this,
+          maxRetries = maxRetriesInt,
+          delay = minRetryDuration,
+          operation,
+        )
+      ) { backoffConfig =>
+        val maxRetryDuration = backoffConfig.maxRetryInterval.underlying
+        val baseInt = backoffConfig.base.unwrap
+        val jitter =
+          backoffConfig.jitter.fold(
+            Jitter.none(maxRetryDuration, baseInt)
+          ) {
+            case AuthenticationTokenManagerExponentialBackoffJitterConfig.Equal =>
+              Jitter.equal(maxRetryDuration, base = baseInt)
+            case AuthenticationTokenManagerExponentialBackoffJitterConfig.Full =>
+              Jitter.full(maxRetryDuration, base = baseInt)
+          }
+        Backoff(
+          logger,
+          this,
+          maxRetries = maxRetriesInt,
+          initialDelay = minRetryDuration,
+          maxDelay = maxRetryDuration,
+          operationName = operation,
+        )(jitter)
+      }
+
+    EitherT(
+      retryWithDelay.unlessShutdown(
+        generateTokenET,
+        AuthenticationTokenProvider.exceptionRetryPolicy,
+      )
+    )
   }
 
   private def getChallenge(
-      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub]
+      endpoint: Endpoint,
+      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, ChallengeResponse] =
     CantonGrpcUtil
-      .sendGrpcRequest(authenticationClient, "sequencer-authentication-channel")(
+      .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
         _.challenge(
           ChallengeRequest(
             member.toProtoPrimitive,
@@ -130,6 +206,7 @@ class AuthenticationTokenProvider(
       .leftMap(_.status)
 
   private def authenticate(
+      endpoint: Endpoint,
       authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
       nonce: Nonce,
       fingerprintsP: Seq[String],
@@ -158,7 +235,7 @@ class AuthenticationTokenProvider(
         )
         .leftMap(err => Status.INTERNAL.withDescription(err.toString))
       response <- CantonGrpcUtil
-        .sendGrpcRequest(authenticationClient, "sequencer-authentication-channel")(
+        .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
           _.authenticate(
             AuthenticateRequest(
               member = member.toProtoPrimitive,
@@ -187,14 +264,15 @@ class AuthenticationTokenProvider(
     } yield token
 
   def logout(
-      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub]
+      endpoint: Endpoint,
+      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     for {
       // Generate a new token to use as "entry point" to invalidate all tokens
-      tokenWithExpiry <- generateToken(authenticationClient)
+      tokenWithExpiry <- generateToken(endpoint, authenticationClient)
       token = tokenWithExpiry.token
       _ <- CantonGrpcUtil
-        .sendGrpcRequest(authenticationClient, "sequencer-authentication-channel")(
+        .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
           _.logout(LogoutRequest(token.toProtoPrimitive)),
           "logout from sequencer",
           timeouts.network.duration,
