@@ -258,7 +258,7 @@ findHome path = do
 packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSummary)
 packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
-    package <- lift $ readPackageConfig $ toProjectPath path
+    package <- lift $ readPackageConfig $ toPackagePath path
     dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
     directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] package
     let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps

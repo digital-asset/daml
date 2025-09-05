@@ -134,9 +134,9 @@ getDefaultArgs LedgerFlags { fSslConfigM
                            , fTokFileM
                            , fMaxReceiveLengthM
                            } = do
-  host <- fromMaybeM getProjectLedgerHost fHostM
-  port <- fromMaybeM getProjectLedgerPort fPortM
-  pTokFileM <- getProjectLedgerAccessToken
+  host <- fromMaybeM getPackageLedgerHost fHostM
+  port <- fromMaybeM getPackageLedgerPort fPortM
+  pTokFileM <- getPackageLedgerAccessToken
   tokM <- getTokFromFile (fTokFileM <|> pTokFileM)
   return $
     LedgerArgs
@@ -180,7 +180,7 @@ runLedgerAllocateParties flags partiesArg = do
     parties <-
       if notNull partiesArg
         then pure partiesArg
-        else getProjectParties
+        else getPackageParties
     putStrLn $ "Checking party allocation at " <> showHostAndPort args
     mapM_ (allocatePartyIfRequired args) parties
     where

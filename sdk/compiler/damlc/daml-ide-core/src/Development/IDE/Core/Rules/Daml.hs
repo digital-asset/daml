@@ -638,10 +638,10 @@ generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts = do
     defineNoFile $ \GeneratePackageMapIO -> do
         f <- liftIO $ do
-            findProjectRoot <- memoIO findProjectRoot
+            findPackageRoot <- memoIO findPackageRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
             pure $ \file -> do
-                mPackageRoot <- liftIO (findProjectRoot file)
+                mPackageRoot <- liftIO (findPackageRoot file)
                 liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mPackageRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do

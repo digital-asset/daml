@@ -177,8 +177,8 @@ isDamlYamlForPackage package =
     _ -> False
 
 isDamlYamlContentForPackage :: T.Text -> Either ConfigError Bool
-isDamlYamlContentForPackage projectContent =
-  isDamlYamlForPackage <$> readPackageConfigPure projectContent
+isDamlYamlContentForPackage packageContent =
+  isDamlYamlForPackage <$> readPackageConfigPure packageContent
 
 withPackageConfig :: PackagePath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig packagePath f = do

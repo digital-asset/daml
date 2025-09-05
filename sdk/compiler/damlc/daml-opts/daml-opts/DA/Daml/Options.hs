@@ -10,7 +10,7 @@ module DA.Daml.Options
     ( checkDFlags
     , expandSdkPackages
     , fakeDynFlags
-    , findProjectRoot
+    , findPackageRoot
     , generatePackageState
     , memoIO
     , mkPackageFlag
@@ -128,21 +128,21 @@ damlKeywords =
 
 getDamlGhcSession :: Action (FilePath -> Action HscEnvEq)
 getDamlGhcSession = do
-    findProjectRoot <- liftIO $ memoIO findProjectRoot
+    findPackageRoot <- liftIO $ memoIO findPackageRoot
     pure $ \file -> do
-        mbRoot <- liftIO (findProjectRoot file)
+        mbRoot <- liftIO (findPackageRoot file)
         useNoFile_ (DamlGhcSession $ toNormalizedFilePath' <$> mbRoot)
 
 -- | Find the daml.yaml given a starting file or directory.
-findProjectRoot :: FilePath -> IO (Maybe FilePath)
-findProjectRoot file = do
+findPackageRoot :: FilePath -> IO (Maybe FilePath)
+findPackageRoot file = do
     -- TODO[SW]: This logic appears to be wrong, doesFileExist (takeDirectory file) will always be false for wellformed paths.
     isFile <- doesFileExist (takeDirectory file)
     let dir = if isFile then takeDirectory file else file
-    findM hasProjectConfig (ascendants dir)
+    findM hasPackageConfig (ascendants dir)
   where
-    hasProjectConfig :: FilePath -> IO Bool
-    hasProjectConfig p = doesFileExist (p </> packageConfigName)
+    hasPackageConfig :: FilePath -> IO Bool
+    hasPackageConfig p = doesFileExist (p </> packageConfigName)
 
 
 -- | Memoize an IO function, with the characteristics:

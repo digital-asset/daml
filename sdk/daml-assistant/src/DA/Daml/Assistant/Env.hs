@@ -206,12 +206,12 @@ getPackagePath (LookForPackagePath False) = pure Nothing
 getPackagePath (LookForPackagePath True) = wrapErr "Detecting daml package." $ do
         pathM <- overrideWithEnvVarsMaybe @SomeException [packagePathEnvVar, projectPathEnvVar] makeAbsolute Right $ do
             cwd <- getCurrentDirectory
-            findM hasProjectConfig (ascendants cwd)
+            findM hasPackageConfig (ascendants cwd)
         pure (PackagePath <$> pathM)
 
     where
-        hasProjectConfig :: FilePath -> IO Bool
-        hasProjectConfig p = doesFileExist (p </> packageConfigName)
+        hasPackageConfig :: FilePath -> IO Bool
+        hasPackageConfig p = doesFileExist (p </> packageConfigName)
 
 -- | Calculate the current SDK version and path.
 --

@@ -1280,7 +1280,7 @@ runScriptsInAllPackages
 runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
   withCurrentTempDir $ do
-    for_ packages $ writeAndBuildProject lfVersion damlc
+    for_ packages $ writeAndBuildPackage lfVersion damlc
     opts <- withPackageConfig mainPackage $ \ PackageConfigFields{..} -> do
       pure $ (defaultOptions (Just lfVersion)) 
         { optMbPackageName = Just pName
@@ -1302,10 +1302,10 @@ locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
   where
     prefix = mainWorkspace </> "daml-script" </> "daml"
 
-writeAndBuildProject :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
-writeAndBuildProject lfVersion damlc (packagePath, projectFiles) = do
+writeAndBuildPackage :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
+writeAndBuildPackage lfVersion damlc (packagePath, packageFiles) = do
   createDirectory packagePath
-  for_ projectFiles $ \(file, fileContent) ->
+  for_ packageFiles $ \(file, fileContent) ->
     writeFile (packagePath </> file) $ T.unpack $ T.unlines fileContent
   callProcessSilent damlc
     [ "build"

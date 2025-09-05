@@ -87,7 +87,7 @@ runNewInternal assistantName sdkVersion targetFolder templateNameM = do
     -- Ensure we are not creating a project inside another project.
     targetFolderAbs <- makeAbsolute targetFolder
 
-    damlRootM <- findDamlProjectRoot targetFolderAbs
+    damlRootM <- findDamlPackageRoot targetFolderAbs
     whenJust damlRootM $ \damlRoot -> do
         hPutStr stderr $ unlines
             [ "Target directory is inside existing Daml project " <> show damlRoot
@@ -147,8 +147,8 @@ setWritable f = do
     setPermissions f p { writable = True }
 
 -- Copied from Helper.Util to avoid its much larger dependency set. To be cleaned up once Daml Helper is removed.
-findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
-findDamlProjectRoot = findAscendantWithFile packageConfigName
+findDamlPackageRoot :: FilePath -> IO (Maybe FilePath)
+findDamlPackageRoot = findAscendantWithFile packageConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
