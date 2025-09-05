@@ -218,7 +218,7 @@ stringsSepBy sep = eitherReader sepBy'
 data PackageLocationOpts = PackageLocationOpts
     { packageRoot :: Maybe ProjectPath
     -- ^ An explicit package path specified by the user.
-    , packageLocationCheck :: ProjectCheck
+    , packageLocationCheck :: PackageLocationCheck
     -- ^ Throw an error if this is not run in a package.
     }
 
@@ -237,7 +237,7 @@ packageLocationOpts name = PackageLocationOpts <$> packageRootOpt <*> packageLoc
                      , "You should prefer the DAML_PROJECT environment variable over this option."
                      , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
                      ])
-        packageLocationCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
+        packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
                help "Check if running in Daml project."
             <> long "project-check"
 

@@ -25,7 +25,7 @@ module DA.Daml.Project.Consts
     , getSdkVersionDpm
     , getSdkVersionMaybe
     , getDamlAssistant
-    , ProjectCheck(..)
+    , PackageLocationCheck(..)
     , withProjectRoot
     , withExpectProjectRoot
     ) where
@@ -194,14 +194,14 @@ damlAssistantIsSet = isJust <$> lookupEnv damlAssistantEnvVar
 
 -- | Whether we should check if a command is invoked inside of a project.
 -- The string is the command name used in error messages
-data ProjectCheck = ProjectCheck String Bool
+data PackageLocationCheck = PackageLocationCheck String Bool
 
 -- | Execute an action within the project root, if available.
 --
 -- Determines the project root, if available, using 'getProjectPath' unless it
 -- is passed explicitly.
 --
--- If no project root is found and 'ProjectCheck' requires a project root, then
+-- If no project root is found and 'PackageLocationCheck' requires a project root, then
 -- an error is printed and the program is terminated before executing the given
 -- action.
 --
@@ -210,10 +210,10 @@ data ProjectCheck = ProjectCheck String Bool
 -- filepaths relative to the new working directory.
 withProjectRoot
     :: Maybe ProjectPath
-    -> ProjectCheck
+    -> PackageLocationCheck
     -> (Maybe FilePath -> (FilePath -> IO FilePath) -> IO a)
     -> IO a
-withProjectRoot mbProjectDir (ProjectCheck cmdName check) act = do
+withProjectRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- maybe getProjectPath (pure . Just . unwrapProjectPath) mbProjectDir
     case mbProjectPath of
@@ -235,6 +235,6 @@ withExpectProjectRoot
     -> (FilePath -> (FilePath -> IO FilePath) -> IO a)  -- ^ action
     -> IO a
 withExpectProjectRoot mbProjectDir cmdName act = do
-    withProjectRoot mbProjectDir (ProjectCheck cmdName True) $ \case
+    withProjectRoot mbProjectDir (PackageLocationCheck cmdName True) $ \case
         Nothing -> error "withProjectRoot should terminated the program"
         Just projectPath -> act projectPath
