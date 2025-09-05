@@ -170,7 +170,7 @@ if __name__ == "__main__":
     [_, access_token, branch, report_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
-    test_name_map = extract_test_name_map
+    test_name_map = extract_test_name_map()
     print(f"^^^^ {test_name_map}")
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
