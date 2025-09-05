@@ -40,16 +40,16 @@ if ($scala_test_targets.count -gt 0) {
         "--output_groups=scala_test_info" `
         "--experimental_show_artifacts" `
         @scala_test_targets `
-        2>&1 | % {
-          if ($_ -is [System.Management.Automation.ErrorRecord]) {
-            if ($_.TargetObject -ne $null) {
-              $out.WriteLine();
-            }
-            $out.Write($_.Exception.Message)
-          } else {
-            $out.WriteLine($_)
-          }
-        }
+#         2>&1 | % {
+#           if ($_ -is [System.Management.Automation.ErrorRecord]) {
+#             if ($_.TargetObject -ne $null) {
+#               $out.WriteLine();
+#             }
+#             $out.Write($_.Exception.Message)
+#           } else {
+#             $out.WriteLine($_)
+#           }
+#         }
       $bazelexitcode = $lastexitcode
     } finally {
       $out.Close()
