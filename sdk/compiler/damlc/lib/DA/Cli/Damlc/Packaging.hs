@@ -217,7 +217,7 @@ createProjectPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
           packageRoot
           (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
   where
-    dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
+    dbPath = packageDatabasePath </> lfVersionString (optDamlLfVersion opts)
     depsDir = dependenciesDir opts packageRoot
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
@@ -387,7 +387,7 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
         pure $ opts
             { optIfaceDir = Nothing
             -- We write ifaces below using writeIfacesAndHie so we don’t need to enable these options.
-            , optPackageDbs = projectPackageDatabase : optPackageDbs opts
+            , optPackageDbs = packageDatabasePath : optPackageDbs opts
             , optIsGenerated = True
             , optDflagCheck = False
             , optMbPackageName = Just pkgName
