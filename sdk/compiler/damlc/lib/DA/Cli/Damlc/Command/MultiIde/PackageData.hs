@@ -17,7 +17,7 @@ import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
-import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (PackagePath (..))
 import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable (traverse_)
@@ -54,10 +54,10 @@ updatePackageData miState = do
   case mPkgConfig of
     Nothing -> do
       logDebug miState "No multi-package.yaml found"
-      damlYamlExists <- doesFileExist $ ideRoot </> projectConfigName
+      damlYamlExists <- doesFileExist $ ideRoot </> packageConfigName
       if damlYamlExists
         then do
-          isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFileUtf8 (ideRoot </> projectConfigName)
+          isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFileUtf8 (ideRoot </> packageConfigName)
           if isFullDamlYaml
             then do
               logDebug miState "Found daml.yaml"

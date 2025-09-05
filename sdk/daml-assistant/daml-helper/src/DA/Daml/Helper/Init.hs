@@ -45,7 +45,7 @@ runInit targetFolderM = do
     currentDir <- getCurrentDirectory
     let targetFolder = fromMaybe currentDir targetFolderM
         targetFolderRel = makeRelative currentDir targetFolder
-        projectConfigRel = normalise (targetFolderRel </> projectConfigName)
+        projectConfigRel = normalise (targetFolderRel </> packageConfigName)
           -- ^ for display purposes
 
     -- cases 1 or 2
@@ -93,7 +93,7 @@ runInit targetFolderM = do
         source = fromMaybe "daml/Main.daml" sourceM
         name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
 
-    BS.writeFile (targetFolder </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
+    BS.writeFile (targetFolder </> packageConfigName) . Y.encodePretty yamlConfig $ Y.object
         [ ("sdk-version", Y.String (T.pack currentSdkVersion))
         , ("name", Y.String (T.pack name))
         , ("source", Y.String (T.pack source))

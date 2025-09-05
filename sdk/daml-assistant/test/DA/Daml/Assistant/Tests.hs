@@ -135,7 +135,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
 
     , Tasty.testCase "getPackagePath returns current directory" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
-            writeFileUTF8 (dir </> projectConfigName) ""
+            writeFileUTF8 (dir </> packageConfigName) ""
             setCurrentDirectory dir
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath dir) path
@@ -143,7 +143,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
     , Tasty.testCase "getPackagePath returns parent directory" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             createDirectory (dir </> "foo")
-            writeFileUTF8 (dir </> projectConfigName) ""
+            writeFileUTF8 (dir </> packageConfigName) ""
             setCurrentDirectory (dir </> "foo")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath dir) path
@@ -151,7 +151,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
     , Tasty.testCase "getPackagePath returns grandparent directory" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             createDirectoryIfMissing True (dir </> "foo" </> "bar")
-            writeFileUTF8 (dir </> projectConfigName) ""
+            writeFileUTF8 (dir </> packageConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath dir) path
@@ -159,8 +159,8 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
     , Tasty.testCase "getPackagePath prefers parent over grandparent" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             createDirectoryIfMissing True (dir </> "foo" </> "bar")
-            writeFileUTF8 (dir </> projectConfigName) ""
-            writeFileUTF8 (dir </> "foo" </> projectConfigName) ""
+            writeFileUTF8 (dir </> packageConfigName) ""
+            writeFileUTF8 (dir </> "foo" </> packageConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath (dir </> "foo")) path
@@ -240,7 +240,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "project")
-            writeFileUTF8 (base </> "project" </> projectConfigName)
+            writeFileUTF8 (base </> "project" </> packageConfigName)
                 ("sdk-version: " <> expected1)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
@@ -263,7 +263,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "project")
-            writeFileUTF8 (base </> "project" </> projectConfigName)
+            writeFileUTF8 (base </> "project" </> packageConfigName)
                 ("project:\n  sdk-version: " <> projVers)
             createDirectory expected2
             writeFileUTF8 (expected2 </> sdkConfigName) ("version: " <> expected1 <> "\n")
@@ -287,7 +287,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "project")
-            writeFileUTF8 (base </> "project" </> projectConfigName)
+            writeFileUTF8 (base </> "project" </> packageConfigName)
                 ("project:\n  sdk-version: " <> projVers)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-

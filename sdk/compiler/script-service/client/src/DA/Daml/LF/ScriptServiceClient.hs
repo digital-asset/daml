@@ -167,7 +167,7 @@ defaultScriptServiceConfig = ScriptServiceConfig
 
 readScriptServiceConfig :: IO ScriptServiceConfig
 readScriptServiceConfig = do
-    exists <- doesFileExist projectConfigName
+    exists <- doesFileExist packageConfigName
     if exists
         then do
             project <- readPackageConfig $ PackagePath "."

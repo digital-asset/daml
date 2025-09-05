@@ -146,7 +146,7 @@ overrideSdkVersion pkgConfig = do
                     , "enviroment variable instead of SDK version"
                     , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
                     , "from"
-                    , projectConfigName
+                    , packageConfigName
                     , "config file."
                     ]
             pure pkgConfig { pSdkVersion = sdkVersion }
@@ -186,7 +186,7 @@ withPackageConfig projectPath f = do
   -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
   unless (isDamlYamlForPackage project) $
     throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
-      projectConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
+      packageConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
 
   pkgConfig <- either throwIO pure (parseProjectConfig project)
   pkgConfig' <- overrideSdkVersion pkgConfig

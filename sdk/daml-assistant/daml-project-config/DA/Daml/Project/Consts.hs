@@ -13,7 +13,7 @@ module DA.Daml.Project.Consts
     , damlAssistantVersionEnvVar
     , damlAssistantIsSet
     , damlConfigName
-    , projectConfigName
+    , packageConfigName
     , sdkConfigName
     , multiPackageConfigName
     , damlEnvVars
@@ -112,8 +112,8 @@ damlConfigName :: FilePath
 damlConfigName = "daml-config.yaml"
 
 -- | File name of config file in DAML_PROJECT (the project path).
-projectConfigName :: FilePath
-projectConfigName = "daml.yaml"
+packageConfigName :: FilePath
+packageConfigName = "daml.yaml"
 
 -- | File name of config file in DAML_SDK (the sdk path)
 sdkConfigName :: FilePath

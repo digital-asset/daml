@@ -154,7 +154,7 @@ import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                getPackagePath,
                                getSdkVersion,
                                multiPackageConfigName,
-                               projectConfigName,
+                               packageConfigName,
                                withExpectProjectRoot,
                                withPackageRoot,
                                damlAssistantIsSet,
@@ -1183,7 +1183,7 @@ getDamlFilesBuildMulti log packagePath srcDir = do
   else do
     log $ "WARNING: Multi-package caching does not support setting the daml.yaml source value to a daml file. This package will always rebuild.\n"
       <> "Change the source value in "
-      <> (packagePath </> projectConfigName)
+      <> (packagePath </> packageConfigName)
       <> " to a directory to allow correct caching.\n"
     pure Map.empty
 
@@ -1337,7 +1337,7 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
       = do
         execPath <- liftIO getCurrentDirectory
         mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageCleanAll cleanAll then Just execPath else Nothing
-        isProject <- withPackageRoot' (packageLocationOpts {packageLocationCheck = PackageLocationCheck "" False}) $ const $ doesFileExist projectConfigName
+        isProject <- withPackageRoot' (packageLocationOpts {packageLocationCheck = PackageLocationCheck "" False}) $ const $ doesFileExist packageConfigName
         case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
           -- daml clean --all with no multi-package.yaml
           (Nothing, _, True) -> do
@@ -1374,7 +1374,7 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
 singleCleanEffect :: PackageLocationOpts -> IO ()
 singleCleanEffect packageLocationOpts =
   withPackageRoot' packageLocationOpts $ \_relativize -> do
-    isProject <- doesFileExist projectConfigName
+    isProject <- doesFileExist packageConfigName
     when isProject $ do
       canonDir <- getCurrentDirectory
       hPutStrLn stderr $ "Cleaning " <> canonDir
@@ -1537,13 +1537,13 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
 
         manifestEntries <- forM configs $ \(packagePath, darPath, BuildMultiPackageConfig {..}) -> do
           damlFilesMap <- bimapMap (bmSourceDaml </>) BSL.toStrict <$> getDamlFilesBuildMulti (hPutStrLn stderr) packagePath bmSourceDaml
-          damlYamlContent <- B.readFile $ packagePath </> projectConfigName
+          damlYamlContent <- B.readFile $ packagePath </> packageConfigName
 
           let manifestFileHash :: B.ByteString -> String
               manifestFileHash = show . Hash.hash @_ @Hash.SHA256
               makeRelativeToRoot :: FilePath -> FilePath
               makeRelativeToRoot path = makeRelative multiPackageConfigPath $ normalise $ packagePath </> path
-              relativeDamlFilesMap = Map.mapKeys makeRelativeToRoot $ Map.insert ("." </> projectConfigName) damlYamlContent damlFilesMap
+              relativeDamlFilesMap = Map.mapKeys makeRelativeToRoot $ Map.insert ("." </> packageConfigName) damlYamlContent damlFilesMap
               relativeDamlFileHashes = manifestFileHash <$> relativeDamlFilesMap
               fullHash = manifestFileHash $ BSUTF8.fromString $ Map.foldMapWithKey (<>) relativeDamlFileHashes
 

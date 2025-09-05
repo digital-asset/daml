@@ -36,7 +36,7 @@ import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (PackagePath (..))
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
@@ -607,7 +607,7 @@ extractUpgradedPackageRule opts = do
            main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
            deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
            pure (main, deps)
-        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapPackagePath) $ optMbPackageConfigPath opts
+        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> packageConfigName) . unwrapPackagePath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
           Right (mainPkg, _) ->
