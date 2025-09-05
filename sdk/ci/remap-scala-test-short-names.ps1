@@ -17,6 +17,7 @@ if ($scala_test_targets.count -gt 0) {
 
   try {
 
+    # TODO: rewrite
     # Bazel writes the output of --experimental_show_artifacts to stderr
     # instead of stdout. In Powershell this means that these outputs are not
     # plain strings, but instead error objects. Simply redirecting these to
@@ -35,7 +36,6 @@ if ($scala_test_targets.count -gt 0) {
     try {
       $append = $false
       $out = [System.IO.StreamWriter]::new($tmp, $append)
-      echo "@@@@"
       bazel aquery `
         "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
         "outputs('.*_scala_test.*', //...)" `
@@ -49,7 +49,6 @@ if ($scala_test_targets.count -gt 0) {
             $out.WriteLine($_)
           }
         }
-      echo "_@@@@ done"
       $bazelexitcode = $lastexitcode
     } finally {
       $out.Close()
@@ -60,10 +59,6 @@ if ($scala_test_targets.count -gt 0) {
       Write-Error -Message "$errmsg"
       throw "bazel build returned non-zero exit code: $lastexitcode"
     }
-
-    echo "####"
-    gc $tmp
-    echo "_####"
 
     Get-Content $tmp |
       % { if ( $_ -match "Outputs: \[(?<filename>.*)\]" ) { Get-Content $Matches.filename } } |
