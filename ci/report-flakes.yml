@@ -21,8 +21,9 @@ steps:
       echo "<<done"
 
       report="sdk/test-events.json"
+      mapping="sdk/scala-test-suite-name-map.json"
       if [ -f $report ]; then
-        python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report
+        python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report $mapping
       else
         echo "$report not found, skipping"
       fi

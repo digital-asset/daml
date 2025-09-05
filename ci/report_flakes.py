@@ -39,12 +39,12 @@ def extract_failed_tests(report_filename: str):
             if "testResult" in entry and entry["testResult"]["status"] == "FAILED":
                 yield entry["id"]["testResult"]["label"]
 
-def extract_test_name_map():
+def extract_test_name_map(mapping_filename: str):
     """
     Extracts the short and long test names from a file. The file is a JSON object
     with keys being the short names and values being the long names.
     """
-    with open("scala-test-suite-name-map.json") as f:
+    with open(mapping_filename) as f:
         return json.load(f)
 
 def print_failed_test(branck: str, test_name: str):
@@ -167,10 +167,10 @@ def az_set_logs_ttl(access_token: str, days: int):
 
 
 if __name__ == "__main__":
-    [_, access_token, branch, report_filename] = sys.argv
+    [_, access_token, branch, report_filename, mapping_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
-    test_name_map = extract_test_name_map()
+    test_name_map = extract_test_name_map(mapping_filename)
     print(f"^^^^ {test_name_map}")
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
