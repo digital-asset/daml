@@ -55,7 +55,8 @@ class CachedJwtVerifierLoader(
     metrics: Option[CacheMetrics] = None,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends JwtVerifierLoader
-    with NamedLogging {
+    with NamedLogging
+    with AutoCloseable {
 
   private val cache: ScaffeineCache.TunnelledAsyncLoadingCache[Future, CacheKey, JwtVerifier] =
     ScaffeineCache.buildAsync[Future, CacheKey, JwtVerifier](
@@ -106,6 +107,10 @@ class CachedJwtVerifierLoader(
   private def fromDisjunction[T](e: Either[JwtError, T]): Future[T] =
     e.fold(err => Future.failed(JwtException(err)), Future.successful)
 
+  override def close(): Unit = {
+    cache.invalidateAll()
+    cache.cleanUp()
+  }
 }
 
 object CachedJwtVerifierLoader {

@@ -375,7 +375,7 @@ class StartableStoppableLedgerApiServer(
       // When CIDs are suffixed, we can re-use the LfValueTranslation from the index service created above
       packageLoader = new DeduplicatingPackageLoader()
       interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
-        new Engine(config.engine.config.copy(forbidLocalContractIds = false)),
+        new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
         packageResolver = packageId =>
           implicit traceContext =>
             FutureUnlessShutdown.outcomeF(

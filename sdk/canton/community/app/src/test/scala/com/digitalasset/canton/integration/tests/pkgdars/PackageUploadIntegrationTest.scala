@@ -25,8 +25,9 @@ import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation.Vali
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Package.AllowedLanguageVersions
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
-import com.digitalasset.canton.participant.admin.PackageTestUtils.ArchiveOps
-import com.digitalasset.canton.participant.admin.{PackageServiceTest, PackageTestUtils}
+import com.digitalasset.canton.participant.admin.PackageServiceTest
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageTestUtils
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageTestUtils.ArchiveOps
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.util.BinaryFileUtil

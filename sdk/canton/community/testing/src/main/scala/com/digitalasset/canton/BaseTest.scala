@@ -432,6 +432,8 @@ trait BaseTest
   lazy val PerformanceTestPath: String = BaseTest.PerformanceTestPath
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
   lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
+  lazy val UpgradeTestsPath: String = BaseTest.UpgradeTestsPath
+  lazy val UpgradeTestsIncompatPath: String = BaseTest.UpgradeTestsIncompatPath
 
   implicit class RichSynchronizerId(val id: SynchronizerId) {
     def toPhysical: PhysicalSynchronizerId =
@@ -566,6 +568,8 @@ object BaseTest {
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.4.0.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.4.0.dar")
   lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.4.0.dar")
+  lazy val UpgradeTestsPath: String = getResourcePath("UpgradeTests-3.4.0.dar")
+  lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

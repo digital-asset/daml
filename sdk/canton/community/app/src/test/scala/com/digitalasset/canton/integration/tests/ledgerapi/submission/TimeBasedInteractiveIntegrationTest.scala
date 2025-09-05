@@ -4,15 +4,12 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
-import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
-import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
+import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.admin.api.client.data.TemplateId.fromIdentifier
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.damltests.java.cycle.Cycle
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.defaultConfirmingParticipant
@@ -23,8 +20,8 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.topology.{ExternalParty, ForceFlags, PartyId}
+import com.digitalasset.canton.topology.{ExternalParty, ForceFlags}
+import com.digitalasset.canton.{HasExecutionContext, config}
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.Status
 import scalapb.TimestampConverters
@@ -35,7 +32,7 @@ import scala.util.Random
 /** Test interactive submission where the preparing, submitting and executing participants are all
   * independent.
   */
-class TimeBasedInteractiveIntegrationTest
+final class TimeBasedInteractiveIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest
@@ -47,47 +44,22 @@ class TimeBasedInteractiveIntegrationTest
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
         import env.*
-        Seq(participant1, participant2, participant3).foreach { p =>
-          p.dars.upload(CantonExamplesPath)
-          p.dars.upload(CantonTestsPath)
-          p.synchronizers.connect_local(sequencer1, alias = daName)
-        }
+        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonTestsPath)
+        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
       .addConfigTransform(ConfigTransforms.useStaticTime)
 
   private var aliceE: ExternalParty = _
-  private var danE: ExternalParty = _
 
-  def createPassCmd(ownerE: ExternalParty, id: String = "test-external-signing-id"): Command = {
+  private def createPassCmd(
+      ownerE: ExternalParty,
+      id: String = "test-external-signing-id",
+  ): Command = {
     val pass = new Pass(id, ownerE.toProtoPrimitive, Instant.now()) // This time is not used
     Command.fromJavaProto(pass.create.commands.loneElement.toProtoCommand)
   }
-
-  override def prepareCycle(as: ExternalParty)(implicit
-      env: FixtureParam
-  ): PrepareSubmissionResponse =
-    prepareCommand(as, protoCreateCycleCmd(as))
-
-  def execFailure(prepared: PrepareSubmissionResponse, signatures: Map[PartyId, Seq[Signature]])(
-      implicit env: FixtureParam
-  ): Unit =
-    loggerFactory.assertLoggedWarningsAndErrorsSeq(
-      a[CommandFailure] shouldBe thrownBy {
-        exec(prepared, signatures)
-      },
-      LogEntry.assertLogSeq(
-        Seq(
-          (
-            _.errorMessage should include(
-              "The participant failed to execute the transaction: Received 0 valid signatures (1 invalid), but expected at least 1 valid"
-            ),
-            "invalid signature",
-          )
-        ),
-        Seq.empty,
-      ),
-    )
 
   private val ledgerTimeRecordTimeTolerance = Duration.ofSeconds(60)
   private val preparationTimeRecordTimeTolerance = Duration.ofHours(24)
@@ -95,42 +67,43 @@ class TimeBasedInteractiveIntegrationTest
   "Interactive submission" should {
 
     "onboard parties" in { implicit env =>
+      import env.*
+
       env.sequencer1.topology.synchronizer_parameters.propose_update(
         env.daId,
         _.update(
-          ledgerTimeRecordTimeTolerance = NonNegativeFiniteDuration(ledgerTimeRecordTimeTolerance),
+          ledgerTimeRecordTimeTolerance =
+            config.NonNegativeFiniteDuration(ledgerTimeRecordTimeTolerance),
           preparationTimeRecordTimeTolerance =
-            NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance),
+            config.NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance),
           mediatorDeduplicationTimeout =
-            NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance.multipliedBy(2)),
+            config.NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance.multipliedBy(2)),
         ),
         force = ForceFlags.all,
       )
-      aliceE = onboardParty("Alice", env.participant3, env.synchronizer1Id)
-      danE = onboardParty("Bob", env.participant3, env.synchronizer1Id)
-      waitForExternalPartyToBecomeEffective(
-        aliceE,
-        env.sequencer1,
-        env.participant1,
-        env.participant2,
-        env.participant3,
-      )
-      waitForExternalPartyToBecomeEffective(
-        danE,
-        env.sequencer1,
-        env.participant1,
-        env.participant2,
-        env.participant3,
-      )
+
+      aliceE = participant3.external_parties.enable("Alice")
     }
 
     def createPassContract(implicit env: FixtureParam): (Pass.ContractId, DisclosedContract) = {
+      import env.*
       val id = s"pass-${Random.nextLong()}"
-      val event = externalSubmit(
-        new Pass(id, aliceE.toProtoPrimitive, Instant.now()).create(),
+
+      val pass = cpn.external_parties.ledger_api.javaapi.commands.submit(
         aliceE,
-        cpn(env),
-      ).events.loneElement.getCreated
+        Seq(new Pass(id, aliceE.toProtoPrimitive, Instant.now()).create().commands().loneElement),
+      )
+
+      // TODO(#27482) Use new helpers to get the create event
+      val event = cpn.ledger_api.state.acs
+        .of_party(
+          aliceE.partyId,
+          filterTemplates = TemplateId.templateIdsFromJava(Pass.TEMPLATE_ID),
+          includeCreatedEventBlob = true,
+        )
+        .filter(_.contractId == pass.getEvents.loneElement.getContractId)
+        .loneElement
+        .event
 
       val disclosed = DisclosedContract(
         event.templateId,
@@ -148,6 +121,8 @@ class TimeBasedInteractiveIntegrationTest
     }
 
     "respect explicit ledger time" in { implicit env =>
+      import env.*
+
       val simClock = env.environment.simClock.value
 
       val (passCid, passContract) = createPassContract
@@ -161,7 +136,9 @@ class TimeBasedInteractiveIntegrationTest
       prepared.preparedTransaction.value.metadata.value.minLedgerEffectiveTime shouldBe Some(
         ledgerTimeSet.toEpochMilli * 1000
       )
-      val signatures = signTxAs(prepared, aliceE)
+      val signatures = Map(
+        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      )
 
       simClock.advance(oneDay)
       execAndWait(prepared, signatures).discard
@@ -179,28 +156,52 @@ class TimeBasedInteractiveIntegrationTest
     }
 
     "accept execution requests withing the submission tolerance" in { implicit env =>
+      import env.*
+
       val simClock = env.environment.simClock.value
-      val prepared = prepareCycle(aliceE)
-      val signatures = signTxAs(prepared, aliceE)
+      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(
+          new Cycle(
+            "test-external-signing",
+            aliceE.toProtoPrimitive,
+          ).create.commands.loneElement
+        ),
+      )
+      val signatures = Map(
+        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      )
       simClock.advance(preparationTimeRecordTimeTolerance.dividedBy(2))
       execAndWait(prepared, signatures).discard
     }
 
     "rejects execution requests outside the submission tolerance" in { implicit env =>
+      import env.*
       val simClock = env.environment.simClock.value
 
-      val prepared = prepareCycle(aliceE)
-      val signatures = signTxAs(prepared, aliceE)
+      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(
+          new Cycle(
+            "test-external-signing",
+            aliceE.toProtoPrimitive,
+          ).create.commands.loneElement
+        ),
+      )
+      val signatures = Map(
+        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      )
 
       simClock.advance(preparationTimeRecordTimeTolerance.multipliedBy(2))
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
-          val (submissionId, ledgerEnd) = exec(prepared, signatures)
+          val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
           findCompletion(
             submissionId,
             ledgerEnd,
             aliceE,
+            epn,
           ).status.value.code shouldBe Status.Code.ABORTED.value()
         },
         entries => {
@@ -242,6 +243,8 @@ class TimeBasedInteractiveIntegrationTest
     }
 
     "modify requested ledger time if outside bounds" in { implicit env =>
+      import env.*
+
       val simClock = env.environment.simClock.value
 
       val (passCid, passContract) = createPassContract
@@ -263,13 +266,15 @@ class TimeBasedInteractiveIntegrationTest
       prepared.getPreparedTransaction.getMetadata.getMinLedgerEffectiveTime shouldBe expected.micros
       prepared.getPreparedTransaction.getMetadata.getMaxLedgerEffectiveTime shouldBe expected.micros
 
-      val signatures = signTxAs(prepared, aliceE)
+      val signatures = Map(
+        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      )
 
       simClock.advance(Duration.ofSeconds(10))
 
-      val (submissionId, ledgerEnd) = exec(prepared, signatures)
+      val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
 
-      val completion = findCompletion(submissionId, ledgerEnd, aliceE)
+      val completion = findCompletion(submissionId, ledgerEnd, aliceE, epn)
 
       val updateFormat = getUpdateFormat(
         Set(aliceE.partyId),

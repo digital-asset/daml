@@ -51,6 +51,7 @@ import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, Prun
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
+import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataViewImpl
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
@@ -58,6 +59,7 @@ import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerReg
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
@@ -206,6 +208,13 @@ class ParticipantNodeBootstrap(
         .traverse(_.ledgerApiIndexer.asEval.value.ledgerApiStore.value.ledgerEnd)
         .map(_.flatten)
 
+    def getPackageMetadataSnapshot(): Option[PackageMetadata] =
+      // In some rare cases, it is possible to vet packages before the package service is created.
+      // For instance, in a major upgrade, we import a topology snapshot as soon as the node
+      // topology is ready, and before the participant services are created.
+      // In such case, we cannot get a proper PackageMetadata snapshot and we bypass the upgrade checks.
+      cantonSyncService.get.map(_.getPackageMetadataSnapshot)
+
     val topologyManager = new AuthorizedTopologyManager(
       nodeId,
       clock,
@@ -227,9 +236,11 @@ class ParticipantNodeBootstrap(
         validatePackageVetting(
           currentlyVettedPackages,
           nextPackageIds,
+          getPackageMetadataSnapshot(),
           resolver,
           acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
+          disableUpgradeValidation = parameters.disableUpgradeValidation,
         )
 
       override def checkCannotDisablePartyWithActiveContracts(
@@ -332,9 +343,7 @@ class ParticipantNodeBootstrap(
         Some(new RunningNode(bootstrapStageCallback, node))
       }
 
-    private def createPackageOps(
-        manager: SyncPersistentStateManager
-    ): PackageOps = {
+    private def createPackageOps(manager: SyncPersistentStateManager): PackageOps = {
       val authorizedTopologyStoreClient = new StoreBasedTopologySnapshot(
         CantonTimestamp.MaxValue,
         topologyManager.store,
@@ -433,6 +442,22 @@ class ParticipantNodeBootstrap(
         _ <- EitherT.right(persistentStateContainer.initializeNext())
         persistentState = persistentStateContainer.asEval
 
+        mutablePackageMetadataViewContainer = new LifeCycleContainer[
+          MutablePackageMetadataViewImpl
+        ](
+          stateName = "mutable-package-metadata-view",
+          create = () =>
+            MutablePackageMetadataViewImpl.createAndInitialize(
+              clock,
+              packageDependencyResolver.damlPackageStore,
+              loggerFactory,
+              config.parameters.packageMetadataView,
+              parameters.processingTimeouts,
+            ),
+          loggerFactory = loggerFactory,
+        )
+        _ <- EitherT.right(mutablePackageMetadataViewContainer.initializeNext())
+
         syncPersistentStateManager = new SyncPersistentStateManager(
           participantId,
           synchronizerAliasManager,
@@ -447,6 +472,7 @@ class ParticipantNodeBootstrap(
           tryGetPackageDependencyResolver(),
           persistentState.map(_.ledgerApiStore),
           persistentState.map(_.contractStore),
+          mutablePackageMetadataViewContainer.asEval,
           futureSupervisor,
           loggerFactory,
         )
@@ -547,26 +573,17 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        packageServiceContainer = new LifeCycleContainer[PackageService](
-          stateName = "package-service",
-          create = () =>
-            PackageService.createAndInitialize(
-              clock = clock,
-              engine = engine,
-              packageDependencyResolver = packageDependencyResolver,
-              enableUpgradeValidation = !parameters.disableUpgradeValidation,
-              enableStrictDarValidation = parameters.enableStrictDarValidation,
-              futureSupervisor = futureSupervisor,
-              loggerFactory = loggerFactory,
-              metrics = arguments.metrics,
-              exitOnFatalFailures = parameters.exitOnFatalFailures,
-              packageMetadataViewConfig = config.parameters.packageMetadataView,
-              packageOps = createPackageOps(syncPersistentStateManager),
-              timeouts = parameters.processingTimeouts,
-            ),
+        packageService = PackageService(
+          clock = clock,
+          engine = engine,
+          packageDependencyResolver = packageDependencyResolver,
+          enableStrictDarValidation = parameters.enableStrictDarValidation,
           loggerFactory = loggerFactory,
+          metrics = arguments.metrics,
+          mutablePackageMetadataView = mutablePackageMetadataViewContainer.asEval,
+          packageOps = createPackageOps(syncPersistentStateManager),
+          timeouts = parameters.processingTimeouts,
         )
-        _ <- EitherT.right(packageServiceContainer.initializeNext())
 
         sequencerInfoLoader = new SequencerInfoLoader(
           parameters.processingTimeouts,
@@ -696,7 +713,7 @@ class ParticipantNodeBootstrap(
           persistentState,
           ephemeralState,
           syncPersistentStateManager,
-          packageServiceContainer.asEval,
+          packageService,
           new PartyOps(activeTopologyManagerGetter, loggerFactory),
           topologyDispatcher,
           partyNotifier,
@@ -749,7 +766,7 @@ class ParticipantNodeBootstrap(
           new StartableStoppableLedgerApiDependentServices(
             config,
             parameters,
-            packageServiceContainer.asEval,
+            packageService,
             sync,
             participantId,
             clock,
@@ -845,7 +862,8 @@ class ParticipantNodeBootstrap(
         addCloseable(resourceManagementService)
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
-        addCloseable((() => packageServiceContainer.closeCurrent()): AutoCloseable)
+        addCloseable(packageService)
+        addCloseable((() => mutablePackageMetadataViewContainer.closeCurrent()): AutoCloseable)
         addCloseable(indexedStringStore)
         addCloseable(partyNotifier)
         addCloseable(ephemeralState.participantEventPublisher)
@@ -869,7 +887,7 @@ class ParticipantNodeBootstrap(
         // return values
         ParticipantServices(
           persistentStateContainer = persistentStateContainer,
-          packageServiceContainer = packageServiceContainer,
+          mutablePackageMetadataViewContainer = mutablePackageMetadataViewContainer,
           ledgerApiIndexerContainer = ledgerApiIndexerContainer,
           cantonSyncService = sync,
           schedulers = schedulers,
@@ -952,7 +970,7 @@ object ParticipantNodeBootstrap {
 
   final case class ParticipantServices(
       persistentStateContainer: LifeCycleContainer[ParticipantNodePersistentState],
-      packageServiceContainer: LifeCycleContainer[PackageService],
+      mutablePackageMetadataViewContainer: LifeCycleContainer[MutablePackageMetadataViewImpl],
       ledgerApiIndexerContainer: LifeCycleContainer[LedgerApiIndexer],
       cantonSyncService: CantonSyncService,
       schedulers: Schedulers,

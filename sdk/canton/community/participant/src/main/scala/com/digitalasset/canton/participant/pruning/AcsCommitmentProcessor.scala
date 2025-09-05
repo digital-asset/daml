@@ -2077,6 +2077,36 @@ object AcsCommitmentProcessor extends HasLoggerName {
   val hashedEmptyCommitment: AcsCommitment.HashedCommitmentType =
     AcsCommitment.hashCommitment(emptyCommitment)
 
+  /*
+      The concatenate function is guaranteed to be safe when contract IDs are prefix-free.
+      Otherwise, a longer contract ID without a reassignment counter might collide with a
+      shorter contract ID with a reassignment counter.
+      In the current implementation collisions cannot happen, because either all contracts in a commitment
+      have a reassignment counter or none, depending on the protocol version.
+   */
+  private def concatenate(
+      contractId: LfContractId,
+      reassignmentCounter: ReassignmentCounter,
+  ): Array[Byte] =
+    (
+      contractId.encodeDeterministically
+        concat ReassignmentCounter.encodeDeterministically(reassignmentCounter)
+    ).toByteArray
+
+  def addContractToCommitmentDigest(
+      h: LtHash16,
+      cid: LfContractId,
+      rc: ReassignmentCounter,
+  ): Unit =
+    h.add(concatenate(cid, rc))
+
+  def removeContractFromCommitmentDigest(
+      h: LtHash16,
+      cid: LfContractId,
+      rc: ReassignmentCounter,
+  ): Unit =
+    h.remove(concatenate(cid, rc))
+
   sealed trait PublishTickData {
     def timestamp: CantonTimestamp
     def tieBreaker: Option[Long]
@@ -2282,21 +2312,6 @@ object AcsCommitmentProcessor extends HasLoggerName {
     def update(rt: RecordTime, change: AcsChange)(implicit
         loggingContext: NamedLoggingContext
     ): Unit = {
-      /*
-      The concatenate function is guaranteed to be safe when contract IDs always have the same length.
-      Otherwise, a longer contract ID without a reassignment counter might collide with a
-      shorter contract ID with a reassignment counter.
-      In the current implementation collisions cannot happen, because either all contracts in a commitment
-      have a reassignment counter or none, depending on the protocol version.
-       */
-      def concatenate(
-          contractId: LfContractId,
-          reassignmentCounter: ReassignmentCounter,
-      ): Array[Byte] =
-        (
-          contractId.encodeDeterministically
-            concat ReassignmentCounter.encodeDeterministically(reassignmentCounter)
-        ).toByteArray
       import com.digitalasset.canton.lfPartyOrdering
       blocking {
         lock.synchronized {
@@ -2305,7 +2320,11 @@ object AcsCommitmentProcessor extends HasLoggerName {
             val sortedStakeholders =
               SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
             val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-            h.add(concatenate(cid, stakeholdersAndReassignmentCounter.reassignmentCounter))
+            AcsCommitmentProcessor.addContractToCommitmentDigest(
+              h,
+              cid,
+              stakeholdersAndReassignmentCounter.reassignmentCounter,
+            )
             loggingContext.debug(
               s"Adding to commitment activation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"
             )
@@ -2315,11 +2334,10 @@ object AcsCommitmentProcessor extends HasLoggerName {
             val sortedStakeholders =
               SortedSet(stakeholdersAndReassignmentCounter.stakeholders.toSeq*)
             val h = commitments.getOrElseUpdate(sortedStakeholders, LtHash16())
-            h.remove(
-              concatenate(
-                cid,
-                stakeholdersAndReassignmentCounter.reassignmentCounter,
-              )
+            AcsCommitmentProcessor.removeContractFromCommitmentDigest(
+              h,
+              cid,
+              stakeholdersAndReassignmentCounter.reassignmentCounter,
             )
             loggingContext.debug(
               s"Removing from commitment deactivation cid $cid reassignmentCounter ${stakeholdersAndReassignmentCounter.reassignmentCounter}"

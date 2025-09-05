@@ -722,7 +722,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           A dishonest executing participant could incorrectly respond that the command failed even though it succeeded.
           """
       )
-      def executeAndWait(
+      def execute_and_wait(
           preparedTransaction: PreparedTransaction,
           transactionSignatures: Map[PartyId, Seq[Signature]],
           submissionId: String,
@@ -760,7 +760,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           transactionSignatures: Map[PartyId, Seq[Signature]],
           submissionId: String,
           hashingSchemeVersion: HashingSchemeVersion,
-          transactionFormat: Option[TransactionFormatProto],
+          transactionShape: Option[TransactionShape] = Some(TRANSACTION_SHAPE_LEDGER_EFFECTS),
           userId: String = userId,
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           minLedgerTimeAbs: Option[Instant] = None,
@@ -775,7 +775,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               deduplicationPeriod = deduplicationPeriod,
               minLedgerTimeAbs = minLedgerTimeAbs,
               hashingSchemeVersion = hashingSchemeVersion,
-              transactionFormat = transactionFormat,
+              transactionShape = transactionShape,
             )
           )
         }.getTransaction
@@ -2224,7 +2224,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             actAs: Seq[PartyId],
             commands: Seq[javab.data.Command],
             synchronizerId: Option[SynchronizerId] = None,
-            commandId: String = "",
+            commandId: String = UUID.randomUUID().toString,
             minLedgerTimeAbs: Option[Instant] = None,
             readAs: Seq[PartyId] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,

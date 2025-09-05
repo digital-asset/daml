@@ -4,11 +4,11 @@
 package com.digitalasset.canton.participant.admin
 
 import better.files.*
+import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.BaseTest.getResourcePath
 import com.digitalasset.canton.buildinfo.BuildInfo
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -26,7 +26,10 @@ import com.digitalasset.canton.participant.admin.PackageServiceTest.{
 import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore
-import com.digitalasset.canton.participant.store.memory.InMemoryDamlPackageStore
+import com.digitalasset.canton.participant.store.memory.{
+  InMemoryDamlPackageStore,
+  MutablePackageMetadataViewImpl,
+}
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
@@ -109,22 +112,27 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
         paranoidMode = true,
       )
 
-    val sut: PackageService = PackageService
+    val clock = new SimClock(start = now, loggerFactory = loggerFactory)
+    val mutablePackageMetadataView = MutablePackageMetadataViewImpl
       .createAndInitialize(
-        clock = new SimClock(start = now, loggerFactory = loggerFactory),
-        engine = engine,
-        packageDependencyResolver = packageDependencyResolver,
-        enableUpgradeValidation = true,
-        enableStrictDarValidation = enableStrictDarValidation,
-        futureSupervisor = FutureSupervisor.Noop,
-        loggerFactory = loggerFactory,
-        metrics = ParticipantTestMetrics,
-        exitOnFatalFailures = true,
-        packageMetadataViewConfig = PackageMetadataViewConfig(),
-        packageOps = new PackageOpsForTesting(participantId, loggerFactory),
-        timeouts = processingTimeouts,
+        clock,
+        packageDependencyResolver.damlPackageStore,
+        loggerFactory,
+        PackageMetadataViewConfig(),
+        processingTimeouts,
       )
       .futureValueUS
+    val sut: PackageService = PackageService(
+      clock = clock,
+      engine = engine,
+      packageDependencyResolver = packageDependencyResolver,
+      enableStrictDarValidation = enableStrictDarValidation,
+      loggerFactory = loggerFactory,
+      metrics = ParticipantTestMetrics,
+      mutablePackageMetadataView = Eval.now(mutablePackageMetadataView),
+      packageOps = new PackageOpsForTesting(participantId, loggerFactory),
+      timeouts = processingTimeouts,
+    )
   }
 
   private val uploadTime = CantonTimestamp.now()
@@ -472,13 +480,8 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       for {
         results <- Future.sequence(concurrentDarUploadsF.map(_.value.failOnShutdown))
       } yield {
-        // Only one upload should have succeeded, i.e. the first stored DAR
-        results.collect { case Right(_) => () }.size shouldBe 1
-        // Expect the other results to be failures due to incompatible upgrades
-        results.collect {
-          case Left(_: PackageServiceErrors.Validation.Upgradeability.Error) => succeed
-          case Left(other) => fail(s"Unexpected $other")
-        }.size shouldBe (upgradeIncompatibleDars.size - 1)
+        // All uploads should succeed
+        results.collect { case Right(_) => () }.size shouldBe upgradeIncompatibleDars.size
       }
     }
   }

@@ -207,8 +207,10 @@ final class AssignmentProcessingStepsTest
       packageDependencyResolver = mock[PackageDependencyResolver],
       ledgerApiStore = Eval.now(mock[LedgerApiStore]),
       logicalSyncPersistentState = logical,
+      packageMetadataView = Eval.now(mock[PackageMetadataView]),
       loggerFactory = loggerFactory,
       exitOnFatalFailures = true,
+      disableUpgradeValidation = false,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
     )

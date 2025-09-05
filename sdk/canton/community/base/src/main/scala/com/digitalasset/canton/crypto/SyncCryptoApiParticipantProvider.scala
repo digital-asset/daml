@@ -363,6 +363,7 @@ class SynchronizerCryptoClient private (
     LifeCycle.close(
       ips,
       syncCryptoSigner,
+      syncCryptoVerifier,
     )(logger)
 
   override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit

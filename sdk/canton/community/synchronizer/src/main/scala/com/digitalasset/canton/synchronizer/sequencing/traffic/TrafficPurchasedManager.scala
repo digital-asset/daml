@@ -398,8 +398,11 @@ class TrafficPurchasedManager(
     store.pruneBelowExclusive(upToExclusive)
   }
 
-  override def onClosed(): Unit =
+  override def onClosed(): Unit = {
+    trafficPurchased.invalidateAll()
+    trafficPurchased.cleanUp()
     autoPruningPromise.getAndSet(None).foreach(_.shutdown_())
+  }
 }
 
 object TrafficPurchasedManager {

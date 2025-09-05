@@ -7,12 +7,17 @@ import cats.Applicative
 import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse as PrepareResponseProto
 import com.daml.ledger.api.v2.transaction.Transaction as ApiTransaction
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.javaapi as javab
 import com.daml.ledger.javaapi.data.Transaction
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.catsinstances.*
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.console.ConsoleMacros.utils
 import com.digitalasset.canton.console.commands.{
   LocalSecretKeyAdministration,
   PartiesAdministration,
@@ -39,6 +44,7 @@ import com.digitalasset.canton.topology.transaction.{
   PartyToParticipant,
   SignedTopologyTransaction,
   TopologyChangeOp,
+  TopologyMapping,
   TopologyTransaction,
 }
 import com.digitalasset.canton.topology.{
@@ -49,7 +55,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPackageId, SynchronizerAlias, config}
+import com.digitalasset.canton.{LfPackageId, SynchronizerAlias, checked, config}
 import com.google.protobuf.ByteString
 
 import java.time.Instant
@@ -78,6 +84,7 @@ class ExternalPartiesCommands(
   private implicit val traceContext: TraceContext = TraceContext.empty
   private val timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
 
+  // TODO(#27482) Maybe it should not be external parties: what matters is that the party lives in its namespace
   object external_parties {
 
     /** Enable an external party hosted on `reference` with confirmation rights.
@@ -93,6 +100,9 @@ class ExternalPartiesCommands(
         synchronizer: Option[SynchronizerAlias] = None,
         synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
+        // External party specifics
+        keysCount: PositiveInt = PositiveInt.one,
+        keysThreshold: PositiveInt = PositiveInt.one,
     ): ExternalParty = {
 
       val onboardingET = for {
@@ -100,13 +110,30 @@ class ExternalPartiesCommands(
           .fromEither[FutureUnlessShutdown](lookupOrDetectSynchronizerId(synchronizer))
           .leftMap(err => s"Cannot find physical synchronizer id: $err")
 
-        onboardingData <- onboarding_transactions(name, synchronizer)
+        onboardingData <- onboarding_transactions(
+          name,
+          synchronizer,
+          keysCount = keysCount,
+          keysThreshold = keysThreshold,
+        )
         (onboardingTxs, externalParty) = onboardingData
 
         _ = reference.topology.transactions.load(
           onboardingTxs.toSeq,
           psid,
           synchronize = synchronize,
+        )
+
+        // Wait until the proposal is known
+        _ = utils.retry_until_true(
+          reference.topology.party_to_participant_mappings
+            .list(
+              psid,
+              proposals = true,
+              filterParticipant = reference.id.filterString,
+              filterParty = externalParty.filterString,
+            )
+            .nonEmpty
         )
 
         _ = reference.topology.transactions.authorize[PartyToParticipant](
@@ -139,6 +166,8 @@ class ExternalPartiesCommands(
     def onboarding_transactions(
         name: String,
         synchronizer: Option[SynchronizerAlias] = None,
+        keysCount: PositiveInt = PositiveInt.one,
+        keysThreshold: PositiveInt = PositiveInt.one,
     ): EitherT[FutureUnlessShutdown, String, (OnboardingTransactions, ExternalParty)] =
       for {
         protocolVersion <- EitherT
@@ -163,16 +192,26 @@ class ExternalPartiesCommands(
           protocolVersion,
         )
 
-        protocolSigningKey <- crypto
-          .generateSigningKey(usage = SigningKeyUsage.ProtocolOnly)
-          .leftMap(_.toString)
+        protocolSigningKeys <- Seq
+          .fill(keysCount.unwrap)(
+            crypto
+              .generateSigningKey(usage = SigningKeyUsage.ProtocolOnly)
+              .leftMap(_.toString)
+          )
+          .parSequence
+
+        protocolSigningKeysNE = NonEmptyUtil.fromUnsafe(
+          // keysCount is positive
+          checked(protocolSigningKeys)
+        )
+
         partyToKeyTx = TopologyTransaction(
           TopologyChangeOp.Replace,
           serial = PositiveInt.one,
           PartyToKeyMapping.tryCreate(
             partyId = partyId,
-            threshold = PositiveInt.one,
-            signingKeys = NonEmpty.mk(Seq, protocolSigningKey),
+            threshold = keysThreshold,
+            signingKeys = protocolSigningKeysNE,
           ),
           protocolVersion,
         )
@@ -209,13 +248,17 @@ class ExternalPartiesCommands(
           .leftMap(_.toString)
 
         // The protocol key signature is only needed on the party to key mapping, so we can sign only that
-        protocolSignature <- crypto.privateCrypto
-          .sign(
-            partyToKeyTx.hash.hash,
-            protocolSigningKey.fingerprint,
-            NonEmpty.mk(Set, SigningKeyUsage.Protocol),
-          )
+        protocolSignatures <- protocolSigningKeysNE.toNEF
+          .parTraverse { protocolSigningKey =>
+            crypto.privateCrypto
+              .sign(
+                partyToKeyTx.hash.hash,
+                protocolSigningKey.fingerprint,
+                NonEmpty.mk(Set, SigningKeyUsage.Protocol),
+              )
+          }
           .leftMap(_.toString)
+          .map(_.toSeq)
 
         multiTxSignatures = NonEmpty.mk(
           Seq,
@@ -246,7 +289,7 @@ class ExternalPartiesCommands(
             protocolVersion,
           )
           // Merge the signature from the protocol key
-          .addSingleSignature(protocolSignature)
+          .addSingleSignatures(protocolSignatures.toSet)
       } yield {
         val keys = Map(
           "namespace-delegation" -> signedNamespaceDelegation,
@@ -264,12 +307,13 @@ class ExternalPartiesCommands(
             signedPartyToParticipant,
             signedPartyToKey,
           ),
-          ExternalParty(partyId, NonEmpty.mk(Seq, protocolSigningKey.fingerprint)),
+          ExternalParty(partyId, protocolSigningKeysNE.map(_.fingerprint)),
         )
       }
 
     /** Sign the given hash on behalf of the external party
       */
+    // TODO(#27482) This should be available globally
     def sign(hash: ByteString, party: ExternalParty): Seq[Signature] =
       consoleEnvironment.run(
         ConsoleCommandResult.fromEitherTUS(
@@ -280,6 +324,31 @@ class ExternalPartiesCommands(
             .leftMap(_.toString)
         )
       )
+
+    /** Sign the given topology transaction on behalf of the external party
+      */
+    // TODO(#27482) This should be available globally
+    def sign[Op <: TopologyChangeOp, M <: TopologyMapping](
+        tx: TopologyTransaction[Op, M],
+        party: PartyId,
+        protocolVersion: ProtocolVersion,
+    ): SignedTopologyTransaction[Op, M] = {
+      val signature: Signature = consoleEnvironment.run(
+        ConsoleCommandResult.fromEitherTUS(
+          crypto.privateCrypto
+            .sign(tx.hash.hash, party.fingerprint, SigningKeyUsage.NamespaceOnly)
+            .leftMap(_.toString)
+        )
+      )
+
+      SignedTopologyTransaction
+        .withSignature(
+          tx,
+          signature,
+          isProposal = true,
+          protocolVersion,
+        )
+    }
 
     object keys {
       object secret {
@@ -312,6 +381,7 @@ class ExternalPartiesCommands(
             disclosedContracts: Seq[DisclosedContract] = Seq.empty,
             userId: String = reference.userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+            transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
             // External party specifics
             verboseHashing: Boolean = false,
         ): ApiTransaction = {
@@ -330,20 +400,44 @@ class ExternalPartiesCommands(
             prefetchContractKeys = Seq(),
           )
 
-          val preparedTransaction = prepared.preparedTransaction.getOrElse(
+          submit_prepared(
+            preparedTransaction = prepared,
+            actAs = actAs,
+            optTimeout = optTimeout,
+            deduplicationPeriod = deduplicationPeriod,
+            submissionId = submissionId,
+            minLedgerTimeAbs = minLedgerTimeAbs,
+            userId = userId,
+            transactionShape = transactionShape,
+          )
+        }
+
+        def submit_prepared(
+            actAs: ExternalParty, // TODO(#27461) Support multiple submitting parties
+            preparedTransaction: PrepareResponseProto,
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            userId: String = reference.userId,
+            transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+        ): ApiTransaction = {
+
+          val prepared = preparedTransaction.preparedTransaction.getOrElse(
             consoleEnvironment.raiseError("Prepared transaction was empty")
           )
 
-          val signatures = Map(actAs.partyId -> sign(prepared.preparedTransactionHash, actAs))
+          val signatures = Map(
+            actAs.partyId -> sign(preparedTransaction.preparedTransactionHash, actAs)
+          )
 
           val tx = reference.ledger_api.interactive_submission
             .execute_and_wait_for_transaction(
-              preparedTransaction = preparedTransaction,
+              preparedTransaction = prepared,
               transactionSignatures = signatures,
               submissionId = submissionId,
-              hashingSchemeVersion = prepared.hashingSchemeVersion,
-              // TODO(#27482) Check whether this can be removed and unified with local parties case
-              transactionFormat = None,
+              hashingSchemeVersion = preparedTransaction.hashingSchemeVersion,
+              transactionShape = Some(transactionShape),
               userId = userId,
               deduplicationPeriod = deduplicationPeriod,
               minLedgerTimeAbs = minLedgerTimeAbs,
@@ -394,6 +488,7 @@ class ExternalPartiesCommands(
 
             javab.data.Transaction.fromProto(ApiTransaction.toJavaProto(tx))
           }
+
         }
       }
     }

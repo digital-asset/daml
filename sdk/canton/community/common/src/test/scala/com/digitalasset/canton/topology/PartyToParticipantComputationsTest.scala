@@ -11,6 +11,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.immutable.SeqMap
+
 class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
 
   private lazy val computations = new PartyToParticipantComputations(loggerFactory)
@@ -21,12 +23,14 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
   private val p1 = participantIdFor(1)
   private val p2 = participantIdFor(2)
   private val p3 = participantIdFor(3)
+  private val p4 = participantIdFor(4)
+  private val p5 = participantIdFor(5)
 
   "PartyToParticipantComputations" should {
     "return an error when adds and remove overlap" in {
       computations
         .computeNewPermissions(
-          Map(p1 -> Submission),
+          SeqMap(p1 -> Submission),
           adds = List((p2, Submission)),
           removes = List(p2),
         )
@@ -39,7 +43,7 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
     "return an error when trying to remove a participant which is not permissioned" in {
       computations
         .computeNewPermissions(
-          Map(p1 -> Submission),
+          SeqMap(p1 -> Submission),
           removes = List(p2),
         )
         .left
@@ -47,7 +51,7 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
 
       computations
         .computeNewPermissions(
-          Map(p1 -> Submission),
+          SeqMap(p1 -> Submission),
           removes = List(p1),
         )
         .value shouldBe empty
@@ -56,7 +60,7 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
     "allow to add and remove permissions" in {
       computations
         .computeNewPermissions(
-          Map(p1 -> Submission, p2 -> Observation),
+          SeqMap(p1 -> Submission, p2 -> Observation),
           adds = List((p3, Confirmation)),
           removes = List(p1),
         )
@@ -66,8 +70,16 @@ class PartyToParticipantComputationsTest extends AnyWordSpec with BaseTest {
     "update existing added permissions" in {
       val updated = Map(p1 -> Confirmation)
       computations
-        .computeNewPermissions(Map(p1 -> Submission), adds = List((p1, Confirmation)))
+        .computeNewPermissions(SeqMap(p1 -> Submission), adds = List((p1, Confirmation)))
         .value shouldBe updated
+    }
+
+    "not change the order of existing participants" in {
+      val existing = SeqMap.from(Seq(p1, p2, p3, p4).map(_ -> Submission))
+      computations
+        .computeNewPermissions(existing, adds = List((p5, Submission)))
+        .value
+        .toSeq shouldBe existing.toSeq ++ Seq(p5 -> Submission)
     }
   }
 }
