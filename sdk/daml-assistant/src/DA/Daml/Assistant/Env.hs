@@ -211,7 +211,7 @@ getPackagePath (LookForProjectPath True) = wrapErr "Detecting daml project." $ d
 
     where
         hasProjectConfig :: FilePath -> IO Bool
-        hasProjectConfig p = doesFileExist (p </> projectConfigName)
+        hasProjectConfig p = doesFileExist (p </> packageConfigName)
 
 -- | Calculate the current SDK version and path.
 --

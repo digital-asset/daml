@@ -58,7 +58,7 @@ readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 -- | Read project config file.
 -- Throws a ConfigError if reading or parsing fails.
 readPackageConfig :: PackagePath -> IO ProjectConfig
-readPackageConfig (PackagePath path) = readConfigWithEnv "project" (path </> projectConfigName)
+readPackageConfig (PackagePath path) = readConfigWithEnv "project" (path </> packageConfigName)
 
 -- | Version of readProject that runs in Either, as such does not interpolate variables
 readPackageConfigPure :: Text -> Either ConfigError ProjectConfig
@@ -66,7 +66,7 @@ readPackageConfigPure = readConfigFromStringWithoutEnv "project"
 
 -- | Checks if a project config contains environment variables.
 packageConfigUsesEnvironmentVariables :: PackagePath -> IO Bool
-packageConfigUsesEnvironmentVariables (PackagePath path) = configUsesEnvironmentVariables (path </> projectConfigName)
+packageConfigUsesEnvironmentVariables (PackagePath path) = configUsesEnvironmentVariables (path </> packageConfigName)
 
 -- | Read sdk config file.
 -- Throws a ConfigError if reading or parsing fails.

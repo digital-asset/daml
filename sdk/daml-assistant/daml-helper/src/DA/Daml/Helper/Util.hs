@@ -67,7 +67,7 @@ import DA.Daml.Project.Types
 import DA.Daml.Project.Util hiding (fromMaybeM)
 
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
-findDamlProjectRoot = findAscendantWithFile projectConfigName
+findDamlProjectRoot = findAscendantWithFile packageConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =

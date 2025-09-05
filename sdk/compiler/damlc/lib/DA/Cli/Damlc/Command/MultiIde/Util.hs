@@ -21,7 +21,7 @@ import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Package.Config (isDamlYamlContentForPackage)
 import DA.Daml.Project.Config (readPackageConfig, queryProjectConfig, queryProjectConfigRequired)
-import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
@@ -239,9 +239,9 @@ findHome path = do
   where
     hasValidDamlYaml :: FilePath -> IO Bool
     hasValidDamlYaml path = do
-      hasDamlYaml <- elem projectConfigName <$> listDirectory path
+      hasDamlYaml <- elem packageConfigName <$> listDirectory path
       if hasDamlYaml
-        then shouldHandleDamlYamlChange <$> T.readFileUtf8 (path </> projectConfigName)
+        then shouldHandleDamlYamlChange <$> T.readFileUtf8 (path </> packageConfigName)
         else pure False
 
     aux :: FilePath -> IO (Maybe PackageHome)

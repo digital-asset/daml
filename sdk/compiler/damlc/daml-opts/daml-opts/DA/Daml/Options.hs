@@ -142,7 +142,7 @@ findProjectRoot file = do
     findM hasProjectConfig (ascendants dir)
   where
     hasProjectConfig :: FilePath -> IO Bool
-    hasProjectConfig p = doesFileExist (p </> projectConfigName)
+    hasProjectConfig p = doesFileExist (p </> packageConfigName)
 
 
 -- | Memoize an IO function, with the characteristics:

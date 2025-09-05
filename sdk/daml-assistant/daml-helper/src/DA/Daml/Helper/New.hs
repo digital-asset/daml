@@ -148,7 +148,7 @@ setWritable f = do
 
 -- Copied from Helper.Util to avoid its much larger dependency set. To be cleaned up once Daml Helper is removed.
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
-findDamlProjectRoot = findAscendantWithFile projectConfigName
+findDamlProjectRoot = findAscendantWithFile packageConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
