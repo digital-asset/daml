@@ -6,8 +6,8 @@ module DA.Daml.Assistant.Version
     ( getInstalledSdkVersions
     , getSdkVersionFromSdkPath
     , getReleaseVersionFromSdkPath
-    , getSdkVersionFromProjectPath
-    , getUnresolvedReleaseVersionFromProjectPath
+    , getSdkVersionFromPackagePath
+    , getUnresolvedReleaseVersionFromPackagePath
     , getAssistantSdkVersion
     , getDefaultSdkVersion
     , getAvailableReleaseVersions
@@ -114,8 +114,8 @@ getSdkVersionFromSdkPath sdkPath = do
     requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
 
-getUnresolvedReleaseVersionFromProjectPath :: PackagePath -> IO UnresolvedReleaseVersion
-getUnresolvedReleaseVersionFromProjectPath projectPath =
+getUnresolvedReleaseVersionFromPackagePath :: PackagePath -> IO UnresolvedReleaseVersion
+getUnresolvedReleaseVersionFromPackagePath projectPath =
     requiredIO ("Failed to read SDK version from " <> pack packageConfigName) $ do
         configE <- tryConfig $ readPackageConfig projectPath
         case releaseVersionFromProjectConfig =<< configE of
@@ -142,10 +142,10 @@ getUnresolvedReleaseVersionFromProjectPath projectPath =
 
 -- | Determine SDK version from project root. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getSdkVersionFromProjectPath :: UseCache -> PackagePath -> IO ReleaseVersion
-getSdkVersionFromProjectPath useCache projectPath =
+getSdkVersionFromPackagePath :: UseCache -> PackagePath -> IO ReleaseVersion
+getSdkVersionFromPackagePath useCache projectPath =
     requiredIO ("Failed to read SDK version from " <> pack packageConfigName) $ do
-        v <- getUnresolvedReleaseVersionFromProjectPath projectPath
+        v <- getUnresolvedReleaseVersionFromPackagePath projectPath
         resolvedVersionOrErr <- resolveReleaseVersion useCache v
         case resolvedVersionOrErr of
             Left resolveErr ->
