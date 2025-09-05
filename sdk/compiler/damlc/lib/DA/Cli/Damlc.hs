@@ -155,7 +155,7 @@ import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                getSdkVersion,
                                multiPackageConfigName,
                                packageConfigName,
-                               withExpectProjectRoot,
+                               withExpectPackageRoot,
                                withPackageRoot,
                                damlAssistantIsSet,
                                projectPathEnvVar,
@@ -502,7 +502,7 @@ runTestsInProjectOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnl
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
 runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
-  where effect = withExpectProjectRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
+  where effect = withExpectPackageRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ PackagePath pPath }
           installDepsAndInitPackageDb cliOptions initPkgDb

@@ -27,7 +27,7 @@ module DA.Daml.Project.Consts
     , getDamlAssistant
     , PackageLocationCheck(..)
     , withPackageRoot
-    , withExpectProjectRoot
+    , withExpectPackageRoot
     ) where
 
 import Control.Applicative ((<|>))
@@ -229,12 +229,12 @@ withPackageRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
                 pure (projectPath `makeRelative` absF)
 
 -- | Same as 'withPackageRoot' but always requires project root.
-withExpectProjectRoot
+withExpectPackageRoot
     :: Maybe PackagePath  -- ^ optionally specified project root
     -> String  -- ^ command name for error message
     -> (FilePath -> (FilePath -> IO FilePath) -> IO a)  -- ^ action
     -> IO a
-withExpectProjectRoot mbProjectDir cmdName act = do
+withExpectPackageRoot mbProjectDir cmdName act = do
     withPackageRoot mbProjectDir (PackageLocationCheck cmdName True) $ \case
         Nothing -> error "withPackageRoot should terminated the program"
         Just projectPath -> act projectPath
