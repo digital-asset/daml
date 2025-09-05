@@ -38,19 +38,17 @@ if ($scala_test_targets.count -gt 0) {
       echo "@@@@"
       bazel aquery `
         "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
-        "outputs('.*_scala_test.*', //...)"
-        #"--output_groups=scala_test_info" #`
-        #@scala_test_targets # `
-#         2>&1 | % {
-#           if ($_ -is [System.Management.Automation.ErrorRecord]) {
-#             if ($_.TargetObject -ne $null) {
-#               $out.WriteLine();
-#             }
-#             $out.Write($_.Exception.Message)
-#           } else {
-#             $out.WriteLine($_)
-#           }
-#         }
+        "outputs('.*_scala_test.*', //...)" `
+        2>&1 | % {
+          if ($_ -is [System.Management.Automation.ErrorRecord]) {
+            if ($_.TargetObject -ne $null) {
+              $out.WriteLine();
+            }
+            $out.Write($_.Exception.Message)
+          } else {
+            $out.WriteLine($_)
+          }
+        }
       echo "_@@@@ done"
       $bazelexitcode = $lastexitcode
     } finally {
@@ -63,8 +61,12 @@ if ($scala_test_targets.count -gt 0) {
       throw "bazel build returned non-zero exit code: $lastexitcode"
     }
 
+    echo "####"
+    gc $tmp
+    echo "_####"
+
     Get-Content $tmp |
-      % { if ( $_ -match ">>>(?<filename>.*)" ) { Get-Content $Matches.filename } } |
+      % { if ( $_ -match "Outputs: \[(?<filename>.*)\]" ) { Get-Content $Matches.filename } } |
       jq -acsS "map({key:.short_label,value:.long_label})|from_entries"
 
     if ($lastexitcode -ne 0) {
