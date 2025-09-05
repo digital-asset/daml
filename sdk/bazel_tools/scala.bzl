@@ -766,8 +766,8 @@ def _da_scala_test_short_name_aspect_impl(target, ctx):
     if is_numbered:
         [name, number] = split
 
-    fail(str(split))
-    fail(str(name) + " >>> " + str(number))
+#    fail(str(split))
+#    fail(str(name) + " >>> " + str(number))
 
     is_relevant = is_scala_test and has_single_src and is_numbered
     if not is_relevant:
@@ -780,6 +780,7 @@ def _da_scala_test_short_name_aspect_impl(target, ctx):
         short_label = str(target.label),
         long_label = str(long_label),
     ))
+    fail(str(info_json))
 
     # Aspect generated providers are not available to Starlark cquery output,
     # so we write the information to a file from where it can be collected in a
