@@ -1303,14 +1303,14 @@ locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
     prefix = mainWorkspace </> "daml-script" </> "daml"
 
 writeAndBuildProject :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
-writeAndBuildProject lfVersion damlc (projectPath, projectFiles) = do
-  createDirectory projectPath
+writeAndBuildProject lfVersion damlc (packagePath, projectFiles) = do
+  createDirectory packagePath
   for_ projectFiles $ \(file, fileContent) ->
-    writeFile (projectPath </> file) $ T.unpack $ T.unlines fileContent
+    writeFile (packagePath </> file) $ T.unpack $ T.unlines fileContent
   callProcessSilent damlc
     [ "build"
     , "--project-root"
-    , projectPath
+    , packagePath
     , "--target=" <> LF.renderVersion lfVersion
     ]
 

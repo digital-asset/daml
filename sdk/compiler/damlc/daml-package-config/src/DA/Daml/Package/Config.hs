@@ -181,8 +181,8 @@ isDamlYamlContentForPackage projectContent =
   isDamlYamlForPackage <$> readPackageConfigPure projectContent
 
 withPackageConfig :: PackagePath -> (PackageConfigFields -> IO a) -> IO a
-withPackageConfig projectPath f = do
-  project <- readPackageConfig projectPath
+withPackageConfig packagePath f = do
+  project <- readPackageConfig packagePath
   -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
   unless (isDamlYamlForPackage project) $
     throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $
@@ -195,8 +195,8 @@ withPackageConfig projectPath f = do
 -- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
 -- Stops at root, but also won't pick any files it doesn't have permission to search
 findMultiPackageConfig :: PackagePath -> IO (Maybe PackagePath)
-findMultiPackageConfig projectPath = do
-  filePath <- canonicalizePath $ unwrapPackagePath projectPath
+findMultiPackageConfig packagePath = do
+  filePath <- canonicalizePath $ unwrapPackagePath packagePath
   flip loopM filePath $ \path -> do
     hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
     if hasMultiPackage
@@ -206,8 +206,8 @@ findMultiPackageConfig projectPath = do
         in pure $ if path == newPath then Right Nothing else Left newPath
 
 canonicalizeMultiPackageConfigIntermediate :: PackagePath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
-canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths darPaths) multiPackagePaths) =
-  withCurrentDirectory (unwrapPackagePath projectPath) $ do
+canonicalizeMultiPackageConfigIntermediate packagePath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths darPaths) multiPackagePaths) =
+  withCurrentDirectory (unwrapPackagePath packagePath) $ do
     MultiPackageConfigFieldsIntermediate
       <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths <*> traverse canonicalizePath darPaths)
       <*> traverse canonicalizePath multiPackagePaths
@@ -230,17 +230,17 @@ exploreAndFlatten start eval = evalStateT (go start) []
 
 fullParseMultiPackageConfig :: PackagePath -> IO MultiPackageConfigFields
 fullParseMultiPackageConfig startPath = do
-  mpcs <- exploreAndFlatten startPath $ \projectPath -> do
-    multiPackage <- readMultiPackageConfig projectPath
+  mpcs <- exploreAndFlatten startPath $ \packagePath -> do
+    multiPackage <- readMultiPackageConfig packagePath
     multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
-    canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
+    canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate packagePath multiPackageConfigI
     pure (PackagePath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
   pure $ MultiPackageConfigFields (nubOrd $ concatMap mpPackagePaths mpcs) (nubOrd $ concatMap mpDars mpcs)
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.
 withMultiPackageConfig :: PackagePath -> (MultiPackageConfigFields -> IO a) -> IO a
-withMultiPackageConfig projectPath f = fullParseMultiPackageConfig projectPath >>= f
+withMultiPackageConfig packagePath f = fullParseMultiPackageConfig packagePath >>= f
 
 -- | Orphans because I’m too lazy to newtype everything.
 instance A.FromJSON Ghc.ModuleName where
