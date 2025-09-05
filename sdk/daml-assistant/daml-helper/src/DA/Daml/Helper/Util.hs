@@ -126,7 +126,7 @@ getProjectLedgerHost = do
 
 getProjectLedgerAccessToken :: IO (Maybe FilePath)
 getProjectLedgerAccessToken = do
-    projectConfigFpM <- getProjectPath
+    projectConfigFpM <- getPackagePath
     projectConfigM <- forM projectConfigFpM (readProjectConfig . PackagePath)
     case projectConfigM of
         Nothing -> pure Nothing
@@ -142,7 +142,7 @@ getProjectConfig argM = do
               Nothing -> "Must be called from within a project."
               Just arg -> "This command needs to be either run from within a project \
                           \ or the argument " <> arg <> " needs to be specified.") =<<
-        getProjectPath
+        getPackagePath
     readProjectConfig (PackagePath projectPath)
 
 requiredE :: Exception e => T.Text -> Either e t -> IO t

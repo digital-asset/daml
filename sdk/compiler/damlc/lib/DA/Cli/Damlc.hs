@@ -151,7 +151,7 @@ import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, r
 import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                damlCacheEnvVar,
                                damlPathEnvVar,
-                               getProjectPath,
+                               getPackagePath,
                                getSdkVersion,
                                multiPackageConfigName,
                                projectConfigName,
@@ -1697,7 +1697,7 @@ onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> M
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withPackageRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
-    mbEnvProjectPath <- fmap PackagePath <$> getProjectPath
+    mbEnvProjectPath <- fmap PackagePath <$> getPackagePath
     let mbProjectPath = packageRoot =<< mbProjectOpts
     let projectPath = fromMaybe (PackagePath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
