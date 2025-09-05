@@ -38,8 +38,8 @@ import qualified DA.Service.Logger.Impl.IO as Logger
 
 newtype PackageHome = PackageHome {unPackageHome :: FilePath} deriving (Show, Eq, Ord)
 
-toProjectPath :: PackageHome -> PackagePath
-toProjectPath (PackageHome path) = PackagePath path
+toPackagePath :: PackageHome -> PackagePath
+toPackagePath (PackageHome path) = PackagePath path
 
 newtype DarFile = DarFile {unDarFile :: FilePath} deriving (Show, Eq, Ord)
 newtype DamlFile = DamlFile {unDamlFile :: FilePath} deriving (Show, Eq, Ord)

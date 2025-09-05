@@ -45,7 +45,7 @@ runInit targetFolderM = do
     currentDir <- getCurrentDirectory
     let targetFolder = fromMaybe currentDir targetFolderM
         targetFolderRel = makeRelative currentDir targetFolder
-        projectConfigRel = normalise (targetFolderRel </> packageConfigName)
+        packageConfigRel = normalise (targetFolderRel </> packageConfigName)
           -- ^ for display purposes
 
     -- cases 1 or 2
@@ -68,28 +68,28 @@ runInit targetFolderM = do
     targetFolderAbs <- makeAbsolute targetFolder -- necessary to find package roots
 
     -- cases 3 or 4
-    damlProjectRootM <- findDamlProjectRoot targetFolderAbs
-    whenJust damlProjectRootM $ \packageRoot -> do
-        let projectRootRel = makeRelative currentDir packageRoot
-        hPutStrLn stderr $ "Daml package already initialized at " <> projectRootRel
+    mPackagePath <- findDamlPackageRoot targetFolderAbs
+    whenJust mPackagePath $ \packageRoot -> do
+        let relPackagePath = makeRelative currentDir packageRoot
+        hPutStrLn stderr $ "Daml package already initialized at " <> relPackagePath
         when (targetFolderAbs /= packageRoot) $ do
             hPutStr stderr $ unlines
                 [ "WARNING: daml init target is not the Daml package root."
                 , "    daml init target  = " <> targetFolder
-                , "    Daml package root = " <> projectRootRel
+                , "    Daml package root = " <> relPackagePath
                 ]
         exitSuccess
 
     -- case 5
-    putStrLn ("Generating " <> projectConfigRel)
+    putStrLn ("Generating " <> packageConfigRel)
 
     currentSdkVersion <- getSdkVersion
 
-    projectFiles <- listFilesRecursive targetFolder
+    packageFiles <- listFilesRecursive targetFolder
     let targetFolderSep = addTrailingPathSeparator targetFolder
-    let projectFilesRel = mapMaybe (stripPrefix targetFolderSep) projectFiles
+    let relPackageFiles = mapMaybe (stripPrefix targetFolderSep) packageFiles
     let isMainDotDaml = (== "Main.daml") . takeFileName
-        sourceM = find isMainDotDaml projectFilesRel
+        sourceM = find isMainDotDaml relPackageFiles
         source = fromMaybe "daml/Main.daml" sourceM
         name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
 
@@ -105,7 +105,7 @@ runInit targetFolderM = do
 
     putStr $ unlines
         [ "Initialized package " <> name
-        , "Done! Please verify " <> projectConfigRel
+        , "Done! Please verify " <> packageConfigRel
         ]
 
     where

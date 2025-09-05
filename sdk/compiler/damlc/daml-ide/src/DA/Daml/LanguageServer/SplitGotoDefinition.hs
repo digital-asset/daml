@@ -206,8 +206,8 @@ gotoDefinitionByName ideState params = do
     -- modules until you open the file, so it doesn't hold any context about "all" modules.
     -- (trust me I tried so hard to make this work)
     root <- hoistMaybe (Just "Failed to get IDE root") mRoot
-    projectConfig <- liftIO $ readPackageConfig (PackagePath root)
-    config <- except $ first (Just . show) $ parsePackageConfig projectConfig
+    packageConfig <- liftIO $ readPackageConfig (PackagePath root)
+    config <- except $ first (Just . show) $ parsePackageConfig packageConfig
 
     srcFiles <- maybeTToExceptT "Failed to get source files" $ getDamlFiles $ normalise $ root </> pSrc config
     -- Must be sorted shorted to longest, since we always want the shortest path that matches our suffix

@@ -31,7 +31,7 @@ tests damlc =
         "Incremental package db initialization"
         [ test
               "Reinitialize when dependency changes"
-              [ projectFile "proj" ["dependency/dep.dar"]
+              [ packageDamlYaml "proj" ["dependency/dep.dar"]
               , ("daml/A.daml"
                 , unlines
                       [ "module A where"
@@ -46,7 +46,7 @@ tests damlc =
                       , "x : Int"
                       , "x = f 1 + g 2"])
               ]
-              [ projectFile "dep" []
+              [ packageDamlYaml "dep" []
               , ( "daml/B.daml"
                 , unlines
                       [ "module B where"
@@ -77,17 +77,17 @@ tests damlc =
               (ShouldSucceed True)
         , test
               "Reinitialize when dependency is added"
-              [ projectFile "proj" []
+              [ packageDamlYaml "proj" []
               , ("daml/A.daml", unlines [ "module A where"])
               ]
-              [ projectFile "proj" ["dependency/dep.dar"]
+              [ packageDamlYaml "proj" ["dependency/dep.dar"]
               , ("daml/A.daml", unlines
                     [ "module A where"
                     , "import B"
                     , "g x = f x + 1"
                     ])
               ]
-              [ projectFile "dep" []
+              [ packageDamlYaml "dep" []
               , ( "daml/B.daml"
                 , unlines
                       [ "module B where"
@@ -105,7 +105,7 @@ tests damlc =
               (ShouldSucceed True)
         , test
               "Fail when dependency is removed"
-              [ projectFile "proj" ["dependency/dep.dar"]
+              [ packageDamlYaml "proj" ["dependency/dep.dar"]
               , ("daml/A.daml"
                 , unlines
                       ["module A where"
@@ -113,7 +113,7 @@ tests damlc =
                       , "x : Int"
                       , "x = f 1"])
               ]
-              [ projectFile "proj" []
+              [ packageDamlYaml "proj" []
               ]
               [ ( "daml.yaml"
                 , unlines
@@ -142,14 +142,14 @@ tests damlc =
               (ShouldSucceed False)
         , test
               "No reinitialization when nothing changes"
-              [ projectFile "proj" ["dependency/dep.dar"]
+              [ packageDamlYaml "proj" ["dependency/dep.dar"]
               , ("daml/A.daml"
                 , unlines
                       ["module A where"
                       , "import B"])
               ]
               []
-              [ projectFile "dep" []
+              [ packageDamlYaml "dep" []
               , ( "daml/B.daml"
                 , unlines
                       [ "module B where"
@@ -202,7 +202,7 @@ tests damlc =
         for_ fs $ \(file, content) -> do
             createDirectoryIfMissing True (takeDirectory $ dir </> file)
             writeFileUTF8 (dir </> file) content
-    projectFile name deps =
+    packageDamlYaml name deps =
         ( "daml.yaml"
         , unlines $
           [ "sdk-version: " <> sdkVersion

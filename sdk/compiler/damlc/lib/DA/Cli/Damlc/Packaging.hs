@@ -4,7 +4,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Cli.Damlc.Packaging
-  ( createProjectPackageDb
+  ( createPackageDb
   , setupPackageDb
   , setupPackageDbFromPackageConfig
   , mbErr
@@ -90,8 +90,8 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 --   ledger. Based on the Daml-LF we generate dummy interface files
 --   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
-createProjectPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
-createProjectPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
+createPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
+createPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
   = do
     (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization packageRoot depsDir modulePrefixes
     loggerH <- getLogger opts "package-db"
@@ -972,7 +972,7 @@ unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependen
         releaseVersion
         pDependencies
         pDataDependencies
-    createProjectPackageDb packageRoot opts pModulePrefixes
+    createPackageDb packageRoot opts pModulePrefixes
 
 withPkgDbLock :: NormalizedFilePath -> IO a -> IO a
 withPkgDbLock packageRoot act = do

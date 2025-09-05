@@ -214,7 +214,7 @@ runCommand env@Env{..} = \case
         let snapshotVersionsE = if vSnapshots then snapshotVersionsEUnfiltered else pure []
             availableVersionsE = extractReleasesFromSnapshots <$> snapshotVersionsEUnfiltered
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
-        projectVersionM <- mapM (getSdkVersionFromPackagePath useCache) envProjectPath
+        mPackageVersion <- mapM (getSdkVersionFromPackagePath useCache) envProjectPath
         envSelectedVersionM <- lookupEnv sdkVersionEnvVar
         envSdkVersionResolved <- resolveReleaseVersionUnsafe useCache `traverse` envSdkVersion
 
@@ -222,7 +222,7 @@ runCommand env@Env{..} = \case
             envVersions = catMaybes
                 [ envSdkVersionResolved
                 , guard vAssistant >> asstVersion
-                , projectVersionM
+                , mPackageVersion
                 , defaultVersionM
                 ]
 
@@ -249,7 +249,7 @@ runCommand env@Env{..} = \case
                 [ ("selected by env var " <> pack sdkVersionEnvVar)
                     <$ guard (Just (unpack $ versionToText v) == envSelectedVersionM)
                 , "package SDK version from daml.yaml"
-                    <$ guard (Just v == projectVersionM && isJust envProjectPath)
+                    <$ guard (Just v == mPackageVersion && isJust envProjectPath)
                 , "default SDK version for new projects"
                     <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
                 , "daml assistant version"

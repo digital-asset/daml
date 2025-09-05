@@ -847,8 +847,8 @@ execInit opts packageLocationOpts =
 installDepsAndInitPackageDb :: SdkVersion.Class.SdkVersioned => Options -> InitPkgDb -> IO ()
 installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
-        isProject <- withPackageConfig defaultPackagePath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
-        when isProject $ do
+        isPackage <- withPackageConfig defaultPackagePath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
+        when isPackage $ do
             packageRoot <- getCurrentDirectory
             opts <- addResolutionData opts
             withPackageConfig defaultPackagePath $
@@ -1023,9 +1023,9 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
 
 updateUpgradePath :: T.Text -> PackagePath -> Options -> Maybe FilePath -> IO Options
 updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newPkgPath = do
-  let projectFilePath = unwrapPackagePath packagePath
+  let packageFilePath = unwrapPackagePath packagePath
   optCanonPath <- traverse canonicalizePath $ uiUpgradedPackagePath optUpgradeInfo
-  pkgCanonPath <- withCurrentDirectory projectFilePath $ traverse canonicalizePath newPkgPath
+  pkgCanonPath <- withCurrentDirectory packageFilePath $ traverse canonicalizePath newPkgPath
   -- optUpgradeInfo is normalised to current directory
   -- newPkgPath is normalised to daml.yaml location (or currentDirectory)
   uiUpgradedPackagePath <- case (pkgCanonPath, optCanonPath) of
@@ -1033,8 +1033,8 @@ updateUpgradePath context packagePath opts@Options{optUpgradeInfo} newPkgPath = 
       loggerH <- getLogger opts context
       Logger.logError loggerH $ T.unlines
         [ "ERROR: Specified two different DARs to run upgrade checks against:"
-        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack (makeRelative projectFilePath damlYamlOption) <> "'"
-        , "  Path specified in `--upgrades` build option is '" <> T.pack (makeRelative projectFilePath buildFlagsOption) <> "'"
+        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack (makeRelative packageFilePath damlYamlOption) <> "'"
+        , "  Path specified in `--upgrades` build option is '" <> T.pack (makeRelative packageFilePath buildFlagsOption) <> "'"
         ]
       exitFailure
     (a, b) ->
@@ -1333,8 +1333,8 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
       = do
         execPath <- liftIO getCurrentDirectory
         mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageCleanAll cleanAll then Just execPath else Nothing
-        isProject <- withPackageRoot' (packageLocationOpts {packageLocationCheck = PackageLocationCheck "" False}) $ const $ doesFileExist packageConfigName
-        case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
+        isPackage <- withPackageRoot' (packageLocationOpts {packageLocationCheck = PackageLocationCheck "" False}) $ const $ doesFileExist packageConfigName
+        case (mMultiPackagePath, isPackage, getMultiPackageCleanAll cleanAll) of
           -- daml clean --all with no multi-package.yaml
           (Nothing, _, True) -> do
             hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
@@ -1370,8 +1370,8 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
 singleCleanEffect :: PackageLocationOpts -> IO ()
 singleCleanEffect packageLocationOpts =
   withPackageRoot' packageLocationOpts $ \_relativize -> do
-    isProject <- doesFileExist packageConfigName
-    when isProject $ do
+    isPackage <- doesFileExist packageConfigName
+    when isPackage $ do
       canonDir <- getCurrentDirectory
       hPutStrLn stderr $ "Cleaning " <> canonDir
       whenM (doesPathExist damlArtifactDir) $
@@ -1662,10 +1662,10 @@ darPathFromDamlYaml path = do
         version <- queryPackageConfigRequired ["version"] package
         mOutput <- queryPackageConfigBuildOutput package
         pure (name, version, mOutput)
-      ) mbProjectOpts
+      ) mPackageOpts
   deriveDarPath path name version mOutput
   where
-    mbProjectOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
+    mPackageOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
 -- | Subset of parsePackageConfig to get only what we need for deferring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
@@ -1684,18 +1684,18 @@ buildMultiPackageConfigFromDamlYaml path =
       bmOutput <- queryPackageConfigBuildOutput package
       pure $ BuildMultiPackageConfig {..}
     )
-    mbProjectOpts
+    mPackageOpts
   where
-    mbProjectOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
+    mPackageOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
 onDamlYaml :: (ConfigError -> t) -> (PackageConfig -> Either ConfigError t) -> Maybe PackageLocationOpts -> IO t
-onDamlYaml def f mbProjectOpts = do
+onDamlYaml def f mPackageOpts = do
     -- This is the same logic used in withPackageRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
-    mbEnvProjectPath <- fmap PackagePath <$> getPackagePath
-    let mbProjectPath = packageRoot =<< mbProjectOpts
-    let packagePath = fromMaybe (PackagePath ".") (mbProjectPath <|> mbEnvProjectPath)
+    mEnvPackagePath <- fmap PackagePath <$> getPackagePath
+    let mbProjectPath = packageRoot =<< mPackageOpts
+    let packagePath = fromMaybe (PackagePath ".") (mbProjectPath <|> mEnvPackagePath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
         package <- readPackageConfig packagePath
         either throwIO pure $ f package
@@ -1717,11 +1717,11 @@ fullParseArgs numProcessors cliArgs = do
     let (_, tempParseResult) = parse cliArgs Nothing
     -- Note: need to parse given args first to decide whether we need to add
     -- args from daml.yaml.
-    Command cmd mbProjectOpts _ <- handleParseResult tempParseResult
+    Command cmd mPackageOpts _ <- handleParseResult tempParseResult
 
     (errMsgs, parseResult) <- if cmdUseDamlYamlArgs cmd
       then
-        parse cliArgs . Just <$> cliArgsFromDamlYaml mbProjectOpts
+        parse cliArgs . Just <$> cliArgsFromDamlYaml mPackageOpts
       else
         pure $ parse cliArgs Nothing
 

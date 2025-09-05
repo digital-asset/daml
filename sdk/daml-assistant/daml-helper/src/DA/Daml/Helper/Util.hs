@@ -4,14 +4,14 @@
 module DA.Daml.Helper.Util
   ( DamlHelperError(..)
   , requiredE
-  , findDamlProjectRoot
+  , findDamlPackageRoot
   , doBuild
   , getDarPath
-  , getProjectLedgerHost
-  , getProjectLedgerPort
-  , getProjectLedgerAccessToken
-  , getProjectParties
-  , getProjectConfig
+  , getPackageLedgerHost
+  , getPackageLedgerPort
+  , getPackageLedgerAccessToken
+  , getPackageParties
+  , getPackageConfig
   , toAssistantCommand
   , withProcessWait_'
   , damlSdkJar
@@ -66,8 +66,8 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util hiding (fromMaybeM)
 
-findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
-findDamlProjectRoot = findAscendantWithFile packageConfigName
+findDamlPackageRoot :: FilePath -> IO (Maybe FilePath)
+findDamlPackageRoot = findAscendantWithFile packageConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
@@ -88,54 +88,54 @@ doBuild = do
 
 getDarPath :: IO FilePath
 getDarPath = do
-    projectName <- getProjectName
-    projectVersion <- getProjectVersion
+    projectName <- getPackageName
+    projectVersion <- getPackageVersion
     return $ ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
 
-getProjectName :: IO String
-getProjectName = do
-    projectConfig <- getProjectConfig Nothing
+getPackageName :: IO String
+getPackageName = do
+    packageConfig <- getPackageConfig Nothing
     requiredE "Failed to read package name from package config" $
-        queryPackageConfigRequired ["name"] projectConfig
+        queryPackageConfigRequired ["name"] packageConfig
 
-getProjectVersion :: IO String
-getProjectVersion = do
-    projectConfig <- getProjectConfig Nothing
+getPackageVersion :: IO String
+getPackageVersion = do
+    packageConfig <- getPackageConfig Nothing
     requiredE "Failed to read package version from package config" $
-        queryPackageConfigRequired ["version"] projectConfig
+        queryPackageConfigRequired ["version"] packageConfig
 
-getProjectParties :: IO [String]
-getProjectParties = do
-    projectConfig <- getProjectConfig Nothing
+getPackageParties :: IO [String]
+getPackageParties = do
+    packageConfig <- getPackageConfig Nothing
     fmap (fromMaybe []) $
         requiredE "Failed to read list of parties from package config" $
-        queryPackageConfig ["parties"] projectConfig
+        queryPackageConfig ["parties"] packageConfig
 
-getProjectLedgerPort :: IO Int
-getProjectLedgerPort = do
-    projectConfig <- getProjectConfig $ Just "--port"
+getPackageLedgerPort :: IO Int
+getPackageLedgerPort = do
+    packageConfig <- getPackageConfig $ Just "--port"
     -- TODO: remove default; insist ledger-port is in the config ?!
     defaultingE "Failed to parse ledger.port" 6865 $
-        queryPackageConfig ["ledger", "port"] projectConfig
+        queryPackageConfig ["ledger", "port"] packageConfig
 
-getProjectLedgerHost :: IO String
-getProjectLedgerHost = do
-    projectConfig <- getProjectConfig $ Just "--host"
+getPackageLedgerHost :: IO String
+getPackageLedgerHost = do
+    packageConfig <- getPackageConfig $ Just "--host"
     defaultingE "Failed to parse ledger.host" "localhost" $
-        queryPackageConfig ["ledger", "host"] projectConfig
+        queryPackageConfig ["ledger", "host"] packageConfig
 
-getProjectLedgerAccessToken :: IO (Maybe FilePath)
-getProjectLedgerAccessToken = do
-    projectConfigFpM <- getPackagePath
-    projectConfigM <- forM projectConfigFpM (readPackageConfig . PackagePath)
-    case projectConfigM of
+getPackageLedgerAccessToken :: IO (Maybe FilePath)
+getPackageLedgerAccessToken = do
+    packageConfigFpM <- getPackagePath
+    packageConfigM <- forM packageConfigFpM (readPackageConfig . PackagePath)
+    case packageConfigM of
         Nothing -> pure Nothing
-        Just projectConfig ->
+        Just packageConfig ->
             defaultingE "Failed to parse ledger.access-token-file" Nothing $
-            queryPackageConfig ["ledger", "access-token-file"] projectConfig
+            queryPackageConfig ["ledger", "access-token-file"] packageConfig
 
-getProjectConfig :: Maybe T.Text -> IO PackageConfig
-getProjectConfig argM = do
+getPackageConfig :: Maybe T.Text -> IO PackageConfig
+getPackageConfig argM = do
     packagePath <-
         required
             (case argM of
