@@ -26,7 +26,7 @@ module DA.Daml.Project.Consts
     , getSdkVersionMaybe
     , getDamlAssistant
     , PackageLocationCheck(..)
-    , withProjectRoot
+    , withPackageRoot
     , withExpectProjectRoot
     ) where
 
@@ -208,12 +208,12 @@ data PackageLocationCheck = PackageLocationCheck String Bool
 -- The provided action is executed on 'Just' the project root, if available,
 -- otherwise on 'Nothing'. Additionally, it is passed a function to make
 -- filepaths relative to the new working directory.
-withProjectRoot
+withPackageRoot
     :: Maybe PackagePath
     -> PackageLocationCheck
     -> (Maybe FilePath -> (FilePath -> IO FilePath) -> IO a)
     -> IO a
-withProjectRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
+withPackageRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
     previousCwd <- getCurrentDirectory
     mbProjectPath <- maybe getProjectPath (pure . Just . unwrapPackagePath) mbProjectDir
     case mbProjectPath of
@@ -228,13 +228,13 @@ withProjectRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
                 absF <- canonicalizePath (previousCwd </> f)
                 pure (projectPath `makeRelative` absF)
 
--- | Same as 'withProjectRoot' but always requires project root.
+-- | Same as 'withPackageRoot' but always requires project root.
 withExpectProjectRoot
     :: Maybe PackagePath  -- ^ optionally specified project root
     -> String  -- ^ command name for error message
     -> (FilePath -> (FilePath -> IO FilePath) -> IO a)  -- ^ action
     -> IO a
 withExpectProjectRoot mbProjectDir cmdName act = do
-    withProjectRoot mbProjectDir (PackageLocationCheck cmdName True) $ \case
-        Nothing -> error "withProjectRoot should terminated the program"
+    withPackageRoot mbProjectDir (PackageLocationCheck cmdName True) $ \case
+        Nothing -> error "withPackageRoot should terminated the program"
         Just projectPath -> act projectPath

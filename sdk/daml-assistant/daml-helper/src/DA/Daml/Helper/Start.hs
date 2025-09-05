@@ -110,7 +110,7 @@ data SandboxCantonPortSpec = SandboxCantonPortSpec
 
 runStart :: StartOptions -> IO ()
 runStart startOptions@StartOptions{..} =
-  withProjectRoot Nothing (PackageLocationCheck "daml start" True) $ \_ _ -> do
+  withPackageRoot Nothing (PackageLocationCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig Nothing
     darPath <- getDarPath
     mbInitScript :: Maybe String <-
