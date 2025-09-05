@@ -1,5 +1,6 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
 module DA.Daml.Compiler.Dar
     ( createDarFile
     , buildDar
@@ -266,10 +267,13 @@ getSrcRoot fileOrDir = do
 mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
 mergePkgs meta ver pkgs =
     let mergedMods = foldl' NM.union NM.empty $ map (LF.packageModules . getWhnfPackage) pkgs
+        merge = LF.mergeImportedPackages' -- "DA.Daml.Compiler.Dar:mergePkgs"
+        mergedImports = foldl' merge (Right S.empty) $ map (LF.importedPackages . getWhnfPackage) pkgs
      in LF.Package
             { LF.packageLfVersion = ver
             , LF.packageModules = mergedMods
             , LF.packageMetadata = meta
+            , LF.importedPackages = mergedImports
             }
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as
@@ -437,3 +441,4 @@ makeRelative' a b =
     -- Note that NormalizedFilePath only takes care of normalizing slashes.
     -- Here we also want to normalise things like ./a to a
     makeRelative (normalise $ fromNormalizedFilePath a) (normalise $ fromNormalizedFilePath b)
+

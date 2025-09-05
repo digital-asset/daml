@@ -6,7 +6,6 @@ module DA.Daml.LF.Proto3.EncodeTest (
 ) where
 
 
-import           Control.Monad.State.Strict
 import qualified Data.Text.Lazy                           as TL
 import           Data.Vector                              (Vector, (!), singleton, empty)
 import           Text.Printf
@@ -251,8 +250,8 @@ data EncodeTestEnv = EncodeTestEnv
 deriving instance Show EncodeTestEnv
 deriving instance Data EncodeTestEnv
 
-envToTestEnv :: EncodeEnv -> EncodeTestEnv
-envToTestEnv EncodeEnv{..} =
+envToTestEnv :: EncodeState -> EncodeTestEnv
+envToTestEnv EncodeState{..} =
   EncodeTestEnv (packInternedStrings internedStrings)
                 (packInternedKinds   internedKindsMap)
                 (packInternedTypes   internedTypesMap)
@@ -262,13 +261,14 @@ envToTestEnv EncodeEnv{..} =
 testVersion :: Version
 testVersion = Version V2 PointDev
 
+runEnc :: Encode a -> (a, EncodeState)
+runEnc = runEncode (initTestEncodeConfig testVersion) initEncodeState
+
 -- Kinds
 encodeKindAssert :: Kind -> P.Kind -> Assertion
 encodeKindAssert k pk =
-  let (pk', _) = runState (encodeKind k) env
+  let (pk', _) = runEnc (encodeKind k)
   in  pk' @?= pk
-    where
-      env = initEncodeEnv testVersion
 
 encodeKindTest :: String -> Kind -> P.Kind -> TestTree
 encodeKindTest str k pk = testCase str $ encodeKindAssert k pk
@@ -281,7 +281,7 @@ kindTests = testGroup "Kind tests"
   ]
 
 runEncodeKindTest :: Kind -> (P.Kind, EncodeTestEnv)
-runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initEncodeEnv testVersion)
+runEncodeKindTest k = envToTestEnv <$> runEnc (encodeKind k)
 
 kindInterningStarToStar :: TestTree
 kindInterningStarToStar =
@@ -332,7 +332,7 @@ typeInterningTests = testGroup "Type tests (interning)"
 
 
 runEncodeTypeTest :: Type -> (P.Type, EncodeTestEnv)
-runEncodeTypeTest k = envToTestEnv <$> runState (encodeType' k) (initEncodeEnv testVersion)
+runEncodeTypeTest k = envToTestEnv <$> runEnc (encodeType' k)
 
 typeInterningVar :: TestTree
 typeInterningVar =
@@ -449,7 +449,7 @@ exprInterningTests = testGroup "Expr tests (interning)"
   ]
 
 runEncodeExprTest :: Expr -> (P.Expr, EncodeTestEnv)
-runEncodeExprTest k = envToTestEnv <$> runState (encodeExpr' k) (initEncodeEnv testVersion)
+runEncodeExprTest k = envToTestEnv <$> runEnc (encodeExpr' k)
 
 exprInterningVar :: TestTree
 exprInterningVar =

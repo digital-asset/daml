@@ -49,17 +49,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       decodePackageMetadata(lfPackage.getMetadata, internedStrings)
     }
 
+    val imports = decodePackageImports(lfPackage)
+
     val env0 = Env(
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      internedKinds = IndexedSeq.empty,
-      internedTypes = IndexedSeq.empty,
-      internedExprs = IndexedSeq.empty,
       optDependencyTracker = Some(dependencyTracker),
-      optModuleName = None,
       onlySerializableDataDefs = onlySerializableDataDefs,
-      currentInternedExprId = None,
+      imports = imports,
     )
 
     val internedKinds = decodeKindsTable(env0, lfPackage)
@@ -69,12 +67,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
 
+    val importsSet =
+      imports.map(xs => xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
       modules = modules,
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
+      imports = importsSet,
     )
 
   }
@@ -121,17 +123,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         s"expected exactly one module in proto package, found ${lfSingleModule.getModulesCount} modules"
       )
 
+    val imports = decodePackageImports(lfSingleModule)
+
     val env0 = new Env(
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      internedKinds = IndexedSeq.empty,
-      internedTypes = IndexedSeq.empty,
-      internedExprs = IndexedSeq.empty,
-      optDependencyTracker = None,
-      optModuleName = None,
-      onlySerializableDataDefs = false,
-      currentInternedExprId = None,
+      imports = imports,
     )
     val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
@@ -196,6 +194,19 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       .toIndexedSeq
   }
 
+  private[archive] def decodePackageImports(
+      lfPackage: PLF.Package
+  ): Either[String, collection.IndexedSeq[String]] = {
+    lfPackage.getImportsSumCase match {
+      case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
+        Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
+      case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
+        Left(lfPackage.getNoImportedPackagesReason)
+      case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
+        Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
+    }
+  }
+
   private[archive] class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
 
@@ -208,15 +219,18 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
   private[archive] case class Env(
       packageId: PackageId,
-      internedStrings: ImmArraySeq[String],
-      internedDottedNames: ImmArraySeq[DottedName],
-      internedKinds: collection.IndexedSeq[Kind],
-      internedTypes: collection.IndexedSeq[Type],
-      internedExprs: collection.IndexedSeq[PLF.Expr],
-      optDependencyTracker: Option[PackageDependencyTracker],
-      optModuleName: Option[ModuleName],
-      onlySerializableDataDefs: Boolean,
+      internedStrings: ImmArraySeq[String] = ImmArraySeq.empty,
+      internedDottedNames: ImmArraySeq[DottedName] = ImmArraySeq.empty,
+      internedKinds: collection.IndexedSeq[Kind] = ImmArraySeq.empty,
+      internedTypes: collection.IndexedSeq[Type] = ImmArraySeq.empty,
+      internedExprs: collection.IndexedSeq[PLF.Expr] = ImmArraySeq.empty,
+      optDependencyTracker: Option[PackageDependencyTracker] = None,
+      optModuleName: Option[ModuleName] = None,
+      onlySerializableDataDefs: Boolean = false,
       currentInternedExprId: Option[Int] = None,
+      imports: Either[String, collection.IndexedSeq[String]] = Left(
+        "com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
+      ),
   ) {
 
     // decode*ForTest -- test entry points
@@ -360,6 +374,20 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def getInternedPackageId(id: Int): PackageId =
       eitherToParseError(PackageId.fromString(getInternedStr(id)))
+
+    private[this] def getImportedPackage(id: Int) =
+      imports
+        .map { seq =>
+          seq.lift(id).getOrElse {
+            throw Error.Parsing(s"Index out of bounds: invalid imported package index $id")
+          }
+        }
+        .getOrElse {
+          throw Error.Parsing("Imports table None")
+        }
+
+    private[this] def getImportedPackageId(id: Int): PackageId =
+      eitherToParseError(PackageId.fromString(getImportedPackage(id)))
 
     private def getInternedName(id: Int) = {
       eitherToParseError(Name.fromString(getInternedStr(id)))
@@ -843,6 +871,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           this.packageId
         case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
           getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
+        case SC.PACKAGE_IMPORT_ID =>
+          getImportedPackageId(lfId.getPackageId.getPackageImportId())
         case SC.SUM_NOT_SET =>
           throw Error.Parsing("PackageId.SUM_NOT_SET")
       }

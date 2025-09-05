@@ -1000,11 +1000,26 @@ newtype UpgradedPackageId = UpgradedPackageId
   deriving stock (Eq, Data, Generic, Ord, Show)
   deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
+type PackageIds = S.Set PackageId
+-- type ModuleWithImports = (Module, Maybe PackageIds)
+type ModuleWithImports = (Module, Either NoPkgImportsReason PackageIds)
+type ModuleWithImports' = (Module, Maybe PackageIds)
+type ImportedPackages = Either NoPkgImportsReason PackageIds
+
+data NoPkgImportsReason =
+    StablePackage
+  | LfDoesNotSupportPkgImports
+  | Testing String
+  | Trace String --to insert callsite, for when reason unclear
+  | Combined [NoPkgImportsReason]
+  deriving (Eq, Data, Generic, NFData, Show, Read)
+
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
     , packageMetadata :: PackageMetadata
+    , importedPackages :: ImportedPackages
     }
   deriving (Eq, Data, Generic, NFData, Show)
 
