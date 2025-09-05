@@ -64,18 +64,18 @@ data PackageConfigFields = PackageConfigFields
 
 -- | Parse the daml.yaml for package specific config fields.
 parsePackageConfig :: PackageConfig -> Either ConfigError PackageConfigFields
-parsePackageConfig project = do
-    pName <- queryPackageConfigRequired ["name"] project
-    pSrc <- queryPackageConfigRequired ["source"] project
+parsePackageConfig package = do
+    pName <- queryPackageConfigRequired ["name"] package
+    pSrc <- queryPackageConfigRequired ["source"] package
     pExposedModules <-
         fmap (map Ghc.mkModuleName) <$>
-        queryPackageConfig ["exposed-modules"] project
-    pVersion <- Just <$> queryPackageConfigRequired ["version"] project
-    pDependencies <- queryPackageConfigRequired ["dependencies"] project
-    pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] project
-    pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] project
-    pSdkVersion <- queryPackageConfigRequired ["sdk-version"] project
-    pUpgradeDar <- queryPackageConfig ["upgrades"] project
+        queryPackageConfig ["exposed-modules"] package
+    pVersion <- Just <$> queryPackageConfigRequired ["version"] package
+    pDependencies <- queryPackageConfigRequired ["dependencies"] package
+    pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
+    pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] package
+    pSdkVersion <- queryPackageConfigRequired ["sdk-version"] package
+    pUpgradeDar <- queryPackageConfig ["upgrades"] package
     Right PackageConfigFields {..}
 
 checkPkgConfig :: PackageConfigFields -> [T.Text]
@@ -171,8 +171,8 @@ fullDamlYamlFields = Set.fromList
 
 -- Determines if a daml.yaml is for defining a package (returns true) or simply for setting sdk-version (false)
 isDamlYamlForPackage :: PackageConfig -> Bool
-isDamlYamlForPackage project =
-  case unwrapPackageConfig project of
+isDamlYamlForPackage package =
+  case unwrapPackageConfig package of
     A.Object obj -> any ((`Set.member` fullDamlYamlFields) . A.toString) (A.keys obj)
     _ -> False
 
@@ -182,17 +182,17 @@ isDamlYamlContentForPackage projectContent =
 
 withPackageConfig :: PackagePath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig packagePath f = do
-  project <- readPackageConfig packagePath
+  package <- readPackageConfig packagePath
   -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
-  unless (isDamlYamlForPackage project) $
+  unless (isDamlYamlForPackage package) $
     throwIO $ ConfigFileInvalid "package" $ Y.InvalidYaml $ Just $ Y.YamlException $
       packageConfigName ++ " is a packageless daml.yaml, cannot be used for package config."
 
-  pkgConfig <- either throwIO pure (parsePackageConfig project)
+  pkgConfig <- either throwIO pure (parsePackageConfig package)
   pkgConfig' <- overrideSdkVersion pkgConfig
   f pkgConfig'
 
--- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
+-- Traverses up the directory tree from current package path and returns the package path of the "nearest" multi-package.yaml
 -- Stops at root, but also won't pick any files it doesn't have permission to search
 findMultiPackageConfig :: PackagePath -> IO (Maybe PackagePath)
 findMultiPackageConfig packagePath = do
@@ -238,7 +238,7 @@ fullParseMultiPackageConfig startPath = do
 
   pure $ MultiPackageConfigFields (nubOrd $ concatMap mpPackagePaths mpcs) (nubOrd $ concatMap mpDars mpcs)
 
--- Gives the filepath where the multipackage was found if its not the same as project path.
+-- Gives the filepath where the multipackage was found if its not the same as package path.
 withMultiPackageConfig :: PackagePath -> (MultiPackageConfigFields -> IO a) -> IO a
 withMultiPackageConfig packagePath f = fullParseMultiPackageConfig packagePath >>= f
 

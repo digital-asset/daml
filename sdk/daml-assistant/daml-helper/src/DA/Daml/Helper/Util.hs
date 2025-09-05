@@ -95,20 +95,20 @@ getDarPath = do
 getProjectName :: IO String
 getProjectName = do
     projectConfig <- getProjectConfig Nothing
-    requiredE "Failed to read project name from project config" $
+    requiredE "Failed to read package name from package config" $
         queryPackageConfigRequired ["name"] projectConfig
 
 getProjectVersion :: IO String
 getProjectVersion = do
     projectConfig <- getProjectConfig Nothing
-    requiredE "Failed to read project version from project config" $
+    requiredE "Failed to read package version from package config" $
         queryPackageConfigRequired ["version"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
     projectConfig <- getProjectConfig Nothing
     fmap (fromMaybe []) $
-        requiredE "Failed to read list of parties from project config" $
+        requiredE "Failed to read list of parties from package config" $
         queryPackageConfig ["parties"] projectConfig
 
 getProjectLedgerPort :: IO Int
@@ -139,8 +139,8 @@ getProjectConfig argM = do
     packagePath <-
         required
             (case argM of
-              Nothing -> "Must be called from within a project."
-              Just arg -> "This command needs to be either run from within a project \
+              Nothing -> "Must be called from within a package."
+              Just arg -> "This command needs to be either run from within a package \
                           \ or the argument " <> arg <> " needs to be specified.") =<<
         getPackagePath
     readPackageConfig (PackagePath packagePath)

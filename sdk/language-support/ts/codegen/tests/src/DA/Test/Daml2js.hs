@@ -33,7 +33,7 @@ main = do
         ] $ defaultMain (tests damlc daml2js)
 
 -- It may help to keep in mind for the following tests, this quick
--- refresher on the layout of a simple project:
+-- refresher on the layout of a simple package:
 --   grover/
 --     .daml/dist/grover-1.0.dar
 --     daml.yaml
@@ -109,8 +109,8 @@ tests damlc daml2js = testGroup "daml2js tests"
   , testCaseSteps "IndexTree test" $ \step -> withTempDir $ \here -> do
       let packageRoot = here </> "package"
           daml2jsDir = here </> "daml2js"
-          projectTs =  daml2jsDir </> "project-1.0"
-          projectDar = packageRoot </> ".daml" </> "dist" </> "project-1.0.dar"
+          projectTs =  daml2jsDir </> "package-1.0"
+          projectDar = packageRoot </> ".daml" </> "dist" </> "package-1.0.dar"
       createDirectoryIfMissing True packageRoot
       withCurrentDirectory packageRoot $ do
         createDirectoryIfMissing True ("daml" </> "A" </> "B")

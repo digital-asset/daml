@@ -66,7 +66,7 @@ newtype DamlAssistantPath = DamlAssistantPath
     { unwrapDamlAssistantPath :: FilePath
     } deriving (Eq, Show)
 
--- | File path of project root.
+-- | File path of package root.
 newtype PackagePath = PackagePath
     { unwrapPackagePath :: FilePath
     } deriving (Eq, Show)

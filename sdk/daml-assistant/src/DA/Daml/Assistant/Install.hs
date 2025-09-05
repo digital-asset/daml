@@ -90,7 +90,7 @@ data InstallEnvF a = InstallEnv
         -- ^ daml install is running from outside daml path
         -- (e.g. when running install script).
     , projectPathM :: Maybe PackagePath
-        -- ^ project path (for "daml install project")
+        -- ^ package path (for "daml install package")
     , artifactoryApiKeyM :: Maybe DAVersion.ArtifactoryApiKey
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
     , output :: String -> IO ()
@@ -518,13 +518,13 @@ latestInstall env@InstallEnv{..} =
         let version = maybe version1 (max version1) version2M
         versionInstall env { targetVersionM = version }
 
--- | Install the SDK version of the current project.
+-- | Install the SDK version of the current package.
 projectInstall :: InstallEnvWithoutVersion -> PackagePath -> IO ()
 projectInstall env packagePath = do
-    wrapErr "Installing daml version in project config (daml.yaml)" $ do
+    wrapErr "Installing daml version in package config (daml.yaml)" $ do
     projectConfig <- readPackageConfig packagePath
     unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromPackageConfig projectConfig
-    unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
+    unresolvedVersion <- required "SDK version missing from package config (daml.yaml)." unresolvedVersionM
     version <- DAVersion.resolveReleaseVersionUnsafe (useCache env) unresolvedVersion
     versionInstall env { targetVersionM = version }
 
@@ -535,8 +535,12 @@ shouldInstallAssistant InstallEnv{targetVersionM = versionToInstall, ..} =
     in determineAuto (isNewer || missingAssistant || installingFromOutside)
         (unwrapInstallAssistant (iAssistant options))
 
+-- Deprecated
 pattern RawInstallTarget_Project :: RawInstallTarget
 pattern RawInstallTarget_Project = RawInstallTarget "project"
+
+pattern RawInstallTarget_Package :: RawInstallTarget
+pattern RawInstallTarget_Package = RawInstallTarget "package"
 
 pattern RawInstallTarget_Latest :: RawInstallTarget
 pattern RawInstallTarget_Latest = RawInstallTarget "latest"
@@ -574,16 +578,23 @@ install options damlPath useCache projectPathM assistantVersion =
                     , ""
                     , "Available install targets:"
                     , "    daml install latest     Install the latest stable SDK version."
-                    , "    daml install project    Install the project SDK version."
+                    , "    daml install package    Install the package SDK version."
                     , "    daml install VERSION    Install a specific SDK version."
                     , "    daml install PATH       Install SDK from an SDK release tarball."
                     ]
                 exitFailure
 
             Just RawInstallTarget_Project -> do
-                packagePath <- required "'daml install project' must be run from within a project."
+                hPutStrLn stderr "'daml install project' is deprecated, please use 'daml install package'"
+                packagePath <- required "'daml install project' must be run from within a package."
                     projectPathM
                 warnAboutAnyInstallFlags "daml install project"
+                projectInstall env packagePath
+
+            Just RawInstallTarget_Package -> do
+                packagePath <- required "'daml install package' must be run from within a package."
+                    projectPathM
+                warnAboutAnyInstallFlags "daml install package"
                 projectInstall env packagePath
 
             Just RawInstallTarget_Latest -> do
@@ -601,7 +612,7 @@ install options damlPath useCache projectPathM assistantVersion =
                 if testD || testF then
                     pathInstall env arg
                 else
-                    throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
+                    throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'package' or 'latest'." ("target = " <> pack arg))
 
 -- | Uninstall a specific SDK version.
 uninstallVersion :: Env -> Either CouldNotResolveReleaseVersion ReleaseVersion -> IO ()

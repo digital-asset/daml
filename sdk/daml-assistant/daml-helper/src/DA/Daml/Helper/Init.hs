@@ -21,7 +21,7 @@ import System.Process (showCommandForUser)
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Consts
 
--- | Initialize a daml project in the current or specified directory.
+-- | Initialize a daml package in the current or specified directory.
 -- It will do the following (first that applies):
 --
 -- 1. If the target folder is actually a file, it will error out.
@@ -29,14 +29,14 @@ import DA.Daml.Project.Consts
 -- 2. If the target folder does not exist, it will error out and ask
 -- the user if they meant to use daml new instead.
 --
--- 3. If the target folder is a daml project root, it will do nothing
--- and let the user know the target is already a daml project.
+-- 3. If the target folder is a daml package root, it will do nothing
+-- and let the user know the target is already a daml package.
 --
--- 4. If the target folder is inside a daml project (transitively) but
--- is not the project root, it will do nothing and print out a warning.
+-- 4. If the target folder is inside a daml package (transitively) but
+-- is not the package root, it will do nothing and print out a warning.
 --
 -- 5. If none of the above, it will create a daml.yaml from scratch.
--- It will attempt to find a Main.daml source file in the project
+-- It will attempt to find a Main.daml source file in the package
 -- directory tree, but if it does not it will use daml/Main.daml
 -- as the default.
 --
@@ -61,22 +61,22 @@ runInit targetFolderM = do
             [ "ERROR: daml init target does not exist."
             , "    target = " <> targetFolderRel
             , ""
-            , "To create a project directory use daml new instead:"
+            , "To create a package directory use daml new instead:"
             , "    " <> showCommandForUser "daml" ["new", targetFolderRel]
             ]
         exitFailure
-    targetFolderAbs <- makeAbsolute targetFolder -- necessary to find project roots
+    targetFolderAbs <- makeAbsolute targetFolder -- necessary to find package roots
 
     -- cases 3 or 4
     damlProjectRootM <- findDamlProjectRoot targetFolderAbs
     whenJust damlProjectRootM $ \packageRoot -> do
         let projectRootRel = makeRelative currentDir packageRoot
-        hPutStrLn stderr $ "Daml project already initialized at " <> projectRootRel
+        hPutStrLn stderr $ "Daml package already initialized at " <> projectRootRel
         when (targetFolderAbs /= packageRoot) $ do
             hPutStr stderr $ unlines
-                [ "WARNING: daml init target is not the Daml project root."
+                [ "WARNING: daml init target is not the Daml package root."
                 , "    daml init target  = " <> targetFolder
-                , "    Daml project root = " <> projectRootRel
+                , "    Daml package root = " <> projectRootRel
                 ]
         exitSuccess
 
@@ -104,7 +104,7 @@ runInit targetFolderM = do
         ]
 
     putStr $ unlines
-        [ "Initialized project " <> name
+        [ "Initialized package " <> name
         , "Done! Please verify " <> projectConfigRel
         ]
 

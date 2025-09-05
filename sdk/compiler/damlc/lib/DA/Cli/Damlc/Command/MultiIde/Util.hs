@@ -258,14 +258,14 @@ findHome path = do
 packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSummary)
 packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
-    project <- lift $ readPackageConfig $ toProjectPath path
-    dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] project
-    directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] project
+    package <- lift $ readPackageConfig $ toProjectPath path
+    dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
+    directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] package
     let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
-    name <- except $ queryPackageConfigRequired ["name"] project
-    version <- except $ queryPackageConfigRequired ["version"] project
-    releaseVersion <- except $ queryPackageConfigRequired ["sdk-version"] project
+    name <- except $ queryPackageConfigRequired ["name"] package
+    version <- except $ queryPackageConfigRequired ["version"] package
+    releaseVersion <- except $ queryPackageConfigRequired ["sdk-version"] package
     -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
     -- Just saying its invalid is enough
 
@@ -273,7 +273,7 @@ packageSummaryFromDamlYaml path = do
       $ parseUnresolvedVersion releaseVersion
     
     let usingLocalComponents =
-          either (const False) (any (Map.member "local-path")) $ queryPackageConfig @(Map.Map String (Map.Map String String)) ["override-components"] project
+          either (const False) (any (Map.member "local-path")) $ queryPackageConfig @(Map.Map String (Map.Map String String)) ["override-components"] package
     
     pure PackageSummary
       { psUnitId = UnitId $ name <> "-" <> version

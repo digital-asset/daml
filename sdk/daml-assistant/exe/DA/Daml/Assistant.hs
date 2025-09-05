@@ -68,7 +68,7 @@ main = withSdkVersions $ do
 
                 -- We already know we can't parse the command without an installed SDK.
                 -- So if we can't find it, let the user know. This will happen whenever
-                -- auto-install is disabled and the project or environment specify a
+                -- auto-install is disabled and the package or environment specify a
                 -- missing SDK version.
                 case envSdkPath of
                     Nothing -> do
@@ -100,7 +100,7 @@ commandWantsProjectPath cmd = LookForPackagePath $
         Builtin Uninstall{} -> False
         _ -> True
 
--- | Perform version checks, i.e. warn user if project SDK version or assistant SDK
+-- | Perform version checks, i.e. warn user if package SDK version or assistant SDK
 -- versions are out of date with the latest known release.
 versionChecks :: Env -> IO ()
 versionChecks Env{..} = do
@@ -248,7 +248,7 @@ runCommand env@Env{..} = \case
             versionAttrs v = catMaybes
                 [ ("selected by env var " <> pack sdkVersionEnvVar)
                     <$ guard (Just (unpack $ versionToText v) == envSelectedVersionM)
-                , "project SDK version from daml.yaml"
+                , "package SDK version from daml.yaml"
                     <$ guard (Just v == projectVersionM && isJust envProjectPath)
                 , "default SDK version for new projects"
                     <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
@@ -403,7 +403,7 @@ anonimizeArg arg = do
 argWhitelist :: S.Set T.Text
 argWhitelist = S.fromList
     [ "version", "yes", "no", "auto"
-    , "install", "latest", "project"
+    , "install", "latest", "project", "package"
     , "uninstall"
     , "studio", "never", "always", "published"
     , "new", "skeleton", "empty-skeleton", "quickstart-java"

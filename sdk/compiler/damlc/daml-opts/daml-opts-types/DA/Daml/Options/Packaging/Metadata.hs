@@ -67,12 +67,12 @@ renamingToFlag unitId prefix modules =
 instance ToJSON PackageDbMetadata
 instance FromJSON PackageDbMetadata
 
--- | Given the path to the project root, write out the package db metadata.
+-- | Given the path to the package root, write out the package db metadata.
 writeMetadata :: NormalizedFilePath -> PackageDbMetadata -> IO ()
 writeMetadata packageRoot metadata = do
     encodeFile (metadataFile packageRoot) metadata
 
--- | Given the path to the project root, read the package db metadata.
+-- | Given the path to the package root, read the package db metadata.
 -- Throws an exception if the file does not exist or
 -- the format cannot be parsed.
 readMetadata :: NormalizedFilePath -> IO PackageDbMetadata
@@ -82,7 +82,7 @@ readMetadata packageRoot = do
         Right metadata -> pure metadata
         Left err -> fail ("Could not decode package metadata: " <> err)
 
--- | Given the path to the project root return the path
+-- | Given the path to the package root return the path
 -- where the metadata is stored.
 metadataFile :: NormalizedFilePath -> FilePath
 metadataFile packageRoot =

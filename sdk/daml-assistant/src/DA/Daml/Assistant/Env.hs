@@ -121,13 +121,13 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
       <> "install the SDK." )
     , ( pure (isJust envSdkVersion)
       ,  "Could not determine SDK version. Please check if DAML_HOME is incorrectly set, or "
-      <> "check the daml project config file, or run \"daml install\" to install the latest "
+      <> "check the daml package config file, or run \"daml install\" to install the latest "
       <> "version of the SDK." )
     , ( maybe (pure False) (doesDirectoryExist . unwrapSdkPath) envSdkPath
       ,  "The SDK directory does not exist. Please check if DAML_SDK or DAML_SDK_VERSION "
       <> "are incorrectly set, or run \"daml install\" to install the appropriate SDK version.")
     , ( maybe (pure True) (doesDirectoryExist . unwrapPackagePath) envProjectPath
-      , "The project directory does not exist. Please check if DAML_PROJECT is incorrectly set.")
+      , "The package directory does not exist. Please check if DAML_PACKAGE (or DAML_PROJECT) is incorrectly set.")
     ]
 
 -- | Determine the absolute path to the assistant. Can be overriden with
@@ -194,16 +194,16 @@ getCachePath =
                 Right cacheDir -> pure $ CachePath cacheDir
 
 
--- | Calculate the project path. This is done by starting at the current
+-- | Calculate the package path. This is done by starting at the current
 -- working directory, checking if "daml.yaml" is present. If it is found,
--- that's the project path. Otherwise, go up one level and repeat
+-- that's the package path. Otherwise, go up one level and repeat
 -- until you can't go up.
 --
--- The project path can be overriden by passing the DAML_PROJECT
+-- The package path can be overriden by passing the DAML_PROJECT
 -- environment variable.
 getPackagePath :: LookForPackagePath -> IO (Maybe PackagePath)
 getPackagePath (LookForPackagePath False) = pure Nothing
-getPackagePath (LookForPackagePath True) = wrapErr "Detecting daml project." $ do
+getPackagePath (LookForPackagePath True) = wrapErr "Detecting daml package." $ do
         pathM <- overrideWithEnvVarsMaybe @SomeException [packagePathEnvVar, projectPathEnvVar] makeAbsolute Right $ do
             cwd <- getCurrentDirectory
             findM hasProjectConfig (ascendants cwd)
