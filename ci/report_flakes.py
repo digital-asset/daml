@@ -45,7 +45,9 @@ def extract_test_name_map(mapping_filename: str):
     with keys being the short names and values being the long names.
     """
     with open(mapping_filename) as f:
-        print(f"exists: {f.exists}")
+        content = f.read()
+        print(f"content: {content}")
+    with open(mapping_filename) as f:
         return json.load(f)
 
 def print_failed_test(branck: str, test_name: str):
