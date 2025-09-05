@@ -147,7 +147,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                withPackageConfig,
                                withMultiPackageConfig)
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
-import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
+import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readPackageConfig)
 import DA.Daml.Project.Consts (PackageLocationCheck(..),
                                damlCacheEnvVar,
                                damlPathEnvVar,
@@ -1701,7 +1701,7 @@ onDamlYaml def f mbProjectOpts = do
     let mbProjectPath = packageRoot =<< mbProjectOpts
     let projectPath = fromMaybe (PackagePath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
-        project <- readProjectConfig projectPath
+        project <- readPackageConfig projectPath
         either throwIO pure $ f project
 
 cliArgsFromDamlYaml :: Maybe PackageLocationOpts -> IO [String]

@@ -117,7 +117,7 @@ getSdkVersionFromSdkPath sdkPath = do
 getUnresolvedReleaseVersionFromProjectPath :: PackagePath -> IO UnresolvedReleaseVersion
 getUnresolvedReleaseVersionFromProjectPath projectPath =
     requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
-        configE <- tryConfig $ readProjectConfig projectPath
+        configE <- tryConfig $ readPackageConfig projectPath
         case releaseVersionFromProjectConfig =<< configE of
             Right (Just v) -> do
                 pure v

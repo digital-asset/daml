@@ -522,7 +522,7 @@ latestInstall env@InstallEnv{..} =
 projectInstall :: InstallEnvWithoutVersion -> PackagePath -> IO ()
 projectInstall env projectPath = do
     wrapErr "Installing daml version in project config (daml.yaml)" $ do
-    projectConfig <- readProjectConfig projectPath
+    projectConfig <- readPackageConfig projectPath
     unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromProjectConfig projectConfig
     unresolvedVersion <- required "SDK version missing from project config (daml.yaml)." unresolvedVersionM
     version <- DAVersion.resolveReleaseVersionUnsafe (useCache env) unresolvedVersion
