@@ -35,6 +35,7 @@ if ($scala_test_targets.count -gt 0) {
     try {
       $append = $false
       $out = [System.IO.StreamWriter]::new($tmp, $append)
+      echo "@@@@"
       bazel.exe build `
         "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
         "--output_groups=scala_test_info" `

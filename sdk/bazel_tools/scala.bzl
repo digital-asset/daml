@@ -755,8 +755,6 @@ def da_scala_benchmark_jmh(
 
 def _da_scala_test_short_name_aspect_impl(target, ctx):
     is_scala_test = ctx.rule.kind == "scala_test"
-    print("Aspect applied to: %s of kind %s" % (target.label, ctx.rule.kind))
-    #fail("Aspect applied to: %s of kind %s" % (target.label, ctx.rule.kind))
 
     srcs = getattr(ctx.rule.attr, "srcs", [])
     has_single_src = type(srcs) == "list" and len(srcs) == 1
@@ -765,9 +763,6 @@ def _da_scala_test_short_name_aspect_impl(target, ctx):
     is_numbered = len(split) == 2 and split[1].isdigit()
     if is_numbered:
         [name, number] = split
-
-#    fail(str(split))
-#    fail(str(name) + " >>> " + str(number))
 
     is_relevant = is_scala_test and has_single_src and is_numbered
     if not is_relevant:
@@ -787,7 +782,6 @@ def _da_scala_test_short_name_aspect_impl(target, ctx):
     # See https://github.com/bazelbuild/bazel/issues/13866
     info_out = ctx.actions.declare_file("{}_scala_test_info.json".format(target.label.name))
     ctx.actions.write(info_out, content = info_json, is_executable = False)
-    fail("written to " + "{}_scala_test_info.json".format(target.label.name))
     return [OutputGroupInfo(scala_test_info = depset([info_out]))]
 
 da_scala_test_short_name_aspect = aspect(
