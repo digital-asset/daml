@@ -1246,7 +1246,7 @@ multiPackageTests damlc scriptDarPath
                         , _xdata = Nothing
                         }
                   ]
-    , testCaseSteps "IDE in project directory" $ \step -> withTempDir $ \dir -> do
+    , testCaseSteps "IDE in package directory" $ \step -> withTempDir $ \dir -> do
           step "build a"
           createDirectoryIfMissing True (dir </> "a")
           writeFileUTF8 (dir </> "a" </> "daml.yaml") $ unlines
@@ -1279,7 +1279,7 @@ multiPackageTests damlc scriptDarPath
               , "f : Script A"
               , "f = pure a"
               ]
-          -- When run in the project directory, the IDE will take care of initializing
+          -- When run in the package directory, the IDE will take care of initializing
           -- the package db so we do not need to build.
           step "run language server"
           withCurrentDirectory (dir </> "b") $ runSessionWithConfig conf (damlc <> " ide") fullCaps' (dir </> "b") $ do

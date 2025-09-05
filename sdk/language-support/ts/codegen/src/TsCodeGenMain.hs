@@ -176,25 +176,25 @@ deriveOptionsFromDamlYaml = go `catch` \(e :: AssistantError) -> do
     exitFailure
   where 
     go = do
-      projectPath <- DAUtil.required "Must be called from within a project." =<< getProjectPath
-      projectConfig <- readProjectConfig (ProjectPath projectPath)
+      packagePath <- DAUtil.required "Must be called from within a package." =<< getPackagePath
+      packageConfig <- readPackageConfig (PackagePath packagePath)
       projectName <-
-        DAUtil.requiredE "Failed to read project name from project config" $
-          queryProjectConfigRequired ["name"] projectConfig
+        DAUtil.requiredE "Failed to read package name from package config" $
+          queryPackageConfigRequired ["name"] packageConfig
       projectVersion <-
-        DAUtil.requiredE "Failed to read project version from project config" $
-          queryProjectConfigRequired ["version"] projectConfig
+        DAUtil.requiredE "Failed to read package version from package config" $
+          queryPackageConfigRequired ["version"] packageConfig
       let darPath = ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
       outputPath <-
         DAUtil.requiredE "Failed to read output directory for JavaScript code generation" $
-          queryProjectConfigRequired
+          queryPackageConfigRequired
             ["codegen", "js", "output-directory"]
-            projectConfig
+            packageConfig
       mbNpmScope <-
         DAUtil.requiredE "Failed to read NPM scope for JavaScript code generation" $
-          queryProjectConfig
+          queryPackageConfig
             ["codegen", "js", "npm-scope"]
-            projectConfig
+            packageConfig
       pure $ Options [darPath] outputPath $ Scope $ fromMaybe "daml.js" mbNpmScope
 
 newtype Scope = Scope {unScope :: T.Text}

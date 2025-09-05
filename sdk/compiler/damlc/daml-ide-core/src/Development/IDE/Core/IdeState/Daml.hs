@@ -15,7 +15,7 @@ import Data.Maybe (listToMaybe)
 import Data.Either.Extra (eitherToMaybe)
 import DA.Daml.Options
 import DA.Daml.Options.Types
-import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Project.Types (PackagePath (..))
 import DA.Daml.Resolution.Config (ValidPackageResolution (..), findPackageResolutionData)
 import qualified DA.Service.Logger as Logger
 import qualified DA.Daml.LF.ScriptServiceClient as Script
@@ -51,7 +51,7 @@ enabledPlugins = Completions.plugin <> CodeAction.plugin
 scriptServiceJarFromOptions :: Options -> Maybe FilePath
 scriptServiceJarFromOptions opts = do
   resolutionData <- optResolutionData opts
-  packagePath <- unwrapProjectPath <$> optMbPackageConfigPath opts
+  packagePath <- unwrapPackagePath <$> optMbPackageConfigPath opts
   validResolution <- eitherToMaybe $ findPackageResolutionData packagePath resolutionData
   serviceJarList <- Map.lookup "script-service" $ imports validResolution
   listToMaybe serviceJarList

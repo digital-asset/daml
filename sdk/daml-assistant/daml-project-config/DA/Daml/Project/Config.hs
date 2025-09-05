@@ -3,24 +3,24 @@
 
 module DA.Daml.Project.Config
     ( DamlConfig
-    , ProjectConfig
+    , PackageConfig
     , SdkConfig
-    , projectConfigUsesEnvironmentVariables
+    , packageConfigUsesEnvironmentVariables
     , readSdkConfig
-    , readProjectConfig
-    , readProjectConfigPure
+    , readPackageConfig
+    , readPackageConfigPure
     , readDamlConfig
     , readMultiPackageConfig
-    , releaseVersionFromProjectConfig
+    , releaseVersionFromPackageConfig
     , sdkVersionFromSdkConfig
     , listSdkCommands
     , queryDamlConfig
-    , queryProjectConfig
+    , queryPackageConfig
     , checkNoScenarioServiceField
     , querySdkConfig
     , queryMultiPackageConfig
     , queryDamlConfigRequired
-    , queryProjectConfigRequired
+    , queryPackageConfigRequired
     , querySdkConfigRequired
     , queryMultiPackageConfigRequired
     ) where
@@ -55,18 +55,18 @@ import Text.Regex.TDFA
 readDamlConfig :: DamlPath -> IO DamlConfig
 readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 
--- | Read project config file.
+-- | Read package config file.
 -- Throws a ConfigError if reading or parsing fails.
-readProjectConfig :: ProjectPath -> IO ProjectConfig
-readProjectConfig (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
+readPackageConfig :: PackagePath -> IO PackageConfig
+readPackageConfig (PackagePath path) = readConfigWithEnv "package" (path </> packageConfigName)
 
 -- | Version of readProject that runs in Either, as such does not interpolate variables
-readProjectConfigPure :: Text -> Either ConfigError ProjectConfig
-readProjectConfigPure = readConfigFromStringWithoutEnv "project"
+readPackageConfigPure :: Text -> Either ConfigError PackageConfig
+readPackageConfigPure = readConfigFromStringWithoutEnv "package"
 
--- | Checks if a project config contains environment variables.
-projectConfigUsesEnvironmentVariables :: ProjectPath -> IO Bool
-projectConfigUsesEnvironmentVariables (ProjectPath path) = configUsesEnvironmentVariables (path </> projectConfigName)
+-- | Checks if a package config contains environment variables.
+packageConfigUsesEnvironmentVariables :: PackagePath -> IO Bool
+packageConfigUsesEnvironmentVariables (PackagePath path) = configUsesEnvironmentVariables (path </> packageConfigName)
 
 -- | Read sdk config file.
 -- Throws a ConfigError if reading or parsing fails.
@@ -75,8 +75,8 @@ readSdkConfig (SdkPath path) = readConfig "SDK" (path </> sdkConfigName)
 
 -- | Read multi package config file.
 -- Throws a ConfigError if reading or parsing fails.
-readMultiPackageConfig :: ProjectPath -> IO MultiPackageConfig
-readMultiPackageConfig (ProjectPath path) = readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
+readMultiPackageConfig :: PackagePath -> IO MultiPackageConfig
+readMultiPackageConfig (PackagePath path) = readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.
@@ -198,9 +198,9 @@ configUsesEnvironmentVariables path =
           _ -> False
     pure $ shouldInterpolate && hasVariables
 
--- | Determine pinned sdk version from project config, if it exists.
-releaseVersionFromProjectConfig :: ProjectConfig -> Either ConfigError (Maybe UnresolvedReleaseVersion)
-releaseVersionFromProjectConfig = queryProjectConfig ["sdk-version"]
+-- | Determine pinned sdk version from package config, if it exists.
+releaseVersionFromPackageConfig :: PackageConfig -> Either ConfigError (Maybe UnresolvedReleaseVersion)
+releaseVersionFromPackageConfig = queryPackageConfig ["sdk-version"]
 
 -- | Determine sdk version from sdk config, if it exists.
 sdkVersionFromSdkConfig :: SdkConfig -> Either ConfigError SdkVersion
@@ -215,17 +215,17 @@ listSdkCommands sdkPath enriched sdkConf = map (\f -> f sdkPath enriched) <$> qu
 queryDamlConfig :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError (Maybe t)
 queryDamlConfig path = queryConfig "daml" "DamlConfig" path . unwrapDamlConfig
 
--- | Query the project config by passing a path to the desired property.
+-- | Query the package config by passing a path to the desired property.
 -- See 'queryConfig' for more details.
-queryProjectConfig :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError (Maybe t)
-queryProjectConfig path = queryConfig "project" "ProjectConfig" path . unwrapProjectConfig
+queryPackageConfig :: Y.FromJSON t => [Text] -> PackageConfig -> Either ConfigError (Maybe t)
+queryPackageConfig path = queryConfig "package" "PackageConfig" path . unwrapPackageConfig
 
-checkNoScenarioServiceField :: ProjectConfig -> Either ConfigError ()
+checkNoScenarioServiceField :: PackageConfig -> Either ConfigError ()
 checkNoScenarioServiceField conf = do
-    hasScenarioService <- queryProjectConfig ["scenario-service"] conf
+    hasScenarioService <- queryPackageConfig ["scenario-service"] conf
     case hasScenarioService of
         Nothing -> pure ()
-        Just () -> Left (ConfigFieldInvalid "project" ["scenario-service"] "The `scenario-service` field has been removed. Fix this by renaming the field `script-service`.")
+        Just () -> Left (ConfigFieldInvalid "package" ["scenario-service"] "The `scenario-service` field has been removed. Fix this by renaming the field `script-service`.")
 
 -- | Query the sdk config by passing a list of members to the desired property.
 -- See 'queryConfig' for more details.
@@ -241,9 +241,9 @@ queryMultiPackageConfig path = queryConfig "multi-package" "MultiPackageConfig" 
 queryDamlConfigRequired :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError t
 queryDamlConfigRequired path = queryConfigRequired "daml" "DamlConfig" path . unwrapDamlConfig
 
--- | Like 'queryProjectConfig' but returns an error if the property is missing.
-queryProjectConfigRequired :: Y.FromJSON t => [Text] -> ProjectConfig -> Either ConfigError t
-queryProjectConfigRequired path = queryConfigRequired "project" "ProjectConfig" path . unwrapProjectConfig
+-- | Like 'queryPackageConfig' but returns an error if the property is missing.
+queryPackageConfigRequired :: Y.FromJSON t => [Text] -> PackageConfig -> Either ConfigError t
+queryPackageConfigRequired path = queryConfigRequired "package" "PackageConfig" path . unwrapPackageConfig
 
 -- | Like 'querySdkConfig' but returns an error if the property is missing.
 querySdkConfigRequired :: Y.FromJSON t => [Text] -> SdkConfig -> Either ConfigError t

@@ -20,8 +20,8 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Package.Config (isDamlYamlContentForPackage)
-import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
-import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Config (readPackageConfig, queryPackageConfig, queryPackageConfigRequired)
+import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
 import Data.Bifunctor (first)
@@ -239,9 +239,9 @@ findHome path = do
   where
     hasValidDamlYaml :: FilePath -> IO Bool
     hasValidDamlYaml path = do
-      hasDamlYaml <- elem projectConfigName <$> listDirectory path
+      hasDamlYaml <- elem packageConfigName <$> listDirectory path
       if hasDamlYaml
-        then shouldHandleDamlYamlChange <$> T.readFileUtf8 (path </> projectConfigName)
+        then shouldHandleDamlYamlChange <$> T.readFileUtf8 (path </> packageConfigName)
         else pure False
 
     aux :: FilePath -> IO (Maybe PackageHome)
@@ -258,22 +258,22 @@ findHome path = do
 packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSummary)
 packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
-    project <- lift $ readProjectConfig $ toProjectPath path
-    dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    directDeps <- except $ fromMaybe [] <$> queryProjectConfig ["dependencies"] project
+    package <- lift $ readPackageConfig $ toPackagePath path
+    dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
+    directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] package
     let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
-    name <- except $ queryProjectConfigRequired ["name"] project
-    version <- except $ queryProjectConfigRequired ["version"] project
-    releaseVersion <- except $ queryProjectConfigRequired ["sdk-version"] project
+    name <- except $ queryPackageConfigRequired ["name"] package
+    version <- except $ queryPackageConfigRequired ["version"] package
+    releaseVersion <- except $ queryPackageConfigRequired ["sdk-version"] package
     -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
     -- Just saying its invalid is enough
 
-    unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "project" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
+    unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "package" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
       $ parseUnresolvedVersion releaseVersion
     
     let usingLocalComponents =
-          either (const False) (any (Map.member "local-path")) $ queryProjectConfig @(Map.Map String (Map.Map String String)) ["override-components"] project
+          either (const False) (any (Map.member "local-path")) $ queryPackageConfig @(Map.Map String (Map.Map String String)) ["override-components"] package
     
     pure PackageSummary
       { psUnitId = UnitId $ name <> "-" <> version

@@ -76,7 +76,7 @@ data LedgerFlags = LedgerFlags
   { fSslConfigM :: Maybe L.ClientSSLConfig
   , fTimeout :: L.TimeoutSeconds
   -----------------------------------------
-  -- The following values get defaults from the project config by
+  -- The following values get defaults from the package config by
   -- running `getDefaultLedgerFlags`
   , fHostM :: Maybe String
   , fPortM :: Maybe Int
@@ -124,7 +124,7 @@ showHostAndPort :: LedgerArgs -> String
 showHostAndPort LedgerArgs{host,port} = host <> ":" <> show port
 
 --
--- Get default values from project config
+-- Get default values from package config
 -----------------------------------------
 getDefaultArgs :: LedgerFlags -> IO LedgerArgs
 getDefaultArgs LedgerFlags { fSslConfigM
@@ -134,9 +134,9 @@ getDefaultArgs LedgerFlags { fSslConfigM
                            , fTokFileM
                            , fMaxReceiveLengthM
                            } = do
-  host <- fromMaybeM getProjectLedgerHost fHostM
-  port <- fromMaybeM getProjectLedgerPort fPortM
-  pTokFileM <- getProjectLedgerAccessToken
+  host <- fromMaybeM getPackageLedgerHost fHostM
+  port <- fromMaybeM getPackageLedgerPort fPortM
+  pTokFileM <- getPackageLedgerAccessToken
   tokM <- getTokFromFile (fTokFileM <|> pTokFileM)
   return $
     LedgerArgs
@@ -163,7 +163,7 @@ getTokFromFile tokFileM = do
 -- Ledger command implementations
 ---------------------------------
 
--- | Allocate project parties and upload project DAR file to ledger.
+-- | Allocate package parties and upload package DAR file to ledger.
 runDeploy :: LedgerFlags -> IO ()
 runDeploy flags = do
     args <- getDefaultArgs flags
@@ -173,14 +173,14 @@ runDeploy flags = do
     putStrLn "Deploy succeeded."
 
 -- | Allocate parties on ledger. If list of parties is empty,
--- defaults to the project parties.
+-- defaults to the package parties.
 runLedgerAllocateParties :: LedgerFlags -> [String] -> IO ()
 runLedgerAllocateParties flags partiesArg = do
     args <- getDefaultArgs flags
     parties <-
       if notNull partiesArg
         then pure partiesArg
-        else getProjectParties
+        else getPackageParties
     putStrLn $ "Checking party allocation at " <> showHostAndPort args
     mapM_ (allocatePartyIfRequired args) parties
     where
@@ -195,7 +195,7 @@ runLedgerAllocateParties flags partiesArg = do
           "Allocated " <> show party <> " for '" <> name <> "' at " <>
           showHostAndPort args
 
--- | Upload a DAR file to the ledger. (Defaults to project DAR)
+-- | Upload a DAR file to the ledger. (Defaults to package DAR)
 runLedgerUploadDar :: LedgerFlags -> DryRun -> Maybe FilePath -> IO ()
 runLedgerUploadDar flags dryRun mbDar = do
   args <- getDefaultArgs flags
@@ -483,7 +483,7 @@ runLedgerExport flags remainingArguments = do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "export-logback.xml")
     let isHelp = any (\x -> x `elem` ["-h", "--help"]) remainingArguments
     ledgerFlags <- if isHelp then
-        -- Don't use getDefaultArgs here so that --help can be used outside a daml project.
+        -- Don't use getDefaultArgs here so that --help can be used outside a daml package.
         pure []
       else do
         args <- getDefaultArgs flags

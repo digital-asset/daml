@@ -21,7 +21,7 @@ import System.Process (showCommandForUser)
 import DA.Daml.Helper.Util
 import DA.Daml.Project.Consts
 
--- | Initialize a daml project in the current or specified directory.
+-- | Initialize a daml package in the current or specified directory.
 -- It will do the following (first that applies):
 --
 -- 1. If the target folder is actually a file, it will error out.
@@ -29,14 +29,14 @@ import DA.Daml.Project.Consts
 -- 2. If the target folder does not exist, it will error out and ask
 -- the user if they meant to use daml new instead.
 --
--- 3. If the target folder is a daml project root, it will do nothing
--- and let the user know the target is already a daml project.
+-- 3. If the target folder is a daml package root, it will do nothing
+-- and let the user know the target is already a daml package.
 --
--- 4. If the target folder is inside a daml project (transitively) but
--- is not the project root, it will do nothing and print out a warning.
+-- 4. If the target folder is inside a daml package (transitively) but
+-- is not the package root, it will do nothing and print out a warning.
 --
 -- 5. If none of the above, it will create a daml.yaml from scratch.
--- It will attempt to find a Main.daml source file in the project
+-- It will attempt to find a Main.daml source file in the package
 -- directory tree, but if it does not it will use daml/Main.daml
 -- as the default.
 --
@@ -45,7 +45,7 @@ runInit targetFolderM = do
     currentDir <- getCurrentDirectory
     let targetFolder = fromMaybe currentDir targetFolderM
         targetFolderRel = makeRelative currentDir targetFolder
-        projectConfigRel = normalise (targetFolderRel </> projectConfigName)
+        packageConfigRel = normalise (targetFolderRel </> packageConfigName)
           -- ^ for display purposes
 
     -- cases 1 or 2
@@ -61,39 +61,39 @@ runInit targetFolderM = do
             [ "ERROR: daml init target does not exist."
             , "    target = " <> targetFolderRel
             , ""
-            , "To create a project directory use daml new instead:"
+            , "To create a package directory use daml new instead:"
             , "    " <> showCommandForUser "daml" ["new", targetFolderRel]
             ]
         exitFailure
-    targetFolderAbs <- makeAbsolute targetFolder -- necessary to find project roots
+    targetFolderAbs <- makeAbsolute targetFolder -- necessary to find package roots
 
     -- cases 3 or 4
-    damlProjectRootM <- findDamlProjectRoot targetFolderAbs
-    whenJust damlProjectRootM $ \projectRoot -> do
-        let projectRootRel = makeRelative currentDir projectRoot
-        hPutStrLn stderr $ "Daml project already initialized at " <> projectRootRel
-        when (targetFolderAbs /= projectRoot) $ do
+    mPackagePath <- findDamlPackageRoot targetFolderAbs
+    whenJust mPackagePath $ \packageRoot -> do
+        let relPackagePath = makeRelative currentDir packageRoot
+        hPutStrLn stderr $ "Daml package already initialized at " <> relPackagePath
+        when (targetFolderAbs /= packageRoot) $ do
             hPutStr stderr $ unlines
-                [ "WARNING: daml init target is not the Daml project root."
+                [ "WARNING: daml init target is not the Daml package root."
                 , "    daml init target  = " <> targetFolder
-                , "    Daml project root = " <> projectRootRel
+                , "    Daml package root = " <> relPackagePath
                 ]
         exitSuccess
 
     -- case 5
-    putStrLn ("Generating " <> projectConfigRel)
+    putStrLn ("Generating " <> packageConfigRel)
 
     currentSdkVersion <- getSdkVersion
 
-    projectFiles <- listFilesRecursive targetFolder
+    packageFiles <- listFilesRecursive targetFolder
     let targetFolderSep = addTrailingPathSeparator targetFolder
-    let projectFilesRel = mapMaybe (stripPrefix targetFolderSep) projectFiles
+    let relPackageFiles = mapMaybe (stripPrefix targetFolderSep) packageFiles
     let isMainDotDaml = (== "Main.daml") . takeFileName
-        sourceM = find isMainDotDaml projectFilesRel
+        sourceM = find isMainDotDaml relPackageFiles
         source = fromMaybe "daml/Main.daml" sourceM
         name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
 
-    BS.writeFile (targetFolder </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
+    BS.writeFile (targetFolder </> packageConfigName) . Y.encodePretty yamlConfig $ Y.object
         [ ("sdk-version", Y.String (T.pack currentSdkVersion))
         , ("name", Y.String (T.pack name))
         , ("source", Y.String (T.pack source))
@@ -104,8 +104,8 @@ runInit targetFolderM = do
         ]
 
     putStr $ unlines
-        [ "Initialized project " <> name
-        , "Done! Please verify " <> projectConfigRel
+        [ "Initialized package " <> name
+        , "Done! Please verify " <> packageConfigRel
         ]
 
     where

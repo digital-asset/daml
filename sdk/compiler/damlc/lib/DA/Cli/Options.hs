@@ -215,31 +215,43 @@ stringsSepBy sep = eitherReader sepBy'
           where
             items = map trim $ splitOn [sep] input
 
-data ProjectOpts = ProjectOpts
-    { projectRoot :: Maybe ProjectPath
-    -- ^ An explicit project path specified by the user.
-    , projectCheck :: ProjectCheck
-    -- ^ Throw an error if this is not run in a project.
+data PackageLocationOpts = PackageLocationOpts
+    { packageRoot :: Maybe PackagePath
+    -- ^ An explicit package path specified by the user.
+    , packageLocationCheck :: PackageLocationCheck
+    -- ^ Throw an error if this is not run in a package.
     }
 
-projectOpts :: String -> Parser ProjectOpts
-projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
+packageLocationOpts :: String -> Parser PackageLocationOpts
+packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> packageOrProjectLocationCheckOpt name
     where
-        projectRootOpt :: Parser (Maybe ProjectPath)
+        packageRootOptDesc :: [String]
+        packageRootOptDesc =
+            [ "Path to the root of a package containing daml.yaml. "
+            , "You should prefer the DAML_PACKAGE environment variable over this option."
+            , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
+            ]
+        packageOrProjectRootOpt :: Parser (Maybe PackagePath)
+        packageOrProjectRootOpt = optional $ packageRootOpt <|> projectRootOpt
+        projectRootOpt :: Parser PackagePath
         projectRootOpt =
-            optional $
-            fmap ProjectPath $
+            fmap PackagePath $
             strOptionOnce $
-            long "project-root" <>
-            help
-                (mconcat
-                     [ "Path to the root of a project containing daml.yaml. "
-                     , "You should prefer the DAML_PROJECT environment variable over this option."
-                     , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
-                     ])
-        projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
-               help "Check if running in Daml project."
-            <> long "project-check"
+            long "project-root" <> hidden <>
+            help (mconcat $ packageRootOptDesc ++ ["(project-root is deprecated, please use --package-root)"])
+        packageRootOpt :: Parser PackagePath
+        packageRootOpt =
+            fmap PackagePath $
+            strOptionOnce $
+            long "package-root" <>
+            help (mconcat packageRootOptDesc)
+        packageOrProjectLocationCheckOpt cmdName = packageLocationCheckOpt cmdName <|> projectLocationCheckOpt cmdName
+        projectLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
+               help "Check if running in Daml package.\n(project-check is deprecated, please use --package-check)"
+            <> long "project-check" <> hidden
+        packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
+               help "Check if running in Daml package."
+            <> long "package-check"
 
 enableScriptServiceOpt :: Parser EnableScriptService
 enableScriptServiceOpt = fmap EnableScriptService $
@@ -305,7 +317,7 @@ dlintHintFilesParser =
         ( long "lint-implicit-hint-file"
           <> internal
           <> help "Use the first '.dlint.yaml' file found in the \
-                  \project directory or any parent thereof, or, failing that, \
+                  \package directory or any parent thereof, or, failing that, \
                   \in the home directory of the current user."
         )
     explicitDlintHintFiles =

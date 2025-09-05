@@ -17,7 +17,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Text as T
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Options.Types
-    ( projectPackageDatabase
+    ( packageDatabasePath
     , ModRenaming(..)
     , PackageArg(..)
     , PackageFlag(..)
@@ -67,25 +67,25 @@ renamingToFlag unitId prefix modules =
 instance ToJSON PackageDbMetadata
 instance FromJSON PackageDbMetadata
 
--- | Given the path to the project root, write out the package db metadata.
+-- | Given the path to the package root, write out the package db metadata.
 writeMetadata :: NormalizedFilePath -> PackageDbMetadata -> IO ()
-writeMetadata projectRoot metadata = do
-    encodeFile (metadataFile projectRoot) metadata
+writeMetadata packageRoot metadata = do
+    encodeFile (metadataFile packageRoot) metadata
 
--- | Given the path to the project root, read the package db metadata.
+-- | Given the path to the package root, read the package db metadata.
 -- Throws an exception if the file does not exist or
 -- the format cannot be parsed.
 readMetadata :: NormalizedFilePath -> IO PackageDbMetadata
-readMetadata projectRoot = do
-    errOrRes <- eitherDecodeFileStrict' (metadataFile projectRoot)
+readMetadata packageRoot = do
+    errOrRes <- eitherDecodeFileStrict' (metadataFile packageRoot)
     case errOrRes of
         Right metadata -> pure metadata
         Left err -> fail ("Could not decode package metadata: " <> err)
 
--- | Given the path to the project root return the path
+-- | Given the path to the package root return the path
 -- where the metadata is stored.
 metadataFile :: NormalizedFilePath -> FilePath
-metadataFile projectRoot =
-    fromNormalizedFilePath projectRoot </>
-    projectPackageDatabase </>
+metadataFile packageRoot =
+    fromNormalizedFilePath packageRoot </>
+    packageDatabasePath </>
     "metadata.json"

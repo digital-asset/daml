@@ -126,7 +126,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
-                , "--project-root", proja
+                , "--package-root", proja
                 , "--target", LF.renderVersion depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
@@ -165,7 +165,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", projb
+            , "--package-root", projb
             , "--target", LF.renderVersion targetLfVer
             , "-o", projb </> "projb.dar" ]
           step "Validating DAR"
@@ -201,7 +201,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
-                , "--project-root", proja
+                , "--package-root", proja
                 , "--target", LF.renderVersion depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
@@ -227,7 +227,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", projb
+            , "--package-root", projb
             , "--target", LF.renderVersion targetLfVer
             , "-o", projb </> "projb.dar" ]
           step "Validating DAR"
@@ -266,7 +266,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent (damlcForTarget depLfVer)
                 ["build"
-                , "--project-root", proja
+                , "--package-root", proja
                 , "--target", LF.renderVersion depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
@@ -287,7 +287,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent (damlcForTarget depLfVer)
             ["build"
-            , "--project-root", projb
+            , "--package-root", projb
             , "--target", LF.renderVersion depLfVer
             , "-o", projb </> "projb.dar"
             ]
@@ -308,7 +308,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", projc
+            , "--package-root", projc
             , "--target", LF.renderVersion targetLfVer
             , "-o", projc </> "projc.dar" ]
           step "Validating DAR"
@@ -316,7 +316,7 @@ tests TestArgs{..} =
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
     [ testCaseSteps ("Cross Daml-LF version with double data-dependency from old SDK: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer) $
-        -- Given a dar "Old" built with an older SDK, this tests that a project
+        -- Given a dar "Old" built with an older SDK, this tests that a package
         -- which depends on "Old" through different paths on its dependency graph
         -- will not end up with multiple copies of daml-prim and daml-stdlib
         -- from the older SDK, which would prevent it from compiling.
@@ -346,7 +346,7 @@ tests TestArgs{..} =
                 ]
             callProcessSilent (damlcForTarget depLfVer)
                 ["build"
-                , "--project-root", proja
+                , "--package-root", proja
                 , "--target", LF.renderVersion depLfVer
                 , "-o", proja </> "proja.dar"
                 ]
@@ -370,7 +370,7 @@ tests TestArgs{..} =
                 ]
             callProcessSilent damlc
                 ["build"
-                , "--project-root", projb
+                , "--package-root", projb
                 , "--target", LF.renderVersion targetLfVer
                 , "-o", projb </> "projb.dar"
                 ]
@@ -396,7 +396,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", tmpDir </> "lib"
+              , "--package-root", tmpDir </> "lib"
               , "-o", tmpDir </> "lib" </> "lib.dar"]
           libPackageIds <- darPackageIds (tmpDir </> "lib" </> "lib.dar")
 
@@ -420,7 +420,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", tmpDir </> "a"
+              , "--package-root", tmpDir </> "a"
               , "-o", tmpDir </> "a" </> "a.dar"
               ]
           aPackageIds <- darPackageIds (tmpDir </> "a" </> "a.dar")
@@ -448,7 +448,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               ["build"
-              , "--project-root", tmpDir </> "b"
+              , "--package-root", tmpDir </> "b"
               , "-o", tmpDir </> "b" </> "b.dar"
               ]
           projbPackageIds <- darPackageIds (tmpDir </> "b" </> "b.dar")
@@ -582,7 +582,7 @@ tests TestArgs{..} =
 
               callProcessSilent damlc
                   [ "build"
-                  , "--project-root", projDir
+                  , "--package-root", projDir
                   , "-o", projDir </> "lib.dar"
                   ]
 
@@ -605,7 +605,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", projDir
+              , "--package-root", projDir
               , "-o", projDir </> "a.dar"
               ]
 
@@ -631,7 +631,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", projDir
+              , "--package-root", projDir
               , "-o", projDir </> "b.dar"
               ]
 
@@ -660,7 +660,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", projDir
+              , "--package-root", projDir
               , "-o", projDir </> "c.dar"
               ]
     ] <>
@@ -721,7 +721,7 @@ tests TestArgs{..} =
             , projDir </> "simple-dalf-1.0.0.dalf"]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", projDir
+            , "--package-root", projDir
             , "--target"
             , LF.renderVersion targetDevVersion
             , "--generated-src" ]
@@ -731,7 +731,7 @@ tests TestArgs{..} =
             [ "test"
             , "--target"
             , LF.renderVersion targetDevVersion
-            , "--project-root"
+            , "--package-root"
             , projDir
             , "--generated-src" ]
     | withArchiveChoice <- [False, True]
@@ -832,7 +832,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent (damlcForTarget depLfVer)
               [ "build"
-              , "--project-root", proja
+              , "--package-root", proja
               , "--target", LF.renderVersion depLfVer
               , "-o", proja </> "proja.dar"
               ]
@@ -928,7 +928,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", projb
+              , "--package-root", projb
               , "--target=" <> LF.renderVersion targetLfVer
               , "-o", projb </> "projb.dar" ]
           validate $ projb </> "projb.dar"
@@ -972,12 +972,12 @@ tests TestArgs{..} =
               , "         archive cid"
               , "         create T{..}"
               ]
-          callProcessSilent damlc ["build", "--project-root", tmpDir]
+          callProcessSilent damlc ["build", "--package-root", tmpDir]
     , testCaseSteps "Duplicate instance reexports" $ \step -> withTempDir $ \tmpDir -> do
           -- This test checks that we handle the case where a data-dependency has (orphan) instances
           -- Functor, Applicative for a type Proxy while a dependency only has instance Functor.
           -- In this case we need to import the Functor instance or the Applicative instance will have a type error.
-          step "building type project"
+          step "building type package"
           createDirectoryIfMissing True (tmpDir </> "type")
           writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -993,10 +993,10 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", tmpDir </> "type"
+              , "--package-root", tmpDir </> "type"
               , "-o",  tmpDir </> "type" </> "type.dar"]
 
-          step "building dependency project"
+          step "building dependency package"
           createDirectoryIfMissing True (tmpDir </> "dependency")
           writeFileUTF8 (tmpDir </> "dependency" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1015,10 +1015,10 @@ tests TestArgs{..} =
              ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", tmpDir </> "dependency"
+              , "--package-root", tmpDir </> "dependency"
               , "-o", tmpDir </> "dependency" </> "dependency.dar"]
 
-          step "building data-dependency project"
+          step "building data-dependency package"
           createDirectoryIfMissing True (tmpDir </> "data-dependency")
           writeFileUTF8 (tmpDir </> "data-dependency" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1040,10 +1040,10 @@ tests TestArgs{..} =
              ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", tmpDir </> "data-dependency"
+              , "--package-root", tmpDir </> "data-dependency"
               , "-o", tmpDir </> "data-dependency" </> "data-dependency.dar"]
 
-          step "building top-level project"
+          step "building top-level package"
           createDirectoryIfMissing True (tmpDir </> "top")
           writeFileUTF8 (tmpDir </> "top" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1063,7 +1063,7 @@ tests TestArgs{..} =
               ]
           callProcessSilent damlc
               [ "build"
-              , "--project-root", tmpDir </> "top"]
+              , "--package-root", tmpDir </> "top"]
 
     , simpleImportTest "Generic variants with record constructors"
         -- This test checks that data definitions of the form
@@ -1394,7 +1394,7 @@ tests TestArgs{..} =
         ]
 
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
-        step "building project with implicit parameters"
+        step "building package with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
         writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1418,7 +1418,7 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "dep"
+            , "--package-root", tmpDir </> "dep"
             , "-o", tmpDir </> "dep" </> "dep.dar" ]
         Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile (tmpDir </> "dep" </> "dep.dar")
         (_pkgId, pkg) <- either (fail . show) pure (LFArchive.decodeArchive LFArchive.DecodeAsMain (BSL.toStrict mainDalf))
@@ -1439,7 +1439,7 @@ tests TestArgs{..} =
                 pure v
         assertEqual "Expected two implicit CallStack" 2 (length callStackInstances)
 
-        step "building project that uses it via data-dependencies"
+        step "building package that uses it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "proj")
         writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1457,7 +1457,7 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , tmpDir </> "proj" ]
 
     , dataDependenciesTest "Using orphan instances transitively"
@@ -2222,7 +2222,7 @@ tests TestArgs{..} =
           damlYaml proj = path proj </> "daml.yaml"
           damlMod proj mod = path proj </> mod <.> "daml"
           dar proj = path proj </> proj <.> "dar"
-          step proj = step' ("building '" <> proj <> "' project")
+          step proj = step' ("building '" <> proj <> "' package")
 
           damlYamlBody name deps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
@@ -2248,7 +2248,7 @@ tests TestArgs{..} =
             ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", path depProj
+            , "--package-root", path depProj
             , "-o", dar depProj
             ]
 
@@ -2261,7 +2261,7 @@ tests TestArgs{..} =
             ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", path dataDepProj
+            , "--package-root", path dataDepProj
             , "-o", dar dataDepProj
             ]
 
@@ -2280,7 +2280,7 @@ tests TestArgs{..} =
           -- This must fail since 'Main' shouldn't see 'Dep.unexported'.
           callProcessSilentError damlc
             [ "build"
-            , "--project-root", path mainProj
+            , "--package-root", path mainProj
             , "-o", dar mainProj
             ]
 
@@ -2295,7 +2295,7 @@ tests TestArgs{..} =
           damlYaml proj = path proj </> "daml.yaml"
           damlMod proj mod = path proj </> mod <.> "daml"
           dar proj = path proj </> proj <.> "dar"
-          step proj = step' ("building '" <> proj <> "' project")
+          step proj = step' ("building '" <> proj <> "' package")
 
           damlYamlBody :: String -> [FilePath] -> [String] -> String
           damlYamlBody name extraDeps dataDeps = unlines
@@ -2348,7 +2348,7 @@ tests TestArgs{..} =
             ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", path tokenProj
+            , "--package-root", path tokenProj
             , "-o", dar tokenProj
             ]
 
@@ -2376,7 +2376,7 @@ tests TestArgs{..} =
             ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", path fancyTokenProj
+            , "--package-root", path fancyTokenProj
             , "-o", dar fancyTokenProj
             ]
 
@@ -2426,7 +2426,7 @@ tests TestArgs{..} =
             ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", path assetProj
+            , "--package-root", path assetProj
             , "-o", dar assetProj
             ]
 
@@ -2495,11 +2495,11 @@ tests TestArgs{..} =
             ]
           callProcessSilent damlc
             [ "build"
-            , "--project-root", path mainProj
+            , "--package-root", path mainProj
             ]
 
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
-        step "building project to be imported via data-dependencies"
+        step "building package to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2524,11 +2524,11 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "lib"
+            , "--package-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
             , "--target", LF.renderVersion exceptionsVersion ]
 
-        step "building project that imports it via data-dependencies"
+        step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2558,11 +2558,11 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "main"
+            , "--package-root", tmpDir </> "main"
             , "--target", LF.renderVersion targetDevVersion ]
 
     , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
-        step "building lib (project to be imported via data-dependencies)"
+        step "building lib (package to be imported via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2579,12 +2579,12 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "lib"
+            , "--package-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
             , "--target", LF.renderVersion targetDevVersion
             ]
 
-        step "building main (project that imports lib via data-dependencies)"
+        step "building main (package that imports lib via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2604,7 +2604,7 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "main"
+            , "--package-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main.dar"
             , "--target", LF.renderVersion targetDevVersion
             ]
@@ -2612,7 +2612,7 @@ tests TestArgs{..} =
         step "building main again as main2.dar"
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "main"
+            , "--package-root", tmpDir </> "main"
             , "-o", tmpDir </> "main" </> "main2.dar"
             , "--target", LF.renderVersion targetDevVersion
             ]
@@ -2627,7 +2627,7 @@ tests TestArgs{..} =
         main2OnlyPackageIds @?= mainOnlyPackageIds
 
     , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
-        step "building project to be imported via data-dependencies"
+        step "building package to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2667,11 +2667,11 @@ tests TestArgs{..} =
             ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "lib"
+            , "--package-root", tmpDir </> "lib"
             , "-o", tmpDir </> "lib" </> "lib.dar"
             , "--target", LF.renderVersion exceptionsVersion ]
 
-        step "building project that imports it via data-dependencies"
+        step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2742,12 +2742,12 @@ tests TestArgs{..} =
            ]
         callProcessSilent damlc
             [ "build"
-            , "--project-root", tmpDir </> "main"
+            , "--package-root", tmpDir </> "main"
             , "--target", LF.renderVersion targetDevVersion ]
         step "running damlc test"
         callProcessSilent damlc
             [ "test"
-            , "--project-root", tmpDir </> "main"
+            , "--package-root", tmpDir </> "main"
             , "--target", LF.renderVersion targetDevVersion ]
     ]
   where
@@ -2781,7 +2781,7 @@ tests TestArgs{..} =
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
-            step "building project to be imported via data-dependencies"
+            step "building package to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
             let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
@@ -2796,10 +2796,10 @@ tests TestArgs{..} =
                 writeFileUTF8 (tmpDir </> "lib" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
-                , "--project-root", tmpDir </> "lib"
+                , "--package-root", tmpDir </> "lib"
                 , "-o", tmpDir </> "lib" </> "lib.dar" ]
 
-            step "building project that imports it via data-dependencies"
+            step "building package that imports it via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "main")
             writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion
@@ -2815,7 +2815,7 @@ tests TestArgs{..} =
                 writeFileUTF8 (tmpDir </> "main" </> path) $ unlines contents
             callProcessSilent damlc
                 [ "build"
-                , "--project-root"
+                , "--package-root"
                 , tmpDir </> "main" ]
 
     damlcForTarget :: LF.Version -> FilePath

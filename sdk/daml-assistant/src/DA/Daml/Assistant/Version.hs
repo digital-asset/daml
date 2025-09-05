@@ -6,8 +6,8 @@ module DA.Daml.Assistant.Version
     ( getInstalledSdkVersions
     , getSdkVersionFromSdkPath
     , getReleaseVersionFromSdkPath
-    , getSdkVersionFromProjectPath
-    , getUnresolvedReleaseVersionFromProjectPath
+    , getSdkVersionFromPackagePath
+    , getUnresolvedReleaseVersionFromPackagePath
     , getAssistantSdkVersion
     , getDefaultSdkVersion
     , getAvailableReleaseVersions
@@ -44,7 +44,7 @@ import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import DA.Daml.Assistant.Cache
 import DA.Daml.Project.Config
-import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
+import DA.Daml.Project.Consts hiding (getDamlPath, getPackagePath)
 import System.Environment.Blank
 import Control.Exception.Safe
 import Control.Exception (mapException)
@@ -114,44 +114,44 @@ getSdkVersionFromSdkPath sdkPath = do
     requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
 
-getUnresolvedReleaseVersionFromProjectPath :: ProjectPath -> IO UnresolvedReleaseVersion
-getUnresolvedReleaseVersionFromProjectPath projectPath =
-    requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
-        configE <- tryConfig $ readProjectConfig projectPath
-        case releaseVersionFromProjectConfig =<< configE of
+getUnresolvedReleaseVersionFromPackagePath :: PackagePath -> IO UnresolvedReleaseVersion
+getUnresolvedReleaseVersionFromPackagePath packagePath =
+    requiredIO ("Failed to read SDK version from " <> pack packageConfigName) $ do
+        configE <- tryConfig $ readPackageConfig packagePath
+        case releaseVersionFromPackageConfig =<< configE of
             Right (Just v) -> do
                 pure v
             Left (ConfigFileInvalid _ raw) ->
                 throwIO $ assistantErrorDetails
-                    (projectConfigName <> " is an invalid YAML file")
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    (packageConfigName <> " is an invalid YAML file")
+                    [("path", unwrapPackagePath packagePath </> packageConfigName)
                     ,("internal", displayException raw)]
             Right Nothing ->
                 throwIO $ assistantErrorDetails
-                    ("sdk-version field is missing from " <> projectConfigName)
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)]
+                    ("sdk-version field is missing from " <> packageConfigName)
+                    [("path", unwrapPackagePath packagePath </> packageConfigName)]
             Left (ConfigFieldMissing _ _) ->
                 throwIO $ assistantErrorDetails
-                    ("sdk-version field is missing from " <> projectConfigName)
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)]
+                    ("sdk-version field is missing from " <> packageConfigName)
+                    [("path", unwrapPackagePath packagePath </> packageConfigName)]
             Left (ConfigFieldInvalid _ _ raw) ->
                 throwIO $ assistantErrorDetails
-                    ("sdk-version field is invalid in " <> projectConfigName)
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    ("sdk-version field is invalid in " <> packageConfigName)
+                    [("path", unwrapPackagePath packagePath </> packageConfigName)
                     ,("internal", raw)]
 
--- | Determine SDK version from project root. Fails with an
+-- | Determine SDK version from package root. Fails with an
 -- AssistantError exception if the version cannot be determined.
-getSdkVersionFromProjectPath :: UseCache -> ProjectPath -> IO ReleaseVersion
-getSdkVersionFromProjectPath useCache projectPath =
-    requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
-        v <- getUnresolvedReleaseVersionFromProjectPath projectPath
+getSdkVersionFromPackagePath :: UseCache -> PackagePath -> IO ReleaseVersion
+getSdkVersionFromPackagePath useCache packagePath =
+    requiredIO ("Failed to read SDK version from " <> pack packageConfigName) $ do
+        v <- getUnresolvedReleaseVersionFromPackagePath packagePath
         resolvedVersionOrErr <- resolveReleaseVersion useCache v
         case resolvedVersionOrErr of
             Left resolveErr ->
                 throwIO $ assistantErrorDetails
-                    ("sdk-version field in " <> projectConfigName <> " is not a valid Daml version. Validating version from the internet failed.")
-                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    ("sdk-version field in " <> packageConfigName <> " is not a valid Daml version. Validating version from the internet failed.")
+                    [("path", unwrapPackagePath packagePath </> packageConfigName)
                     ,("internal", displayException resolveErr)]
             Right version -> pure version
 
@@ -178,7 +178,7 @@ getInstalledSdkVersions damlPath = do
             Right sdkVersion -> Just (mkReleaseVersion unresolvedVersion sdkVersion)
 
 -- | Get the default SDK version for commands run outside of a
--- project. This is defined as the latest installed version
+-- package. This is defined as the latest installed version
 -- without a release tag (e.g. this will prefer version 0.12.17
 -- over version 0.12.18-nightly even though the latter came later).
 --

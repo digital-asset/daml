@@ -46,7 +46,7 @@ instance FromJSON SessionConfig where
     parseJSON = withObject "SessionConfig" $ \o ->
         SessionConfig
              <$> o .: "ide-cmd"
-             <*> o .: "project-root"
+             <*> o .: "package-root"
              <*> o .: "commands"
 
 data Opts = Opts

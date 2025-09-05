@@ -43,8 +43,8 @@ newtype SdkConfig = SdkConfig
     { unwrapSdkConfig :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
-newtype ProjectConfig = ProjectConfig
-    { unwrapProjectConfig :: Y.Value
+newtype PackageConfig = PackageConfig
+    { unwrapPackageConfig :: Y.Value
     } deriving (Eq, Show, Y.FromJSON)
 
 newtype MultiPackageConfig = MultiPackageConfig
@@ -66,9 +66,9 @@ newtype DamlAssistantPath = DamlAssistantPath
     { unwrapDamlAssistantPath :: FilePath
     } deriving (Eq, Show)
 
--- | File path of project root.
-newtype ProjectPath = ProjectPath
-    { unwrapProjectPath :: FilePath
+-- | File path of package root.
+newtype PackagePath = PackagePath
+    { unwrapPackagePath :: FilePath
     } deriving (Eq, Show)
 
 -- | File path of sdk root.

@@ -31,7 +31,7 @@ tests damlc = testGroup "damlc" [testsForDamlcLint damlc]
 
 testsForDamlcLint :: SdkVersioned => FilePath -> TestTree
 testsForDamlcLint damlc = testGroup "damlc test"
-    [ testCase "Lint all project files" $ do
+    [ testCase "Lint all package files" $ do
         withTempDir $ \dir -> do
           withCurrentDirectory dir $ do
             let projDir = "daml"
@@ -65,14 +65,14 @@ testsForDamlcLint damlc = testGroup "damlc test"
               readProcessWithExitCode damlc ["lint"] ""
             exitCode @?= ExitFailure 1
             assertBool
-                ("All project source files are linted: " <> show stderr)
+                ("All package source files are linted: " <> show stderr)
                 (unlines
                      [ "Found:"
                      , "  forA [] $ \\ _ -> create S {p}"
                      , "Perhaps:"
                      , "  forA_ [] $ \\ _ -> create S {p}\n\ESC[0m"
                      ] `isSuffixOf` stderr) -- needs escape secenquence for blue output color.
-    , testCase "Lint all project files -- no hints" $ do
+    , testCase "Lint all package files -- no hints" $ do
         withTempDir $ \dir -> do
           withCurrentDirectory dir $ do
             let projDir = "daml"
@@ -101,6 +101,6 @@ testsForDamlcLint damlc = testGroup "damlc test"
               readProcessWithExitCode damlc ["lint"] ""
             exitCode @?= ExitSuccess
             assertBool
-                ("All project source files are linted: " <> show stderr)
+                ("All package source files are linted: " <> show stderr)
                 (stderr == "No hints\n")
     ]

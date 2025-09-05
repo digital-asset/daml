@@ -97,8 +97,8 @@ runDamlStudio replaceExt remainingArguments = do
             installPublishedExtension
 
     -- Then, open visual studio code.
-    projectPathM <- getProjectPath
-    let path = fromMaybe "." projectPathM
+    mPackagePath <- getPackagePath
+    let path = fromMaybe "." mPackagePath
     (exitCode, _out, err) <- runVsCodeCommand (path : remainingArguments)
     when (exitCode /= ExitSuccess) $ do
         hPutStrLn stderr . unlines $
