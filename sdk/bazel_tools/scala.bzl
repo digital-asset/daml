@@ -780,7 +780,6 @@ def _da_scala_test_short_name_aspect_impl(target, ctx):
         short_label = str(target.label),
         long_label = str(long_label),
     ))
-    fail(str(info_json))
 
     # Aspect generated providers are not available to Starlark cquery output,
     # so we write the information to a file from where it can be collected in a
@@ -788,6 +787,7 @@ def _da_scala_test_short_name_aspect_impl(target, ctx):
     # See https://github.com/bazelbuild/bazel/issues/13866
     info_out = ctx.actions.declare_file("{}_scala_test_info.json".format(target.label.name))
     ctx.actions.write(info_out, content = info_json, is_executable = False)
+    fail("written to " + "{}_scala_test_info.json".format(target.label.name))
     return [OutputGroupInfo(scala_test_info = depset([info_out]))]
 
 da_scala_test_short_name_aspect = aspect(
