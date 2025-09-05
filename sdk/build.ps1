@@ -102,6 +102,7 @@ function Has-Run-All-Tests-Trailer {
 # Generate mapping from shortened scala-test names on Windows to long names on Linux and MacOS.
 ./ci/remap-scala-test-short-names.ps1 `
   | Out-File -Encoding UTF8 -NoNewline scala-test-suite-name-map.json
+Write-Output ">>>>"
 gc scala-test-suite-name-map.json
 
 $FEWER_TESTS_FILTER = "-main-only"
