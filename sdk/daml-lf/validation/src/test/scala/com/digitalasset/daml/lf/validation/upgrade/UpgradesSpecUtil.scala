@@ -49,8 +49,8 @@ private[validation] final class AdminLedgerClient(
               None, // empty string is the default expected_main_package_id
             )
           ),
-          false,
-          false,
+          true,
+          true,
         )
       )
       .map(_ => ())
