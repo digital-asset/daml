@@ -20,7 +20,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Package.Config (isDamlYamlContentForPackage)
-import DA.Daml.Project.Config (readPackageConfig, queryProjectConfig, queryProjectConfigRequired)
+import DA.Daml.Project.Config (readPackageConfig, queryPackageConfig, queryPackageConfigRequired)
 import DA.Daml.Project.Consts (packageConfigName)
 import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
@@ -259,13 +259,13 @@ packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSumma
 packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
     project <- lift $ readPackageConfig $ toProjectPath path
-    dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    directDeps <- except $ fromMaybe [] <$> queryProjectConfig ["dependencies"] project
+    dataDeps <- except $ fromMaybe [] <$> queryPackageConfig ["data-dependencies"] project
+    directDeps <- except $ fromMaybe [] <$> queryPackageConfig ["dependencies"] project
     let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
-    name <- except $ queryProjectConfigRequired ["name"] project
-    version <- except $ queryProjectConfigRequired ["version"] project
-    releaseVersion <- except $ queryProjectConfigRequired ["sdk-version"] project
+    name <- except $ queryPackageConfigRequired ["name"] project
+    version <- except $ queryPackageConfigRequired ["version"] project
+    releaseVersion <- except $ queryPackageConfigRequired ["sdk-version"] project
     -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
     -- Just saying its invalid is enough
 
@@ -273,7 +273,7 @@ packageSummaryFromDamlYaml path = do
       $ parseUnresolvedVersion releaseVersion
     
     let usingLocalComponents =
-          either (const False) (any (Map.member "local-path")) $ queryProjectConfig @(Map.Map String (Map.Map String String)) ["override-components"] project
+          either (const False) (any (Map.member "local-path")) $ queryPackageConfig @(Map.Map String (Map.Map String String)) ["override-components"] project
     
     pure PackageSummary
       { psUnitId = UnitId $ name <> "-" <> version

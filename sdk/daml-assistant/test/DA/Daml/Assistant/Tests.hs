@@ -659,11 +659,11 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
     , test "not interpolate when feature is disabled via field" [] "name: ${MY_NAME}\nenvironment-variable-interpolation: false" $ withSuccess $ \p ->
         queryTopLevelField p "name" @?= "${MY_NAME}"
     , test "replace in object names (i.e. module prefixes)" [("MY_NAME", "package")] "module-prefixes:\n  ${MY_NAME}-0.0.1: V1" $ withSuccess $ \p ->
-        either (error . show) id (queryProjectConfigRequired @(Map.Map String String) ["module-prefixes"] p)
+        either (error . show) id (queryPackageConfigRequired @(Map.Map String String) ["module-prefixes"] p)
           @?= Map.singleton "package-0.0.1" "V1"
     ]
   where
-    test :: String -> [(String, String)] -> String -> (Either ConfigError ProjectConfig -> IO ()) -> Tasty.TestTree
+    test :: String -> [(String, String)] -> String -> (Either ConfigError PackageConfig -> IO ()) -> Tasty.TestTree
     test name env damlyaml pred = 
       Tasty.testCase name $
         withSystemTempDirectory "daml-yaml-env-var-test" $ \ base -> do
@@ -671,11 +671,11 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
           res <- withEnv (second Just <$> env) (Right <$> readPackageConfig (PackagePath base))
             `catch` \(e :: ConfigError) -> pure (Left e)
           pred res
-    withSuccess :: (ProjectConfig -> IO ()) -> Either ConfigError ProjectConfig -> IO ()
+    withSuccess :: (PackageConfig -> IO ()) -> Either ConfigError PackageConfig -> IO ()
     withSuccess act (Right p) = act p
     withSuccess _ (Left e) = Tasty.assertFailure $ displayException e
-    withFailure :: (ConfigError -> IO ()) -> Either ConfigError ProjectConfig -> IO ()
+    withFailure :: (ConfigError -> IO ()) -> Either ConfigError PackageConfig -> IO ()
     withFailure act (Left e) = act e
     withFailure _ (Right _) = Tasty.assertFailure "Expected failure but got success"
-    queryTopLevelField :: ProjectConfig -> Text -> String
-    queryTopLevelField p field = either (error . show) id $ queryProjectConfigRequired [field] p
+    queryTopLevelField :: PackageConfig -> Text -> String
+    queryTopLevelField p field = either (error . show) id $ queryPackageConfigRequired [field] p

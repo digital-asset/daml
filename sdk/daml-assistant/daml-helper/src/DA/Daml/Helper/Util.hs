@@ -96,33 +96,33 @@ getProjectName :: IO String
 getProjectName = do
     projectConfig <- getProjectConfig Nothing
     requiredE "Failed to read project name from project config" $
-        queryProjectConfigRequired ["name"] projectConfig
+        queryPackageConfigRequired ["name"] projectConfig
 
 getProjectVersion :: IO String
 getProjectVersion = do
     projectConfig <- getProjectConfig Nothing
     requiredE "Failed to read project version from project config" $
-        queryProjectConfigRequired ["version"] projectConfig
+        queryPackageConfigRequired ["version"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
     projectConfig <- getProjectConfig Nothing
     fmap (fromMaybe []) $
         requiredE "Failed to read list of parties from project config" $
-        queryProjectConfig ["parties"] projectConfig
+        queryPackageConfig ["parties"] projectConfig
 
 getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
     projectConfig <- getProjectConfig $ Just "--port"
     -- TODO: remove default; insist ledger-port is in the config ?!
     defaultingE "Failed to parse ledger.port" 6865 $
-        queryProjectConfig ["ledger", "port"] projectConfig
+        queryPackageConfig ["ledger", "port"] projectConfig
 
 getProjectLedgerHost :: IO String
 getProjectLedgerHost = do
     projectConfig <- getProjectConfig $ Just "--host"
     defaultingE "Failed to parse ledger.host" "localhost" $
-        queryProjectConfig ["ledger", "host"] projectConfig
+        queryPackageConfig ["ledger", "host"] projectConfig
 
 getProjectLedgerAccessToken :: IO (Maybe FilePath)
 getProjectLedgerAccessToken = do
@@ -132,9 +132,9 @@ getProjectLedgerAccessToken = do
         Nothing -> pure Nothing
         Just projectConfig ->
             defaultingE "Failed to parse ledger.access-token-file" Nothing $
-            queryProjectConfig ["ledger", "access-token-file"] projectConfig
+            queryPackageConfig ["ledger", "access-token-file"] projectConfig
 
-getProjectConfig :: Maybe T.Text -> IO ProjectConfig
+getProjectConfig :: Maybe T.Text -> IO PackageConfig
 getProjectConfig argM = do
     packagePath <-
         required

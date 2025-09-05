@@ -23,7 +23,7 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import Control.Monad.Trans.Except (ExceptT (..), runExceptT, throwE, except)
 import DA.Daml.Compiler.Dar (getDamlFiles)
-import DA.Daml.Package.Config (PackageConfigFields (pSrc), parseProjectConfig)
+import DA.Daml.Package.Config (PackageConfigFields (pSrc), parsePackageConfig)
 import DA.Daml.Project.Config (readPackageConfig)
 import DA.Daml.Project.Types (PackagePath (..))
 import qualified Data.Aeson as Aeson
@@ -207,7 +207,7 @@ gotoDefinitionByName ideState params = do
     -- (trust me I tried so hard to make this work)
     root <- hoistMaybe (Just "Failed to get IDE root") mRoot
     projectConfig <- liftIO $ readPackageConfig (PackagePath root)
-    config <- except $ first (Just . show) $ parseProjectConfig projectConfig
+    config <- except $ first (Just . show) $ parsePackageConfig projectConfig
 
     srcFiles <- maybeTToExceptT "Failed to get source files" $ getDamlFiles $ normalise $ root </> pSrc config
     -- Must be sorted shorted to longest, since we always want the shortest path that matches our suffix
