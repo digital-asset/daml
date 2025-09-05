@@ -207,9 +207,6 @@ final class CachingSynchronizerTopologyClient(
   ) =
     delegate.scheduleAwait(condition, timeout)
 
-  override def close(): Unit =
-    LifeCycle.close(delegate)(logger)
-
   override def numPendingChanges: Int = delegate.numPendingChanges
 
   override def observed(
@@ -237,6 +234,14 @@ final class CachingSynchronizerTopologyClient(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
     maxTimestampCache.get(sequencedTime)
+
+  override def close(): Unit = {
+    pointwise.invalidateAll()
+    pointwise.cleanUp()
+    maxTimestampCache.invalidateAll()
+    maxTimestampCache.cleanUp()
+    LifeCycle.close(delegate)(logger)
+  }
 }
 
 object CachingSynchronizerTopologyClient {

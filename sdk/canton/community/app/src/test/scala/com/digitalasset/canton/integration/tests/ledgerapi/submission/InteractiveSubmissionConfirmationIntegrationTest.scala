@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
-import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
 import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.LfTimestamp
@@ -14,14 +13,13 @@ import com.digitalasset.canton.crypto.{InteractiveSubmission, Signature, Signing
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.integration.plugins.UseProgrammableSequencer
-import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.{
-  defaultConfirmingParticipant,
-  defaultExecutingParticipant,
-}
+import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.defaultConfirmingParticipant
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
+  HasCycleUtils,
   SharedEnvironment,
 }
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
@@ -46,11 +44,12 @@ import scala.util.Failure
 
 /** Interactive submission test that asserts the behavior in phase 3 (confirmation)
   */
-class InteractiveSubmissionConfirmationIntegrationTest
+final class InteractiveSubmissionConfirmationIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest
-    with HasProgrammableSequencer {
+    with HasProgrammableSequencer
+    with HasCycleUtils {
 
   private var aliceE: ExternalParty = _
 
@@ -58,20 +57,16 @@ class InteractiveSubmissionConfirmationIntegrationTest
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
         import env.*
-        Seq(participant1, participant2, participant3).foreach { p =>
-          p.dars.upload(CantonExamplesPath)
-          p.dars.upload(CantonTestsPath)
-          p.synchronizers.connect_local(sequencer1, alias = daName)
-        }
+        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonTestsPath)
+        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
 
-        aliceE = onboardParty(
+        aliceE = cpn.external_parties.enable(
           "Alice",
-          cpn(env),
-          env.synchronizer1Id,
           // Use 3 keys but start with a threshold of 1
-          numberOfKeys = PositiveInt.three,
+          keysCount = PositiveInt.three,
+          keysThreshold = PositiveInt.one,
         )
-        waitForExternalPartyToBecomeEffective(aliceE, ppn(env), cpn(env), env.sequencer1)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
 
@@ -81,9 +76,18 @@ class InteractiveSubmissionConfirmationIntegrationTest
     "fail if the number of signatures is under the threshold" in { implicit env =>
       val sequencer = getProgrammableSequencer(env.sequencer1.name)
 
-      val prepared = prepareCommand(aliceE, protoCreateCycleCmd(aliceE))
+      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(
+          new M.Cycle(
+            "test-external-signing",
+            aliceE.toProtoPrimitive,
+          ).create.commands.loneElement
+        ),
+      )
+
       // Sign with a single key
-      val singleSignature = crypto.privateCrypto
+      val singleSignature = env.envCrypto.privateCrypto
         .signBytes(
           prepared.preparedTransactionHash,
           aliceE.signingFingerprints.head1,
@@ -106,14 +110,14 @@ class InteractiveSubmissionConfirmationIntegrationTest
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           val (submissionId, ledgerEnd) =
-            exec(prepared, Map(aliceE.partyId -> Seq(singleSignature)))
-          updateSigningKeysThreshold(cpn(env), aliceE.partyId, PositiveInt.two).discard
+            exec(prepared, Map(aliceE.partyId -> Seq(singleSignature)), epn)
+          updateSigningKeysThreshold(cpn, aliceE.partyId, PositiveInt.two).discard
           releaseSubmission.success(())
           val completion = findCompletion(
             submissionId,
             ledgerEnd,
             aliceE,
-            defaultExecutingParticipant,
+            epn,
           )
           // Transaction should fail
           completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
@@ -140,10 +144,22 @@ class InteractiveSubmissionConfirmationIntegrationTest
         ) => Assertion,
         additionalExpectedLogs: Seq[(LogEntry => Assertion, String)] = Seq.empty,
     )(implicit env: FixtureParam): Unit = {
+      import env.*
+
       val sequencer = getProgrammableSequencer(env.sequencer1.name)
 
-      val prepared = prepareCommand(aliceE, protoCreateCycleCmd(aliceE))
-      val signatures = signTxAs(prepared, aliceE)
+      val prepared = ppn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(
+          new M.Cycle(
+            "test-external-signing",
+            aliceE.toProtoPrimitive,
+          ).create.commands.loneElement
+        ),
+      )
+      val signatures = Map(
+        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      )
 
       // To bypass the checks in phase 1 we play a trick by holding back the submission request in the sequencer
       // while we change the signing keys, and release afterwards
@@ -174,10 +190,10 @@ class InteractiveSubmissionConfirmationIntegrationTest
 
     "fail if the signatures are invalid" in { implicit env =>
       testInvalidSignatures { (prepared, signatures, releaseSubmission) =>
-        val (submissionId, ledgerEnd) = exec(prepared, signatures)
+        val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
         // Change the protocol keys
         val newKeys = updateSigningKeysThreshold(
-          cpn(env),
+          cpn,
           aliceE.partyId,
           PositiveInt.two,
           regenerateKeys = Some(PositiveInt.three),
@@ -189,7 +205,7 @@ class InteractiveSubmissionConfirmationIntegrationTest
           submissionId,
           ledgerEnd,
           aliceE,
-          defaultExecutingParticipant,
+          epn,
         )
         // Transaction should fail
         completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
@@ -202,7 +218,7 @@ class InteractiveSubmissionConfirmationIntegrationTest
           val response = Future(execAndWait(prepared, signatures))
           // Change the protocol keys
           val newKeys = updateSigningKeysThreshold(
-            cpn(env),
+            cpn,
             aliceE.partyId,
             PositiveInt.two,
             regenerateKeys = Some(PositiveInt.three),
@@ -228,19 +244,23 @@ class InteractiveSubmissionConfirmationIntegrationTest
     }
 
     "fail if there is an externally signed tx with more than a single view" in { implicit env =>
+      import env.*
+
       // Use create-and-execute to create a multi view request
       val pass =
         new Pass("create-and-exe", aliceE.toProtoPrimitive, env.environment.clock.now.toInstant)
           .createAnd()
           .exerciseGetTime()
-      val command = Command.fromJavaProto(pass.commands.loneElement.toProtoCommand)
-      val prepared = prepareCommand(aliceE, command)
-      val signatures = signTxAs(prepared, aliceE)
+      val prepared = ppn.ledger_api.javaapi.interactive_submission
+        .prepare(Seq(aliceE.partyId), Seq(pass.commands().loneElement))
+      val signatures = Map(
+        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      )
       // This is only currently detected in phase III, at which point warnings are issued
       val completion = loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
-          val (submissionId, ledgerEnd) = exec(prepared, signatures)
-          findCompletion(submissionId, ledgerEnd, aliceE)
+          val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
+          findCompletion(submissionId, ledgerEnd, aliceE, epn)
         },
         LogEntry.assertLogSeq(
           Seq(2, 3).map({ p =>
@@ -261,20 +281,16 @@ class InteractiveSubmissionConfirmationIntegrationTest
       import env.*
       import monocle.syntax.all.*
 
-      val createdEvent = createCycleContract(aliceE)
-
       // Exercise the Repeat choice
-      val exerciseRepeatOnCycleContract = ledger_api_utils.exercise(
-        "Repeat",
-        Map.empty,
-        createdEvent,
-      )
+      val exerciseRepeatOnCycleContract =
+        createCycleContract(cpn, aliceE, "test-external-signing").id
+          .exerciseRepeat()
+          .commands()
+          .loneElement
 
-      val prepared = prepareCommand(
-        aliceE,
-        exerciseRepeatOnCycleContract,
-        disclosedContracts = Seq.empty,
-        preparingParticipant = cpn,
+      val prepared = cpn.ledger_api.javaapi.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(exerciseRepeatOnCycleContract),
       )
 
       val decoder = new PreparedTransactionDecoder(loggerFactory)
@@ -320,7 +336,7 @@ class InteractiveSubmissionConfirmationIntegrationTest
 
       // Sign it
       val signature =
-        crypto.privateCrypto
+        env.envCrypto.privateCrypto
           .signBytes(
             reComputedHashWithMissingInputContract.unwrap,
             // In this test we assume alice has only one signing key

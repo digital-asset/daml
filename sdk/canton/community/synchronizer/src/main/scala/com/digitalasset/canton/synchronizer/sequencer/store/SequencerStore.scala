@@ -979,6 +979,9 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       _ <- saveWatermark(0, lastTs).leftMap(_.toString)
     } yield ()
   }
+
+  override def close(): Unit =
+    memberCache.close()
 }
 
 object SequencerStore {

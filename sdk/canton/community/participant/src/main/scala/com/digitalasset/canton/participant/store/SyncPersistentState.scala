@@ -18,6 +18,7 @@ import com.digitalasset.canton.participant.store.db.{
 import com.digitalasset.canton.participant.store.memory.{
   InMemoryLogicalSyncPersistentState,
   InMemoryPhysicalSyncPersistentState,
+  PackageMetadataView,
 }
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
@@ -76,16 +77,6 @@ class SyncPersistentState(
       logical,
       physical,
     )(logger)
-}
-
-object SyncPersistentState {
-  def apply(
-      states: (LogicalSyncPersistentState, PhysicalSyncPersistentState),
-      loggerFactory: NamedLoggerFactory,
-  ): SyncPersistentState = {
-    val (logical, physical) = states
-    new SyncPersistentState(logical, physical, loggerFactory)
-  }
 }
 
 /** Stores that are logical, meaning they can span across multiple physical synchronizers, and
@@ -179,6 +170,7 @@ object PhysicalSyncPersistentState {
       packageDependencyResolver: PackageDependencyResolver,
       ledgerApiStore: Eval[LedgerApiStore],
       logicalSyncPersistentState: LogicalSyncPersistentState,
+      packageMetadataView: Eval[PackageMetadataView],
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): PhysicalSyncPersistentState =
@@ -191,9 +183,11 @@ object PhysicalSyncPersistentState {
           physicalSynchronizerIdx,
           staticSynchronizerParameters,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
+          disableUpgradeValidation = parameters.disableUpgradeValidation,
           packageDependencyResolver,
           ledgerApiStore,
           logicalSyncPersistentState,
+          packageMetadataView,
           loggerFactory,
           parameters.processingTimeouts,
           futureSupervisor,
@@ -210,6 +204,7 @@ object PhysicalSyncPersistentState {
           packageDependencyResolver,
           ledgerApiStore,
           logicalSyncPersistentState,
+          packageMetadataView,
           loggerFactory,
           futureSupervisor,
         )

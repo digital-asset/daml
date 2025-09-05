@@ -91,9 +91,11 @@ class InMemoryPhysicalSyncPersistentState(
     override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     exitOnFatalFailures: Boolean,
+    disableUpgradeValidation: Boolean,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
+    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -140,10 +142,12 @@ class InMemoryPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
+        Some(packageMetadataView.value.getSnapshot),
         packageDependencyResolver,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,
+        disableUpgradeValidation = disableUpgradeValidation,
       )
     override def checkCannotDisablePartyWithActiveContracts(
         partyId: PartyId,

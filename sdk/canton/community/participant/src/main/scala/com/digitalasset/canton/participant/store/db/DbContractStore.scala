@@ -404,4 +404,10 @@ class DbContractStore(
       sql"select count(*) from par_contracts".as[Int].head,
       functionFullName,
     )
+
+  override def onClosed(): Unit = {
+    cache.invalidateAll()
+    cache.cleanUp()
+    super.onClosed()
+  }
 }

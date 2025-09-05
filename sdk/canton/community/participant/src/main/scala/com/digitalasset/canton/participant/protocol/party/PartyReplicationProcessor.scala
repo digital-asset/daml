@@ -53,7 +53,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
           Unit,
         ]
     ): FutureUnlessShutdown[Unit] =
-      eitherT.valueOr(err => logger.warn(s"$operation failed with $err"))
+      eitherT.valueOr(err => logger.warn(s"\"$operation\" failed with $err"))
 
     logger.debug(s"About to $operation")
     FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(

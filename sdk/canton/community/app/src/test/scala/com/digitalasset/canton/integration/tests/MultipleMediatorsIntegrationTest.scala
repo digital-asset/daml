@@ -318,6 +318,7 @@ class MultipleMediatorsIntegrationTest
         startNodes()
         bootstrapSynchronizer(Seq(mediator1))
         participant1.synchronizers.connect_local(sequencer1, daName)
+        participant1.dars.upload(CantonExamplesPath)
         participant1.health.ping(participant1)
 
         sequencer1.topology.mediators.remove_group(daId, NonNegativeInt.zero)
@@ -355,6 +356,7 @@ class MultipleMediatorsIntegrationTest
         startNodes()
         bootstrapSynchronizer(Seq(mediator1))
         participant1.synchronizers.connect_local(sequencer1, daName)
+        participant1.dars.upload(CantonExamplesPath)
         participant1.health.ping(participant1)
 
         val submissionF = switchMediatorDuringSubmission(

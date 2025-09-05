@@ -138,7 +138,7 @@ class CantonSyncService(
     private[canton] val participantNodePersistentState: Eval[ParticipantNodePersistentState],
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     private[canton] val syncPersistentStateManager: SyncPersistentStateManager,
-    private[canton] val packageService: Eval[PackageService],
+    private[canton] val packageService: PackageService,
     partyOps: PartyOps,
     identityPusher: ParticipantTopologyDispatcher,
     partyNotifier: LedgerServerPartyNotifier,
@@ -315,7 +315,7 @@ class CantonSyncService(
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
-    packageService.value.packageDependencyResolver,
+    packageService.packageDependencyResolver,
     contractAuthenticator,
     participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
@@ -677,7 +677,7 @@ class CantonSyncService(
         Future.successful(SyncServiceError.Synchronous.PassiveNode)
       } else {
         span.setAttribute("submission_id", submissionId)
-        packageService.value
+        packageService
           .upload(
             dars = dars.map(UploadDarData(_, Some("uploaded-via-ledger-api"), None)),
             submissionIdO = Some(submissionId),
@@ -698,7 +698,7 @@ class CantonSyncService(
         logger.debug(s"Rejecting DAR validation request on passive replica.")
         Future.successful(SyncServiceError.Synchronous.PassiveNode)
       } else {
-        packageService.value
+        packageService
           .validateDar(dar, darName)
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
@@ -709,20 +709,20 @@ class CantonSyncService(
   override def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): Future[Option[DamlLf.Archive]] =
-    packageService.value
+    packageService
       .getLfArchive(packageId)
       .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
   ): Future[Seq[PackageDescription]] =
-    packageService.value
+    packageService
       .listPackages()
       .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def getPackageMetadataSnapshot(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): PackageMetadata = packageService.value.packageMetadataView.getSnapshot
+  ): PackageMetadata = packageService.getPackageMetadataSnapshot
 
   /** Executes ordered sequence of steps to recover any state that might have been lost if the
     * participant previously crashed. Needs to be invoked after the input stores have been created,
@@ -1449,7 +1449,7 @@ object CantonSyncService {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncPersistentStateManager: SyncPersistentStateManager,
-        packageService: Eval[PackageService],
+        packageService: PackageService,
         partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,
@@ -1484,7 +1484,7 @@ object CantonSyncService {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         participantNodeEphemeralState: ParticipantNodeEphemeralState,
         syncPersistentStateManager: SyncPersistentStateManager,
-        packageService: Eval[PackageService],
+        packageService: PackageService,
         partyOps: PartyOps,
         identityPusher: ParticipantTopologyDispatcher,
         partyNotifier: LedgerServerPartyNotifier,

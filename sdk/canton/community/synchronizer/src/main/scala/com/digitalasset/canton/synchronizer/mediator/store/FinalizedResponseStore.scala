@@ -428,4 +428,9 @@ private[mediator] class DbFinalizedResponseStore(
           )(traceContext, closeContext)
     }
 
+  override def onClosed(): Unit = {
+    finishedRequests.invalidateAll()
+    finishedRequests.cleanUp()
+    super.onClosed()
+  }
 }

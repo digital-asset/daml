@@ -69,6 +69,7 @@ import io.grpc.Context
 import java.net.URI
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.immutable.SeqMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.reflect.ClassTag
@@ -1535,19 +1536,19 @@ class TopologyAdministrationGroup(
         case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
           (
             // if the existing mapping was REMOVEd, we start from scratch
-            Map.empty[ParticipantId, ParticipantPermission],
+            SeqMap.empty[ParticipantId, ParticipantPermission],
             Some(current.context.serial.increment),
             current.item.threshold,
           )
         case Some(current) =>
           (
-            current.item.participants.map(p => p.participantId -> p.permission).toMap,
+            SeqMap.from(current.item.participants.map(p => p.participantId -> p.permission)),
             Some(current.context.serial.increment),
             current.item.threshold,
           )
         case None =>
           (
-            Map.empty[ParticipantId, ParticipantPermission],
+            SeqMap.empty[ParticipantId, ParticipantPermission],
             Some(PositiveInt.one),
             PositiveInt.one,
           )
@@ -1725,7 +1726,7 @@ class TopologyAdministrationGroup(
       */
     def is_known(
         synchronizerId: SynchronizerId,
-        party: PartyId,
+        party: Party,
         hostingParticipants: Seq[ParticipantId],
         permission: Option[ParticipantPermission] = None,
         threshold: Option[PositiveInt] = None,

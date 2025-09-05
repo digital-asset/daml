@@ -60,6 +60,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
 import com.digitalasset.canton.participant.pruning.{
   CommitmentContractMetadata,
   CommitmentInspectContract,
+  OpenCommitmentHelper,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.messages.{
@@ -828,6 +829,7 @@ class CommitmentsAdministrationGroup(
       | - physicalSynchronizerId: The synchronizer for which the commitment was computed
       | - timestamp: The timestamp of the commitment. Needs to correspond to a commitment tick.
       | - counterParticipant: The counter participant to whom we previously sent the commitment
+      | - outputFile: Optional file to which the result is written
       | - timeout: Time limit for the grpc call to complete
       """
   )
@@ -836,6 +838,7 @@ class CommitmentsAdministrationGroup(
       physicalSynchronizerId: PhysicalSynchronizerId,
       timestamp: CantonTimestamp,
       counterParticipant: ParticipantId,
+      outputFile: Option[String] = None,
       timeout: config.NonNegativeDuration = timeouts.unbounded,
   ): Seq[CommitmentContractMetadata] =
     check(FeatureFlag.Preview) {
@@ -873,6 +876,10 @@ class CommitmentsAdministrationGroup(
       logger.debug(
         s"Retrieved metadata for ${counterContractsMetadata.size} contracts shared with $counterParticipant at time $timestamp on synchronizer $physicalSynchronizerId"
       )
+      outputFile.foreach(filename =>
+        OpenCommitmentHelper.writeToFile(filename, counterContractsMetadata)
+      )
+
       counterContractsMetadata
     }
 

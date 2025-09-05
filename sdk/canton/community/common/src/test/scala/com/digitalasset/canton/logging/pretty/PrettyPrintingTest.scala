@@ -158,7 +158,7 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
     show"$nullInfix" shouldBe "null"
   }
 
-  "catch exception when pretty printing invalid control-chars" ifCrashOnPrettyPrintingErrors {
+  "handle invalid control chars" in {
     final case class Invalid(str: String) extends PrettyPrinting {
       override protected[pretty] def pretty: Pretty[Invalid] = prettyOfString(_.str)
     }
@@ -166,36 +166,18 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
     final case class Invalid2(str: String)
 
     val invalidAnsi = "\u001b[0;31m"
-    val errorStr =
-      "Unknown ansi-escape [0;31m at index 0 inside string cannot be parsed into an fansi.Str"
-
     val invalidAnsi2 = "\u009bNormal string"
 
     val invalid = Invalid(invalidAnsi)
-    intercept[IllegalArgumentException](
-      show"$invalid"
-    ).getMessage should include(errorStr)
+    show"$invalid" shouldBe "[0;31m"
+    invalid.toString shouldBe "[0;31m"
 
-    intercept[IllegalArgumentException](
-      invalid.toString
-    ).getMessage should (
-      include(errorStr) and include(
-        "The offending ANSI escape characters were replaced by a star"
-      ) and include("*")
-    )
-
-    intercept[IllegalArgumentException](
-      Invalid(invalidAnsi2).toString
-    ).getMessage should (
-      include("Unknown ansi-escape") and include(
-        "The offending ANSI escape characters were replaced by a star"
-      ) and include("*")
-    )
+    Invalid(invalidAnsi2).toString shouldBe "Normal string"
 
     val invalid2 = Invalid2(invalidAnsi)
     val config = ApiLoggingConfig()
     val pprinter = new CantonPrettyPrinter(config.maxStringLength, config.maxMessageLines)
-    pprinter.printAdHoc(invalid2) should include(errorStr)
+    pprinter.printAdHoc(invalid2) should include("Invalid2([0;31m)")
   }
 
   "prettyOfClass" should {
@@ -223,11 +205,5 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
         })
         .show shouldBe "Object()"
     }
-  }
-
-  implicit class TestSelectionSupport(label: String) {
-    def ifCrashOnPrettyPrintingErrors(test: => org.scalatest.compatible.Assertion) =
-      if (Pretty.crashOnPrettyPrintingErrors) label in test
-      else ()
   }
 }

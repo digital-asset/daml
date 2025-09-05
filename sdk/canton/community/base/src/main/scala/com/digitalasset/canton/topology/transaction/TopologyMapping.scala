@@ -1348,7 +1348,7 @@ object VettedPackages extends TopologyMappingCompanion {
       _ <- Either.cond(
         multipleValidityPeriods.isEmpty,
         (),
-        s"a package may only have one validty period: ${multipleValidityPeriods.mkString(", ")}",
+        s"a package may only have one validity period: ${multipleValidityPeriods.mkString(", ")}",
       )
       _ <- Either.cond(
         emptyValidity.isEmpty,

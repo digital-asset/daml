@@ -248,7 +248,8 @@ object BlockSequencerConfig {
   }
 
   final case class CircuitBreakerConfig(
-      messages: CircuitBreakerByMessageTypeConfig = CircuitBreakerByMessageTypeConfig()
+      enabled: Boolean = true,
+      messages: CircuitBreakerByMessageTypeConfig = CircuitBreakerByMessageTypeConfig(),
   ) extends UniformCantonConfigValidation
   object CircuitBreakerConfig {
     implicit val circuitBreakerConfigValidator: CantonConfigValidator[CircuitBreakerConfig] =
@@ -256,8 +257,8 @@ object BlockSequencerConfig {
   }
 
   private val default1 = IndividualCircuitBreakerConfig(maxFailures = 10)
-  private val default2 = IndividualCircuitBreakerConfig(maxFailures = 20)
-  private val default3 = IndividualCircuitBreakerConfig(maxFailures = 30)
+  private val default2 = IndividualCircuitBreakerConfig(maxFailures = 30)
+  private val default3 = IndividualCircuitBreakerConfig(maxFailures = 60)
 
   final case class CircuitBreakerByMessageTypeConfig(
       confirmationRequest: IndividualCircuitBreakerConfig = default1,
@@ -276,7 +277,7 @@ object BlockSequencerConfig {
   }
 
   final case class IndividualCircuitBreakerConfig(
-      allowedBlockDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
+      allowedBlockDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(90),
       maxFailures: Int = 10,
       resetTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
       exponentialBackoffFactor: Double = 1.0,

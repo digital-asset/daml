@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.ReassignmentId
-import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
+import com.digitalasset.canton.protocol.messages.AcsCommitment
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -78,7 +78,8 @@ trait AcsCommitmentToolingIntegrationTest
   // Participant2 has a longer minObservationDuration than participant1
   private val minObservationDuration2 = minObservationDuration1 * NonNegativeInt.tryCreate(2)
 
-  private var alreadyDeployedContracts: Seq[Iou.Contract] = Seq.empty
+  private val alreadyDeployedContracts: AtomicReference[Seq[Iou.Contract]] =
+    new AtomicReference[Seq[Iou.Contract]](Seq.empty)
 
   private lazy val maxDedupDuration = java.time.Duration.ofHours(1)
   private val confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfHours(1)
@@ -140,44 +141,6 @@ trait AcsCommitmentToolingIntegrationTest
         passTopologyRegistrationTimeout(env)
       }
 
-  def deployThreeAndCheck(synchronizerId: SynchronizerId)(implicit
-      env: FixtureParam
-  ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) =
-    deployManyAndCheck(synchronizerId, PositiveInt.three)
-
-  def deployManyAndCheck(synchronizerId: SynchronizerId, nContracts: PositiveInt)(implicit
-      env: FixtureParam
-  ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) = {
-    import env.*
-
-    val simClock = environment.simClock.value
-    simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
-
-    val createdCids =
-      (1 to nContracts.value).map(_ => deployOnP1P2AndCheckContract(synchronizerId, iouContract))
-
-    val tick1 = tickAfter(simClock.uniqueTime())
-    simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
-
-    participant1.testing.fetch_synchronizer_times()
-
-    val p1Computed = eventually() {
-      val p1Computed = participant1.commitments
-        .computed(
-          daName,
-          tick1.toInstant.minusMillis(1),
-          tick1.toInstant,
-          Some(participant2),
-        )
-      p1Computed.size shouldBe 1
-      p1Computed
-    }
-
-    val (period, _participant, commitment) = p1Computed.loneElement
-    alreadyDeployedContracts = alreadyDeployedContracts.concat(createdCids)
-    (createdCids, period, commitment)
-  }
-
   "Commitment retrieval inspection" should {
     "participant can retrieve commitment it previously sent / received with correct matching states" in {
       implicit env =>
@@ -207,8 +170,9 @@ trait AcsCommitmentToolingIntegrationTest
         }
 
         logger.debug(s"P1 sends two commitments to P2 ")
-        val (cids1da, period1da, commitment1da) = deployThreeAndCheck(daId)
-        val (_, period2da, commitment2da) = deployThreeAndCheck(daId)
+        val (cids1da, period1da, commitment1da) =
+          deployThreeAndCheck(daId, alreadyDeployedContracts)
+        val (_, period2da, commitment2da) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
         logger.debug(
           "Check that P1 can retrieve the two commitments it computed and sent. Eventually P1 receives the" +
@@ -439,7 +403,7 @@ trait AcsCommitmentToolingIntegrationTest
             logger.debug(
               "Now have P1 and P2 exchange commitments again, so that P1 can see the mismatch."
             )
-            val (_, period3da, commitment3da) = deployThreeAndCheck(daId)
+            val (_, period3da, commitment3da) = deployThreeAndCheck(daId, alreadyDeployedContracts)
             val p1SentCmts = eventually() {
               val p1Computed = participant1.commitments.lookup_sent_acs_commitments(
                 synchronizerTimeRanges = Seq(
@@ -501,8 +465,6 @@ trait AcsCommitmentToolingIntegrationTest
               p1Received
             }
 
-            logger.error(s"$p1ReceivedCmts")
-
             eventually() {
               val p2SentCmts = participant2.commitments.lookup_sent_acs_commitments(
                 synchronizerTimeRanges = Seq(
@@ -551,8 +513,9 @@ trait AcsCommitmentToolingIntegrationTest
                 .list_connected()
                 .map(_.physicalSynchronizerId) should contain(daId)
             }
-            alreadyDeployedContracts =
-              alreadyDeployedContracts.toSet.removedAll(Set(cids1da.head)).toSeq
+            alreadyDeployedContracts.set(
+              alreadyDeployedContracts.get().toSet.removedAll(Set(cids1da.head)).toSeq
+            )
           },
           logs => {
             forAtLeast(1, logs)(m => m.message should include(CommitmentsMismatch.id))
@@ -565,17 +528,17 @@ trait AcsCommitmentToolingIntegrationTest
     "participant can open a commitment it previously sent" in { implicit env =>
       import env.*
 
-      val (_, period, commitment) = deployThreeAndCheck(daId)
-
-      val contractsAndTransferCounters = participant1.commitments.open_commitment(
+      val (_, period, commitment) = deployThreeAndCheck(daId, alreadyDeployedContracts)
+      val contractsAndReassignmentCounters = participant1.commitments.open_commitment(
         commitment,
         daId,
         period.toInclusive.forgetRefinement,
         participant2,
       )
-
-      val returnedCids = contractsAndTransferCounters.map(c => c.cid)
-      returnedCids should contain theSameElementsAs alreadyDeployedContracts.map(c => c.id.toLf)
+      val returnedCids = contractsAndReassignmentCounters.map(c => c.cid)
+      returnedCids should contain theSameElementsAs alreadyDeployedContracts
+        .get()
+        .map(c => c.id.toLf)
     }
 
     "participant can open a commitment spanning multiple intervals" in { implicit env =>
@@ -583,7 +546,7 @@ trait AcsCommitmentToolingIntegrationTest
 
       val simClock = environment.simClock.value
 
-      deployThreeAndCheck(daId)
+      deployThreeAndCheck(daId, alreadyDeployedContracts)
 
       logger.info(
         "Advance time five reconciliation intervals, remembering the tick after three reconciliation intervals."
@@ -598,7 +561,7 @@ trait AcsCommitmentToolingIntegrationTest
       logger.info("Send a commitment, which will cover the five intervals.")
       participant1.testing.fetch_synchronizer_times()
 
-      val (_period, _pId, cmtOverFiveIntervals) = eventually() {
+      val (period, _pId, cmtOverFiveIntervals) = eventually() {
         val p1Computed = participant1.commitments
           .computed(
             daName,
@@ -618,17 +581,19 @@ trait AcsCommitmentToolingIntegrationTest
       )
 
       val returnedCids = contractsAndTransferCounters.map(c => c.cid)
-      returnedCids should contain theSameElementsAs alreadyDeployedContracts.map(c => c.id.toLf)
+      returnedCids should contain theSameElementsAs alreadyDeployedContracts
+        .get()
+        .map(c => c.id.toLf)
     }
 
     "opening a commitment fails when" should {
       "the participant didn't send the given commitment" in { implicit env =>
         import env.*
 
-        val (_createdCids, period, _commitment) = deployThreeAndCheck(daId)
+        val (_createdCids, period, _commitment) =
+          deployThreeAndCheck(daId, alreadyDeployedContracts)
         val notSentCmt = LtHash16().getByteString()
         val hashedNotSentCmd = AcsCommitment.hashCommitment(notSentCmt)
-
         // give wrong commitment but correct timestamp and counter-participant
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           participant1.commitments.open_commitment(
@@ -652,17 +617,18 @@ trait AcsCommitmentToolingIntegrationTest
         implicit env =>
           import env.*
 
-          val (_createdCids, period, commitment) = deployThreeAndCheck(daId)
+          val (_createdCids, period, commitment) =
+            deployThreeAndCheck(daId, alreadyDeployedContracts)
 
           // give wrong timestamp but a computed commitment and correct counter-participant
           loggerFactory.assertThrowsAndLogs[CommandFailure](
-            participant1.commitments.open_commitment(
+            participant2.commitments.open_commitment(
               commitment,
               daId,
               tickBeforeOrAt(
                 period.toInclusive.forgetRefinement.immediatePredecessor
               ).forgetRefinement,
-              participant2,
+              participant1,
             ),
             logEntry => {
               logEntry.errorMessage should (include(
@@ -680,7 +646,7 @@ trait AcsCommitmentToolingIntegrationTest
       "the given counter-participant is incorrect" in { implicit env =>
         import env.*
 
-        val (_createdCids, period, commitment) = deployThreeAndCheck(daId)
+        val (_createdCids, period, commitment) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
         // give wrong counter-participant but a computed commitment and its correct timestamp
         loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -704,7 +670,7 @@ trait AcsCommitmentToolingIntegrationTest
       "the given timestamp is not a reconciliation interval tick" in { implicit env =>
         import env.*
 
-        val (_createdCids, period, commitment) = deployThreeAndCheck(daId)
+        val (_createdCids, period, commitment) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
         // this test assumes that the reconciliation interval is not 1 second for the given opening commitment
         // timestamp to not fall on a reconciliation interval boundary
@@ -738,7 +704,7 @@ trait AcsCommitmentToolingIntegrationTest
 
       val simClock = environment.simClock.value
 
-      val (_createdCids, period, commitment) = deployThreeAndCheck(daId)
+      val (_createdCids, period, commitment) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
       logger.info(
         "Participant1 waits to receive counter-commitment, so that it can prune past data"
@@ -758,7 +724,7 @@ trait AcsCommitmentToolingIntegrationTest
       logger.info(
         "Participant1 deploy some more contracts to advance the clean replay, so that it can prune past data"
       )
-      deployThreeAndCheck(daId)
+      deployThreeAndCheck(daId, alreadyDeployedContracts)
 
       logger.info("Wait that ACS background pruning advanced past the timestamp of the commitment")
       eventually() {
@@ -809,7 +775,7 @@ trait AcsCommitmentToolingIntegrationTest
         import env.*
 
         logger.info("Create three contracts on synchronizer da")
-        val (createdCidsDa, _per, _cmt) = deployThreeAndCheck(daId)
+        val (createdCidsDa, _per, _cmt) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
         // archive one of these created contracts
         logger.info("Archive one of these contaracts")
@@ -830,10 +796,12 @@ trait AcsCommitmentToolingIntegrationTest
           getCleanReqTs(participant1, daId).getOrElse(fail("No clean request timestamp found"))
 
         val queriedCids = createdCidsDa.map(_.id.toLf)
+        val mismatchTimestamp = tsAfterArchival
+        val synchronizer1Id = daId
         val inspectContracts = participant1.commitments.inspect_commitment_contracts(
-          queriedCids,
-          tsAfterArchival,
-          daId,
+          contracts = queriedCids,
+          timestamp = mismatchTimestamp,
+          synchronizer1Id,
           downloadPayload = true,
         )
 
@@ -873,7 +841,7 @@ trait AcsCommitmentToolingIntegrationTest
         import env.*
 
         logger.info("Create three contracts on synchronizer da")
-        val (createdCidsDa, _per, _cmt) = deployThreeAndCheck(daId)
+        val (createdCidsDa, _per, _cmt) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
         val ts =
           getCleanReqTs(participant1, daId).getOrElse(fail("No clean request timestamp found"))
@@ -905,7 +873,7 @@ trait AcsCommitmentToolingIntegrationTest
           participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
 
           logger.info("Create three contracts on synchronizer da")
-          val (createdCidsDa, _per, _cmt) = deployThreeAndCheck(daId)
+          val (createdCidsDa, _per, _cmt) = deployThreeAndCheck(daId, alreadyDeployedContracts)
 
           val tsBeforeReassign =
             getCleanReqTs(participant1, daId).getOrElse(fail("No clean request timestamp found"))

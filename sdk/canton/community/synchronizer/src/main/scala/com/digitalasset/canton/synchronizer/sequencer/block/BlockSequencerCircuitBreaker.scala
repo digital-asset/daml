@@ -51,7 +51,7 @@ class BlockSequencerCircuitBreaker(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  private val enabled: AtomicBoolean = new AtomicBoolean(true)
+  private val enabled: AtomicBoolean = new AtomicBoolean(config.enabled)
   private val previousTimestamp: AtomicReference[CantonTimestamp] =
     new AtomicReference(CantonTimestamp.MinValue)
 

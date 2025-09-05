@@ -1623,7 +1623,7 @@ object LedgerApiCommands {
         minLedgerTimeAbs: Option[Instant],
         deduplicationPeriod: Option[DeduplicationPeriod],
         hashingSchemeVersion: HashingSchemeVersion,
-        transactionFormat: Option[TransactionFormat],
+        transactionShape: Option[TransactionShape],
     ) extends BaseCommand[
           ExecuteSubmissionAndWaitForTransactionRequest,
           ExecuteSubmissionAndWaitForTransactionResponse,
@@ -1631,7 +1631,32 @@ object LedgerApiCommands {
         ] {
 
       override protected def createRequest()
-          : Either[String, ExecuteSubmissionAndWaitForTransactionRequest] =
+          : Either[String, ExecuteSubmissionAndWaitForTransactionRequest] = {
+
+        // TODO(#27482) Wire includeCreatedEventBlob
+        val transactionFormat = transactionShape.map(transactionShape =>
+          TransactionFormat(
+            eventFormat = Some(
+              EventFormat(
+                filtersByParty = Map.empty,
+                filtersForAnyParty = Some(
+                  Filters(
+                    Seq(
+                      CumulativeFilter(
+                        CumulativeFilter.IdentifierFilter.WildcardFilter(
+                          WildcardFilter(includeCreatedEventBlob = true)
+                        )
+                      )
+                    )
+                  )
+                ),
+                verbose = true,
+              )
+            ),
+            transactionShape = transactionShape,
+          )
+        )
+
         ExecuteCommand(
           preparedTransaction = preparedTransaction,
           transactionSignatures = transactionSignatures,
@@ -1646,6 +1671,7 @@ object LedgerApiCommands {
               .withFieldConst(_.transactionFormat, transactionFormat)
               .transform
           )
+      }
 
       override protected def submitRequest(
           service: InteractiveSubmissionServiceStub,

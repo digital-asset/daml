@@ -9,7 +9,9 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.cycle as M
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.examples.java.cycle.Cycle
+import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
+import com.digitalasset.canton.topology.{ExternalParty, Party, PartyId}
 
 /** Adds the ability to run cycles to integration tests
   */
@@ -25,7 +27,7 @@ trait HasCycleUtils {
       participant1: ParticipantReference,
       participant2: ParticipantReference,
       commandId: String = "",
-  ): Unit = {
+  )(implicit env: TestConsoleEnvironment): Unit = {
 
     Seq(participant2, participant1).map { participant =>
       if (participant.packages.find_by_module("Cycle").isEmpty) {
@@ -58,21 +60,35 @@ trait HasCycleUtils {
     }
   }
 
+  // TODO(#27482): This can be simplified once helpers are in main
   def createCycleContract(
       participant: ParticipantReference,
-      partyId: PartyId,
+      party: Party,
       id: String,
       commandId: String = "",
       optTimeout: Option[config.NonNegativeDuration] = Some(
         ConsoleCommandTimeout.defaultLedgerCommandsTimeout
       ),
-  ): Unit = {
-    if (participant.packages.find_by_module("Cycle").isEmpty) {
-      participant.dars.upload(CantonExamplesPath)
+  )(implicit env: TestConsoleEnvironment): Cycle.Contract = {
+    import env.*
+
+    val cycle = new M.Cycle(id, party.toProtoPrimitive).create.commands.loneElement
+
+    val tx = party match {
+      case partyE: ExternalParty =>
+        participant.external_parties.ledger_api.javaapi.commands.submit(
+          partyE,
+          Seq(new Cycle(id, party.toProtoPrimitive).create().commands().loneElement),
+          commandId = commandId,
+          optTimeout = optTimeout,
+        )
+
+      case _: PartyId =>
+        participant.ledger_api.javaapi.commands
+          .submit(Seq(party.partyId), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
     }
-    val cycle = new M.Cycle(id, partyId.toProtoPrimitive).create.commands.loneElement
-    participant.ledger_api.javaapi.commands
-      .submit(Seq(partyId), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
+
+    JavaDecodeUtil.decodeAllCreated(Cycle.COMPANION)(tx).loneElement
   }
 
   def createCycleContracts(

@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import java.io.File
 import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.archive.Dar
@@ -11,13 +10,13 @@ import com.digitalasset.daml.lf.archive.{Error => ArchiveError}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Util
-
 import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
-import scala.concurrent.{ExecutionContext, Await}
+
+import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.topology.TopologyManagerError
 
 final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
@@ -55,10 +54,12 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
 
       val validation = validator.validateUpgrade(
         upgradingPackages = packageSigs.toList,
-        packageMetadataSnapshot = new PackageMetadata(),
+        upgradablePackages = Map.empty,
       )
       Await.result(validation.value, Duration.Inf) match {
-        case UnlessShutdown.Outcome(Left(err: Validation.Upgradeability.Error)) =>
+        case UnlessShutdown.Outcome(
+              Left(err: TopologyManagerError.ParticipantTopologyManagerError.Upgradeability.Error)
+            ) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")
           1
         case UnlessShutdown.Outcome(Left(err)) =>
