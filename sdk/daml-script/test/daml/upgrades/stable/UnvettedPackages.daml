@@ -39,14 +39,14 @@ main = tests
     , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface (should fail)", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
     ]
   , subtree "fetch"
-    -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
+    -- TODO(https://github.com/DACH-NY/canton/issues/25018): All the transactions below are expected to fail but succeed.
     [ brokenOnIDELedger ("Fetch undistributed contract with source unvetted on submitter (should fail)", fetchUndistributedUnvettedOnSubmitter)
     , brokenOnIDELedger ("Fetch undistributed contract with source unvetted on submitter via interface (should fail)", fetchUndistributedUnvettedOnSubmitterInterface)
     , brokenOnIDELedger ("Fetch distributed contract with source unvetted on submitter (should fail)", fetchDistributedUnvettedOnSubmitter)
     , brokenOnIDELedger ("Fetch distributed contract with source unvetted on submitter via interface (should fail)", fetchDistributedUnvettedOnSubmitterInterface)
     , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on submitter (should fail)", fetchDisclosedUnvettedOnSubmitter)
     , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on submitter via interface (should fail)", fetchDisclosedUnvettedOnSubmitterInterface)
-    , brokenOnIDELedger ("Fetch distributed contract with source unvetted on non-confirming informee (should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
+    , ("Fetch distributed contract with source unvetted on non-confirming informee (should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
     , brokenOnIDELedger ("Fetch distributed contract with source unvetted on confirming informee (should fail)", fetchDistributedUnvettedOnConfirmingInformee)
     , brokenOnIDELedger ("Fetch distributed contract with source unvetted on confirming informee via interface (should fail)", fetchDistributedUnvettedOnConfirmingInformeeInterface)
     -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
