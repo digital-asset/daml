@@ -55,7 +55,7 @@ import "ghc-lib-parser" UniqSet
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.DependencyDb
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import DA.Daml.Assistant.Types (LookForProjectPath (..))
+import DA.Daml.Assistant.Types (LookForPackagePath (..))
 import DA.Daml.Assistant.Util (wrapErr)
 import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Compiler.Dar
@@ -1005,7 +1005,7 @@ setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} =
         releaseVersion <- if damlAssistantIsSet
             then do
               damlPath <- getDamlPath
-              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+              damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
               wrapErr "installing dependencies and initializing package database" $
                 resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
             else pure (unsafeResolveReleaseVersion pSdkVersion)

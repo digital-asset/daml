@@ -47,7 +47,7 @@ main = do
     Tasty.defaultMain $ Tasty.testGroup "DA.Daml.Assistant"
         [ testAscendants
         , testGetDamlPath
-        , testGetProjectPath
+        , testGetPackagePath
         , testGetSdk
         , testGetDispatchEnv
         , testInstall
@@ -103,15 +103,15 @@ testGetDamlPathPosix = Tasty.testGroup "posix-specific tests"
                  Tasty.assertEqual "daml home path" expected got
     ]
 
-testGetProjectPath :: Tasty.TestTree
-testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
+testGetPackagePath :: Tasty.TestTree
+testGetPackagePath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
     [ Tasty.testCase "getPackagePath returns environment variable" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             let expected = dir </> "package"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(packagePathEnvVar, Just expected)] getPackagePath'
-            Tasty.assertEqual "project path" (PackagePath expected) got
+            Tasty.assertEqual "package path" (PackagePath expected) got
             return ()
 
     , Tasty.testCase "getPackagePath returns environment variable (made absolute)" $ do
@@ -120,13 +120,13 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(packagePathEnvVar, Just "package")] getPackagePath'
-            Tasty.assertEqual "project path" (PackagePath expected) got
+            Tasty.assertEqual "package path" (PackagePath expected) got
             return ()
 
     , Tasty.testCase "getPackagePath returns nothing" $ do
         -- This test assumes there's no daml.yaml above the temp directory.
         -- ... this might be an ok assumption, but maybe getPackagePath
-        -- should also check that the project path is owned by the user,
+        -- should also check that the package path is owned by the user,
         -- or something super fancy like that.
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
             setCurrentDirectory dir
@@ -138,7 +138,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
             writeFileUTF8 (dir </> packageConfigName) ""
             setCurrentDirectory dir
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
-            Tasty.assertEqual "project path" (PackagePath dir) path
+            Tasty.assertEqual "package path" (PackagePath dir) path
 
     , Tasty.testCase "getPackagePath returns parent directory" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
@@ -146,7 +146,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
             writeFileUTF8 (dir </> packageConfigName) ""
             setCurrentDirectory (dir </> "foo")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
-            Tasty.assertEqual "project path" (PackagePath dir) path
+            Tasty.assertEqual "package path" (PackagePath dir) path
 
     , Tasty.testCase "getPackagePath returns grandparent directory" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
@@ -154,7 +154,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
             writeFileUTF8 (dir </> packageConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
-            Tasty.assertEqual "project path" (PackagePath dir) path
+            Tasty.assertEqual "package path" (PackagePath dir) path
 
     , Tasty.testCase "getPackagePath prefers parent over grandparent" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
@@ -163,11 +163,11 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
             writeFileUTF8 (dir </> "foo" </> packageConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getPackagePath'
-            Tasty.assertEqual "project path" (PackagePath (dir </> "foo")) path
+            Tasty.assertEqual "package path" (PackagePath (dir </> "foo")) path
 
     ]
     where
-        getPackagePath' = getPackagePath (LookForProjectPath True)
+        getPackagePath' = getPackagePath (LookForPackagePath True)
 
 testGetSdk :: Tasty.TestTree
 testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
@@ -228,7 +228,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
-    , Tasty.testCase "getSdk determines DAML_SDK and DAML_SDK_VERSION from project config" $ do
+    , Tasty.testCase "getSdk determines DAML_SDK and DAML_SDK_VERSION from package config" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
@@ -250,7 +250,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
-    , Tasty.testCase "getSdk: DAML_SDK overrides project config version" $ do
+    , Tasty.testCase "getSdk: DAML_SDK overrides package config version" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
@@ -264,7 +264,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "package")
             writeFileUTF8 (base </> "package" </> packageConfigName)
-                ("project:\n  sdk-version: " <> projVers)
+                ("sdk-version: " <> projVers)
             createDirectory expected2
             writeFileUTF8 (expected2 </> sdkConfigName) ("version: " <> expected1 <> "\n")
             (Just got1, Just (SdkPath got2)) <-
@@ -274,7 +274,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             Tasty.assertEqual "sdk version" expected1 (versionToString got1)
             Tasty.assertEqual "sdk path" expected2 got2
 
-    , Tasty.testCase "getSdk: DAML_SDK_VERSION overrides project config version" $ do
+    , Tasty.testCase "getSdk: DAML_SDK_VERSION overrides package config version" $ do
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
@@ -288,7 +288,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
             createDirectory (base </> "package")
             writeFileUTF8 (base </> "package" </> packageConfigName)
-                ("project:\n  sdk-version: " <> projVers)
+                ("sdk-version: " <> projVers)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
                 withEnv [ (sdkVersionEnvVar, Just expected1)
@@ -376,7 +376,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
             Tasty.assertEqual "daml envs" forcedDenv1 forcedDenv2
     ]
     where
-        getDamlEnv' x = getDamlEnv x (LookForProjectPath True)
+        getDamlEnv' x = getDamlEnv x (LookForPackagePath True)
 
 testAscendants :: Tasty.TestTree
 testAscendants = Tasty.testGroup "DA.Daml.Project.Util.ascendants"
@@ -645,8 +645,8 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
     , test 
         "replace value with multiple variables"
         [("PACKAGE_TYPE", "production"), ("PACKAGE_VISIBILITY", "public")]
-        "name: ${PACKAGE_TYPE}-project-${PACKAGE_VISIBILITY}"
-        $ withSuccess $ \p -> queryTopLevelField p "name" @?= "production-project-public"
+        "name: ${PACKAGE_TYPE}-package-${PACKAGE_VISIBILITY}"
+        $ withSuccess $ \p -> queryTopLevelField p "name" @?= "production-package-public"
     , test "not replace escaped variable" [("MY_NAME", "name")] "name: \\${MY_NAME}" $ withSuccess $ \p ->
         queryTopLevelField p "name" @?= "${MY_NAME}"
     , test "replace double escaped variable" [("MY_NAME", "name")] "name: \\\\${MY_NAME}" $ withSuccess $ \p ->
