@@ -95,7 +95,7 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinF
   private[speedy] final override def execute[Q](
       args: ArraySeq[SValue],
       machine: Machine[Q],
-  ): Control[Q] =
+  ): Control.Value =
     Control.Value(executePure(args, machine))
 
 }

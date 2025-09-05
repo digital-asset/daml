@@ -1322,7 +1322,7 @@ private[lf] object Speedy {
     final def updateGasBudget(cost: CostModel => CostModel.Cost): Unit =
       if (hasGasBudget) {
         val consumed = cost(costModel)
-        if (consumed > 0) {
+        if (consumed != 0) {
           gasBudget -= consumed
           if (gasBudget < 0)
             throw SErrorCrash(

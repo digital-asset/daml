@@ -85,28 +85,25 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
     // maybe replace the kont-stack with a bounded version
     // run the machine
     machine.run() match {
-      case SResultFinal(v) =>
-        println(machine.gasBudget)
-        v
+      case SResultFinal(v) => v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }
 
-  "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" ignore {
+  "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" in {
     val exp = e"F:triangle 100"
     val expected = SValue.SInt64(5050)
-    // The point of this test is to prove that the bounded-evaluation checking really works.
     runExpr(exp, 0, costModelFreeStack) shouldBe expected
 
     the[RuntimeException]
       .thrownBy {
-        runExpr(exp, 1000, costModelFreeKonStack)
+        runExpr(exp, 100, costModelFreeKonStack)
       }
       .toString() should include("No more gas")
 
     the[RuntimeException]
       .thrownBy {
-        runExpr(exp, 1000, costModelFreeEnv)
+        runExpr(exp, 100, costModelFreeEnv)
       }
       .toString() should include("No more gas")
   }
