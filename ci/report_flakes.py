@@ -45,10 +45,9 @@ def extract_test_name_map(mapping_filename: str):
     with keys being the short names and values being the long names.
     """
     with open(mapping_filename) as f:
-        content = f.read()
+        content = f.read().replace("@", "")
         print(f"content: {content}")
-    with open(mapping_filename) as f:
-        return json.load(f)
+        return json.loads(content)
 
 def print_failed_test(branck: str, test_name: str):
     print(f"Flaky test detected: {test_name}")
