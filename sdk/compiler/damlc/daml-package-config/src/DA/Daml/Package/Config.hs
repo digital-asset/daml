@@ -180,7 +180,7 @@ isDamlYamlContentForPackage :: T.Text -> Either ConfigError Bool
 isDamlYamlContentForPackage projectContent =
   isDamlYamlForPackage <$> readProjectConfigPure projectContent
 
-withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
+withPackageConfig :: PackagePath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
   project <- readProjectConfig projectPath
   -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
@@ -194,20 +194,20 @@ withPackageConfig projectPath f = do
 
 -- Traverses up the directory tree from current project path and returns the project path of the "nearest" project.yaml
 -- Stops at root, but also won't pick any files it doesn't have permission to search
-findMultiPackageConfig :: ProjectPath -> IO (Maybe ProjectPath)
+findMultiPackageConfig :: PackagePath -> IO (Maybe PackagePath)
 findMultiPackageConfig projectPath = do
-  filePath <- canonicalizePath $ unwrapProjectPath projectPath
+  filePath <- canonicalizePath $ unwrapPackagePath projectPath
   flip loopM filePath $ \path -> do
     hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
     if hasMultiPackage
-      then pure $ Right $ Just $ ProjectPath path
+      then pure $ Right $ Just $ PackagePath path
       else
         let newPath = takeDirectory path
         in pure $ if path == newPath then Right Nothing else Left newPath
 
-canonicalizeMultiPackageConfigIntermediate :: ProjectPath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
+canonicalizeMultiPackageConfigIntermediate :: PackagePath -> MultiPackageConfigFieldsIntermediate -> IO MultiPackageConfigFieldsIntermediate
 canonicalizeMultiPackageConfigIntermediate projectPath (MultiPackageConfigFieldsIntermediate (MultiPackageConfigFields packagePaths darPaths) multiPackagePaths) =
-  withCurrentDirectory (unwrapProjectPath projectPath) $ do
+  withCurrentDirectory (unwrapPackagePath projectPath) $ do
     MultiPackageConfigFieldsIntermediate
       <$> (MultiPackageConfigFields <$> traverse canonicalizePath packagePaths <*> traverse canonicalizePath darPaths)
       <*> traverse canonicalizePath multiPackagePaths
@@ -228,18 +228,18 @@ exploreAndFlatten start eval = evalStateT (go start) []
           bs <- concat <$> traverse go as
           pure $ b : bs
 
-fullParseMultiPackageConfig :: ProjectPath -> IO MultiPackageConfigFields
+fullParseMultiPackageConfig :: PackagePath -> IO MultiPackageConfigFields
 fullParseMultiPackageConfig startPath = do
   mpcs <- exploreAndFlatten startPath $ \projectPath -> do
     multiPackage <- readMultiPackageConfig projectPath
     multiPackageConfigI <- either throwIO pure (parseMultiPackageConfig multiPackage)
     canonMultiPackageConfigI <- canonicalizeMultiPackageConfigIntermediate projectPath multiPackageConfigI
-    pure (ProjectPath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
+    pure (PackagePath <$> mpiOtherConfigFiles canonMultiPackageConfigI, mpiConfigFields canonMultiPackageConfigI)
 
   pure $ MultiPackageConfigFields (nubOrd $ concatMap mpPackagePaths mpcs) (nubOrd $ concatMap mpDars mpcs)
 
 -- Gives the filepath where the multipackage was found if its not the same as project path.
-withMultiPackageConfig :: ProjectPath -> (MultiPackageConfigFields -> IO a) -> IO a
+withMultiPackageConfig :: PackagePath -> (MultiPackageConfigFields -> IO a) -> IO a
 withMultiPackageConfig projectPath f = fullParseMultiPackageConfig projectPath >>= f
 
 -- | Orphans because I’m too lazy to newtype everything.

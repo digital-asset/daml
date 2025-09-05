@@ -111,7 +111,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(packagePathEnvVar, Just expected)] getProjectPath'
-            Tasty.assertEqual "project path" (ProjectPath expected) got
+            Tasty.assertEqual "project path" (PackagePath expected) got
             return ()
 
     , Tasty.testCase "getProjectPath returns environment variable (made absolute)" $ do
@@ -120,7 +120,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(packagePathEnvVar, Just "project")] getProjectPath'
-            Tasty.assertEqual "project path" (ProjectPath expected) got
+            Tasty.assertEqual "project path" (PackagePath expected) got
             return ()
 
     , Tasty.testCase "getProjectPath returns nothing" $ do
@@ -138,7 +138,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory dir
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
-            Tasty.assertEqual "project path" (ProjectPath dir) path
+            Tasty.assertEqual "project path" (PackagePath dir) path
 
     , Tasty.testCase "getProjectPath returns parent directory" $ do
         withSystemTempDirectory "test-getProjectPath" $ \dir -> do
@@ -146,7 +146,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
-            Tasty.assertEqual "project path" (ProjectPath dir) path
+            Tasty.assertEqual "project path" (PackagePath dir) path
 
     , Tasty.testCase "getProjectPath returns grandparent directory" $ do
         withSystemTempDirectory "test-getProjectPath" $ \dir -> do
@@ -154,7 +154,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             writeFileUTF8 (dir </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
-            Tasty.assertEqual "project path" (ProjectPath dir) path
+            Tasty.assertEqual "project path" (PackagePath dir) path
 
     , Tasty.testCase "getProjectPath prefers parent over grandparent" $ do
         withSystemTempDirectory "test-getProjectPath" $ \dir -> do
@@ -163,7 +163,7 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getProjectPath"
             writeFileUTF8 (dir </> "foo" </> projectConfigName) ""
             setCurrentDirectory (dir </> "foo" </> "bar")
             Just path <- withEnv [(packagePathEnvVar, Nothing)] getProjectPath'
-            Tasty.assertEqual "project path" (ProjectPath (dir </> "foo")) path
+            Tasty.assertEqual "project path" (PackagePath (dir </> "foo")) path
 
     ]
     where
@@ -232,7 +232,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Just $ ProjectPath (base </> "project")
+                projectPath = Just $ PackagePath (base </> "project")
                 expected1 = "10.10.2-version.af29bef"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
@@ -254,7 +254,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Just $ ProjectPath (base </> "project")
+                projectPath = Just $ PackagePath (base </> "project")
                 expected1 = "0.9.8-ham"
                 expected2 = base </> "sdk3"
                 projVers = "5.2.1"
@@ -278,7 +278,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                projectPath = Just $ ProjectPath (base </> "project")
+                projectPath = Just $ PackagePath (base </> "project")
                 expected1 = "0.0.0"
                 expected2 = base </> "daml" </> "sdk" </> expected1
                 projVers = "0.0.1"
@@ -328,7 +328,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envSdkVersion = Just unresolvedVersion
                     , envFreshStableSdkVersionForCheck = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
-                    , envProjectPath = Just $ ProjectPath (base </> "proj")
+                    , envProjectPath = Just $ PackagePath (base </> "proj")
                     }
             env1 <- withEnv [] (getDispatchEnv denv)
             env2 <- withEnv (fmap (fmap Just) env1) (getDispatchEnv denv)
@@ -349,7 +349,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
                     , envSdkVersion = Just unresolvedVersion
                     , envFreshStableSdkVersionForCheck = pure (Just version)
                     , envSdkPath = Just $ SdkPath (base </> "sdk")
-                    , envProjectPath = Just $ ProjectPath (base </> "proj")
+                    , envProjectPath = Just $ PackagePath (base </> "proj")
                     }
             env <- withEnv [] (getDispatchEnv denv1)
             denv2 <- withEnv (fmap (fmap Just) env) (getDamlEnv' =<< getDamlPath)
@@ -668,7 +668,7 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
       Tasty.testCase name $
         withSystemTempDirectory "daml-yaml-env-var-test" $ \ base -> do
           writeFile (base </> "daml.yaml") damlyaml
-          res <- withEnv (second Just <$> env) (Right <$> readProjectConfig (ProjectPath base))
+          res <- withEnv (second Just <$> env) (Right <$> readProjectConfig (PackagePath base))
             `catch` \(e :: ConfigError) -> pure (Left e)
           pred res
     withSuccess :: (ProjectConfig -> IO ()) -> Either ConfigError ProjectConfig -> IO ()

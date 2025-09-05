@@ -57,16 +57,16 @@ readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 
 -- | Read project config file.
 -- Throws a ConfigError if reading or parsing fails.
-readProjectConfig :: ProjectPath -> IO ProjectConfig
-readProjectConfig (ProjectPath path) = readConfigWithEnv "project" (path </> projectConfigName)
+readProjectConfig :: PackagePath -> IO ProjectConfig
+readProjectConfig (PackagePath path) = readConfigWithEnv "project" (path </> projectConfigName)
 
 -- | Version of readProject that runs in Either, as such does not interpolate variables
 readProjectConfigPure :: Text -> Either ConfigError ProjectConfig
 readProjectConfigPure = readConfigFromStringWithoutEnv "project"
 
 -- | Checks if a project config contains environment variables.
-projectConfigUsesEnvironmentVariables :: ProjectPath -> IO Bool
-projectConfigUsesEnvironmentVariables (ProjectPath path) = configUsesEnvironmentVariables (path </> projectConfigName)
+projectConfigUsesEnvironmentVariables :: PackagePath -> IO Bool
+projectConfigUsesEnvironmentVariables (PackagePath path) = configUsesEnvironmentVariables (path </> projectConfigName)
 
 -- | Read sdk config file.
 -- Throws a ConfigError if reading or parsing fails.
@@ -75,8 +75,8 @@ readSdkConfig (SdkPath path) = readConfig "SDK" (path </> sdkConfigName)
 
 -- | Read multi package config file.
 -- Throws a ConfigError if reading or parsing fails.
-readMultiPackageConfig :: ProjectPath -> IO MultiPackageConfig
-readMultiPackageConfig (ProjectPath path) = readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
+readMultiPackageConfig :: PackagePath -> IO MultiPackageConfig
+readMultiPackageConfig (PackagePath path) = readConfigWithEnv "multi-package" (path </> multiPackageConfigName)
 
 -- | (internal) Helper function for defining 'readXConfig' functions.
 -- Throws a ConfigError if reading or parsing fails.

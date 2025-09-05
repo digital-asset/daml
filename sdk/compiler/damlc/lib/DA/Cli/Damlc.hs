@@ -90,7 +90,7 @@ import DA.Daml.Project.Types
       parseUnresolvedVersion,
       isHeadVersion,
       ConfigError(..),
-      ProjectPath(..),
+      PackagePath(..),
       ProjectConfig,
       unsafeResolveReleaseVersion)
 import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
@@ -504,10 +504,10 @@ runTestsInProjectOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnl
 runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withExpectProjectRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
           cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ ProjectPath pPath }
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ PackagePath pPath }
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
-          withPackageConfig (ProjectPath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
+          withPackageConfig (PackagePath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
             -- TODO: We set up one script service context per file that
             -- we pass to execTest and script contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
@@ -517,14 +517,14 @@ runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color m
 runTestsInProjectOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
   where effect = withProjectRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mProjectPath relativize -> do
           cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = ProjectPath <$> mProjectPath }
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mProjectPath }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
           when (isJust (optResolutionData cliOptions) && isNothing mProjectPath) $
             throwIO $ DPMUnsupportedError "running tests outside of a package"
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
           mPkgConfig <- case mProjectPath of
-            Just projectPath -> withMaybeConfig (withPackageConfig (ProjectPath projectPath)) pure
+            Just projectPath -> withMaybeConfig (withPackageConfig (PackagePath projectPath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
           execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
@@ -828,11 +828,11 @@ execLint inputFiles opts =
            getDamlRootFiles pSrc
        fs -> forM fs $ fmap toNormalizedFilePath' . relativize
 
-defaultProjectPath :: ProjectPath
-defaultProjectPath = ProjectPath "."
+defaultProjectPath :: PackagePath
+defaultProjectPath = PackagePath "."
 
-getCanonDefaultProjectPath :: IO ProjectPath
-getCanonDefaultProjectPath = fmap ProjectPath $ canonicalizePath $ unwrapProjectPath defaultProjectPath
+getCanonDefaultProjectPath :: IO PackagePath
+getCanonDefaultProjectPath = fmap PackagePath $ canonicalizePath $ unwrapPackagePath defaultProjectPath
 
 -- | If we're in a daml project, read the daml.yaml field, install the dependencies and create the
 -- project local package database. Otherwise do nothing.
@@ -858,16 +858,16 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
             withPackageConfig defaultProjectPath $
               setupPackageDbFromPackageConfig (toNormalizedFilePath' projRoot) opts
 
-getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe ProjectPath)
+getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe PackagePath)
 getMultiPackagePath multiPackageLocation searchPath =
   case multiPackageLocation of
-    MPLSearch -> findMultiPackageConfig $ maybe defaultProjectPath ProjectPath searchPath
+    MPLSearch -> findMultiPackageConfig $ maybe defaultProjectPath PackagePath searchPath
     MPLPath path -> do
       hasMultiPackage <- doesFileExist $ path </> multiPackageConfigName
       unless hasMultiPackage $ do
         hPutStrLn stderr $ (path </> multiPackageConfigName) <> " does not exist."
         exitFailure
-      pure $ Just $ ProjectPath path
+      pure $ Just $ PackagePath path
 
 execBuild
   :: SdkVersion.Class.SdkVersioned
@@ -890,12 +890,12 @@ execBuild packageLocationOpts opts mbOutFile incrementalBuild initPkgDb enableMu
 
     opts <- liftIO $ addResolutionData opts
 
-    let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
+    let buildSingle :: PackagePath -> PackageConfigFields -> IO ()
         buildSingle pkgPath pkgConfig = void $ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb
-        buildMulti :: ProjectPath -> Maybe PackageConfigFields -> ProjectPath -> IO ()
+        buildMulti :: PackagePath -> Maybe PackageConfigFields -> PackagePath -> IO ()
         buildMulti pkgPath mPkgConfig multiPackageConfigPath = do
           hPutStrLn stderr $ "Running multi-package build of "
-            <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
+            <> maybe ("all packages in " <> unwrapPackagePath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
             multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache
 
@@ -975,7 +975,7 @@ withMaybeConfig withConfig handler = do
 buildEffect
   :: SdkVersion.Class.SdkVersioned
   => (FilePath -> IO FilePath)
-  -> ProjectPath
+  -> PackagePath
   -> PackageConfigFields
   -> Options
   -> Maybe FilePath
@@ -1020,14 +1020,14 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
             Nothing -> pure $ distDir </> name <.> "dar"
             Just out -> rel out
 
-        syncUpgradesField :: ProjectPath -> PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
+        syncUpgradesField :: PackagePath -> PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
         syncUpgradesField pkgPath pkgConf opts = do
           opts <- updateUpgradePath "build" pkgPath opts (pUpgradeDar pkgConf)
           pure (pkgConf { pUpgradeDar = uiUpgradedPackagePath (optUpgradeInfo opts) }, opts)
 
-updateUpgradePath :: T.Text -> ProjectPath -> Options -> Maybe FilePath -> IO Options
+updateUpgradePath :: T.Text -> PackagePath -> Options -> Maybe FilePath -> IO Options
 updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = do
-  let projectFilePath = unwrapProjectPath projectPath
+  let projectFilePath = unwrapPackagePath projectPath
   optCanonPath <- traverse canonicalizePath $ uiUpgradedPackagePath optUpgradeInfo
   pkgCanonPath <- withCurrentDirectory projectFilePath $ traverse canonicalizePath newPkgPath
   -- optUpgradeInfo is normalised to current directory
@@ -1080,7 +1080,7 @@ updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = 
 multiPackageBuildEffect
   :: SdkVersion.Class.SdkVersioned
   => (FilePath -> IO FilePath)
-  -> ProjectPath
+  -> PackagePath
   -> Maybe PackageConfigFields -- Nothing signifies build all
   -> MultiPackageConfigFields
   -> Options
@@ -1127,7 +1127,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
         pure $ fromMaybe
           (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
           mPkgId
-      mRootPkgData = (toNormalizedFilePath' $ unwrapProjectPath pkgPath,) <$> mRootPkgBuilder
+      mRootPkgData = (toNormalizedFilePath' $ unwrapPackagePath pkgPath,) <$> mRootPkgBuilder
       rule = buildMultiRule damlcRunner buildableDataDeps noCache mRootPkgData
 
   -- Set up a near empty shake environment, with just the buildMulti rule
@@ -1346,9 +1346,9 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
           -- daml clean --all with a multi-package.yaml
           (Just path, _, True) ->
             withMultiPackageConfig path $ \multiPackageConfig -> do
-              hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapProjectPath path
+              hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapPackagePath path
               forM_ (mpPackagePaths multiPackageConfig) $ \p ->
-                singleCleanEffect $ packageLocationOpts {packageRoot = Just $ ProjectPath p}
+                singleCleanEffect $ packageLocationOpts {packageRoot = Just $ PackagePath p}
               hPutStrLn stderr "Removed build artifacts."
           -- daml clean in a package
           (_, True, False) -> do
@@ -1525,7 +1525,7 @@ execGenerateMultiPackageManifest multiPackageLocation outputLocation =
           hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
           exitFailure
         Just path -> pure path
-      let multiPackageConfigPath = unwrapProjectPath multiPackageConfigProjectPath
+      let multiPackageConfigPath = unwrapPackagePath multiPackageConfigProjectPath
       withMultiPackageConfig multiPackageConfigProjectPath $ \multiPackageConfig -> do
         configs <- forM (mpPackagePaths multiPackageConfig) $ \path -> do
           config@BuildMultiPackageConfig {..} <- buildMultiPackageConfigFromDamlYaml path
@@ -1669,7 +1669,7 @@ darPathFromDamlYaml path = do
       ) mbProjectOpts
   deriveDarPath path name version mOutput
   where
-    mbProjectOpts = Just $ PackageLocationOpts (Just $ ProjectPath path) (PackageLocationCheck "" False)
+    mbProjectOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
 -- | Subset of parseProjectConfig to get only what we need for deferring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
@@ -1690,16 +1690,16 @@ buildMultiPackageConfigFromDamlYaml path =
     )
     mbProjectOpts
   where
-    mbProjectOpts = Just $ PackageLocationOpts (Just $ ProjectPath path) (PackageLocationCheck "" False)
+    mbProjectOpts = Just $ PackageLocationOpts (Just $ PackagePath path) (PackageLocationCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
 onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe PackageLocationOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
-    mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
+    mbEnvProjectPath <- fmap PackagePath <$> getProjectPath
     let mbProjectPath = packageRoot =<< mbProjectOpts
-    let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
+    let projectPath = fromMaybe (PackagePath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
         project <- readProjectConfig projectPath
         either throwIO pure $ f project

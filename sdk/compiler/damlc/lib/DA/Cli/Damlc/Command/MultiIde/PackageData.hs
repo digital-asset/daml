@@ -18,7 +18,7 @@ import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.LF.Reader (DalfManifest(..), readDalfManifest)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..), findMultiPackageConfig, withMultiPackageConfig)
 import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Project.Types (PackagePath (..))
 import Data.Either.Extra (eitherToMaybe)
 import Data.Foldable (traverse_)
 import Data.List.Extra (nubOrd)
@@ -50,7 +50,7 @@ updatePackageData miState = do
     void $ takeTMVar (misMultiPackageMappingVar miState)
     void $ takeTMVar (misDarDependentPackagesVar miState)
   
-  mPkgConfig <- findMultiPackageConfig $ ProjectPath ideRoot
+  mPkgConfig <- findMultiPackageConfig $ PackagePath ideRoot
   case mPkgConfig of
     Nothing -> do
       logDebug miState "No multi-package.yaml found"

@@ -18,7 +18,7 @@ import Control.Concurrent.MVar
 import Control.Exception (SomeException, displayException)
 import Control.Monad (void)
 import Control.Monad.STM
-import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString, parseUnresolvedVersion)
+import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString, parseUnresolvedVersion)
 import DA.Daml.Resolution.Config (PackageResolutionData (..), ResolutionData (..), getResolutionData)
 import Data.Aeson
 import qualified Data.ByteString as B
@@ -38,8 +38,8 @@ import qualified DA.Service.Logger.Impl.IO as Logger
 
 newtype PackageHome = PackageHome {unPackageHome :: FilePath} deriving (Show, Eq, Ord)
 
-toProjectPath :: PackageHome -> ProjectPath
-toProjectPath (PackageHome path) = ProjectPath path
+toProjectPath :: PackageHome -> PackagePath
+toProjectPath (PackageHome path) = PackagePath path
 
 newtype DarFile = DarFile {unDarFile :: FilePath} deriving (Show, Eq, Ord)
 newtype DamlFile = DamlFile {unDamlFile :: FilePath} deriving (Show, Eq, Ord)

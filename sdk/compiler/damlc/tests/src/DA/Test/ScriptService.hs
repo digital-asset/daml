@@ -100,7 +100,7 @@ withPackageDBAndIdeState lfVersion getScriptService action = do
           "- " <> show scriptDar
         ]
     let opts = defaultOptions (Just lfVersion)
-    withPackageConfig (ProjectPath ".") $
+    withPackageConfig (PackagePath ".") $
       setupPackageDbFromPackageConfig (toNormalizedFilePath' ".") opts
     withIdeState getScriptService opts action
 
@@ -692,7 +692,7 @@ testScriptService lfVersion getScriptService =
     , testGroup "multi packages"
         [ testCase "upgrade to acquired interface" $ do
             scriptDar <- locateDamlScriptDar lfVersion
-            rs <- runScriptsInAllPackages getScriptService lfVersion  (ProjectPath "v2")
+            rs <- runScriptsInAllPackages getScriptService lfVersion  (PackagePath "v2")
               [ ( "interface"
                 , [ ( "daml.yaml"
                     , [ "sdk-version: " <> T.pack sdkVersion
@@ -1274,7 +1274,7 @@ runScriptsInAllPackages
   :: SdkVersioned
   => IO SS.Handle
   -> LF.Version
-  -> ProjectPath
+  -> PackagePath
   -> [(FilePath, [(FilePath, [T.Text])])]
   -> IO [(TR.LocalOrExternal, [(ScriptName, Either T.Text T.Text)])]
 runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
@@ -1286,7 +1286,7 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }
-    damlFiles <- getDamlRootFiles (unwrapProjectPath mainPackage)
+    damlFiles <- getDamlRootFiles (unwrapPackagePath mainPackage)
     (localResults, extResults) <- withIdeState getScriptService opts $ \ideState ->
       runAllScripts ideState damlFiles (RunAllOption True)
     sequence

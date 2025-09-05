@@ -177,7 +177,7 @@ deriveOptionsFromDamlYaml = go `catch` \(e :: AssistantError) -> do
   where 
     go = do
       projectPath <- DAUtil.required "Must be called from within a project." =<< getProjectPath
-      projectConfig <- readProjectConfig (ProjectPath projectPath)
+      projectConfig <- readProjectConfig (PackagePath projectPath)
       projectName <-
         DAUtil.requiredE "Failed to read project name from project config" $
           queryProjectConfigRequired ["name"] projectConfig
