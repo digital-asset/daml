@@ -127,7 +127,7 @@ getProjectLedgerHost = do
 getProjectLedgerAccessToken :: IO (Maybe FilePath)
 getProjectLedgerAccessToken = do
     projectConfigFpM <- getPackagePath
-    projectConfigM <- forM projectConfigFpM (readProjectConfig . PackagePath)
+    projectConfigM <- forM projectConfigFpM (readPackageConfig . PackagePath)
     case projectConfigM of
         Nothing -> pure Nothing
         Just projectConfig ->
@@ -143,7 +143,7 @@ getProjectConfig argM = do
               Just arg -> "This command needs to be either run from within a project \
                           \ or the argument " <> arg <> " needs to be specified.") =<<
         getPackagePath
-    readProjectConfig (PackagePath projectPath)
+    readPackageConfig (PackagePath projectPath)
 
 requiredE :: Exception e => T.Text -> Either e t -> IO t
 requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)

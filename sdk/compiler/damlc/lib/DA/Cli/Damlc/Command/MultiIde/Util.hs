@@ -20,7 +20,7 @@ import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.Except
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Daml.Package.Config (isDamlYamlContentForPackage)
-import DA.Daml.Project.Config (readProjectConfig, queryProjectConfig, queryProjectConfigRequired)
+import DA.Daml.Project.Config (readPackageConfig, queryProjectConfig, queryProjectConfigRequired)
 import DA.Daml.Project.Consts (projectConfigName)
 import DA.Daml.Project.Types (ConfigError (..), parseUnresolvedVersion)
 import Data.Aeson (Value (Null))
@@ -258,7 +258,7 @@ findHome path = do
 packageSummaryFromDamlYaml :: PackageHome -> IO (Either ConfigError PackageSummary)
 packageSummaryFromDamlYaml path = do
   handle (\(e :: ConfigError) -> return $ Left e) $ runExceptT $ do
-    project <- lift $ readProjectConfig $ toProjectPath path
+    project <- lift $ readPackageConfig $ toProjectPath path
     dataDeps <- except $ fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
     directDeps <- except $ fromMaybe [] <$> queryProjectConfig ["dependencies"] project
     let directDarDeps = filter (\dep -> takeExtension dep == ".dar") directDeps

@@ -178,11 +178,11 @@ isDamlYamlForPackage project =
 
 isDamlYamlContentForPackage :: T.Text -> Either ConfigError Bool
 isDamlYamlContentForPackage projectContent =
-  isDamlYamlForPackage <$> readProjectConfigPure projectContent
+  isDamlYamlForPackage <$> readPackageConfigPure projectContent
 
 withPackageConfig :: PackagePath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
-  project <- readProjectConfig projectPath
+  project <- readPackageConfig projectPath
   -- If the config only has the sdk-version, it is "valid" but not usable for package config. It should be handled explicitly
   unless (isDamlYamlForPackage project) $
     throwIO $ ConfigFileInvalid "project" $ Y.InvalidYaml $ Just $ Y.YamlException $

@@ -668,7 +668,7 @@ testEnvironmentVariableInterpolation = Tasty.testGroup "daml.yaml environment va
       Tasty.testCase name $
         withSystemTempDirectory "daml-yaml-env-var-test" $ \ base -> do
           writeFile (base </> "daml.yaml") damlyaml
-          res <- withEnv (second Just <$> env) (Right <$> readProjectConfig (PackagePath base))
+          res <- withEnv (second Just <$> env) (Right <$> readPackageConfig (PackagePath base))
             `catch` \(e :: ConfigError) -> pure (Left e)
           pred res
     withSuccess :: (ProjectConfig -> IO ()) -> Either ConfigError ProjectConfig -> IO ()

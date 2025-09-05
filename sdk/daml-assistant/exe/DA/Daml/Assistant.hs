@@ -308,7 +308,7 @@ dispatchWithEnvVarWarning :: SdkVersioned => Env -> FilePath -> [String] -> IO (
 dispatchWithEnvVarWarning env@Env{..} path args = do
   case (envSdkVersion, envProjectPath) of
     (Just ver, Just projectPath) -> do
-        hasEnvVars <- projectConfigUsesEnvironmentVariables projectPath
+        hasEnvVars <- packageConfigUsesEnvironmentVariables projectPath
         let sdkMissingEnvSupport = ver < envVarAddedVersion && not (isHeadVersion ver)
         if hasEnvVars && sdkMissingEnvSupport
             then do
