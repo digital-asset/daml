@@ -51,7 +51,7 @@ if ($scala_test_targets.count -gt 0) {
 #             $out.WriteLine($_)
 #           }
 #         }
-      echo "_@@@@ done
+      echo "_@@@@ done"
       $bazelexitcode = $lastexitcode
     } finally {
       $out.Close()
