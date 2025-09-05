@@ -223,7 +223,7 @@ data PackageLocationOpts = PackageLocationOpts
     }
 
 packageLocationOpts :: String -> Parser PackageLocationOpts
-packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> packageLocationCheckOpt name
+packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> packageOrProjectLocationCheckOpt name
     where
         packageRootOptDesc :: [String]
         packageRootOptDesc =
@@ -237,7 +237,7 @@ packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> p
         projectRootOpt =
             fmap PackagePath $
             strOptionOnce $
-            long "project-root" <>
+            long "project-root" <> hidden <>
             help (mconcat $ packageRootOptDesc ++ ["(project-root is deprecated, please use --package-root)"])
         packageRootOpt :: Parser PackagePath
         packageRootOpt =
@@ -245,9 +245,13 @@ packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> p
             strOptionOnce $
             long "package-root" <>
             help (mconcat packageRootOptDesc)
+        packageOrProjectLocationCheckOpt cmdName = packageLocationCheckOpt cmdName <|> projectLocationCheckOpt cmdName
+        projectLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
+               help "Check if running in Daml package.\n(project-check is deprecated, please use --package-check)"
+            <> long "project-check" <> hidden
         packageLocationCheckOpt cmdName = fmap (PackageLocationCheck cmdName) . switch $
-               help "Check if running in Daml project."
-            <> long "project-check"
+               help "Check if running in Daml package."
+            <> long "package-check"
 
 enableScriptServiceOpt :: Parser EnableScriptService
 enableScriptServiceOpt = fmap EnableScriptService $
