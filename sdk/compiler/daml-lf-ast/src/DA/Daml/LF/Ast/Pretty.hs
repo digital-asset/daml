@@ -728,9 +728,13 @@ instance Pretty PackageMetadata where
         <> "-" <> pPrint version
         <> maybe empty (\pid -> "-[upgrades=" <> pPrint pid <> "]") upgradedPid
 
+instance Pretty a => Pretty (S.Set a) where
+  pPrint s = "{" <> (hcat . punctuate "," . map pPrint . S.toList) s <> "}"
+
 instance Pretty Package where
-  pPrintPrec lvl _prec (Package version modules metadata) =
+  pPrintPrec lvl _prec (Package version modules metadata imports) =
     vcat $
       "daml-lf" <-> pPrintPrec lvl 0 version
       : "metadata" <-> pPrintPrec lvl 0 metadata
+      : "imports" <-> pPrintPrec lvl 0 imports
       : map (\m -> "" $-$ pPrintPrec lvl 0 m) (NM.toList modules)

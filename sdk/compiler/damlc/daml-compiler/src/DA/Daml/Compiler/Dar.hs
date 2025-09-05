@@ -266,10 +266,12 @@ getSrcRoot fileOrDir = do
 mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
 mergePkgs meta ver pkgs =
     let mergedMods = foldl' NM.union NM.empty $ map (LF.packageModules . getWhnfPackage) pkgs
+        mergedImports = foldl' mappend (Just S.empty) $ map (LF.importedPackages . getWhnfPackage) pkgs
      in LF.Package
             { LF.packageLfVersion = ver
             , LF.packageModules = mergedMods
             , LF.packageMetadata = meta
+            , LF.importedPackages = mergedImports
             }
 
 -- | Find all Daml files below a given source root. If the source root is a file we interpret it as

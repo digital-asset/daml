@@ -111,7 +111,7 @@ data ContextUpdate = ContextUpdate
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeSinglePackageModule version m =
-    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version m))
+    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version (m, Nothing)))
 
 data BackendError
   = BErrorClient ClientError

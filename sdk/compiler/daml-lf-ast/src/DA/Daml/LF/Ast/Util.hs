@@ -522,6 +522,8 @@ mkOneModulePackage m = Package{..}
     packageLfVersion = Version V2 PointDev
     packageModules :: NM.NameMap Module
     packageModules = NM.fromList [m]
+    importedPackages :: Maybe PackageIds
+    importedPackages = Nothing --since used for testing
     packageMetadata :: PackageMetadata
     packageMetadata = PackageMetadata{..}
       where
