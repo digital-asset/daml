@@ -98,6 +98,8 @@ Other Daml Commands
   Sub-command for the Daml Compiler.  
   Commands like ``daml build`` and ``daml test`` redirect to this sub-command, and thus are repeated. Some commands are only accessible via ``daml damlc <command>``, as follows:
 
+  - | ``daml damlc inspect FILE``:
+    | Pretty print a DALF file or the main DALF of a DAR file.
   - | ``daml damlc inspect-dar FILE``:
     | Given a path to a .dar file, this will give information about the packages contained within the DAR.
   - | ``daml damlc docs``
