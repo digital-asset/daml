@@ -72,7 +72,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
 
     parsedUrlRequest <- parseUrlThrow $ T.unpack mucUrl -- Note: Will throw exception on non-2XX responses
     let baseRequest = setRequestBasicAuth (T.encodeUtf8 mucUser) (T.encodeUtf8 mucPassword)
-            $ setRequestMethod "PUT"
+            $ setRequestMethod "POST"
             $ setRequestHeader "User-Agent" ["http-conduit"] parsedUrlRequest
 
     decodedSigningKey <- decodeSigningKey mucSigningKey
