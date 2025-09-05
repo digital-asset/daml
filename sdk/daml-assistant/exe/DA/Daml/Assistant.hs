@@ -167,7 +167,7 @@ autoInstall env@Env{..} = do
                 , targetVersionM = releaseVersion
                 , missingAssistant = False
                 , installingFromOutside = False
-                , projectPathM = Nothing
+                , mPackagePath = Nothing
                 , assistantVersion = envDamlAssistantSdkVersion
                 , artifactoryApiKeyM
                 , output = hPutStrLn stderr
