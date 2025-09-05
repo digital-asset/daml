@@ -292,7 +292,7 @@ locateBuiltinPackageDbs mbProjRoot = do
       , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "pkg-db"
       }
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
+    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath packageRoot </> projectPackageDatabase | Just packageRoot <- [mbProjRoot]])
 
 -- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
 -- including builtin package dbs.

@@ -965,18 +965,18 @@ unsafeSetupPackageDb
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
+unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
     installDependencies
-        projRoot
+        packageRoot
         opts
         releaseVersion
         pDependencies
         pDataDependencies
-    createProjectPackageDb projRoot opts pModulePrefixes
+    createProjectPackageDb packageRoot opts pModulePrefixes
 
 withPkgDbLock :: NormalizedFilePath -> IO a -> IO a
-withPkgDbLock projRoot act = do
-    let packageDbLockFile = packageDbLockPath projRoot
+withPkgDbLock packageRoot act = do
+    let packageDbLockFile = packageDbLockPath packageRoot
     createDirectoryIfMissing True $ takeDirectory packageDbLockFile
     withFileLock packageDbLockFile Exclusive $ const act
 
@@ -990,8 +990,8 @@ setupPackageDb
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-setupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
-    withPkgDbLock projRoot $ unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+setupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
+    withPkgDbLock packageRoot $ unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
 
 setupPackageDbFromPackageConfig
     :: SdkVersioned
@@ -999,8 +999,8 @@ setupPackageDbFromPackageConfig
     -> Options
     -> PackageConfigFields
     -> IO ()
-setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} =
-    withPkgDbLock projRoot $ do
+setupPackageDbFromPackageConfig packageRoot opts PackageConfigFields {..} =
+    withPkgDbLock packageRoot $ do
         damlAssistantIsSet <- damlAssistantIsSet
         releaseVersion <- if damlAssistantIsSet
             then do
@@ -1009,4 +1009,4 @@ setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} =
               wrapErr "installing dependencies and initializing package database" $
                 resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
             else pure (unsafeResolveReleaseVersion pSdkVersion)
-        unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+        unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes

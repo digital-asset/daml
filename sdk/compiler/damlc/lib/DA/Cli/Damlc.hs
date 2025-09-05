@@ -515,15 +515,15 @@ runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color m
             files <- getDamlRootFiles pSrc
             execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 runTestsInProjectOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
-  where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mProjectPath relativize -> do
+  where effect = withPackageRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mPackageRoot relativize -> do
           cliOptions <- addResolutionData cliOptions
-          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mProjectPath }
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = PackagePath <$> mPackageRoot }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
-          when (isJust (optResolutionData cliOptions) && isNothing mProjectPath) $
+          when (isJust (optResolutionData cliOptions) && isNothing mPackageRoot) $
             throwIO $ DPMUnsupportedError "running tests outside of a package"
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
-          mPkgConfig <- case mProjectPath of
+          mPkgConfig <- case mPackageRoot of
             Just packagePath -> withMaybeConfig (withPackageConfig (PackagePath packagePath)) pure
             Nothing -> pure Nothing
           inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
@@ -849,10 +849,10 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
     when shouldInit $ do
         isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
-            projRoot <- getCurrentDirectory
+            packageRoot <- getCurrentDirectory
             opts <- addResolutionData opts
             withPackageConfig defaultProjectPath $
-              setupPackageDbFromPackageConfig (toNormalizedFilePath' projRoot) opts
+              setupPackageDbFromPackageConfig (toNormalizedFilePath' packageRoot) opts
 
 getMultiPackagePath :: MultiPackageLocation -> Maybe FilePath -> IO (Maybe PackagePath)
 getMultiPackagePath multiPackageLocation searchPath =

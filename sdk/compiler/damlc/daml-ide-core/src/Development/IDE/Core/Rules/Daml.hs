@@ -641,8 +641,8 @@ generatePackageMapRule opts = do
             findProjectRoot <- memoIO findProjectRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
             pure $ \file -> do
-                mbProjectRoot <- liftIO (findProjectRoot file)
-                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
+                mPackageRoot <- liftIO (findProjectRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mPackageRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -660,9 +660,9 @@ damlGhcSessionRule :: SdkVersioned => Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
     -- The file path here is optional so we go for defineNoFile
     -- (or the equivalent thereof for rules with cut off).
-    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+    defineEarlyCutoff $ \(DamlGhcSession mPackageRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
         let base = mkBaseUnits (optUnitId opts)
-        extraPkgFlags <- liftIO $ case mbProjectRoot of
+        extraPkgFlags <- liftIO $ case mPackageRoot of
             Just packageRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
                 -- We catch doesNotExistError which could happen if the
                 -- package db has never been initialized. In that case, we
@@ -679,9 +679,9 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC mbProjectRoot opts
+            setupDamlGHC mPackageRoot opts
             GHC.getSession
-        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mPackageRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
         hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
         -- In the IDE we do not care about the cache value here but for

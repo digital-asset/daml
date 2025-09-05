@@ -494,7 +494,7 @@ locateCppPath = do
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std Daml ones)
 setupDamlGHC :: GhcMonad m => Maybe NormalizedFilePath -> Options -> m ()
-setupDamlGHC mbProjectRoot options@Options{..} = do
+setupDamlGHC mPackageRoot options@Options{..} = do
   tmpDir <- liftIO getTemporaryDirectory
   versionHeader <- liftIO locateGhcVersionHeader
   defaultCppPath <- liftIO locateCppPath
@@ -520,7 +520,7 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
 
     modifySession $ \h ->
       h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
-  whenJust mbProjectRoot $ \(fromNormalizedFilePath -> projRoot) ->
+  whenJust mPackageRoot $ \(fromNormalizedFilePath -> packageRoot) ->
     -- Make import paths relative to package root. Otherwise, we
     -- can end up with the same file being represented multiple times
     -- with different prefixes or not found at all if our CWD is not the
@@ -528,7 +528,7 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
     -- Note that in the IDE package root is absolute whereas it is
     -- relative in `daml build`.
     modifyDynFlags $ \dflags ->
-      dflags { importPaths = map (\p -> normalise (projRoot </> p)) (importPaths dflags) }
+      dflags { importPaths = map (\p -> normalise (packageRoot </> p)) (importPaths dflags) }
 
 
 -- | Check for bad @DynFlags@.
