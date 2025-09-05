@@ -92,12 +92,12 @@ import System.IO.Extra
 -- Constants / Conventions
 --------------------------
 dependenciesDir :: Options -> NormalizedFilePath -> FilePath
-dependenciesDir opts projRoot =
-    fromNormalizedFilePath projRoot </> projectDependenciesDatabase </>
+dependenciesDir opts packageRoot =
+    fromNormalizedFilePath packageRoot </> projectDependenciesDatabase </>
     lfVersionString (optDamlLfVersion opts)
 
 packageDbLockPath :: NormalizedFilePath -> FilePath
-packageDbLockPath projRoot = fromNormalizedFilePath projRoot </> damlArtifactDir </> "setup-package-db.lock"
+packageDbLockPath packageRoot = fromNormalizedFilePath packageRoot </> damlArtifactDir </> "setup-package-db.lock"
 
 remotePackagesLockFile :: FilePath
 remotePackagesLockFile = "daml.lock"
@@ -127,13 +127,13 @@ installDependencies ::
    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
    -> IO ()
-installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
+installDependencies packageRoot opts releaseVersion pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
     let sdkPackages = filter (`notElem` basePackages) pDeps
     ExpandedSdkPackages deps uncheckedDeps additionalDataDeps <-
       case optResolutionData opts of
         Just resolutionData -> do
-          let rootPath = fromNormalizedFilePath projRoot
+          let rootPath = fromNormalizedFilePath packageRoot
           pkgResolution <- either throwIO pure $ findPackageResolutionData rootPath resolutionData
           cachePath <- getCachePath
           expandSdkPackagesDpm cachePath pkgResolution (optDamlLfVersion opts) sdkPackages
@@ -167,7 +167,7 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
         Logger.logDebug logger "Extracting & installing data-dependency DALFs"
         forM_ dataDepsDalfs $ \fp -> BS.readFile fp >>= installDataDepDalf False depsDir fp
         Logger.logDebug logger "Resolving package ids"
-        resolvedPkgIds <- resolvePkgs projRoot opts dataDepsNameVersion
+        resolvedPkgIds <- resolvePkgs packageRoot opts dataDepsNameVersion
         Logger.logDebug logger "Querying package ids"
         exclPkgIds <- queryPkgIds Nothing depsDir
         Logger.logDebug logger "Fetching DALFs from ledger"
@@ -211,7 +211,7 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
                                 (packageRefs pkg `Set.union` rest)
                                 (Set.insert pkgId processed)
     packageRefs pkg = Set.fromList [pid | LF.ImportedPackageId pid <- toListOf LF.packageRefs pkg]
-    depsDir = dependenciesDir opts projRoot
+    depsDir = dependenciesDir opts packageRoot
 
 -- | Check that all dependencies match the main packages release (or sdk) version
 -- We check for both, as packages usually use the release version, but internal packages (like daml-script) use the sdk-version, as the
@@ -337,7 +337,7 @@ instance Aeson.ToJSON DependencyInfo
 -- This will fail if any package can't be resolved.
 -- Once all packages have been resolved, a new `daml.lock` file is noting the resolution.
 resolvePkgs :: NormalizedFilePath -> Options -> [FullPkgName] -> IO (M.Map FullPkgName LF.PackageId)
-resolvePkgs projRoot opts pkgs
+resolvePkgs packageRoot opts pkgs
     | null pkgs = pure M.empty
     | otherwise = do
         mbRes <- resolvePkgsWithLockFile lockFp pkgs
@@ -357,8 +357,8 @@ resolvePkgs projRoot opts pkgs
               writeLockFile remotePackagesLockFile result
               pure result
   where
-    depsDir = dependenciesDir opts projRoot
-    lockFp = fromNormalizedFilePath projRoot </> remotePackagesLockFile
+    depsDir = dependenciesDir opts packageRoot
+    lockFp = fromNormalizedFilePath packageRoot </> remotePackagesLockFile
 
 writeLockFile :: FilePath -> M.Map FullPkgName LF.PackageId -> IO ()
 writeLockFile lockFp resolvedPkgs = do
