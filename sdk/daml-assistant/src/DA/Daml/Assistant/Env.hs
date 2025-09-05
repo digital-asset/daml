@@ -235,7 +235,7 @@ getSdk useCache damlPath projectPathM =
                     [ maybeM (pure Nothing)
                         ((fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) . tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
                         (getEnv sdkPathEnvVar)
-                    , mapM getUnresolvedReleaseVersionFromProjectPath projectPathM
+                    , mapM getUnresolvedReleaseVersionFromPackagePath projectPathM
                     , (fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) $ tryAssistantM $ getDefaultSdkVersion damlPath
                     ]
 
