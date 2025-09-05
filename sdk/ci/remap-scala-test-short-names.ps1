@@ -40,7 +40,7 @@ if ($scala_test_targets.count -gt 0) {
         "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
         "--output_groups=scala_test_info" `
         "--experimental_show_artifacts" `
-        @scala_test_targets `
+        @scala_test_targets # `
 #         2>&1 | % {
 #           if ($_ -is [System.Management.Automation.ErrorRecord]) {
 #             if ($_.TargetObject -ne $null) {
@@ -51,6 +51,7 @@ if ($scala_test_targets.count -gt 0) {
 #             $out.WriteLine($_)
 #           }
 #         }
+      echo "_@@@@ done
       $bazelexitcode = $lastexitcode
     } finally {
       $out.Close()
