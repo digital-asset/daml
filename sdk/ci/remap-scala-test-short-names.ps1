@@ -8,7 +8,7 @@ if (Test-Path sdk) {
 # $ErrorActionPreference = 'Stop' causes the script to fail because Bazel writes to stderr.
 $ErrorActionPreference = 'Continue'
 
-[string[]]$scala_test_targets = bazel.exe query "kind(scala_test, deps(kind(test_suite, //...), 1))"
+[string[]]$scala_test_targets = bazel query "kind(scala_test, deps(kind(test_suite, //...), 1))"
 if ($lastexitcode -ne 0) {
   throw "bazel query returned non-zero exit code: $lastexitcode"
 }
@@ -17,6 +17,7 @@ if ($scala_test_targets.count -gt 0) {
 
   try {
 
+    # TODO: rewrite
     # Bazel writes the output of --experimental_show_artifacts to stderr
     # instead of stdout. In Powershell this means that these outputs are not
     # plain strings, but instead error objects. Simply redirecting these to
@@ -35,11 +36,9 @@ if ($scala_test_targets.count -gt 0) {
     try {
       $append = $false
       $out = [System.IO.StreamWriter]::new($tmp, $append)
-      bazel.exe build `
+      bazel aquery `
         "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
-        "--output_groups=scala_test_info" `
-        "--experimental_show_artifacts" `
-        @scala_test_targets `
+        "outputs('.*_scala_test.*', //...)" `
         2>&1 | % {
           if ($_ -is [System.Management.Automation.ErrorRecord]) {
             if ($_.TargetObject -ne $null) {
@@ -62,7 +61,7 @@ if ($scala_test_targets.count -gt 0) {
     }
 
     Get-Content $tmp |
-      % { if ( $_ -match ">>>(?<filename>.*)" ) { Get-Content $Matches.filename } } |
+      % { if ( $_ -match "Outputs: \[(?<filename>.*)\]" ) { Get-Content $Matches.filename } } |
       jq -acsS "map({key:.short_label,value:.long_label})|from_entries"
 
     if ($lastexitcode -ne 0) {
