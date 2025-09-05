@@ -89,7 +89,7 @@ data InstallEnvF a = InstallEnv
     , installingFromOutside :: Bool
         -- ^ daml install is running from outside daml path
         -- (e.g. when running install script).
-    , projectPathM :: Maybe PackagePath
+    , mPackagePath :: Maybe PackagePath
         -- ^ package path (for "daml install package")
     , artifactoryApiKeyM :: Maybe DAVersion.ArtifactoryApiKey
         -- ^ Artifactoyr API key used to fetch SDK EE tarball.
@@ -519,8 +519,8 @@ latestInstall env@InstallEnv{..} =
         versionInstall env { targetVersionM = version }
 
 -- | Install the SDK version of the current package.
-projectInstall :: InstallEnvWithoutVersion -> PackagePath -> IO ()
-projectInstall env packagePath = do
+packageInstall :: InstallEnvWithoutVersion -> PackagePath -> IO ()
+packageInstall env packagePath = do
     wrapErr "Installing daml version in package config (daml.yaml)" $ do
     projectConfig <- readPackageConfig packagePath
     unresolvedVersionM <- fromRightM throwIO $ releaseVersionFromPackageConfig projectConfig
@@ -547,7 +547,7 @@ pattern RawInstallTarget_Latest = RawInstallTarget "latest"
 
 -- | Run install command.
 install :: InstallOptions -> DamlPath -> UseCache -> Maybe PackagePath -> Maybe DamlAssistantSdkVersion -> IO ()
-install options damlPath useCache projectPathM assistantVersion =
+install options damlPath useCache mPackagePath assistantVersion =
     wrapErr "Running daml install command" $ do
         missingAssistant <- not <$> doesFileExist (installedAssistantPath damlPath)
         execPath <- getExecutablePath
@@ -587,15 +587,15 @@ install options damlPath useCache projectPathM assistantVersion =
             Just RawInstallTarget_Project -> do
                 hPutStrLn stderr "'daml install project' is deprecated, please use 'daml install package'"
                 packagePath <- required "'daml install project' must be run from within a package."
-                    projectPathM
+                    mPackagePath
                 warnAboutAnyInstallFlags "daml install project"
-                projectInstall env packagePath
+                packageInstall env packagePath
 
             Just RawInstallTarget_Package -> do
                 packagePath <- required "'daml install package' must be run from within a package."
-                    projectPathM
+                    mPackagePath
                 warnAboutAnyInstallFlags "daml install package"
-                projectInstall env packagePath
+                packageInstall env packagePath
 
             Just RawInstallTarget_Latest -> do
                 warnAboutAnyInstallFlags "daml install latest"

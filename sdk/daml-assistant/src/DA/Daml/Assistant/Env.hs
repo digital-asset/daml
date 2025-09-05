@@ -222,7 +222,7 @@ getSdk :: UseCache
        -> DamlPath
        -> Maybe PackagePath
        -> IO (Maybe UnresolvedReleaseVersion, Maybe SdkPath)
-getSdk useCache damlPath projectPathM =
+getSdk useCache damlPath mPackagePath =
     wrapErr "Determining SDK version and path." $ do
         unresolvedVersion <-
             let parseAndResolve = pure . parseVersion . pack
@@ -235,7 +235,7 @@ getSdk useCache damlPath projectPathM =
                     [ maybeM (pure Nothing)
                         ((fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) . tryAssistantM . getReleaseVersionFromSdkPath useCache . SdkPath)
                         (getEnv sdkPathEnvVar)
-                    , mapM getUnresolvedReleaseVersionFromPackagePath projectPathM
+                    , mapM getUnresolvedReleaseVersionFromPackagePath mPackagePath
                     , (fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) $ tryAssistantM $ getDefaultSdkVersion damlPath
                     ]
 
