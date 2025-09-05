@@ -44,7 +44,7 @@ def extract_test_name_map():
     Extracts the short and long test names from a file. The file is a JSON object
     with keys being the short names and values being the long names.
     """
-    with open("test_name_map.json") as f:
+    with open("scala-test-suite-name-map.json") as f:
         return json.load(f)
 
 def print_failed_test(branck: str, test_name: str):
