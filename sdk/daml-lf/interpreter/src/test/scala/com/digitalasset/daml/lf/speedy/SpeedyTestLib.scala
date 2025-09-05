@@ -190,6 +190,10 @@ private[speedy] object SpeedyTestLib {
           limits = machine.limits,
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
           packageResolution = Map.empty,
+          costModel = CostModel.Empty,
+          initialGasBudget = None,
+          initialKontStackSize = 128,
+          initialEnvSize = 512,
         )
 
       private[speedy] def withLocalContractKey(

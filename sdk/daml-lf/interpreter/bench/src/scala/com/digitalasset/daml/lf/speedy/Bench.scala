@@ -51,7 +51,7 @@ class Bench {
             val sumFoldrBuitlin: List Int64 -> Int64 = \(xs: List Int64) ->
               FOLDR @Int64 @Int64 ADD_INT64 0 xs;
 
-            val bnechSumFoldrBuiltin : Unit -> Int64 =
+            val benchSumFoldrBuiltin : Unit -> Int64 =
               \(_: Unit) -> Bench:sumFoldrBuitlin Bench:longList;
 
             val foldl: forall (a: *) (b: *). (a -> b -> a) -> a -> List b -> a = /\ (a: *) (b: *).
@@ -134,7 +134,7 @@ class Bench {
     Array(
       "Bench:benchFib",
       "Bench:benchSumFoldlBuiltin",
-      "Bench:bnechSumFoldrBuiltin",
+      "Bench:benchSumFoldrBuiltin",
       "Bench:benchSumFoldlCustom",
       "Bench:benchSumFoldrCustom",
       "Bench:benchMkList",
