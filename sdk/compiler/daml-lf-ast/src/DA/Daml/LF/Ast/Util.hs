@@ -19,7 +19,6 @@ import qualified Data.Graph as G
 import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
 import           GHC.Generics (Generic)
-
 import Module (UnitId, unitIdString, stringToUnitId)
 import System.FilePath
 import Text.Read (readMaybe)

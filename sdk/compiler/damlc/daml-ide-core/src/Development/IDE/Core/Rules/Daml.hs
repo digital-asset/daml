@@ -23,6 +23,7 @@ import HscTypes
 import MkIface
 import Maybes (MaybeErr(..), rightToMaybe)
 import TcRnMonad (initIfaceLoad)
+
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
@@ -580,7 +581,7 @@ getUpgradedPackageErrs opts file mainPkg
     -- package versions have been checked at this point
     packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
     packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
-
+     
     lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
     lfVersionMinorLt = (<) `on` LF.versionMinor
 
@@ -848,19 +849,6 @@ convertUnitId pkgMap id =
 
 depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
 depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
-
--- generatePackageImports :: Rules ()
--- generatePackageImports =
---     define $ \GeneratePackageImports file -> do
---         -- lfVersion <- getDamlLfVersion
---         -- imports <- if lfVersion `supports` featurePackageImports
---         imports <- if version2_dev `supports` featurePackageImports
---           then do
---             PackageMap pkgMap <- use_ GeneratePackageMap file
---             deps <- depPkgDeps <$> use_ GetDependencyInformation file
---             return (Just $ depsToIds pkgMap deps)
---           else return Nothing
---         return ([]{-list of diagnostics-}, Just imports)
 
 generatePackageImports :: Rules ()
 generatePackageImports =

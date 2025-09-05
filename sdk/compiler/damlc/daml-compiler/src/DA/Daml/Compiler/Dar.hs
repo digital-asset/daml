@@ -1,6 +1,5 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 module DA.Daml.Compiler.Dar
     ( createDarFile
     , buildDar
@@ -440,4 +439,3 @@ makeRelative' a b =
     -- Note that NormalizedFilePath only takes care of normalizing slashes.
     -- Here we also want to normalise things like ./a to a
     makeRelative (normalise $ fromNormalizedFilePath a) (normalise $ fromNormalizedFilePath b)
-

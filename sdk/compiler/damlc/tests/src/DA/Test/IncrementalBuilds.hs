@@ -3,7 +3,6 @@
 
 module DA.Test.IncrementalBuilds (main) where
 
-
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Monad.Extra
