@@ -93,7 +93,7 @@ import System.IO.Extra
 --------------------------
 dependenciesDir :: Options -> NormalizedFilePath -> FilePath
 dependenciesDir opts packageRoot =
-    fromNormalizedFilePath packageRoot </> projectDependenciesDatabase </>
+    fromNormalizedFilePath packageRoot </> packageDependenciesDatabasePath </>
     lfVersionString (optDamlLfVersion opts)
 
 packageDbLockPath :: NormalizedFilePath -> FilePath

@@ -25,8 +25,8 @@ module DA.Daml.Options.Types
     , ForceUtilityPackage(..)
     , defaultOptions
     , damlArtifactDir
-    , projectPackageDatabase
-    , projectDependenciesDatabase
+    , packageDatabasePath
+    , packageDependenciesDatabasePath
     , ifaceDir
     , distDir
     , genDir
@@ -259,11 +259,11 @@ damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
 
 -- | The package package database path relative to the package root.
-projectPackageDatabase :: FilePath
-projectPackageDatabase = damlArtifactDir </> "package-database"
+packageDatabasePath :: FilePath
+packageDatabasePath = damlArtifactDir </> "package-database"
 
-projectDependenciesDatabase :: FilePath
-projectDependenciesDatabase = damlArtifactDir </> "dependencies"
+packageDependenciesDatabasePath :: FilePath
+packageDependenciesDatabasePath = damlArtifactDir </> "dependencies"
 
 ifaceDir :: FilePath
 ifaceDir = damlArtifactDir </> "interfaces"
@@ -292,7 +292,7 @@ locateBuiltinPackageDbs mbProjRoot = do
       , runfilesPathPrefix = mainWorkspace </> "compiler" </> "damlc" </> "pkg-db"
       }
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath packageRoot </> projectPackageDatabase | Just packageRoot <- [mbProjRoot]])
+    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath packageRoot </> packageDatabasePath | Just packageRoot <- [mbProjRoot]])
 
 -- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
 -- including builtin package dbs.

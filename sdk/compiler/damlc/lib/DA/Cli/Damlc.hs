@@ -139,7 +139,7 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               optUpgradeInfo,
                               optTypecheckerWarningFlags,
                               pkgNameVersion,
-                              projectPackageDatabase)
+                              packageDatabasePath)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                PackageConfigFields(..),
                                checkPkgConfig,
@@ -1468,7 +1468,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
 
       opts <- pure opts
-        { optPackageDbs = projectPackageDatabase : optPackageDbs opts
+        { optPackageDbs = packageDatabasePath : optPackageDbs opts
         , optPackageImports = packageFlag : optPackageImports opts
         -- Drop version information to avoid package clashes (specifically when generating for internal packages)
         , optMbPackageVersion = Nothing

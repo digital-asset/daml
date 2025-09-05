@@ -17,7 +17,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Text as T
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Options.Types
-    ( projectPackageDatabase
+    ( packageDatabasePath
     , ModRenaming(..)
     , PackageArg(..)
     , PackageFlag(..)
@@ -87,5 +87,5 @@ readMetadata packageRoot = do
 metadataFile :: NormalizedFilePath -> FilePath
 metadataFile packageRoot =
     fromNormalizedFilePath packageRoot </>
-    projectPackageDatabase </>
+    packageDatabasePath </>
     "metadata.json"
