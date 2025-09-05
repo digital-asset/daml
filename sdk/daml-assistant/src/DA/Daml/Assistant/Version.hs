@@ -140,7 +140,7 @@ getUnresolvedReleaseVersionFromPackagePath packagePath =
                     [("path", unwrapPackagePath packagePath </> packageConfigName)
                     ,("internal", raw)]
 
--- | Determine SDK version from project root. Fails with an
+-- | Determine SDK version from package root. Fails with an
 -- AssistantError exception if the version cannot be determined.
 getSdkVersionFromPackagePath :: UseCache -> PackagePath -> IO ReleaseVersion
 getSdkVersionFromPackagePath useCache packagePath =
@@ -178,7 +178,7 @@ getInstalledSdkVersions damlPath = do
             Right sdkVersion -> Just (mkReleaseVersion unresolvedVersion sdkVersion)
 
 -- | Get the default SDK version for commands run outside of a
--- project. This is defined as the latest installed version
+-- package. This is defined as the latest installed version
 -- without a release tag (e.g. this will prefer version 0.12.17
 -- over version 0.12.18-nightly even though the latter came later).
 --

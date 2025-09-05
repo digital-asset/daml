@@ -25,15 +25,15 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Util
 import DA.Signals (installSignalHandlers)
 
--- | Create a Daml project in a new directory, based on a project template packaged
+-- | Create a Daml package or project in a new directory, based on a template packaged
 -- with the SDK. Special care has been taken to avoid:
 --
 -- * Project name/template name confusion: i.e. when a user passes a
--- single argument, it should be the new project folder. But if the user
+-- single argument, it should be the new project/package folder. But if the user
 -- passes an existing template name instead, we ask the user to be more
 -- explicit.
--- * Creation of a project in existing folder (suggest daml init instead).
--- * Creation of a project inside another project.
+-- * Creation of a project/package in existing folder (suggest daml init instead).
+-- * Creation of a package inside a project.
 --
 runNew :: FilePath -> Maybe String -> IO ()
 runNew targetFolder templateNameM = do

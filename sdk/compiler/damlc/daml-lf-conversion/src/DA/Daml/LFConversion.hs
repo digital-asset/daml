@@ -2617,7 +2617,7 @@ checkInterfacesEnabled :: Env -> ConvertM ()
 checkInterfacesEnabled env =
   unless (getEnableInterfaces (envEnableInterfaces env)) do
     unsupported
-      "Interfaces have been disabled by the `--enable-interfaces=no` flag. To enable them, remove that flag from the `build-options` in this project's daml.yaml file"
+      "Interfaces have been disabled by the `--enable-interfaces=no` flag. To enable them, remove that flag from the `build-options` in this package's daml.yaml file"
       ()
 
 ---------------------------------------------------------------------

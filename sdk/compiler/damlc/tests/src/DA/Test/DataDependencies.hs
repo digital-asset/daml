@@ -316,7 +316,7 @@ tests TestArgs{..} =
     | (depLfVer, targetLfVer) <- lfVersionTestPairs
     ] <>
     [ testCaseSteps ("Cross Daml-LF version with double data-dependency from old SDK: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer) $
-        -- Given a dar "Old" built with an older SDK, this tests that a project
+        -- Given a dar "Old" built with an older SDK, this tests that a package
         -- which depends on "Old" through different paths on its dependency graph
         -- will not end up with multiple copies of daml-prim and daml-stdlib
         -- from the older SDK, which would prevent it from compiling.
@@ -977,7 +977,7 @@ tests TestArgs{..} =
           -- This test checks that we handle the case where a data-dependency has (orphan) instances
           -- Functor, Applicative for a type Proxy while a dependency only has instance Functor.
           -- In this case we need to import the Functor instance or the Applicative instance will have a type error.
-          step "building type project"
+          step "building type package"
           createDirectoryIfMissing True (tmpDir </> "type")
           writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -996,7 +996,7 @@ tests TestArgs{..} =
               , "--package-root", tmpDir </> "type"
               , "-o",  tmpDir </> "type" </> "type.dar"]
 
-          step "building dependency project"
+          step "building dependency package"
           createDirectoryIfMissing True (tmpDir </> "dependency")
           writeFileUTF8 (tmpDir </> "dependency" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1018,7 +1018,7 @@ tests TestArgs{..} =
               , "--package-root", tmpDir </> "dependency"
               , "-o", tmpDir </> "dependency" </> "dependency.dar"]
 
-          step "building data-dependency project"
+          step "building data-dependency package"
           createDirectoryIfMissing True (tmpDir </> "data-dependency")
           writeFileUTF8 (tmpDir </> "data-dependency" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1043,7 +1043,7 @@ tests TestArgs{..} =
               , "--package-root", tmpDir </> "data-dependency"
               , "-o", tmpDir </> "data-dependency" </> "data-dependency.dar"]
 
-          step "building top-level project"
+          step "building top-level package"
           createDirectoryIfMissing True (tmpDir </> "top")
           writeFileUTF8 (tmpDir </> "top" </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1394,7 +1394,7 @@ tests TestArgs{..} =
         ]
 
     , testCaseSteps "Implicit parameters" $ \step -> withTempDir $ \tmpDir -> do
-        step "building project with implicit parameters"
+        step "building package with implicit parameters"
         createDirectoryIfMissing True (tmpDir </> "dep")
         writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1439,7 +1439,7 @@ tests TestArgs{..} =
                 pure v
         assertEqual "Expected two implicit CallStack" 2 (length callStackInstances)
 
-        step "building project that uses it via data-dependencies"
+        step "building package that uses it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "proj")
         writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2222,7 +2222,7 @@ tests TestArgs{..} =
           damlYaml proj = path proj </> "daml.yaml"
           damlMod proj mod = path proj </> mod <.> "daml"
           dar proj = path proj </> proj <.> "dar"
-          step proj = step' ("building '" <> proj <> "' project")
+          step proj = step' ("building '" <> proj <> "' package")
 
           damlYamlBody name deps dataDeps = unlines
             [ "sdk-version: " <> sdkVersion
@@ -2295,7 +2295,7 @@ tests TestArgs{..} =
           damlYaml proj = path proj </> "daml.yaml"
           damlMod proj mod = path proj </> mod <.> "daml"
           dar proj = path proj </> proj <.> "dar"
-          step proj = step' ("building '" <> proj <> "' project")
+          step proj = step' ("building '" <> proj <> "' package")
 
           damlYamlBody :: String -> [FilePath] -> [String] -> String
           damlYamlBody name extraDeps dataDeps = unlines
@@ -2499,7 +2499,7 @@ tests TestArgs{..} =
             ]
 
     , testCaseSteps "User-defined exceptions" $ \step -> withTempDir $ \tmpDir -> do
-        step "building project to be imported via data-dependencies"
+        step "building package to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2528,7 +2528,7 @@ tests TestArgs{..} =
             , "-o", tmpDir </> "lib" </> "lib.dar"
             , "--target", LF.renderVersion exceptionsVersion ]
 
-        step "building project that imports it via data-dependencies"
+        step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2562,7 +2562,7 @@ tests TestArgs{..} =
             , "--target", LF.renderVersion targetDevVersion ]
 
     , testCaseSteps "Package ids are stable across rebuilds" $ \step -> withTempDir $ \tmpDir -> do
-        step "building lib (project to be imported via data-dependencies)"
+        step "building lib (package to be imported via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2584,7 +2584,7 @@ tests TestArgs{..} =
             , "--target", LF.renderVersion targetDevVersion
             ]
 
-        step "building main (project that imports lib via data-dependencies)"
+        step "building main (package that imports lib via data-dependencies)"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2627,7 +2627,7 @@ tests TestArgs{..} =
         main2OnlyPackageIds @?= mainOnlyPackageIds
 
     , testCaseSteps "Standard library exceptions" $ \step -> withTempDir $ \tmpDir -> do
-        step "building project to be imported via data-dependencies"
+        step "building package to be imported via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "lib")
         writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2671,7 +2671,7 @@ tests TestArgs{..} =
             , "-o", tmpDir </> "lib" </> "lib.dar"
             , "--target", LF.renderVersion exceptionsVersion ]
 
-        step "building project that imports it via data-dependencies"
+        step "building package that imports it via data-dependencies"
         createDirectoryIfMissing True (tmpDir </> "main")
         writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -2781,7 +2781,7 @@ tests TestArgs{..} =
     dataDependenciesTestOptions :: String -> DataDependenciesTestOptions -> [(FilePath, [String])] -> [(FilePath, [String])] -> TestTree
     dataDependenciesTestOptions title (DataDependenciesTestOptions buildOptions extraDeps) libModules mainModules =
         testCaseSteps title $ \step -> withTempDir $ \tmpDir -> do
-            step "building project to be imported via data-dependencies"
+            step "building package to be imported via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "lib")
             let deps = ["daml-prim", "daml-stdlib"] <> fmap show extraDeps
             writeFileUTF8 (tmpDir </> "lib" </> "daml.yaml") $ unlines
@@ -2799,7 +2799,7 @@ tests TestArgs{..} =
                 , "--package-root", tmpDir </> "lib"
                 , "-o", tmpDir </> "lib" </> "lib.dar" ]
 
-            step "building project that imports it via data-dependencies"
+            step "building package that imports it via data-dependencies"
             createDirectoryIfMissing True (tmpDir </> "main")
             writeFileUTF8 (tmpDir </> "main" </> "daml.yaml") $ unlines
                 [ "sdk-version: " <> sdkVersion

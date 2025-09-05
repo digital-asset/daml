@@ -258,7 +258,7 @@ newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bo
 damlArtifactDir :: FilePath
 damlArtifactDir = ".daml"
 
--- | The project package database path relative to the project root.
+-- | The package package database path relative to the package root.
 projectPackageDatabase :: FilePath
 projectPackageDatabase = damlArtifactDir </> "package-database"
 

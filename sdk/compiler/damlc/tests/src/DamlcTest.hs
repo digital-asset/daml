@@ -1203,12 +1203,12 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             assertInfixOf "Test Summary" (out!!1)
             assertInfixOf "Foo.daml:y: ok" (out!!3)
             assertInfixOf "Foo.daml:x: failed" (out!!4)
-    , testCase "damlc test --files outside of project" $
+    , testCase "damlc test --files outside of package" $
         -- TODO: does this test make sense with a daml.yaml file?
         withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
-            , "name: test-files-outside-project"
+            , "name: test-files-outside-package"
             , "version: 0.0.1"
             , "source: ."
             , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
@@ -1274,7 +1274,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , "--junit=a.xml"
                 ]
           exists <- doesFileExist $ tempDir </> "a.xml"
-          -- Check that the junit output was created relative to CWD not the project.
+          -- Check that the junit output was created relative to CWD not the package.
           assertBool "JUnit output was not created" exists
     , testCase "grpc-max-message-size applies to service results" $ withTempDir $ \tempDir -> do
         writeFileUTF8 (tempDir </> "Main.daml") $ unlines
@@ -1352,7 +1352,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             let out = lines stdout
             out!!3 @?= "./Main.daml:test: ok, 1 active contracts, 3 transactions."
     ] <>
-    [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
+    [ testCase ("damlc test " <> unwords (args "") <> " in package") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion

@@ -521,11 +521,11 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
     modifySession $ \h ->
       h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
   whenJust mbProjectRoot $ \(fromNormalizedFilePath -> projRoot) ->
-    -- Make import paths relative to project root. Otherwise, we
+    -- Make import paths relative to package root. Otherwise, we
     -- can end up with the same file being represented multiple times
     -- with different prefixes or not found at all if our CWD is not the
-    -- project root.
-    -- Note that in the IDE project root is absolute whereas it is
+    -- package root.
+    -- Note that in the IDE package root is absolute whereas it is
     -- relative in `daml build`.
     modifyDynFlags $ \dflags ->
       dflags { importPaths = map (\p -> normalise (projRoot </> p)) (importPaths dflags) }

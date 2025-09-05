@@ -55,7 +55,7 @@ import Text.Regex.TDFA
 readDamlConfig :: DamlPath -> IO DamlConfig
 readDamlConfig (DamlPath path) = readConfig "daml" (path </> damlConfigName)
 
--- | Read project config file.
+-- | Read package config file.
 -- Throws a ConfigError if reading or parsing fails.
 readPackageConfig :: PackagePath -> IO PackageConfig
 readPackageConfig (PackagePath path) = readConfigWithEnv "package" (path </> packageConfigName)
@@ -64,7 +64,7 @@ readPackageConfig (PackagePath path) = readConfigWithEnv "package" (path </> pac
 readPackageConfigPure :: Text -> Either ConfigError PackageConfig
 readPackageConfigPure = readConfigFromStringWithoutEnv "package"
 
--- | Checks if a project config contains environment variables.
+-- | Checks if a package config contains environment variables.
 packageConfigUsesEnvironmentVariables :: PackagePath -> IO Bool
 packageConfigUsesEnvironmentVariables (PackagePath path) = configUsesEnvironmentVariables (path </> packageConfigName)
 
@@ -198,7 +198,7 @@ configUsesEnvironmentVariables path =
           _ -> False
     pure $ shouldInterpolate && hasVariables
 
--- | Determine pinned sdk version from project config, if it exists.
+-- | Determine pinned sdk version from package config, if it exists.
 releaseVersionFromPackageConfig :: PackageConfig -> Either ConfigError (Maybe UnresolvedReleaseVersion)
 releaseVersionFromPackageConfig = queryPackageConfig ["sdk-version"]
 
@@ -215,7 +215,7 @@ listSdkCommands sdkPath enriched sdkConf = map (\f -> f sdkPath enriched) <$> qu
 queryDamlConfig :: Y.FromJSON t => [Text] -> DamlConfig -> Either ConfigError (Maybe t)
 queryDamlConfig path = queryConfig "daml" "DamlConfig" path . unwrapDamlConfig
 
--- | Query the project config by passing a path to the desired property.
+-- | Query the package config by passing a path to the desired property.
 -- See 'queryConfig' for more details.
 queryPackageConfig :: Y.FromJSON t => [Text] -> PackageConfig -> Either ConfigError (Maybe t)
 queryPackageConfig path = queryConfig "package" "PackageConfig" path . unwrapPackageConfig

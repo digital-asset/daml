@@ -170,8 +170,8 @@ readScriptServiceConfig = do
     exists <- doesFileExist packageConfigName
     if exists
         then do
-            project <- readPackageConfig $ PackagePath "."
-            either throwIO pure $ parseScriptServiceConfig project
+            package <- readPackageConfig $ PackagePath "."
+            either throwIO pure $ parseScriptServiceConfig package
         else pure defaultScriptServiceConfig
 
 parseScriptServiceConfig :: PackageConfig -> Either ConfigError ScriptServiceConfig

@@ -317,7 +317,7 @@ dlintHintFilesParser =
         ( long "lint-implicit-hint-file"
           <> internal
           <> help "Use the first '.dlint.yaml' file found in the \
-                  \project directory or any parent thereof, or, failing that, \
+                  \package directory or any parent thereof, or, failing that, \
                   \in the home directory of the current user."
         )
     explicitDlintHintFiles =

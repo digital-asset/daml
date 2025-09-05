@@ -176,13 +176,13 @@ deriveOptionsFromDamlYaml = go `catch` \(e :: AssistantError) -> do
     exitFailure
   where 
     go = do
-      packagePath <- DAUtil.required "Must be called from within a project." =<< getPackagePath
+      packagePath <- DAUtil.required "Must be called from within a package." =<< getPackagePath
       projectConfig <- readPackageConfig (PackagePath packagePath)
       projectName <-
-        DAUtil.requiredE "Failed to read project name from project config" $
+        DAUtil.requiredE "Failed to read package name from package config" $
           queryPackageConfigRequired ["name"] projectConfig
       projectVersion <-
-        DAUtil.requiredE "Failed to read project version from project config" $
+        DAUtil.requiredE "Failed to read package version from package config" $
           queryPackageConfigRequired ["version"] projectConfig
       let darPath = ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
       outputPath <-

@@ -76,7 +76,7 @@ import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
 import SdkVersion.Class (SdkVersioned, damlStdlib)
 
--- | Create the project package database containing the given dar packages.
+-- | Create the package database containing the given dar packages.
 --
 -- We differentiate between two kinds of dependencies.
 --
@@ -703,7 +703,7 @@ buildLfPackageGraph' BuildLfPackageGraphMetaArgs {..} BuildLfPackageGraphArgs {.
     (depGraph0, vertexToNode0, _keyToVertex0) =
         graphFromEdges $
           -- We might have multiple copies of the same package if, for example,
-          -- the project we're building has multiple data-dependencies from older
+          -- the package we're building has multiple data-dependencies from older
           -- SDKs, each of which bring a copy of daml-prim and daml-stdlib.
           nubSortOn (\(_,pid,_) -> pid) $
             [ (node, pid, pkgRefs)
