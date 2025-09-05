@@ -567,16 +567,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       forEvery(positiveTestCases) { tyCon =>
         inside(
           go(e"'-pkg3-':M:do_fetch", pkgName, tyCon, v, List(alice), List(bob), Some(key(tyCon)))
-        ) {
-          case Left(
-                SError.SErrorDamlException(
-                  IE.Dev(
-                    _,
-                    IE.Dev.TranslationError(error),
-                  )
-                )
-              ) =>
-            error shouldBe a[IE.Dev.TranslationError.LookupError]
+        ) { case Left(SError.SErrorDamlException(error)) =>
+          error shouldBe a[IE.WronglyTypedContract]
         }
       }
     }
