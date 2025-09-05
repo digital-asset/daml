@@ -107,7 +107,7 @@ tests damlc daml2js = testGroup "daml2js tests"
         mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "index", "Grover" </> "module" ]
 
   , testCaseSteps "IndexTree test" $ \step -> withTempDir $ \here -> do
-      let packageRoot = here </> "project"
+      let packageRoot = here </> "package"
           daml2jsDir = here </> "daml2js"
           projectTs =  daml2jsDir </> "project-1.0"
           projectDar = packageRoot </> ".daml" </> "dist" </> "project-1.0.dar"
@@ -117,7 +117,7 @@ tests damlc daml2js = testGroup "daml2js tests"
         writeFileUTF8 ("daml" </> "A.daml") "module A where data X = X"
         writeFileUTF8 ("daml" </> "A" </> "B" </> "C.daml") "module A.B.C where data Y = Y"
         writeFileUTF8 ("daml" </> "A" </> "B" </> "D.daml") "module A.B.D where data Z = Z"
-        writeDamlYaml "project" ["A"] ["daml-prim", "daml-stdlib"] Nothing
+        writeDamlYaml "package" ["A"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do

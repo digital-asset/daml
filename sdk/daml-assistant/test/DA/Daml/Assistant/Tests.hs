@@ -107,7 +107,7 @@ testGetProjectPath :: Tasty.TestTree
 testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
     [ Tasty.testCase "getPackagePath returns environment variable" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
-            let expected = dir </> "project"
+            let expected = dir </> "package"
             setCurrentDirectory dir
             createDirectory expected
             Just got <- withEnv [(packagePathEnvVar, Just expected)] getPackagePath'
@@ -116,10 +116,10 @@ testGetProjectPath = Tasty.testGroup "DA.Daml.Assistant.Env.getPackagePath"
 
     , Tasty.testCase "getPackagePath returns environment variable (made absolute)" $ do
         withSystemTempDirectory "test-getPackagePath" $ \dir -> do
-            let expected = dir </> "project"
+            let expected = dir </> "package"
             setCurrentDirectory dir
             createDirectory expected
-            Just got <- withEnv [(packagePathEnvVar, Just "project")] getPackagePath'
+            Just got <- withEnv [(packagePathEnvVar, Just "package")] getPackagePath'
             Tasty.assertEqual "project path" (PackagePath expected) got
             return ()
 
@@ -232,15 +232,15 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                packagePath = Just $ PackagePath (base </> "project")
+                packagePath = Just $ PackagePath (base </> "package")
                 expected1 = "10.10.2-version.af29bef"
                 expected2 = base </> "daml" </> "sdk" </> expected1
 
             createDirectoryIfMissing True (base </> "daml" </> "sdk")
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
-            createDirectory (base </> "project")
-            writeFileUTF8 (base </> "project" </> packageConfigName)
+            createDirectory (base </> "package")
+            writeFileUTF8 (base </> "package" </> packageConfigName)
                 ("sdk-version: " <> expected1)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
@@ -254,7 +254,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                packagePath = Just $ PackagePath (base </> "project")
+                packagePath = Just $ PackagePath (base </> "package")
                 expected1 = "0.9.8-ham"
                 expected2 = base </> "sdk3"
                 projVers = "5.2.1"
@@ -262,8 +262,8 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
-            createDirectory (base </> "project")
-            writeFileUTF8 (base </> "project" </> packageConfigName)
+            createDirectory (base </> "package")
+            writeFileUTF8 (base </> "package" </> packageConfigName)
                 ("project:\n  sdk-version: " <> projVers)
             createDirectory expected2
             writeFileUTF8 (expected2 </> sdkConfigName) ("version: " <> expected1 <> "\n")
@@ -278,7 +278,7 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
         withSystemTempDirectory "test-getSdk" $ \base -> do
             let damlPath = DamlPath (base </> "daml")
                 cachePath = CachePath (base </> "cache")
-                packagePath = Just $ PackagePath (base </> "project")
+                packagePath = Just $ PackagePath (base </> "package")
                 expected1 = "0.0.0"
                 expected2 = base </> "daml" </> "sdk" </> expected1
                 projVers = "0.0.1"
@@ -286,8 +286,8 @@ testGetSdk = Tasty.testGroup "DA.Daml.Assistant.Env.getSdk"
             createDirectoryIfMissing True (base </> "daml" </> "sdk" </> projVers)
             createDirectoryIfMissing True (base </> "cache")
             writeFileUTF8 (unwrapCachePath cachePath </> "versions.txt") expected1
-            createDirectory (base </> "project")
-            writeFileUTF8 (base </> "project" </> packageConfigName)
+            createDirectory (base </> "package")
+            writeFileUTF8 (base </> "package" </> packageConfigName)
                 ("project:\n  sdk-version: " <> projVers)
             createDirectory expected2
             (Just got1, Just (SdkPath got2)) <-
