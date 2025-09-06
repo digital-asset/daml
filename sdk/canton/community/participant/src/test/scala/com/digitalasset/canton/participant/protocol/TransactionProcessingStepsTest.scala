@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{ExampleContractFactory, LfHash}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Assertion

@@ -25,6 +25,8 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
 
   protected def isChannelOpenForCommunication: Boolean = isChannelConnected && !hasChannelCompleted
 
+  protected def processorStore: PartyReplicationProcessorStore
+
   protected val executionQueue = new SimpleExecutionQueue(
     name,
     futureSupervisor,
@@ -76,7 +78,11 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
     */
   override def onDisconnected(status: Either[String, Unit])(implicit
       traceContext: TraceContext
-  ): Boolean =
+  ): Boolean = {
+    // Clear the initial contract ordinal so the TP remembers to reinitialize the SP
+    // in case we reconnect.
+    processorStore.clearInitialContractOrdinalInclusive()
+
     super
       .onDisconnected(status)
       .tap(hasLostChannelEndpoint =>
@@ -88,6 +94,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
           )
         }
       )
+  }
 
   override def onClosed(): Unit = LifeCycle.close(executionQueue)(logger)
 }

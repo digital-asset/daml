@@ -92,7 +92,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,

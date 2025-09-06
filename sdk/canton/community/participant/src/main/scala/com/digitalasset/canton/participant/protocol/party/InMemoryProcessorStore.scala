@@ -34,7 +34,16 @@ object SourceParticipantStore {
   )
 }
 
-final class SourceParticipantStore {
+sealed trait PartyReplicationProcessorStore {
+
+  /** Clear the initial contract ordinal to ensure the processor first initiates or waits for
+    * initialization (e.g. on disconnect or reconnect) rather than taking any other premature action
+    * (e.g. sending or processing non-initialization-related messages).
+    */
+  private[party] def clearInitialContractOrdinalInclusive(): Unit
+}
+
+final class SourceParticipantStore extends PartyReplicationProcessorStore {
   private val state = new AtomicReference[SourceParticipantStore.SPState](
     SourceParticipantStore.SPState(
       sentContractsCount = NonNegativeInt.zero,
@@ -63,7 +72,7 @@ final class SourceParticipantStore {
 
   private[party] def initialContractOrdinalInclusiveO: Option[NonNegativeInt] =
     state.get().initialContractOrdinalInclusiveO
-  private[party] def clearInitialContractOrdinalInclusive(): Unit =
+  override private[party] def clearInitialContractOrdinalInclusive(): Unit =
     state.updateAndGet(_.copy(initialContractOrdinalInclusiveO = None)).discard
 
   /** returns previous value after setting / updating */
@@ -98,7 +107,7 @@ object TargetParticipantStore {
   )
 }
 
-final class TargetParticipantStore {
+final class TargetParticipantStore extends PartyReplicationProcessorStore {
   private val state = new AtomicReference[TargetParticipantStore.TPState](
     TargetParticipantStore.TPState(
       requestedContractsCount = NonNegativeInt.zero,
@@ -139,7 +148,7 @@ final class TargetParticipantStore {
 
   private[party] def initialContractOrdinalInclusiveO: Option[NonNegativeInt] =
     state.get().initialContractOrdinalInclusiveO
-  private[party] def clearInitialContractOrdinalInclusive(): Unit =
+  override private[party] def clearInitialContractOrdinalInclusive(): Unit =
     state.updateAndGet(_.copy(initialContractOrdinalInclusiveO = None)).discard
   private[party] def setInitialContractOrdinalInclusive(ordinal: NonNegativeInt): Unit =
     state

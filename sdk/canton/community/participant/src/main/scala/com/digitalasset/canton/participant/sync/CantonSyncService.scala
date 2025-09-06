@@ -50,7 +50,6 @@ import com.digitalasset.canton.participant.admin.inspection.{
 import com.digitalasset.canton.participant.admin.repair.{CommitmentsService, RepairService}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionFailure,

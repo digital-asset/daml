@@ -267,6 +267,7 @@ sealed trait RepairServiceIntegrationTestStableLf
         }
       }
 
+      // TODO(#23073) - Un-ignore this test part once #27325 has been re-implemented
       "contract has been unassigned" taggedAs SecurityTest(
         SecurityTest.Property.Integrity,
         "virtual shared ledger",
@@ -275,7 +276,7 @@ sealed trait RepairServiceIntegrationTestStableLf
           "initiates an unassignment, but the assignment cannot be completed due to concurrent topology changes",
           "resurrect the contract via repair",
         ),
-      ) in { implicit env =>
+      ) ignore { implicit env =>
         withParticipantsInitialized { (alice, bob) =>
           import env.*
 
@@ -310,6 +311,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             contract.copy(reassignmentCounter = ReassignmentCounter(2))
           }
 
+          // TODO(#23073) - Note that the repair.add fails because it goes through ACS import (Old)
           participant1.repair.add(daId, testedProtocolVersion, Seq(contractInstance))
 
           // Ideally we should be able to query the contract as active

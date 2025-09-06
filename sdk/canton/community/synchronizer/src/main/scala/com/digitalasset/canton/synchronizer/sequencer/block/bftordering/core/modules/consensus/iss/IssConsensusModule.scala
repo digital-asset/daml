@@ -59,6 +59,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   ConsensusSegment,
   Output,
+  P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue
@@ -253,6 +254,10 @@ final class IssConsensusModule[E <: Env[E]](
           newEpochTopology = None
 
           setNewEpochState(newEpochInfo, Some(newMembership -> newCryptoProvider))
+
+          dependencies.p2pNetworkOut.asyncSend(
+            P2PNetworkOut.Network.TopologyUpdate(epochState.epoch.currentMembership)
+          )
 
           startConsensusForCurrentEpoch()
           logger.info(

@@ -1,40 +1,80 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.protocol
+package com.digitalasset.canton.util
 
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId}
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  LfPackageName,
+  LfPartyId,
+}
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.IdString
+import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.CreationTime.CreatedAt
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ValueText
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.Assertion
+import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
+import scala.concurrent.Future
 
-class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
+class ContractValidatorTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with FailOnShutdown {
+
+  private val engine = new Engine(
+    EngineConfig(LanguageVersion.StableVersions(LanguageVersion.Major.V2))
+  )
+  private val packageResolver: PackageResolver =
+    _ => _ => FutureUnlessShutdown.pure(None)
+
+  private val pureCrypto = new SymbolicPureCrypto()
+  private val underTest = ContractValidator(pureCrypto, engine, packageResolver)
+
+  private def shouldFailAuthentication(invalid: FatContractInstance): Future[Assertion] =
+    underTest
+      .authenticate(invalid, invalid.templateId.packageId)
+      .value
+      .map(e =>
+        inside(e) { case Left(error) =>
+          error should startWith("Contract did not validate")
+        }
+      )
 
   forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
     authContractIdVersion =>
       s"ContractAuthenticatorImpl with $authContractIdVersion" when {
+
+        val contractInstance =
+          ExampleContractFactory.build[CreatedAt](cantonContractIdVersion = authContractIdVersion)
+        val fatContractInstance: FatContractInstance = contractInstance.inst
+        val targetPackageId = contractInstance.templateId.packageId
+
+        val keyWithMaintainers = ExampleContractFactory.buildKeyWithMaintainers()
+        val contractInstanceWithKey = ExampleContractFactory.build[CreatedAt](
+          cantonContractIdVersion = authContractIdVersion,
+          keyOpt = Some(keyWithMaintainers),
+        )
+
         "using a valid contract id" should {
-          "correctly authenticate the contract" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            contractAuthenticator.legacyAuthenticate(fatContractInstance) shouldBe Either.unit
-            contractAuthenticator.authenticate(
-              fatContractInstance,
-              LegacyContractHash.tryFatContractHash(
-                fatContractInstance,
-                contractIdVersion.useUpgradeFriendlyHashing,
-              ),
-            ) shouldBe Either.unit
+          "correctly authenticate the contract" in {
+            underTest
+              .authenticate(fatContractInstance, targetPackageId)
+              .value
+              .map(_ shouldBe Either.unit)
           }
         }
 
@@ -60,40 +100,38 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             val normalizedContract =
               ExampleContractFactory.modify(unNormalizedContract, arg = Some(normalizedArg))
 
-            "correctly authenticate the contract" in new WithContractAuthenticator(
-              authContractIdVersion
-            ) {
-              contractAuthenticator.legacyAuthenticate(
-                unNormalizedContract.inst
-              ) shouldBe Either.unit
-              contractAuthenticator.legacyAuthenticate(normalizedContract.inst) shouldBe Either.unit
+            "correctly authenticate the unNormalizedContract" in {
+              underTest
+                .authenticate(unNormalizedContract.inst, unNormalizedContract.templateId.packageId)
+                .value
+                .map(_ shouldBe Either.unit)
             }
+            "correctly authenticate the normalizedContract" in {
+              underTest
+                .authenticate(normalizedContract.inst, normalizedContract.templateId.packageId)
+                .value
+                .map(_ shouldBe Either.unit)
+            }
+
           }
         }
 
         "using an invalid contract id" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val invalidContractId = ExampleContractFactory.buildContractId()
-            private val invalid: FatContractInstance = ExampleContractFactory
+          "fail authentication" in {
+            val invalidContractId = ExampleContractFactory.buildContractId()
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](contractInstance, contractId = Some(invalidContractId))
               .inst
             shouldFailAuthentication(invalid)
           }
         }
 
-        "using an invalid hash" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            val invalidHash: LfHash = ExampleTransactionFactory.lfHash(7)
-            shouldFailAuthentication(fatContractInstance, Some(invalidHash))
-          }
-        }
-
         "using a changed salt/authentication data" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-
-            val authenticationData =
-              ContractAuthenticationDataV1(TestSalt.generateSalt(42))(contractIdVersion).toLfBytes
-            private val invalid: FatContractInstance = ExampleContractFactory
+          "fail authentication" in {
+            val authenticationData = ContractAuthenticationDataV1(TestSalt.generateSalt(42))(
+              authContractIdVersion
+            ).toLfBytes
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](contractInstance, authenticationData = Some(authenticationData))
               .inst
             shouldFailAuthentication(invalid)
@@ -101,10 +139,10 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using a changed ledger time" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val changedTime =
+          "fail authentication" in {
+            val changedTime =
               CreatedAt(contractInstance.inst.createdAt.time.add(Duration.ofDays(1L)))
-            private val invalid: FatContractInstance = ExampleContractFactory
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](contractInstance, createdAt = Some(changedTime))
               .inst
             shouldFailAuthentication(invalid)
@@ -112,8 +150,8 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using a changed contract argument" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val invalid: FatContractInstance = ExampleContractFactory
+          "fail authentication" in {
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](contractInstance, arg = Some(ValueText("changed")))
               .inst
             shouldFailAuthentication(invalid)
@@ -121,8 +159,8 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using a changed template-id" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val invalid: FatContractInstance = ExampleContractFactory
+          "fail authentication" in {
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](
                 contractInstance,
                 templateId = Some(LfTemplateId.assertFromString("definitely:changed:template")),
@@ -133,8 +171,8 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using a changed package-name" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val invalid: FatContractInstance = ExampleContractFactory
+          "fail authentication" in {
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](
                 contractInstance,
                 packageName =
@@ -146,10 +184,10 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using changed signatories" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val changedSignatory: IdString.Party =
+          "fail authentication" in {
+            val changedSignatory: LfPartyId =
               LfPartyId.assertFromString("changed::signatory")
-            private val invalid: FatContractInstance = ExampleContractFactory
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](
                 contractInstance,
                 metadata = Some(
@@ -167,10 +205,10 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using changed observers" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val changedObserver: IdString.Party =
+          "fail authentication" in {
+            val changedObserver: LfPartyId =
               LfPartyId.assertFromString("changed::observer")
-            private val invalid: FatContractInstance = ExampleContractFactory
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](
                 contractInstance,
                 metadata = Some(
@@ -188,15 +226,15 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using a changed key value" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val changeKey = keyWithMaintainers.copy(globalKey =
+          "fail authentication" in {
+            val changeKey = keyWithMaintainers.copy(globalKey =
               LfGlobalKey.assertBuild(
                 contractInstance.templateId,
                 ValueText("changed"),
                 contractInstance.inst.packageName,
               )
             )
-            private val invalid: FatContractInstance = ExampleContractFactory
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](
                 contractInstanceWithKey,
                 metadata = Some(
@@ -214,9 +252,9 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
 
         "using a changed key maintainers" should {
-          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
-            private val changeKey = keyWithMaintainers.copy(maintainers = Set.empty)
-            private val invalid: FatContractInstance = ExampleContractFactory
+          "fail authentication" in {
+            val changeKey = keyWithMaintainers.copy(maintainers = Set.empty)
+            val invalid: FatContractInstance = ExampleContractFactory
               .modify[CreatedAt](
                 contractInstanceWithKey,
                 metadata = Some(
@@ -234,32 +272,5 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
         }
       }
   }
-}
 
-class WithContractAuthenticator(protected val contractIdVersion: CantonContractIdV1Version)
-    extends BaseTest {
-
-  def shouldFailAuthentication(
-      invalid: FatContractInstance,
-      contractHashO: Option[LfHash] = None,
-  ): Unit = {
-    val contractHash = contractHashO.getOrElse(LegacyContractHash.fatContractHash(invalid).value)
-
-    inside(contractAuthenticator.authenticate(invalid, contractHash)) { case Left(error) =>
-      error should startWith("Mismatching contract id suffixes.")
-    }
-  }
-
-  protected val pureCrypto = new SymbolicPureCrypto()
-  protected val contractIdSuffixer = new ContractIdSuffixer(pureCrypto, contractIdVersion)
-  protected val unicumGenerator = new UnicumGenerator(pureCrypto)
-  protected val contractAuthenticator = new ContractAuthenticatorImpl(unicumGenerator)
-  protected val contractInstance =
-    ExampleContractFactory.build[CreatedAt](cantonContractIdVersion = contractIdVersion)
-  protected val keyWithMaintainers = ExampleContractFactory.buildKeyWithMaintainers()
-  protected val contractInstanceWithKey = ExampleContractFactory.build[CreatedAt](
-    cantonContractIdVersion = contractIdVersion,
-    keyOpt = Some(keyWithMaintainers),
-  )
-  protected val fatContractInstance: FatContractInstance = contractInstance.inst
 }

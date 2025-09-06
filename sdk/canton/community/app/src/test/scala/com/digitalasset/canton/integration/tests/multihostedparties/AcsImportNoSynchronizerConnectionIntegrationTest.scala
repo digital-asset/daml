@@ -80,12 +80,11 @@ sealed trait AcsImportNoSynchronizerConnectionIntegrationTest
         .offset
     )
 
-    participant1.parties
-      .export_acs(
-        parties = Set(alice),
-        exportFilePath = acsFilename.canonicalPath,
-        ledgerOffset = aliceAcsOffset,
-      )
+    participant1.repair.export_acs(
+      parties = Set(alice),
+      exportFilePath = acsFilename.canonicalPath,
+      ledgerOffset = aliceAcsOffset,
+    )
   }
 
   "register synchronizer" should {

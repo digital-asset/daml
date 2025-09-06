@@ -783,6 +783,11 @@ object ConfigTransforms {
       )
   }
 
+  val disableUpgradeValidation: ConfigTransform =
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.disableUpgradeValidation).replace(true)
+    )
+
   /** Enables remote mediators
     *
     * Alternatively use [[EnvironmentDefinition.buildBaseEnvironmentDefinition]] with `withRemote =

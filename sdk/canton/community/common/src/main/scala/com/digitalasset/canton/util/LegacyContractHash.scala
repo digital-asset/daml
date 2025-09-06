@@ -1,9 +1,10 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.protocol
+package com.digitalasset.canton.util
 
 import cats.implicits.toBifunctorOps
+import com.digitalasset.canton.protocol.{CantonContractIdV1Version, CantonContractIdVersion, LfHash}
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 

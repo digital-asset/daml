@@ -83,7 +83,7 @@ trait Spanning {
     result
   }
 
-  private def startSpan(
+  protected def startSpan(
       description: String
   )(implicit parentTraceContext: TraceContext, tracer: Tracer): Span = {
     val currentSpan = tracer

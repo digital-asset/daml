@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.util.TestEngine
+import com.digitalasset.canton.util.{LegacyContractHash, TestEngine}
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
@@ -28,6 +28,7 @@ import com.digitalasset.canton.{
   LfPartyId,
 }
 import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.engine
 import org.scalatest.wordspec.AsyncWordSpec
 
 class DAMLeTest
@@ -194,8 +195,7 @@ class DAMLeTest
 
     }
 
-    // TODO(#27344) - This test can be enabled, and error matched, once the engine authentication callback is supported
-    "fail if authentication fails" ignore {
+    "fail if authentication fails" in {
 
       val (_, _, contract) = createCycleContract()
 
@@ -213,14 +213,17 @@ class DAMLeTest
           case (`inst`, `contractHash`) => Left("Authentication failed")
           case other => fail(s"Unexpected: $other")
         },
-      ).swap.map(error =>
-        inside(error) { case DAMLe.EngineAborted(_) =>
-          succeed
+      ).value.map { actual =>
+        inside(actual) {
+          // TODO(#23876) - improve error matching once non-Dev errors are used
+          case Left(
+                DAMLe.EngineError(
+                  engine.Error.Interpretation(engine.Error.Interpretation.DamlException(e), _)
+                )
+              ) =>
+            succeed
         }
-      )
-
+      }
     }
-
   }
-
 }

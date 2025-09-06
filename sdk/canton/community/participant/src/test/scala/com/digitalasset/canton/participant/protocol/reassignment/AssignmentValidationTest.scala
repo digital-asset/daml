@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.{
   ContractDataMismatch,
@@ -27,7 +28,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentVal
   SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
-import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, EngineController}
 import com.digitalasset.canton.participant.store.ReassignmentStore.UnknownReassignmentId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{
@@ -38,6 +38,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import org.scalatest.wordspec.AsyncWordSpec
 

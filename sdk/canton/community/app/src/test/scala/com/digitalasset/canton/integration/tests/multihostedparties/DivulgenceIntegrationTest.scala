@@ -269,17 +269,11 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     )
     participant2.synchronizers.disconnect_all()
 
-    val aliceAddedOnP2Offset = participant1.parties.find_party_max_activation_offset(
-      partyId = alice,
-      participantId = participant2.id,
+    participant1.parties.export_party_acs(
+      party = alice,
       synchronizerId = daId,
+      targetParticipantId = participant2.id,
       beginOffsetExclusive = ledgerEndP1,
-      completeAfter = PositiveInt.one,
-    )
-
-    participant1.parties.export_acs(
-      Set(alice),
-      ledgerOffset = aliceAddedOnP2Offset,
       exportFilePath = acsSnapshotAtOffset,
     )
 

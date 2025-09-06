@@ -5,7 +5,11 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
+import com.digitalasset.canton.console.{
+  CommandFailure,
+  LocalParticipantReference,
+  ParticipantReference,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
 import com.digitalasset.canton.integration.plugins.{
@@ -27,7 +31,7 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
-import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory}
+import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory, config}
 
 import java.time.Instant
 
@@ -51,7 +55,7 @@ import java.time.Instant
   * Test variations: Tests vary in the way the ledger offset or timestamp is determined for the ACS
   * export.
   */
-private sealed trait OfflinePartyReplicationIntegrationTest
+sealed trait OfflinePartyReplicationIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with HasTempDirectory
@@ -123,28 +127,42 @@ private sealed trait OfflinePartyReplicationIntegrationTest
 
 }
 
-final private class OfflinePartyReplicationAtOffsetIntegrationTest
+final class OfflinePartyReplicationAtOffsetIntegrationTest
     extends OfflinePartyReplicationIntegrationTest {
+
+  "Missing party activation on the target participant aborts ACS export" in { implicit env =>
+    import env.*
+
+    val ledgerEndP1 = participant1.ledger_api.state.end()
+
+    // no authorization for alice
+
+    loggerFactory.assertThrowsAndLogs[CommandFailure](
+      participant1.parties.export_party_acs(
+        party = alice,
+        synchronizerId = daId,
+        targetParticipantId = participant3.id,
+        beginOffsetExclusive = ledgerEndP1,
+        exportFilePath = acsSnapshotPath,
+        waitForActivationTimeout = Some(config.NonNegativeFiniteDuration.ofMillis(5)),
+      ),
+      _.commandFailureMessage should include regex "The stream has not been completed in.*– Possibly missing party activation?",
+    )
+  }
 
   "Exporting and importing a LAPI based ACS snapshot as part of a party replication using ledger offset" in {
     implicit env =>
       import env.*
+
       val ledgerEndP1 = participant1.ledger_api.state.end()
 
       authorizeAlice(Observation, participant1, participant3, daId)
 
-      // Find the ledger offset for the party-to-participant mapping topology transaction authorizing Alice on P3
-      val aliceAddedOnP3Offset = participant1.parties.find_party_max_activation_offset(
-        partyId = alice,
-        participantId = participant3.id,
+      participant1.parties.export_party_acs(
+        party = alice,
         synchronizerId = daId,
+        targetParticipantId = participant3.id,
         beginOffsetExclusive = ledgerEndP1,
-        completeAfter = PositiveInt.one,
-      )
-
-      participant1.parties.export_acs(
-        Set(alice),
-        ledgerOffset = aliceAddedOnP3Offset,
         exportFilePath = acsSnapshotPath,
       )
 
@@ -161,47 +179,26 @@ final private class OfflinePartyReplicationAtOffsetIntegrationTest
 
       assertAcsAndContinuedOperation(participant3)
   }
-}
 
-final private class OfflinePartyReplicationAtTimestampIntegrationTest
-    extends OfflinePartyReplicationIntegrationTest {
-
-  "Exporting and importing a LAPI based ACS snapshot as part of a party replication using topology transaction effective time" in {
+  "Replicating a party with shared contracts filters contracts in the export ACS" in {
     implicit env =>
       import env.*
 
-      authorizeAlice(Observation, participant1, participant3, daId)
+      val ledgerEndP1 = participant1.ledger_api.state.end()
 
-      val onboardingTx = participant1.topology.party_to_participant_mappings
-        .list(
-          synchronizerId = daId,
-          filterParty = alice.filterString,
-          filterParticipant = participant3.filterString,
-        )
-        .loneElement
-        .context
+      authorizeAlice(Observation, participant1, participant2, daId)
 
-      participant1.parties.export_acs_at_timestamp(
-        Set(alice),
-        daId,
-        onboardingTx.validFrom,
+      participant1.parties.export_party_acs(
+        party = alice,
+        synchronizerId = daId,
+        targetParticipantId = participant2.id,
+        beginOffsetExclusive = ledgerEndP1,
         exportFilePath = acsSnapshotPath,
       )
 
-      participant3.synchronizers.disconnect_all()
-
-      participant3.repair.import_acs(
-        acsSnapshotPath,
-        contractIdImportMode = ContractIdImportMode.Accept,
-      )
-
-      participant3.synchronizers.reconnect(daName)
-
-      authorizeAlice(Submission, participant1, participant3, daId)
-
-      assertAcsAndContinuedOperation(participant3)
+      participant1.ledger_api.state.acs.of_party(alice).size should be > 0
+      repair.acs.read_from_file(acsSnapshotPath).size shouldBe 0
   }
-
 }
 
 /** Purpose: Verify that the major upgrade approach works end to end, observing these key aspects:
@@ -218,7 +215,7 @@ final private class OfflinePartyReplicationAtTimestampIntegrationTest
   * immediately, and ensures that contract archival and creation continues to work using the
   * replicated party Alice.
   */
-final private class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
+final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
     extends OfflinePartyReplicationIntegrationTest
     with UseSilentSynchronizerInTest {
 
@@ -238,7 +235,7 @@ final private class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       ledgerOffset should be > NonNegativeLong.zero
 
-      participant1.parties.export_acs(
+      participant1.repair.export_acs(
         Set(alice),
         ledgerOffset = ledgerOffset,
         synchronizerId = Some(daId),
@@ -294,5 +291,51 @@ final private class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
       forcedFoundOffset should be <= startLedgerEndOffset
       foundOffset should be < startLedgerEndOffset
       foundOffset shouldBe forcedFoundOffset
+  }
+
+}
+
+final class OfflinePartyReplicationFilterAcsExportIntegrationTest
+    extends OfflinePartyReplicationIntegrationTest {
+
+  "ACS export filters active contracts only for parties which are already hosted on the target participant" in {
+    implicit env =>
+      import env.*
+
+      val charlie = participant3.parties.enable("Charlie")
+
+      IouSyntax.createIou(participant1)(alice, charlie, 99.99).discard
+
+      val ledgerEndP1 = participant1.ledger_api.state.end()
+
+      authorizeAlice(Observation, participant1, participant3, daId)
+
+      participant1.parties.export_party_acs(
+        party = alice,
+        synchronizerId = daId.logical,
+        targetParticipantId = participant3.id,
+        beginOffsetExclusive = ledgerEndP1,
+        exportFilePath = acsSnapshotPath,
+      )
+
+      // Only contracts that don't have stakeholders that are already hosted on the target participant
+      val contracts = repair.acs.read_from_file(acsSnapshotPath)
+
+      // Alice has 5 active contracts with Bob who is hosted on participant2,
+      // and one active with Charlie already hosted on participant3
+      contracts.size shouldBe 5
+      forAll(contracts) { c =>
+        val event = c.getCreatedEvent
+        val stakeholders = (event.signatories ++ event.observers).toSet
+        stakeholders.intersect(Set(charlie.toProtoPrimitive)).isEmpty
+      }
+
+      participant3.synchronizers.disconnect_all()
+
+      participant3.repair.import_acs(acsSnapshotPath)
+
+      participant3.synchronizers.reconnect(daName)
+
+      participant3.ledger_api.state.acs.active_contracts_of_party(alice) should have size 6
   }
 }

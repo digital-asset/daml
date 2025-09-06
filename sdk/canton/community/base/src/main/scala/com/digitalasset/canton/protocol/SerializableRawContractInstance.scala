@@ -46,14 +46,6 @@ final case class SerializableRawContractInstance private (
       .encodeContractInstance(coinst = contractInstance)
       .map(_.toByteString)
 
-  def contractHash(upgradeFriendly: Boolean): LfHash =
-    LfHash.assertHashContractInstance(
-      contractInstance.unversioned.template,
-      contractInstance.unversioned.arg,
-      contractInstance.unversioned.packageName,
-      upgradeFriendly = upgradeFriendly,
-    )
-
   @unused // needed for lenses
   private def copy(
       contractInstance: LfThinContractInst

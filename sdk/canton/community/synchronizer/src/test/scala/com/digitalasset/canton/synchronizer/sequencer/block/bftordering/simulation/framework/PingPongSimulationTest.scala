@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -272,7 +273,7 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
       pingerEndpoint -> SimulationInitializer[Unit, String, String, Unit](
         (_: Unit) => TestSystem.mkPinger(pongerEndpoint, recorder, loggerFactory, timeouts),
         TestSystem.pingerClient(loggerFactory, timeouts),
-        new P2PGrpcConnectionState(loggerFactory),
+        new P2PGrpcConnectionState(endpointToTestBftNodeId(pingerEndpoint), loggerFactory),
       ),
       pongerEndpoint -> SimulationInitializer
         .noClient[String, String, Unit](
@@ -280,7 +281,7 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
           timeouts,
         )(
           TestSystem.mkPonger(pingerEndpoint, recorder, loggerFactory, timeouts),
-          new P2PGrpcConnectionState(loggerFactory),
+          new P2PGrpcConnectionState(endpointToTestBftNodeId(pongerEndpoint), loggerFactory),
         ),
     )
     val simulation =

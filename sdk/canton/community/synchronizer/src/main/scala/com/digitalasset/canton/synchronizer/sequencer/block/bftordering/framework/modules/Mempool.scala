@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   Module,
@@ -31,6 +32,11 @@ object Mempool {
 
   final case object MempoolBatchCreationClockTick extends Message
 
+  // From local P2P output module
+  final case class P2PConnectivityUpdate(
+      membership: Membership,
+      authenticatedCountIncludingSelf: Int,
+  ) extends Message
 }
 
 trait Mempool[E <: Env[E]] extends Module[E, Mempool.Message] {

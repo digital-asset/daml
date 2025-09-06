@@ -80,7 +80,7 @@ final class PartyReplicationTargetParticipantProcessor(
 )(implicit override val executionContext: ExecutionContext)
     extends PartyReplicationProcessor {
 
-  private val processorStore = InMemoryProcessorStore.targetParticipant()
+  protected val processorStore: TargetParticipantStore = InMemoryProcessorStore.targetParticipant()
   private val contractsToRequestEachTime = PositiveInt.tryCreate(10)
 
   override protected val psid: PhysicalSynchronizerId = connectedSynchronizer.psid
@@ -120,6 +120,10 @@ final class PartyReplicationTargetParticipantProcessor(
         PartyReplicationSourceParticipantMessage
           .fromByteString(protocolVersion, payload)
           .leftMap(_.message)
+      )
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        processorStore.initialContractOrdinalInclusiveO.isDefined,
+        s"Received unexpected message from SP before initialized by TP: ${messageFromSP.dataOrStatus}",
       )
       _ <- messageFromSP.dataOrStatus match {
         case PartyReplicationSourceParticipantMessage.AcsBatch(contracts) =>

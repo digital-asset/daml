@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.either.*
 import com.digitalasset.canton.protocol.LfHash
+import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 object DummyContractAuthenticator extends ContractAuthenticator {

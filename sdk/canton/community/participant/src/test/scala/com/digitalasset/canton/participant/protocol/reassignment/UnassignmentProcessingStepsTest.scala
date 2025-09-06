@@ -58,11 +58,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
   AuthenticationError,
   AuthenticationValidator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  EngineController,
-  ProcessingStartingPoints,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
@@ -94,7 +90,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{ContractAuthenticator, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,

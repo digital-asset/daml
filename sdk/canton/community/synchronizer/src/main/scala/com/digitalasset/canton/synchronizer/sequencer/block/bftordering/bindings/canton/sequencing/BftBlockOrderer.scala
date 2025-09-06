@@ -101,6 +101,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
+import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{KillSwitch, Materializer}
 
@@ -129,7 +130,7 @@ final class BftBlockOrderer(
     override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
     queryCostMonitoring: Option[QueryCostMonitoringConfig] = None,
-)(implicit executionContext: ExecutionContext, materializer: Materializer)
+)(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BlockOrderer
     with NamedLogging
     with FlagCloseableAsync
@@ -234,7 +235,7 @@ final class BftBlockOrderer(
     }
   }
 
-  private val p2pGrpcConnectionState = new P2PGrpcConnectionState(loggerFactory)
+  private val p2pGrpcConnectionState = new P2PGrpcConnectionState(thisNode, loggerFactory)
 
   private val p2pEndpointsStore = setupP2PEndpointsStore(localStorage)
   private val availabilityStore = AvailabilityStore(localStorage, timeouts, loggerFactory)
@@ -357,7 +358,8 @@ final class BftBlockOrderer(
       orderingTopologyProvider,
       blockSubscription,
       sequencerSnapshotAdditionalInfo,
-      new P2PNetworkOutModule.State(p2pGrpcConnectionState),
+      bootstrapMembership =>
+        new P2PNetworkOutModule.State(p2pGrpcConnectionState, bootstrapMembership),
       clock,
       new Random(new SecureRandom()),
       metrics,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestHash, TestSalt}
-import com.digitalasset.canton.util.LfTransactionBuilder
+import com.digitalasset.canton.util.{LegacyContractHash, LfTransactionBuilder}
 import com.digitalasset.canton.{LfPartyId, protocol}
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}

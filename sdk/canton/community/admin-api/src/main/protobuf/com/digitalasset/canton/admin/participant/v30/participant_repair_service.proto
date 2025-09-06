@@ -9,9 +9,13 @@ import "com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity.
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-// Perform participant repair operations, including exporting and importing ACS, purging
-// contracts, and migrating synchronizers. These operations directly act on the internal state of the participant
-// and should be used with caution.
+/**
+ * Perform participant repair operations, including exporting and importing ACS, purging
+ * contracts, and migrating synchronizers. These operations directly act on the internal state of the participant
+ * and should be used with caution.
+ *
+ * Note that ACS refers to Active Contract Set.
+ */
 service ParticipantRepairService {
   // Export the ACS for the given parties from the participant
   // DEPRECATED: Use ExportAcs in the party_management_service.proto instead
@@ -20,6 +24,9 @@ service ParticipantRepairService {
   // Import an existing export into the participant
   // DEPRECATED: Use ImportAcs in this proto file
   rpc ImportAcsOld(stream ImportAcsOldRequest) returns (ImportAcsOldResponse); // TODO(#24610) - Remove, replaced with ImportAcs below
+
+  // Export the ACS from the participant.
+  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
 
   // Import an existing export into the participant
   rpc ImportAcs(stream ImportAcsRequest) returns (ImportAcsResponse);
@@ -169,6 +176,53 @@ message ImportAcsOldResponse {
   map<string, string> contract_id_mapping = 1;
 }
 
+message ExportAcsTargetSynchronizer {
+  // The identifier of the synchronizer to which contracts should be assigned upon exporting the
+  // Active Contract Set (ACS).
+  // Required.
+  string target_synchronizer_id = 1;
+}
+
+message ExportAcsRequest {
+  // The identifiers of the parties for which the Active Contract Set (ACS) will be exported.
+  // This field must contain at least one party ID.
+  // Required
+  repeated string party_ids = 1;
+
+  // The identifier of the synchronizer to filter contracts.
+  // Optional. If provided, only contracts assigned to a synchronizer with this exact ID will be included
+  // in the exported ACS. If not set (empty string), all contracts for the specified parties will be included.
+  string synchronizer_id = 2; // Optional; filters by exact synchronizer ID if set
+
+  // The ledger offset at which the ACS snapshot should be taken. This determines the point in the
+  // ledger history from which the active contracts will be retrieved.
+  // Required
+  int64 ledger_offset = 3;
+
+  // A mapping to modify the synchronizer assignment of contracts in the exported ACS.
+  // Note: This mapping is not a proper contract reassignment. That is no actual reassignment happens, and thus
+  // the reassignment counter is not increased.
+  // Optional. If not provided (empty map), the contracts in the exported ACS will retain their
+  // original synchronizer assignments.
+  map<string, ExportAcsTargetSynchronizer> contract_synchronizer_renames = 4;
+
+  // A list of party IDs to exclude from the export.
+  // Any contract that has one or more of these parties as a stakeholder will be omitted from the ACS snapshot.
+  // Optional
+  repeated string excluded_stakeholder_ids = 5;
+}
+
+message ExportAcsResponse {
+  // A chunk of the Active Contract Set (ACS) snapshot. This response is streamed, with each
+  // message containing a portion of the complete ACS data.
+  // The raw binary data within each chunk consists of Ledger API active contract messages, specifically wrapped
+  // in `v30.active_contract.ActiveContract` messages. However, a single chunk does not necessarily contain
+  // exactly one complete message.
+  // This field will be populated in each streamed response.
+  // Required
+  bytes chunk = 1;
+}
+
 enum ContractIdImportMode {
   CONTRACT_ID_IMPORT_MODE_UNSPECIFIED = 0;
   // The contract ID neither gets validated nor recomputed.
@@ -195,6 +249,10 @@ message ImportAcsRequest {
   // How contract ID should be evaluated upon import
   // Required
   ContractIdImportMode contract_id_suffix_recomputation_mode = 3;
+  // A list of party IDs to exclude from the import.
+  // Any contract that has one or more of these parties as a stakeholder will be omitted during the import.
+  // Optional
+  repeated string excluded_stakeholder_ids = 4;
 }
 
 message ImportAcsResponse {

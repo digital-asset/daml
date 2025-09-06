@@ -148,19 +148,13 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
 
           hostingParticipants = newHostingParticipants
 
-          val partyAddedOnP4Offset = participant1.parties.find_party_max_activation_offset(
-            partyId = consortiumPartyId,
-            participantId = participant4.id,
-            synchronizerId = daId,
-            beginOffsetExclusive = ledgerEndP1,
-            completeAfter = PositiveInt.one,
-          )
-
           logger.debug("Onboarding: Export ACS from P1")
-          participant1.parties.export_acs(
-            Set(consortiumPartyId),
+          participant1.parties.export_party_acs(
+            party = consortiumPartyId,
+            synchronizerId = daId,
+            targetParticipantId = participant4.id,
+            beginOffsetExclusive = ledgerEndP1,
             exportFilePath = acsFilename,
-            ledgerOffset = partyAddedOnP4Offset,
           )
 
           participant4.synchronizers.disconnect(daName)

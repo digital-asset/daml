@@ -14,6 +14,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -177,7 +178,7 @@ class PipeTest extends AnyFlatSpec with BaseTest {
           timeouts,
         )(
           PipeTest.mkNode(pipeStore, reporter, loggerFactory, timeouts),
-          new P2PGrpcConnectionState(loggerFactory),
+          new P2PGrpcConnectionState(endpointToTestBftNodeId(theEndpoint), loggerFactory),
         )
     )
 

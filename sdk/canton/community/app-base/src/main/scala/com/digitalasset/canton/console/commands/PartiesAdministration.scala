@@ -17,10 +17,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{AddPartyStatus, ListPartiesResult}
-import com.digitalasset.canton.admin.participant.v30.{
-  ExportAcsAtTimestampResponse,
-  ExportAcsResponse,
-}
+import com.digitalasset.canton.admin.participant.v30.ExportPartyAcsResponse
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.commands.TopologyTxFiltering.{AddedFilter, RevokedFilter}
@@ -500,93 +497,64 @@ class ParticipantPartiesAdministrationGroup(
     )
   }
 
-  @Help.Summary("Export active contracts for the given set of parties to a file.")
-  @Help.Description(
-    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
-      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
-      |into a participant's ACS again.
-      |
-      |The arguments are:
-      |- parties: Identifying contracts having at least one stakeholder from the given set.
-      |- synchronizerId: When defined, restricts the export to the given synchronizer.
-      |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
-      |- ledgerOffset: The offset at which the ACS snapshot is exported.
-      |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts from
-      |                               one synchronizer to another based on the mapping.
-      |- timeout: A timeout for this operation to complete.
-      """
+  @Help.Summary(
+    "Export active contracts for a given party to replicate it."
   )
-  def export_acs(
-      parties: Set[PartyId],
-      synchronizerId: Option[SynchronizerId] = None,
-      exportFilePath: String = "canton-acs-export.gz",
-      ledgerOffset: NonNegativeLong,
-      contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
-      timeout: NonNegativeDuration = timeouts.unbounded,
-  ): Unit =
-    consoleEnvironment.run {
-      val file = File(exportFilePath)
-      val responseObserver = new FileStreamObserver[ExportAcsResponse](file, _.chunk)
-
-      def call: ConsoleCommandResult[Context.CancellableContext] =
-        reference.adminCommand(
-          ParticipantAdminCommands.PartyManagement.ExportAcs(
-            parties,
-            synchronizerId,
-            ledgerOffset.unwrap,
-            responseObserver,
-            contractSynchronizerRenames,
-          )
-        )
-
-      processResult(
-        call,
-        responseObserver.result,
-        timeout,
-        request = "exporting acs",
-        cleanupOnError = () => file.delete(),
-      )
-    }
-
-  @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
-    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
-      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
-      |into a participant's ACS again.
+    """This command exports the current Active Contract Set (ACS) for a given
+      |party to facilitate its replication from a source to a target participant.
       |
-      |This command attempts to resolve the given instant (`topologyTransactionEffectiveTime`)
-      |to a ledger offset internally. Such offset exists only after the corresponding topology
-      |transaction has been recorded on the ledger.
-      |This command returns an error when no offset has been found. Possible causes:
-      |1. No topology transaction. Solution: Issue a topology transaction.
-      |2. Topology transaction exists. Solution: Retry the command.
+      |It uses the party's most recent activation on the target participant to
+      |determine the precise historical state of the ACS to export from the
+      |source participant.
+      |
+      |"Activation" on the target participant means the new hosting arrangement
+      |has been authorized by both the party itself and the target participant
+      |via party-to-participant topology transactions.
+      |
+      |This command will fail if the party has not yet been activated on the
+      |target participant.
+      |
+      |Upon successful completion, the command writes a GZIP-compressed ACS
+      |snapshot file. This file can then be imported into the target participant's
+      |ACS using the `import_acs` repair command.
       |
       |The arguments are:
-      |- parties: Identifying contracts having at least one stakeholder from the given set.
+      |- party: The party being replicated, it must already be active on the target participant.
       |- synchronizerId: Restricts the export to the given synchronizer.
-      |- topologyTransactionEffectiveTime: The effective time of a topology transaction at which
-      |                                    the ACS snapshot is exported.
+      |- targetParticipantId: Unique identifier of the target participant where the party
+      |                       will be replicated.
+      |- beginOffsetExclusive: Exclusive ledger offset used as starting point fo find the party's
+      |                        most recent activation on the target participant.
       |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
+      |- waitForActivationTimeout: The maximum duration the service will wait to find the topology
+      |                            transaction that activates the party on the target participant.
       |- timeout: A timeout for this operation to complete.
       """
   )
-  def export_acs_at_timestamp(
-      parties: Set[PartyId],
+  def export_party_acs(
+      party: PartyId,
       synchronizerId: SynchronizerId,
-      topologyTransactionEffectiveTime: Instant,
+      targetParticipantId: ParticipantId,
+      beginOffsetExclusive: Long,
       exportFilePath: String = "canton-acs-export.gz",
-      timeout: NonNegativeDuration = timeouts.unbounded,
+      waitForActivationTimeout: Option[config.NonNegativeFiniteDuration] = Some(
+        config.NonNegativeFiniteDuration.ofMinutes(2)
+      ),
+      timeout: config.NonNegativeDuration = timeouts.unbounded,
   ): Unit =
     consoleEnvironment.run {
       val file = File(exportFilePath)
-      val responseObserver = new FileStreamObserver[ExportAcsAtTimestampResponse](file, _.chunk)
+      val responseObserver = new FileStreamObserver[ExportPartyAcsResponse](file, _.chunk)
 
       def call: ConsoleCommandResult[Context.CancellableContext] =
         reference.adminCommand(
-          ParticipantAdminCommands.PartyManagement.ExportAcsAtTimestamp(
-            parties,
+          ParticipantAdminCommands.PartyManagement.ExportPartyAcs(
+            party,
             synchronizerId,
-            topologyTransactionEffectiveTime,
+            targetParticipantId,
+            NonNegativeLong.tryCreate(beginOffsetExclusive),
+            waitForActivationTimeout,
             responseObserver,
           )
         )
@@ -595,10 +563,11 @@ class ParticipantPartiesAdministrationGroup(
         call,
         responseObserver.result,
         timeout,
-        request = "exporting acs at timestamp",
+        request = "exporting party acs",
         cleanupOnError = () => file.delete(),
       )
     }
+
 }
 
 private[canton] object PartiesAdministration {

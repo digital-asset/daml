@@ -326,14 +326,17 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       outputRef,
       pruningRef,
     )
+    val sequencerIds = config.initialNetwork.toList
+      .flatMap(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
+      .map(endpointToTestBftNodeId)
+    val membership = Membership(thisNode, orderingTopology, sequencerIds)
     val p2pNetworkOut =
       new P2PNetworkOutModule[SimulationEnv, SimulationP2PNetworkManager[
         BftOrderingMessage
       ]](
         thisNode,
         isGenesis = true, // This test assumes quorum connectivity
-        bootstrapTopologySize = orderingTopology.size,
-        new P2PNetworkOutModule.State(p2pGrpcConnectionState),
+        new P2PNetworkOutModule.State(p2pGrpcConnectionState, membership),
         new SimulationP2PEndpointsStore(
           config.initialNetwork
             .map(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
@@ -345,10 +348,6 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         loggerFactory,
         timeouts,
       )
-    val sequencerIds = config.initialNetwork.toList
-      .flatMap(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
-      .map(endpointToTestBftNodeId)
-    val membership = Membership(thisNode, orderingTopology, sequencerIds)
     val availabilityStore = store(simulationModel.availabilityStorage)
     val availabilityDependencies = AvailabilityModuleDependencies(
       mempoolRef,
@@ -494,7 +493,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         val loggerFactoryWithSequencerId = loggerFactory.append("sequencerId", bftNodeId)
 
         val p2pGrpcConnectionState =
-          new P2PGrpcConnectionState(loggerFactoryWithSequencerId)
+          new P2PGrpcConnectionState(bftNodeId, loggerFactoryWithSequencerId)
 
         endpoint -> SimulationInitializer.noClient[
           BftOrderingMessage,

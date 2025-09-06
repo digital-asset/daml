@@ -38,11 +38,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  EngineController,
-  ProcessingSteps,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
@@ -63,8 +59,8 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
-import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{ContractAuthenticator, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 

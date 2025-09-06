@@ -71,7 +71,7 @@ object DAMLe {
         stackTraceMode = enableStackTraces,
         profileDir = profileDir,
         snapshotDir = snapshotDir,
-        forbidLocalContractIds = true,
+        requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         paranoid = paranoidMode,
@@ -157,7 +157,7 @@ class DAMLe(
   // TODO(i21582) Because we do not hash suffixed CIDs, we need to disable validation of suffixed CIDs otherwise enrichment
   // will fail. Remove this when we hash and sign suffixed CIDs
   private lazy val engineForEnrichment = new Engine(
-    engine.config.copy(forbidLocalContractIds = false)
+    engine.config.copy(requireSuffixedGlobalContractId = false)
   )
   private lazy val interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
     engineForEnrichment,

@@ -56,7 +56,6 @@ import pprint.Tree
 
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
-import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
 
 class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
@@ -68,12 +67,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val sequencerTimestamp: CantonTimestamp = CantonTimestamp.ofEpochSecond(0)
 
   val ledgerTimeRecordTimeTolerance: Duration = Duration.ofSeconds(10)
-
-  def validateContractOk(
-      @unused _contract: GenContractInstance,
-      @unused _getEngineAbortStatus: GetEngineAbortStatus,
-      @unused _context: TraceContext,
-  ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit] = EitherT.pure(())
 
   private def reinterpretExample(
       example: ExampleTransaction,
@@ -218,7 +211,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =
     new ModelConformanceChecker(
       reinterpretCommand,
-      validateContractOk,
       transactionTreeFactory,
       submittingParticipant,
       DummyContractAuthenticator,

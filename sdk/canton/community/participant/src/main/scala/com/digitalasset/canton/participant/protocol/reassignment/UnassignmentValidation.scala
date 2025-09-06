@@ -9,14 +9,15 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef, UnassignmentData}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationResult.ReassigningParticipantValidationResult
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
-import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProcessingSteps}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.ExecutionContext

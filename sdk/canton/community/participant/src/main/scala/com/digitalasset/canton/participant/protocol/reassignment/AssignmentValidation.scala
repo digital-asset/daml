@@ -22,11 +22,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationResult.ReassigningParticipantValidationResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  ProcessingSteps,
-  reassignment,
-}
+import com.digitalasset.canton.participant.protocol.{ProcessingSteps, reassignment}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
   AssignmentStartingBeforeUnassignment,
@@ -36,6 +32,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext

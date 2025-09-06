@@ -34,7 +34,7 @@ from the ACS. Since we don't have the tooling to do that and since it would open
 other cans of worms (contract key journal), we make sure that the export_acs_old endpoint
 refuses to serve such a request.
  */
-class ExportAcsPartyOffboardingIntegrationTest
+final class ExportAcsPartyOffboardingIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with AcsInspection {

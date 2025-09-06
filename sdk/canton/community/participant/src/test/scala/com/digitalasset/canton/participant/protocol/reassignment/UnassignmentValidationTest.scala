@@ -14,7 +14,6 @@ import com.digitalasset.canton.data.{
   UnassignmentViewTree,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ParsedReassignmentRequest,
@@ -32,6 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Reci
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import org.scalatest.wordspec.AnyWordSpec
 

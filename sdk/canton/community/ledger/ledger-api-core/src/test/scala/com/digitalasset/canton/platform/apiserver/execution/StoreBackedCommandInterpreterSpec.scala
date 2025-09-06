@@ -4,16 +4,11 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.syntax.either.*
-import com.daml.logging.LoggingContext
-import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.crypto.TestSalt
+import com.digitalasset.canton.examples.java.cycle.Cycle
+import com.digitalasset.canton.ledger.api.Commands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
-import com.digitalasset.canton.ledger.participant.state.SyncService
-import com.digitalasset.canton.ledger.participant.state.index.ContractStore
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
@@ -22,36 +17,22 @@ import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticato
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.platform.config.CommandServiceConfig
-import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV10,
-  AuthenticatedContractIdVersionV11,
-  CantonContractIdV1Version,
-  ContractAuthenticationDataV1,
-  ExampleContractFactory,
-  LegacyContractHash,
-  LfContractId,
-  LfFatContractInst,
-  LfTransactionVersion,
-}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfValue}
-import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
+import com.digitalasset.canton.util.TestEngine
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId, LfValue}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  Node as LfNode,
-  SubmittedTransaction,
-  Transaction,
-}
+import com.digitalasset.daml.lf.transaction.{CreationTime, Node as LfNode}
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
+import monocle.Monocle.toAppliedFocusOps
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -66,13 +47,34 @@ class StoreBackedCommandInterpreterSpec
     with FailOnShutdown
     with BaseTest {
 
-  val cryptoApi: CryptoPureApi = new SymbolicPureCrypto()
-  val salt: Bytes = ContractAuthenticationDataV1(
-    Salt.tryDeriveSalt(SaltSeed.generate()(cryptoApi), 0, cryptoApi)
-  )(AuthenticatedContractIdVersionV11).toLfBytes
-  val identifier: Identifier =
+  private val testEngine =
+    new TestEngine(packagePaths = Seq(CantonExamplesPath), iterationsBetweenInterruptions = 10)
+  private val alice = LfPartyId.assertFromString("Alice")
+
+  private val createCycleApiCommand: Commands =
+    testEngine.validateCommand(new Cycle("id", alice).create().commands.loneElement, alice)
+
+  private def repeatCycleApiCommand(cid: ContractId): Commands =
+    testEngine.validateCommand(
+      new Cycle.ContractId(cid.coid).exerciseRepeat().commands().loneElement,
+      alice,
+    )
+
+  private def createCycleContract() = {
+    val (createTx, createMeta) =
+      testEngine.submitAndConsume(new Cycle("id", alice).create().commands.loneElement, alice)
+    val createNode = createTx.nodes.values.collect { case c: LfNodeCreate => c }.loneElement
+    val (_, createSeed) = createMeta.nodeSeeds.toList.loneElement
+    val contract = ExampleContractFactory.fromCreate(createNode)
+    (createNode, createSeed, contract)
+  }
+
+  private val salt: Bytes = ContractAuthenticationDataV1(TestSalt.generateSalt(36))(
+    AuthenticatedContractIdVersionV11
+  ).toLfBytes
+  private val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
-  val packageName: PackageName = PackageName.assertFromString("pkg-name")
+  private val packageName: PackageName = PackageName.assertFromString("pkg-name")
   private val disclosedContractId: LfContractId = TransactionBuilder.newCid
   private def mkCreateNode(contractId: Value.ContractId = disclosedContractId) =
     LfNode.Create(
@@ -96,18 +98,7 @@ class StoreBackedCommandInterpreterSpec
       version = LfTransactionVersion.StableVersions.max,
     )
   private val disclosedCreateNode = mkCreateNode()
-  private val disclosedContractSynchronizerId: SynchronizerId =
-    SynchronizerId.tryFromString("x::synchronizerId")
   private val disclosedContractCreateTime = Time.Timestamp.now()
-
-  private val disclosedContract = DisclosedContract(
-    fatContractInstance = FatContract.fromCreateNode(
-      disclosedCreateNode,
-      createTime = CreationTime.CreatedAt(disclosedContractCreateTime),
-      authenticationData = salt,
-    ),
-    synchronizerIdO = Some(disclosedContractSynchronizerId),
-  )
 
   private val processedDisclosedContracts = ImmArray(
     FatContract.fromCreateNode(
@@ -116,64 +107,6 @@ class StoreBackedCommandInterpreterSpec
       authenticationData = salt,
     )
   )
-
-  private val emptyTransactionMetadata = Transaction.Metadata(
-    submissionSeed = None,
-    preparationTime = Time.Timestamp.now(),
-    usedPackages = Set.empty,
-    timeBoundaries = Time.Range.unconstrained,
-    nodeSeeds = ImmArray.Empty,
-    globalKeyMapping = Map.empty,
-    disclosedEvents = ImmArray.empty,
-  )
-
-  private val resultDone: ResultDone[(SubmittedTransaction, Transaction.Metadata)] =
-    ResultDone[(SubmittedTransaction, Transaction.Metadata)](
-      (TransactionBuilder.EmptySubmitted, emptyTransactionMetadata)
-    )
-
-  private def mkMockEngine(result: Result[(SubmittedTransaction, Transaction.Metadata)]): Engine = {
-    val mockEngine = mock[Engine]
-    when(
-      mockEngine.submit(
-        packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
-        packagePreference = any[Set[Ref.PackageId]],
-        submitters = any[Set[Ref.Party]],
-        readAs = any[Set[Ref.Party]],
-        cmds = any[com.digitalasset.daml.lf.command.ApiCommands],
-        disclosures = any[ImmArray[FatContract]],
-        participantId = any[ParticipantId],
-        submissionSeed = any[Hash],
-        prefetchKeys = any[Seq[ApiContractKey]],
-        engineLogger = any[Option[EngineLogger]],
-      )(any[LoggingContext])
-    )
-      .thenReturn(result)
-  }
-
-  private def mkCommands(
-      ledgerEffectiveTime: Time.Timestamp = Time.Timestamp.now(),
-      disclosedContracts: ImmArray[DisclosedContract] = ImmArray(disclosedContract),
-      synchronizerIdO: Option[SynchronizerId] = None,
-  ) =
-    Commands(
-      workflowId = None,
-      userId = Ref.UserId.assertFromString("userId"),
-      commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
-      submissionId = None,
-      actAs = Set.empty,
-      readAs = Set.empty,
-      submittedAt = Time.Timestamp.Epoch,
-      deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
-      commands = LfCommands(
-        commands = ImmArray.Empty,
-        ledgerEffectiveTime = ledgerEffectiveTime,
-        commandsReference = "",
-      ),
-      disclosedContracts = disclosedContracts,
-      synchronizerId = synchronizerIdO,
-      prefetchKeys = Seq.empty,
-    )
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
 
@@ -186,7 +119,7 @@ class StoreBackedCommandInterpreterSpec
     new StoreBackedCommandInterpreter(
       engine = engine,
       participant = Ref.ParticipantId.assertFromString("anId"),
-      packageSyncService = mock[SyncService],
+      packageResolver = testEngine.packageResolver,
       contractStore = contractStore,
       contractAuthenticator = contractAuthenticator,
       metrics = LedgerApiServerMetrics.ForTesting,
@@ -197,29 +130,13 @@ class StoreBackedCommandInterpreterSpec
       timeProvider = TimeProvider.UTC,
     )
 
-  private def mkInterruptedResult(
-      nbSteps: Int
-  ): Result[(SubmittedTransaction, Transaction.Metadata)] =
-    ResultInterruption(
-      { () =>
-        Threading.sleep(100)
-        if (nbSteps == 0) resultDone
-        else mkInterruptedResult(nbSteps - 1)
-      },
-      () => None,
-    )
-
   "StoreBackedCommandExecutor" should {
     "add interpretation time and used disclosed contracts to result" in {
-      val mockEngine = mkMockEngine(resultDone.map { case (tx, meta) =>
-        tx -> meta.copy(disclosedEvents = ImmArray(disclosedCreateNode))
-      })
-      val commands = mkCommands(Time.Timestamp.Epoch)
 
-      val sut = mkSut(mockEngine, tolerance = NonNegativeFiniteDuration.Zero)
+      val sut = mkSut(testEngine.engine, tolerance = NonNegativeFiniteDuration.Zero)
 
       sut
-        .interpret(commands, submissionSeed)(
+        .interpret(createCycleApiCommand, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
           executionContext,
         )
@@ -233,15 +150,11 @@ class StoreBackedCommandInterpreterSpec
     }
 
     "interpret successfully if time limit is not exceeded" in {
-      val result = mkInterruptedResult(10)
-      val mockEngine = mkMockEngine(result)
       val tolerance = NonNegativeFiniteDuration.tryOfSeconds(60)
+      val sut = mkSut(testEngine.engine, tolerance = tolerance)
 
-      val sut = mkSut(mockEngine, tolerance = tolerance)
-
-      val let = Time.Timestamp.now()
-      val commands = mkCommands(let)
-
+      val commands =
+        createCycleApiCommand.focus(_.commands.ledgerEffectiveTime).replace(Time.Timestamp.now())
       sut
         .interpret(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
@@ -249,20 +162,15 @@ class StoreBackedCommandInterpreterSpec
         )
         .map {
           case Right(_) => succeed
-          case _ => fail()
+          case other => fail(s"Did not expect: $other")
         }
     }
 
     "abort interpretation when time limit is exceeded" in {
-      val result = mkInterruptedResult(10)
-      val mockEngine = mkMockEngine(result)
-      val tolerance = NonNegativeFiniteDuration.tryOfMillis(500)
-
-      val sut = mkSut(mockEngine, tolerance = tolerance)
-
-      val let = Time.Timestamp.now()
-      val commands = mkCommands(let)
-
+      val tolerance = NonNegativeFiniteDuration.tryOfSeconds(10)
+      val let = Time.Timestamp.now().subtract(Duration.ofSeconds(20))
+      val commands = createCycleApiCommand.focus(_.commands.ledgerEffectiveTime).replace(let)
+      val sut = mkSut(testEngine.engine, tolerance = tolerance)
       sut
         .interpret(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
@@ -270,7 +178,7 @@ class StoreBackedCommandInterpreterSpec
         )
         .map {
           case Left(InterpretationTimeExceeded(`let`, `tolerance`, _)) => succeed
-          case _ => fail()
+          case other => fail(s"Did not expect: $other")
         }
     }
   }
@@ -363,101 +271,123 @@ class StoreBackedCommandInterpreterSpec
       }
     }
   }
+
   "Contract provision" should {
-
-    def testWithAuthResult(
-        cantonContractIdVersion: CantonContractIdV1Version,
-        authenticationResult: Either[String, Unit],
-    ): FutureUnlessShutdown[Either[ErrorCause, CommandInterpretationResult]] = {
-
-      val contract: LfFatContractInst =
-        ExampleContractFactory.build(cantonContractIdVersion = cantonContractIdVersion).inst
-
-      val needContract = ResultNeedContract[(SubmittedTransaction, Transaction.Metadata)](
-        coid = contract.contractId,
-        resume = _ => resultDone,
-      )
-
-      val mockEngine = mkMockEngine(needContract)
-
-      val contractStore = mock[ContractStore]
-      when(
-        contractStore.lookupActiveContract(
-          readers = any[Set[Ref.Party]],
-          contractId = eqTo(contract.contractId),
-        )(any[LoggingContextWithTrace])
-      ).thenReturn(Future.successful(Some(contract)))
-
-      val contractHash = LegacyContractHash.fatContractHash(contract).value
-
-      val sut = mkSut(
-        mockEngine,
-        contractStore,
-        contractAuthenticator = {
-          case (`contract`, `contractHash`) => authenticationResult
-          case other => Left(s"Unexpected: $other")
-        },
-      )
-
-      sut
-        .interpret(mkCommands(), submissionSeed)(
-          LoggingContextWithTrace(loggerFactory),
-          executionContext,
-        )
-
-    }
 
     s"fail if invalid contract id prefix is used" in {
 
-      val needContract = ResultNeedContract[(SubmittedTransaction, Transaction.Metadata)](
-        coid = ExampleContractFactory.buildContractId().mapCid {
-          case Value.ContractId.V1(d, _) =>
-            Value.ContractId.V1(d, Bytes.fromByteString(ByteString.copyFrom("invalid".getBytes)))
-          case other => fail(s"Unexpected: $other")
-        },
-        resume = {
-          case Response.UnsupportedContractIdVersion => resultDone
-          case other => fail(s"Unexpected: $other")
-        },
+      val contractStore = mock[ContractStore]
+
+      val invalidCid = ExampleContractFactory.buildContractId().mapCid {
+        case Value.ContractId.V1(d, _) =>
+          Value.ContractId.V1(d, Bytes.fromByteString(ByteString.copyFrom("invalid".getBytes)))
+        case other => fail(s"Unexpected: $other")
+      }
+
+      when(
+        contractStore.lookupContractState(
+          contractId = any[ContractId]
+        )(any[LoggingContextWithTrace])
+      ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
+
+      val commands = repeatCycleApiCommand(invalidCid)
+
+      val sut = mkSut(testEngine.engine, contractStore = contractStore)
+
+      // TODO(#27344) - This should not throw an exception but return a failure error cause
+      loggerFactory.suppressErrors {
+        sut
+          .interpret(commands, submissionSeed)(
+            LoggingContextWithTrace(loggerFactory),
+            executionContext,
+          )
+          .failed
+          .map { _ =>
+            succeed
+          }
+      }
+
+    }
+
+    "complete if contract authentication passes" in {
+
+      val (_, _, contract) = createCycleContract()
+      val inst: LfFatContractInst = contract.inst
+
+      val contractStore = mock[ContractStore]
+
+      when(
+        contractStore.lookupContractState(
+          contractId = any[ContractId]
+        )(any[LoggingContextWithTrace])
+      ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
+
+      when(
+        contractStore.lookupActiveContract(
+          readers = any[Set[Ref.Party]],
+          contractId = eqTo(inst.contractId),
+        )(any[LoggingContextWithTrace])
+      ).thenReturn(Future.successful(Some(inst)))
+
+      val commands = repeatCycleApiCommand(inst.contractId)
+
+      val sut = mkSut(
+        testEngine.engine,
+        contractStore = contractStore,
+        contractAuthenticator = (_, _) => Either.unit,
       )
 
-      val mockEngine = mkMockEngine(needContract)
-      val sut = mkSut(mockEngine)
       sut
-        .interpret(mkCommands(), submissionSeed)(
+        .interpret(commands, submissionSeed)(
           LoggingContextWithTrace(loggerFactory),
           executionContext,
         )
-        .map(_.isRight shouldBe true)
+        .map {
+          case Right(_) => succeed
+          case other => fail(s"Expected success, got $other")
+        }
+
     }
 
-    forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
-      authContractIdVersion =>
-        s"pass if on successful verification with $authContractIdVersion" in {
-          testWithAuthResult(authContractIdVersion, Either.unit).map {
-            case Right(_) => succeed
-            case other => fail(s"Expected success, got $other")
-          }
+    "error if contract authentication fails" in {
+
+      val (_, _, contract) = createCycleContract()
+      val inst: LfFatContractInst = contract.inst
+
+      val contractStore = mock[ContractStore]
+
+      when(
+        contractStore.lookupContractState(
+          contractId = any[ContractId]
+        )(any[LoggingContextWithTrace])
+      ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
+
+      when(
+        contractStore.lookupActiveContract(
+          readers = any[Set[Ref.Party]],
+          contractId = eqTo(inst.contractId),
+        )(any[LoggingContextWithTrace])
+      ).thenReturn(Future.successful(Some(inst)))
+
+      val commands = repeatCycleApiCommand(inst.contractId)
+
+      val sut = mkSut(
+        testEngine.engine,
+        contractStore = contractStore,
+        contractAuthenticator = (_, _) => Left("Not authorized"),
+      )
+
+      sut
+        .interpret(commands, submissionSeed)(
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
+        )
+        .map {
+          case Left(ErrorCause.DamlLf(engine.Error.Interpretation(_, _))) => succeed
+          case other => fail(s"Did not expect: $other")
         }
-        // TODO(#27344) - This test can be enabled, and error matched, once the engine authentication callback is supported
-        s"fail if on failed verification with $authContractIdVersion" ignore {
-          testWithAuthResult(authContractIdVersion, Left("Not authorized")).map {
-            case Left(err) =>
-              inside(err) { case ErrorCause.DamlLf(_) =>
-                succeed
-              }
-            case other => fail(s"Expected failure, got $other")
-          }
-        }
+
     }
   }
 
-  protected final def someContractKey(party: Party, value: String): LfValue.ValueRecord =
-    LfValue.ValueRecord(
-      None,
-      ImmArray(
-        None -> LfValue.ValueParty(party),
-        None -> LfValue.ValueText(value),
-      ),
-    )
 }

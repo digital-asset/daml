@@ -79,7 +79,7 @@ final class PartyReplicationSourceParticipantProcessor private (
     protected val testOnlyInterceptor: PartyReplicationTestInterceptor,
 )(implicit override val executionContext: ExecutionContext)
     extends PartyReplicationProcessor {
-  private val processorStore = InMemoryProcessorStore.sourceParticipant()
+  protected val processorStore: SourceParticipantStore = InMemoryProcessorStore.sourceParticipant()
   private val contractsPerBatch = PositiveInt.two
 
   override def replicatedContractsCount: NonNegativeInt = processorStore.sentContractsCount
@@ -176,6 +176,7 @@ final class PartyReplicationSourceParticipantProcessor private (
             testOnlyInterceptor.onSourceParticipantProgress(
               processorStore
             ) == PartyReplicationTestInterceptor.Proceed &&
+            processorStore.initialContractOrdinalInclusiveO.isDefined &&
             processorStore.sentContractsCount.unwrap < processorStore.contractOrdinalToSendUpToExclusive.unwrap - 1 // -1 for exclusive to inclusive
         )(
           respondToTargetParticipant()
@@ -189,7 +190,9 @@ final class PartyReplicationSourceParticipantProcessor private (
     notifyCounterParticipantAndPartyReplicatorOnError {
       val fromInclusive = processorStore.sentContractsCount
       val toInclusive: NonNegativeInt = processorStore.contractOrdinalToSendUpToExclusive.map(_ - 1)
-      logger.debug(s"Source participant about to send up to contract ordinal ${toInclusive.unwrap}")
+      logger.debug(
+        s"Source participant looking up contract ordinals [${fromInclusive.unwrap},${toInclusive.unwrap}]"
+      )
       for {
         contracts <- readContracts(fromInclusive, toInclusive)
         numContractsSending = contracts.flatten.size

@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Consensus,
+  P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
@@ -518,6 +519,10 @@ final class StateTransferBehavior[E <: Env[E]](
       completedBlocks = Seq.empty,
       loggerFactory = loggerFactory,
       timeouts = timeouts,
+    )
+
+    dependencies.p2pNetworkOut.asyncSend(
+      P2PNetworkOut.Network.TopologyUpdate(epochState.epoch.currentMembership)
     )
   }
 }
