@@ -17,8 +17,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArg
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
-import com.digitalasset.canton.protocol.LegacyContractHash
-import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.util.{LegacyContractHash, OptionUtil}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.common.annotations.VisibleForTesting

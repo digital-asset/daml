@@ -74,8 +74,10 @@ private[bftordering] class ServerAuthenticatingServerInterceptor(
           this,
           loggerFactory.getTracedLogger(getClass),
         )
-        // Add the endpoint info sent by the client (`externalAddress`) to the context, so we could use it to find
-        //  a potentially existing outgoing connection rather than accepting the incoming one.
+        // Add the endpoint info sent by the client (`externalAddress`) to the context, so we can use it to find
+        //  a potentially existing outgoing connection rather than accepting the incoming one;
+        //  if not found, we'll accept the incoming one, associate it with the endpoint
+        //  and won't create an outgoing one when we need to send.
         val contextWithEndpoint =
           Context
             .current()
