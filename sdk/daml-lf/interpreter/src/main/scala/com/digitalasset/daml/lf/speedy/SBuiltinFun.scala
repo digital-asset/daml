@@ -991,11 +991,11 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SInt64 = {
-      val date = getSDate(args, 0).days.toLong
+      val date = getSDate(args, 0)
 
       machine.updateGasBudget(_.BDateToUnixDays.cost(date))
 
-      SInt64(date)
+      SInt64(date.days.toLong)
     }
   }
 
@@ -1011,11 +1011,11 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SInt64 = {
-      val arg0 = getSTimestamp(args, 0).micros
+      val arg0 = getSTimestamp(args, 0)
 
       machine.updateGasBudget(_.BTimestampToUnixMicroseconds.cost(arg0))
 
-      SInt64(arg0)
+      SInt64(arg0.micros)
     }
   }
 
@@ -1060,8 +1060,6 @@ private[lf] object SBuiltinFun {
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
-      // No cost model update as no new data is created
-
       SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
     }
   }
@@ -1071,9 +1069,6 @@ private[lf] object SBuiltinFun {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
       val headSValue = args(0)
       val tailSList = getSList(args, 1)
-
-      // No cost model update as no new data is created
-
       SList(headSValue +: tailSList)
     }
   }
@@ -1084,8 +1079,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SOptional = {
-      // No cost model update as no new data is created
-
       SOptional(Some(args(0)))
     }
   }
@@ -1097,8 +1090,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SValue = {
-      // No cost model update as no new data is created
-
       SRecord(id, fields, args)
     }
   }
@@ -1110,9 +1101,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SValue = {
       val record = getSRecord(args, 0)
-
-      // No cost model update as no new data is created
-
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
@@ -1128,9 +1116,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SValue = {
       val record = getSRecord(args, 0)
-
-      // No cost model update as no new data is created
-
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
@@ -1148,8 +1133,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SValue = {
-      // No cost model update as no new data is created
-
       getSRecord(args, 0).values(field)
     }
   }
@@ -1186,9 +1169,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SValue = {
       val struct = getSStruct(args, 0)
-
-      // No cost model update as no new data is created
-
       if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
       struct.values(fieldIndex)
     }
@@ -1704,8 +1684,6 @@ private[lf] object SBuiltinFun {
   // the record's templateId.
   final case class SBToAnyContract(tplId: TypeConId) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SAny = {
-      // No cost model update as no new data is created
-
       SAnyContract(tplId, getSRecord(args, 0))
     }
   }
@@ -2247,8 +2225,6 @@ private[lf] object SBuiltinFun {
     */
   final case class SBToAny(ty: Ast.Type) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SAny = {
-      // No cost model update as no new data is created
-
       SAny(ty, args(0))
     }
   }
@@ -2263,9 +2239,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SOptional = {
       val any = getSAny(args, 0)
-
-      // No cost model update as no new data is created
-
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
   }
@@ -2280,9 +2253,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): STypeRep = {
       val (tyCon, _) = getSAnyContract(args, 0)
-
-      // No cost model update as no new data is created
-
       STypeRep(Ast.TTyCon(tyCon))
     }
   }
@@ -2296,8 +2266,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SOptional = {
-      // No cost model update as no new data is created
-
       getSTypeRep(args, 0) match {
         case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
         case _ => SOptional(None)

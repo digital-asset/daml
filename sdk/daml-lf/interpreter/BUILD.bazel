@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
@@ -10,7 +11,6 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
-load("@io_bazel_rules_scala//scala:scala.bzl", "scala_repl")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
@@ -78,6 +78,7 @@ da_scala_test_suite(
         ["src/test/**/*.scala"],
         exclude = [
             "src/test/**/*Lib.scala",
+            "src/test/**/CostModelTest.scala",
             "src/test/**/SBuiltinBigNumericTest.scala",
         ],
     ),
@@ -130,6 +131,36 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//libs-scala/contextualized-logging",
+        "@maven//:org_scalatest_scalatest_compatible",
+    ],
+)
+
+da_scala_test(
+    name = "test-CostModelTest",
+    srcs = glob(["src/test/**/CostModelTest.scala"]),
+    jvm_flags = [
+        "-XX:-UseCompressedOops",
+        "-XX:-UseCompressedClassPointers",
+        "--add-opens java.base/java.math=ALL-UNNAMED",
+    ],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts,
+    deps = [
+        ":interpreter",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:org_openjdk_jol_jol_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
