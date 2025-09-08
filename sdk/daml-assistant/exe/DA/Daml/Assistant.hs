@@ -61,7 +61,7 @@ main = withSdkVersions $ do
         builtinCommandM <- tryBuiltinCommand
         usingProjectRootVar <- isJust <$> lookupEnv projectPathEnvVar
         when usingProjectRootVar $
-          hPutStrLn stderr "The PROJECT_ROOT environment variable is deprecated, please use PACKAGE_ROOT"
+          hPutStrLn stderr "The DAML_PROJECT environment variable is deprecated, please use DAML_PACKAGE"
         case builtinCommandM of
             Just builtinCommand -> do
                 env <- getDamlEnv damlPath (commandWantsPackagePath builtinCommand)

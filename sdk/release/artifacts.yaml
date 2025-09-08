@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-- target: //daml-assistant/scala-daml-project-config:scala-daml-project-config
+- target: //daml-assistant/scala-daml-package-config:scala-daml-package-config
   type: jar-scala
 - target: //daml-lf/api-type-signature:api-type-signature
   type: jar-scala

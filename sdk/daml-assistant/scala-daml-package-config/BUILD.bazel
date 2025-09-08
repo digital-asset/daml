@@ -8,7 +8,7 @@ load(
 )
 
 da_scala_library(
-    name = "scala-daml-project-config",
+    name = "scala-daml-package-config",
     srcs = glob([
         "src/main/scala/**/*.scala",
     ]),
@@ -28,7 +28,7 @@ da_scala_library(
 )
 
 da_scala_test_suite(
-    name = "scala-daml-project-config-tests",
+    name = "scala-daml-package-config-tests",
     size = "small",
     srcs = glob([
         "src/test/**/*Spec.scala",
@@ -43,7 +43,7 @@ da_scala_test_suite(
         "@maven//:org_typelevel_cats_core",
     ],
     deps = [
-        ":scala-daml-project-config",
+        ":scala-daml-package-config",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )
