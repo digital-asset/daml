@@ -157,11 +157,21 @@ decodeValId LF2.ValueId{..} = do
 -- name are interned since Daml-LF 1.6.
 decodePackageId :: LF2.SelfOrImportedPackageId -> Decode SelfOrImportedPackageId
 decodePackageId (LF2.SelfOrImportedPackageId pref) =
-    mayDecode "packageRefSum" pref $ \case
-        LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
-        LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> ImportedPackageId . PackageId . fst <$> lookupString strId
-        LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
-          ImportedPackageId . (V.! fromIntegral strId) <$> view (importsLens . _Right)
+  mayDecode "packageRefSum" pref $ \case
+      LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
+      LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> do
+        str <- PackageId . fst <$> lookupString strId
+        assertStableIfPkgImports str
+        return $ ImportedPackageId str
+      LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
+        ImportedPackageId . (V.! fromIntegral strId) <$> view (importsLens . _Right)
+  where
+    assertStableIfPkgImports id = do
+      when (id `notElem` stableIds) $
+        assertSupportsNot
+               featurePackageImports
+               versionLens
+               (throwError . ParseError . printf "Got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
 
 
 ------------------------------------------------------------------------
