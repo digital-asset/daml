@@ -53,7 +53,6 @@ import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, CantonGrpcUtil}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptorFactory,
@@ -75,7 +74,7 @@ import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.{PackagePreferenceBackend, ResourceOwnerOps}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{ContractAuthenticator, FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.inprocess.InProcessChannelBuilder
@@ -375,7 +374,7 @@ class StartableStoppableLedgerApiServer(
       // When CIDs are suffixed, we can re-use the LfValueTranslation from the index service created above
       packageLoader = new DeduplicatingPackageLoader()
       interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
-        new Engine(config.engine.config.copy(forbidLocalContractIds = false)),
+        new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
         packageResolver = packageId =>
           implicit traceContext =>
             FutureUnlessShutdown.outcomeF(

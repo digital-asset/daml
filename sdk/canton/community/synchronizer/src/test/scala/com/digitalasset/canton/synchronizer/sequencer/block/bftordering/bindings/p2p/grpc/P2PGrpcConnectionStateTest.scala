@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.bidi
+package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc
 
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -20,14 +20,14 @@ import io.grpc.stub.StreamObserver
 import org.mockito.MockitoSugar.mock
 import org.scalatest.wordspec.AnyWordSpec
 
-class P2PGrpcBidiConnectionStateTest extends AnyWordSpec with BftSequencerBaseTest {
+class P2PGrpcConnectionStateTest extends AnyWordSpec with BftSequencerBaseTest {
 
-  import P2PGrpcBidiConnectionStateTest.*
+  import P2PGrpcConnectionStateTest.*
 
   "P2PGrpcBidiConnectionState" should {
 
     "associate multiple P2P endpoint ID to a BFT node ID" in {
-      val state = new P2PGrpcBidiConnectionState(SelfBftNodeId, loggerFactory)
+      val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
 
       state.connections shouldBe empty
 
@@ -50,22 +50,22 @@ class P2PGrpcBidiConnectionStateTest extends AnyWordSpec with BftSequencerBaseTe
     }
 
     "associate a gRPC streaming sender with a BFT node ID only if missing" in {
-      val state = new P2PGrpcBidiConnectionState(SelfBftNodeId, loggerFactory)
+      val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
 
       state.getSender(APeerP2PNodeAddressId) shouldBe None
 
-      state.addSenderIfMissing(APeerBftNodeId, ASender) shouldBe None
+      state.addSenderIfMissing(APeerBftNodeId, ASender) shouldBe true
 
       state.getSender(APeerP2PNodeAddressId) shouldBe Some(ASender)
 
-      state.addSenderIfMissing(APeerBftNodeId, AnotherSender) shouldBe Some(AnotherSender)
+      state.addSenderIfMissing(APeerBftNodeId, AnotherSender) shouldBe false
 
       state.getSender(APeerP2PNodeAddressId) shouldBe Some(ASender)
     }
 
     "associate a network ref with an address ID only if missing" in {
       Table("address ID", APeerP2PNodeAddressId, APeerP2PEndpointAddressId).forEvery { addressId =>
-        val state = new P2PGrpcBidiConnectionState(SelfBftNodeId, loggerFactory)
+        val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
 
         def checkP2PAddressState(
             isEndpointPresent: Boolean,
@@ -114,7 +114,7 @@ class P2PGrpcBidiConnectionStateTest extends AnyWordSpec with BftSequencerBaseTe
     }
 
     "consolidate network refs" in {
-      val state = new P2PGrpcBidiConnectionState(SelfBftNodeId, loggerFactory)
+      val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
 
       val ref1 = createNewNetworkRef()
       state.addNetworkRefIfMissing(APeerP2PNodeAddressId)(() => fail())(() => ref1)
@@ -186,7 +186,7 @@ class P2PGrpcBidiConnectionStateTest extends AnyWordSpec with BftSequencerBaseTe
           (AnotherPeerP2PEndpointAddressId, Map.empty, true, false),
           (AnotherPeerP2PEndpointAddressId, Map.empty, true, true),
         ).forEvery { (addressId, associations, clearNetworkRefAssociations, closeNetworkRefs) =>
-          val state = new P2PGrpcBidiConnectionState(SelfBftNodeId, loggerFactory)
+          val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
           associations.foreach { case (endpointId, bftNodeId) =>
             state.associateP2PEndpointIdToBftNodeId(endpointId, bftNodeId)
           }
@@ -231,11 +231,11 @@ class P2PGrpcBidiConnectionStateTest extends AnyWordSpec with BftSequencerBaseTe
 
     "unassociating a sender" should {
       "remove the sender and return the endpoints associated with the node ID" in {
-        val state = new P2PGrpcBidiConnectionState(SelfBftNodeId, loggerFactory)
+        val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
         state.associateP2PEndpointIdToBftNodeId(APeerP2PEndpoint.id, APeerBftNodeId)
         state.associateP2PEndpointIdToBftNodeId(AnotherPeerP2PEndpoint.id, APeerBftNodeId)
 
-        state.addSenderIfMissing(APeerBftNodeId, ASender) shouldBe None
+        state.addSenderIfMissing(APeerBftNodeId, ASender) shouldBe true
 
         state.unassociateSenderAndReturnEndpointIds(ASender) should contain theSameElementsAs Seq(
           APeerP2PEndpoint.id,
@@ -246,7 +246,7 @@ class P2PGrpcBidiConnectionStateTest extends AnyWordSpec with BftSequencerBaseTe
   }
 }
 
-object P2PGrpcBidiConnectionStateTest {
+object P2PGrpcConnectionStateTest {
 
   private val SelfBftNodeId = BftNodeId("1")
 

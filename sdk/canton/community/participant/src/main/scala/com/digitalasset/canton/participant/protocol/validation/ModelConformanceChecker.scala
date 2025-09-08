@@ -15,7 +15,6 @@ import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
   GetEngineAbortStatus,
@@ -39,11 +38,10 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.collection.MapsUtil
+import com.digitalasset.canton.util.{ContractAuthenticator, ErrorUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
-import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, LfValue, checked}
-import com.digitalasset.daml.lf
+import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 
@@ -60,7 +58,6 @@ import scala.concurrent.ExecutionContext
   */
 class ModelConformanceChecker(
     reinterpreter: HasReinterpret,
-    validateContract: ContractInstanceValidation,
     transactionTreeFactory: TransactionTreeFactory,
     participantId: ParticipantId,
     contractAuthenticator: ContractAuthenticator,
@@ -193,27 +190,6 @@ class ModelConformanceChecker(
     EitherT(resultFE)
   }
 
-  private def validateInputContracts(
-      view: TransactionView,
-      getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, GenContractInstance]] =
-    view.tryFlattenToParticipantViews
-      .flatMap(_.viewParticipantData.coreInputs)
-      .parTraverse { case (cid, InputContract(contract, _)) =>
-        val templateId = contract.templateId
-        validateContract(contract, getEngineAbortStatus, traceContext)
-          .leftMap {
-            case DAMLeFailure(error) =>
-              DAMLeError(error, view.viewHash): Error
-            case ContractMismatch(_, _) | ArgumentHashingFailure(_) =>
-              InvalidInputContract(cid, templateId, view.viewHash): Error
-          }
-          .map(_ => cid -> contract)
-      }
-      .map(_.toMap)
-
   private def buildPackageNameMap(
       packageIds: Set[PackageId]
   )(implicit
@@ -256,10 +232,15 @@ class ModelConformanceChecker(
       viewParticipantData.rootAction
 
     val seed = viewParticipantData.actionDescription.seedOption
-    for {
-      viewInputContracts <- validateInputContracts(view, getEngineAbortStatus)
 
-      contractAndKeyLookup = new ExtendedContractLookup(viewInputContracts, resolverFromView)
+    val inputContracts = view.tryFlattenToParticipantViews
+      .flatMap(_.viewParticipantData.coreInputs)
+      .map { case (cid, InputContract(contract, _)) => cid -> contract }
+      .toMap
+
+    val contractAndKeyLookup = new ExtendedContractLookup(inputContracts, resolverFromView)
+
+    for {
 
       packagePreference <- buildPackageNameMap(packageIdPreference)
 
@@ -281,7 +262,7 @@ class ModelConformanceChecker(
     } yield ConformanceReInterpretationResult(
       lfTxAndMetadata,
       contractAndKeyLookup,
-      viewInputContracts,
+      inputContracts,
     )
   }
 
@@ -419,7 +400,6 @@ object ModelConformanceChecker {
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker =
     new ModelConformanceChecker(
       damlE,
-      validateContractInstance(damlE),
       transactionTreeFactory,
       participantId,
       contractAuthenticator,
@@ -501,82 +481,6 @@ object ModelConformanceChecker {
             .leftMap(_.message)
         )
       } yield hash
-  }
-
-  private[validation] sealed trait ContractValidationFailure
-
-  private[validation] final case class DAMLeFailure(error: DAMLe.ReinterpretationError)
-      extends ContractValidationFailure
-
-  private[validation] final case class ArgumentHashingFailure(error: lf.crypto.Hash.HashingError)
-      extends ContractValidationFailure
-
-  private[validation] final case class ContractMismatch(
-      actual: LfNodeCreate,
-      expected: LfNodeCreate,
-  ) extends ContractValidationFailure
-
-  private type ContractInstanceValidation =
-    (
-        GenContractInstance,
-        GetEngineAbortStatus,
-        TraceContext,
-    ) => EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit]
-
-  def validateContractInstance(damlE: DAMLe)(
-      contract: GenContractInstance,
-      getEngineAbortStatus: GetEngineAbortStatus,
-      traceContext: TraceContext,
-  )(implicit
-      ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit] = {
-
-    // The upgrade friendly hash computes that same hash for both normalized and un-normalized values
-    def upgradeFriendlyHash(
-        arg: LfValue
-    ): EitherT[FutureUnlessShutdown, ContractValidationFailure, LfHash] =
-      EitherT.fromEither(
-        lf.crypto.Hash
-          .hashContractInstance(contract.inst.packageName, contract.templateId, arg)
-          .leftMap(ArgumentHashingFailure(_))
-      )
-
-    // The normalized equivalence of two values could be established by recursively comparing the two values
-    // ignoring trailing None where record values are encountered. As no such method is currently available in LF
-    // the equivalence is checked by checking the equality of he upgrade friendly hash
-    def normalizedEquivalence(
-        arg1: LfValue,
-        arg2: LfValue,
-    ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Boolean] =
-      for {
-        hash1 <- upgradeFriendlyHash(arg1)
-        hash2 <- upgradeFriendlyHash(arg2)
-      } yield hash1 == hash2
-
-    for {
-      actual <- damlE
-        .replayCreate(
-          contract.metadata.signatories,
-          LfCreateCommand(contract.templateId, contract.inst.createArg),
-          getEngineAbortStatus,
-        )(traceContext)
-        .leftMap(DAMLeFailure.apply)
-      expected: LfNodeCreate = contract.inst.toCreateNode.copy(
-        // Do not validate the contract id. The validation would fail due to mismatching seed.
-        // The contract id is already validated by contract id authentication,
-        // as contract is an input contract of the underlying transaction.
-        coid = actual.coid
-      )
-
-      // Since 3.3 all Create nodes contain normalized values. As the input value may have been created
-      // prior to 3.3 we need to check that the normalized representation of both arguments is equal.
-      argumentsEqual <- normalizedEquivalence(actual.arg, expected.arg)
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        actual == expected.copy(arg = actual.arg) && argumentsEqual,
-        (),
-        ContractMismatch(actual, expected): ContractValidationFailure,
-      )
-    } yield ()
   }
 
   sealed trait Error extends PrettyPrinting

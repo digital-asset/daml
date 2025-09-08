@@ -107,16 +107,20 @@ private[p2p] object P2PMetrics {
 
   def emitIdentityEquivocation(
       metrics: BftOrderingMetrics,
-      fromEndpointId: P2PEndpoint.Id,
+      maybeFromP2PEndpointId: Option[P2PEndpoint.Id],
       claimedBftNodeId: BftNodeId,
   )(implicit
       mc: MetricsContext
   ): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Endpoint -> fromEndpointId.url,
-        metrics.security.noncompliant.labels.Sequencer -> claimedBftNodeId,
-        metrics.security.noncompliant.labels.violationType.Key -> metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation,
+        (maybeFromP2PEndpointId
+          .map(metrics.security.noncompliant.labels.Endpoint -> _.url)
+          .toList ++
+          Seq(
+            metrics.security.noncompliant.labels.Sequencer -> (claimedBftNodeId: String),
+            metrics.security.noncompliant.labels.violationType.Key -> metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation.toString,
+          ))*
       )
     )
 }

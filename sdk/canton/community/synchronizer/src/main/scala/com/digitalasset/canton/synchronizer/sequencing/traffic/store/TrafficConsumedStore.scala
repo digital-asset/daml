@@ -9,6 +9,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.db.DbTrafficConsumedStore
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMemoryTrafficConsumedStore
 import com.digitalasset.canton.topology.Member
@@ -22,12 +23,19 @@ object TrafficConsumedStore {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       batchingConfig: BatchingConfig,
+      sequencerStore: SequencerStore,
   )(implicit executionContext: ExecutionContext): TrafficConsumedStore =
     storage match {
       case _: MemoryStorage =>
         new InMemoryTrafficConsumedStore(loggerFactory)
       case dbStorage: DbStorage =>
-        new DbTrafficConsumedStore(dbStorage, timeouts, loggerFactory, batchingConfig)
+        new DbTrafficConsumedStore(
+          dbStorage,
+          timeouts,
+          loggerFactory,
+          batchingConfig,
+          sequencerStore,
+        )
     }
 
 }

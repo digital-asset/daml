@@ -158,13 +158,19 @@ class NetworkSimulator(
   def scheduleEstablishConnection(
       from: BftNodeId,
       to: BftNodeId,
-      endpoint: PlainTextP2PEndpoint,
+      maybeP2PEndpoint: Option[PlainTextP2PEndpoint],
       p2pConnectionEventListener: P2PConnectionEventListener,
       traceContext: TraceContext,
   ): Unit = {
     val delay = settings.establishConnectionDelay.generateRandomDuration(random)
     agenda.addOne(
-      EstablishConnection(from, to, endpoint, p2pConnectionEventListener, traceContext),
+      EstablishConnection(
+        from,
+        to,
+        maybeP2PEndpoint,
+        p2pConnectionEventListener,
+        traceContext,
+      ),
       delay,
     )
   }
