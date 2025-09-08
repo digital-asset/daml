@@ -1795,6 +1795,7 @@ private[lf] object DecodeV2 {
       .toMap
       .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
 
+  //need to put at central place
   val stableIds: Seq[PackageId] =
     Seq(
       "54f85ebfc7dfae18f7d70370015dcc6c6792f60135ab369c44ae52c6fc17c274", // daml-prim
