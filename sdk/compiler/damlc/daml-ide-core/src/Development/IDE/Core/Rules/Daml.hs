@@ -31,8 +31,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
-import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion, featurePackageImports, supports )
--- import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor), supports, featurePackageImports, version2_dev )
+import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
@@ -444,7 +443,7 @@ generateSerializedDalfRule options =
                                                     (packageMetadataFromOptions options)
                                                     lfVersion
                                                     dalfDeps
-                                                    Nothing
+                                                    (Left $ LF.Trace "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule")
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -860,7 +859,7 @@ generatePackageImports =
       let imports = depsToIds pkgMap deps
       let hash :: BS.ByteString
           hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
-      return (Just hash, ([], Just (Just imports)))
+      return (Just hash, ([], Just (Right imports)))
 
 
 -- Generates a Daml-LF archive without adding serializability information

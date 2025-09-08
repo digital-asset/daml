@@ -167,9 +167,6 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
-decodeImports :: Maybe LF2.PackageImports -> Maybe PackageIds
-decodeImports = fmap (S.fromList . V.toList . V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages)
-
 decodeImports :: LF2.PackageImportsSum -> Either NoPkgImportsReason (V.Vector PackageId)
 decodeImports = \case
   LF2.PackageImportsSumNoImportedPackagesReason txt -> Left $ read $ TL.unpack txt
