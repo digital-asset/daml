@@ -51,12 +51,13 @@ newtype WhnfPackage = WhnfPackage { getWhnfPackage :: LF.Package }
     deriving Show
 
 instance NFData WhnfPackage where
-    rnf (WhnfPackage (LF.Package ver modules metadata)) =
-        modules `seq` rnf ver `seq` rnf metadata
+    rnf (WhnfPackage (LF.Package ver modules metadata imports)) =
+        modules `seq` rnf ver `seq` rnf metadata `seq` rnf imports
 
 type instance RuleResult GeneratePackage = WhnfPackage
 type instance RuleResult GenerateRawPackage = WhnfPackage
 type instance RuleResult GeneratePackageDeps = WhnfPackage
+type instance RuleResult GeneratePackageImports = Maybe LF.PackageIds
 
 newtype GeneratePackageMapFun = GeneratePackageMapFun (FilePath -> Action ([FileDiagnostic], Map UnitId LF.DalfPackage))
 instance Show GeneratePackageMapFun where show _ = "GeneratePackageMapFun"
@@ -128,7 +129,7 @@ type instance RuleResult GetScriptRoot = NormalizedFilePath
 type instance RuleResult GetOpenVirtualResources = HashSet VirtualResource
 
 -- | This is used for on-disk incremental builds
-type instance RuleResult ReadSerializedDalf = LF.Module
+type instance RuleResult ReadSerializedDalf = LF.ModuleWithImports
 -- | Read the interface and the summary. This rule has a cutoff on the ABI hash of the interface.
 -- It is important to get the modsummary from this rule rather than depending on the parsed module.
 -- Otherwise you will always recompile module B if B depends on A and A changed even if A’s ABI stayed
@@ -188,6 +189,12 @@ data GeneratePackageDeps = GeneratePackageDeps
 instance Binary   GeneratePackageDeps
 instance Hashable GeneratePackageDeps
 instance NFData   GeneratePackageDeps
+
+data GeneratePackageImports = GeneratePackageImports
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   GeneratePackageImports
+instance Hashable GeneratePackageImports
+instance NFData   GeneratePackageImports
 
 data GeneratePackageMap = GeneratePackageMap
     deriving (Eq, Show, Typeable, Generic)

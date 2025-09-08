@@ -86,6 +86,7 @@ ghcTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["GHC", "Types"]
@@ -110,6 +111,7 @@ ghcPrim version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["GHC", "Prim"]
@@ -140,6 +142,7 @@ daTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Types"]
@@ -188,6 +191,7 @@ ghcTuple version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["GHC", "Tuple"]
@@ -213,6 +217,7 @@ daInternalTemplate version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "Template"]
@@ -232,6 +237,7 @@ daInternalAny version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "Any"]
@@ -258,6 +264,7 @@ daInternalInterfaceAnyViewTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "Interface", "AnyView", "Types"]
@@ -299,6 +306,7 @@ daActionStateType version daTypesPackageId = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Action", "State", "Type"]
@@ -344,6 +352,7 @@ daRandomTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Random", "Types"]
@@ -374,6 +383,7 @@ daStackTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Stack", "Types"]
@@ -412,6 +422,7 @@ daTimeTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Time", "Types"]
@@ -438,6 +449,7 @@ daNonEmptyTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "NonEmpty", "Types"]
@@ -467,6 +479,7 @@ daDateTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Date", "Types"]
@@ -510,6 +523,7 @@ daSemigroupTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Semigroup", "Types"]
@@ -539,6 +553,7 @@ daMonoidTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Monoid", "Types"]
@@ -583,6 +598,7 @@ daValidationTypes version nonEmptyPkgId = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
@@ -617,6 +633,7 @@ daLogicTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Logic", "Types"]
@@ -655,6 +672,7 @@ daInternalDown version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "Down"]
@@ -681,6 +699,7 @@ daSetTypes version = Package
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
         }
+    , importedPackages = Nothing
     }
   where
     modName = mkModName ["DA", "Set", "Types"]
@@ -707,6 +726,7 @@ daInternalErased version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "Erased"]
@@ -727,6 +747,7 @@ daInternalNatSyn version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "NatSyn"]
@@ -746,6 +767,7 @@ daInternalPromotedText version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "PromotedText"]
@@ -779,6 +801,7 @@ builtinExceptionPackage version name = Package
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
         }
+    , importedPackages = Nothing
     }
   where
     modName = mkModName ["DA", "Exception", name]
@@ -846,6 +869,7 @@ daInternalFailTypes version = Package
       , packageVersion = PackageVersion "1.0.0"
       , upgradedPackageId = Nothing
       }
+  , importedPackages = Nothing
   }
   where
     modName = mkModName ["DA", "Internal", "Fail", "Types"]
