@@ -16,8 +16,6 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error
-import com.digitalasset.daml.lf.language.Util
-import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import com.digitalasset.daml.lf.{VersionRange, language, validation}
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
@@ -296,79 +294,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
               "transitiveDependencies" -> transitiveDependencies,
               "missingDependencies" -> missingDependencies,
               "extraDependencies" -> extraDependencies,
-            ),
-          )
-    }
-
-    @Explanation(
-      """This error indicates that the uploaded Dar is invalid because it doesn't upgrade the packages it claims to upgrade."""
-    )
-    @Resolution("Contact the supplier of the Dar.")
-    object Upgradeability
-        extends ErrorCode(
-          id = "DAR_NOT_VALID_UPGRADE",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(
-          oldPackage: Util.PkgIdWithNameAndVersion,
-          newPackage: Util.PkgIdWithNameAndVersion,
-          upgradeError: UpgradeError,
-          phase: TypecheckUpgrades.UploadPhaseCheck,
-      )(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends ContextualizedDamlError(cause = phase match {
-            case TypecheckUpgrades.MaximalDarCheck =>
-              s"Upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${upgradeError.prettyInternal}"
-            case TypecheckUpgrades.MinimalDarCheck =>
-              s"Upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${upgradeError.prettyInternal}"
-          })
-    }
-
-    @Explanation(
-      """This error indicates that a package with name daml-prim that isn't a utility package was uploaded. All daml-prim packages should be utility packages.""""
-    )
-    @Resolution("Contact the supplier of the Dar.")
-    object UpgradeDamlPrimIsNotAUtilityPackage
-        extends ErrorCode(
-          id = "DAML_PRIM_NOT_UTILITY_PACKAGE",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(
-          uploadedPackage: Util.PkgIdWithNameAndVersion
-      )(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends ContextualizedDamlError(
-            cause =
-              s"Tried to upload a package $uploadedPackage, but this package is not a utility package. All packages named `daml-prim` must be a utility package.",
-            extraContext = Map(
-              "uploadedPackage" -> uploadedPackage
-            ),
-          )
-    }
-
-    @Explanation(
-      """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
-    )
-    @Resolution("Inspect the error message and contact support.")
-    object UpgradeVersion
-        extends ErrorCode(
-          id = "KNOWN_DAR_VERSION",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
-      final case class Error(
-          uploadedPackage: Util.PkgIdWithNameAndVersion,
-          existingPackage: Ref.PackageId,
-          packageVersion: Ref.PackageVersion,
-      )(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends ContextualizedDamlError(
-            cause =
-              s"Tried to upload package $uploadedPackage, but a different package $existingPackage with the same name and version has previously been uploaded.",
-            extraContext = Map(
-              "uploadedPackageId" -> uploadedPackage,
-              "existingPackage" -> existingPackage,
-              "packageVersion" -> packageVersion.toString,
             ),
           )
     }

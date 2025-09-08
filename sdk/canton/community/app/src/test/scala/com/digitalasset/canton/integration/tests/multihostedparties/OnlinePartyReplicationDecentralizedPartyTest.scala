@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
 import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.LocalInstanceReference
@@ -34,7 +35,6 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{config, integration}
 import monocle.macros.syntax.lens.*
 
 import scala.concurrent.Promise
@@ -135,51 +135,11 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     partyOwners = Seq[LocalInstanceReference](sequencer1, mediator1, participant3)
     decentralizedParty = createDecentralizedParty("decentralized-party", partyOwners)
 
-    (partyOwners :+ participant1).foreach(
-      _.topology.party_to_participant_mappings
-        .propose(
-          party = decentralizedParty,
-          newParticipants = Seq((participant1, ParticipantPermission.Submission)),
-          threshold = PositiveInt.one,
-          store = daId,
-        )
-    )
-
-    previousSerial = eventually() {
-      val ptpSourceOnly = participant2.topology.party_to_participant_mappings
-        .list(daId, filterParty = decentralizedParty.filterString)
-        .loneElement
-      ptpSourceOnly.item.participants.map(_.participantId) should contain theSameElementsAs Seq(
-        participant1.id
-      )
-      ptpSourceOnly.context.serial
-    }
-
-    // Wait until decentralized party is visible via the ledger api on participant1 to ensure that
-    // the coin submissions succeed.
-    eventually() {
-      val partiesOnP1 = participant1.ledger_api.parties.list().map(_.party)
-      partiesOnP1 should contain(decentralizedParty)
-    }
-
-    logger.info(
-      s"Decentralized party created and hosted on source participant $participant1 with serial $previousSerial"
-    )
-
-    // Issue a ping to ensure that the RoutingSynchronizerState does not pick a stale
-    // topology snapshot that does not yet know about the decentralized party (#25474).
-    participant1.health.ping(participant1)
-
-    CoinFactoryHelpers.createCoinsFactory(
+    previousSerial = hostDecentralizedPartyWithCoins(
       decentralizedParty,
-      participant1.adminParty,
+      partyOwners,
       participant1,
-    )
-
-    CoinFactoryHelpers.createCoins(
-      owner = participant1.adminParty,
-      participant = participant1,
-      amounts = (1 to numContractsInCreateBatch).map(_.toDouble),
+      numContractsInCreateBatch,
     )
 
     val amounts = (1 to numContractsInCreateBatch)
@@ -305,40 +265,6 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       )
       coinsAtTargetParticipant.size shouldBe numContractsInCreateBatch
     }
-  }
-
-  private def createDecentralizedParty(
-      name: String,
-      owners: Seq[LocalInstanceReference],
-  )(implicit env: integration.TestConsoleEnvironment): PartyId = {
-    import env.*
-
-    val dndResponses =
-      owners.map(node =>
-        node.topology.decentralized_namespaces.propose_new(
-          owners = owners.map(_.namespace).toSet,
-          threshold = PositiveInt.tryCreate(owners.size),
-          store = daId,
-          serial = Some(PositiveInt.one),
-        )
-      )
-    val decentralizedNamespace = dndResponses.head.mapping
-
-    logger.info(
-      s"Decentralized namespace ${decentralizedNamespace.namespace} responses: ${dndResponses.mkString(", ")}"
-    )
-
-    owners.foreach { owner =>
-      utils.retry_until_true(
-        owner.topology.decentralized_namespaces
-          .list(daId, filterNamespace = decentralizedNamespace.namespace.filterString)
-          .exists(_.context.signedBy.forgetNE.toSet == owners.map(_.fingerprint).toSet)
-      )
-    }
-
-    logger.info(s"Decentralized namespace ${decentralizedNamespace.namespace} authorized")
-
-    PartyId.tryCreate(name, decentralizedNamespace.namespace)
   }
 }
 

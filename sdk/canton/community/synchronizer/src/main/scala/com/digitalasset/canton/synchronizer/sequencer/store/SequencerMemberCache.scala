@@ -17,7 +17,7 @@ class SequencerMemberCache(
     populate: Traced[Member] => FutureUnlessShutdown[Option[RegisteredMember]]
 )(implicit
     executionContext: ExecutionContext
-) {
+) extends AutoCloseable {
   // Using a AsyncLoadingCache seemed to be problematic with ScalaTest and it would rarely not read-through even if empty
   private val cache: Cache[Member, RegisteredMember] = Scaffeine()
     .executor(executionContext.execute(_))
@@ -42,4 +42,9 @@ class SequencerMemberCache(
   }
 
   def invalidate(member: Member): Unit = cache.invalidate(member)
+
+  override def close(): Unit = {
+    cache.invalidateAll()
+    cache.cleanUp()
+  }
 }

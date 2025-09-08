@@ -257,5 +257,11 @@ class IndexedStringCache(
   ): FutureUnlessShutdown[Int] =
     str2Index.get((str, dbTyp))
 
-  override def close(): Unit = parent.close()
+  override def close(): Unit = {
+    str2Index.invalidateAll()
+    str2Index.cleanUp()
+    index2strFUS.invalidateAll()
+    index2strFUS.cleanUp()
+    parent.close()
+  }
 }

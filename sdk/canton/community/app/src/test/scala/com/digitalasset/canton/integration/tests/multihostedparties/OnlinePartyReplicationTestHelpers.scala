@@ -6,11 +6,17 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.console.ParticipantReference
+import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.multihostedparties.OnlinePartyReplicationTestHelpers.PreparedOnPRSetup
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.transaction.{
+  ParticipantPermission,
+  PartyToParticipant,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+}
 import com.digitalasset.canton.{BaseTest, integration}
 
 import scala.concurrent.duration.*
@@ -67,6 +73,143 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
 
   /** Wait for 5 seconds to ensure the disruption produces a noticed "outage" longer than a blip */
   protected def sleepLongEnoughForDisruptionToBeNoticed(): Unit = Threading.sleep(5000)
+
+  /** Create a party in a decentralized namespace owned by the specified owners.
+    */
+  protected def createDecentralizedParty(
+      partyName: String,
+      owners: Seq[InstanceReference],
+  )(implicit env: integration.TestConsoleEnvironment): PartyId = {
+    import env.*
+
+    val dndResponses =
+      owners.map(node =>
+        node.topology.decentralized_namespaces.propose_new(
+          owners = owners.map(_.namespace).toSet,
+          threshold = PositiveInt.tryCreate(owners.size),
+          store = daId,
+          serial = Some(PositiveInt.one),
+        )
+      )
+    val decentralizedNamespace = dndResponses.head.mapping
+
+    logger.info(
+      s"Decentralized namespace ${decentralizedNamespace.namespace} responses: ${dndResponses.mkString(", ")}"
+    )
+
+    owners.foreach { owner =>
+      utils.retry_until_true(
+        owner.topology.decentralized_namespaces
+          .list(daId, filterNamespace = decentralizedNamespace.namespace.filterString)
+          .exists(_.context.signedBy.forgetNE.toSet == owners.map(_.fingerprint).toSet)
+      )
+    }
+
+    logger.info(s"Decentralized namespace ${decentralizedNamespace.namespace} authorized")
+
+    PartyId.tryCreate(partyName, decentralizedNamespace.namespace)
+  }
+
+  /** Host a decentralized party on the specified participant waiting until all participants see it,
+    * and issue the specified number of coins to the decentralized party. Returns the topology
+    * serial after the party has been hosted.
+    */
+  protected def hostDecentralizedPartyWithCoins(
+      decentralizedParty: PartyId,
+      partyOwners: Seq[InstanceReference],
+      participantHostDp: ParticipantReference,
+      numCoins: Int,
+  )(implicit env: integration.TestConsoleEnvironment): PositiveInt = {
+    import env.*
+    (partyOwners :+ participantHostDp).foreach(
+      _.topology.party_to_participant_mappings
+        .propose(
+          party = decentralizedParty,
+          newParticipants = Seq((participantHostDp, ParticipantPermission.Submission)),
+          threshold = PositiveInt.one,
+          store = daId,
+        )
+    )
+
+    // Wait until all participants see the party hosted on the expected participant.
+    val serial = eventually() {
+      participants.all
+        .map { p =>
+          val ptp = p.topology.party_to_participant_mappings
+            .list(daId, filterParty = decentralizedParty.filterString)
+            .loneElement
+          ptp.item.participants.map(_.participantId) should contain theSameElementsAs Seq(
+            participantHostDp.id
+          )
+          ptp.context.serial
+        }
+        .toSet
+        .loneElement
+    }
+
+    // Wait until decentralized party is visible via the ledger api on the expected participant
+    // to ensure that the coin submissions succeed.
+    eventually() {
+      val partiesOnP1 = participantHostDp.ledger_api.parties.list().map(_.party)
+      partiesOnP1 should contain(decentralizedParty)
+    }
+
+    logger.info(s"Decentralized party hosted on participant $participantHostDp with serial $serial")
+
+    // Issue a ping to ensure that the RoutingSynchronizerState does not pick a stale
+    // topology snapshot that does not yet know about the decentralized party (#25474).
+    participantHostDp.health.ping(participantHostDp)
+
+    CoinFactoryHelpers.createCoinsFactory(
+      decentralizedParty,
+      participantHostDp.adminParty,
+      participantHostDp,
+    )
+
+    CoinFactoryHelpers.createCoins(
+      owner = participantHostDp.adminParty,
+      participant = participantHostDp,
+      amounts = (1 to numCoins).map(_.toDouble),
+    )
+
+    serial
+  }
+
+  /** Helper to modify the PartyToParticipant topology in contexts in which only the party owners
+    * need to approve.
+    */
+  protected def modifyDecentralizedPartyTopology(
+      decentralizedParty: PartyId,
+      partyOwners: Seq[InstanceReference],
+      propose: (
+          InstanceReference,
+          PartyToParticipant,
+          PositiveInt,
+      ) => SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant],
+      verifyBeforeAfter: (PartyToParticipant, PartyToParticipant) => Unit,
+  )(implicit env: integration.TestConsoleEnvironment): PositiveInt = {
+    import env.*
+    val ptpCurrent = partyOwners.head.topology.party_to_participant_mappings
+      .list(daId, filterParty = decentralizedParty.filterString)
+      .loneElement
+    val serial = ptpCurrent.context.serial.increment
+
+    partyOwners.foreach(propose(_, ptpCurrent.item, serial).discard)
+
+    eventually() {
+      partyOwners.foreach(po =>
+        verifyBeforeAfter(
+          ptpCurrent.item,
+          po.topology.party_to_participant_mappings
+            .list(daId, filterParty = decentralizedParty.filterString)
+            .loneElement
+            .item,
+        )
+      )
+    }
+
+    serial
+  }
 
   /** Wait until online party replication completes on the source and target participants with the
     * expected number of replicated contracts on the specified request.

@@ -1613,4 +1613,9 @@ class DbSequencerStore(
 
     storage.query(query, functionFullName).map(_.headOption.flatMap(_._2))
   }
+
+  override def onClosed(): Unit = {
+    payloadCache.invalidateAll()
+    payloadCache.cleanUp()
+  }
 }

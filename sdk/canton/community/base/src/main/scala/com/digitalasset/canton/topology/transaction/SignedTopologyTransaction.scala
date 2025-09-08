@@ -254,6 +254,19 @@ object SignedTopologyTransaction
     isProposal = isProposal,
   )(protocolVersionRepresentativeFor(protocolVersion))
 
+  def withSignature[Op <: TopologyChangeOp, M <: TopologyMapping](
+      transaction: TopologyTransaction[Op, M],
+      signature: Signature,
+      isProposal: Boolean,
+      protocolVersion: ProtocolVersion,
+  ): SignedTopologyTransaction[Op, M] =
+    withSignatures(
+      transaction,
+      NonEmpty.mk(Seq, signature),
+      isProposal = isProposal,
+      protocolVersion,
+    )
+
   def withSignatures[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signatures: NonEmpty[Seq[Signature]],

@@ -297,6 +297,14 @@ object Error {
 
       final case class TransactionInputContracts(limit: Int) extends Error
     }
+
+    sealed case class Cost(error: Cost.Error) extends Error
+
+    object Cost {
+      sealed abstract class Error extends Serializable with Product
+
+      final case class BudgetExceeded(cause: String) extends Error
+    }
   }
 
 }

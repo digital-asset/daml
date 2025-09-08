@@ -93,8 +93,9 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
           _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(10)),
         )
 
-        participants.local.foreach(_.start())
+        participants.local.start()
         participants.local.synchronizers.connect_local(sequencer1, daName)
+        participants.all.dars.upload(CantonExamplesPath)
         alice = participant1.parties.enable(
           aliceName,
           synchronizeParticipants = Seq(participant2),
@@ -354,7 +355,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
   }
 }
 
-class OnlinePartyReplicationParticipantProtocolTestPostgres
+final class OnlinePartyReplicationParticipantProtocolTestPostgres
     extends OnlinePartyReplicationParticipantProtocolTest {
   registerPlugin(new UsePostgres(loggerFactory))
 }

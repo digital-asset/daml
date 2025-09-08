@@ -21,7 +21,7 @@ class LfEnricherSpec extends AnyWordSpec with BaseTest {
     "remove trailing None fields when enriching values" in {
 
       val testEngine = new TestEngine(Seq(CantonExamplesPath))
-      val underTest = LfEnricher(testEngine.engine, forbidLocalContractIds = false)
+      val underTest = LfEnricher(testEngine.engine, requireContractIdSuffix = false)
 
       val alice = "alice"
       val command = new TrailingNone(alice, Optional.empty()).create.commands.loneElement

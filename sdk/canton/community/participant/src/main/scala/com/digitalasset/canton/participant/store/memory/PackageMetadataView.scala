@@ -145,6 +145,30 @@ class MutablePackageMetadataViewImpl(
       }
 }
 
+object MutablePackageMetadataViewImpl {
+  def createAndInitialize(
+      clock: Clock,
+      damlPackageStore: DamlPackageStore,
+      loggerFactory: NamedLoggerFactory,
+      packageMetadataViewConfig: PackageMetadataViewConfig,
+      timeouts: ProcessingTimeout,
+  )(implicit
+      actorSystem: ActorSystem,
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[MutablePackageMetadataViewImpl] = {
+    val mutablePackageMetadataView =
+      new MutablePackageMetadataViewImpl(
+        clock,
+        damlPackageStore,
+        loggerFactory,
+        packageMetadataViewConfig,
+        timeouts,
+      )
+    mutablePackageMetadataView.refreshState.map(_ => mutablePackageMetadataView)
+  }
+}
+
 object NoopPackageMetadataView extends MutablePackageMetadataView {
   override def refreshState(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.unit

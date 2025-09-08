@@ -802,11 +802,8 @@ class AcsCommitmentProcessorTest
       contracts: Map[LfContractId, ReassignmentCounter]
   ): AcsCommitment.CommitmentType = {
     val h = LtHash16()
-    contracts.keySet.foreach { cid =>
-      h.add(
-        (cid.encodeDeterministically
-          concat ReassignmentCounter.encodeDeterministically(contracts(cid))).toByteArray
-      )
+    contracts.foreach { case (cid, reassignmentCounter) =>
+      AcsCommitmentProcessor.addContractToCommitmentDigest(h, cid, reassignmentCounter)
     }
     h.getByteString()
   }

@@ -204,8 +204,8 @@ private[lf] object SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
       assert(args.length == builtin.arity)
       val actuals = args.map(_.lookupValue(machine))
-      val v = builtin.executePure(actuals)
-      machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
+      val v = builtin.executePure(actuals, machine)
+      machine.pushEnv(v)
       Control.Expression(body)
     }
   }
@@ -221,7 +221,7 @@ private[lf] object SExpr {
       val actuals = args.map(_.lookupValue(machine))
       builtin.compute(actuals) match {
         case Some(value) =>
-          machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated
+          machine.pushEnv(value)
           Control.Expression(body)
         case None =>
           machine.handleException(builtin.buildException(machine, actuals))

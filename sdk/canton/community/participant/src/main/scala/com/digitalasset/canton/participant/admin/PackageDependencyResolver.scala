@@ -116,5 +116,9 @@ class PackageDependencyResolver(
 
   }
 
-  override def onClosed(): Unit = LifeCycle.close(damlPackageStore)(logger)
+  override def onClosed(): Unit = {
+    dependencyCache.invalidateAll()
+    dependencyCache.cleanUp()
+    LifeCycle.close(damlPackageStore)(logger)
+  }
 }

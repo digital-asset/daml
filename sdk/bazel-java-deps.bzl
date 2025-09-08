@@ -45,6 +45,7 @@ protobuf_version = "3.25.5"
 pekko_version = "1.1.5"
 pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
+upickle_version = "4.1.0"
 ujson_version = "4.0.2"
 
 guava_version = "33.3.0-jre"
@@ -103,7 +104,9 @@ def install_java_deps():
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:ujson-circe_{}:{}".format(scala_major_version, ujson_version),
             "com.lihaoyi:ujson_{}:{}".format(scala_major_version, ujson_version),
-            "com.lihaoyi:upickle-core_{}:{}".format(scala_major_version, ujson_version),
+            "com.lihaoyi:upickle_{}:{}".format(scala_major_version, upickle_version),
+            "com.lihaoyi:upickle-core_{}:{}".format(scala_major_version, upickle_version),
+            "com.lihaoyi:upickle-implicits_{}:{}".format(scala_major_version, upickle_version),
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.18.0.0",
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
             "com.softwaremill.sttp.apispec:asyncapi-circe-yaml_{}:{}".format(scala_major_version, apispec_version),

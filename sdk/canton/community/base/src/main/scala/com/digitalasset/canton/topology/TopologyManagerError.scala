@@ -34,7 +34,8 @@ import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Util
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 sealed trait TopologyManagerError extends ContextualizedCantonError
@@ -54,6 +55,14 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"Assumption violation: $description"
+        )
+        with TopologyManagerError
+
+    final case class Unhandled(description: String, throwable: Throwable)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Unhandled error: $description",
+          throwableO = Some(throwable),
         )
         with TopologyManagerError
 
@@ -888,7 +897,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_DEPENDENCIES_NOT_VETTED",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Reject(unvetted: Set[PackageId])(implicit
+      final case class Reject(unvetted: Set[Ref.PackageId])(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause = "Package vetting failed due to dependencies not being vetted"
@@ -910,7 +919,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_CANNOT_VET_DUE_TO_MISSING_PACKAGES",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Missing(packages: PackageId)(implicit
+      final case class Missing(packages: Ref.PackageId)(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause = "Package vetting failed due to packages not existing on the local node"
@@ -927,7 +936,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
       final case class Reject(
-          used: PackageId,
+          used: Ref.PackageId,
           contract: ContractId,
           synchronizerId: SynchronizerId,
       )(implicit
@@ -1050,5 +1059,76 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           with TopologyManagerError
     }
 
+    @Explanation(
+      "This error indicates that the package to be vetted is invalid because it doesn't upgrade the vetted packages it claims to upgrade."
+    )
+    @Resolution(
+      "Contact the supplier of the DAR or ensure the vetting state change does not lead to simultaneously-vetted upgrade-incompatible packages."
+    )
+    object Upgradeability
+        extends ErrorCode(
+          id = "NOT_VALID_UPGRADE_PACKAGE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(
+          oldPackage: Util.PkgIdWithNameAndVersion,
+          newPackage: Util.PkgIdWithNameAndVersion,
+          upgradeError: String,
+          // as opposed to a downgrade check, where the new package is a downgrade of the old one
+          isUpgradeCheck: Boolean,
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            if (isUpgradeCheck) {
+              s"Upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: $upgradeError"
+            } else {
+              s"Upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: $upgradeError"
+            }
+          )
+          with TopologyManagerError
+    }
+
+    @Explanation(
+      "This error indicates that a package with name `daml-prim` or `daml-std-lib` that isn't a utility package was being vetted. All `daml-prim` and `daml-std-lib` packages should be utility packages."
+    )
+    @Resolution("Contact the supplier of the Dar.")
+    object UpgradeDamlPrimIsNotAUtilityPackage
+        extends ErrorCode(
+          id = "DAML_PRIM_NOT_UTILITY_PACKAGE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(
+          packageToBeVetted: Util.PkgIdWithNameAndVersion
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Tried to vet a package $packageToBeVetted, but this package is not a utility package. All packages named `daml-prim` or `daml-std-lib` must be a utility package."
+          )
+          with TopologyManagerError
+    }
+
+    @Explanation(
+      "This error indicates that the upgrade checks failed on a package because another package with the same name and version has been previously vetted."
+    )
+    @Resolution("Inspect the error message and contact support.")
+    object UpgradeVersion
+        extends ErrorCode(
+          id = "KNOWN_PACKAGE_VERSION",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
+      final case class Error(
+          newPackage: Util.PkgIdWithNameAndVersion,
+          existingPackage: Ref.PackageId,
+          packageVersion: Ref.PackageVersion,
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Tried to vet a package $newPackage, but a different package $existingPackage with the same name and version has previously been vetted."
+          )
+          with TopologyManagerError
+    }
   }
 }

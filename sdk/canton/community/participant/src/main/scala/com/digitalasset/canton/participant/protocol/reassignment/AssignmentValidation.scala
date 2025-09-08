@@ -309,7 +309,7 @@ object AssignmentValidation {
       cryptoSnapshotTargetTs <- reassignmentCoordination
         .cryptoSnapshot(
           /*
-          `targetPSId` can differ from `unassignmentData.targetPSId` in the target synchronizer is upgraded
+          `targetPSId` can differ from `unassignmentData.targetPSId` if the target synchronizer is upgraded
           between unassignment and assignment.
            */
           targetPSId,

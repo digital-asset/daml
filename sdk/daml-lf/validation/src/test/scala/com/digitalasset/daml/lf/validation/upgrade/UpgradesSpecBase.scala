@@ -74,7 +74,7 @@ trait LongTests { this: UpgradesSpec =>
       testPackagePair(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v1.dar",
-        assertDuplicatePackageUpload(),
+        (r1, r2) => (_: String) => assertDuplicatePackageUpload(r1, r2),
       )
     }
 
@@ -92,9 +92,7 @@ trait LongTests { this: UpgradesSpec =>
       testPackagePair(
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
-        assertPackageUploadVersionFailure(
-          "1.0.0"
-        ),
+        assertPackageUploadVersionFailure,
       )
     }
 
@@ -110,7 +108,7 @@ trait LongTests { this: UpgradesSpec =>
           case None => fail("daml-prim should not succeed")
           case Some(err) => {
             err.toString should include(
-              s"Tried to upload a package $pkgId (daml-prim v0.0.0), but this package is not a utility package. All packages named `daml-prim` must be a utility package."
+              s"Tried to vet a package $pkgId (daml-prim v0.0.0), but this package is not a utility package. All packages named `daml-prim` or `daml-std-lib` must be a utility package."
             )
           }
         }
@@ -249,17 +247,13 @@ abstract class UpgradesSpec(val suffix: String)
     }
   }
 
-  def assertDuplicatePackageUpload()(
+  def assertDuplicatePackageUpload(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
-  )(cantonLogSrc: String): Assertion = {
+  ): Assertion = {
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     uploadV1Result should be(empty)
-    filterLog(cantonLogSrc, testPackageV2Id) should include regex (
-      s"Ignoring upload of package $testPackageV2Id \\(.*\\) as it has been previously uploaded"
-    )
-    uploadV2Result should be(empty)
     uploadV2Result should be(empty)
   }
 
@@ -268,7 +262,7 @@ abstract class UpgradesSpec(val suffix: String)
       @annotation.unused v2: (PackageId, Option[Throwable]),
   )(@annotation.unused cantonLogSrc: String): Assertion = succeed
 
-  def assertPackageUploadVersionFailure(packageVersion: String)(
+  def assertPackageUploadVersionFailure(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion = {
@@ -280,15 +274,15 @@ abstract class UpgradesSpec(val suffix: String)
       case _ => {}
     }
     cantonLogSrc should include regex (
-      s"KNOWN_DAR_VERSION\\(.+,.+\\): Tried to upload package $testPackageV2Id \\(.*\\), but a different package $testPackageV1Id with the same name and version has previously been uploaded. err-context:\\{existingPackage=$testPackageV1Id, location=.+, packageVersion=$packageVersion, uploadedPackageId=$testPackageV2Id \\(.*\\)\\}"
+      s"KNOWN_PACKAGE_VERSION\\(.+,.+\\): Tried to vet a package $testPackageV2Id \\(.*\\), but a different package $testPackageV1Id with the same name and version has previously been vetted."
     )
     uploadV2Result match {
       case None =>
         fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
       case Some(err) => {
         val msg = err.toString
-        msg should include("INVALID_ARGUMENT: KNOWN_DAR_VERSION")
-        msg should include regex (s"KNOWN_DAR_VERSION\\(.+,.+\\): Tried to upload package $testPackageV2Id \\(.*\\), but a different package $testPackageV1Id with the same name and version has previously been uploaded.")
+        msg should include("INVALID_ARGUMENT: KNOWN_PACKAGE_VERSION")
+        msg should include regex (s"KNOWN_PACKAGE_VERSION\\(.+,.+\\): Tried to vet a package $testPackageV2Id \\(.*\\), but a different package $testPackageV1Id with the same name and version has previously been vetted.")
       }
     }
   }

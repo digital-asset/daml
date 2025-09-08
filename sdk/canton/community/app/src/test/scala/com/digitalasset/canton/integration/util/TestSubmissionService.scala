@@ -429,7 +429,7 @@ object TestSubmissionService {
     val keyResolver = customKeyResolver.getOrElse(ActiveKeyResolver(participant))
 
     val packageResolver: PackageResolver = id =>
-      tc => participantNode.sync.packageService.value.getPackage(id)(tc)
+      tc => participantNode.sync.packageService.getPackage(id)(tc)
 
     val loggerFactory = participantNode.loggerFactory
 

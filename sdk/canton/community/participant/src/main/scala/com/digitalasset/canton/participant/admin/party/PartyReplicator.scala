@@ -838,18 +838,20 @@ final class PartyReplicator(
             .get(requestId)
             .toRight(s"Unknown party replication $requestId")
         )
-        newStatus <- EitherT.fromEither[FutureUnlessShutdown](status match {
+        newStatusO <- EitherT.fromEither[FutureUnlessShutdown](status match {
           case ce: PartyReplicationStatus.ConnectionEstablished =>
-            Right(PartyReplicationStatus.Disconnected(message, ce))
+            Right(Some(PartyReplicationStatus.Disconnected(message, ce)))
           case ra: PartyReplicationStatus.ReplicatingAcs =>
-            Right(PartyReplicationStatus.Disconnected(message, ra))
+            Right(Some(PartyReplicationStatus.Disconnected(message, ra)))
+          case PartyReplicationStatus.Error(_, _) =>
+            Right(None)
           case unexpectedStatus =>
             Left(
-              s"Party replication $requestId status ${unexpectedStatus.code} not expected upon channel disconnect"
-            ): Either[String, PartyReplicationStatus.ConnectedPartyReplicationStatus]
+              s"Party replication $requestId status $unexpectedStatus not expected upon channel disconnect"
+            ): Either[String, Option[PartyReplicationStatus.ConnectedPartyReplicationStatus]]
         })
       } yield {
-        partyReplications.put(requestId, newStatus).discard
+        newStatusO.foreach(partyReplications.put(requestId, _).discard)
       }
     }
   }

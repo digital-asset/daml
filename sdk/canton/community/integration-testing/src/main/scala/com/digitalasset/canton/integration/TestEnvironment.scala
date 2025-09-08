@@ -72,14 +72,15 @@ trait TestEnvironment
       NoReportingTracerProvider,
     )(executionContext, TraceContext.empty)
 
-  private lazy val crypto: Crypto =
+  // TODO(#27482) Make private (allow to import keys, see `importExternalPartyPrivateKeys`)
+  lazy val envCrypto: Crypto =
     Await
       .result(cryptoET.value, environmentTimeouts.unbounded.duration)
       .onShutdown(raiseError("Cannot create Crypto during shutdown"))
       .valueOr(err => raiseError(s"Cannot create Crypto: $err"))
 
   implicit def toParticipantWithExternalParties(p: ParticipantReference): ExternalPartiesCommands =
-    new ExternalPartiesCommands(p, crypto, this, loggerFactory)
+    new ExternalPartiesCommands(p, envCrypto, this, loggerFactory)
 }
 
 trait EnvironmentTestHelpers {

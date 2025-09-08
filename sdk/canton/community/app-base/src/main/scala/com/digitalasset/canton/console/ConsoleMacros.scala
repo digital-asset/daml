@@ -34,7 +34,6 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
@@ -971,94 +970,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       // finally, initialize "newSequencer"
       newSequencer.setup.assign_from_onboarding_state(onboardingState).discard
-    }
-  }
-
-  object commitments extends Helpful {
-    // TODO(#9557) R2
-    @Help.Summary(
-      "Inspect ACS commitment mismatch as part of the reconciliation protocol.",
-      FeatureFlag.Preview,
-    )
-    @Help.Description(
-      """ Inspect commitment mismatch between computed local commitment and received commitment from counter-participant.
-        | Writes to files the contracts that cause the mismatch and the transactions that activated them.
-        | Assumes that the console is connected to both participants that observed the mismatch.
-        | The commands outputs an error if the counter-participant sent several commitments for the same interval end
-        | and synchronizer, because, e.g., it executed a repair command in the meantime and it cannot retrieve the data for the
-        | given commitment anymore.
-        | The arguments are:
-        | - synchronizerId: The synchronizer where the mismatch occurred
-        | - mismatchTimestamp: The synchronizer timestamp of the commitment mismatch. Needs to correspond to a commitment tick.
-        | - targetParticipant: The participant that reported the mismatch and wants to fix it on its side.
-        | - counterParticipant: The counter participant that sent the mismatching commitment, and with which we interact
-        |   to retrieve the mismatching contracts.
-        | - timeout: Time limit for each streaming grpc calls in the command to complete.
-        |   Optional argument. If not given, the time is unbounded.
-        | - integrityChecks: If true, the command performs additional checks:
-        |    - check that, at the given mismatch timestamp, the participant's own commitment and received
-        |    counterCommitment indeed mismatch
-        |    - check that the received contract metadata matches the counterCommitment
-        | - binaryOutputFile: File where to write the mismatch information in binary format. This can be passed to the
-        | command reconciling the mismatch. The mismatch information has the type CommitmentInspectContracts.
-        |   Optional argument. If not given, the default file name on the console is used.
-        | - readableOutputFile: File where to write the mismatch information in human-readable format. This file can
-        | be edited by users to indicate how to fix mismatches: keep, delete, etc. The data type is CommitmentMismatchInfo
-        | written in json format.
-        | Optional argument. If not given, the default file name on the console is used.""".stripMargin
-    )
-    def inspect_acs_commitment_mismatch(
-        synchronizerId: SynchronizerId,
-        mismatchTimestamp: CantonTimestamp,
-        targetParticipant: ParticipantReference,
-        // TODO(#20583) Pass only the ParticipantId and change to participant-to-participant communication when available.
-        counterParticipant: ParticipantReference,
-        timeout: Option[NonNegativeDuration] = None,
-        integrityChecks: Boolean = true,
-        binaryOutputFile: Option[String] = None,
-        readableOutputFile: Option[String] = None,
-    ): Unit = {
-
-      // TODO(#9557) 0. If integrityChecks is true, check that, at the given mismatch timestamp, the target
-      //  participant's own commitment and received counterCommitment indeed mismatch
-      //  We read these commitment from the target participant's store using R5 endpoints
-
-      // TODO(#9557) 1. Downloading the shared contract metadata from counter-participant:
-      // val counterParticipantCmtMetadata = counterParticipant.commitments.open_commitment(...)
-
-      // TODO(#9557) 2. If integrityChecks is true, check that the contract metadata sent matches the counter commitment
-      //  by uploading the contract metadata to the target participant.
-      //  The retrieved data might be insufficient for the check, because for example the target participant has never
-      //  seen some of the received cids, therefore it does not know the stakeholders and cannot properly compute the
-      //  hierarchical commitments. In this case, we can perform the check as the last step, after we retrieve the
-      //  contract payloads from the counter-participant.
-
-      // TODO(#9557) 3. Download the shared contract metadata from target participant
-      // val targetParticipantCmtMetadata = targetParticipant.commitments.open_commitment()
-
-      // TODO(#9557) 4. Identify mismatching contracts by checking the counterParticipant's contracts metadata
-      //  against the ACS contracts of the target participant:
-      // CommitmentContractMetadata.compare(targetParticipantCmtMetadata, counterParticipantCmtMetadata)
-
-      // TODO(#20583) Investigate fetching the ACS snapshot via LAPI without the contract payload. LAPI has longer lived data
-      //  and allows for party filtering.
-
-      // TODO(#9557) 5. Identify mismatch reasons from the target participant for shared contracts that cause mismatches
-      // targetParticipant.commitments.inspect_commitment_contract()
-
-      // TODO(#9557) 6. Request mismatch reasons contract payloads from the counterParticipant for shared contracts that cause mismatches
-      // counterParticipant.commitments.inspect_commitment_contract()
-
-      // TODO(#9557) 7. Compile the data in 4 and 5 into mismatch reasons and write them to the binary output file:
-      // counterParticipant.commitments.inspect_commitment_contract()
-
-      // mismatch reason lives only in console macros
-
-      // TODO(#9557) 8. Request contract payloads from the counterParticipant for shared contracts that cause mismatches
-      //   and write them to the binary output file:
-      //   counterParticipant.commitments.download_contract_reconciliation_payloads(...)
-
-      // TODO(#9557) 9. Write user-readable data in the readable output file regarding mismatching contracts ids
     }
   }
 
