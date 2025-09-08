@@ -207,10 +207,14 @@ private[lf] object Speedy {
       /* Commit location, if a script commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
-      initialEnvSize: Int = 512,
-      initialKontStackSize: Int = 128,
+      costModel: CostModel,
+      initialGasBudget: Option[CostModel.Cost],
+      initialEnvSize: Int,
+      initialKontStackSize: Int,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update](
+        costModel = costModel,
+        initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
       ) {
@@ -760,6 +764,8 @@ private[lf] object Speedy {
         contractIdVersion: ContractIdVersion = ContractIdVersion.V1,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
+        costModel: CostModel = CostModel.Empty,
+        initialGasBudget: Option[CostModel.Cost] = None,
         initialEnvSize: Int = 512,
         initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): UpdateMachine =
@@ -786,6 +792,8 @@ private[lf] object Speedy {
         profile = new Profile(),
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
+        costModel = costModel,
+        initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
       )
@@ -811,12 +819,12 @@ private[lf] object Speedy {
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
       override val convertLegacyExceptions: Boolean,
-      initialEnvSize: Int = 512,
-      initialKontStackSize: Int = 128,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing](
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
+        costModel = CostModel.Empty,
+        initialGasBudget = None,
+        initialEnvSize = 512,
+        initialKontStackSize = 128,
       ) {
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -841,8 +849,13 @@ private[lf] object Speedy {
   }
 
   /** The speedy CEK machine. */
-  private[lf] sealed abstract class Machine[Q](initialEnvSize: Int, initialKontStackSize: Int)(
-      implicit val loggingContext: LoggingContext
+  private[lf] sealed abstract class Machine[Q](
+      costModel: CostModel,
+      initialGasBudget: Option[CostModel.Cost],
+      initialEnvSize: Int,
+      initialKontStackSize: Int,
+  )(implicit
+      val loggingContext: LoggingContext
   ) {
 
     val sexpr: SExpr
@@ -864,6 +877,10 @@ private[lf] object Speedy {
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
      */
     val convertLegacyExceptions: Boolean = true
+
+    var gasBudget = initialGasBudget.getOrElse(0L)
+
+    private[this] val hasGasBudget = initialGasBudget.isDefined
 
     private val stablePackages = StablePackages(
       compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
@@ -942,6 +959,7 @@ private[lf] object Speedy {
     private[this] var actuals: Actuals = null
     /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
     private[speedy] final val env: Env = {
+      updateGasBudget(_.EnvIncrease.cost(initialEnvSize))
       new Stack(initialEnvSize)
     }
     /* [envBase] is the depth of the temporaries-stack when the current code-context was
@@ -953,6 +971,7 @@ private[lf] object Speedy {
      * once the control has been evaluated.
      */
     private[speedy] final val kontStack: Stack[Kont[Q]] = {
+      updateGasBudget(_.KontStackIncrease.cost(initialKontStackSize))
       val kontStack = new Stack[Kont[Q]](initialKontStackSize)
       kontStack.push(KPure(Control.Complete)) // stack is not full, no need to check
       kontStack
@@ -1010,6 +1029,7 @@ private[lf] object Speedy {
     @inline
     private[speedy] final def pushKont(k: Kont[Q]): Unit = {
       if (kontStack.isFull) {
+        updateGasBudget(_.KontStackIncrease.cost(kontStack.capacity))
         kontStack.grow()
       }
       kontStack.push(k)
@@ -1052,6 +1072,7 @@ private[lf] object Speedy {
     @inline
     final def pushEnv(v: SValue): Unit = {
       if (env.isFull) {
+        updateGasBudget(_.EnvIncrease.cost(env.capacity))
         env.grow()
       }
       env.push(v)
@@ -1297,6 +1318,19 @@ private[lf] object Speedy {
             ),
           svalue => Control.Value(svalue),
         )
+
+    final def updateGasBudget(cost: CostModel => CostModel.Cost): Unit =
+      if (hasGasBudget) {
+        val consumed = cost(costModel)
+        if (consumed != 0) {
+          gasBudget -= consumed
+          if (gasBudget < 0)
+            throw SErrorCrash(
+              getClass.getCanonicalName,
+              "No more gas",
+            )
+        }
+      }
   }
 
   object Machine {
@@ -1374,8 +1408,6 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
         convertLegacyExceptions: Boolean = true,
-        initialEnvSize: Int = 512,
-        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1385,8 +1417,6 @@ private[lf] object Speedy {
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         convertLegacyExceptions = convertLegacyExceptions,
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1395,14 +1425,10 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-        initialEnvSize: Int = 512,
-        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1492,6 +1518,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KOverApp.cost)
+
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
@@ -1608,6 +1637,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
+
+      machine.updateGasBudget(_.KPushTo.cost)
+
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.env.keep(base)
@@ -1635,6 +1667,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KFoldl.cost)
+
       list.pop match {
         case None =>
           Control.Value(acc)
@@ -1663,6 +1698,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KFoldr.cost)
+
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1699,6 +1737,9 @@ private[lf] object Speedy {
   ) extends Kont[Q] {
 
     override def execute(machine: Machine[Q], sv: SValue): Control.Value = {
+
+      machine.updateGasBudget(_.KCacheVal.cost)
+
       v.setCached(sv)
       defn.setCached(sv)
       Control.Value(sv)
@@ -1714,11 +1755,15 @@ private[lf] object Speedy {
     override def execute(
         machine: Machine[Question.Update],
         exerciseResult: SValue,
-    ): Control[Question.Update] =
+    ): Control[Question.Update] = {
+
+      machine.updateGasBudget(_.KCloseExercise.cost)
+
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
       }
+    }
   }
 
   /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
@@ -1740,12 +1785,15 @@ private[lf] object Speedy {
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] =
+    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] = {
+      machine.updateGasBudget(_.KTryCatchHandler.cost)
+
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         restore()
         machine.ptx = machine.ptx.endTry
         Control.Value(v)
       }
+    }
   }
 
   object KTryCatchHandler {
@@ -1774,6 +1822,8 @@ private[lf] object Speedy {
       )
 
     override def execute(machine: Machine[Question.Update], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KCheckChoiceGuard.cost)
+
       v match {
         case SValue.SBool(b) =>
           if (b)
@@ -1792,6 +1842,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure[Q](label: Profile.Label) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KLabelClosure.cost)
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -1808,6 +1859,9 @@ private[lf] object Speedy {
   private[speedy] final case class KLeaveClosure[Q](machine: Machine[Q], label: Profile.Label)
       extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+
+      machine.updateGasBudget(_.KLeaveClosure.cost)
+
       machine.profile.addCloseEvent(label)
       Control.Value(v)
     }
@@ -1815,6 +1869,7 @@ private[lf] object Speedy {
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KPreventException.cost)
       Control.Value(v)
     }
   }
@@ -1822,8 +1877,10 @@ private[lf] object Speedy {
   // For when converting an exception to a failure status
   // if an exception is thrown during that conversion, we need to know to not try to convert that too,
   // but instead give back the original exception with a replacement message
+  // [Remy] cannot we use the continuation above ?
   private[speedy] final case class KConvertingException[Q](exceptionId: TypeConId) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KConvertingException.cost)
       Control.Value(v)
     }
   }

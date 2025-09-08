@@ -258,6 +258,9 @@ private[lf] object Pretty {
           case Dev.AuthenticationError(coid, value, message) =>
             text("Authentication error for contract") & prettyContractId(coid) /
               text("with argument") & prettyValue(verbose = false)(value) / text(message)
+          case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
+            text("Cost budget has been exceeded:") /
+              text(cause)
         }
     }
   }
