@@ -49,6 +49,15 @@ def extract_test_name_map(mapping_filename: str):
         print(f"content: {content}")
         return json.loads(content)
 
+def getTestName(test_name: str, test_name_map: dict):
+    """
+    Returns the long name for a given short test name.
+    """
+    if test_name in test_name_map:
+        return test_name_map[test_name]
+    else:
+        return test_name
+
 def print_failed_test(branck: str, test_name: str):
     print(f"Flaky test detected: {test_name}")
 
@@ -177,9 +186,9 @@ if __name__ == "__main__":
     print(f"^^^^ {test_name_map}")
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
-        print(f"=== {test_name_map[test_name]}")
+        #print(f"=== {test_name_map[test_name]}")
         #report_failed_test(branch, test_name)
-        print_failed_test(branch, test_name)
+        print_failed_test(branch, getTestName(test_name, test_name_map))
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
