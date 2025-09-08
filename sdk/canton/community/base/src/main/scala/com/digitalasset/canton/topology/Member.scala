@@ -365,6 +365,7 @@ object ParticipantId {
 sealed trait Party extends Identity with Product with Serializable {
   override def uid: UniqueIdentifier
   def partyId: PartyId
+  def toLf: LfPartyId = LfPartyId.assertFromString(uid.toProtoPrimitive)
 }
 
 /** The `private` annotation, coupled with the @VisibleForTesting for methods that create
@@ -401,7 +402,6 @@ object ExternalParty {
   */
 final case class PartyId(uid: UniqueIdentifier) extends Party {
   def partyId: PartyId = this
-  def toLf: LfPartyId = LfPartyId.assertFromString(uid.toProtoPrimitive)
 }
 
 object PartyId {

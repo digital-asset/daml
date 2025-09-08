@@ -37,7 +37,7 @@ import scala.concurrent.duration.DurationInt
   It additionally checks that the ACS commitment processor indicates the discrepancies
   during the migration and that they disappear after repairs.
  */
-trait OfflinePartyMigrationAcsCommitmentIntegrationTest
+sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with EntitySyntax
@@ -174,13 +174,13 @@ trait OfflinePartyMigrationAcsCommitmentIntegrationTest
     }
 }
 
-class OfflinePartyMigrationAcsCommitmentIntegrationTestPostgres
+final class OfflinePartyMigrationAcsCommitmentIntegrationTestPostgres
     extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 }
 
-class OfflinePartyMigrationAcsCommitmentBftOrderingIntegrationTestPostgres
+final class OfflinePartyMigrationAcsCommitmentBftOrderingIntegrationTestPostgres
     extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
   registerPlugin(new UseBftSequencer(loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))

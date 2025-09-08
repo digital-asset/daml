@@ -5,11 +5,14 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 /**
  * The PartyManagementService allows modifying party hosting on participants.
+ *
+ * Note that ACS refers to Active Contract Set.
  */
 service PartyManagementService {
   // Initiate adding a party already hosted on one or more source participants to this
@@ -34,11 +37,8 @@ service PartyManagementService {
   // successfully.
   rpc GetAddPartyStatus(GetAddPartyStatusRequest) returns (GetAddPartyStatusResponse);
 
-  // Export the ACS for the given parties from the participant.
-  rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
-
-  // Export the ACS for the given parties at a timestamp (that is the effective time of a topology transaction).
-  rpc ExportAcsAtTimestamp(ExportAcsAtTimestampRequest) returns (stream ExportAcsAtTimestampResponse);
+  // Export the party's ACS to replicate it onto the target participant.
+  rpc ExportPartyAcs(ExportPartyAcsRequest) returns (stream ExportPartyAcsResponse);
 
   // For a given timestamp, find the highest ledger offset among all events that have record time <= timestamp.
   //
@@ -185,72 +185,47 @@ enum ParticipantPermission {
   PARTICIPANT_PERMISSION_OBSERVATION = 3;
 }
 
-message ExportAcsTargetSynchronizer {
-  // The identifier of the synchronizer to which contracts should be assigned upon exporting the
-  // Active Contract Set (ACS).
-  // Required.
-  string target_synchronizer_id = 1;
-}
-
-message ExportAcsRequest {
-  // The identifiers of the parties for which the Active Contract Set (ACS) will be exported.
-  // This field must contain at least one party ID.
+// Exports the ACS for a given party to facilitate its replication from a source to a target participant.
+//
+// This request uses the party's most recent activation on the target participant to determine the precise
+// historical state of the ACS to export from the source participant.
+//
+// "Activation" on the target participant means the new hosting arrangement has been authorized by both
+// the party itself and the target participant via party-to-participant topology transactions.
+//
+// This request will fail if the party has not yet been activated on the target participant.
+message ExportPartyAcsRequest {
+  // The identifier of the party being replicated. This party must already be active on the target participant
+  // for the ACS export to succeed.
   // Required
-  repeated string party_ids = 1;
+  string party_id = 1;
 
-  // The identifier of the synchronizer to filter contracts.
-  // Optional. If provided, only contracts assigned to a synchronizer with this exact ID will be included
-  // in the exported ACS. If not set (empty string), all contracts for the specified parties will be included.
-  string synchronizer_id = 2; // Optional; filters by exact synchronizer ID if set
-
-  // The ledger offset at which the ACS snapshot should be taken. This determines the point in the
-  // ledger history from which the active contracts will be retrieved.
-  // Required
-  int64 ledger_offset = 3;
-
-  // A mapping to modify the synchronizer assignment of contracts in the exported ACS.
-  // Note: This mapping is not a proper contract reassignment. That is no actual reassignment happens, and thus
-  // the reassignment counter is not increased.
-  // Optional. If not provided (empty map), the contracts in the exported ACS will retain their
-  // original synchronizer assignments.
-  map<string, ExportAcsTargetSynchronizer> contract_synchronizer_renames = 4;
-}
-
-message ExportAcsResponse {
-  // A chunk of the Active Contract Set (ACS) snapshot. This response is streamed, with each
-  // message containing a portion of the complete ACS data.
-  // The raw binary data within each chunk consists of Ledger API active contract messages, specifically wrapped
-  // in `v30.active_contract.ActiveContract` messages. However, a single chunk does not necessarily contain
-  // exactly one complete message.
-  // This field will be populated in each streamed response.
-  // Required
-  bytes chunk = 1;
-}
-
-message ExportAcsAtTimestampRequest {
-  // The identifiers of the parties for which the Active Contract Set (ACS) will be exported.
-  // This field must contain at least one party ID.
-  // Required
-  repeated string party_ids = 1;
-
-  // The identifier of the synchronizer. This is used to filter contracts and topology
-  // transactions on the ledger.
+  // The identifier of the synchronizer managing the contract to be exported. This scopes the ACS export to only
+  // contracts assigned to this synchronizer.
   // Required
   string synchronizer_id = 2;
 
-  // The effective time of a specific topology transaction. The system will locate the
-  // topology transaction on the ledger with this effective time and the synchronizer
-  // identifier. And then take an ACS snapshot at the corresponding ledger offset.
+  // The unique identifier of the target participant where the party will be replicated.
   // Required
-  google.protobuf.Timestamp topology_transaction_effective_time = 3;
+  string target_participant_uid = 3;
+
+  // The exclusive ledger offset used as starting point to find the party's most recent activation on the target
+  // participant.
+  // Required
+  int64 begin_offset_exclusive = 4;
+
+  // The maximum duration the service will wait to find the topology transaction that activates the party on
+  // the target participant.
+  // If not set, the service use will use a default timeout.
+  // Optional
+  google.protobuf.Duration wait_for_activation_timeout = 5;
 }
 
-message ExportAcsAtTimestampResponse {
-  // A chunk of the Active Contract Set (ACS) snapshot. This response is streamed, with each
-  // message containing a portion of the complete ACS data.
-  // The raw binary data within each chunk consists of Ledger API active contract messages, specifically wrapped
-  // in `v30.active_contract.ActiveContract` messages. However, a single chunk does not necessarily contain
-  // exactly one complete message.
+message ExportPartyAcsResponse {
+  // A chunk of the ACS snapshot. This response is streamed, with each message containing a portion of the
+  // complete ACS data. The raw binary data within each chunk consists of Ledger API active contract messages,
+  // specifically wrapped in `v30.active_contract.ActiveContract` messages. However, a single chunk does not
+  // necessarily contain exactly one complete message.
   // This field will be populated in each streamed response.
   // Required
   bytes chunk = 1;

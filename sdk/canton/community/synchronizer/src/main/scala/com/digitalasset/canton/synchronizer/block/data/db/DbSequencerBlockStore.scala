@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.block.data.{
   SequencerBlockStore,
 }
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
   SequencerInitialState,
@@ -36,6 +37,7 @@ class DbSequencerBlockStore(
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     batchingConfig: BatchingConfig,
+    sequencerStore: SequencerStore,
 )(implicit override protected val executionContext: ExecutionContext)
     extends SequencerBlockStore
     with DbStore {
@@ -45,12 +47,13 @@ class DbSequencerBlockStore(
 
   private val topRow = storage.limitSql(1)
 
-  private val sequencerStore = new DbSequencerStateManagerStore(
+  private val stateManagerStore = new DbSequencerStateManagerStore(
     storage,
     protocolVersion,
     timeouts,
     loggerFactory,
     batchingConfig,
+    sequencerStore,
   )
 
   override def readHead(implicit
@@ -136,7 +139,7 @@ class DbSequencerBlockStore(
       block: BlockInfo,
       maxSequencingTimeBound: CantonTimestamp,
   ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] =
-    sequencerStore
+    stateManagerStore
       .readInFlightAggregationsDBIO(
         block.lastTs,
         maxSequencingTimeBound,
@@ -146,10 +149,7 @@ class DbSequencerBlockStore(
   override def partialBlockUpdate(
       inFlightAggregationUpdates: InFlightAggregationUpdates
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    storage.queryAndUpdate(
-      sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates),
-      functionFullName,
-    )
+    stateManagerStore.addInFlightAggregationUpdates(inFlightAggregationUpdates)
 
   override def finalizeBlockUpdate(block: BlockInfo)(implicit
       traceContext: TraceContext
@@ -161,18 +161,13 @@ class DbSequencerBlockStore(
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val updateBlockHeight = updateBlockHeightDBIO(BlockInfo.fromSequencerInitialState(initial))
-    val addInFlightAggregations =
-      sequencerStore.addInFlightAggregationUpdatesDBIO(
+
+    for {
+      _ <- stateManagerStore.addInFlightAggregationUpdates(
         initial.snapshot.inFlightAggregations.fmap(_.asUpdate)
       )
-    storage
-      .queryAndUpdate(
-        DBIO.seq(
-          updateBlockHeight,
-          addInFlightAggregations,
-        ),
-        functionFullName,
-      )
+      _ <- storage.queryAndUpdate(updateBlockHeight, functionFullName)
+    } yield ()
   }
 
   private def updateBlockHeightDBIO(block: BlockInfo)(implicit traceContext: TraceContext) =
@@ -207,7 +202,7 @@ class DbSequencerBlockStore(
       sqlu"delete from seq_block_height where height < $maxHeight",
       functionFullName,
     )
-    _ <- sequencerStore.pruneExpiredInFlightAggregations(requestedTimestamp)
+    _ <- stateManagerStore.pruneExpiredInFlightAggregations(requestedTimestamp)
   } yield {
     // the first element (with lowest height) in the seq_block_height can either represent an actual existing block
     // in the database in the case where we've never pruned and also not started this sequencer from a snapshot.

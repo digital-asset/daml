@@ -33,6 +33,7 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.OnboardingTransactions
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.{
   ParticipantSelector,
@@ -47,7 +48,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.interactive.ExternalPartyUtils
-import com.digitalasset.canton.interactive.ExternalPartyUtils.OnboardingTransactions
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
@@ -116,7 +116,10 @@ trait BaseInteractiveSubmissionTest
       env: TestConsoleEnvironment
   ): Unit =
     privateKeys.foreach(
-      env.envCrypto.cryptoPrivateStore.toExtended.value.storePrivateKey(_, None).futureValueUS.value
+      env.tryGlobalCrypto.cryptoPrivateStore.toExtended.value
+        .storePrivateKey(_, None)
+        .futureValueUS
+        .value
     )
 
   protected val enableInteractiveSubmissionTransforms: Seq[ConfigTransform] = Seq(
@@ -242,7 +245,7 @@ trait BaseInteractiveSubmissionTest
       NonEmpty
         .from(
           Seq.fill(numberOfKeys.value)(
-            env.envCrypto
+            env.tryGlobalCrypto
               .generateSigningKey(usage = SigningKeyUsage.ProtocolOnly)
               .futureValueUS
               .value
@@ -263,7 +266,7 @@ trait BaseInteractiveSubmissionTest
       PartyToKeyMapping.create(current.item.party, newThreshold, keys).value,
       testedProtocolVersion,
     )
-    val namespaceSignature = env.envCrypto.privateCrypto
+    val namespaceSignature = env.tryGlobalCrypto.privateCrypto
       .sign(
         updatedTransaction.hash.hash,
         party.fingerprint,
@@ -274,7 +277,7 @@ trait BaseInteractiveSubmissionTest
     // If we regenerate the keys we need to re-sign the party to key with the new keys
     val protocolSignatures = if (regenerateKeys.isDefined) {
       keys.map { key =>
-        env.envCrypto.privateCrypto
+        env.tryGlobalCrypto.privateCrypto
           .sign(
             updatedTransaction.hash.hash,
             key.fingerprint,
@@ -302,7 +305,7 @@ trait BaseInteractiveSubmissionTest
 
   // TODO(#27482) Consider extracting in console command
   protected def offboardParty(
-      party: PartyId,
+      party: ExternalParty,
       participant: LocalParticipantReference,
       synchronizerId: SynchronizerId,
   )(implicit env: TestConsoleEnvironment): Unit = {
@@ -320,7 +323,7 @@ trait BaseInteractiveSubmissionTest
     )
 
     val removeCharlieSignedTopologyTx =
-      participant.external_parties.sign(removeTopologyTx, party, testedProtocolVersion)
+      global_secret.sign(removeTopologyTx, party, testedProtocolVersion)
     participant.topology.transactions.load(
       Seq(removeCharlieSignedTopologyTx),
       TopologyStoreId.Synchronizer(synchronizerId),

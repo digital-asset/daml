@@ -13,7 +13,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   MempoolModuleConfig,
   MempoolState,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Mempool,
@@ -25,7 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeCellModule,
   fakeModuleExpectingSilence,
 }
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, Traced}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -33,6 +35,8 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.FiniteDuration
 
 class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
+
+  import MempoolModuleTest.*
 
   private val AnOrderRequest = Mempool.OrderRequest(
     Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("b")))
@@ -58,7 +62,6 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "refuse the request" in {
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, maxMempoolQueueSize = 0)
-        mempool.receiveInternal(Mempool.CreateLocalBatches(1))
         mempool.receiveInternal(
           Mempool.OrderRequest(
             Traced(OrderingRequest(BlockFormat.SendTag, ByteString.EMPTY)),
@@ -73,7 +76,6 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "refuse the request" in {
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, maxRequestPayloadBytes = 0)
-        mempool.receiveInternal(Mempool.CreateLocalBatches(1))
         suppressProblemLogs(
           mempool.receiveInternal(
             Mempool.OrderRequest(
@@ -90,7 +92,6 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "refuse the request" in {
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, maxRequestPayloadBytes = 0)
-        mempool.receiveInternal(Mempool.CreateLocalBatches(1))
         suppressProblemLogs(
           mempool.receiveInternal(
             Mempool.OrderRequest(
@@ -103,9 +104,27 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       }
     }
 
+    "there is no P2P-connected dissemination quorum" should {
+      "refuse the request" in {
+        val mempoolState = createMempoolState()
+
+        val mempool =
+          createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
+        mempool.receiveInternal(AP2PConnectivityUpdate)
+
+        mempool.receiveInternal(
+          Mempool.OrderRequest(
+            Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("c"))),
+            requestRefusedHandler,
+          )
+        )
+        succeed
+      }
+    }
+
     "a batch request is received but there are no client requests" should {
       "remember it" in {
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
         mempool.receiveInternal(Mempool.CreateLocalBatches(1))
@@ -113,7 +132,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       }
 
       "remember multiple" in {
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
         mempool.receiveInternal(Mempool.CreateLocalBatches(3))
@@ -121,7 +140,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       }
 
       "always overwrite previous request" in {
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
         mempool.receiveInternal(Mempool.CreateLocalBatches(3))
@@ -134,11 +153,11 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
     "a client request is received but there are no batch requests" should {
       "wait" in {
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
         val mempool =
           createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
         sendRequest(mempool)
-        mempoolState.receivedOrderRequests should contain only AnOrderRequest
+        mempoolState.receivedOrderRequests.map(_._1) should contain only AnOrderRequest
       }
     }
 
@@ -146,7 +165,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "produce and provide a new batch if availability requests after request is available" in {
         val batchCreatedCell =
           new AtomicReference[Option[Availability.LocalDissemination.LocalBatchCreated]](None)
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
         val mempool = createMempool[UnitTestEnv](
           availability = fakeCellModule[Availability.Message[
             UnitTestEnv
@@ -170,7 +189,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         val batchCreatedCell =
           new AtomicReference[Option[Availability.LocalDissemination.LocalBatchCreated]](None)
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
         val mempool = createMempool[UnitTestEnv](
           availability = fakeCellModule[Availability.Message[
             UnitTestEnv
@@ -200,7 +219,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         val batchCreatedCell =
           new AtomicReference[Option[Availability.LocalDissemination.LocalBatchCreated]](None)
-        val mempoolState = new MempoolState()
+        val mempoolState = createMempoolState()
 
         val timerCell = new AtomicReference[Option[(DelayCount, Mempool.Message)]](None)
         implicit val timeCellContext
@@ -253,7 +272,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         ], Availability.LocalDissemination.LocalBatchCreated](
           batchCreatedCell
         )
-      val mempoolState = new MempoolState()
+      val mempoolState = createMempoolState()
       val mempool =
         createMempool(availability, maxRequestsInBatch = 1, mempoolState = mempoolState)
 
@@ -265,7 +284,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         .get()
         .getOrElse(fail("No batch sent"))
       batchCreated.requests.size should be(1)
-      mempoolState.receivedOrderRequests should contain only AnOrderRequest
+      mempoolState.receivedOrderRequests.map(_._1) should contain only AnOrderRequest
       mempoolState.toBeProvidedToAvailability shouldBe 0
     }
   }
@@ -282,7 +301,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         ], Availability.LocalDissemination.LocalBatchCreated](
           batchCreatedCell
         )
-      val mempoolState = new MempoolState()
+      val mempoolState = createMempoolState()
       val mempool =
         createMempool(availability, maxRequestsInBatch = 2, mempoolState = mempoolState)
 
@@ -298,9 +317,24 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     }
   }
 
+  "it receives a P2P connectivity update" should {
+    "update its state" in {
+      val mempoolState = createMempoolState()
+      val mempool =
+        createMempool[UnitTestEnv](fakeModuleExpectingSilence, mempoolState = mempoolState)
+      mempool.receiveInternal(AP2PConnectivityUpdate)
+
+      import mempoolState.*
+
+      weakQuorum shouldBe 3
+      authenticatedCount shouldBe 2
+      canDisseminate shouldBe false
+    }
+  }
+
   private def createMempool[E <: Env[E]](
       availability: ModuleRef[Availability.Message[E]],
-      mempoolState: MempoolState = new MempoolState(),
+      mempoolState: MempoolState = createMempoolState(),
       maxMempoolQueueSize: Int = BftBlockOrdererConfig.DefaultMaxMempoolQueueSize,
       maxRequestPayloadBytes: Int = BftBlockOrdererConfig.DefaultMaxRequestPayloadBytes,
       maxRequestsInBatch: Short = BftBlockOrdererConfig.DefaultMaxRequestsInBatch,
@@ -317,15 +351,27 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     )
     val mempool = new MempoolModule[E](
       config,
+      mempoolState,
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       availability,
       loggerFactory,
       timeouts,
-      mempoolState,
-    )(MetricsContext.Empty)
+    )(MetricsContext.Empty, NoReportingTracerProvider.tracer)
     mempool
   }
 
+  private def createMempoolState(): MempoolState =
+    new MempoolState(weakQuorumSize = 1)
+
   private def sendRequest(mempool: MempoolModule[UnitTestEnv]): Unit =
     mempool.receiveInternal(AnOrderRequest)
+}
+
+private object MempoolModuleTest {
+
+  val AP2PConnectivityUpdate =
+    Mempool.P2PConnectivityUpdate(
+      Membership.forTesting(BftNodeId("myself"), (1 to 7).map(i => BftNodeId(i.toString)).toSet),
+      2,
+    )
 }

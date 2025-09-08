@@ -11,7 +11,7 @@ import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.topology.{ExternalParty, Party, PartyId}
+import com.digitalasset.canton.topology.{Party, PartyId}
 
 /** Adds the ability to run cycles to integration tests
   */
@@ -27,7 +27,7 @@ trait HasCycleUtils {
       participant1: ParticipantReference,
       participant2: ParticipantReference,
       commandId: String = "",
-  )(implicit env: TestConsoleEnvironment): Unit = {
+  ): Unit = {
 
     Seq(participant2, participant1).map { participant =>
       if (participant.packages.find_by_module("Cycle").isEmpty) {
@@ -60,7 +60,6 @@ trait HasCycleUtils {
     }
   }
 
-  // TODO(#27482): This can be simplified once helpers are in main
   def createCycleContract(
       participant: ParticipantReference,
       party: Party,
@@ -69,24 +68,11 @@ trait HasCycleUtils {
       optTimeout: Option[config.NonNegativeDuration] = Some(
         ConsoleCommandTimeout.defaultLedgerCommandsTimeout
       ),
-  )(implicit env: TestConsoleEnvironment): Cycle.Contract = {
-    import env.*
-
+  ): Cycle.Contract = {
     val cycle = new M.Cycle(id, party.toProtoPrimitive).create.commands.loneElement
 
-    val tx = party match {
-      case partyE: ExternalParty =>
-        participant.external_parties.ledger_api.javaapi.commands.submit(
-          partyE,
-          Seq(new Cycle(id, party.toProtoPrimitive).create().commands().loneElement),
-          commandId = commandId,
-          optTimeout = optTimeout,
-        )
-
-      case _: PartyId =>
-        participant.ledger_api.javaapi.commands
-          .submit(Seq(party.partyId), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
-    }
+    val tx = participant.ledger_api.javaapi.commands
+      .submit(Seq(party), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
 
     JavaDecodeUtil.decodeAllCreated(Cycle.COMPANION)(tx).loneElement
   }

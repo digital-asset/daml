@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.{TopologyAdminCommands, VaultAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.ListKeyOwnersResult
@@ -25,7 +26,13 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
-import com.digitalasset.canton.topology.{Member, MemberCode, SynchronizerId}
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyMapping,
+  TopologyTransaction,
+}
+import com.digitalasset.canton.topology.{ExternalParty, Member, MemberCode, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -405,7 +412,96 @@ class SecretKeyAdministration(
       if (answer.exists(_.toLowerCase == "yes")) deleteKey()
     }
   }
+}
 
+/** Global keys operations (e.g., for external parties in tests)
+  */
+class GlobalSecretKeyAdministration(
+    override protected val consoleEnvironment: ConsoleEnvironment,
+    override protected val loggerFactory: NamedLoggerFactory,
+) extends Helpful
+    with FeatureFlagFilter {
+
+  private implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
+  private implicit val tc: TraceContext = TraceContext.empty
+  private implicit val ce: ConsoleEnvironment = consoleEnvironment
+
+  @Help.Summary("Sign the given hash on behalf of the external party")
+  @Help.Description(
+    """Sign the given hash on behalf of the external party
+      |
+      |The arguments are:
+      |  - hash: Hash to be signed
+      |  - party: Party who should sign
+      |
+      |Fails if the corresponding keys are not in the global crypto.
+      |"""
+  )
+  def sign(hash: ByteString, party: ExternalParty): Seq[Signature] = consoleEnvironment.run(
+    ConsoleCommandResult.fromEitherTUS(
+      party.signingFingerprints.forgetNE
+        .parTraverse(
+          consoleEnvironment.tryGlobalCrypto.privateCrypto
+            .signBytes(hash, _, SigningKeyUsage.ProtocolOnly)
+        )
+        .leftMap(_.toString)
+    )
+  )
+
+  @Help.Summary("Sign the given topology transaction on behalf of the external party")
+  @Help.Description(
+    """Sign the given topology transaction on behalf of the external party
+      |
+      |The arguments are:
+      |  - tx: Transaction to be signed
+      |  - party: Party who should sign
+      |  - protocolVersion: Protocol version of the synchronizer
+      |
+      |Fails if the corresponding keys are not in the global crypto.
+      |"""
+  )
+  def sign[Op <: TopologyChangeOp, M <: TopologyMapping](
+      tx: TopologyTransaction[Op, M],
+      party: ExternalParty,
+      protocolVersion: ProtocolVersion,
+  ): SignedTopologyTransaction[Op, M] = {
+    val signature: Signature = consoleEnvironment.run(
+      ConsoleCommandResult.fromEitherTUS(
+        consoleEnvironment.tryGlobalCrypto.privateCrypto
+          .sign(tx.hash.hash, party.fingerprint, SigningKeyUsage.NamespaceOnly)
+          .leftMap(_.toString)
+      )
+    )
+
+    SignedTopologyTransaction
+      .withSignature(
+        tx,
+        signature,
+        isProposal = true,
+        protocolVersion,
+      )
+  }
+
+  object keys {
+    object secret {
+      @Help.Summary("Download key pair")
+      def download(
+          fingerprint: Fingerprint,
+          protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+          password: Option[String] = None,
+      ): ByteString = {
+        val cmd =
+          LocalSecretKeyAdministration.download(
+            consoleEnvironment.tryGlobalCrypto,
+            fingerprint,
+            protocolVersion,
+            password,
+          )
+
+        consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(cmd)(consoleEnvironment))
+      }
+    }
+  }
 }
 
 class PublicKeyAdministration(
@@ -547,7 +643,6 @@ class KeyAdministrationGroup(
   @Help.Summary("Manage secret keys")
   @Help.Group("Secret keys")
   def secret: SecretKeyAdministration = secretAdmin
-
 }
 
 class LocalSecretKeyAdministration(

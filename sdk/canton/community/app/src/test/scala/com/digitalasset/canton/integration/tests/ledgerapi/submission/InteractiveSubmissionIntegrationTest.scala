@@ -79,17 +79,15 @@ trait InteractiveSubmissionIntegrationTestSetup
         participants.all.dars.upload(CantonTestsPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
 
-        aliceE = cpn.external_parties.enable("Alice")
+        aliceE = cpn.parties.external.enable("Alice")
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
 
   protected def createTrailingNoneContract(
       party: ExternalParty
   )(implicit env: FixtureParam): TrailingNone.Contract = {
-    import env.*
-
-    val tx = cpn.external_parties.ledger_api.javaapi.commands.submit(
-      party,
+    val tx = cpn.ledger_api.javaapi.commands.submit(
+      Seq(party),
       Seq(
         TrailingNone
           .create(party.partyId.toProtoPrimitive, java.util.Optional.empty())
@@ -147,9 +145,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
     var danE: ExternalParty = null
 
     "onboard a new party with external keys" in { implicit env =>
-      import env.*
-
-      danE = cpn.external_parties.enable(
+      danE = cpn.parties.external.enable(
         "Dan",
         keysCount = PositiveInt.three,
         keysThreshold = PositiveInt.two,
@@ -193,10 +189,8 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
     }
 
     "create a transaction with multiple nodes" in { implicit env =>
-      import env.*
-
-      val dummyFactoryTx = epn.external_parties.ledger_api.javaapi.commands.submit(
-        aliceE,
+      val dummyFactoryTx = epn.ledger_api.javaapi.commands.submit(
+        Seq(aliceE),
         Seq(DummyFactory.create(aliceE.toProtoPrimitive).commands().loneElement),
       )
 
@@ -213,7 +207,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         Seq(exerciseCommand.commands().loneElement),
       )
 
-      val exerciseTransaction = epn.external_parties.ledger_api.commands.submit_prepared(
+      val exerciseTransaction = epn.ledger_api.commands.external.submit_prepared(
         aliceE,
         preparedTransaction,
       )
@@ -252,7 +246,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
           .execute(
             prepared.preparedTransaction.value,
             Map(
-              aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+              aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
             ),
             submissionId,
             prepared.hashingSchemeVersion,
@@ -314,8 +308,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
             .execute_and_wait_for_transaction(
               prepared.preparedTransaction.value,
               Map(
-                aliceE.partyId -> ppn.external_parties
-                  .sign(prepared.preparedTransactionHash, aliceE)
+                aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
               ),
               UUID.randomUUID().toString,
               prepared.hashingSchemeVersion,
@@ -344,7 +337,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         .execute(
           prepared.preparedTransaction.value,
           Map(
-            aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+            aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
           ),
           submissionId,
           prepared.hashingSchemeVersion,
@@ -372,7 +365,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       val response = epn.ledger_api.interactive_submission.execute_and_wait(
         prepared.preparedTransaction.value,
         Map(
-          aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+          aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
         ),
         submissionId,
         prepared.hashingSchemeVersion,
@@ -400,7 +393,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         ),
       )
       val transactionSignatures = Map(
-        danE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, danE)
+        danE.partyId -> global_secret.sign(prepared.preparedTransactionHash, danE)
       )
 
       val response = execAndWait(prepared, transactionSignatures)
@@ -421,7 +414,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       )
 
       val transactionSignatures = Map(
-        danE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, danE)
+        danE.partyId -> global_secret.sign(prepared.preparedTransactionHash, danE)
       )
       val badSignatures = Map(aliceE.partyId -> transactionSignatures(danE.partyId))
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -455,7 +448,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       )
 
       val transactionSignatures = Map(
-        danE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, danE)
+        danE.partyId -> global_secret.sign(prepared.preparedTransactionHash, danE)
       )
       val badSignatures = Map(aliceE.partyId -> transactionSignatures(danE.partyId))
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -476,8 +469,6 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
     }
 
     "support contracts with trailing None" in { implicit env =>
-      import env.*
-
       // Create 2 contracts, one we'll do an exercise on with explicit disclosure (using a ppn different from cpn)
       // And the other we'll prepare on the cpn, which will test local contract store lookup
       val contract1 = createTrailingNoneContract(aliceE)
@@ -509,9 +500,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         ),
       )
 
-      cpn.external_parties.ledger_api.commands
-        .submit_prepared(aliceE, preparedArchive)
-        .discard
+      cpn.ledger_api.commands.external.submit_prepared(aliceE, preparedArchive).discard
 
       // And now with contract2, using the cpn to prepare as well so we don't need to explicitly disclose the contract
       val archiveCmd2 = new T.TrailingNone.ContractId(contract2.id.contractId)
@@ -519,10 +508,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         .commands()
         .loneElement
 
-      cpn.external_parties.ledger_api.javaapi.commands.submit(
-        aliceE,
-        Seq(archiveCmd2),
-      )
+      cpn.ledger_api.javaapi.commands.submit(Seq(aliceE), Seq(archiveCmd2))
     }
 
     "create a contract with verbose hashing" in { implicit env =>
@@ -548,7 +534,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       execAndWait(
         prepared,
         Map(
-          aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+          aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
         ),
       ).discard
     }
@@ -591,7 +577,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       execAndWait(
         prepared,
         Map(
-          aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+          aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
         ),
       ).discard
     }
@@ -610,7 +596,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       )
 
       val transactionSignatures = Map(
-        danE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, danE)
+        danE.partyId -> global_secret.sign(prepared.preparedTransactionHash, danE)
       )
       val badSignatures = Map(aliceE.partyId -> transactionSignatures(danE.partyId))
       execFailure(prepared, badSignatures, "Received 0 valid signatures")
@@ -628,7 +614,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       )
 
       // Not enough because threshold is 2
-      val singleSignature = env.envCrypto.privateCrypto
+      val singleSignature = env.tryGlobalCrypto.privateCrypto
         .signBytes(
           prepared.preparedTransactionHash,
           danE.signingFingerprints.head1,
@@ -665,8 +651,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
             exec(
               txWithoutInputContract,
               Map(
-                aliceE.partyId -> ppn.external_parties
-                  .sign(prepared.preparedTransactionHash, aliceE)
+                aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
               ),
               cpn,
             )
@@ -712,8 +697,6 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
     }
 
     "re-use local contracts from PPN if available" in { implicit env =>
-      import env.*
-
       val cycle = createCycleContract(epn, aliceE, "test-external-signing")
 
       val exerciseRepeatOnCycleContract =
@@ -729,10 +712,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         Seq(exerciseRepeatOnCycleContract),
       )
 
-      epn.external_parties.ledger_api.commands.submit_prepared(
-        aliceE,
-        prepared,
-      )
+      epn.ledger_api.commands.external.submit_prepared(aliceE, prepared)
     }
 
     "fail to prepare a transaction if the preparing party is not authorized" in { implicit env =>
@@ -794,12 +774,12 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
       )
 
       val badSignature =
-        env.envCrypto.privateCrypto
+        env.tryGlobalCrypto.privateCrypto
           .signBytes(
             ByteString.copyFromUtf8("gipfeli"),
             aliceE.signingFingerprints.head1,
             SigningKeyUsage.ProtocolOnly,
-            env.envCrypto.privateCrypto.signingAlgorithmSpecs.default,
+            env.tryGlobalCrypto.privateCrypto.signingAlgorithmSpecs.default,
           )
           .valueOrFailShutdown("Failed to sign transaction hash")(
             executionContext,
@@ -854,7 +834,7 @@ class InteractiveSubmissionIntegrationTestTimeouts
       ),
     )
     val signatures = Map(
-      aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
     )
     val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
     val completion = findCompletion(
@@ -901,7 +881,7 @@ class InteractiveSubmissionIntegrationTestPostgres
       ),
     )
     val signatures = Map(
-      aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
     )
     val cpnLedgerEnd = cpn.ledger_api.state.end()
     val (submissionId, epnLedgerEnd) = exec(prepared, signatures, epn)

@@ -90,7 +90,13 @@ import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserv
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ExternalParty,
+  ParticipantId,
+  Party,
+  PartyId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId, config}
 import com.digitalasset.daml.lf.data.Ref
@@ -873,7 +879,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           | return before the transaction appears at all the involved participants."""
       )
       def submit(
-          actAs: Seq[PartyId],
+          actAs: Seq[Party],
           commands: Seq[Command],
           synchronizerId: Option[SynchronizerId] = None,
           workflowId: String = "",
@@ -889,27 +895,60 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
           includeCreatedEventBlob: Boolean = false,
       ): ApiTransaction = {
-        val tx = consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
-              actAs.map(_.toLf),
-              readAs.map(_.toLf),
+        val externalParties = actAs.collect { case externalParty: ExternalParty => externalParty }
+
+        // TODO(#27461) Support multiple submitting parties
+        if (externalParties.sizeIs > 1)
+          consoleEnvironment.raiseError(
+            s"submit supports at most one external party, found: ${externalParties.map(_.partyId)}"
+          )
+
+        externalParties.headOption match {
+          case Some(externalParty) =>
+            external.submit(
+              actAs = externalParty,
               commands,
-              workflowId,
+              synchronizerId,
               commandId,
+              optTimeout,
               deduplicationPeriod,
               submissionId,
               minLedgerTimeAbs,
+              readAs,
               disclosedContracts,
-              synchronizerId,
               userId,
               userPackageSelectionPreference,
-              transactionShape,
-              includeCreatedEventBlob = includeCreatedEventBlob,
+              /*
+              TRANSACTION_SHAPE_ACS_DELTA implies that emitted events are only for locally hosted parties.
+              In particular, it means that the "waiting" part of the submission fails if the executing participant
+              does not host the party.
+               */
+              transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
             )
-          )
+
+          case _ =>
+            val tx = consoleEnvironment.run {
+              ledgerApiCommand(
+                LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
+                  actAs.map(_.toLf),
+                  readAs.map(_.toLf),
+                  commands,
+                  workflowId,
+                  commandId,
+                  deduplicationPeriod,
+                  submissionId,
+                  minLedgerTimeAbs,
+                  disclosedContracts,
+                  synchronizerId,
+                  userId,
+                  userPackageSelectionPreference,
+                  transactionShape,
+                  includeCreatedEventBlob = includeCreatedEventBlob,
+                )
+              )
+            }
+            optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
         }
-        optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
       }
 
       @Help.Summary("Submit command asynchronously")
@@ -1219,6 +1258,89 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             )
           )
         }
+
+      @Help.Summary("Submit commands on behalf of external parties")
+      @Help.Group("Command Submission")
+      private[canton] object external {
+        def submit(
+            actAs: ExternalParty, // TODO(#27461) Support multiple submitting parties
+            commands: Seq[Command],
+            synchronizerId: Option[SynchronizerId] = None,
+            commandId: String = "",
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            readAs: Seq[PartyId] = Seq.empty,
+            disclosedContracts: Seq[DisclosedContract] = Seq.empty,
+            userId: String = userId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+            transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+            // External party specifics
+            verboseHashing: Boolean = false,
+        ): ApiTransaction = {
+
+          val prepared = ledger_api.interactive_submission.prepare(
+            actAs = Seq(actAs.partyId),
+            commands = commands,
+            synchronizerId = synchronizerId,
+            commandId = if (commandId.isEmpty) UUID.randomUUID().toString else commandId,
+            minLedgerTimeAbs = minLedgerTimeAbs,
+            readAs = readAs,
+            disclosedContracts = disclosedContracts,
+            userId = userId,
+            userPackageSelectionPreference = userPackageSelectionPreference,
+            verboseHashing = verboseHashing,
+            prefetchContractKeys = Seq(),
+          )
+
+          submit_prepared(
+            preparedTransaction = prepared,
+            actAs = actAs,
+            optTimeout = optTimeout,
+            deduplicationPeriod = deduplicationPeriod,
+            submissionId = submissionId,
+            minLedgerTimeAbs = minLedgerTimeAbs,
+            userId = userId,
+            transactionShape = transactionShape,
+          )
+        }
+
+        def submit_prepared(
+            actAs: ExternalParty, // TODO(#27461) Support multiple submitting parties
+            preparedTransaction: PrepareResponseProto,
+            optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            userId: String = userId,
+            transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+        ): ApiTransaction = {
+
+          val prepared = preparedTransaction.preparedTransaction.getOrElse(
+            consoleEnvironment.raiseError("Prepared transaction was empty")
+          )
+
+          val signatures = Map(
+            actAs.partyId -> consoleEnvironment.global_secret
+              .sign(preparedTransaction.preparedTransactionHash, actAs)
+          )
+
+          val tx = ledger_api.interactive_submission
+            .execute_and_wait_for_transaction(
+              preparedTransaction = prepared,
+              transactionSignatures = signatures,
+              submissionId = submissionId,
+              hashingSchemeVersion = preparedTransaction.hashingSchemeVersion,
+              transactionShape = Some(transactionShape),
+              userId = userId,
+              deduplicationPeriod = deduplicationPeriod,
+              minLedgerTimeAbs = minLedgerTimeAbs,
+            )
+
+          optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
+        }
+      }
     }
 
     @Help.Summary("Collection of Ledger API state endpoints")
@@ -2271,7 +2393,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             | return before the transaction appears at all the involved participants."""
         )
         def submit(
-            actAs: Seq[PartyId],
+            actAs: Seq[Party],
             commands: Seq[javab.data.Command],
             synchronizerId: Option[SynchronizerId] = None,
             workflowId: String = "",
@@ -2287,32 +2409,59 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
             includeCreatedEventBlob: Boolean = false,
         ): Transaction = {
-          val tx = consoleEnvironment.run {
-            ledgerApiCommand(
-              LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
-                actAs.map(_.toLf),
-                readAs.map(_.toLf),
-                commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
-                workflowId,
+          val externalParties = actAs.collect { case externalParty: ExternalParty => externalParty }
+
+          // TODO(#27461) Support multiple submitting parties
+          if (externalParties.sizeIs > 1)
+            consoleEnvironment.raiseError(
+              s"submit supports at most one external party, found: ${externalParties.map(_.partyId)}"
+            )
+
+          externalParties.headOption match {
+            case Some(externalParty) =>
+              external.submit(
+                externalParty,
+                commands,
+                synchronizerId,
                 commandId,
+                optTimeout,
                 deduplicationPeriod,
                 submissionId,
                 minLedgerTimeAbs,
-                disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
-                synchronizerId,
+                readAs,
+                disclosedContracts,
                 userId,
                 userPackageSelectionPreference,
-                transactionShape,
-                includeCreatedEventBlob = includeCreatedEventBlob,
               )
-            )
-          }
 
-          javab.data.Transaction.fromProto(
-            ApiTransaction.toJavaProto(
-              optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
-            )
-          )
+            case _ =>
+              val tx = consoleEnvironment.run {
+                ledgerApiCommand(
+                  LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
+                    actAs.map(_.toLf),
+                    readAs.map(_.toLf),
+                    commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
+                    workflowId,
+                    commandId,
+                    deduplicationPeriod,
+                    submissionId,
+                    minLedgerTimeAbs,
+                    disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
+                    synchronizerId,
+                    userId,
+                    userPackageSelectionPreference,
+                    transactionShape,
+                    includeCreatedEventBlob = includeCreatedEventBlob,
+                  )
+                )
+              }
+
+              javab.data.Transaction.fromProto(
+                ApiTransaction.toJavaProto(
+                  optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
+                )
+              )
+          }
         }
 
         @Help.Summary("Submit java codegen command asynchronously")
@@ -2420,6 +2569,46 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             .reassignment
             .pipe(ReassignmentProto.toJavaProto)
             .pipe(Reassignment.fromProto)
+
+        @Help.Summary("Submit commands on behalf of external parties")
+        @Help.Group("Command Submission")
+        private[canton] object external {
+          def submit(
+              actAs: ExternalParty, // TODO(#27461) Support multiple submitting parties
+              commands: Seq[javab.data.Command],
+              synchronizerId: Option[SynchronizerId] = None,
+              commandId: String = "",
+              optTimeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+              deduplicationPeriod: Option[DeduplicationPeriod] = None,
+              submissionId: String = "",
+              minLedgerTimeAbs: Option[Instant] = None,
+              readAs: Seq[PartyId] = Seq.empty,
+              disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
+              userId: String = userId,
+              userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+          ): Transaction = {
+            val protoCommands = commands.map(_.toProtoCommand).map(Command.fromJavaProto)
+            val protoDisclosedContracts =
+              disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto))
+
+            val tx = ledger_api.commands.external.submit(
+              actAs = actAs,
+              commands = protoCommands,
+              synchronizerId = synchronizerId,
+              commandId = commandId,
+              optTimeout = optTimeout,
+              deduplicationPeriod = deduplicationPeriod,
+              submissionId = submissionId,
+              minLedgerTimeAbs = minLedgerTimeAbs,
+              readAs = readAs,
+              disclosedContracts = protoDisclosedContracts,
+              userId = userId,
+              userPackageSelectionPreference = userPackageSelectionPreference,
+            )
+
+            javab.data.Transaction.fromProto(ApiTransaction.toJavaProto(tx))
+          }
+        }
       }
 
       @Help.Summary("Read from update stream (Java bindings)")
@@ -2667,7 +2856,6 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             .by_contract_id(contractId, requestingParties)
             .pipe(GetEventsByContractIdResponse.toJavaProto)
       }
-
     }
   }
 

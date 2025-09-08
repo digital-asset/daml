@@ -9,6 +9,7 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
+import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -398,9 +399,9 @@ class DbSequencerStore(
         Some(implicit traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)),
     )(logger, "payloadCache")
 
-  override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
+  protected override def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencerMemberId] =
+  ): FutureUnlessShutdown[RegisteredMember] =
     storage.queryAndUpdate(
       for {
         _ <- profile match {
@@ -416,10 +417,12 @@ class DbSequencerStore(
                   on conflict (member) do nothing
              """
         }
-        id <- sql"select id from sequencer_members where member = $member"
-          .as[SequencerMemberId]
-          .head
-      } yield id,
+        registeredMember <-
+          sql"select id, registered_ts, enabled from sequencer_members where member = $member"
+            .as[(SequencerMemberId, CantonTimestamp, Boolean)]
+            .head
+            .map((RegisteredMember.apply _).tupled)
+      } yield registeredMember,
       "registerMember",
     )
 
@@ -433,6 +436,32 @@ class DbSequencerStore(
         .map(_.map((RegisteredMember.apply _).tupled)),
       functionFullName,
     )
+
+  protected override def lookupMembersInternal(members: Set[Member])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]] =
+    NonEmpty.from(members.toSeq) match {
+      case Some(nonEmptyMembers) =>
+        val inClause = DbStorage.toInClause("member", nonEmptyMembers)
+        val query =
+          sql"""select id, registered_ts, enabled, member from sequencer_members where """ ++ inClause
+
+        storage.query(
+          query
+            .as[(SequencerMemberId, CantonTimestamp, Boolean, Member)]
+            .map { rows =>
+              val initialMap: Map[Member, Option[RegisteredMember]] = members.map(_ -> None).toMap
+
+              rows.foldLeft(initialMap) {
+                case (currentMap, (id, registeredFrom, enabled, member)) =>
+                  val registeredMember = RegisteredMember(id, registeredFrom, enabled)
+                  currentMap.updated(member, registeredMember.some)
+              }
+            },
+          functionFullName,
+        )
+      case None => FutureUnlessShutdown.pure(Map.empty)
+    }
 
   /** In unified sequencer payload ids are deterministic (these are sequencing times from the block
     * sequencer), so we can somewhat safely ignore conflicts arising from sequencer restarts, crash

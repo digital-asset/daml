@@ -467,7 +467,7 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
 
     acsExportFile.get.foreach { acsExport =>
       clue("Get Alice ACS on P1 with export_acs")(
-        participant1.parties.export_acs(
+        participant1.repair.export_acs(
           parties = Set(alice),
           exportFilePath = acsExport.canonicalPath,
           ledgerOffset = aliceAddedOnP3Offset,

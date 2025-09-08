@@ -82,15 +82,14 @@ final class TimeBasedInteractiveIntegrationTest
         force = ForceFlags.all,
       )
 
-      aliceE = participant3.external_parties.enable("Alice")
+      aliceE = participant3.parties.external.enable("Alice")
     }
 
     def createPassContract(implicit env: FixtureParam): (Pass.ContractId, DisclosedContract) = {
-      import env.*
       val id = s"pass-${Random.nextLong()}"
 
-      val pass = cpn.external_parties.ledger_api.javaapi.commands.submit(
-        aliceE,
+      val pass = cpn.ledger_api.javaapi.commands.submit(
+        Seq(aliceE),
         Seq(new Pass(id, aliceE.toProtoPrimitive, Instant.now()).create().commands().loneElement),
       )
 
@@ -137,7 +136,7 @@ final class TimeBasedInteractiveIntegrationTest
         ledgerTimeSet.toEpochMilli * 1000
       )
       val signatures = Map(
-        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
       )
 
       simClock.advance(oneDay)
@@ -169,7 +168,7 @@ final class TimeBasedInteractiveIntegrationTest
         ),
       )
       val signatures = Map(
-        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
       )
       simClock.advance(preparationTimeRecordTimeTolerance.dividedBy(2))
       execAndWait(prepared, signatures).discard
@@ -189,7 +188,7 @@ final class TimeBasedInteractiveIntegrationTest
         ),
       )
       val signatures = Map(
-        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
       )
 
       simClock.advance(preparationTimeRecordTimeTolerance.multipliedBy(2))
@@ -267,7 +266,7 @@ final class TimeBasedInteractiveIntegrationTest
       prepared.getPreparedTransaction.getMetadata.getMaxLedgerEffectiveTime shouldBe expected.micros
 
       val signatures = Map(
-        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
       )
 
       simClock.advance(Duration.ofSeconds(10))
