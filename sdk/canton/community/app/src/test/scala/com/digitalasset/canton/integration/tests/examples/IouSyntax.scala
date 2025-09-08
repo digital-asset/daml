@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.examples
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.transaction.Transaction
-import com.daml.ledger.javaapi as javab
 import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -15,9 +14,8 @@ import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.examples.java.divulgence.DivulgeIouByExercise
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.TestEnvironment
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.topology.{ExternalParty, Party, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{Party, PartyId, SynchronizerId}
 import com.digitalasset.canton.{LedgerUserId, config}
 import org.scalatest.LoneElement.convertToCollectionLoneElementWrapper
 
@@ -61,15 +59,15 @@ object IouSyntax {
         participant.consoleEnvironment.commandTimeouts.ledgerCommand
       ),
       observers: List[PartyId] = List.empty,
-  )(implicit env: TestEnvironment): Iou.Contract = {
+  ): Iou.Contract = {
     val createIouCmds = testIou(payer, owner, amount, observers).create().commands().asScala.toSeq
 
-    val tx = LedgerApiResolver
-      .ledger_api_javaapi_commands_submit(participant, payer)(env)(
-        createIouCmds,
-        synchronizerId,
-        optTimeout,
-      )
+    val tx = participant.ledger_api.javaapi.commands.submit(
+      Seq(payer),
+      createIouCmds,
+      synchronizerId,
+      optTimeout = optTimeout,
+    )
     JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).loneElement
   }
 
@@ -79,7 +77,7 @@ object IouSyntax {
       owner: Party,
       amounts: Seq[Int],
       observers: Seq[PartyId] = Seq.empty,
-  )(implicit env: TestEnvironment): Seq[Iou.Contract] = {
+  ): Seq[Iou.Contract] = {
     val createIouCmds = amounts.map(amount =>
       testIou(
         payer,
@@ -91,8 +89,10 @@ object IouSyntax {
 
     JavaDecodeUtil
       .decodeAllCreated(Iou.COMPANION)(
-        LedgerApiResolver
-          .ledger_api_javaapi_commands_submit(participant, payer)(env)(createIouCmds, None, None)
+        participant.ledger_api.javaapi.commands.submit(
+          Seq(payer),
+          createIouCmds,
+        )
       )
   }
 
@@ -235,33 +235,4 @@ object IouSyntax {
 
   private val userId: LedgerUserId =
     LedgerUserId.assertFromString("enterprise-user")
-}
-
-object LedgerApiResolver {
-  def ledger_api_javaapi_commands_submit(participant: ParticipantReference, party: Party)(implicit
-      env: TestEnvironment
-  ) = party match {
-    case party: PartyId =>
-      (
-          commands: Seq[javab.data.Command],
-          synchronizerId: Option[SynchronizerId],
-          optTimeout: Option[config.NonNegativeDuration],
-      ) =>
-        participant.ledger_api.javaapi.commands.submit(
-          Seq(party),
-          commands,
-          synchronizerId,
-          optTimeout = optTimeout,
-        )
-
-    case party: ExternalParty =>
-      (
-          commands: Seq[javab.data.Command],
-          synchronizerId: Option[SynchronizerId],
-          optTimeout: Option[config.NonNegativeDuration],
-      ) =>
-        import env.*
-        participant.external_parties.ledger_api.javaapi.commands
-          .submit(party, commands, synchronizerId, optTimeout = optTimeout)
-  }
 }

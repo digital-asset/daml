@@ -18,7 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PNetworkOut,
   Pruning,
 }
-import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
+import com.digitalasset.canton.tracing.{HasTraceContext, Spanning, TraceContext}
 import org.apache.pekko.dispatch.ControlMessage
 
 import java.time.Instant
@@ -36,7 +36,7 @@ final case class ModuleName(name: String)
   * @tparam MessageT
   *   The root message type understood by the actor.
   */
-trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
+trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable with Spanning {
 
   /** The module's message handler.
     *
@@ -172,7 +172,8 @@ trait P2PNetworkRef[-P2PMessageT] extends FlagCloseable {
 trait P2PConnectionEventListener {
   def onConnect(p2pEndpointId: P2PEndpoint.Id)(implicit traceContext: TraceContext): Unit
   def onDisconnect(p2pEndpointId: P2PEndpoint.Id)(implicit traceContext: TraceContext): Unit
-  def onSequencerId(p2pEndpointId: P2PEndpoint.Id, nodeId: BftNodeId)(implicit
+  // The P2P endpoint may be None if the connection is incoming and the connecting peer did not communicate one
+  def onSequencerId(bftNodeId: BftNodeId, maybeP2PEndpoint: Option[P2PEndpoint])(implicit
       traceContext: TraceContext
   ): Unit
 }
@@ -184,9 +185,10 @@ object P2PConnectionEventListener {
     override def onDisconnect(p2pEndpointId: P2PEndpoint.Id)(implicit
         traceContext: TraceContext
     ): Unit = ()
-    override def onSequencerId(p2pEndpointId: P2PEndpoint.Id, nodeId: BftNodeId)(implicit
+    override def onSequencerId(bftNodeId: BftNodeId, maybeP2PEndpoint: Option[P2PEndpoint])(implicit
         traceContext: TraceContext
-    ): Unit = ()
+    ): Unit =
+      ()
   }
 }
 
@@ -231,6 +233,10 @@ trait P2PNetworkManager[E <: Env[E], -P2PMessageT] extends FlagCloseable {
       context: E#ActorContextT[ActorContextT],
       p2pAddress: P2PAddress,
   )(implicit traceContext: TraceContext): P2PNetworkRef[P2PMessageT]
+
+  def shutdownOutgoingConnection(p2pEndpointId: P2PEndpoint.Id)(implicit
+      traceContext: TraceContext
+  ): Unit
 }
 
 /** An abstraction of cancelable delayedEvent for deterministic simulation testing purposes.

@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose, HmacOps, Salt}
 import com.digitalasset.canton.serialization.DeterministicEncoding
+import com.digitalasset.canton.util.LegacyContractHash
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 import com.google.common.annotations.VisibleForTesting

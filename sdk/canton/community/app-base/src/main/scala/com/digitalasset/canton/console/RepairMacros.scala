@@ -7,7 +7,6 @@ import better.files.*
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -453,27 +452,19 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
     )(implicit env: ConsoleEnvironment): Unit = {
       ensureSynchronizerHasBeenSilent(sourceParticipant, synchronizerId)
 
-      val acsExportOffset = sourceParticipant.parties.find_party_max_activation_offset(
-        partyId,
-        targetParticipantId,
-        synchronizerId,
-        beginOffsetExclusive = beginOffsetExclusive,
-        completeAfter = PositiveInt.one,
-      )
-
-      sourceParticipant.parties.export_acs(
-        parties = Set(partyId),
-        synchronizerId = Some(synchronizerId),
-        ledgerOffset = acsExportOffset,
-        exportFilePath = targetFile,
-      )
-
-      val synchronizers = Set(synchronizerId)
       ensureTargetPartyToParticipantIsPermissioned(
         partyId,
         sourceParticipant,
         targetParticipantId,
-        synchronizers,
+        synchronizerId,
+      )
+
+      sourceParticipant.parties.export_party_acs(
+        partyId,
+        synchronizerId,
+        targetParticipantId,
+        beginOffsetExclusive,
+        exportFilePath = targetFile,
       )
     }
 
@@ -497,12 +488,11 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         sourceFile: String,
         workflowIdPrefix: String = "",
     )(implicit env: ConsoleEnvironment): Unit = {
-      val synchronizers = Set(synchronizerId)
       ensureTargetPartyToParticipantIsPermissioned(
         partyId,
         targetParticipant,
         targetParticipant.id,
-        synchronizers,
+        synchronizerId,
       )
       // this is needed to ensure that we can switch to repair mode (necessary party notification is already arrived)
       ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
@@ -542,47 +532,33 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       partyId: PartyId,
       participant: ParticipantReference,
       targetParticipantId: ParticipantId,
-      synchronizerIds: Set[SynchronizerId],
+      synchronizerId: SynchronizerId,
   )(implicit env: ConsoleEnvironment): Unit = {
     noTracingLogger.info(
       s"Participant '${participant.id}' is ensuring that the party '$partyId' is enabled on the target '$targetParticipantId'"
     )
-    synchronizerIds.foreach { synchronizerId =>
-      // check that target participant is present on all synchronizers
-      val active =
-        participant.topology.participant_synchronizer_states.active(
-          synchronizerId,
-          targetParticipantId,
-        )
-      if (!active) {
-        env.raiseError(
-          s"Target participant $targetParticipantId is not active on synchronizer $synchronizerId"
-        )
-      }
+
+    val active =
+      participant.topology.participant_synchronizer_states.active(
+        synchronizerId,
+        targetParticipantId,
+      )
+    if (!active) {
+      env.raiseError(
+        s"Target participant $targetParticipantId is not active on synchronizer $synchronizerId"
+      )
     }
 
-    synchronizerIds.foreach { synchronizerId =>
-      val mappingExists = participant.topology.party_to_participant_mappings.is_known(
-        synchronizerId,
-        partyId,
-        Seq(targetParticipantId),
+    val mappingExists = participant.topology.party_to_participant_mappings.is_known(
+      synchronizerId,
+      partyId,
+      Seq(targetParticipantId),
+    )
+    if (!mappingExists) {
+      env.raiseError(
+        s"Missing party-to-participant mapping $partyId -> $targetParticipantId on store $synchronizerId "
       )
-      if (mappingExists) {
-        noTracingLogger.info(
-          s"The party-to-participant mapping $partyId -> $targetParticipantId already exists on store $synchronizerId"
-        )
-      } else {
-        noTracingLogger.info(
-          s"Adding party-to-participant mapping $partyId -> $targetParticipantId on store $synchronizerId"
-        )
-        participant.topology.party_to_participant_mappings
-          .propose_delta(
-            partyId,
-            adds = List((targetParticipantId, ParticipantPermission.Submission)),
-            store = synchronizerId,
-          )
-          .discard
-      }
     }
   }
+
 }

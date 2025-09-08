@@ -84,7 +84,7 @@ final case class AddEndpoint(endpoint: P2PEndpoint, to: BftNodeId) extends Comma
 final case class EstablishConnection(
     from: BftNodeId,
     to: BftNodeId,
-    endpoint: PlainTextP2PEndpoint,
+    maybeEndpoint: Option[PlainTextP2PEndpoint],
     p2pConnectionEventListener: P2PConnectionEventListener,
     traceContext: TraceContext,
 ) extends Command

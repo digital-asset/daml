@@ -31,7 +31,6 @@ import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.repair.RepairService.ContractToAdd
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,

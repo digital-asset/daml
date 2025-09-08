@@ -14,7 +14,8 @@ import com.digitalasset.canton.console.CommandErrors.{
   GenericCommandError,
 }
 import com.digitalasset.canton.console.Help.{Description, Summary, Topic}
-import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.console.commands.GlobalSecretKeyAdministration
+import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.Environment
@@ -72,12 +73,28 @@ class ConsoleEnvironment(
 
   override protected val loggerFactory: NamedLoggerFactory = environment.loggerFactory
 
+  /** Return global crypto object that allows to help interacting with external parties. Should be
+    * defined only in tests.
+    */
+  // Overridden in TestEnvironment
+  private[canton] def tryGlobalCrypto: Crypto = throw new RuntimeException(
+    "Supported only in tests"
+  )
+
   def consoleLogger: Logger = super.noTracingLogger
 
   @Help.Summary("Environment health inspection")
   @Help.Group("Health")
   private lazy val health_ = new CantonHealthAdministration(this)
   def health: CantonHealthAdministration = health_
+
+  @Help.Summary("Global secret operations")
+  @Help.Group("Secret keys")
+  protected lazy val global_secret_ = new GlobalSecretKeyAdministration(this, loggerFactory)
+  // Overridden in TestEnvironment
+  private[canton] def global_secret: GlobalSecretKeyAdministration = throw new RuntimeException(
+    "Supported only in tests"
+  )
 
   /** determines the control exception thrown on errors */
   private val errorHandler: ConsoleErrorHandler = ThrowErrorHandler

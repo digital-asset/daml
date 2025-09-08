@@ -8,6 +8,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.config
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
+import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher.PackageResolver
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.services.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService
@@ -21,6 +22,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
 }
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.*
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
@@ -42,6 +44,7 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
@@ -253,11 +256,24 @@ object ApiServices {
 
     val writeServices = {
       implicit val ec: ExecutionContext = commandExecutionContext
+
+      val packageLoader = new DeduplicatingPackageLoader()
+
+      val packageResolver: PackageResolver = (packageId: Ref.PackageId) =>
+        (tc: TraceContext) =>
+          FutureUnlessShutdown.outcomeF(
+            packageLoader.loadPackage(
+              packageId,
+              syncService.getLfArchive(_)(tc),
+              metrics.execution.getLfPackage,
+            )
+          )
+
       val commandInterpreter =
         new StoreBackedCommandInterpreter(
           engine = engine,
           participant = participantId,
-          packageSyncService = syncService,
+          packageResolver = packageResolver,
           contractStore = contractStore,
           contractAuthenticator = contractAuthenticator,
           metrics = metrics,

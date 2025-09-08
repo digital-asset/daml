@@ -61,7 +61,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         participants.all.dars.upload(CantonTestsPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
 
-        aliceE = cpn.external_parties.enable(
+        aliceE = cpn.parties.external.enable(
           "Alice",
           // Use 3 keys but start with a threshold of 1
           keysCount = PositiveInt.three,
@@ -87,7 +87,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       )
 
       // Sign with a single key
-      val singleSignature = env.envCrypto.privateCrypto
+      val singleSignature = env.tryGlobalCrypto.privateCrypto
         .signBytes(
           prepared.preparedTransactionHash,
           aliceE.signingFingerprints.head1,
@@ -158,7 +158,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         ),
       )
       val signatures = Map(
-        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
       )
 
       // To bypass the checks in phase 1 we play a trick by holding back the submission request in the sequencer
@@ -254,7 +254,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       val prepared = ppn.ledger_api.javaapi.interactive_submission
         .prepare(Seq(aliceE.partyId), Seq(pass.commands().loneElement))
       val signatures = Map(
-        aliceE.partyId -> ppn.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
       )
       // This is only currently detected in phase III, at which point warnings are issued
       val completion = loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -336,7 +336,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
 
       // Sign it
       val signature =
-        env.envCrypto.privateCrypto
+        env.tryGlobalCrypto.privateCrypto
           .signBytes(
             reComputedHashWithMissingInputContract.unwrap,
             // In this test we assume alice has only one signing key

@@ -7,6 +7,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
@@ -31,8 +32,9 @@ object P2PNetworkOut {
   object Network {
     final case class Connected(p2pEndpointId: P2PEndpoint.Id) extends Network
     final case class Disconnected(p2pEndpointId: P2PEndpoint.Id) extends Network
-    final case class Authenticated(bftNodeId: BftNodeId, p2pEndpointId: P2PEndpoint.Id)
+    final case class Authenticated(bftNodeId: BftNodeId, maybeP2PEndpoint: Option[P2PEndpoint])
         extends Network
+    final case class TopologyUpdate(membership: Membership) extends Network
   }
 
   sealed trait Admin extends Message

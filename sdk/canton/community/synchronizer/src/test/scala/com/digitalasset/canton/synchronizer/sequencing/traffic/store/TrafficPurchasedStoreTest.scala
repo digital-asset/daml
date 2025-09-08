@@ -7,6 +7,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.traffic.TrafficPurchased
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, ProtocolVersionChecksAsyncWordSpec}
 import org.scalatest.BeforeAndAfterAll
@@ -19,9 +20,10 @@ trait TrafficPurchasedStoreTest
     with FailOnShutdown {
   this: AsyncWordSpec =>
 
-  def trafficPurchasedStore(mk: () => TrafficPurchasedStore): Unit = {
+  def trafficPurchasedStore(mk: () => (TrafficPurchasedStore, SequencerStore)): Unit = {
     val alice = ParticipantId("alice")
     val bob = ParticipantId("bob")
+    val allMembers = Seq(alice, bob)
     val t0 = CantonTimestamp.Epoch
     val t1 = t0.plusSeconds(1)
     val t2 = t1.plusSeconds(1)
@@ -53,7 +55,7 @@ trait TrafficPurchasedStoreTest
     "trafficPurchasedStore" should {
 
       "store and lookup balances" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val purchaseEntryAlice2 =
@@ -66,6 +68,9 @@ trait TrafficPurchasedStoreTest
         val purchaseEntryBob =
           TrafficPurchased(bob.member, PositiveInt.one, NonNegativeLong.tryCreate(8L), t1)
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryAlice2)
           _ <- store.store(purchaseEntryBob)
@@ -81,10 +86,13 @@ trait TrafficPurchasedStoreTest
       }
 
       "be idempotent if inserting the same balance twice" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryAlice1)
           aliceEvents <- store.lookup(alice)
@@ -96,7 +104,7 @@ trait TrafficPurchasedStoreTest
       }
 
       "update if the serial is higher than the previous one for the same timestamp" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val purchaseEntryAlice2 =
@@ -107,6 +115,9 @@ trait TrafficPurchasedStoreTest
             t1,
           )
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryAlice2)
           aliceEvents <- store.lookup(alice)
@@ -118,7 +129,7 @@ trait TrafficPurchasedStoreTest
       }
 
       "not update if the serial is lower or equal to the previous one for the same timestamp" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val purchaseEntryAlice1 =
           TrafficPurchased(
             alice.member,
@@ -129,6 +140,9 @@ trait TrafficPurchasedStoreTest
         val purchaseEntryAlice2 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(10L), t1)
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryAlice2)
           aliceEvents <- store.lookup(alice)
@@ -140,7 +154,7 @@ trait TrafficPurchasedStoreTest
       }
 
       "remove all balances below a given timestamp, keeping the closest one < below it" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         // Between t2 and t3
         val t2point5 = t2.plusMillis(500)
         val purchaseEntryAlice1 =
@@ -160,6 +174,9 @@ trait TrafficPurchasedStoreTest
             t3,
           )
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryBob1)
           _ <- store.store(purchaseEntryAlice2)
@@ -178,7 +195,7 @@ trait TrafficPurchasedStoreTest
       }
 
       "remove all balances below a given timestamp for which there is an update" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val purchaseEntryAlice2 =
@@ -196,6 +213,9 @@ trait TrafficPurchasedStoreTest
             t3,
           )
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryAlice2)
           _ <- store.store(purchaseEntryAlice3)
@@ -218,7 +238,7 @@ trait TrafficPurchasedStoreTest
       }
 
       "keep the latest balance if they're all in the pruning window" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val purchaseEntryAlice1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val purchaseEntryAlice2 =
@@ -236,6 +256,9 @@ trait TrafficPurchasedStoreTest
             t3,
           )
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.store(purchaseEntryAlice1)
           _ <- store.store(purchaseEntryAlice2)
           _ <- store.store(purchaseEntryAlice3)
@@ -252,13 +275,16 @@ trait TrafficPurchasedStoreTest
       }
 
       "return the correct max timestamp" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         val balance1 =
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1)
         val balance2 =
           TrafficPurchased(bob.member, PositiveInt.tryCreate(2), NonNegativeLong.tryCreate(10L), t2)
 
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           max0 <- store.maxTsO
           _ <- store.store(balance1)
           max1 <- store.maxTsO
@@ -272,9 +298,12 @@ trait TrafficPurchasedStoreTest
       }
 
       "set and get the initial timestamp" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
 
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           // We should not really ever set the initial timestamp twice, but if we do make sure
           // we take the highest one
           _ <- store.setInitialTimestamp(t1)
@@ -286,7 +315,7 @@ trait TrafficPurchasedStoreTest
       }
 
       "return latest balances at given timestamp" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
 
         val aliceBalances = Seq(
           TrafficPurchased(alice.member, PositiveInt.one, NonNegativeLong.tryCreate(5L), t1),
@@ -313,6 +342,9 @@ trait TrafficPurchasedStoreTest
         val expectedBalancesAtT4 = Seq(aliceBalances(1), bobBalances(1))
 
         for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- (aliceBalances ++ bobBalances).parTraverse(store.store(_))
           balancesAtT0 <- store.lookupLatestBeforeInclusive(t0)
           balancesAtT1 <- store.lookupLatestBeforeInclusive(t1)

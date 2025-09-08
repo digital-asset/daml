@@ -236,6 +236,7 @@ class SequencerNodeBootstrap(
         arguments.metrics.trafficControl.purchaseCache.closeAcquired()
         arguments.metrics.trafficControl.consumedCache.closeAcquired()
         arguments.metrics.eventBuffer.closeAcquired()
+        arguments.metrics.memberCache.closeAcquired()
       }
     })
 

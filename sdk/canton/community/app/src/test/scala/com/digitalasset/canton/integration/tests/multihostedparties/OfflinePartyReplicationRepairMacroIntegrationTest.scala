@@ -20,11 +20,11 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
-import com.digitalasset.canton.{HasTempDirectory, ReassignmentCounter, config}
+import com.digitalasset.canton.{HasTempDirectory, config}
 
 import scala.jdk.CollectionConverters.*
 
-trait OfflinePartyReplicationRepairMacroIntegrationTest
+sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
     extends UseSilentSynchronizerInTest
     with AcsInspection
     with HasTempDirectory {
@@ -124,7 +124,9 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
   }
 
   private var reassignedContractCid: LfContractId = _
-  "setup our test scenario: reassign Alice's active contract to another synchronizer, and back again to increment its reassignment counter" in {
+
+  // TODO(#23073) - Un-ignore this test once #27325 has been re-implemented
+  "setup our test scenario: reassign Alice's active contract to another synchronizer, and back again to increment its reassignment counter" ignore {
     implicit env =>
       import env.*
 
@@ -224,6 +226,7 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
 
     contracts should have length 6
 
+    /* TODO(#23073) - Un-comment this test part once #27325 has been re-implemented
     val acs = participant3.underlying.value.sync.stateInspection
       .findAcs(daName)
       .valueOrFail(s"get ACS on $daName for $participant3")
@@ -235,6 +238,7 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
     withClue("Reassignment counter should be two after two reassignments") {
       counter shouldBe ReassignmentCounter(2)
     }
+     */
 
     val transfer = findIOU(participant3, alice, _.data.owner == alice.toProtoPrimitive)
 
@@ -270,7 +274,7 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
   }
 }
 
-class OfflinePartyReplicationRepairMactroIntegrationTestPostgres
+final class OfflinePartyReplicationRepairMacroIntegrationTestPostgres
     extends OfflinePartyReplicationRepairMacroIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
