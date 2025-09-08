@@ -1731,6 +1731,15 @@ fullParseArgs numProcessors cliArgs = do
 
     pure cmd
 
+warnDeprecatedArgs :: [String] -> IO ()
+warnDeprecatedArgs cliArgs =
+  forM_ cliArgs $ \case
+    arg | "--project-root" `isPrefixOf` arg ->
+      hPutStrLn stderr "--project-root is deprecated, please use --package-root"
+    arg | "--project-check" `isPrefixOf` arg ->
+      hPutStrLn stderr "--project-check is deprecated, please use --package-check"
+    _ -> pure ()
+
 main :: SdkVersion.Class.SdkVersioned => IO ()
 main = do
     -- We need this to ensure that logs are flushed on SIGTERM.
@@ -1741,10 +1750,14 @@ main = do
 
     numProcessors <- getNumProcessors
     cliArgs <- getArgs
+    warnDeprecatedArgs cliArgs
 
     Command _ _ io <- fullParseArgs numProcessors cliArgs
 
     withProgName "damlc" io
+
+    -- GHC is having some typechecking issues with `io` above, only solution I could find was adding `pure ()`
+    pure ()
 
 -- | Commands for which we add the args from daml.yaml build-options.
 cmdUseDamlYamlArgs :: CommandName -> Bool

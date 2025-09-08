@@ -11,7 +11,7 @@ import qualified DA.Service.Logger as L
 import qualified DA.Service.Logger.Impl.Pure as L
 import qualified DA.Service.Logger.Impl.GCP as L
 import DA.Daml.Project.Config
-import DA.Daml.Project.Consts (sdkVersionEnvVar)
+import DA.Daml.Project.Consts (projectPathEnvVar, sdkVersionEnvVar)
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Command
@@ -59,9 +59,12 @@ main = withSdkVersions $ do
     withLogger damlPath $ \logger -> handleErrors logger $ do
         installSignalHandlers
         builtinCommandM <- tryBuiltinCommand
+        usingProjectRootVar <- isJust <$> lookupEnv projectPathEnvVar
+        when usingProjectRootVar $
+          hPutStrLn stderr "The PROJECT_ROOT environment variable is deprecated, please use PACKAGE_ROOT"
         case builtinCommandM of
             Just builtinCommand -> do
-                env <- getDamlEnv damlPath (commandWantsProjectPath builtinCommand)
+                env <- getDamlEnv damlPath (commandWantsPackagePath builtinCommand)
                 handleCommand env logger builtinCommand
             Nothing -> do
                 env@Env{..} <- autoInstall =<< getDamlEnv damlPath (LookForPackagePath True)
@@ -91,8 +94,8 @@ main = withSdkVersions $ do
                         versionChecks env
                         handleCommand env logger userCommand
 
-commandWantsProjectPath :: Command -> LookForPackagePath
-commandWantsProjectPath cmd = LookForPackagePath $
+commandWantsPackagePath :: Command -> LookForPackagePath
+commandWantsPackagePath cmd = LookForPackagePath $
     case cmd of
         Builtin (Install InstallOptions{..})
             | Just RawInstallTarget_Project <- iTargetM -> True
