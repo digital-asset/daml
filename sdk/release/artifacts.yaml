@@ -63,8 +63,6 @@
   type: jar-jarjar
 - target: //canton:bindings-java
   type: jar-lib
-- target: //language-support/java/bindings-rxjava:bindings-rxjava
-  type: jar-lib
 - target: //language-support/java/codegen:lib
   type: jar-scala
 - target: //language-support/java/codegen:binary
