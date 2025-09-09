@@ -44,7 +44,7 @@ def extract_test_name_map(mapping_filename: str):
     Extracts the short and long test names from a file. The file is a JSON object
     with keys being the short names and values being the long names.
     """
-    with open(mapping_filename) as f:
+    with open(mapping_filename, 'r', encoding='utf-8-sig') as f:
         content = f.read().replace("@", "")
         print(f"content: {content}")
         return json.loads(content)
