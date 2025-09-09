@@ -49,7 +49,8 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       UpgradesMatrixCases.SetupData(
         alice = Party.assertFromString("Alice"),
         bob = Party.assertFromString("Bob"),
-        clientContractId = toContractId("client"),
+        clientLocalContractId = toContractId("client-local"),
+        clientGlobalContractId = toContractId("client-global"),
         globalContractId = toContractId("1"),
       )
     )
@@ -68,12 +69,21 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: UpgradesMatrixCases.ContractOrigin,
+      creationPackageStatus: UpgradesMatrixCases.CreationPackageStatus,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
-    val clientContract: FatContractInstance =
+    val clientLocalContract: FatContractInstance =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = cases.langVersion,
-        packageName = cases.clientPkg.pkgName,
-        template = testHelper.clientTplId,
+        packageName = cases.clientLocalPkg.pkgName,
+        template = testHelper.clientLocalTplId,
+        arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
+      )
+
+    val clientGlobalContract: FatContractInstance =
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
+        version = cases.langVersion,
+        packageName = cases.clientGlobalPkg.pkgName,
+        template = testHelper.clientGlobalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
         signatories = immutable.Set(setupData.alice),
       )
@@ -117,10 +127,15 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     val lookupContractById = contractOrigin match {
       case UpgradesMatrixCases.Global =>
         Map(
-          setupData.clientContractId -> clientContract,
+          setupData.clientLocalContractId -> clientLocalContract,
+          setupData.clientGlobalContractId -> clientGlobalContract,
           setupData.globalContractId -> globalContract,
         )
-      case _ => Map(setupData.clientContractId -> clientContract)
+      case _ =>
+        Map(
+          setupData.clientLocalContractId -> clientLocalContract,
+          setupData.clientGlobalContractId -> clientGlobalContract,
+        )
     }
     val lookupContractByKey = contractOrigin match {
       case UpgradesMatrixCases.Global =>
@@ -136,8 +151,12 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     newEngine()
       .submit(
         packageMap = cases.packageMap,
-        packagePreference =
-          Set(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId),
+        packagePreference = Set(
+          cases.commonDefsPkgId,
+          cases.templateDefsV2PkgId,
+          cases.clientLocalPkgId,
+          cases.clientGlobalPkgId,
+        ),
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
@@ -148,7 +167,10 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       )
       .consume(
         pcs = lookupContractById,
-        pkgs = cases.lookupPackage,
+        pkgs = creationPackageStatus match {
+          case UpgradesMatrixCases.CreationPackageVetted => cases.allPackages
+          case UpgradesMatrixCases.CreationPackageUnvetted => cases.allNonCreationPackages
+        },
         keys = lookupContractByKey,
       )
   }
