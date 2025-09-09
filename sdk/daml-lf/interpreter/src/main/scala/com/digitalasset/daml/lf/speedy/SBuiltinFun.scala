@@ -2472,8 +2472,6 @@ private[lf] object SBuiltinFun {
           // import its value and validate its contract info again.
           if (srcTmplId == dstTmplId)
             k(srcSArg)
-          else if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
-            Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
           else {
             // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
             // its metadata.
@@ -2495,18 +2493,15 @@ private[lf] object SBuiltinFun {
           // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
           authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
             ensureContractActive(machine, coid, coinst.templateId) {
-              if (coinst.templateId.qualifiedName != dstTmplId.qualifiedName)
-                Control.Error(IE.WronglyTypedContract(coid, dstTmplId, coinst.templateId))
-              else
-                processSrcContract(
-                  coinst.templateId,
-                  Metadata(
-                    coinst.signatories,
-                    coinst.nonSignatoryStakeholders,
-                    coinst.contractKeyWithMaintainers,
-                  ),
-                  coinst.createArg,
-                )
+              processSrcContract(
+                coinst.templateId,
+                Metadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
+              )
             }
           }
         )
