@@ -1181,6 +1181,34 @@ da_haskell_test(
     ],
 )
 
+da_haskell_test(
+    name = "package-imports",
+    srcs = ["src/DA/Test/PackageImports.hs"],
+    data = [
+        "//daml-script/test:script-test-v2.dev.dar",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "filepath",
+        "tasty",
+        "tasty-hunit",
+        "zip-archive",
+    ],
+    main_function = "DA.Test.PackageImports.entry",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/damlc/daml-extract-dar",
+        "//compiler/damlc/daml-ide-core",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
 [
     [
         daml_compile(
