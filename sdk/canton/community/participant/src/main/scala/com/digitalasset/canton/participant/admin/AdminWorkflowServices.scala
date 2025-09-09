@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution, RpcError}
 import com.digitalasset.canton.auth.CantonAdminTokenDispenser
@@ -43,7 +44,7 @@ import com.digitalasset.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.{Flow, Sink}
 
 import java.io.InputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -279,14 +280,17 @@ class AdminWorkflowServices(
     val startupF =
       client.stateService.getLedgerEndOffset().flatMap { offset =>
         client.stateService
-          .getActiveContracts(
+          .getActiveContractsSource(
             eventFormat = service.eventFormat,
             validAtOffset = offset,
             token = None,
           )
-          .map { acs =>
-            logger.debug(s"Loading $acs $service")
-            service.processAcs(acs)
+          .map(_.contractEntry)
+          .collect { case ContractEntry.ActiveContract(contract) =>
+            service.processAcs(Seq(contract))
+          }
+          .runWith(Sink.lastOption)
+          .map { _ =>
             new ResilientLedgerSubscription(
               makeSource = subscribeOffset =>
                 client.updateService.getUpdatesSource(

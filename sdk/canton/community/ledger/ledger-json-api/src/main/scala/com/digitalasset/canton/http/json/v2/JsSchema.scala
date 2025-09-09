@@ -112,6 +112,7 @@ object JsSchema {
       events: Seq[JsReassignmentEvent.JsReassignmentEvent],
       traceContext: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
       recordTime: com.google.protobuf.timestamp.Timestamp,
+      synchronizerId: String,
   )
 
   object JsServicesCommonCodecs {

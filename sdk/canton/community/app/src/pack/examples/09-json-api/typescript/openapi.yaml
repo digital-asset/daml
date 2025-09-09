@@ -4557,6 +4557,7 @@ components:
       - workflowId
       - offset
       - recordTime
+      - synchronizerId
       properties:
         updateId:
           description: |-
@@ -4603,6 +4604,12 @@ components:
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
+            Required
+          type: string
+        synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized this Reassignment.
             Required
           type: string
     JsReassignmentEvent:

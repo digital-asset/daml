@@ -17,6 +17,7 @@ final class FindPartyActivationOffsetsIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // A party gets activated on the multiple participants without being replicated (= ACS mismatch),
   // and we want to minimize the risk of warnings related to acs commitment mismatches
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)

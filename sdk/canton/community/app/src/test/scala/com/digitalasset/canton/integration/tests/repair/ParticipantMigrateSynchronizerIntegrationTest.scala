@@ -4,6 +4,10 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.{
+  SynchronizerTimeRange,
+  TimeRange,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -12,7 +16,7 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
   SequencerReference,
 }
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError.InvalidMessage
 import com.digitalasset.canton.examples.java as M
@@ -33,6 +37,7 @@ import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.UnsafeToPrune
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Match
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.{SyncServiceError, SynchronizerMigrationError}
 import com.digitalasset.canton.participant.synchronizer.{
@@ -320,7 +325,53 @@ final class ParticipantMigrateSynchronizerIntegrationTest
               (logAssertions)*
             )
 
-          // TODO(i9557) check that commitments match again
+            val tsAfterMigreationAcme =
+              sequencer2.underlying.value.sequencer.timeTracker.fetchTime().futureValueUS
+            participant1.health.ping(participantId = participant2, synchronizerId = Some(acmeId))
+
+            eventually() {
+              // check that commitments match on acme
+              val cmtAfterMigrationAcmeP1 =
+                participant1.commitments.lookup_received_acs_commitments(
+                  synchronizerTimeRanges = Seq(
+                    SynchronizerTimeRange(
+                      acmeId,
+                      Some(
+                        TimeRange(
+                          tsAfterMigreationAcme,
+                          CantonTimestamp.MaxValue,
+                        )
+                      ),
+                    )
+                  ),
+                  counterParticipants = Seq(participant2.id),
+                  commitmentState = Seq(Match),
+                  verboseMode = true,
+                )
+              cmtAfterMigrationAcmeP1.size shouldBe >=(1)
+
+              val cmtAfterMigrationAcmeP2 =
+                participant2.commitments.lookup_received_acs_commitments(
+                  synchronizerTimeRanges = Seq(
+                    SynchronizerTimeRange(
+                      acmeId,
+                      Some(
+                        TimeRange(
+                          tsAfterMigreationAcme,
+                          CantonTimestamp.MaxValue,
+                        )
+                      ),
+                    )
+                  ),
+                  counterParticipants = Seq(participant1.id),
+                  commitmentState = Seq(Match),
+                  verboseMode = true,
+                )
+              cmtAfterMigrationAcmeP2.size shouldBe >=(1)
+
+              cmtAfterMigrationAcmeP1.head._2.head.receivedCommitment should not be None
+              cmtAfterMigrationAcmeP1.head._2.head.receivedCommitment shouldBe cmtAfterMigrationAcmeP2.head._2.head.receivedCommitment
+            }
         }
 
         "test we can progress on existing contracts" in { implicit env =>
@@ -511,6 +562,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     )
   )
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // A party replication is involved and we want to minimize the risk of warnings related to acs commitment mismatches
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 

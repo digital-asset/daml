@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.metrics.{ParticipantHistograms, ParticipantMetrics}
 import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.{
-  CantonLedgerApiServerFactory,
+  LedgerApiServerBootstrapUtils,
   ParticipantNode,
   ParticipantNodeBootstrap,
   ParticipantNodeBootstrapFactory,
@@ -130,14 +130,14 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
       CommunityCantonEdition,
       TestingConfigInternal(initializeGlobalOpenTelemetry = false),
       new ParticipantNodeBootstrapFactory {
-        override protected def createLedgerApiServerFactory(
+        override protected def createLedgerApiBootstrapUtils(
             arguments: this.Arguments,
             engine: Engine,
             testingTimeService: TestingTimeService,
         )(implicit
             executionContext: ExecutionContextIdlenessExecutorService,
             actorSystem: ActorSystem,
-        ): CantonLedgerApiServerFactory = mock[CantonLedgerApiServerFactory]
+        ): LedgerApiServerBootstrapUtils = mock[LedgerApiServerBootstrapUtils]
 
         override def create(
             arguments: NodeFactoryArguments[
