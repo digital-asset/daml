@@ -26,6 +26,7 @@ module DA.Daml.LF.ScriptServiceClient
   , LowLevel.Location(..)
   , Hash
   , encodeModule
+  , encodeModuleWithImports
   ) where
 
 import Control.Concurrent.Extra
@@ -240,6 +241,10 @@ gcCtxs Handle{..} ctxIds = withLock hContextLock $ withSem hConcurrencySem $ do
 encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
   where m' = LowLevel.encodeSinglePackageModule v m
+
+encodeModuleWithImports :: LF.Version -> LF.ModuleWithImports -> (Hash, BS.ByteString)
+encodeModuleWithImports v m = (Hash $ hash m', m')
+  where m' = LowLevel.encodeSinglePackageModuleWithImports v m
 
 type LiveHandler = LowLevel.ScriptStatus -> IO ()
 

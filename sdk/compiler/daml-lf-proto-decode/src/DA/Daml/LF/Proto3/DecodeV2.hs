@@ -171,7 +171,7 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
         assertSupportsNot
                featurePackageImports
                versionLens
-               (throwError . ParseError . printf "Got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
+               (throwError . ParseError . printf "damlc: got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
 
 
 ------------------------------------------------------------------------

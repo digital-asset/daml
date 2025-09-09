@@ -55,7 +55,9 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         encodeKindBuilder(knd).build()
     }
 
-    private var pkgImports: Either[String, Map[Ref.PackageId, Int]] = Left("default init field in encoder")
+    private var pkgImports: Either[String, Map[Ref.PackageId, Int]] = Left(
+      "default init field in encoder"
+    )
 
     private def eitherToException[A](x: Either[String, A]): A =
       x.fold(err => throw EncodeError(err), identity)
@@ -93,7 +95,9 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       dottedNameTable.build.foreach(builder.addInternedDottedNames)
       stringsTable.build.foreach(builder.addInternedStrings)
 
-      this.pkgImports = pkg.imports.map(_.toList.sorted.map(s => eitherToException(PackageId.fromString(s))).zipWithIndex.toMap)
+      this.pkgImports = pkg.imports.map(
+        _.toList.sorted.map(s => eitherToException(PackageId.fromString(s))).zipWithIndex.toMap
+      )
 
       pkg.imports match {
         case Right(importsSet) => builder.setPackageImports(encodeImports(importsSet))
@@ -161,17 +165,18 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         val builder = PLF.SelfOrImportedPackageId.newBuilder()
 
         pkgImports match {
-          case Right(ids) if !stableIds.contains(pkgId) && languageVersion >= LV.Features.explicitPkgImports =>
-            //explicit package imports table
+          case Right(ids)
+              if !stableIds.contains(pkgId) && languageVersion >= LV.Features.explicitPkgImports =>
+            // explicit package imports table
             builder.setPackageImportId(ids(pkgId))
           case _ =>
-            //old style direct (but interned) ref
+            // old style direct (but interned) ref
             setString(pkgId, builder.setImportedPackageIdInternedStr)
         }
         builder.build()
       }
 
-    //need to put at central place
+    // need to put at central place
     val stableIds: Seq[PackageId] =
       Seq(
         "54f85ebfc7dfae18f7d70370015dcc6c6792f60135ab369c44ae52c6fc17c274", // daml-prim
@@ -203,7 +208,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         "b70db8369e1c461d5c70f1c86f526a29e9776c655e6ffc2560f95b05ccb8b946", // daml-stdlib-DA-Time-Types
         "3cde94fe9be5c700fc1d9a8ad2277e2c1214609f8c52a5b4db77e466875b8cb7", // daml-stdlib-DA-Validation-Types
       ).map(s => eitherToException(PackageId.fromString(s)))
-
 
     private implicit def encodeModuleId(modId: (PackageId, ModuleName)): PLF.ModuleId = {
       val (pkgId, modName) = modId

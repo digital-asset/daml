@@ -26,6 +26,7 @@ module DA.Daml.LF.ScriptServiceClient.LowLevel
   , SS.WarningMessage(..)
   , SS.Location(..)
   , encodeSinglePackageModule
+  , encodeSinglePackageModuleWithImports
   , ScriptServiceException(..)
   ) where
 
@@ -112,6 +113,10 @@ data ContextUpdate = ContextUpdate
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeSinglePackageModule version m =
     BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version (m, Left $ LF.Trace "DA.Daml.LF.ScriptServiceClient.LowLevel:encodeSinglePackageModule")))
+
+encodeSinglePackageModuleWithImports :: LF.Version -> LF.ModuleWithImports -> BS.ByteString
+encodeSinglePackageModuleWithImports version m =
+    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version m))
 
 data BackendError
   = BErrorClient ClientError

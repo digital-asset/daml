@@ -872,7 +872,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
           val id = getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
           if (!stableIds.contains(id) && languageVersion >= LV.Features.explicitPkgImports)
-            throw Error.Parsing(s"Got explicit non-stable package id on lf version that supports explicit package imports, id: ${id}, lf version: ${languageVersion}")
+            throw Error.Parsing(
+              s"Got explicit non-stable package id (${id}) on lf version (${languageVersion}) that supports explicit package imports, imports: (${imports})"
+            )
           id
         case SC.PACKAGE_IMPORT_ID =>
           getImportedPackageId(lfId.getPackageId.getPackageImportId())
@@ -1795,7 +1797,7 @@ private[lf] object DecodeV2 {
       .toMap
       .withDefault(_ => throw Error.Parsing("BuiltinFunction.UNRECOGNIZED"))
 
-  //need to put at central place
+  // need to put at central place
   val stableIds: Seq[PackageId] =
     Seq(
       "54f85ebfc7dfae18f7d70370015dcc6c6792f60135ab369c44ae52c6fc17c274", // daml-prim

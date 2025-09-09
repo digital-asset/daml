@@ -58,6 +58,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
+import Text.Printf
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
 import qualified Data.Vector as V
@@ -68,6 +69,7 @@ import Development.IDE.GHC.Util
 import Development.IDE.GHC.Warnings
 import Development.IDE.Types.Location as Base
 import Development.IDE.Types.Logger hiding (Priority)
+
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
 import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
 import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
@@ -1094,8 +1096,15 @@ toDiagnostics lvl world scriptFile scriptRange = \case
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
     case LF.moduleSource m of
-      Just file
-        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath' file
+      Just file ->
+        if isAbsolute file
+          then use_ EncodeModule $ toNormalizedFilePath' file
+          else do
+            (logger :: Logger) <- actionLogger
+            liftIO $ logInfo logger $ T.pack $ printf "relative filepath found, fp: %s" file
+            imports <- use_ GeneratePackageImports $ toNormalizedFilePath' file
+            pure $ SS.encodeModuleWithImports lfVersion (m, imports)
+            -- pure $ SS.encodeModule lfVersion m
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScriptRootsRule :: Rules ()
