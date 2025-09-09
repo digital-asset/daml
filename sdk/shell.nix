@@ -10,4 +10,8 @@ pkgs.mkShell {
     python3.pkgs.docutils
     sphinx
   ];
+
+shellHook = ''
+    export BAZEL_COMPLETION_PATH="${pkgs.bazel_7}/share/zsh/site-functions"
+'';
 }
