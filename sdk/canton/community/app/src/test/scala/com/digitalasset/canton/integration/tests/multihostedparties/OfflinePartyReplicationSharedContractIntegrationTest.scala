@@ -12,7 +12,7 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
+import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -30,10 +30,9 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
   * We check that we can first replicate Alice and then Bob. The reason for this that is that it was
   * a limitation in 2.x
   */
-trait OfflinePartyReplicationSharedContractIntegrationTest
+sealed trait OfflinePartyReplicationSharedContractIntegrationTest
     extends CommunityIntegrationTest
-    with SharedEnvironment
-    with AcsInspection {
+    with SharedEnvironment {
 
   private val aliceName = "Alice"
   private val bobName = "Bob"
@@ -45,6 +44,7 @@ trait OfflinePartyReplicationSharedContractIntegrationTest
     EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
       import env.*
 
+      // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
       sequencer1.topology.synchronizer_parameters.propose_update(
         synchronizerId = daId,
         _.update(reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)),
@@ -75,20 +75,13 @@ trait OfflinePartyReplicationSharedContractIntegrationTest
       ),
     )
 
-    val partyAddedOnP2Offset = participant1.parties
-      .find_party_max_activation_offset(
-        partyId = party,
-        participantId = participant2.id,
-        synchronizerId = daId,
-        beginOffsetExclusive = ledgerEndP1,
-        completeAfter = PositiveInt.one,
-      )
-
     val file = File.newTemporaryFile(s"acs_export_chopper_$party")
-    participant1.parties.export_acs(
-      Set(party),
+    participant1.parties.export_party_acs(
+      party = party,
+      synchronizerId = daId.logical,
+      targetParticipantId = participant2.id,
+      beginOffsetExclusive = ledgerEndP1,
       exportFilePath = file.canonicalPath,
-      ledgerOffset = partyAddedOnP2Offset,
     )
 
     participant2.synchronizers.disconnect_all()
@@ -116,7 +109,7 @@ trait OfflinePartyReplicationSharedContractIntegrationTest
   }
 }
 
-class OfflinePartyReplicationSharedContractIntegrationTestPostgres
+final class OfflinePartyReplicationSharedContractIntegrationTestPostgres
     extends OfflinePartyReplicationSharedContractIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))

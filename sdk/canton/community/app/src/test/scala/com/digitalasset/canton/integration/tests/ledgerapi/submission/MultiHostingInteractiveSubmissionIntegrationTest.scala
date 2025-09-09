@@ -67,7 +67,7 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
       import env.*
       // TODO(#27482) Allow allocation on extra confirming and observing
 
-      aliceE = participant1.external_parties.enable("Alice")
+      aliceE = participant1.parties.external.enable("Alice")
 
       val newPTP = TopologyTransaction(
         TopologyChangeOp.Replace,
@@ -88,7 +88,7 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
 
       // TODO(#27482) Generalize PartyToParticipantDeclarative to external parties
       participant1.topology.transactions.load(
-        Seq(participant1.external_parties.sign(newPTP, aliceE.partyId, testedProtocolVersion)),
+        Seq(global_secret.sign(newPTP, aliceE, testedProtocolVersion)),
         daId,
       )
 
@@ -135,7 +135,7 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
       participant2.stop()
       val prepared = prepareCommand(aliceE, protoCreateCycleCmd(aliceE))
 
-      val signatures = participant1.external_parties.sign(prepared.preparedTransactionHash, aliceE)
+      val signatures = global_secret.sign(prepared.preparedTransactionHash, aliceE)
       val (submissionId, ledgerEnd) = exec(prepared, Map(aliceE.partyId -> signatures), epn)
       val completion = findCompletion(
         submissionId,

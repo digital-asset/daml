@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.metrics
 
 import cats.Eval
-import com.daml.metrics.api.MetricHandle.{Gauge, Histogram, LabeledMetricsFactory, Meter}
+import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification, MetricsContext}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 
@@ -90,6 +90,14 @@ class BlockMetrics private[metrics] (
   if (sys.env.contains("GENERATE_METRICS_FOR_DOCS")) {
     openTelemetryMetricsFactory.gauge(ackGaugeInfo, 0L)(MetricsContext.Empty).discard
   }
+
+  val stramBufferSize: Counter = openTelemetryMetricsFactory.counter(
+    MetricInfo(
+      name = prefix :+ "stream-buffer-size",
+      summary = "Size of the buffer used by Pekko streams, tagged by stream element",
+      qualification = MetricQualification.Saturation,
+    )
+  )
 
   def updateAcknowledgementGauge(member: String, value: Long): Unit =
     acknowledgments

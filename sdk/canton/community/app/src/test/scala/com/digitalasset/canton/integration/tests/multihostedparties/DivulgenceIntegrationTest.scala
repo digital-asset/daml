@@ -41,6 +41,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 final class DivulgenceIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
   import DivulgenceIntegrationTest.*
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // A party gets activated on multiple participants without being replicated (= ACS mismatch),
   // and we want to minimize the risk of warnings related to acs commitment mismatches
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
@@ -269,17 +270,11 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     )
     participant2.synchronizers.disconnect_all()
 
-    val aliceAddedOnP2Offset = participant1.parties.find_party_max_activation_offset(
-      partyId = alice,
-      participantId = participant2.id,
+    participant1.parties.export_party_acs(
+      party = alice,
       synchronizerId = daId,
+      targetParticipantId = participant2.id,
       beginOffsetExclusive = ledgerEndP1,
-      completeAfter = PositiveInt.one,
-    )
-
-    participant1.parties.export_acs(
-      Set(alice),
-      ledgerOffset = aliceAddedOnP2Offset,
       exportFilePath = acsSnapshotAtOffset,
     )
 

@@ -39,8 +39,8 @@ import com.digitalasset.canton.participant.ledger.api.{
   AcsCommitmentPublicationPostProcessor,
   LedgerApiIndexer,
   LedgerApiIndexerConfig,
+  LedgerApiServer,
   StartableStoppableLedgerApiDependentServices,
-  StartableStoppableLedgerApiServer,
 }
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.submission.{
@@ -102,7 +102,7 @@ class ParticipantNodeBootstrap(
     cantonSyncServiceFactory: CantonSyncService.Factory[CantonSyncService],
     resourceManagementServiceFactory: Eval[ParticipantSettingsStore] => ResourceManagementService,
     replicationServiceFactory: Storage => ServerServiceDefinition,
-    ledgerApiServerFactory: CantonLedgerApiServerFactory,
+    ledgerApiServerBootstrapUtils: LedgerApiServerBootstrapUtils,
     setInitialized: ParticipantServices => Unit,
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
@@ -533,7 +533,7 @@ class ParticipantNodeBootstrap(
                   processingTimeout = parameters.processingTimeouts,
                   serverConfig = config.ledgerApi,
                   indexerConfig = config.parameters.ledgerApiServer.indexer,
-                  indexerHaConfig = ledgerApiServerFactory.createHaConfig(config),
+                  indexerHaConfig = ledgerApiServerBootstrapUtils.createHaConfig(config),
                   ledgerParticipantId = participantId.toLf,
                   onlyForTestingEnableInMemoryTransactionStore =
                     arguments.testingConfig.enableInMemoryTransactionStoreForParticipants,
@@ -745,21 +745,34 @@ class ParticipantNodeBootstrap(
           connectedSynchronizerAcsCommitmentProcessorHealth.set(sync.acsCommitmentProcessorHealth)
         }
 
-        ledgerApiServer <- ledgerApiServerFactory
-          .create(
-            name,
-            participantId = participantId.toLf,
-            adminParty = Some(participantId.adminParty.toLf),
-            sync = sync,
-            participantNodePersistentState = persistentState,
-            ledgerApiIndexer = ledgerApiIndexerContainer.asEval,
-            arguments.config,
-            arguments.parameterConfig,
-            arguments.metrics.ledgerApiServer,
-            arguments.metrics.httpApiServer,
-            tracerProvider,
-            adminTokenDispenser,
-          )
+        ledgerApiServerContainer = new LifeCycleContainer[LedgerApiServer](
+          stateName = "ledger-api-server",
+          create = () =>
+            FutureUnlessShutdown.outcomeF(
+              LedgerApiServer.initialize(
+                adminParty = participantId.adminParty.toLf,
+                adminTokenDispenser = adminTokenDispenser,
+                commandProgressTracker = sync.commandProgressTracker,
+                config = arguments.config,
+                httpApiMetrics = arguments.metrics.httpApiServer,
+                ledgerApiServerBootstrapUtils = ledgerApiServerBootstrapUtils,
+                ledgerApiIndexer = ledgerApiIndexerContainer.asEval,
+                loggerFactory = loggerFactory,
+                metrics = arguments.metrics.ledgerApiServer,
+                name = name,
+                parameters = arguments.parameterConfig,
+                participantId = participantId.toLf,
+                participantNodePersistentState = persistentState,
+                sync = sync,
+                tracerProvider = tracerProvider,
+              )
+            ),
+          loggerFactory = loggerFactory,
+        )
+        _ <-
+          // Initialize the Ledger API server only if the participant is active
+          if (sync.isActive()) EitherT.right[String](ledgerApiServerContainer.initializeNext())
+          else EitherT.right[String](FutureUnlessShutdown.unit)
 
       } yield {
         val ledgerApiDependentServices =
@@ -863,12 +876,13 @@ class ParticipantNodeBootstrap(
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable(packageService)
-        addCloseable((() => mutablePackageMetadataViewContainer.closeCurrent()): AutoCloseable)
+        addCloseable(mutablePackageMetadataViewContainer.currentAutoCloseable())
         addCloseable(indexedStringStore)
         addCloseable(partyNotifier)
         addCloseable(ephemeralState.participantEventPublisher)
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)
+        addCloseable(ledgerApiServerContainer.currentAutoCloseable())
         // TODO(#25118) clean up cache metrics on shutdown wherever they are initialized
         addCloseable(new AutoCloseable {
           override def close(): Unit =
@@ -880,7 +894,6 @@ class ParticipantNodeBootstrap(
               metrics.ledgerApiServer.userManagement.cache,
             ).foreach(_.closeAcquired())
         })
-        addCloseable(ledgerApiServer)
         addCloseable(ledgerApiDependentServices)
         addCloseable(packageDependencyResolver)
 
@@ -891,7 +904,7 @@ class ParticipantNodeBootstrap(
           ledgerApiIndexerContainer = ledgerApiIndexerContainer,
           cantonSyncService = sync,
           schedulers = schedulers,
-          startableStoppableLedgerApiServer = ledgerApiServer.startableStoppableLedgerApi,
+          ledgerApiServerContainer = ledgerApiServerContainer,
           startableStoppableLedgerApiDependentServices = ledgerApiDependentServices,
           participantTopologyDispatcher = topologyDispatcher,
         )
@@ -974,7 +987,7 @@ object ParticipantNodeBootstrap {
       ledgerApiIndexerContainer: LifeCycleContainer[LedgerApiIndexer],
       cantonSyncService: CantonSyncService,
       schedulers: Schedulers,
-      startableStoppableLedgerApiServer: StartableStoppableLedgerApiServer,
+      ledgerApiServerContainer: LifeCycleContainer[LedgerApiServer],
       startableStoppableLedgerApiDependentServices: StartableStoppableLedgerApiDependentServices,
       participantTopologyDispatcher: ParticipantTopologyDispatcher,
   )

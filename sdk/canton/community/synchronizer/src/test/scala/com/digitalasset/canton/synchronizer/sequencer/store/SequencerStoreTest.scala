@@ -135,14 +135,16 @@ trait SequencerStoreTest
           trafficReceiptO: Option[TrafficReceipt] = None,
       ): FutureUnlessShutdown[Sequenced[P]] =
         for {
-          senderId <- store.registerMember(sender, ts)
-          recipientIds <- recipients.toList.parTraverse(store.registerMember(_, ts)).map(_.toSet)
+          registeredSender <- store.registerMember(sender, ts)
+          recipientIds <- recipients.toList
+            .parTraverse(store.registerMember(_, ts))
+            .map(_.map(_.memberId).toSet)
         } yield Sequenced(
           ts,
           DeliverStoreEvent(
-            senderId,
+            registeredSender.memberId,
             messageId,
-            NonEmpty(SortedSet, senderId, recipientIds.toSeq*),
+            NonEmpty(SortedSet, registeredSender.memberId, recipientIds.toSeq*),
             payload,
             None,
             traceContext,
@@ -158,11 +160,11 @@ trait SequencerStoreTest
           trafficReceiptO: Option[TrafficReceipt] = None,
       ): FutureUnlessShutdown[Sequenced[BytesPayload]] =
         for {
-          senderId <- store.registerMember(sender, ts)
+          registeredSender <- store.registerMember(sender, ts)
         } yield Sequenced(
           ts,
           ReceiptStoreEvent(
-            senderId,
+            registeredSender.memberId,
             messageId,
             topologyTimestampO = Some(topologyTimestamp),
             traceContext,
@@ -308,9 +310,9 @@ trait SequencerStoreTest
       "be able to register a new member" in {
         val store = mk()
         for {
-          id <- store.registerMember(alice, ts1)
+          registeredMember <- store.registerMember(alice, ts1)
           fetchedId <- store.lookupMember(alice)
-        } yield fetchedId.value shouldBe RegisteredMember(id, ts1, enabled = true)
+        } yield fetchedId.value shouldBe registeredMember
       }
 
       "lookup should return none if member is not registered" in {
@@ -324,17 +326,30 @@ trait SequencerStoreTest
         val store = mk()
 
         for {
-          id1 <- store.registerMember(alice, ts1)
-          id2 <- store.registerMember(alice, ts2)
-          registeredMember <- store.lookupMember(alice)
+          registeredMember1 <- store.registerMember(alice, ts1)
+          registeredMember2 <- store.registerMember(alice, ts2)
+          lookedUpMember <- store.lookupMember(alice)
         } yield {
-          id2 shouldEqual id1
-          registeredMember.value shouldBe RegisteredMember(id1, ts1, enabled = true)
+          registeredMember2 shouldEqual registeredMember1
+          lookedUpMember.value shouldBe registeredMember1
         }
       }
     }
 
     "reading and writing" should {
+      "read multiple members" in {
+        val store = mk()
+
+        for {
+          registeredAlice <- store.registerMember(alice, ts1)
+          _ <- store.registerMember(bob, ts2)
+
+          subsetMembers <- store.lookupMembers(Seq(alice, carole))
+        } yield {
+          subsetMembers shouldBe Map(alice -> registeredAlice.some, carole -> None)
+        }
+      }
+
       "deliver events should include associated payloads when read" in {
         val env = Env()
 
@@ -451,10 +466,10 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
-          _bobId <- env.store.registerMember(bob, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1)
+          _ <- env.store.registerMember(bob, ts1)
           error = DeliverErrorStoreEvent(
-            aliceId,
+            registeredAlice.memberId,
             messageId1,
             None,
             traceContext,
@@ -475,11 +490,11 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1)
           // lets write 20 deliver events - offsetting the second timestamp that is at epoch second 1
           events = NonEmptyUtil.fromUnsafe(
             (0L until 20L).map { n =>
-              env.deliverEventWithDefaults(ts1.plusSeconds(n), sender = aliceId)()
+              env.deliverEventWithDefaults(ts1.plusSeconds(n), sender = registeredAlice.memberId)()
             }.toSeq
           )
           _ <- env.saveEventsAndBuffer(instanceIndex, events)
@@ -503,10 +518,10 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
+          registeredMember <- env.store.registerMember(alice, ts1)
           // lets write 20 events - offsetting the second timestamp that is at epoch second 1
           events = (0L until 20L).map { n =>
-            env.deliverEventWithDefaults(ts2.plusSeconds(n), sender = aliceId)()
+            env.deliverEventWithDefaults(ts2.plusSeconds(n), sender = registeredMember.memberId)()
           }
           _ <- env.saveEventsAndBuffer(instanceIndex, NonEmptyUtil.fromUnsafe(events))
           // put a watermark only a bit into our events
@@ -616,8 +631,8 @@ trait SequencerStoreTest
       "return none if no events are available" in {
         val env = Env()
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
-          previousTimestampO <- env.store.fetchPreviousEventTimestamp(aliceId, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1)
+          previousTimestampO <- env.store.fetchPreviousEventTimestamp(registeredAlice.memberId, ts1)
         } yield {
           // registration sets the pruned_previous_event_timestamp to None
           previousTimestampO shouldBe None
@@ -627,9 +642,9 @@ trait SequencerStoreTest
       "return pruned/onboarding timestamp for the member if no events are available" in {
         val env = Env()
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1)
           _ <- env.store.updatePrunedPreviousEventTimestamps(Map(alice -> Some(ts2)))
-          previousTimestampO <- env.store.fetchPreviousEventTimestamp(aliceId, ts3)
+          previousTimestampO <- env.store.fetchPreviousEventTimestamp(registeredAlice.memberId, ts3)
         } yield {
           // we expect the value from the members table that we updated above
           previousTimestampO shouldBe Some(ts2)
@@ -639,7 +654,9 @@ trait SequencerStoreTest
       "return the correct previous events timestamp for the member" in {
         val env = Env()
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1)
+          aliceId = registeredAlice.memberId
+
           _ <- env.store.updatePrunedPreviousEventTimestamps(Map(alice -> Some(ts2)))
           event1 <- env.deliverEvent(ts4, alice, messageId1, payload1)
           event2 <- env.deliverEvent(ts(6), alice, messageId2, payload2)
@@ -671,13 +688,13 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
+          registeredAlice <- env.store.registerMember(alice, ts1)
           _ <- env.store.registerMember(bob, ts2)
-          _ <- env.store.acknowledge(aliceId, ts3)
+          _ <- env.store.acknowledge(registeredAlice.memberId, ts3)
           latestAcknowledgements <- env.store.latestAcknowledgements()
         } yield {
           latestAcknowledgements shouldBe Map(
-            aliceId -> ts3
+            registeredAlice.memberId -> ts3
           )
         }
       }
@@ -686,9 +703,9 @@ trait SequencerStoreTest
         val env = Env()
 
         for {
-          aliceId <- env.store.registerMember(alice, ts1)
-          _ <- env.store.acknowledge(aliceId, ts3)
-          _ <- env.store.acknowledge(aliceId, ts2)
+          registeredAlice <- env.store.registerMember(alice, ts1)
+          _ <- env.store.acknowledge(registeredAlice.memberId, ts3)
+          _ <- env.store.acknowledge(registeredAlice.memberId, ts2)
           acknowledgements <- env.store.status(ts(10)).map(acknowledgements)
         } yield acknowledgements shouldBe Map(
           alice -> ts3.some
@@ -700,7 +717,9 @@ trait SequencerStoreTest
       val env = Env()
 
       for {
-        aliceId <- env.store.registerMember(alice, ts1)
+        registeredAlice <- env.store.registerMember(alice, ts1)
+        aliceId = registeredAlice.memberId
+
         _ <- env.store.acknowledge(aliceId, ts2)
         _ <- env.store.acknowledge(aliceId, ts3)
         acknowledgements <- env.store.latestAcknowledgements()
@@ -752,8 +771,12 @@ trait SequencerStoreTest
         import env.*
 
         for {
-          sequencerId <- store.registerMember(sequencerMember, ts1)
-          aliceId <- store.registerMember(alice, ts1)
+          registeredSequencer <- store.registerMember(sequencerMember, ts1)
+          sequencerId = registeredSequencer.memberId
+
+          registeredAlice <- store.registerMember(alice, ts1)
+          aliceId = registeredAlice.memberId
+
           _ <- env.saveEventsAndBuffer(
             instanceIndex,
             NonEmpty(
@@ -761,7 +784,9 @@ trait SequencerStoreTest
               deliverEventWithDefaults(ts2)(recipients = NonEmpty(SortedSet, aliceId, sequencerId)),
             ),
           )
-          bobId <- store.registerMember(bob, ts3)
+          registeredBob <- store.registerMember(bob, ts3)
+          bobId = registeredBob.memberId
+
           // store a deliver event at ts4, ts5, and ts6
           // (hopefully resulting in the earlier two deliver events being pruned)
           _ <- env.saveEventsAndBuffer(
@@ -832,10 +857,18 @@ trait SequencerStoreTest
           isStoreInitiallyEmpty <- store
             .findPruningTimestamp(NonNegativeInt.tryCreate(0))
             .map(_.isEmpty)
-          sequencerId <- store.registerMember(sequencerMember, ts1)
-          aliceId <- store.registerMember(alice, ts1)
+
+          registeredSequencer <- store.registerMember(sequencerMember, ts1)
+          sequencerId = registeredSequencer.memberId
+
+          registeredAlice <- store.registerMember(alice, ts1)
+          aliceId = registeredAlice.memberId
+
           _ <- env.saveEventsAndBuffer(0, NonEmpty(Seq, deliverEventWithDefaults(ts2)()))
-          bobId <- store.registerMember(bob, ts3)
+
+          registeredBob <- store.registerMember(bob, ts3)
+          bobId = registeredBob.memberId
+
           // store a deliver event at ts4, ts5, ts6, and ts7
           // resulting in only the first deliver event being pruned honoring the pruning timestamp of earlier than ts5
           _ <- env.saveEventsAndBuffer(
@@ -889,9 +922,9 @@ trait SequencerStoreTest
           import env.*
 
           for {
-            aliceId <- store.registerMember(alice, ts(1))
+            registeredAlice <- store.registerMember(alice, ts(1))
             // clients have acknowledgements at different points
-            _ <- store.acknowledge(aliceId, ts(4))
+            _ <- store.acknowledge(registeredAlice.memberId, ts(4))
             status <- store.status(ts(5))
             safeTimestamp = status.safePruningTimestamp
           } yield {
@@ -904,11 +937,11 @@ trait SequencerStoreTest
           import env.*
 
           for {
-            aliceId <- store.registerMember(alice, ts(1))
-            bobId <- store.registerMember(bob, ts(2))
+            registeredAlice <- store.registerMember(alice, ts(1))
+            registeredBob <- store.registerMember(bob, ts(2))
             // clients have acknowledgements at different points
-            _ <- store.acknowledge(aliceId, ts(4))
-            _ <- store.acknowledge(bobId, ts(6))
+            _ <- store.acknowledge(registeredAlice.memberId, ts(4))
+            _ <- store.acknowledge(registeredBob.memberId, ts(6))
             _ <- store.disableMember(alice)
             status <- store.status(ts(6))
             safeTimestamp = status.safePruningTimestamp
@@ -967,8 +1000,10 @@ trait SequencerStoreTest
           import env.*
           for {
             _ <- store.registerMember(carole, ts3)
-            aliceId <- store.registerMember(alice, ts1)
-            sequencerId <- store.registerMember(sequencerMember, ts1)
+            registeredAlice <- store.registerMember(alice, ts1)
+            aliceId = registeredAlice.memberId
+            registeredSequencer <- store.registerMember(sequencerMember, ts1)
+            sequencerId = registeredSequencer.memberId
 
             _ <- env.saveEventsAndBuffer(
               instanceIndex,
@@ -977,7 +1012,8 @@ trait SequencerStoreTest
                 deliverEventWithDefaults(ts2)(recipients = NonEmpty(SortedSet, aliceId)),
               ),
             )
-            bobId <- store.registerMember(bob, ts3)
+            registeredBob <- store.registerMember(bob, ts3)
+            bobId = registeredBob.memberId
             _ <- env.saveEventsAndBuffer(
               instanceIndex,
               NonEmpty(

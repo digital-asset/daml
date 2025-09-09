@@ -911,6 +911,7 @@ private[events] object TransactionLogUpdatesConversions {
           events = events,
           traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
           recordTime = Some(TimestampConversion.fromLf(reassignmentAccepted.recordTime)),
+          synchronizerId = reassignmentAccepted.synchronizerId,
         )
       )
   }

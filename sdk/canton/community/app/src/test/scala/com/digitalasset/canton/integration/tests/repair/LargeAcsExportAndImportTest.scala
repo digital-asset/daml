@@ -138,6 +138,7 @@ protected abstract class LargeAcsExportAndImportTestBase
     }
   }
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // A party replication is involved, and we want to minimize the risk of warnings related to acs commitment mismatches
   protected val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
@@ -467,7 +468,7 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
 
     acsExportFile.get.foreach { acsExport =>
       clue("Get Alice ACS on P1 with export_acs")(
-        participant1.parties.export_acs(
+        participant1.repair.export_acs(
           parties = Set(alice),
           exportFilePath = acsExport.canonicalPath,
           ledgerOffset = aliceAddedOnP3Offset,

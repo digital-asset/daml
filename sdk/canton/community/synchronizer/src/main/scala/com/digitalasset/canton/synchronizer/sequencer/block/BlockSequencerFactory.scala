@@ -82,6 +82,7 @@ abstract class BlockSequencerFactory(
     nodeParameters.processingTimeouts,
     loggerFactory,
     nodeParameters.batchingConfig.aggregator,
+    sequencerStore,
   )
 
   private val trafficConsumedStore = TrafficConsumedStore(
@@ -89,6 +90,7 @@ abstract class BlockSequencerFactory(
     nodeParameters.processingTimeouts,
     loggerFactory,
     nodeParameters.batchingConfig,
+    sequencerStore,
   )
 
   protected val name: String
@@ -239,6 +241,8 @@ abstract class BlockSequencerFactory(
           nodeParameters.enableAdditionalConsistencyChecks,
           nodeParameters.processingTimeouts,
           synchronizerLoggerFactory,
+          blockSequencerConfig.streamInstrumentation,
+          metrics.block,
         )
       )
     } yield {

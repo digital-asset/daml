@@ -4,7 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencing.traffic.store
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.store.InMemorySequencerStore
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import org.scalatest.wordspec.AsyncWordSpec
 
 class TrafficPurchasedStoreTestInMemory
@@ -12,6 +15,17 @@ class TrafficPurchasedStoreTestInMemory
     with BaseTest
     with TrafficPurchasedStoreTest {
   "InMemoryTrafficPurchasedStore" should {
-    behave like trafficPurchasedStore(() => new InMemoryTrafficPurchasedStore(loggerFactory))
+    behave like trafficPurchasedStore(() =>
+      (
+        new InMemoryTrafficPurchasedStore(loggerFactory),
+        new InMemorySequencerStore(
+          testedProtocolVersion,
+          SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
+          true,
+          loggerFactory,
+          SequencerMetrics.noop(getClass.getName),
+        ),
+      )
+    )
   }
 }

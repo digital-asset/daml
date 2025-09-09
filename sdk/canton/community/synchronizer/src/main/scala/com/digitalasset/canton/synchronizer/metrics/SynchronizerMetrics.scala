@@ -73,6 +73,9 @@ class SequencerMetrics(
   val eventBuffer: CacheMetrics =
     new CacheMetrics("events-fan-out-buffer", openTelemetryMetricsFactory)
 
+  val memberCache: CacheMetrics =
+    new CacheMetrics("member-cache", openTelemetryMetricsFactory)
+
   override def storageMetrics: DbStorageMetrics = dbStorage
 
   val block: BlockMetrics = new BlockMetrics(prefix, openTelemetryMetricsFactory)

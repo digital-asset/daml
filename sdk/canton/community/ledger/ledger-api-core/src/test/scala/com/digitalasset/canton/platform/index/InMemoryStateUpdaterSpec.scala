@@ -592,6 +592,7 @@ object InMemoryStateUpdaterSpec {
             nodeId = 0,
           )
         ),
+        synchronizerId = synchronizerId2.toProtoPrimitive,
       )(emptyTraceContext)
 
     val unassignLogUpdate =
@@ -620,6 +621,7 @@ object InMemoryStateUpdaterSpec {
             nodeId = 0,
           )
         ),
+        synchronizerId = synchronizerId2.toProtoPrimitive,
       )(emptyTraceContext)
 
     val topologyTransactionLogUpdate =

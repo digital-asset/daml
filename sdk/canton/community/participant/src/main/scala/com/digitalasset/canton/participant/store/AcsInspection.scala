@@ -30,6 +30,7 @@ import scala.collection.immutable.SortedMap
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
+// TODO(#24610) – Revise based on moving to ACS export based on LAPI offset
 class AcsInspection(
     synchronizerId: SynchronizerId,
     val activeContractStore: ActiveContractStore,

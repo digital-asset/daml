@@ -668,11 +668,11 @@ create index idx_seq_in_flight_aggregation_temporal on seq_in_flight_aggregation
 
 create table seq_in_flight_aggregated_sender(
     aggregation_id varchar not null,
-    sender varchar not null,
+    sender_id integer not null,
     -- UTC timestamp in microseconds relative to EPOCH
     sequencing_timestamp bigint not null,
     signatures binary large object not null,
-    primary key (aggregation_id, sender),
+    primary key (aggregation_id, sender_id),
     constraint foreign_key_in_flight_aggregated_sender foreign key (aggregation_id) references seq_in_flight_aggregation(aggregation_id) on delete cascade
 );
 
@@ -735,7 +735,7 @@ create index idx_common_topology_transactions on common_topology_transactions (s
 -- Stores the traffic balance updates
 create table seq_traffic_control_balance_updates (
     -- member the traffic balance update is for
-       member varchar not null,
+       member_id integer not null,
     -- timestamp at which the update was sequenced
        sequencing_timestamp bigint not null,
     -- total traffic balance after the update
@@ -743,7 +743,7 @@ create table seq_traffic_control_balance_updates (
     -- used to keep balance updates idempotent
        serial bigint not null,
     -- traffic states have a unique sequencing_timestamp per member
-       primary key (member, sequencing_timestamp)
+       primary key (member_id, sequencing_timestamp)
 );
 
 -- Stores the initial timestamp during onboarding. Allows to survive a restart immediately after onboarding
@@ -756,7 +756,7 @@ create table seq_traffic_control_initial_timestamp (
 -- Stores the traffic consumed as a journal
 create table seq_traffic_control_consumed_journal (
     -- member the traffic consumed entry is for
-       member varchar not null,
+       member_id integer not null,
     -- timestamp at which the event that caused traffic to be consumed was sequenced
        sequencing_timestamp bigint not null,
     -- total traffic consumed at sequencing_timestamp
@@ -766,7 +766,7 @@ create table seq_traffic_control_consumed_journal (
     -- the last cost consumed at sequencing_timestamp
        last_consumed_cost bigint not null,
     -- traffic entries have a unique sequencing_timestamp per member
-       primary key (member, sequencing_timestamp)
+       primary key (member_id, sequencing_timestamp)
 );
 
 --   BFT Ordering Tables

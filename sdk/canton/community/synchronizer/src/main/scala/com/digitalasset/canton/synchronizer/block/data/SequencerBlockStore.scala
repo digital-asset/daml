@@ -128,6 +128,7 @@ object SequencerBlockStore {
           timeouts,
           loggerFactory,
           batchingConfig,
+          sequencerStore,
         )
       case otherwise =>
         sys.error(s"Invalid combination of stores: $otherwise")

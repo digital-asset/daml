@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.integrations.state
 
+import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.TestHash
@@ -11,6 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.{BaseTest, ProtocolVersionChecksAsyncWordSpec}
@@ -48,10 +50,13 @@ trait SequencerStateManagerStoreTest
       Await.result(actorSystem.terminate(), 10.seconds)
     }
 
-  def sequencerStateManagerStore(mk: () => SequencerStateManagerStore): Unit = {
+  def sequencerStateManagerStore(
+      mk: () => (SequencerStateManagerStore, SequencerStore)
+  ): Unit = {
     val alice = ParticipantId(UniqueIdentifier.tryCreate("participant", "alice"))
     val bob = ParticipantId(UniqueIdentifier.tryCreate("participant", "bob"))
     val carlos = ParticipantId(UniqueIdentifier.tryCreate("participant", "carlos"))
+    val allMembers = Seq(alice, bob, carlos)
 
     def ts(epochSeconds: Int): CantonTimestamp =
       CantonTimestamp.Epoch.plusSeconds(epochSeconds.toLong)
@@ -63,8 +68,11 @@ trait SequencerStateManagerStoreTest
 
     "read at timestamp" should {
       "hydrate a correct empty state when there have been no updates" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
         (for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           lowerBoundAndInFlightAggregations <- store.readInFlightAggregations(
             CantonTimestamp.Epoch,
             maxSequencingTimeUpperBound = CantonTimestamp.MaxValue,
@@ -76,7 +84,8 @@ trait SequencerStateManagerStoreTest
       }
 
       "reconstruct the aggregation state" in withNewTraceContext("test") { implicit traceContext =>
-        val store = mk()
+        val (store, sequencerStore) = mk()
+
         val aggregationId1 = AggregationId(TestHash.digest(1))
         val aggregationId2 = AggregationId(TestHash.digest(2))
         val aggregationId3 = AggregationId(TestHash.digest(3))
@@ -125,6 +134,9 @@ trait SequencerStateManagerStoreTest
         )
 
         (for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.addInFlightAggregationUpdates(
             Map(
               aggregationId1 -> inFlightAggregation1.asUpdate,
@@ -177,7 +189,8 @@ trait SequencerStateManagerStoreTest
 
     "aggregation expiry" should {
       "delete all aggregation whose max sequencing time has elapsed" in {
-        val store = mk()
+        val (store, sequencerStore) = mk()
+
         val aggregationId1 = AggregationId(TestHash.digest(1))
         val aggregationId2 = AggregationId(TestHash.digest(2))
         val rule = AggregationRule(
@@ -218,6 +231,9 @@ trait SequencerStateManagerStoreTest
         )
 
         (for {
+          _ <- allMembers.parTraverse(member =>
+            sequencerStore.registerMember(member, CantonTimestamp.now())
+          )
           _ <- store.addInFlightAggregationUpdates(
             Map(
               aggregationId1 -> inFlightAggregation1.asUpdate,

@@ -53,11 +53,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
   AuthenticationError,
   AuthenticationValidator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  EngineController,
-  ProcessingStartingPoints,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.{coidAbs1, reassignment10}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -86,7 +82,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{ContractAuthenticator, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.transaction.CreationTime
 import monocle.macros.syntax.lens.*

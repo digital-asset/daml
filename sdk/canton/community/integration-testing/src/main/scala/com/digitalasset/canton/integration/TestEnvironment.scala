@@ -13,13 +13,13 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.{CachingConfigs, CantonConfig, CryptoConfig}
+import com.digitalasset.canton.console.commands.GlobalSecretKeyAdministration
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleEnvironmentTestHelpers,
   ConsoleMacros,
   InstanceReference,
   LocalInstanceReference,
-  ParticipantReference,
 }
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
@@ -33,7 +33,6 @@ import org.apache.pekko.actor.ActorSystem
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.concurrent.Await
-import scala.language.implicitConversions
 
 /** Type including all environment macros and utilities to appear as you're using canton console */
 trait TestEnvironment
@@ -73,14 +72,15 @@ trait TestEnvironment
     )(executionContext, TraceContext.empty)
 
   // TODO(#27482) Make private (allow to import keys, see `importExternalPartyPrivateKeys`)
-  lazy val envCrypto: Crypto =
+  private lazy val crypto: Crypto =
     Await
       .result(cryptoET.value, environmentTimeouts.unbounded.duration)
       .onShutdown(raiseError("Cannot create Crypto during shutdown"))
       .valueOr(err => raiseError(s"Cannot create Crypto: $err"))
 
-  implicit def toParticipantWithExternalParties(p: ParticipantReference): ExternalPartiesCommands =
-    new ExternalPartiesCommands(p, envCrypto, this, loggerFactory)
+  override private[canton] def tryGlobalCrypto: Crypto = crypto
+
+  override private[canton] def global_secret: GlobalSecretKeyAdministration = global_secret_
 }
 
 trait EnvironmentTestHelpers {

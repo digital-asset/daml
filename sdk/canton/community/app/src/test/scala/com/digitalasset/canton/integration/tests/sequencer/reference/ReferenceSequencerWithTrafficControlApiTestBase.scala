@@ -9,7 +9,13 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveDouble, PositiveInt}
-import com.digitalasset.canton.config.{BatchAggregatorConfig, BatchingConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  BatchingConfig,
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -39,14 +45,18 @@ import com.digitalasset.canton.synchronizer.sequencer.config.{
   SequencerNodeParameterConfig,
   SequencerNodeParameters,
 }
-import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStoreTest
+import com.digitalasset.canton.synchronizer.sequencer.store.{DbSequencerStore, DbSequencerStoreTest}
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
   SequencerTrafficConfig,
   TimestampSelector,
 }
-import com.digitalasset.canton.synchronizer.sequencer.{Sequencer, SequencerApiTestUtils}
+import com.digitalasset.canton.synchronizer.sequencer.{
+  Sequencer,
+  SequencerApiTestUtils,
+  SequencerWriterConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencing.traffic.TrafficPurchasedManager.TrafficPurchasedManagerError
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.{
   TrafficConsumedStore,
@@ -126,6 +136,20 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
 
     val clock = new SimClock(loggerFactory = loggerFactory)
 
+    val sequencerStore = new DbSequencerStore(
+      storage = storage,
+      protocolVersion = testedProtocolVersion,
+      bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+      bufferedEventsPreloadBatchSize = SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
+      timeouts = DefaultProcessingTimeouts.testing,
+      loggerFactory = loggerFactory,
+      sequencerMember = SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
+      blockSequencerMode = true,
+      cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
+      sequencerMetrics = SequencerMetrics.noop(getClass.getName),
+    )
+
     val currentBalances =
       TrieMap.empty[Member, Either[TrafficPurchasedManagerError, NonNegativeLong]]
     val trafficConsumedStore = TrafficConsumedStore(
@@ -133,6 +157,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       timeouts = timeouts,
       loggerFactory = loggerFactory,
       batchingConfig = BatchingConfig(),
+      sequencerStore = sequencerStore,
     )
 
     val topology: TestingTopology =
@@ -279,6 +304,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
         timeouts,
         loggerFactory,
         BatchAggregatorConfig.defaultsForTesting,
+        env.sequencerStore,
       ),
       sequencerTrafficConfig,
       futureSupervisor,

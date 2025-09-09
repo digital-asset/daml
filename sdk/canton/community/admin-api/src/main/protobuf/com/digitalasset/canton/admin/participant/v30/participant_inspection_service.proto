@@ -22,9 +22,7 @@ service ParticipantInspectionService {
   rpc LookupOffsetByTime(LookupOffsetByTimeRequest) returns (LookupOffsetByTimeResponse);
   // Request metadata about shared contracts used in commitment computation at a specific time
   // Subject to the data still being available on the participant
-  // TODO(#9557) R2
   rpc OpenCommitment(OpenCommitmentRequest) returns (stream OpenCommitmentResponse);
-  // TODO(#9557) R2
   rpc InspectCommitmentContracts(InspectCommitmentContractsRequest) returns (stream InspectCommitmentContractsResponse);
   // Look up the ACS commitments computed and sent by a participant
   rpc LookupSentAcsCommitments(LookupSentAcsCommitmentsRequest) returns (LookupSentAcsCommitmentsResponse);

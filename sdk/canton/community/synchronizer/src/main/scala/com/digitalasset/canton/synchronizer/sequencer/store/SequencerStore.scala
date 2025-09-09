@@ -7,10 +7,12 @@ import cats.Order.*
 import cats.data.EitherT
 import cats.kernel.Order
 import cats.syntax.either.*
+import cats.syntax.option.*
 import cats.syntax.order.*
 import cats.{Functor, Show}
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -28,12 +30,13 @@ import com.digitalasset.canton.synchronizer.sequencer.PruningError.UnsafePruning
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MonadUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
+import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -440,7 +443,20 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   protected implicit val executionContext: ExecutionContext
 
-  private val memberCache = new SequencerMemberCache(Traced.lift(lookupMemberInternal(_)(_)))
+  private val memberCache =
+    ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, Option[RegisteredMember]](
+      cache = Scaffeine()
+        .executor(executionContext.execute(_)),
+      loader = { implicit traceContext =>
+        lookupMemberInternal
+      },
+      allLoader = Some(implicit traceContext =>
+        members => {
+          lookupMembersInternal(members.toSet)
+        }
+      ),
+      metrics = Some(sequencerMetrics.memberCache),
+    )(logger, "memberCache")
 
   protected def sequencerMember: Member
 
@@ -460,12 +476,22 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
-  /** Register the provided member. Should be idempotent if member is already registered and return
-    * the existing id.
+  /** Wrapper around `registerMemberInternal` that also updates the cache.
     */
   def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SequencerMemberId]
+  ): FutureUnlessShutdown[RegisteredMember] =
+    registerMemberInternal(member, timestamp).map { registeredMember =>
+      memberCache.put(member, registeredMember.some)
+      registeredMember
+    }
+
+  /** Register the provided member. Should be idempotent if member is already registered and return
+    * the existing id.
+    */
+  protected def registerMemberInternal(member: Member, timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[RegisteredMember]
 
   /** Lookup an existing member id for the given member. Will return a cached value if available.
     * Return [[scala.None]] if no id exists.
@@ -473,12 +499,27 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   final def lookupMember(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]] =
-    memberCache(member)
+    memberCache.get(member)
+
+  /** Lookup multiple member ids and returns a result as a map. Will return a cache result (the
+    * entire map).
+    */
+  final def lookupMembers(
+      members: Seq[Member]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]] =
+    memberCache.getAll(members)
 
   /** Lookup member directly without caching. */
   protected def lookupMemberInternal(member: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RegisteredMember]]
+
+  /** Lookup members directly without caching. */
+  protected def lookupMembersInternal(members: Set[Member])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Member, Option[RegisteredMember]]]
 
   override def isMemberRegisteredAt(member: Member, time: CantonTimestamp)(implicit
       tc: TraceContext
@@ -801,7 +842,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       member: Member
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      memberIdO <- memberCache(member).map(_.map(_.memberId))
+      memberIdO <- memberCache.get(member).map(_.map(_.memberId))
       _ <- memberIdO match {
         case Some(memberId) => disableMemberInternal(memberId)
         case None =>
@@ -958,12 +999,12 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
           .parTraverseWithLimit_(batchingConfig.parallelism)(snapshot.status.members.toSeq) {
             memberStatus =>
               for {
-                id <- registerMember(memberStatus.member, memberStatus.registeredAt)
+                registeredMember <- registerMember(memberStatus.member, memberStatus.registeredAt)
                 _ <-
                   if (!memberStatus.enabled) disableMember(memberStatus.member)
                   else FutureUnlessShutdown.unit
                 _ <- memberStatus.lastAcknowledged.fold(FutureUnlessShutdown.unit)(ack =>
-                  acknowledge(id, ack)
+                  acknowledge(registeredMember.memberId, ack)
                 )
               } yield ()
           }
@@ -980,8 +1021,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     } yield ()
   }
 
-  override def close(): Unit =
-    memberCache.close()
+  override def close(): Unit = {
+    memberCache.cleanUp()
+    memberCache.invalidateAll()
+  }
 }
 
 object SequencerStore {

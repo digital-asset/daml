@@ -583,7 +583,7 @@ create or replace view debug.seq_in_flight_aggregation as
 create or replace view debug.seq_in_flight_aggregated_sender as
   select
     aggregation_id,
-    sender,
+    sender_id,
     debug.canton_timestamp(sequencing_timestamp) as sequencing_timestamp,
     signatures
   from seq_in_flight_aggregated_sender;
@@ -611,7 +611,7 @@ create or replace view debug.common_topology_transactions as
 
 create or replace view debug.seq_traffic_control_balance_updates as
   select
-    member,
+    member_id,
     debug.canton_timestamp(sequencing_timestamp) as sequencing_timestamp,
     balance,
     serial
@@ -619,7 +619,7 @@ create or replace view debug.seq_traffic_control_balance_updates as
 
 create or replace view debug.seq_traffic_control_consumed_journal as
   select
-    member,
+    member_id,
     debug.canton_timestamp(sequencing_timestamp) as sequencing_timestamp,
     extra_traffic_consumed,
     base_traffic_remainder,
