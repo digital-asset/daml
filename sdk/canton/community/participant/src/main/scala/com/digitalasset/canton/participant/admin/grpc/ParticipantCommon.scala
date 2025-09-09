@@ -37,7 +37,7 @@ private[admin] object ParticipantCommon {
     *   The ledger offset for the snapshot.
     * @param destination
     *   The output stream for the serialized contracts.
-    * @param excludedParties
+    * @param excludedStakeholders
     *   Excludes any contract where a stakeholder is in this set.
     * @param synchronizerId
     *   Optionally filters contracts by this ID.
@@ -52,7 +52,7 @@ private[admin] object ParticipantCommon {
       parties: Set[PartyId],
       atOffset: Offset,
       destination: OutputStream,
-      excludedParties: Set[PartyId] = Set.empty,
+      excludedStakeholders: Set[PartyId] = Set.empty,
       synchronizerId: Option[SynchronizerId] = None,
       contractSynchronizerRenames: Map[String, String] = Map.empty,
   )(implicit
@@ -74,8 +74,8 @@ private[admin] object ParticipantCommon {
               .filter { contract =>
                 val event = contract.getCreatedEvent
                 val stakeholders = (event.signatories ++ event.observers).toSet
-                val excludePartiesS = excludedParties.map(_.toProtoPrimitive)
-                excludePartiesS.intersect(stakeholders).isEmpty
+                val excludeStakeholdersS = excludedStakeholders.map(_.toProtoPrimitive)
+                excludeStakeholdersS.intersect(stakeholders).isEmpty
               }
               .map { contract =>
                 if (contractSynchronizerRenames.contains(contract.synchronizerId)) {

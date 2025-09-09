@@ -28,6 +28,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
   private val acsSnapshot = tempDirectory.toTempFile(s"${getClass.getSimpleName}.gz")
   private val acsSnapshotPath: String = acsSnapshot.toString
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // Party replication to the target participant may trigger ACS commitment mismatch warnings.
   // This is expected behavior. To reduce the frequency of these warnings and avoid associated
   // test flakes, `reconciliationInterval` is set to one year.

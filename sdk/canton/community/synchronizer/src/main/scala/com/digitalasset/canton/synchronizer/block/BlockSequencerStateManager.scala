@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.block
 
 import cats.data.{EitherT, Nested}
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.BaseAlarm
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -11,6 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.InstrumentedGraph.BufferedFlow
 import com.digitalasset.canton.synchronizer.block
 import com.digitalasset.canton.synchronizer.block.BlockSequencerStateManager.HeadState
 import com.digitalasset.canton.synchronizer.block.data.{
@@ -20,7 +22,9 @@ import com.digitalasset.canton.synchronizer.block.data.{
 }
 import com.digitalasset.canton.synchronizer.block.update.*
 import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGenerator.BlockChunk
+import com.digitalasset.canton.synchronizer.metrics.BlockMetrics
 import com.digitalasset.canton.synchronizer.sequencer.{
+  BlockSequencerStreamInstrumentationConfig,
   DeliverableSubmissionOutcome,
   InFlightAggregations,
   SequencerIntegration,
@@ -79,6 +83,8 @@ class BlockSequencerStateManager(
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
     headState: AtomicReference[HeadState],
+    streamInstrumentationConfig: BlockSequencerStreamInstrumentationConfig,
+    blockMetrics: BlockMetrics,
 )(implicit executionContext: ExecutionContext)
     extends BlockSequencerStateManagerBase
     with NamedLogging {
@@ -98,10 +104,28 @@ class BlockSequencerStateManager(
       import TraceContext.Implicits.Empty.*
       bug.internalStateFor(head.blockEphemeralState)
     }
+
+    def finalFlow[In, Out, Mat](
+        original: Flow[In, Out, Mat],
+        flowName: String,
+    ): Flow[In, Out, Mat] =
+      if (streamInstrumentationConfig.isEnabled)
+        original.buffered(
+          blockMetrics.stramBufferSize,
+          streamInstrumentationConfig.bufferSize.value,
+        )(MetricsContext("element" -> flowName))
+      else original
+
     Flow[BlockEvents]
-      .via(checkBlockHeight(head.block.height))
-      .via(chunkBlock(bug))
-      .via(processChunk(bug)(bugState))
+      .via(
+        finalFlow(checkBlockHeight(head.block.height), "check_block_height")
+      )
+      .via(
+        finalFlow(chunkBlock(bug), "chunk_block")
+      )
+      .via(
+        finalFlow(processChunk(bug)(bugState), "process_chunk")
+      )
   }
 
   private def checkBlockHeight(
@@ -414,6 +438,8 @@ object BlockSequencerStateManager {
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      streamInstrumentationConfig: BlockSequencerStreamInstrumentationConfig,
+      blockMetrics: BlockMetrics,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -440,6 +466,8 @@ object BlockSequencerStateManager {
           timeouts = timeouts,
           loggerFactory = loggerFactory,
           headState = headState,
+          streamInstrumentationConfig = streamInstrumentationConfig,
+          blockMetrics = blockMetrics,
         )
       }
   }

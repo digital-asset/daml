@@ -583,6 +583,7 @@ class InMemoryFanoutBufferSpec
         isReassigningParticipant = false,
       ),
       reassignment = null,
+      synchronizerId = someSynchronizerId.toProtoPrimitive,
     )
 
   private def topologyTxAccepted(idx: Long, offset: Offset) =

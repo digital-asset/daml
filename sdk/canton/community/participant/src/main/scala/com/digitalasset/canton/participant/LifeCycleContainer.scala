@@ -68,4 +68,10 @@ class LifeCycleContainer[T <: AutoCloseable & HasRunOnClosing](
       )
     )
   )
+
+  /** Convenience function wrapping [[closeCurrent]], useful for lifecycle utils expecting an
+    * [[java.lang.AutoCloseable]] (e.g.
+    * [[com.digitalasset.canton.environment.BootstrapStage.addCloseable]])
+    */
+  def currentAutoCloseable(): AutoCloseable = () => closeCurrent()
 }

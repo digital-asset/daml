@@ -602,6 +602,7 @@ private[platform] object InMemoryStateUpdater {
       completionStreamResponse = completionStreamResponse,
       reassignmentInfo = u.reassignmentInfo,
       reassignment = u.reassignment,
+      synchronizerId = u.synchronizerId.toProtoPrimitive,
     )(u.traceContext)
   }
 

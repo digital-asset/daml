@@ -33,6 +33,7 @@ import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 
 /*
+  // TODO(#27707) - Revise this test; with the onboarding flag ACS commitment mismatches must surface during a party replication
   This test does a party migration between two participants.
   It additionally checks that the ACS commitment processor indicates the discrepancies
   during the migration and that they disappear after repairs.

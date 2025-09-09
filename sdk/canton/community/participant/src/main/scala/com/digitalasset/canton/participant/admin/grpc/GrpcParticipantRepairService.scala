@@ -289,7 +289,7 @@ final class GrpcParticipantRepairService(
           validRequest.parties,
           validRequest.atOffset,
           out,
-          validRequest.excludedParties,
+          validRequest.excludedStakeholders,
           validRequest.synchronizerId,
           validRequest.contractSynchronizerRenames,
         )(ec, traceContext, actorSystem)
@@ -334,14 +334,14 @@ final class GrpcParticipantRepairService(
             _ <- SynchronizerId.fromProtoPrimitive(target, "target synchronizer id")
           } yield (source, target)
       }
-      excludeParties <- request.excludedStakeholderIds.traverse(party =>
+      excludedStakeholders <- request.excludedStakeholderIds.traverse(party =>
         UniqueIdentifier.fromProtoPrimitive(party, "excluded_stakeholder_ids").map(PartyId(_))
       )
 
     } yield ValidExportAcsRequest(
       parties.toSet,
       ledgerOffset,
-      excludeParties.toSet,
+      excludedStakeholders.toSet,
       filterSynchronizerId,
       contractSynchronizerRenames.toMap,
     )
@@ -366,12 +366,13 @@ final class GrpcParticipantRepairService(
       def setOrCheck(
           workflowIdPrefix: String,
           contractIdImportMode: ContractIdImportMode,
-          excludeParties: Set[PartyId],
+          excludeStakeholders: Set[PartyId],
       ): Try[Unit] =
         Try {
-          val newOrMatchingValue = Some((workflowIdPrefix, contractIdImportMode, excludeParties))
+          val newOrMatchingValue =
+            Some((workflowIdPrefix, contractIdImportMode, excludeStakeholders))
           if (!args.compareAndSet(None, newOrMatchingValue)) {
-            val (oldWorkflowIdPrefix, oldContractIdImportMode, oldExcludeParties) = tryArgs
+            val (oldWorkflowIdPrefix, oldContractIdImportMode, oldExcludedStakeholders) = tryArgs
             if (workflowIdPrefix != oldWorkflowIdPrefix) {
               throw new IllegalArgumentException(
                 s"Workflow ID prefix cannot be changed from $oldWorkflowIdPrefix to $workflowIdPrefix"
@@ -380,9 +381,9 @@ final class GrpcParticipantRepairService(
               throw new IllegalArgumentException(
                 s"Contract ID import mode cannot be changed from $oldContractIdImportMode to $contractIdImportMode"
               )
-            } else if (oldExcludeParties != excludeParties) {
+            } else if (oldExcludedStakeholders != excludeStakeholders) {
               throw new IllegalArgumentException(
-                s"Exclude parties cannot be changed from $oldExcludeParties to $excludeParties"
+                s"Exclude parties cannot be changed from $oldExcludedStakeholders to $excludeStakeholders"
               )
             }
           }
@@ -400,7 +401,7 @@ final class GrpcParticipantRepairService(
                 left => Failure(new IllegalArgumentException(left.message)),
                 right => Success(right),
               )
-            excludedParties <- request.excludedStakeholderIds
+            excludedStakeholders <- request.excludedStakeholderIds
               .traverse(party =>
                 UniqueIdentifier
                   .fromProtoPrimitive(party, "excluded_stakeholder_ids")
@@ -413,7 +414,7 @@ final class GrpcParticipantRepairService(
             _ <- setOrCheck(
               request.workflowIdPrefix,
               contractIdRecomputationMode,
-              excludedParties.toSet,
+              excludedStakeholders.toSet,
             )
             _ <- Try(outputStream.write(request.acsSnapshot.toByteArray))
           } yield ()
@@ -433,13 +434,13 @@ final class GrpcParticipantRepairService(
       }
 
       override def onCompleted(): Unit = {
-        val (workflowIdPrefix, contractIdImportMode, excludeParties) = tryArgs
+        val (workflowIdPrefix, contractIdImportMode, excludedStakeholders) = tryArgs
 
         val res = importAcsNewSnapshot(
           acsSnapshot = ByteString.copyFrom(outputStream.toByteArray),
           workflowIdPrefix = workflowIdPrefix,
           contractIdImportMode = contractIdImportMode,
-          excludeParties = excludeParties,
+          excludedStakeholders = excludedStakeholders,
         )
 
         Try(Await.result(res, processingTimeout.unbounded.duration)) match {
@@ -457,16 +458,16 @@ final class GrpcParticipantRepairService(
       acsSnapshot: ByteString,
       workflowIdPrefix: String,
       contractIdImportMode: ContractIdImportMode,
-      excludeParties: Set[PartyId],
+      excludedStakeholders: Set[PartyId],
   )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
 
-    val contractsE = if (excludeParties.isEmpty) {
+    val contractsE = if (excludedStakeholders.isEmpty) {
       RepairContract.loadAcsSnapshot(acsSnapshot)
     } else {
       RepairContract
         .loadAcsSnapshot(acsSnapshot)
         .map(
-          _.filter(_.contract.stakeholders.intersect(excludeParties.map(_.toLf)).isEmpty)
+          _.filter(_.contract.stakeholders.intersect(excludedStakeholders.map(_.toLf)).isEmpty)
         )
     }
 
@@ -933,7 +934,7 @@ object GrpcParticipantRepairService {
   private final case class ValidExportAcsRequest(
       parties: Set[PartyId],
       atOffset: Offset,
-      excludedParties: Set[PartyId],
+      excludedStakeholders: Set[PartyId],
       synchronizerId: Option[SynchronizerId],
       contractSynchronizerRenames: Map[String, String],
   )

@@ -815,7 +815,6 @@ class CommitmentsAdministrationGroup(
 
   import runner.*
 
-  // TODO(#9557) R2
   @Help.Summary(
     "Opens a commitment by retrieving the metadata of active contracts shared with the counter-participant.",
     FeatureFlag.Preview,

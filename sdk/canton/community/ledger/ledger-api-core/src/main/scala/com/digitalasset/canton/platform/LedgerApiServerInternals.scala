@@ -17,7 +17,7 @@ import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
 
-object LedgerApiServer {
+object LedgerApiServerInternals {
   def createInMemoryStateAndUpdater(
       participantId: Ref.ParticipantId,
       commandProgressTracker: CommandProgressTracker,

@@ -325,7 +325,7 @@ class MultipleMediatorsIntegrationTest
 
         eventually() {
           participant1.topology.mediators
-            .list(daId, group = Some(NonNegativeInt.one)) shouldBe empty
+            .list(daId, group = Some(NonNegativeInt.zero)) shouldBe empty
         }
 
         loggerFactory.assertThrowsAndLogs[CommandFailure](

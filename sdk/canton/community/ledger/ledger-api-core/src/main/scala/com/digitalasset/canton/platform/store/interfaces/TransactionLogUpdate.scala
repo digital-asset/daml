@@ -83,6 +83,7 @@ object TransactionLogUpdate {
       completionStreamResponse: Option[CompletionStreamResponse],
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment.Batch,
+      synchronizerId: String,
   )(implicit override val traceContext: TraceContext)
       extends TransactionLogUpdate {
 

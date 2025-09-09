@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.ledger.api
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DbConfig.*
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.FailedToConfigureLedgerApiStorage
+import com.digitalasset.canton.participant.ledger.api.LedgerApiServer.FailedToConfigureLedgerApiStorage
 import com.typesafe.config.ConfigFactory
 import org.scalatest.wordspec.AnyWordSpec
 

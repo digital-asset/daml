@@ -47,6 +47,15 @@ object AuthorizationError {
       s"Claims do not authorize to read data as any party (super-reader wildcard)"
   }
 
+  final case class MissingExecuteClaim(party: String) extends AuthorizationError {
+    override val reason = s"Claims do not authorize to execute for party '$party'"
+  }
+
+  final object MissingExecuteAsAnyPartyClaim extends AuthorizationError {
+    override val reason =
+      s"Claims do not authorize to execute as any party (super-executor wildcard)"
+  }
+
   final case class MissingActClaim(party: String) extends AuthorizationError {
     override val reason = s"Claims do not authorize to act as party '$party'"
   }
