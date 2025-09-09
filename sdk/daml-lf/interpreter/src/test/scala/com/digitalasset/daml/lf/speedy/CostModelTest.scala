@@ -34,30 +34,28 @@ class CostModelV0Test extends AnyWordSpec with Matchers with ScalaCheckPropertyC
   )(implicit sized: Sized[T], gen: Gen[T]): Unit =
     s"approximate real footprint of $name" in {
       forAll(gen, minSuccessful(minSucc)) { x: T =>
-        remy.catcha {
-          sized.bloat(x)
+        sized.bloat(x)
 
-          val shallowFootprint = sized.shallowFootprint(x)
-          val approximativeShallowSize = sized.approximateShallowFootprint(x)
+        val shallowFootprint = sized.shallowFootprint(x)
+        val approximativeShallowSize = sized.approximateShallowFootprint(x)
 
-          val s = compare(shallowFootprint, approximativeShallowSize)
-          println(
-            s"Sized: ${name}, actualShallowSize: $shallowFootprint, approximativeShallowSize: $approximativeShallowSize ($s), ${compare(shallowFootprint, approximativeShallowSize)}, x=`${x.toString
-                .take(60)}`"
-          )
-          if (verbose) {
-            println(classLayout(x))
-            println(graphLayout(x))
-          }
-
-          if (shallowFootprint > approximativeShallowSize)
-            if (strict)
-              shallowFootprint shouldBe approximativeShallowSize
-            else
-              shallowFootprint should be <= approximativeShallowSize
-
-          Sized.footprint(x) should be <= sized.approximateFootprint(x)
+        val s = compare(shallowFootprint, approximativeShallowSize)
+        println(
+          s"Sized: ${name}, actualShallowSize: $shallowFootprint, approximativeShallowSize: $approximativeShallowSize ($s), ${compare(shallowFootprint, approximativeShallowSize)}, x=`${x.toString
+              .take(60)}`"
+        )
+        if (verbose) {
+          println(classLayout(x))
+          println(graphLayout(x))
         }
+
+        if (shallowFootprint > approximativeShallowSize)
+          if (strict)
+            shallowFootprint shouldBe approximativeShallowSize
+          else
+            shallowFootprint should be <= approximativeShallowSize
+
+        Sized.footprint(x) should be <= sized.approximateFootprint(x)
       }
     }
 
