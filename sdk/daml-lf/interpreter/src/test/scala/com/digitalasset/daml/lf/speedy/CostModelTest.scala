@@ -5,7 +5,7 @@ package com.digitalasset.daml
 package lf
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.speedy.CostModel.CostModel0
+import com.digitalasset.daml.lf.speedy.CostModel.CostModelV0
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value
@@ -22,7 +22,7 @@ import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import scala.collection.immutable.{ArraySeq, TreeMap}
 import scala.reflect.ClassTag
 
-class CostModelTest extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
+class CostModelV0Test extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   import CostModelTest._
 
@@ -430,8 +430,8 @@ object Sized {
       override def fromList(as: List[A]): List[A] = as
 
       override def approximateShallowFootprint(n: Int): Long =
-        CostModel0.ListSize.calculate(n) +
-          CostModel0.OBJECT_HEADER_BYTES // CostModel0 does not charge for Nil but jol counts it.
+        CostModelV0.ListSize.calculate(n) +
+          CostModelV0.OBJECT_HEADER_BYTES // CostModel0 does not charge for Nil but jol counts it.
     }
 
   implicit def SizedArray[A: ClassTag](implicit a: Sized[A]): SizedContainer1[Array, A] =
@@ -440,7 +440,7 @@ object Sized {
       final override def elements(x: Array[A]): Iterator[A] = x.iterator
 
       final override def approximateShallowFootprint(n: Int): Long =
-        CostModel0.AnyRefArraySize.calculate(n)
+        CostModelV0.AnyRefArraySize.calculate(n)
 
       final override def fromList(as: List[A]): Array[A] = as.toArray
     }
@@ -453,7 +453,7 @@ object Sized {
     override def fromList(as: List[A]): ArraySeq[A] = ArraySeq.from(as)
 
     override def approximateShallowFootprint(n: Int): Long =
-      CostModel0.AnyRefArraySeqSize.calculate(n)
+      CostModelV0.AnyRefArraySeqSize.calculate(n)
   }
 
   implicit def SizedOption[A](implicit a: Sized[A]): SizedContainer1[Option, A] =
@@ -464,7 +464,7 @@ object Sized {
       final override def fromList(a: List[A]): Option[A] = a.headOption
 
       final override def approximateShallowFootprint(n: Int): Long =
-        CostModel0.OptionSize
+        CostModelV0.OptionSize
     }
 
   implicit def SizeTreeMap[K, V](implicit
@@ -487,7 +487,7 @@ object Sized {
       override def length(x: Array[Byte]): Int = x.length
 
       override def approximateFootprint(n: Int): Long =
-        CostModel0.ByteArraySize.calculate(n)
+        CostModelV0.ByteArraySize.calculate(n)
 
     }
 
@@ -497,7 +497,7 @@ object Sized {
       final override def length(x: String): Int = x.length
 
       final override def approximateFootprint(n: Int): Long =
-        CostModel0.StringSize.calculate(n)
+        CostModelV0.StringSize.calculate(n)
     }
 
   implicit val SizedBytesString: SizedVariableLengthAtom[protobuf.ByteString] =
@@ -505,7 +505,7 @@ object Sized {
       override def length(x: protobuf.ByteString): Int = x.size()
 
       override def approximateFootprint(n: Int): Long =
-        CostModel0.ByteStringSize.calculate(n)
+        CostModelV0.ByteStringSize.calculate(n)
     }
 
   implicit def SizedImmArray[A](implicit a: Sized[A]): SizedContainer1[ImmArray, A] =
@@ -513,7 +513,7 @@ object Sized {
 
       override def elements(x: ImmArray[A]): Iterator[A] = x.iterator
 
-      override def approximateShallowFootprint(n: Int): Long = CostModel0.ImmArraySize.calculate(n)
+      override def approximateShallowFootprint(n: Int): Long = CostModelV0.ImmArraySize.calculate(n)
 
       override def fromList(a: List[A]): ImmArray[A] = a.to(ImmArray)
     }
@@ -524,7 +524,7 @@ object Sized {
       override def elements(x: FrontStack[A]): Iterator[A] = x.iterator
 
       override def approximateShallowFootprint(n: Int): Long =
-        CostModel0.FrontStackSize.calculate(n)
+        CostModelV0.FrontStackSize.calculate(n)
 
       override def fromList(as: List[A]): FrontStack[A] =
         as.foldLeft(FrontStack.empty[A])(_.+:(_))
@@ -535,53 +535,53 @@ object Sized {
       override def length(x: Bytes): Int = x.length
 
       override def approximateFootprint(n: Int): Long =
-        CostModel0.BytesSize.calculate(n)
+        CostModelV0.BytesSize.calculate(n)
     }
 
   implicit val SizedHash: SizedFixSizeAtom[crypto.Hash] = new SizedFixSizeAtom[crypto.Hash](
-    CostModel0.HashSize
+    CostModelV0.HashSize
   )
 
   implicit lazy val SizedNumeric: Sized[Numeric] =
-    new SizedFixSizeAtom[Numeric](CostModel0.NumericSize) {
+    new SizedFixSizeAtom[Numeric](CostModelV0.NumericSize) {
       final override def bloat(x: Numeric) = {
         val _ = x.toString
       }
     }
 
   implicit lazy val SizedDate: Sized[Time.Date] =
-    new SizedFixSizeAtom[Time.Date](CostModel0.DateSize)
+    new SizedFixSizeAtom[Time.Date](CostModelV0.DateSize)
 
   implicit lazy val SizedTimestamp: Sized[Time.Timestamp] =
-    new SizedFixSizeAtom[Time.Timestamp](CostModel0.TimestampSize)
+    new SizedFixSizeAtom[Time.Timestamp](CostModelV0.TimestampSize)
 
   implicit lazy val SizedSUnit: SizedConstant[SUnit.type] =
     new SizedConstant(
       SUnit,
-      CostModel0.SUnitSize +
-        CostModel0.OBJECT_HEADER_BYTES, // CostModel0 does not charge for SUnit, but jol counts it.
+      CostModelV0.SUnitSize +
+        CostModelV0.OBJECT_HEADER_BYTES, // CostModel0 does not charge for SUnit, but jol counts it.
     )
 
-  implicit object SizedSBool extends SizedFixSizeAtom[SBool](CostModel0.SBoolSize)
+  implicit object SizedSBool extends SizedFixSizeAtom[SBool](CostModelV0.SBoolSize)
 
   implicit lazy val SizedSInt64: Sized[SInt64] =
-    new SizedFixSizeAtom[SInt64](CostModel0.SInt64Size)
+    new SizedFixSizeAtom[SInt64](CostModelV0.SInt64Size)
 
   implicit lazy val SizedSNumeric: SizedWrapper1[SNumeric, Numeric] =
-    new SizedWrapper1[SNumeric, Numeric](SNumeric.apply, _.value, CostModel0.SNumericWrapperSize)
+    new SizedWrapper1[SNumeric, Numeric](SNumeric.apply, _.value, CostModelV0.SNumericWrapperSize)
 
   implicit lazy val SizedSText: SizedWrapper1[SText, String] =
-    new SizedWrapper1[SText, String](SText.apply, _.value, CostModel0.STextWrapperSize)
+    new SizedWrapper1[SText, String](SText.apply, _.value, CostModelV0.STextWrapperSize)
 
   implicit lazy val SizedSTimestamp: SizedWrapper1[STimestamp, Time.Timestamp] =
     new SizedWrapper1[STimestamp, Time.Timestamp](
       STimestamp.apply,
       _.value,
-      CostModel0.STimestampWrapperSize,
+      CostModelV0.STimestampWrapperSize,
     )
 
   implicit lazy val SizedSDate: SizedWrapper1[SDate, Time.Date] =
-    new SizedWrapper1[SDate, Time.Date](SDate.apply, _.value, CostModel0.SDateWrapperSize)
+    new SizedWrapper1[SDate, Time.Date](SDate.apply, _.value, CostModelV0.SDateWrapperSize)
 
   implicit lazy val SizedSValue: Sized[SValue] = new Sized[SValue] {
 

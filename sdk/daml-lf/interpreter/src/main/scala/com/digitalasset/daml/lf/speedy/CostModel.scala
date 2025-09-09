@@ -284,7 +284,7 @@ object CostModel {
     * @param a The fixed, base memory overhead (the y-intercept).
     * @param b The per-element memory overhead (the slope).
     */
-  case class Polynomial1(a: Long, b: Long) {
+  case class LinearPolynomial(a: Long, b: Long) {
     def calculate(n: Int) = a + b * n.toLong
   }
 
@@ -293,7 +293,7 @@ object CostModel {
   /** A conservative cost model based on a 64-bit JVM with memory optimizations
     * like CompressedOops disabled (`-XX:-UseCompressedOops`).
     */
-  object CostModel0 extends CostModel {
+  object CostModelV0 extends CostModel {
 
     // Base memory constants for the conservative model
     val OBJECT_HEADER_BYTES = 16L
@@ -311,21 +311,21 @@ object CostModel {
     )
 
     /** The memory model for a `Array[AnyRef]` of size `n`. */
-    val AnyRefArraySize = Polynomial1(
+    val AnyRefArraySize = LinearPolynomial(
       ARRAY_SHELL_BYTES +
         (8 - REFERENCE_BYTES),
       REFERENCE_BYTES,
     )
 
     /** The memory model for a `Array[Byte]` of size `n`. */
-    val ByteArraySize = Polynomial1(
+    val ByteArraySize = LinearPolynomial(
       ARRAY_SHELL_BYTES +
         (8 - BYTE_BYTES), // padding overapproximation
       BYTE_BYTES,
     )
 
     /** The memory model for a `Array[Int]` of size `n`. */
-    val IntArraySize = Polynomial1(
+    val IntArraySize = LinearPolynomial(
       ARRAY_SHELL_BYTES +
         (8 - INT_BYTES), // padding overapproximation
       INT_BYTES,
@@ -338,7 +338,7 @@ object CostModel {
     )
 
     /** Memory model for an `Array[AnyRef]` of size `n`. */
-    val AnyRefArraySeqSize = Polynomial1(
+    val AnyRefArraySeqSize = LinearPolynomial(
       ARRAYSEQ_SHELL_BYTES + AnyRefArraySize.a,
       AnyRefArraySize.b,
     )
@@ -356,7 +356,7 @@ object CostModel {
       * We conservatively assume 2 bytes per character (UTF-16), which is the
       * worst case for JVM strings since Java 9.
       */
-    val StringSize = Polynomial1(
+    val StringSize = LinearPolynomial(
       STRING_SHELL_BYTES +
         ByteArraySize.a,
       ByteArraySize.b * 2, // Each char takes 2 bytes if string is not LATIN1.
@@ -370,7 +370,7 @@ object CostModel {
     )
 
     /** Memory model for a protobuf `ByteString` of length `n`. */
-    val ByteStringSize = Polynomial1(
+    val ByteStringSize = LinearPolynomial(
       BYTESTRING_SHELL_BYTES +
         ByteArraySize.a +
         (8 - INT_BYTES), // padding overapproximation
@@ -400,7 +400,7 @@ object CostModel {
     )
 
     /** Memory model of a `List` object of lenght `n`. */
-    val ListSize = Polynomial1(NIL_BYTES, CONS_BYTES)
+    val ListSize = LinearPolynomial(NIL_BYTES, CONS_BYTES)
 
     /** Memory model of Numeric object */
     // overapproximation got empirically
@@ -424,7 +424,7 @@ object CostModel {
         REFERENCE_BYTES
 
     /** Memoery model of a Bytes of length `n` */
-    val BytesSize = Polynomial1(
+    val BytesSize = LinearPolynomial(
       BytesWrapperSize + ByteStringSize.a,
       ByteStringSize.b,
     )
@@ -447,14 +447,14 @@ object CostModel {
 
     /** Memory model of an `ImmArray` of length `n` */
     // This is not a proper overapproximation because ImmArray can be slice
-    val ImmArraySize = Polynomial1(
+    val ImmArraySize = LinearPolynomial(
       IMMARRAY_SHELL_BYTES + AnyRefArraySeqSize.a,
       AnyRefArraySeqSize.b,
     )
 
     /** Memory model of an `Frontstack` of length `n` */
     // Get empirically, not a proper overapproximation because can contain ImmArray
-    val FrontStackSize = Polynomial1(48, 32)
+    val FrontStackSize = LinearPolynomial(48, 32)
 
     /** Memory model of a SUnit object */
     val SUnitSize = 0L // we do not charge constant
