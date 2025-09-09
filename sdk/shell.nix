@@ -11,4 +11,8 @@ pkgs.mkShell {
     sphinx
     yq
   ];
+
+shellHook = ''
+    export BAZEL_COMPLETION_PATH="${pkgs.bazel_7}/share/zsh/site-functions"
+'';
 }
