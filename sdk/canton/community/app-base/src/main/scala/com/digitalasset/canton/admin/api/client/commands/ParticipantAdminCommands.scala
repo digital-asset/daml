@@ -1514,7 +1514,6 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
-    // TODO(#9557) R2 The code below should be sufficient
     final case class OpenCommitment(
         observer: StreamObserver[v30.OpenCommitmentResponse],
         commitment: AcsCommitment.HashedCommitmentType,
@@ -1553,7 +1552,6 @@ object ParticipantAdminCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
-    // TODO(#9557) R2 The code below should be sufficient
     final case class CommitmentContracts(
         observer: StreamObserver[v30.InspectCommitmentContractsResponse],
         contracts: Seq[LfContractId],

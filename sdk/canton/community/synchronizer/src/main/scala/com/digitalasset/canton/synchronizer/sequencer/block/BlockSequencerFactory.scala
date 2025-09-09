@@ -241,6 +241,8 @@ abstract class BlockSequencerFactory(
           nodeParameters.enableAdditionalConsistencyChecks,
           nodeParameters.processingTimeouts,
           synchronizerLoggerFactory,
+          blockSequencerConfig.streamInstrumentation,
+          metrics.block,
         )
       )
     } yield {

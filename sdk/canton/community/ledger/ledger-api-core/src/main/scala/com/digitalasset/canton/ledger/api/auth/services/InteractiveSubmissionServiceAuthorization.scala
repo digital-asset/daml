@@ -18,6 +18,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   InteractiveSubmissionServiceGrpc,
   PrepareSubmissionRequest,
   PrepareSubmissionResponse,
+  PreparedTransaction,
 }
 import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
@@ -39,38 +40,25 @@ final class InteractiveSubmissionServiceAuthorization(
     with ProxyCloseable
     with GrpcApiService {
 
+  import InteractiveSubmissionServiceAuthorization.*
+
   override def prepareSubmission(
       request: PrepareSubmissionRequest
-  ): Future[PrepareSubmissionResponse] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request)
+  ): Future[PrepareSubmissionResponse] =
     authorizer.rpc(service.prepareSubmission)(
-      RequiredClaims.submissionClaims(
-        actAs = Set.empty, // At preparation time the actAs parties are only reading
-        readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
-        userIdL = Lens.unit[PrepareSubmissionRequest].userId,
-      )*
+      getPreparedSubmissionClaims(request)*
     )(request)
-  }
 
   override def executeSubmission(
       request: ExecuteSubmissionRequest
-  ): Future[ExecuteSubmissionResponse] = {
-    val actAsO = for {
-      preparedTx <- request.preparedTransaction
-      metadata <- preparedTx.metadata
-      submitterInfo <- metadata.submitterInfo
-    } yield submitterInfo.actAs
-
-    val actAs = actAsO.getOrElse(Seq.empty)
-
+  ): Future[ExecuteSubmissionResponse] =
     authorizer.rpc(service.executeSubmission)(
-      RequiredClaims.submissionClaims(
-        actAs = actAs.toSet[String],
-        readAs = Set.empty[String],
-        userIdL = Lens.unit[ExecuteSubmissionRequest].userId,
+      getExecuteSubmissionClaims(
+        request,
+        preparedTransactionForExecuteSubmissionL,
+        userIdForExecuteSubmissionL,
       )*
     )(request)
-  }
 
   override def getPreferredPackageVersion(
       request: GetPreferredPackageVersionRequest
@@ -87,41 +75,82 @@ final class InteractiveSubmissionServiceAuthorization(
 
   override def executeSubmissionAndWait(
       request: ExecuteSubmissionAndWaitRequest
-  ): Future[ExecuteSubmissionAndWaitResponse] = {
-    val actAsO = for {
-      preparedTx <- request.preparedTransaction
-      metadata <- preparedTx.metadata
-      submitterInfo <- metadata.submitterInfo
-    } yield submitterInfo.actAs
-
-    val actAs = actAsO.getOrElse(Seq.empty)
-
+  ): Future[ExecuteSubmissionAndWaitResponse] =
     authorizer.rpc(service.executeSubmissionAndWait)(
-      RequiredClaims.submissionClaims(
-        actAs = actAs.toSet[String],
-        readAs = Set.empty[String],
-        userIdL = Lens.unit[ExecuteSubmissionAndWaitRequest].userId,
+      getExecuteSubmissionClaims(
+        request,
+        preparedTransactionForExecuteSubmissionAndWaitL,
+        userIdForExecuteSubmissionAndWaitL,
       )*
     )(request)
-  }
 
   override def executeSubmissionAndWaitForTransaction(
       request: ExecuteSubmissionAndWaitForTransactionRequest
-  ): Future[ExecuteSubmissionAndWaitForTransactionResponse] = {
-    val actAsO = for {
-      preparedTx <- request.preparedTransaction
+  ): Future[ExecuteSubmissionAndWaitForTransactionResponse] =
+    authorizer.rpc(service.executeSubmissionAndWaitForTransaction)(
+      getExecuteSubmissionAndWaitForTransactionClaims(request)*
+    )(request)
+}
+
+object InteractiveSubmissionServiceAuthorization {
+
+  def getPreparedSubmissionClaims(
+      request: PrepareSubmissionRequest
+  ): List[RequiredClaim[PrepareSubmissionRequest]] = {
+    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request)
+    RequiredClaims.executionClaims(
+      executeAs = Set.empty, // At preparation time the executeAs parties are only reading
+      readAs = effectiveSubmitters.readAs ++ effectiveSubmitters.actAs,
+      userIdL = userIdForPrepareSubmissionL,
+    )
+  }
+
+  def getExecuteSubmissionClaims[Req](
+      request: Req,
+      preparedTransactionL: Lens[Req, Option[PreparedTransaction]],
+      userIdL: Lens[Req, String],
+  ): List[RequiredClaim[Req]] = {
+    val executeAsO = for {
+      preparedTx <- preparedTransactionL.get(request)
       metadata <- preparedTx.metadata
       submitterInfo <- metadata.submitterInfo
     } yield submitterInfo.actAs
-
-    val actAs = actAsO.getOrElse(Seq.empty)
-
-    authorizer.rpc(service.executeSubmissionAndWaitForTransaction)(
-      RequiredClaims.submissionClaims(
-        actAs = actAs.toSet[String],
-        readAs = Set.empty[String],
-        userIdL = Lens.unit[ExecuteSubmissionAndWaitForTransactionRequest].userId,
-      )*
-    )(request)
+    val executeAs = executeAsO.getOrElse(Seq.empty)
+    RequiredClaims.executionClaims(
+      executeAs = executeAs.toSet[String],
+      readAs = Set.empty[String],
+      userIdL = userIdL,
+    )
   }
+
+  def getExecuteSubmissionAndWaitForTransactionClaims(
+      request: ExecuteSubmissionAndWaitForTransactionRequest
+  ): List[RequiredClaim[ExecuteSubmissionAndWaitForTransactionRequest]] =
+    (getExecuteSubmissionClaims(
+      request,
+      preparedTransactionForExecuteSubmissionAndWaitForTransactionL,
+      userIdForExecuteSubmissionAndWaitForTransactionL,
+    ) ::: request.transactionFormat.toList
+      .flatMap(
+        RequiredClaims.transactionFormatClaims[ExecuteSubmissionAndWaitForTransactionRequest]
+      )).distinct
+
+  val userIdForPrepareSubmissionL: Lens[PrepareSubmissionRequest, String] =
+    Lens.unit[PrepareSubmissionRequest].userId
+  val preparedTransactionForExecuteSubmissionL
+      : Lens[ExecuteSubmissionRequest, Option[PreparedTransaction]] =
+    Lens.unit[ExecuteSubmissionRequest].optionalPreparedTransaction
+  val userIdForExecuteSubmissionL: Lens[ExecuteSubmissionRequest, String] =
+    Lens.unit[ExecuteSubmissionRequest].userId
+  val preparedTransactionForExecuteSubmissionAndWaitL
+      : Lens[ExecuteSubmissionAndWaitRequest, Option[PreparedTransaction]] =
+    Lens.unit[ExecuteSubmissionAndWaitRequest].optionalPreparedTransaction
+  val userIdForExecuteSubmissionAndWaitL: Lens[ExecuteSubmissionAndWaitRequest, String] =
+    Lens.unit[ExecuteSubmissionAndWaitRequest].userId
+  val preparedTransactionForExecuteSubmissionAndWaitForTransactionL
+      : Lens[ExecuteSubmissionAndWaitForTransactionRequest, Option[PreparedTransaction]] =
+    Lens.unit[ExecuteSubmissionAndWaitForTransactionRequest].optionalPreparedTransaction
+  val userIdForExecuteSubmissionAndWaitForTransactionL
+      : Lens[ExecuteSubmissionAndWaitForTransactionRequest, String] =
+    Lens.unit[ExecuteSubmissionAndWaitForTransactionRequest].userId
 }

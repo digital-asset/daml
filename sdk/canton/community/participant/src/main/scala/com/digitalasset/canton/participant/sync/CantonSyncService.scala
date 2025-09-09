@@ -1175,7 +1175,7 @@ class CantonSyncService(
       // As currently we stop the persistent state in here as a next step,
       // and as we need the indexer to terminate before the persistent state and after the sources which are pushing to the indexing queue(connected synchronizers, inFlightSubmissionTracker etc),
       // we need to terminate the indexer right here
-      (() => ledgerApiIndexer.closeCurrent()): AutoCloseable,
+      ledgerApiIndexer.currentAutoCloseable(),
       participantNodePersistentState.value,
     )
 

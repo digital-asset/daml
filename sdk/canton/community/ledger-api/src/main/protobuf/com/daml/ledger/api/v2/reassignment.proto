@@ -53,6 +53,11 @@ message Reassignment {
   // synchronizer for an unassign/assign event respectively.
   // Required
   google.protobuf.Timestamp record_time = 7;
+
+  // A valid synchronizer id.
+  // Identifies the synchronizer that synchronized this Reassignment.
+  // Required
+  string synchronizer_id = 8;
 }
 
 message ReassignmentEvent {

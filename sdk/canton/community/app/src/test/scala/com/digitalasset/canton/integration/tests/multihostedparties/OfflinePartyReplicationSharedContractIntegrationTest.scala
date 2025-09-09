@@ -44,6 +44,7 @@ sealed trait OfflinePartyReplicationSharedContractIntegrationTest
     EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
       import env.*
 
+      // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
       sequencer1.topology.synchronizer_parameters.propose_update(
         synchronizerId = daId,
         _.update(reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)),

@@ -2321,6 +2321,11 @@ components:
           type: string
         permission:
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     CreateAndExerciseCommand:
       title: CreateAndExerciseCommand
       description: Create a contract and exercise a choice on it in the same transaction.
@@ -3349,6 +3354,9 @@ components:
         packageStatus:
           description: The status of the package.
           type: string
+          enum:
+          - PACKAGE_STATUS_UNSPECIFIED
+          - PACKAGE_STATUS_REGISTERED
     GetParticipantIdResponse:
       title: GetParticipantIdResponse
       type: object
@@ -4154,6 +4162,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4226,6 +4237,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4277,6 +4291,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4541,6 +4558,9 @@ components:
         hashingSchemeVersion:
           description: The hashing scheme version used when building the hash
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         hashingDetails:
           description: |-
             Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
@@ -4557,6 +4577,7 @@ components:
       - workflowId
       - offset
       - recordTime
+      - synchronizerId
       properties:
         updateId:
           description: |-
@@ -4603,6 +4624,12 @@ components:
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
+            Required
+          type: string
+        synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized this Reassignment.
             Required
           type: string
     JsReassignmentEvent:
@@ -5270,6 +5297,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -5295,6 +5327,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object
@@ -5557,6 +5594,12 @@ components:
         format:
           description: ''
           type: string
+          enum:
+          - SIGNATURE_FORMAT_UNSPECIFIED
+          - SIGNATURE_FORMAT_RAW
+          - SIGNATURE_FORMAT_DER
+          - SIGNATURE_FORMAT_CONCAT
+          - SIGNATURE_FORMAT_SYMBOLIC
         signature:
           description: ''
           type: string
@@ -5567,6 +5610,11 @@ components:
         signingAlgorithmSpec:
           description: The signing algorithm specification used to produce this signature
           type: string
+          enum:
+          - SIGNING_ALGORITHM_SPEC_UNSPECIFIED
+          - SIGNING_ALGORITHM_SPEC_ED25519
+          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
     SinglePartySignatures:
       title: SinglePartySignatures
       description: Signatures provided by a single party
@@ -5827,6 +5875,10 @@ components:
             What transaction shape to use for interpreting the filters of the event format.
             Required
           type: string
+          enum:
+          - TRANSACTION_SHAPE_UNSPECIFIED
+          - TRANSACTION_SHAPE_ACS_DELTA
+          - TRANSACTION_SHAPE_LEDGER_EFFECTS
     TransactionTree:
       title: TransactionTree
       description: |-

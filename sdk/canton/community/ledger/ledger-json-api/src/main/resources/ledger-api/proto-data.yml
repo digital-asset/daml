@@ -2081,6 +2081,10 @@ messages:
           This field will be populated with the trace context contained in the original submission.
           If that was not provided, a unique ledger-api-server generated trace context will be used
           instead.
+        synchronizer_id: |-
+          A valid synchronizer id.
+          Identifies the synchronizer that synchronized this Reassignment.
+          Required
         update_id: |-
           Assigned by the server. Useful for correlating logs.
           Must be a valid LedgerString (as described in ``value.proto``).

@@ -21,6 +21,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransaction,
   stringDecoderForEnum,
   stringEncoderForEnum,
+  stringSchemaForEnum,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -432,10 +433,10 @@ object JsInteractiveSubmissionServiceCodecs {
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
   implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
-    Schema.string
+    stringSchemaForEnum()
 
   implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
-    Schema.string
+    stringSchemaForEnum()
 
   implicit val timeSchema: Schema[interactive_submission_service.MinLedgerTime.Time] =
     Schema.oneOfWrapped
@@ -446,5 +447,5 @@ object JsInteractiveSubmissionServiceCodecs {
 
   implicit val hashingSchemeVersionSchema
       : Schema[interactive_submission_service.HashingSchemeVersion] =
-    Schema.string
+    stringSchemaForEnum()
 }

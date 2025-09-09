@@ -1269,6 +1269,10 @@ components:
             What transaction shape to use for interpreting the filters of the event format.
             Required
           type: string
+          enum:
+          - TRANSACTION_SHAPE_UNSPECIFIED
+          - TRANSACTION_SHAPE_ACS_DELTA
+          - TRANSACTION_SHAPE_LEDGER_EFFECTS
     TopologyFormat:
       title: TopologyFormat
       description: A format specifying which topology transactions to include and
@@ -1365,6 +1369,7 @@ components:
       - workflowId
       - offset
       - recordTime
+      - synchronizerId
       properties:
         updateId:
           description: |-
@@ -1411,6 +1416,12 @@ components:
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
+            Required
+          type: string
+        synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized this Reassignment.
             Required
           type: string
     JsReassignmentEvent:
@@ -1585,6 +1596,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -1610,6 +1626,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object

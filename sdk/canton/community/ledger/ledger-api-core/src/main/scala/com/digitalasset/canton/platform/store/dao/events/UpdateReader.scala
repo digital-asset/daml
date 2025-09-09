@@ -365,6 +365,7 @@ private[dao] object UpdateReader {
         ),
         recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
         traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+        synchronizerId = first.synchronizerId,
       )
     }
 
@@ -411,6 +412,7 @@ private[dao] object UpdateReader {
             },
             recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
             traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
+            synchronizerId = first.synchronizerId,
           )
         )
       )

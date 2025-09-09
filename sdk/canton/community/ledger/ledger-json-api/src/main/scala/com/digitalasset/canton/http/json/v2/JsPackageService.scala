@@ -12,6 +12,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
   stringDecoderForEnum,
   stringEncoderForEnum,
+  stringSchemaForEnum,
 }
 import com.digitalasset.canton.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
@@ -166,6 +167,6 @@ object JsPackageCodecs {
   implicit val packageStatusRecognizedSchema: Schema[package_service.PackageStatus.Recognized] =
     Schema.oneOfWrapped
 
-  implicit val packageStatusSchema: Schema[package_service.PackageStatus] = Schema.string
+  implicit val packageStatusSchema: Schema[package_service.PackageStatus] = stringSchemaForEnum()
 
 }

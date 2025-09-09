@@ -37,6 +37,7 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
   private var bob: PartyId = _
   private var charlie: PartyId = _
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
   // Party replication to the target participant may trigger ACS commitment mismatch warnings.
   // This is expected behavior. To reduce the frequency of these warnings and avoid associated
   // test flakes, `reconciliationInterval` is set to one year.
@@ -160,6 +161,7 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
 
     val simClock = Some(env.environment.simClock.value)
 
+    // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
     // disable ACS commitments by having a large reconciliation interval
     // do this on all synchronizers with participants connected that perform party migrations
     // TODO(#8583) remove when repair service can be fed with the timestamp of the ACS upload

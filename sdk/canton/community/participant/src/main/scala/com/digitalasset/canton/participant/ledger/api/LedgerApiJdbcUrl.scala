@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.ledger.api
 import cats.implicits.toBifunctorOps
 import cats.syntax.functor.*
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.FailedToConfigureLedgerApiStorage
+import com.digitalasset.canton.participant.ledger.api.LedgerApiServer.FailedToConfigureLedgerApiStorage
 import com.typesafe.config.{Config, ConfigObject, ConfigValueType}
 
 import java.net.URLEncoder

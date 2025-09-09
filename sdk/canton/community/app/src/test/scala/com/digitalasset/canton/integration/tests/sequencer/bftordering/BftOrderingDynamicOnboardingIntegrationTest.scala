@@ -14,12 +14,14 @@ class BftOrderingDynamicOnboardingIntegrationTest
 
   import BftOrderingDynamicOnboardingIntegrationTest.*
 
-  override protected val isBftSequencer: Boolean = true
+  override protected val isBftSequencer = true
 
-  override protected lazy val plugin: UseBftSequencer = new UseBftSequencer(
-    loggerFactory,
-    dynamicallyOnboardedSequencerNames = Seq(dynamicallyOnboardedSequencerName),
-  )
+  // We narrow the type explicitly to access `sequencerEndpoints` later
+  override protected lazy val plugin: UseBftSequencer =
+    new UseBftSequencer(
+      loggerFactory,
+      dynamicallyOnboardedSequencerNames = Seq(dynamicallyOnboardedSequencerName),
+    )
 
   override protected def setUpAdditionalConnections(
       existingSequencerReference: SequencerReference,
@@ -28,14 +30,14 @@ class BftOrderingDynamicOnboardingIntegrationTest
     plugin.sequencerEndpoints.get.foreach { endpoints =>
       val existingSequencerEndpoint =
         endpoints(InstanceName.tryCreate(existingSequencerReference.name))
-      val newSequencerEndpoint = endpoints(InstanceName.tryCreate(newSequencerReference.name))
       // user-manual-entry-begin: BftSequencerAddPeerEndpoint
-      existingSequencerReference.bft.add_peer_endpoint(newSequencerEndpoint)
       newSequencerReference.bft.add_peer_endpoint(existingSequencerEndpoint)
+    // existingSequencerReference.bft.add_peer_endpoint(newSequencerEndpoint) // Optional, one direction is enough
     // user-manual-entry-end: BftSequencerAddPeerEndpoint
     }
 }
 
 object BftOrderingDynamicOnboardingIntegrationTest {
+
   private val dynamicallyOnboardedSequencerName: InstanceName = InstanceName.tryCreate("sequencer2")
 }

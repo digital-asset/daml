@@ -32,6 +32,7 @@ final class ExportContractsIntegrationTest
       .withSetup { implicit env =>
         import env.*
 
+        // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
         // Adding the "owner" party to P3 can expectedly trigger the ACS_MISMATCH_NO_SHARED_CONTRACTS
         // commitment warning because the test exports, but does not import contracts.
         // Set `reconciliationInterval` to ten years to avoid associated test flakes.

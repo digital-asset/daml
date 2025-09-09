@@ -73,7 +73,16 @@ trait HasReassignmentCommandsHelpers {
     val unassignmentCompletion = completions.headOption.value
 
     updates.headOption.value match {
-      case w: UpdateService.UnassignedWrapper => (w, unassignmentCompletion)
+      case w: UpdateService.UnassignedWrapper =>
+        w.synchronizerId shouldBe source.toProtoPrimitive
+        w.source shouldBe source.toProtoPrimitive
+        w.target shouldBe target.toProtoPrimitive
+        w.reassignment.synchronizerId shouldBe source.toProtoPrimitive
+        w.events.foreach { unassignedEvent =>
+          unassignedEvent.source shouldBe source.toProtoPrimitive
+          unassignedEvent.target shouldBe target.toProtoPrimitive
+        }
+        (w, unassignmentCompletion)
       case other => throw new RuntimeException(s"Expected a reassignment event but got $other")
     }
   }
@@ -154,7 +163,16 @@ trait HasReassignmentCommandsHelpers {
 
     val assignmentCompletion = completions.headOption.value
     updates.headOption.value match {
-      case w: UpdateService.AssignedWrapper => (w, assignmentCompletion)
+      case w: UpdateService.AssignedWrapper =>
+        w.synchronizerId shouldBe target.toProtoPrimitive
+        w.source shouldBe source.toProtoPrimitive
+        w.target shouldBe target.toProtoPrimitive
+        w.reassignment.synchronizerId shouldBe target.toProtoPrimitive
+        w.events.foreach { unassignedEvent =>
+          unassignedEvent.source shouldBe source.toProtoPrimitive
+          unassignedEvent.target shouldBe target.toProtoPrimitive
+        }
+        (w, assignmentCompletion)
       case other =>
         throw new RuntimeException(s"Expected an assignment event but got $other")
     }

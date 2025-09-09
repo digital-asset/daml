@@ -237,7 +237,7 @@ class GrpcPartyManagementService(
           Set(party),
           atOffset = activationOffset,
           out,
-          excludedParties = otherPartiesHostedByTargetParticipant,
+          excludedStakeholders = otherPartiesHostedByTargetParticipant,
           Some(synchronizerId),
         )(ec, traceContext, actorSystem)
         .leftMap(msg =>
