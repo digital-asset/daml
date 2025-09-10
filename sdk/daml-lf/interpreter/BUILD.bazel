@@ -41,6 +41,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
