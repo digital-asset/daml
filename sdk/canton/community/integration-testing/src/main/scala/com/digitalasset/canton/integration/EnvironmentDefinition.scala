@@ -151,6 +151,7 @@ object EnvironmentDefinition extends LazyLogging {
       numSequencers: Int,
       numMediators: Int,
       withRemote: Boolean = false,
+      startingParticipantIndex: Int = 1,
   ): EnvironmentDefinition = {
 
     val sequencers = (1 to numSequencers).map { i =>
@@ -160,9 +161,10 @@ object EnvironmentDefinition extends LazyLogging {
     val mediators = (1 to numMediators).map { i =>
       InstanceName.tryCreate(s"mediator$i") -> MediatorNodeConfig()
     }.toMap
-    val participants = (1 to numParticipants).map { i =>
-      InstanceName.tryCreate(s"participant$i") -> ParticipantNodeConfig()
-    }.toMap
+    val participants =
+      (startingParticipantIndex until (startingParticipantIndex + numParticipants)).map { i =>
+        InstanceName.tryCreate(s"participant$i") -> ParticipantNodeConfig()
+      }.toMap
 
     val configWithDefaults = CantonConfig(
       sequencers = sequencers,

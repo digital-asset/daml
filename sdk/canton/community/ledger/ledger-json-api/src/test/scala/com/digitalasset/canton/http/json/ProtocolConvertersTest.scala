@@ -6,7 +6,10 @@ package com.digitalasset.canton.http.json
 import com.daml.ledger.api.v2 as lapi
 import com.daml.ledger.api.v2.value.{Identifier, Record, Value}
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.http.json.v2.LegacyDTOs.GetUpdateTreesResponse.Update
+import com.digitalasset.canton.http.json.v2.LegacyDTOs.TreeEvent.Kind
 import com.digitalasset.canton.http.json.v2.{
+  LegacyDTOs,
   ProtocolConverter,
   ProtocolConverters,
   SchemaProcessors,
@@ -80,7 +83,7 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
     JsMapping(converters.ReassignmentEvent),
     JsMapping(converters.Reassignment),
     JsMapping(converters.GetUpdatesResponse),
-    JsMapping(converters.GetUpdateTreesResponse),
+    JsMapping(converters.GetUpdateTreesResponseLegacy),
     JsMapping(converters.GetTransactionResponse),
 //    JsMapping(converters.PrepareSubmissionRequest),//we only need toJson
 //    JsMapping(converters.PrepareSubmissionResponse), // we only need toJson
@@ -90,8 +93,6 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
   )
 }
 
-// TODO(#23504) remove suppression of deprecation warnings
-@nowarn("cat=deprecation")
 object Arbitraries {
   import StdGenerators.*
   import magnolify.scalacheck.auto.*
@@ -151,6 +152,15 @@ object Arbitraries {
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.transaction.TreeEvent.Kind]
     )
+  implicit val arbTreeEventLegacyKind: Arbitrary[LegacyDTOs.TreeEvent.Kind] = {
+    val arb = ArbitraryDerivation[LegacyDTOs.TreeEvent.Kind]
+    Arbitrary {
+      retryUntilSome(
+        arb.arbitrary.sample.filter(_ != Kind.Empty)
+      ).getOrElse(throw new RuntimeException("Failed to generate non-empty TreeEvent.Kind"))
+    }
+  }
+
   implicit val arbReassignmentEventEvent: Arbitrary[lapi.reassignment.ReassignmentEvent.Event] =
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.reassignment.ReassignmentEvent.Event]
@@ -160,11 +170,17 @@ object Arbitraries {
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.update_service.GetUpdatesResponse.Update]
     )
-  implicit val arbGetUpdatesTreesResponseUpdate
-      : Arbitrary[lapi.update_service.GetUpdateTreesResponse.Update] =
-    nonEmptyScalaPbOneOf(
-      ArbitraryDerivation[lapi.update_service.GetUpdateTreesResponse.Update]
-    )
+  implicit val arbGetUpdatesTreesResponseLegacyUpdate
+      : Arbitrary[LegacyDTOs.GetUpdateTreesResponse.Update] = {
+    val arb = ArbitraryDerivation[LegacyDTOs.GetUpdateTreesResponse.Update]
+    Arbitrary {
+      retryUntilSome(
+        arb.arbitrary.sample.filter(_ != Update.Empty)
+      ).getOrElse(
+        throw new RuntimeException("Failed to generate non-empty GetUpdateTreesResponse.Update")
+      )
+    }
+  }
 }
 
 class MockSchemaProcessor()(implicit val executionContext: ExecutionContext)

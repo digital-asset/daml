@@ -35,19 +35,17 @@ final class GetEventsByContractIdRequestAuthIT extends ReadOnlyServiceCallAuthTe
   override def serviceCall(context: ServiceCallContext)(implicit
       env: TestConsoleEnvironment
   ): Future[Any] = {
-    val eventFormat = context.updateFormat
+    val eventFormatO = context.updateFormat
       .flatMap(_.includeTransactions)
       .flatMap(_.eventFormat)
     stub(EventQueryServiceGrpc.stub(channel), context.token)
       .getEventsByContractId(
         GetEventsByContractIdRequest(
           contractId = LfContractId.V1(ExampleTransactionFactory.lfHash(375)).coid,
-          requestingParties = eventFormat match {
-            case None => Seq(getMainActorId) // legacy API
-            case Some(_) =>
-              Nil // new API: if evenFormat is defined requestingParties should be empty
+          eventFormat = eventFormatO match {
+            case None => Some(eventFormat(getMainActorId))
+            case Some(_) => eventFormatO
           },
-          eventFormat = eventFormat,
         )
       )
   }

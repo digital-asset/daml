@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.{reassignment, state_service}
+import com.daml.ledger.api.v2.{reassignment, state_service, transaction_filter}
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
@@ -33,6 +33,8 @@ import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO(#23504) remove deprecation suppression
+@nowarn("cat=deprecation")
 class JsStateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -110,23 +112,34 @@ class JsStateService(
   private def getActiveContractsStream(
       caller: CallerContext
   ): TracedInput[Unit] => Flow[
-    state_service.GetActiveContractsRequest,
+    LegacyDTOs.GetActiveContractsRequest,
     JsGetActiveContractsResponse,
     NotUsed,
   ] =
     req => {
       implicit val tc = req.traceContext
-      prepareSingleWsStream(
-        stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
-        (r: state_service.GetActiveContractsResponse) =>
-          protocolConverters.GetActiveContractsResponse.toJson(r),
-      )
+      Flow[LegacyDTOs.GetActiveContractsRequest].map { request =>
+        state_service.GetActiveContractsRequest(
+          filter = request.filter.map(f =>
+            transaction_filter.TransactionFilter(
+              filtersByParty = f.filtersByParty,
+              filtersForAnyParty = f.filtersForAnyParty,
+            )
+          ),
+          verbose = request.verbose,
+          activeAtOffset = request.activeAtOffset,
+          eventFormat = request.eventFormat,
+        )
+      } via
+        prepareSingleWsStream(
+          stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
+          (r: state_service.GetActiveContractsResponse) =>
+            protocolConverters.GetActiveContractsResponse.toJson(r),
+        )
     }
 
 }
 
-// TODO(#23504) remove deprecation suppression
-@nowarn("cat=deprecation")
 object JsStateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsStateServiceCodecs.*
@@ -137,7 +150,7 @@ object JsStateService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("active-contracts"))
     .out(
       webSocketBody[
-        state_service.GetActiveContractsRequest,
+        LegacyDTOs.GetActiveContractsRequest,
         CodecFormat.Json,
         Either[JsCantonError, JsGetActiveContractsResponse],
         CodecFormat.Json,
@@ -147,7 +160,7 @@ object JsStateService extends DocumentationEndpoints {
 
   val activeContractsListEndpoint = state.post
     .in(sttp.tapir.stringToPath("active-contracts"))
-    .in(jsonBody[state_service.GetActiveContractsRequest])
+    .in(jsonBody[LegacyDTOs.GetActiveContractsRequest])
     .out(jsonBody[Seq[JsGetActiveContractsResponse]])
     .description(
       """Query active contracts list (blocking call).
@@ -225,6 +238,9 @@ object JsStateServiceCodecs {
   import JsSchema.JsServicesCommonCodecs.*
 
   implicit val getActiveContractsRequestRW: Codec[state_service.GetActiveContractsRequest] =
+    deriveRelaxedCodec
+
+  implicit val getActiveContractsRequestLegacyRW: Codec[LegacyDTOs.GetActiveContractsRequest] =
     deriveRelaxedCodec
 
   implicit val jsGetActiveContractsResponseRW: Codec[JsGetActiveContractsResponse] =

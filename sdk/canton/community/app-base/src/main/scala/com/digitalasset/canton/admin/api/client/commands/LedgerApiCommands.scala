@@ -180,7 +180,7 @@ import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{Party, PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId}
 import com.google.protobuf.empty.Empty
@@ -236,7 +236,7 @@ object LedgerApiCommands {
     }
 
     final case class Update(
-        party: PartyId,
+        party: Party,
         annotationsUpdate: Option[Map[String, String]],
         resourceVersionO: Option[String],
         identityProviderId: String,
@@ -299,7 +299,7 @@ object LedgerApiCommands {
         Right(response.partyDetails)
     }
 
-    final case class GetParty(party: PartyId, identityProviderId: String)
+    final case class GetParty(party: Party, identityProviderId: String)
         extends BaseCommand[GetPartiesRequest, GetPartiesResponse, PartyDetails] {
 
       override protected def createRequest(): Either[String, GetPartiesRequest] =
@@ -1624,6 +1624,7 @@ object LedgerApiCommands {
         deduplicationPeriod: Option[DeduplicationPeriod],
         hashingSchemeVersion: HashingSchemeVersion,
         transactionShape: Option[TransactionShape],
+        includeCreatedEventBlob: Boolean,
     ) extends BaseCommand[
           ExecuteSubmissionAndWaitForTransactionRequest,
           ExecuteSubmissionAndWaitForTransactionResponse,
@@ -1633,7 +1634,6 @@ object LedgerApiCommands {
       override protected def createRequest()
           : Either[String, ExecuteSubmissionAndWaitForTransactionRequest] = {
 
-        // TODO(#27482) Wire includeCreatedEventBlob
         val transactionFormat = transactionShape.map(transactionShape =>
           TransactionFormat(
             eventFormat = Some(
@@ -1644,7 +1644,7 @@ object LedgerApiCommands {
                     Seq(
                       CumulativeFilter(
                         CumulativeFilter.IdentifierFilter.WildcardFilter(
-                          WildcardFilter(includeCreatedEventBlob = true)
+                          WildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)
                         )
                       )
                     )
@@ -2239,7 +2239,6 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, GetEventsByContractIdRequest] = Right(
         GetEventsByContractIdRequest(
           contractId = contractId,
-          requestingParties = Seq.empty,
           eventFormat = Some(
             EventFormat(
               filtersByParty = requestingParties.map(_ -> Filters(Nil)).toMap,

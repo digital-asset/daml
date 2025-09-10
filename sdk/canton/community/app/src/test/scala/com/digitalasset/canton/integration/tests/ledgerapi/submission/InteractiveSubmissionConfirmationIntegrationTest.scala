@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
+import com.daml.nonempty.NonEmptyUtil
 import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -12,7 +13,6 @@ import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataF
 import com.digitalasset.canton.crypto.{InteractiveSubmission, Signature, SigningKeyUsage}
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.integration.plugins.UseProgrammableSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.defaultConfirmingParticipant
@@ -87,14 +87,11 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       )
 
       // Sign with a single key
-      val singleSignature = env.tryGlobalCrypto.privateCrypto
-        .signBytes(
-          prepared.preparedTransactionHash,
-          aliceE.signingFingerprints.head1,
-          SigningKeyUsage.ProtocolOnly,
-        )
-        .valueOrFailShutdown("Failed to sign transaction hash")
-        .futureValue
+      val singleSignature = env.global_secret.sign(
+        prepared.preparedTransactionHash,
+        aliceE.signingFingerprints.head1,
+        SigningKeyUsage.ProtocolOnly,
+      )
 
       // To bypass the checks in phase 1 we play a trick by holding back the submission request in the sequencer
       // while we increase the key threshold, and release afterwards
@@ -111,7 +108,10 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         {
           val (submissionId, ledgerEnd) =
             exec(prepared, Map(aliceE.partyId -> Seq(singleSignature)), epn)
-          updateSigningKeysThreshold(cpn, aliceE.partyId, PositiveInt.two).discard
+
+          cpn.topology.party_to_key_mappings
+            .sign_and_update(aliceE.partyId, env.daId, _.tryCopy(threshold = PositiveInt.two))
+
           releaseSubmission.success(())
           val completion = findCompletion(
             submissionId,
@@ -191,13 +191,20 @@ final class InteractiveSubmissionConfirmationIntegrationTest
     "fail if the signatures are invalid" in { implicit env =>
       testInvalidSignatures { (prepared, signatures, releaseSubmission) =>
         val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
-        // Change the protocol keys
-        val newKeys = updateSigningKeysThreshold(
-          cpn,
-          aliceE.partyId,
-          PositiveInt.two,
-          regenerateKeys = Some(PositiveInt.three),
+
+        val newKeys = NonEmptyUtil.fromUnsafe(
+          Seq.fill(3)(
+            env.global_secret.keys.secret.generate_key(usage = SigningKeyUsage.ProtocolOnly)
+          )
         )
+
+        // Change the protocol keys
+        cpn.topology.party_to_key_mappings.sign_and_update(
+          aliceE.partyId,
+          env.daId,
+          _.tryCopy(threshold = PositiveInt.two, signingKeys = newKeys),
+        )
+
         // Update alice with the new keys for subsequent tests
         aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint))
         releaseSubmission.success(())
@@ -216,13 +223,17 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       testInvalidSignatures(
         { (prepared, signatures, releaseSubmission) =>
           val response = Future(execAndWait(prepared, signatures))
+
+          val newKeys = env.global_secret.keys.secret
+            .generate_keys(PositiveInt.three, usage = SigningKeyUsage.ProtocolOnly)
+
           // Change the protocol keys
-          val newKeys = updateSigningKeysThreshold(
-            cpn,
+          cpn.topology.party_to_key_mappings.sign_and_update(
             aliceE.partyId,
-            PositiveInt.two,
-            regenerateKeys = Some(PositiveInt.three),
+            env.daId,
+            _.tryCopy(threshold = PositiveInt.two, signingKeys = newKeys),
           )
+
           // Update alice with the new keys for subsequent tests
           aliceE = aliceE.copy(signingFingerprints = newKeys.map(_.fingerprint))
           releaseSubmission.success(())
@@ -335,16 +346,12 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         .value
 
       // Sign it
-      val signature =
-        env.tryGlobalCrypto.privateCrypto
-          .signBytes(
-            reComputedHashWithMissingInputContract.unwrap,
-            // In this test we assume alice has only one signing key
-            aliceE.signingFingerprints.head1,
-            SigningKeyUsage.ProtocolOnly,
-          )
-          .futureValueUS
-          .value
+      val signature = env.global_secret.sign(
+        reComputedHashWithMissingInputContract.unwrap,
+        // In this test we assume alice has only one signing key
+        aliceE.signingFingerprints.head1,
+        SigningKeyUsage.ProtocolOnly,
+      )
 
       // Replace the externally signed signature in the submitter info with the new one
       // This makes the signature valid with respect to the empty input contract submission, and will

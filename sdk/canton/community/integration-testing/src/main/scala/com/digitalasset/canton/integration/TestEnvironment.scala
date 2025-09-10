@@ -71,7 +71,6 @@ trait TestEnvironment
       NoReportingTracerProvider,
     )(executionContext, TraceContext.empty)
 
-  // TODO(#27482) Make private (allow to import keys, see `importExternalPartyPrivateKeys`)
   private lazy val crypto: Crypto =
     Await
       .result(cryptoET.value, environmentTimeouts.unbounded.duration)

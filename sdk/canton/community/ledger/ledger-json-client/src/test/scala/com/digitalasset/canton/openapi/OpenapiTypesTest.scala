@@ -5,6 +5,7 @@ package com.digitalasset.canton.openapi
 
 import com.daml.ledger.api.v2
 import com.digitalasset.canton.http.json.v2 as json
+import com.digitalasset.canton.http.json.v2.LegacyDTOs
 import com.digitalasset.canton.openapi.json.{JSON, model as openapi}
 import io.circe.{Decoder, Encoder}
 import io.swagger.parser.OpenAPIParser
@@ -909,6 +910,18 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           openapi.JsExecuteSubmissionAndWaitForTransactionResponse,
         ](
           openapi.JsExecuteSubmissionAndWaitForTransactionResponse.fromJson
+        ),
+        Mapping[
+          LegacyDTOs.GetUpdatesRequest,
+          openapi.GetUpdatesRequest,
+        ](
+          openapi.GetUpdatesRequest.fromJson
+        ),
+        Mapping[
+          LegacyDTOs.TransactionFilter,
+          openapi.TransactionFilter,
+        ](
+          openapi.TransactionFilter.fromJson
         ),
       )
     }

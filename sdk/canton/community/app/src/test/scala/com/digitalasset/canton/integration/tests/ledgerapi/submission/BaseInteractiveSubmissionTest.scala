@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
-import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionAndWaitResponse,
   PrepareSubmissionResponse,
@@ -21,27 +19,22 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat,
   WildcardFilter,
 }
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
-import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   CommandFailure,
-  InstanceReference,
   LocalParticipantReference,
   ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.OnboardingTransactions
-import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.{
   ParticipantSelector,
   defaultConfirmingParticipant,
   defaultExecutingParticipant,
   defaultPreparingParticipant,
 }
-import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
   ConfigTransform,
   ConfigTransforms,
@@ -60,12 +53,11 @@ import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
   SynchronizerId,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import monocle.Monocle.toAppliedFocusOps
 import org.scalatest.Suite
 
-import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
@@ -75,10 +67,8 @@ object BaseInteractiveSubmissionTest {
   val defaultPreparingParticipant: ParticipantSelector = _.participant1
   val defaultExecutingParticipant: ParticipantSelector = _.participant2
   val defaultConfirmingParticipant: ParticipantSelector = _.participant3
-
 }
 
-// TODO(#27482) Simplify this trait by introducing more console commands
 trait BaseInteractiveSubmissionTest
     extends ExternalPartyUtils
     with BaseTest
@@ -95,33 +85,6 @@ trait BaseInteractiveSubmissionTest
   protected def epn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
     defaultExecutingParticipant(env)
 
-  // TODO(#27482) Remove that in favor of the helpers
-  protected def getCreatedEvent(
-      participant: ParticipantReference,
-      party: PartyId,
-      templateId: com.daml.ledger.javaapi.data.Identifier,
-      cid: String,
-  ): CreatedEvent =
-    participant.ledger_api.state.acs
-      .of_party(
-        party,
-        filterTemplates = TemplateId.templateIdsFromJava(templateId),
-        includeCreatedEventBlob = true,
-      )
-      .filter(_.contractId == cid)
-      .loneElement
-      .event
-
-  protected def importExternalPartyPrivateKeys(privateKeys: NonEmpty[Seq[PrivateKey]])(implicit
-      env: TestConsoleEnvironment
-  ): Unit =
-    privateKeys.foreach(
-      env.tryGlobalCrypto.cryptoPrivateStore.toExtended.value
-        .storePrivateKey(_, None)
-        .futureValueUS
-        .value
-    )
-
   protected val enableInteractiveSubmissionTransforms: Seq[ConfigTransform] = Seq(
     ConfigTransforms.updateAllParticipantConfigs_(
       _.focus(_.ledgerApi.interactiveSubmissionService.enableVerboseHashing)
@@ -131,52 +94,6 @@ trait BaseInteractiveSubmissionTest
       _.focus(_.topology.broadcastBatchSize).replace(PositiveInt.one)
     ),
   )
-
-  protected def waitForExternalPartyToBecomeEffective(
-      party: ExternalParty,
-      nodesToSynchronize: InstanceReference*
-  )(implicit env: TestConsoleEnvironment): Unit = {
-    import env.*
-    nodesToSynchronize.foreach { p =>
-      eventually() {
-        p.topology.party_to_participant_mappings
-          .list(daId, filterParty = party.partyId.filterString) should not be empty
-        p.topology.party_to_key_mappings
-          .list(daId, filterParty = party.partyId.filterString) should not be empty
-      }
-    }
-  }
-
-  protected def onboardParty(
-      name: String,
-      confirming: ParticipantReference,
-      synchronizerId: PhysicalSynchronizerId,
-      extraConfirming: Seq[ParticipantReference] = Seq.empty,
-      observing: Seq[ParticipantReference] = Seq.empty,
-      confirmationThreshold: PositiveInt = PositiveInt.one,
-      numberOfKeys: PositiveInt = PositiveInt.one,
-      keyThreshold: PositiveInt = PositiveInt.one,
-  )(implicit env: TestConsoleEnvironment): ExternalParty = {
-
-    val (onboardingTransactions, externalParty) = generateExternalPartyOnboardingTransactions(
-      name,
-      Seq(confirming.id) ++ extraConfirming.map(_.id),
-      observing.map(_.id),
-      confirmationThreshold,
-      numberOfKeys,
-      keyThreshold,
-    )
-
-    loadOnboardingTransactions(
-      externalParty,
-      confirming,
-      synchronizerId,
-      onboardingTransactions,
-      extraConfirming,
-      observing,
-    )
-    externalParty
-  }
 
   protected def loadOnboardingTransactions(
       externalParty: ExternalParty,
@@ -207,9 +124,7 @@ trait BaseInteractiveSubmissionTest
           )
           .loneElement
       }
-      // If the test runs with static time move the time up a bit so that the proposal becomes effective in the topology
-      if (env.environment.clock.isSimClock)
-        env.environment.simClock.value.advance(Duration.ofSeconds(1))
+
       // In practice, participant operators are expected to inspect the transaction here before authorizing it
       val transactionHash = partyToParticipantProposal.context.transactionHash
       hp.topology.transactions.authorize[PartyToParticipant](
@@ -219,8 +134,6 @@ trait BaseInteractiveSubmissionTest
       )
     }
 
-    if (env.environment.clock.isSimClock)
-      env.environment.simClock.value.advance(Duration.ofSeconds(1))
     allParticipants.foreach { hp =>
       // Wait until all participants agree the hosting is effective
       env.utils.retry_until_true(
@@ -234,76 +147,7 @@ trait BaseInteractiveSubmissionTest
     }
   }
 
-  // TODO(#27482) Promote to proper console command
-  protected def updateSigningKeysThreshold(
-      participant: ParticipantReference,
-      party: PartyId,
-      newThreshold: PositiveInt,
-      regenerateKeys: Option[PositiveInt] = None,
-  )(implicit env: TestConsoleEnvironment): NonEmpty[Seq[SigningPublicKey]] = {
-    def generateProtocolSigningKeys(numberOfKeys: PositiveInt) =
-      NonEmpty
-        .from(
-          Seq.fill(numberOfKeys.value)(
-            env.tryGlobalCrypto
-              .generateSigningKey(usage = SigningKeyUsage.ProtocolOnly)
-              .futureValueUS
-              .value
-          )
-        )
-        .getOrElse(
-          fail("Expected at least one protocol signing key")
-        )
-
-    val store = env.synchronizer1Id
-    val current = participant.topology.party_to_key_mappings
-      .list(store, filterParty = party.toProtoPrimitive)
-      .loneElement
-    val keys = regenerateKeys.map(generateProtocolSigningKeys).getOrElse(current.item.signingKeys)
-    val updatedTransaction = TopologyTransaction(
-      TopologyChangeOp.Replace,
-      current.context.serial.increment,
-      PartyToKeyMapping.create(current.item.party, newThreshold, keys).value,
-      testedProtocolVersion,
-    )
-    val namespaceSignature = env.tryGlobalCrypto.privateCrypto
-      .sign(
-        updatedTransaction.hash.hash,
-        party.fingerprint,
-        NonEmpty.mk(Set, SigningKeyUsage.Namespace),
-      )
-      .futureValueUS
-      .value
-    // If we regenerate the keys we need to re-sign the party to key with the new keys
-    val protocolSignatures = if (regenerateKeys.isDefined) {
-      keys.map { key =>
-        env.tryGlobalCrypto.privateCrypto
-          .sign(
-            updatedTransaction.hash.hash,
-            key.fingerprint,
-            NonEmpty.mk(Set, SigningKeyUsage.Protocol),
-          )
-          .futureValueUS
-          .value
-      }.forgetNE
-    } else Seq.empty
-    val signedTopologyTransaction = SignedTopologyTransaction.withTopologySignatures(
-      updatedTransaction,
-      NonEmpty
-        .mk(Seq, namespaceSignature, protocolSignatures*)
-        .map(SingleTransactionSignature(updatedTransaction.hash, _)),
-      isProposal = false,
-      protocolVersion = testedProtocolVersion,
-    )
-    participant.topology.transactions.load(
-      Seq(signedTopologyTransaction),
-      store,
-      synchronize = Some(config.NonNegativeDuration.ofSeconds(10)),
-    )
-    keys
-  }
-
-  // TODO(#27482) Consider extracting in console command
+  // TODO(#27680) Extract into PartyToParticipantDeclarative
   protected def offboardParty(
       party: ExternalParty,
       participant: LocalParticipantReference,
@@ -330,73 +174,6 @@ trait BaseInteractiveSubmissionTest
       forceFlags = ForceFlags(DisablePartyWithActiveContracts),
     )
   }
-
-  protected def signTxAs(
-      prep: PrepareSubmissionResponse,
-      p: ExternalParty,
-  ): Map[PartyId, Seq[Signature]] =
-    signTxAs(prep.preparedTransactionHash, p)
-
-  protected def findContractForUpdateId(
-      party: PartyId,
-      updateId: String,
-      cpn: LocalParticipantReference,
-      requireBlob: Option[TemplateId] = None,
-  ): CreatedEvent = {
-    val tx = eventually() {
-      cpn.ledger_api.updates
-        .update_by_id(updateId, getUpdateFormat(Set(party)))
-        .collect { case tx: TransactionWrapper => tx.transaction }
-        .value
-    }
-    // By default, the transaction returned above does not have the create-blob
-    // so use the contract id to look up the created event, with blob
-    val contractId = tx.events.loneElement.getCreated.contractId
-    getCreatedEvent(contractId, party, cpn, requireBlob)
-  }
-
-  protected def getCreatedEvent(
-      contractId: String,
-      partyId: PartyId,
-      participant: ParticipantReference,
-      requireBlob: Option[TemplateId] = None,
-  ): CreatedEvent = requireBlob
-    .map { templateId =>
-      participant.ledger_api.state.acs
-        .active_contracts_of_party(
-          partyId,
-          filterTemplates = Seq(templateId),
-          includeCreatedEventBlob = true,
-        )
-        .flatMap(_.createdEvent)
-        .filter(_.contractId == contractId)
-        .loneElement
-    }
-    .getOrElse {
-      participant.ledger_api.event_query
-        .by_contract_id(contractId, Seq(partyId))
-        .getCreated
-        .getCreatedEvent
-    }
-
-  // TODO(#27482) Do we need that alias?
-  protected def prepareCommand(
-      as: ExternalParty,
-      command: Command,
-      disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-      minLedgerTimeAbs: Option[Instant] = None,
-      preparingParticipant: ParticipantSelector = defaultPreparingParticipant,
-      commandId: String = UUID.randomUUID().toString,
-  )(implicit env: TestConsoleEnvironment): PrepareSubmissionResponse =
-    preparingParticipant(env).ledger_api.interactive_submission.prepare(
-      Seq(as.partyId),
-      Seq(command),
-      disclosedContracts = disclosedContracts,
-      minLedgerTimeAbs = minLedgerTimeAbs,
-      synchronizerId = None,
-      verboseHashing = true,
-      commandId = commandId,
-    )
 
   protected def exec(
       prepared: PrepareSubmissionResponse,
@@ -481,13 +258,14 @@ trait BaseInteractiveSubmissionTest
       execParticipant: ParticipantReference,
   ): Completion =
     eventually() {
-      val completions =
-        execParticipant.ledger_api.completions.list(
+      execParticipant.ledger_api.completions
+        .list(
           observingPartyE.partyId,
           atLeastNumCompletions = 1,
           ledgerEnd,
+          filter = _.submissionId == submissionId,
         )
-      completions.find(_.submissionId == submissionId).value
+        .loneElement
     }
 
   protected def findTransactionByUpdateId(
@@ -560,13 +338,4 @@ trait BaseInteractiveSubmissionTest
         .value
     }
   }
-
-  protected def protoCreateCycleCmd(ownerE: ExternalParty): Command =
-    Command.fromJavaProto(
-      new Cycle("test-external-signing", ownerE.toProtoPrimitive)
-        .create()
-        .commands
-        .loneElement
-        .toProtoCommand
-    )
 }

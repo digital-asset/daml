@@ -3259,26 +3259,11 @@ components:
             The contract id being queried.
             Required
           type: string
-        requestingParties:
-          description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-            The parties whose events the client expects to see.
-            The events associated with the contract id will only be returned if the requesting parties includes
-            at least one party that is a stakeholder of the event. For a definition of stakeholders see
-            https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-            Optional, if some parties specified, event_format needs to be unset.
-          type: array
-          items:
-            type: string
         eventFormat:
           $ref: '#/components/schemas/EventFormat'
           description: |-
             Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
-            Optional for backwards compatibility, defaults to an EventFormat where:
-
-            - filters_by_party is a template-wildcard filter for all requesting_parties
-            - filters_for_any_party is unset
-            - verbose is set
+            Required
     GetIdentityProviderConfigResponse:
       title: GetIdentityProviderConfigResponse
       type: object
@@ -3581,13 +3566,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -5831,7 +5816,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -5851,8 +5836,6 @@ components:
                the listed parties and match the per-party filter.
             3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
                stakeholders include at least one of the listed parties and match the per-party filter.
-
-            Required
         filtersForAnyParty:
           $ref: '#/components/schemas/Filters'
           description: |-

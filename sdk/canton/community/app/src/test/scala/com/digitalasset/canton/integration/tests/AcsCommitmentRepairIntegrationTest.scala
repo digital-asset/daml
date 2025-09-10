@@ -28,6 +28,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Mismatch
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -199,12 +200,32 @@ trait AcsCommitmentRepairIntegrationTest
                 )
               ),
               counterParticipants = Seq.empty,
-              commitmentState = Seq.empty,
+              commitmentState = Seq(Mismatch),
               verboseMode = false,
             )
 
-            val daCmts = p1Received.get(daId).value
-            daCmts.size shouldBe (1)
+            val daCmtsP1 = p1Received.get(daId).value
+            daCmtsP1.size shouldBe (1)
+
+            val p2Received = participant2.commitments.lookup_received_acs_commitments(
+              synchronizerTimeRanges = Seq(
+                SynchronizerTimeRange(
+                  daId,
+                  Some(
+                    TimeRange(
+                      period3da.fromExclusive.forgetRefinement,
+                      period3da.toInclusive.forgetRefinement,
+                    )
+                  ),
+                )
+              ),
+              counterParticipants = Seq.empty,
+              commitmentState = Seq(Mismatch),
+              verboseMode = false,
+            )
+
+            val daCmtsP2 = p2Received.get(daId).value
+            daCmtsP2.size shouldBe (1)
           }
 
           // Repair P2's commitments on da by reinitializing them based on the ACS. We expect that the running commitments
