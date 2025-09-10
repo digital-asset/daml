@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration
 
+import com.daml.ledger.api.v2.commands.Command
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.config
@@ -59,6 +60,15 @@ trait HasCycleUtils {
       p2acs() shouldBe empty
     }
   }
+
+  def createCycleCommand(party: Party, id: String): Command =
+    Command.fromJavaProto(
+      new Cycle(id, party.toProtoPrimitive)
+        .create()
+        .commands
+        .loneElement
+        .toProtoCommand
+    )
 
   def createCycleContract(
       participant: ParticipantReference,

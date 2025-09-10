@@ -6,9 +6,10 @@ package com.digitalasset.canton.console.commands
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.api.client.commands.{TopologyAdminCommands, VaultAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.ListKeyOwnersResult
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -227,6 +228,8 @@ class SecretKeyAdministration(
 
     val newKey = regenerateKey(currentKey, newName)
 
+    // Backup should be performed here if necessary
+
     // Rotate the key for the node in the topology management
     instance.topology.owner_to_key_mappings.rotate_key(
       owner,
@@ -250,7 +253,7 @@ class SecretKeyAdministration(
     // Find the current keys
     val currentKeys = findPublicKeys(instance.topology, owner)
 
-    currentKeys.foreach { currentKey =>
+    val replacements = currentKeys.map { currentKey =>
       val newKey =
         regenerateKey(
           currentKey,
@@ -259,7 +262,12 @@ class SecretKeyAdministration(
             consoleEnvironment.environment.clock,
           ),
         )
+      (currentKey, newKey)
+    }
 
+    // Perform a backup here if necessary
+
+    replacements.foreach { case (currentKey, newKey) =>
       // Rotate the key for the node in the topology management
       instance.topology.owner_to_key_mappings.rotate_key(
         owner,
@@ -448,6 +456,30 @@ class GlobalSecretKeyAdministration(
     )
   )
 
+  @Help.Summary("Sign the given hash on behalf of the external party")
+  @Help.Description(
+    """Sign the given hash on behalf of the external party
+      |
+      |The arguments are:
+      |  - hash: Hash to be signed
+      |  - key: Fingerprint of the key that should sign
+      |  - Usage: Usage of the key (e.g., Protocol or Namespace)
+      |
+      |Fails if the corresponding keys are not in the global crypto.
+      |"""
+  )
+  def sign(
+      hash: ByteString,
+      key: Fingerprint,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ): Signature = consoleEnvironment.run(
+    ConsoleCommandResult.fromEitherTUS(
+      consoleEnvironment.tryGlobalCrypto.privateCrypto
+        .signBytes(hash, key, usage)
+        .leftMap(_.toString)
+    )
+  )
+
   @Help.Summary("Sign the given topology transaction on behalf of the external party")
   @Help.Description(
     """Sign the given topology transaction on behalf of the external party
@@ -485,6 +517,7 @@ class GlobalSecretKeyAdministration(
   object keys {
     object secret {
       @Help.Summary("Download key pair")
+      @Help.Description("Can be deserialized as a CryptoKeyPair")
       def download(
           fingerprint: Fingerprint,
           protocolVersion: ProtocolVersion = ProtocolVersion.latest,
@@ -498,7 +531,60 @@ class GlobalSecretKeyAdministration(
             password,
           )
 
-        consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(cmd)(consoleEnvironment))
+        consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(cmd))
+      }
+
+      @Help.Summary("Store a key into the global store")
+      def store(keys: Seq[PrivateKey]): Unit = {
+        val extendedCryptoStore =
+          consoleEnvironment.tryGlobalCrypto.cryptoPrivateStore.toExtended.getOrElse {
+            consoleEnvironment.raiseError("The global crypto does not support importing keys")
+          }
+
+        val cmd = keys
+          .parTraverse_(
+            extendedCryptoStore.storePrivateKey(_, None)
+          )
+          .leftMap(_.toString)
+
+        consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(cmd))
+      }
+
+      @Help.Summary("Generate a key")
+      @Help.Description("Generate a key and store it into the global store")
+      def generate_key(
+          keySpec: SigningKeySpec =
+            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingKeySpecs.default,
+          usage: NonEmpty[Set[SigningKeyUsage]],
+          name: Option[KeyName] = None,
+      ): SigningPublicKey = consoleEnvironment.run(
+        ConsoleCommandResult.fromEitherTUS(
+          consoleEnvironment.tryGlobalCrypto
+            .generateSigningKey(keySpec, usage, name)
+            .leftMap(_.toString)
+        )
+      )
+
+      @Help.Summary("Generate keys")
+      @Help.Description("Generate keys and store them into the global store")
+      def generate_keys(
+          count: PositiveInt,
+          keySpec: SigningKeySpec =
+            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingKeySpecs.default,
+          usage: NonEmpty[Set[SigningKeyUsage]],
+          name: Option[KeyName] = None,
+      ): NonEmpty[Seq[SigningPublicKey]] = {
+        val keys = Seq.fill(count.value)(
+          consoleEnvironment.run(
+            ConsoleCommandResult.fromEitherTUS(
+              consoleEnvironment.tryGlobalCrypto
+                .generateSigningKey(keySpec, usage, name)
+                .leftMap(_.toString)
+            )
+          )
+        )
+
+        NonEmptyUtil.fromUnsafe(checked(keys))
       }
     }
   }

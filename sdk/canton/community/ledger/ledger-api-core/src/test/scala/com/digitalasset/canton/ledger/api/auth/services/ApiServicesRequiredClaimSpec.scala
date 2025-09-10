@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitForTransactionRequest
 import com.daml.ledger.api.v2.commands.Commands
-import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.SubmitterInfo
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
@@ -857,37 +856,6 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.MatchUserIdForUserManagement(userIdL),
       RequiredClaim.MatchIdentityProviderId(identityProviderIdL),
-    )
-  }
-
-  behavior of "EventQueryServiceAuthorization.getEventsByContractIdClaims"
-
-  it should "compute the correct claims in the happy path" in {
-    val result = EventQueryServiceAuthorization.getEventsByContractIdClaims(
-      GetEventsByContractIdRequest(
-        contractId = "",
-        requestingParties = Seq("a", "b", "c"),
-        eventFormat = Some(
-          EventFormat(
-            filtersByParty = Map(
-              "A" -> Filters(Nil),
-              "B" -> Filters(Nil),
-              "C" -> Filters(Nil),
-            ),
-            filtersForAnyParty = Some(Filters(Nil)),
-            verbose = true,
-          )
-        ),
-      )
-    )
-    result should contain theSameElementsAs RequiredClaims[GetEventsByContractIdRequest](
-      RequiredClaim.ReadAs("a"),
-      RequiredClaim.ReadAs("b"),
-      RequiredClaim.ReadAs("c"),
-      RequiredClaim.ReadAs("A"),
-      RequiredClaim.ReadAs("B"),
-      RequiredClaim.ReadAs("C"),
-      RequiredClaim.ReadAsAnyParty(),
     )
   }
 

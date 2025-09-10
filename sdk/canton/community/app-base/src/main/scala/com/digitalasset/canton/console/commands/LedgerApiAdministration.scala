@@ -221,7 +221,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |If the endOffset is None then a continuous stream is returned."""
       )
       def transactions(
-          partyIds: Set[PartyId],
+          partyIds: Set[Party],
           completeAfter: PositiveInt,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
@@ -394,7 +394,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       )
       def topology_transactions(
           completeAfter: PositiveInt,
-          partyIds: Seq[PartyId] = Seq.empty,
+          partyIds: Seq[Party] = Seq.empty,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -521,7 +521,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |Use the `onUpdate` parameter to register a callback that is called on every update tree."""
       )
       def start_measuring(
-          parties: Set[PartyId],
+          parties: Set[Party],
           metricName: String,
           onUpdate: UpdateWrapper => Unit = _ => (),
       )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable = {
@@ -653,12 +653,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |use submit instead."""
       )
       def prepare(
-          actAs: Seq[PartyId],
+          actAs: Seq[Party],
           commands: Seq[Command],
           synchronizerId: Option[SynchronizerId] = None,
           commandId: String = UUID.randomUUID().toString,
           minLedgerTimeAbs: Option[Instant] = None,
-          readAs: Seq[PartyId] = Seq.empty,
+          readAs: Seq[Party] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
@@ -770,6 +770,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userId: String = userId,
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           minLedgerTimeAbs: Option[Instant] = None,
+          includeCreatedEventBlob: Boolean = false,
       ): ApiTransaction =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -782,6 +783,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               minLedgerTimeAbs = minLedgerTimeAbs,
               hashingSchemeVersion = hashingSchemeVersion,
               transactionShape = transactionShape,
+              includeCreatedEventBlob = includeCreatedEventBlob,
             )
           )
         }.getTransaction
@@ -804,7 +806,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           """
       )
       def preferred_package_version(
-          parties: Set[PartyId],
+          parties: Set[Party],
           packageName: LfPackageName,
           synchronizerId: Option[SynchronizerId] = None,
           vettingValidAt: Option[CantonTimestamp] = None,
@@ -888,7 +890,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
-          readAs: Seq[PartyId] = Seq.empty,
+          readAs: Seq[Party] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
@@ -965,7 +967,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
           submissionId: String = "",
           minLedgerTimeAbs: Option[Instant] = None,
-          readAs: Seq[PartyId] = Seq.empty,
+          readAs: Seq[Party] = Seq.empty,
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
@@ -1271,11 +1273,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
-            readAs: Seq[PartyId] = Seq.empty,
+            readAs: Seq[Party] = Seq.empty,
             disclosedContracts: Seq[DisclosedContract] = Seq.empty,
             userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+            includeCreatedEventBlob: Boolean = false,
             // External party specifics
             verboseHashing: Boolean = false,
         ): ApiTransaction = {
@@ -1303,6 +1306,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs = minLedgerTimeAbs,
             userId = userId,
             transactionShape = transactionShape,
+            includeCreatedEventBlob = includeCreatedEventBlob,
           )
         }
 
@@ -1315,6 +1319,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             minLedgerTimeAbs: Option[Instant] = None,
             userId: String = userId,
             transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+            includeCreatedEventBlob: Boolean = false,
         ): ApiTransaction = {
 
           val prepared = preparedTransaction.preparedTransaction.getOrElse(
@@ -1336,6 +1341,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               userId = userId,
               deduplicationPeriod = deduplicationPeriod,
               minLedgerTimeAbs = minLedgerTimeAbs,
+              includeCreatedEventBlob = includeCreatedEventBlob,
             )
 
           optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
@@ -1356,7 +1362,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         }
 
       @Help.Summary("Read the current connected synchronizers for a party", FeatureFlag.Testing)
-      def connected_synchronizers(partyId: PartyId): GetConnectedSynchronizersResponse =
+      def connected_synchronizers(partyId: Party): GetConnectedSynchronizersResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.StateService.GetConnectedSynchronizers(partyId.toLf)
@@ -1414,7 +1420,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             |- resultFilter: custom filter of the results, applies before limit"""
         )
         def of_party(
-            party: PartyId,
+            party: Party,
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
@@ -1473,7 +1479,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             |  if the filterTemplate is non-empty"""
         )
         def active_contracts_of_party(
-            party: PartyId,
+            party: Party,
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
@@ -1482,7 +1488,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             includeCreatedEventBlob: Boolean = false,
         ): Seq[ActiveContract] =
           of_party(
-            party,
+            party.partyId,
             limit,
             verbose,
             filterTemplates,
@@ -1510,7 +1516,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             |  if the filterTemplate is non-empty"""
         )
         def incomplete_unassigned_of_party(
-            party: PartyId,
+            party: Party,
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
@@ -1548,7 +1554,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             |  if the filterTemplate is non-empty"""
         )
         def incomplete_assigned_of_party(
-            party: PartyId,
+            party: Party,
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
@@ -1647,7 +1653,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           "Will throw an exception if the contract is not found to be active within the given timeout"
         )
         def await_active_contract(
-            party: PartyId,
+            party: Party,
             contractId: LfContractId,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): Unit =
@@ -1662,7 +1668,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             |The find will wait until the contract appears or throw an exception once it times out."""
         )
         def find_generic(
-            partyId: PartyId,
+            partyId: Party,
             filter: WrappedContractEntry => Boolean,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): WrappedContractEntry = {
@@ -1739,7 +1745,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           identityProviderId: identity provider id"""
       )
       def update(
-          party: PartyId,
+          party: Party,
           modifier: PartyDetails => PartyDetails,
           identityProviderId: String = "",
       ): PartyDetails = {
@@ -1797,7 +1803,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         }
       }
 
-      private def get(party: PartyId, identityProviderId: String = ""): ProtoPartyDetails =
+      private def get(party: Party, identityProviderId: String = ""): ProtoPartyDetails =
         consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.GetParty(
@@ -1853,7 +1859,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |An empty offset denotes the beginning of the participant's offsets."""
       )
       def list(
-          partyId: PartyId,
+          partyId: Party,
           atLeastNumCompletions: Int,
           beginOffsetExclusive: Long,
           userId: String = userId,
@@ -1882,7 +1888,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       )
       def subscribe(
           observer: StreamObserver[Completion],
-          parties: Seq[PartyId],
+          parties: Seq[Party],
           beginOffsetExclusive: Long = 0L,
           userId: String = userId,
       ): AutoCloseable =
@@ -2318,7 +2324,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       @Help.Description("""Return events associated with the given contract Id""")
       def by_contract_id(
           contractId: String,
-          requestingParties: Seq[PartyId],
+          requestingParties: Seq[Party],
       ): GetEventsByContractIdResponse =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -2348,7 +2354,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             synchronizerId: Option[SynchronizerId] = None,
             commandId: String = UUID.randomUUID().toString,
             minLedgerTimeAbs: Option[Instant] = None,
-            readAs: Seq[PartyId] = Seq.empty,
+            readAs: Seq[Party] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
@@ -2402,7 +2408,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
-            readAs: Seq[PartyId] = Seq.empty,
+            readAs: Seq[Party] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
@@ -2432,6 +2438,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 disclosedContracts,
                 userId,
                 userPackageSelectionPreference,
+                includeCreatedEventBlob = includeCreatedEventBlob,
               )
 
             case _ =>
@@ -2478,7 +2485,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             deduplicationPeriod: Option[DeduplicationPeriod] = None,
             submissionId: String = "",
             minLedgerTimeAbs: Option[Instant] = None,
-            readAs: Seq[PartyId] = Seq.empty,
+            readAs: Seq[Party] = Seq.empty,
             disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
             userId: String = userId,
         ): Unit =
@@ -2582,10 +2589,11 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               deduplicationPeriod: Option[DeduplicationPeriod] = None,
               submissionId: String = "",
               minLedgerTimeAbs: Option[Instant] = None,
-              readAs: Seq[PartyId] = Seq.empty,
+              readAs: Seq[Party] = Seq.empty,
               disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
               userId: String = userId,
               userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+              includeCreatedEventBlob: Boolean = false,
           ): Transaction = {
             val protoCommands = commands.map(_.toProtoCommand).map(Command.fromJavaProto)
             val protoDisclosedContracts =
@@ -2604,6 +2612,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               disclosedContracts = protoDisclosedContracts,
               userId = userId,
               userPackageSelectionPreference = userPackageSelectionPreference,
+              includeCreatedEventBlob = includeCreatedEventBlob,
             )
 
             javab.data.Transaction.fromProto(ApiTransaction.toJavaProto(tx))
@@ -2680,7 +2689,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             |If the endOffset is None then a continuous stream is returned."""
         )
         def transactions(
-            partyIds: Set[PartyId],
+            partyIds: Set[Party],
             completeAfter: PositiveInt,
             beginOffsetExclusive: Long = 0L,
             endOffsetInclusive: Option[Long] = None,
@@ -2782,7 +2791,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               TCid <: javab.data.codegen.ContractId[T],
               T <: javab.data.Template,
           ](companion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
-              partyId: PartyId,
+              partyId: Party,
               predicate: TC => Boolean = (_: TC) => true,
               synchronizerFilter: Option[SynchronizerId] = None,
               timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
@@ -2815,7 +2824,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               TCid <: javab.data.codegen.ContractId[T],
               T <: javab.data.Template,
           ](templateCompanion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
-              partyId: PartyId,
+              partyId: Party,
               predicate: TC => Boolean = (_: TC) => true,
               synchronizerFilter: Option[SynchronizerId] = None,
           ): Seq[TC] = {
@@ -2850,7 +2859,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         @Help.Description("""Return events associated with the given contract Id""")
         def by_contract_id(
             contractId: String,
-            requestingParties: Seq[PartyId],
+            requestingParties: Seq[Party],
         ): com.daml.ledger.api.v2.EventQueryServiceOuterClass.GetEventsByContractIdResponse =
           ledger_api.event_query
             .by_contract_id(contractId, requestingParties)
@@ -2879,7 +2888,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   import com.digitalasset.canton.util.ShowUtil.*
 
-  private def wildcardUpdateFormatForParties(parties: Set[PartyId]): UpdateFormat = {
+  private def wildcardUpdateFormatForParties(parties: List[Party]): UpdateFormat = {
     val eventFormat = EventFormat(
       filtersByParty = parties.toSeq
         .map(party =>
@@ -2907,7 +2916,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   private def awaitUpdate(
       updateId: String,
-      at: Map[ParticipantReference, PartyId],
+      at: Map[ParticipantReference, Party],
       timeout: config.NonNegativeDuration,
   ): Unit = {
     def scan() =
@@ -2916,12 +2925,12 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
           participant,
           party,
           participant.ledger_api.updates
-            .update_by_id(updateId, wildcardUpdateFormatForParties(Set(party)))
+            .update_by_id(updateId, wildcardUpdateFormatForParties(List(party)))
             .isDefined,
         )
       }
     ConsoleMacros.utils.retry_until_true(timeout)(
-      scan().forall(_._3), {
+      scan().forall { case (_, _, updateFound) => updateFound }, {
         val res = scan().map { case (participant, party, res) =>
           s"${party.toString}@${participant.toString}: ${if (res) "observed" else "not observed"}"
         }
@@ -2934,7 +2943,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
   private[canton] def involvedParticipants(
       updateId: String,
       txSynchronizerId: String,
-  ): Map[ParticipantReference, PartyId] = {
+  ): Map[ParticipantReference, Party] = {
     val txSynchronizer = SynchronizerId.tryFromString(txSynchronizerId)
     // TODO(#6317)
     // There's a race condition here, in the unlikely circumstance that the party->participant mapping on the synchronizer
@@ -2944,7 +2953,8 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
       consoleEnvironment.participants.all.iterator
         .filter(x => x.health.is_running() && x.health.initialized() && x.name == name)
         .flatMap(_.parties.list(synchronizerIds = Set(txSynchronizer)))
-        .toSet
+        .toList
+        .distinct
 
     val synchronizerParties = synchronizerPartiesAndParticipants.map(_.party)
     // Read the transaction under the authority of all parties on the synchronizer, in order to get the witness_parties

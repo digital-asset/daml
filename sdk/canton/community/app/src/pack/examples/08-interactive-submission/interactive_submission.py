@@ -121,6 +121,21 @@ def get_active_contracts(party: str):
     )
     return active_contracts_response
 
+def get_event_format(party: str) -> transaction_filter_pb2.EventFormat:
+    event_format=transaction_filter_pb2.EventFormat(
+        filters_by_party={
+            party: transaction_filter_pb2.Filters(
+                cumulative=[
+                    transaction_filter_pb2.CumulativeFilter(
+                        wildcard_filter=transaction_filter_pb2.WildcardFilter(
+                            include_created_event_blob=True
+                        )
+                    )
+                ]
+            )
+        }
+    )
+    return event_format
 
 def get_events(
     party: str, contract_id: str
@@ -128,7 +143,7 @@ def get_events(
     contract_event_response: event_query_service_pb2.GetEventsByContractIdResponse = (
         eqs_client.GetEventsByContractId(
             event_query_service_pb2.GetEventsByContractIdRequest(
-                contract_id=contract_id, requesting_parties=[party]
+                contract_id=contract_id, event_format=get_event_format(party)
             )
         )
     )

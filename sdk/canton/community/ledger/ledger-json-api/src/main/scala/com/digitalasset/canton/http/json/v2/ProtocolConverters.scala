@@ -476,6 +476,36 @@ class ProtocolConverters(
     }
   }
 
+  object TransactionTreeEventLegacy
+      extends ProtocolConverter[LegacyDTOs.TreeEvent.Kind, JsTreeEvent.TreeEvent] {
+
+    override def fromJson(
+        jsObj: JsTreeEvent.TreeEvent
+    )(implicit traceContext: TraceContext): Future[LegacyDTOs.TreeEvent.Kind] =
+      jsObj match {
+        case JsTreeEvent.CreatedTreeEvent(created) =>
+          CreatedEvent
+            .fromJson(created)
+            .map(ev => LegacyDTOs.TreeEvent.Kind.Created(ev))
+
+        case JsTreeEvent.ExercisedTreeEvent(exercised) =>
+          ExercisedEvent
+            .fromJson(exercised)
+            .map(ev => LegacyDTOs.TreeEvent.Kind.Exercised(ev))
+      }
+
+    override def toJson(lapiObj: LegacyDTOs.TreeEvent.Kind)(implicit
+        traceContext: TraceContext
+    ): Future[JsTreeEvent.TreeEvent] = lapiObj match {
+      case LegacyDTOs.TreeEvent.Kind.Empty =>
+        illegalValue(LegacyDTOs.TreeEvent.Kind.Empty.toString())
+      case LegacyDTOs.TreeEvent.Kind.Created(created) =>
+        CreatedEvent.toJson(created).map(JsTreeEvent.CreatedTreeEvent(_))
+      case LegacyDTOs.TreeEvent.Kind.Exercised(exercised) =>
+        ExercisedEvent.toJson(exercised).map(JsTreeEvent.ExercisedTreeEvent(_))
+    }
+  }
+
   // TODO(#23504) remove when TransactionTree is removed
   @nowarn("cat=deprecation")
   object TransactionTree
@@ -506,6 +536,40 @@ class ProtocolConverters(
         }.sequence
       } yield jsTransactionTree
         .into[lapi.transaction.TransactionTree]
+        .withFieldConst(_.eventsById, eventsById.toMap)
+        .transform
+  }
+
+  object TransactionTreeLegacy
+      extends ProtocolConverter[LegacyDTOs.TransactionTree, JsTransactionTree] {
+    def toJson(
+        transactionTree: LegacyDTOs.TransactionTree
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsTransactionTree] =
+      for {
+        eventsById <- transactionTree.eventsById.toSeq.map { case (k, v) =>
+          TransactionTreeEventLegacy.toJson(v.kind).map(newVal => (k, newVal))
+        }.sequence
+
+      } yield transactionTree
+        .into[JsTransactionTree]
+        .withFieldConst(_.eventsById, eventsById.toMap)
+        .transform
+
+    def fromJson(
+        jsTransactionTree: JsTransactionTree
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.TransactionTree] =
+      for {
+        eventsById <- jsTransactionTree.eventsById.toSeq.map { case (k, v) =>
+          TransactionTreeEventLegacy
+            .fromJson(v)
+            .map(newVal => (k, LegacyDTOs.TreeEvent(newVal)))
+        }.sequence
+      } yield jsTransactionTree
+        .into[LegacyDTOs.TransactionTree]
         .withFieldConst(_.eventsById, eventsById.toMap)
         .transform
   }
@@ -1150,6 +1214,48 @@ class ProtocolConverters(
             .fromJson(value)
             .map(lapi.update_service.GetUpdateTreesResponse.Update.TransactionTree.apply)
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
+  }
+
+  object GetUpdateTreesResponseLegacy
+      extends ProtocolConverter[
+        LegacyDTOs.GetUpdateTreesResponse,
+        JsGetUpdateTreesResponse,
+      ] {
+    def toJson(
+        value: LegacyDTOs.GetUpdateTreesResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsGetUpdateTreesResponse] =
+      ((value.update match {
+        case LegacyDTOs.GetUpdateTreesResponse.Update.Empty =>
+          illegalValue(LegacyDTOs.GetUpdateTreesResponse.Update.Empty.toString())
+        case LegacyDTOs.GetUpdateTreesResponse.Update.OffsetCheckpoint(value) =>
+          Future(JsUpdateTree.OffsetCheckpoint(value))
+        case LegacyDTOs.GetUpdateTreesResponse.Update.TransactionTree(value) =>
+          TransactionTreeLegacy.toJson(value).map(JsUpdateTree.TransactionTree.apply)
+        case LegacyDTOs.GetUpdateTreesResponse.Update.Reassignment(value) =>
+          Reassignment.toJson(value).map(JsUpdateTree.Reassignment.apply)
+      }): Future[JsUpdateTree.Update]).map(update => JsGetUpdateTreesResponse(update))
+
+    def fromJson(
+        jsObj: JsGetUpdateTreesResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.GetUpdateTreesResponse] =
+      (jsObj.update match {
+        case JsUpdateTree.OffsetCheckpoint(value) =>
+          Future.successful(
+            LegacyDTOs.GetUpdateTreesResponse.Update.OffsetCheckpoint(value)
+          )
+        case JsUpdateTree.Reassignment(value) =>
+          Reassignment
+            .fromJson(value)
+            .map(LegacyDTOs.GetUpdateTreesResponse.Update.Reassignment.apply)
+        case JsUpdateTree.TransactionTree(value) =>
+          TransactionTreeLegacy
+            .fromJson(value)
+            .map(LegacyDTOs.GetUpdateTreesResponse.Update.TransactionTree.apply)
+      }).map((u: LegacyDTOs.GetUpdateTreesResponse.Update) => LegacyDTOs.GetUpdateTreesResponse(u))
   }
 
   // TODO(#23504) remove when GetTransactionTreeResponse is removed

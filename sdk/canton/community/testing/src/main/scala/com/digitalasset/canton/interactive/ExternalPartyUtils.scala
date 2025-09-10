@@ -56,7 +56,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
     .valueOrFailShutdown("Failed to create crypto object")
     .futureValue
 
-  protected def generateProtocolSigningKeys(
+  private def generateProtocolSigningKeys(
       numberOfKeys: PositiveInt
   ): NonEmpty[Seq[SigningPublicKey]] =
     NonEmpty
@@ -69,7 +69,6 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
         fail("Expected at least one protocol signing key")
       )
 
-  // TODO(#27482) Can we kill that?
   protected def generateExternalPartyOnboardingTransactions(
       name: String,
       confirming: Seq[ParticipantId] = Seq.empty,
@@ -198,7 +197,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
     )
   }
 
-  def signTxAs(
+  protected def signTxAs(
       hash: ByteString,
       p: ExternalParty,
   ): Map[PartyId, Seq[Signature]] = {

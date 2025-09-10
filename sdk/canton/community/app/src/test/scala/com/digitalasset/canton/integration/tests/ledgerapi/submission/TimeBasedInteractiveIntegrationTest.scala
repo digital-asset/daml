@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
-import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.admin.api.client.data.TemplateId.fromIdentifier
 import com.digitalasset.canton.damltests.java.cycle.Cycle
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
@@ -18,6 +17,7 @@ import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
   EnvironmentDefinition,
+  HasCycleUtils,
   SharedEnvironment,
 }
 import com.digitalasset.canton.topology.{ExternalParty, ForceFlags}
@@ -36,6 +36,7 @@ final class TimeBasedInteractiveIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest
+    with HasCycleUtils
     with HasExecutionContext {
 
   private val oneDay = Duration.ofHours(24)
@@ -91,18 +92,10 @@ final class TimeBasedInteractiveIntegrationTest
       val pass = cpn.ledger_api.javaapi.commands.submit(
         Seq(aliceE),
         Seq(new Pass(id, aliceE.toProtoPrimitive, Instant.now()).create().commands().loneElement),
+        includeCreatedEventBlob = true,
       )
 
-      // TODO(#27482) Use new helpers to get the create event
-      val event = cpn.ledger_api.state.acs
-        .of_party(
-          aliceE.partyId,
-          filterTemplates = TemplateId.templateIdsFromJava(Pass.TEMPLATE_ID),
-          includeCreatedEventBlob = true,
-        )
-        .filter(_.contractId == pass.getEvents.loneElement.getContractId)
-        .loneElement
-        .event
+      val event = pass.getEvents.asScalaProtoCreatedContracts.loneElement
 
       val disclosed = DisclosedContract(
         event.templateId,
@@ -130,8 +123,12 @@ final class TimeBasedInteractiveIntegrationTest
         passCid.exerciseGetTime().commands().loneElement.toProtoCommand
       )
       val ledgerTimeSet = simClock.now.plus(oneDay).toInstant
-      val prepared =
-        prepareCommand(aliceE, command, Seq(passContract), minLedgerTimeAbs = Some(ledgerTimeSet))
+      val prepared = ppn.ledger_api.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(command),
+        disclosedContracts = Seq(passContract),
+        minLedgerTimeAbs = Some(ledgerTimeSet),
+      )
       prepared.preparedTransaction.value.metadata.value.minLedgerEffectiveTime shouldBe Some(
         ledgerTimeSet.toEpochMilli * 1000
       )
@@ -145,9 +142,9 @@ final class TimeBasedInteractiveIntegrationTest
 
     "ignore requested ledger time if getTime is not used" in { implicit env =>
       val simClock = env.environment.simClock.value
-      val prepared = prepareCommand(
-        aliceE,
-        createPassCmd(aliceE),
+      val prepared = ppn.ledger_api.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(createPassCmd(aliceE)),
         minLedgerTimeAbs = Some(simClock.now.toInstant.plusSeconds(20)),
       )
       prepared.preparedTransaction.value.metadata.value.minLedgerEffectiveTime shouldBe None
@@ -223,7 +220,12 @@ final class TimeBasedInteractiveIntegrationTest
 
       val ledgerTimeSet = simClock.now.toInstant.minusSeconds(20)
       val prepared =
-        prepareCommand(aliceE, command, Seq(passContract), minLedgerTimeAbs = Some(ledgerTimeSet))
+        ppn.ledger_api.interactive_submission.prepare(
+          Seq(aliceE.partyId),
+          Seq(command),
+          disclosedContracts = Seq(passContract),
+          minLedgerTimeAbs = Some(ledgerTimeSet),
+        )
       val ledgerTimeUsed = Time
         .Timestamp(prepared.preparedTransaction.value.metadata.value.minLedgerEffectiveTime.value)
         .toInstant
@@ -233,9 +235,13 @@ final class TimeBasedInteractiveIntegrationTest
 
     "set preparation time is set requested ledger effective time" in { implicit env =>
       val simClock = env.environment.simClock.value
-      val command = protoCreateCycleCmd(aliceE)
+      val command = createCycleCommand(aliceE, "test-external-signing")
       val expected = simClock.now.toInstant.plusSeconds(20)
-      val prepared = prepareCommand(aliceE, command, minLedgerTimeAbs = Some(expected))
+      val prepared = ppn.ledger_api.interactive_submission.prepare(
+        Seq(aliceE.partyId),
+        Seq(command),
+        minLedgerTimeAbs = Some(expected),
+      )
       val actual =
         Time.Timestamp(prepared.preparedTransaction.value.metadata.value.preparationTime).toInstant
       actual shouldBe expected
@@ -255,10 +261,10 @@ final class TimeBasedInteractiveIntegrationTest
       val expected = Time.Timestamp.assertFromInstant(simClock.now.toInstant)
 
       val prepared =
-        prepareCommand(
-          aliceE,
-          command,
-          Seq(passContract),
+        ppn.ledger_api.interactive_submission.prepare(
+          Seq(aliceE.partyId),
+          Seq(command),
+          disclosedContracts = Seq(passContract),
           minLedgerTimeAbs = Some(expected.toInstant),
         )
 
