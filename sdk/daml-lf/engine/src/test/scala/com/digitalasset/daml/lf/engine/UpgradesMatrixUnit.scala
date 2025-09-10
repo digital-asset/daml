@@ -77,6 +77,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         packageName = cases.clientLocalPkg.pkgName,
         template = testHelper.clientLocalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
+        signatories = immutable.Set(setupData.alice),
       )
 
     val clientGlobalContract: FatContractInstance =

@@ -161,11 +161,15 @@ object UpgradesMatrixCasesV2MaxStable
   * These invalid combinations are discarded in [[TestHelper.makeApiCommands]]. For other valid combinations, this method
   * produces a command to be run against an engine by the main test loop.
   *
-  * In order to test scenarios where the operation is triggered by a choice body, we need a "client" contract whose only
-  * role is to exercise/fetch/lookup the v1 contract. The template for that client contract is defined in [[clientLocalPkg]].
-  * It defines a large number of choices: one per combination of operation, catch behavior, entry point and test case.
-  * These choices are defined in [[TestCase.clientChoicesLocal]]. This method is pretty boilerplate-y and constitutes the
-  * bulk of this test suite.
+  * In order to test scenarios where the operation is triggered by a choice body, we need "clients" contracts whose only
+  * role is to exercise/fetch/lookup the v1 contract. The templates for these client contracts are defined in
+  * [[clientLocalPkg]] and [[clientGlobalPkg]]. They are split into two templates: one whose choices creates local
+  * v1 contracts, and one whose choices act on global contracts. The former statically refers to v1 templates while
+  * the latter doesn't, allowing us to test cases where the creation package of the contract being upgraded is not
+  * vetted.
+  * They define a large number of choices: one per combination of operation, catch behavior, entry point and test case.
+  * These choices are defined in [[TestCase.clientChoicesLocal]] and [[TestCase.clientChoicesGlobal()]]. These methods
+  * are pretty boilerplate-y and constitute the bulk of this test suite.
   *
   * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
   * parties. These are defined in [[commonDefsPkg]].
