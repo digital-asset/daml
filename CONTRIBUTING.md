@@ -95,7 +95,7 @@ You can also participate in the discussions at the following link: [discuss.daml
    Deny       Allow
    ````
    The test can succeed independent of whether `Deny` or `Allow` is selected.  
-   If the dialog doesn't appear for you, you've probably already excercised one of these two choices.  
+   If the dialog doesn't appear for you, you've probably already exercised one of these two choices.  
    To check your Firewall settings go to: `System Preferences` -> `Security & Privacy` -> `Firewall` -> `Firewall Options...` (checked on macOS Big Sur 11.5.2).  
 
 ## Thank you!
