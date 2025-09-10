@@ -123,12 +123,24 @@ private[lf] final class ValueTranslator(
             if (entries.isEmpty) {
               SValue.SValue.EmptyGenMap
             } else {
-              SValue.SMap(
-                isTextMap = false,
-                entries = entries.toSeq.view.map { case (k, v) =>
-                  go(a, k, newNesting) -> go(b, v, newNesting)
-                },
-              )
+              // we need to evaluate sentries before calling [[SValue.SMap.fromStrictlyOrderedEntries]] because it can
+              // throw RuntimeExceptions unrelated to the ordering of keys, e.g. translation errors. Therefore, sentries
+              // cannot be a lazy view.
+              val sentries = entries.toSeq.map { case (k, v) =>
+                go(a, k, newNesting) -> go(b, v, newNesting)
+              }
+              try {
+                SValue.SMap.fromStrictlyOrderedEntries(
+                  isTextMap = false,
+                  entries = sentries,
+                )
+              } catch {
+                case _: RuntimeException =>
+                  throw TranslationError.InvalidValue(
+                    value0,
+                    s"Unexpected non-strictly ordered GenMap value",
+                  )
+              }
             }
           case (TextMapF(a), ValueTextMap(entries)) =>
             if (entries.isEmpty) {
