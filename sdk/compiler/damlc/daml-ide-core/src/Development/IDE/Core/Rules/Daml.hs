@@ -58,7 +58,6 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
-import Text.Printf
 import Data.Tuple.Extra
 import Data.Typeable (Typeable())
 import qualified Data.Vector as V
@@ -1100,8 +1099,6 @@ encodeModule lfVersion m =
         if isAbsolute file
           then use_ EncodeModule $ toNormalizedFilePath' file
           else do
-            (logger :: Logger) <- actionLogger
-            liftIO $ logInfo logger $ T.pack $ printf "relative filepath found, fp: %s" file
             imports <- use_ GeneratePackageImports $ toNormalizedFilePath' file
             pure $ SS.encodeModuleWithImports lfVersion (m, imports)
             -- pure $ SS.encodeModule lfVersion m
