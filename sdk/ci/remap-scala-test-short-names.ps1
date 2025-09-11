@@ -42,7 +42,6 @@ if ($scala_test_targets.count -gt 0) {
       "outputs('.*_scala_test.*', //...)" `
       > $tmp.FullName
     $bazelexitcode = $lastexitcode
-    dir 'D:\a\2\s\sdk\bazel-out\x64_windows-opt\bin\observability\tracing'
 
     if ($bazelexitcode -ne 0) {
       $errmsg = Get-Content $tmp
