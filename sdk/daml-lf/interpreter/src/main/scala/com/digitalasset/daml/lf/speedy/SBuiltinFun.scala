@@ -1309,7 +1309,7 @@ private[lf] object SBuiltinFun {
     def processSrcContract(
         srcPackageName: Ref.PackageName,
         srcTmplId: TypeConId,
-        srcMetadata: Metadata,
+        srcMetadata: ContractMetadata,
         srcArg: V,
     ): Control[Question.Update] = {
       resolvePackageName(machine, srcPackageName) { pkgId =>
@@ -1367,7 +1367,7 @@ private[lf] object SBuiltinFun {
               processSrcContract(
                 coinst.packageName,
                 coinst.templateId,
-                Metadata(
+                ContractMetadata(
                   coinst.signatories,
                   coinst.nonSignatoryStakeholders,
                   coinst.contractKeyWithMaintainers,
@@ -2437,7 +2437,7 @@ private[lf] object SBuiltinFun {
 
     def processSrcContract(
         srcTmplId: TypeConId,
-        srcMetadata: Metadata,
+        srcMetadata: ContractMetadata,
         srcArg: V,
     ): Control[Question.Update] = {
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
@@ -2495,7 +2495,7 @@ private[lf] object SBuiltinFun {
             ensureContractActive(machine, coid, coinst.templateId) {
               processSrcContract(
                 coinst.templateId,
-                Metadata(
+                ContractMetadata(
                   coinst.signatories,
                   coinst.nonSignatoryStakeholders,
                   coinst.contractKeyWithMaintainers,
@@ -2512,7 +2512,7 @@ private[lf] object SBuiltinFun {
       machine: UpdateMachine,
       coid: V.ContractId,
       srcTmplId: TypeConId,
-      srcContractMetadata: Metadata,
+      srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
   )(k: (TypeConId, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
@@ -2604,13 +2604,13 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       srcTemplateId: TypeConId,
       recomputedTemplateId: TypeConId,
-      original: Metadata,
-      recomputed: Metadata,
+      original: ContractMetadata,
+      recomputed: ContractMetadata,
   )(
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
 
-    def check[T](getter: Metadata => T, desc: String): Option[String] =
+    def check[T](getter: ContractMetadata => T, desc: String): Option[String] =
       Option.when(getter(recomputed) != getter(original))(
         s"$desc mismatch: $original vs $recomputed"
       )

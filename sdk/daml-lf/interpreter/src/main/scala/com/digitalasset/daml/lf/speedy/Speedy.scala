@@ -148,7 +148,7 @@ private[lf] object Speedy {
     }
   }
 
-  final case class Metadata(
+  final case class ContractMetadata(
       signatories: Set[Party],
       observers: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
@@ -182,7 +182,7 @@ private[lf] object Speedy {
         version = version,
       )
 
-    lazy val metadata = Metadata(
+    lazy val metadata = ContractMetadata(
       signatories,
       observers,
       keyOpt.map(_.globalKeyWithMaintainers),
