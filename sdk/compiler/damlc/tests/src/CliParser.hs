@@ -8,6 +8,7 @@ module Cli
 import Control.Exception (SomeException, try)
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Damlc (Command (..), fullParseArgs)
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Util
 import Data.Either (isRight)
 import Data.List (isInfixOf)
@@ -69,9 +70,9 @@ assertDamlcParser cliArgs damlYamlArgs mExpectedError = withCurrentTempDir $ do
 withDamlProject :: IO a -> IO a
 withDamlProject f = do
   cwd <- getCurrentDirectory
-  setEnv "DAML_PROJECT" cwd True
+  setEnv packagePathEnvVar cwd True
   res <- f
-  unsetEnv "DAML_PROJECT"
+  unsetEnv packagePathEnvVar
   pure res
 
 -- Run the damlc parser with a set of command line flags/options, and a set of daml.yaml flags/options

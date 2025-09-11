@@ -166,6 +166,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         ":integration-test-utils",
+        "//daml-assistant:daml-project-config",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/ts/codegen/tests:daml2js-test-helpers",

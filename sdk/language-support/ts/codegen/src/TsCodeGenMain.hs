@@ -35,8 +35,11 @@ import Data.Maybe
 import Options.Applicative
 import System.Directory
 import System.Environment
+import System.Exit (exitFailure)
 import System.FilePath hiding ((<.>))
+import System.IO (hPutStrLn, stderr)
 
+import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import qualified DA.Daml.Project.Types as DATypes
@@ -138,7 +141,9 @@ main = do
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     withProgName "daml codegen js" $ do
-        opts@Options{..} <- customExecParser (prefs showHelpOnError) optionsParserInfo
+        args <- getArgs
+        opts@Options{..} <-
+          if null args then deriveOptionsFromDamlYaml else customExecParser (prefs showHelpOnError) optionsParserInfo
         unresolvedVersionOrErr <- fromMaybe (DATypes.parseVersion (T.pack "0.0.0")) <$> getSdkVersionMaybe
         releaseVersion <- case unresolvedVersionOrErr of
               Left _ -> fail "Invalid SDK version"
@@ -164,6 +169,33 @@ main = do
                     else do
                       T.putStrLn $ "Generating " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
                       daml2js Daml2jsParams{..}
+
+deriveOptionsFromDamlYaml :: IO Options
+deriveOptionsFromDamlYaml = go `catch` \(e :: AssistantError) -> do
+    hPutStrLn stderr (displayException e)
+    exitFailure
+  where 
+    go = do
+      projectPath <- DAUtil.required "Must be called from within a project." =<< getProjectPath
+      projectConfig <- readProjectConfig (ProjectPath projectPath)
+      projectName <-
+        DAUtil.requiredE "Failed to read project name from project config" $
+          queryProjectConfigRequired ["name"] projectConfig
+      projectVersion <-
+        DAUtil.requiredE "Failed to read project version from project config" $
+          queryProjectConfigRequired ["version"] projectConfig
+      let darPath = ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
+      outputPath <-
+        DAUtil.requiredE "Failed to read output directory for JavaScript code generation" $
+          queryProjectConfigRequired
+            ["codegen", "js", "output-directory"]
+            projectConfig
+      mbNpmScope <-
+        DAUtil.requiredE "Failed to read NPM scope for JavaScript code generation" $
+          queryProjectConfig
+            ["codegen", "js", "npm-scope"]
+            projectConfig
+      pure $ Options [darPath] outputPath $ Scope $ fromMaybe "daml.js" mbNpmScope
 
 newtype Scope = Scope {unScope :: T.Text}
 newtype Dependency = Dependency {_unDependency :: PackageNameVersion} deriving (Eq, Ord)

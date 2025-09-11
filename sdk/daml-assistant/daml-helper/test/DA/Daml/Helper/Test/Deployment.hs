@@ -21,6 +21,7 @@ import qualified Data.Text as T
 
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Process (callProcessSilent)
 import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedAdminJwt)
 import DA.Test.Util
@@ -91,12 +92,12 @@ authenticationTests Tools{..} =
                 , "  access-token-file: " <> tokenFile
                 ]
               writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
-              setEnv "DAML_PROJECT" deployDir True
+              setEnv packagePathEnvVar deployDir True
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--host", "localhost", "--port", show port
                 ]
-              unsetEnv "DAML_PROJECT"
+              unsetEnv packagePathEnvVar
 
     ]
   where
