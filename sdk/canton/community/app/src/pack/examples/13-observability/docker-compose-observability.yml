@@ -124,3 +124,10 @@ services:
       - ./loki/promtail.yaml:/etc/promtail/promtail.yml
       # Logs to scrape
       - logs:/var/log/promtail
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.72.0
+    container_name: daml_observability_jaeger
+    ports:
+      - 16686:16686
+      - 4317:4317

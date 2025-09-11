@@ -14,11 +14,15 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBas
   SingleSynchronizer,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.BftSequencer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PNetworkConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.{
+  BlockSequencerConfig,
+  BlockSequencerStreamInstrumentationConfig,
+  SequencerConfig,
+}
 import com.digitalasset.canton.util.SingleUseCell
 import monocle.macros.GenLens
 import monocle.macros.syntax.lens.*
@@ -44,6 +48,7 @@ final class UseBftSequencer(
     shouldGenerateEndpointsOnly: Boolean = false,
     shouldOverwriteStoredEndpoints: Boolean = false,
     shouldUseMemoryStorageForBftOrderer: Boolean = false,
+    shouldDisableCircuitBreaker: Boolean = false,
 ) extends EnvironmentSetupPlugin {
 
   val sequencerEndpoints
@@ -148,11 +153,19 @@ final class UseBftSequencer(
             peerEndpoints = otherInitialEndpoints,
             overwriteStoredEndpoints = shouldOverwriteStoredEndpoints,
           )
+          val blockSequencerConfig =
+            if (shouldDisableCircuitBreaker)
+              BlockSequencerConfig(
+                circuitBreaker = BlockSequencerConfig.CircuitBreakerConfig(enabled = false),
+                streamInstrumentation = BlockSequencerStreamInstrumentationConfig(isEnabled = true),
+              )
+            else BlockSequencerConfig()
           selfInstanceName -> SequencerConfig.BftSequencer(
+            block = blockSequencerConfig,
             config = BftBlockOrdererConfig(
               initialNetwork = Some(network),
               storage = Option.when(shouldUseMemoryStorageForBftOrderer)(Memory()),
-            )
+            ),
           )
         }
       }.toMap
