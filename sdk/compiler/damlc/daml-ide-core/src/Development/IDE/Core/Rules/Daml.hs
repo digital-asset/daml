@@ -37,8 +37,8 @@ import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Project.Consts (packageConfigName)
+import DA.Daml.Project.Types (PackagePath (..))
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
@@ -617,7 +617,7 @@ extractUpgradedPackageRule opts = do
            main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
            deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
            pure (main, deps)
-        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
+        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> packageConfigName) . unwrapPackagePath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
           Right (mainPkg, _) ->
@@ -638,11 +638,11 @@ generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts = do
     defineNoFile $ \GeneratePackageMapIO -> do
         f <- liftIO $ do
-            findProjectRoot <- memoIO findProjectRoot
+            findPackageRoot <- memoIO findPackageRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
             pure $ \file -> do
-                mbProjectRoot <- liftIO (findProjectRoot file)
-                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
+                mPackageRoot <- liftIO (findPackageRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mPackageRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -660,17 +660,17 @@ damlGhcSessionRule :: SdkVersioned => Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
     -- The file path here is optional so we go for defineNoFile
     -- (or the equivalent thereof for rules with cut off).
-    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+    defineEarlyCutoff $ \(DamlGhcSession mPackageRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
         let base = mkBaseUnits (optUnitId opts)
-        extraPkgFlags <- liftIO $ case mbProjectRoot of
-            Just projectRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
+        extraPkgFlags <- liftIO $ case mPackageRoot of
+            Just packageRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
                 -- We catch doesNotExistError which could happen if the
                 -- package db has never been initialized. In that case, we
                 -- return no extra package flags.
                 handleJust
                     (guard . isDoesNotExistError)
                     (const $ pure []) $ do
-                    PackageDbMetadata{..} <- readMetadata projectRoot
+                    PackageDbMetadata{..} <- readMetadata packageRoot
                     let mainPkgs = map mkPackageFlag directDependencies
                     let renamings =
                             map (\(unitId, (prefix, modules)) -> renamingToFlag unitId prefix modules)
@@ -679,9 +679,9 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC mbProjectRoot opts
+            setupDamlGHC mPackageRoot opts
             GHC.getSession
-        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mPackageRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
         hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
         -- In the IDE we do not care about the cache value here but for

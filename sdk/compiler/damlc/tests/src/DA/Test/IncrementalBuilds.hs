@@ -162,7 +162,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
       test name initial modification expectedRebuilds (ShouldSucceed shouldSucceed) = testCase name $ withTempDir $ \dir -> do
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
-            , "name: test-project"
+            , "name: test-package"
             , "source: daml"
             , "version: 0.0.1"
             , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
@@ -173,7 +173,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
           let dar = dir </> "out.dar"
           callProcessSilent damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , dir
             , "-o"
             , dar
@@ -181,7 +181,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
             , "--incremental=yes" ]
           callProcessSilent damlc
             [ "test"
-            , "--project-root"
+            , "--package-root"
             , dir
             , "--target=" <> LF.renderVersion lfVersion
             ]
@@ -194,7 +194,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
               writeFileUTF8 (dir </> file) content
           callProcessSilent damlc
             ["build"
-            , "--project-root"
+            , "--package-root"
             , dir
             , "-o"
             , dar

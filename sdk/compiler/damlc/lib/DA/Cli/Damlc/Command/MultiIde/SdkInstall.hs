@@ -373,7 +373,7 @@ installSdk unresolvedVersion outputLogVar report = do
         , useCache = useCache
         , missingAssistant = False
         , installingFromOutside = False
-        , projectPathM = Nothing
+        , mPackagePath = Nothing
         , artifactoryApiKeyM = queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         , output = \str -> modifyMVar_ outputLogVar $ pure . (<> T.pack str)
         , downloadProgressObserver = Just report

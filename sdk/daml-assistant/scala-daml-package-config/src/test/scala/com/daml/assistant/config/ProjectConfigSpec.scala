@@ -8,11 +8,11 @@ import java.nio.file.Paths
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class ProjectConfigSpec extends AnyWordSpec with Matchers {
+class PackageConfigSpec extends AnyWordSpec with Matchers {
 
   private val projectRoot = Paths.get("/project/root")
 
-  "ProjectConfig" when {
+  "PackageConfig" when {
 
     "Loading a default config" should {
       val configSource =
@@ -34,7 +34,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "find the SDK version" in {
         val sdkVersion = for {
-          config <- ProjectConfig.loadFromString(projectRoot, configSource)
+          config <- PackageConfig.loadFromString(projectRoot, configSource)
           result <- config.sdkVersion
         } yield result
         sdkVersion shouldBe Right("1.0")
@@ -42,7 +42,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "find the name" in {
         val name = for {
-          config <- ProjectConfig.loadFromString(projectRoot, configSource)
+          config <- PackageConfig.loadFromString(projectRoot, configSource)
           result <- config.name
         } yield result
         name shouldBe Right(Some("TestProject"))
@@ -50,7 +50,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "find the parties" in {
         val parties = for {
-          config <- ProjectConfig.loadFromString(projectRoot, configSource)
+          config <- PackageConfig.loadFromString(projectRoot, configSource)
           result <- config.parties
         } yield result
         parties shouldBe Right(Some(List("Alice", "Bob")))
@@ -65,7 +65,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "not find the name" in {
         val name = for {
-          config <- ProjectConfig.loadFromString(projectRoot, config)
+          config <- PackageConfig.loadFromString(projectRoot, config)
           result <- config.name
         } yield result
         name shouldBe Right(None)
@@ -81,7 +81,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "not find the name" in {
         val parties = for {
-          config <- ProjectConfig.loadFromString(projectRoot, config)
+          config <- PackageConfig.loadFromString(projectRoot, config)
           result <- config.parties
         } yield result
         parties.isLeft shouldBe true
@@ -96,7 +96,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
 
       "fail to parse" in {
         val config = for {
-          result <- ProjectConfig.loadFromString(projectRoot, configSource)
+          result <- PackageConfig.loadFromString(projectRoot, configSource)
         } yield result
         config.isLeft shouldBe true
         config.left.exists {
@@ -109,7 +109,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
     "Loading a config with environment variable interpolation" should {
       "replace valid variable" in {
         val version = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             "version: ${MY_VERSION}",
             Map(("MY_VERSION", "0.0.0")),
@@ -120,7 +120,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "replace value with multiple variables" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             "name: ${PACKAGE_TYPE}-project-${PACKAGE_VISIBILITY}",
             Map(("PACKAGE_TYPE", "production"), ("PACKAGE_VISIBILITY", "public")),
@@ -131,7 +131,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "not replace escaped variable" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             """name: \${MY_NAME}""",
             Map(("MY_NAME", "name")),
@@ -142,7 +142,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "replace double escaped variable" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             """name: \\${MY_NAME}""",
             Map(("MY_NAME", "name")),
@@ -153,7 +153,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "not add syntax/structure" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             "name: ${MY_NAME}",
             Map(("MY_NAME", "\n  - elem\n  - elem")),
@@ -164,7 +164,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "fail when variable doesn't exist" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(projectRoot, "name: ${MY_NAME}", Map())
+          config <- PackageConfig.loadFromStringWithEnv(projectRoot, "name: ${MY_NAME}", Map())
           result <- config.name
         } yield result
         name shouldBe Left(
@@ -173,7 +173,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "not interpolate when feature is disabled via field" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             "name: ${MY_NAME}\nenvironment-variable-interpolation: false",
             Map(),
@@ -184,7 +184,7 @@ class ProjectConfigSpec extends AnyWordSpec with Matchers {
       }
       "replace in object names (i.e. module prefixes)" in {
         val name = for {
-          config <- ProjectConfig.loadFromStringWithEnv(
+          config <- PackageConfig.loadFromStringWithEnv(
             projectRoot,
             "module-prefixes:\n  ${MY_NAME}-0.0.1: V1",
             Map(("MY_NAME", "package")),

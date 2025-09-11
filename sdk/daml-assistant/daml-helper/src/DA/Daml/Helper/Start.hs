@@ -83,12 +83,12 @@ waitForJsonApi sandboxPh (JsonApiPort jsonApiPort) = do
         waitForHttpServer 240 (unsafeProcessHandle sandboxPh) (putStr "." *> threadDelay 500000)
             ("http://localhost:" <> show jsonApiPort <> "/readyz") []
 
-withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
-withOptsFromProjectConfig fieldName cliOpts projectConfig = do
+withOptsFromPackageConfig :: T.Text -> [String] -> PackageConfig -> IO [String]
+withOptsFromPackageConfig fieldName cliOpts packageConfig = do
     optsYaml :: [String] <-
         fmap (fromMaybe []) $
         requiredE ("Failed to parse " <> fieldName) $
-        queryProjectConfig [fieldName] projectConfig
+        queryPackageConfig [fieldName] packageConfig
     pure (optsYaml ++ cliOpts)
 
 data StartOptions = StartOptions
@@ -110,16 +110,16 @@ data SandboxCantonPortSpec = SandboxCantonPortSpec
 
 runStart :: StartOptions -> IO ()
 runStart startOptions@StartOptions{..} =
-  withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
-    projectConfig <- getProjectConfig Nothing
+  withPackageRoot Nothing (PackageLocationCheck "daml start" True) $ \_ _ -> do
+    packageConfig <- getPackageConfig Nothing
     darPath <- getDarPath
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
-        queryProjectConfig ["init-script"] projectConfig
-    sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOptions projectConfig
-    scriptOpts <- withOptsFromProjectConfig "script-options" scriptOptions projectConfig
+        queryPackageConfig ["init-script"] packageConfig
+    sandboxOpts <- withOptsFromPackageConfig "sandbox-options" sandboxOptions packageConfig
+    scriptOpts <- withOptsFromPackageConfig "script-options" scriptOptions packageConfig
     doBuild
-    doCodegen projectConfig
+    doCodegen packageConfig
     withSandbox startOptions darPath sandboxOpts $ \sandboxPh sandboxPort -> do
         let doRunInitScript =
               whenJust mbInitScript $ \initScript -> do
@@ -147,13 +147,13 @@ runStart startOptions@StartOptions{..} =
           void $ waitAnyCancel =<< mapM (async . waitExitCode) [sandboxPh]
 
     where
-        doCodegen projectConfig =
+        doCodegen packageConfig =
           forM_ [minBound :: Lang .. maxBound :: Lang] $ \lang -> do
             mbOutputPath :: Maybe String <-
               requiredE ("Failed to parse codegen entry for " <> showLang lang) $
-              queryProjectConfig
+              queryPackageConfig
                 ["codegen", showLang lang, "output-directory"]
-                projectConfig
+                packageConfig
             whenJust mbOutputPath $ \_outputPath -> do
               runCodegen lang []
         printReadyInstructions = do

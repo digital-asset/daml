@@ -167,14 +167,14 @@ defaultScriptServiceConfig = ScriptServiceConfig
 
 readScriptServiceConfig :: IO ScriptServiceConfig
 readScriptServiceConfig = do
-    exists <- doesFileExist projectConfigName
+    exists <- doesFileExist packageConfigName
     if exists
         then do
-            project <- readProjectConfig $ ProjectPath "."
-            either throwIO pure $ parseScriptServiceConfig project
+            package <- readPackageConfig $ PackagePath "."
+            either throwIO pure $ parseScriptServiceConfig package
         else pure defaultScriptServiceConfig
 
-parseScriptServiceConfig :: ProjectConfig -> Either ConfigError ScriptServiceConfig
+parseScriptServiceConfig :: PackageConfig -> Either ConfigError ScriptServiceConfig
 parseScriptServiceConfig conf = do
     checkNoScenarioServiceField conf
     cnfGrpcMaxMessageSize <- queryOpt "grpc-max-message-size"
@@ -182,7 +182,7 @@ parseScriptServiceConfig conf = do
     cnfEvaluationTimeout <- queryOpt "evaluation-timeout"
     cnfJvmOptions <- fromMaybe [] <$> queryOpt "jvm-options"
     pure ScriptServiceConfig {..}
-  where queryOpt opt = queryProjectConfig ["script-service", opt] conf
+  where queryOpt opt = queryPackageConfig ["script-service", opt] conf
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)

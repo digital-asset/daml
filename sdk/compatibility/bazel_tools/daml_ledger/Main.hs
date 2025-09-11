@@ -203,7 +203,7 @@ fetchTest sdkVersion getTools getSandboxPort = do
     port <- getSandboxPort
     withTempDir $ \fetchDir -> do
       withCurrentDirectory fetchDir $ do
-        writeMinimalProject sdkVersion
+        writeMinimalPackage sdkVersion
         let origDar = ".daml/dist/proj1-0.0.1.dar"
         step "build/upload"
         callProcessSilent daml ["damlc", "build"]
@@ -258,8 +258,8 @@ getMainPidOfDar daml fp = do
     Just pkgId -> pure pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalProject :: SdkVersion -> IO ()
-writeMinimalProject (SdkVersion sdkVersion) = do
+writeMinimalPackage :: SdkVersion -> IO ()
+writeMinimalPackage (SdkVersion sdkVersion) = do
   writeFileUTF8 "daml.yaml" $ unlines
       [ "sdk-version: " <> SemVer.toString sdkVersion
       , "name: proj1"

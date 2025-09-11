@@ -22,11 +22,11 @@ object CodegenConfigReader {
 
   def readFromEnv(dest: CodegenDest): Result[Conf] =
     for {
-      sdkConf <- ProjectConfig.loadFromEnv()
+      sdkConf <- PackageConfig.loadFromEnv()
       codegenConf <- codegenConf(sdkConf, dest)
     } yield codegenConf
 
-  def codegenConf(sdkConf: ProjectConfig, dest: CodegenDest): Result[Conf] =
+  def codegenConf(sdkConf: PackageConfig, dest: CodegenDest): Result[Conf] =
     for {
       dar <- darPath(sdkConf)
       packagePrefix <- packagePrefix(sdkConf, dest)
@@ -45,38 +45,38 @@ object CodegenConfigReader {
       roots = root.getOrElse(Nil),
     )
 
-  private def darPath(sdkConf: ProjectConfig): Result[Path] =
+  private def darPath(sdkConf: PackageConfig): Result[Path] =
     for {
       name <- name(sdkConf)
       version <- version(sdkConf)
-      dar <- darPath(sdkConf.projectPath, name, version)
+      dar <- darPath(sdkConf.packagePath, name, version)
     } yield dar
 
-  private def name(sdkConf: ProjectConfig): Result[String] =
+  private def name(sdkConf: PackageConfig): Result[String] =
     sdkConf.name.flatMap {
       case Some(a) => Right(a)
       case None => Left(ConfigMissing("name"))
     }
 
-  private def version(sdkConf: ProjectConfig): Result[String] =
+  private def version(sdkConf: PackageConfig): Result[String] =
     sdkConf.version.flatMap {
       case Some(a) => Right(a)
       case None => Left(ConfigMissing("version"))
     }
 
-  private def darPath(projectPath: Path, name: String, version: String): Result[Path] =
-    result(projectPath.resolve(darDirectory).resolve(s"$name-$version.dar"))
+  private def darPath(packagePath: Path, name: String, version: String): Result[Path] =
+    result(packagePath.resolve(darDirectory).resolve(s"$name-$version.dar"))
 
   private val darDirectory = Paths.get(".daml/dist")
 
-  private def packagePrefix(sdkConf: ProjectConfig, mode: CodegenDest): Result[Option[String]] =
+  private def packagePrefix(sdkConf: PackageConfig, mode: CodegenDest): Result[Option[String]] =
     codegen(sdkConf, mode)
       .downField("package-prefix")
       .as[Option[String]]
       .left
       .map(configParseError)
 
-  private def modulePrefixes(sdkConf: ProjectConfig): Result[Map[PackageReference, String]] =
+  private def modulePrefixes(sdkConf: PackageConfig): Result[Map[PackageReference, String]] =
     sdkConf.content.hcursor
       .downField("module-prefixes")
       .as[Option[Map[PackageReference, String]]]
@@ -84,7 +84,7 @@ object CodegenConfigReader {
       .left
       .map(configParseError)
 
-  private def outputDirectory(sdkConf: ProjectConfig, mode: CodegenDest): Result[Path] =
+  private def outputDirectory(sdkConf: PackageConfig, mode: CodegenDest): Result[Path] =
     codegen(sdkConf, mode)
       .downField("output-directory")
       .as[String]
@@ -93,7 +93,7 @@ object CodegenConfigReader {
       .flatMap(path)
 
   private def decoderPkgAndClass(
-      sdkConf: ProjectConfig,
+      sdkConf: PackageConfig,
       mode: CodegenDest,
   ): Result[Option[(String, String)]] =
     codegen(sdkConf, mode)
@@ -112,7 +112,7 @@ object CodegenConfigReader {
   private def decoderClass(s: String): Result[(String, String)] =
     result(Conf.readClassName.reads(s))
 
-  private def verbosity(sdkConf: ProjectConfig, mode: CodegenDest): Result[Option[Int]] =
+  private def verbosity(sdkConf: PackageConfig, mode: CodegenDest): Result[Option[Int]] =
     codegen(sdkConf, mode)
       .downField("verbosity")
       .as[Option[Int]]
@@ -125,14 +125,14 @@ object CodegenConfigReader {
   private def readVerbosity(a: Int): Result[Level] =
     result(Conf.readVerbosity.reads(a.toString))
 
-  private def root(sdkConf: ProjectConfig, mode: CodegenDest): Result[Option[List[String]]] =
+  private def root(sdkConf: PackageConfig, mode: CodegenDest): Result[Option[List[String]]] =
     codegen(sdkConf, mode)
       .downField("root")
       .as[Option[List[String]]]
       .left
       .map(configParseError)
 
-  private def codegen(sdkConf: ProjectConfig, mode: CodegenDest): ACursor =
+  private def codegen(sdkConf: PackageConfig, mode: CodegenDest): ACursor =
     sdkConf.content.hcursor
       .downField("codegen")
       .downField(dest(mode))

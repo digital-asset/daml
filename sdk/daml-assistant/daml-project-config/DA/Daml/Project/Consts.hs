@@ -13,21 +13,21 @@ module DA.Daml.Project.Consts
     , damlAssistantVersionEnvVar
     , damlAssistantIsSet
     , damlConfigName
-    , projectConfigName
+    , packageConfigName
     , sdkConfigName
     , multiPackageConfigName
     , damlEnvVars
     , getDamlPath
-    , getProjectPath
+    , getPackagePath
     , getSdkPath
     , tryGetSdkPath
     , getSdkVersion
     , getSdkVersionDpm
     , getSdkVersionMaybe
     , getDamlAssistant
-    , ProjectCheck(..)
-    , withProjectRoot
-    , withExpectProjectRoot
+    , PackageLocationCheck(..)
+    , withPackageRoot
+    , withExpectPackageRoot
     ) where
 
 import Control.Applicative ((<|>))
@@ -58,7 +58,7 @@ damlCacheEnvVar :: String
 damlCacheEnvVar = "DAML_CACHE"
 
 -- | The DAML_PROJECT environment variable determines the path of
--- the current daml project. By default, this is done by traversing
+-- the current daml package. By default, this is done by traversing
 -- up the directory structure until we find a "daml.yaml" file.
 -- (deprecated, replaced by packagePathEnvVar, check for both in 3.4)
 projectPathEnvVar :: String
@@ -102,7 +102,7 @@ damlAssistantEnvVar :: String
 damlAssistantEnvVar = "DAML_ASSISTANT"
 
 -- | The SDK version of the daml assistant. This does not necessarily equal
--- the DAML_SDK_VERSION, e.g. when working with a project with an older
+-- the DAML_SDK_VERSION, e.g. when working with a package with an older
 -- pinned SDK version.
 damlAssistantVersionEnvVar :: String
 damlAssistantVersionEnvVar = "DAML_ASSISTANT_VERSION"
@@ -111,15 +111,15 @@ damlAssistantVersionEnvVar = "DAML_ASSISTANT_VERSION"
 damlConfigName :: FilePath
 damlConfigName = "daml-config.yaml"
 
--- | File name of config file in DAML_PROJECT (the project path).
-projectConfigName :: FilePath
-projectConfigName = "daml.yaml"
+-- | File name of config file in DAML_PACKAGE (the package path).
+packageConfigName :: FilePath
+packageConfigName = "daml.yaml"
 
 -- | File name of config file in DAML_SDK (the sdk path)
 sdkConfigName :: FilePath
 sdkConfigName = "sdk-config.yaml"
 
--- | File name of optional multi-package config file in DAML_PROJECT (the project path).
+-- | File name of optional multi-package config file
 multiPackageConfigName :: FilePath
 multiPackageConfigName = "multi-package.yaml"
 
@@ -146,8 +146,8 @@ getDamlPath = getEnv damlPathEnvVar
 
 -- | Returns the path of the current daml package or
 --`Nothing` if invoked outside of a package.
-getProjectPath :: IO (Maybe FilePath)
-getProjectPath = do
+getPackagePath :: IO (Maybe FilePath)
+getPackagePath = do
     let nullToNothing p = if null p then Nothing else Just p
     mbPackagePath <- lookupEnv packagePathEnvVar
     mbProjectPath <- lookupEnv projectPathEnvVar
@@ -192,49 +192,49 @@ getDamlAssistant = getEnv damlAssistantEnvVar
 damlAssistantIsSet :: IO Bool
 damlAssistantIsSet = isJust <$> lookupEnv damlAssistantEnvVar
 
--- | Whether we should check if a command is invoked inside of a project.
+-- | Whether we should check if a command is invoked inside of a package.
 -- The string is the command name used in error messages
-data ProjectCheck = ProjectCheck String Bool
+data PackageLocationCheck = PackageLocationCheck String Bool
 
--- | Execute an action within the project root, if available.
+-- | Execute an action within the package root, if available.
 --
--- Determines the project root, if available, using 'getProjectPath' unless it
+-- Determines the package root, if available, using 'getPackagePath' unless it
 -- is passed explicitly.
 --
--- If no project root is found and 'ProjectCheck' requires a project root, then
+-- If no package root is found and 'PackageLocationCheck' requires a package root, then
 -- an error is printed and the program is terminated before executing the given
 -- action.
 --
--- The provided action is executed on 'Just' the project root, if available,
+-- The provided action is executed on 'Just' the package root, if available,
 -- otherwise on 'Nothing'. Additionally, it is passed a function to make
 -- filepaths relative to the new working directory.
-withProjectRoot
-    :: Maybe ProjectPath
-    -> ProjectCheck
+withPackageRoot
+    :: Maybe PackagePath
+    -> PackageLocationCheck
     -> (Maybe FilePath -> (FilePath -> IO FilePath) -> IO a)
     -> IO a
-withProjectRoot mbProjectDir (ProjectCheck cmdName check) act = do
+withPackageRoot mbProjectDir (PackageLocationCheck cmdName check) act = do
     previousCwd <- getCurrentDirectory
-    mbProjectPath <- maybe getProjectPath (pure . Just . unwrapProjectPath) mbProjectDir
+    mbProjectPath <- maybe getPackagePath (pure . Just . unwrapPackagePath) mbProjectDir
     case mbProjectPath of
         Nothing -> do
             when check $ do
-                hPutStrLn stderr (cmdName <> ": Not in project.")
+                hPutStrLn stderr (cmdName <> ": Not in package.")
                 exitFailure
             act Nothing pure
-        Just projectPath -> do
-            projectPath <- canonicalizePath projectPath
-            withCurrentDirectory projectPath $ act (Just projectPath) $ \f -> do
+        Just packagePath -> do
+            packagePath <- canonicalizePath packagePath
+            withCurrentDirectory packagePath $ act (Just packagePath) $ \f -> do
                 absF <- canonicalizePath (previousCwd </> f)
-                pure (projectPath `makeRelative` absF)
+                pure (packagePath `makeRelative` absF)
 
--- | Same as 'withProjectRoot' but always requires project root.
-withExpectProjectRoot
-    :: Maybe ProjectPath  -- ^ optionally specified project root
+-- | Same as 'withPackageRoot' but always requires package root.
+withExpectPackageRoot
+    :: Maybe PackagePath  -- ^ optionally specified package root
     -> String  -- ^ command name for error message
     -> (FilePath -> (FilePath -> IO FilePath) -> IO a)  -- ^ action
     -> IO a
-withExpectProjectRoot mbProjectDir cmdName act = do
-    withProjectRoot mbProjectDir (ProjectCheck cmdName True) $ \case
-        Nothing -> error "withProjectRoot should terminated the program"
-        Just projectPath -> act projectPath
+withExpectPackageRoot mbProjectDir cmdName act = do
+    withPackageRoot mbProjectDir (PackageLocationCheck cmdName True) $ \case
+        Nothing -> error "withPackageRoot should terminated the program"
+        Just packagePath -> act packagePath

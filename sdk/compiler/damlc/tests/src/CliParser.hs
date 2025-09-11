@@ -67,8 +67,8 @@ assertDamlcParser cliArgs damlYamlArgs mExpectedError = withCurrentTempDir $ do
     (True, Just _) -> assertFailure "Expected failure but got success"
     (False, Nothing) -> assertFailure $ "Expected success but got failure:\n" <> err
 
-withDamlProject :: IO a -> IO a
-withDamlProject f = do
+withDamlPackage :: IO a -> IO a
+withDamlPackage f = do
   cwd <- getCurrentDirectory
   setEnv packagePathEnvVar cwd True
   res <- f
@@ -84,7 +84,7 @@ assertDamlcParserRunIO cliArgs damlYamlArgs expectedOutput = withCurrentTempDir 
     Right (Command _ _ io) -> do
       -- We don't care if the computation succeeds or fails here (it will fail, because we havent installed the sdk fully.)
       -- We're only testing flag behaviour that is discoverable before compilation happens
-      (out, _) <- hCapture [stdout, stderr] $ try @SomeException $ withDamlProject io
+      (out, _) <- hCapture [stdout, stderr] $ try @SomeException $ withDamlPackage io
       assertBool ("Expected " <> expectedOutput <> " in stdout/stderr, but didn't find") $ expectedOutput `isInfixOf` out
     Left _ -> assertFailure $ "Expected parse to succeed but got " <> err
 

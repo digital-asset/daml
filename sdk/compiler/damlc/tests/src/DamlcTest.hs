@@ -61,7 +61,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "good = 1 + 2"
         ]
       step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
+      callProcessSilent damlc ["build", "--package-root", projDir]
       let dar = projDir </> ".daml/dist/good-0.0.1.dar"
       step "validate"
       (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
@@ -87,7 +87,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "    signatory [myParty]"
         ]
       step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
+      callProcessSilent damlc ["build", "--package-root", projDir]
       let dar = projDir </> ".daml/dist/good-0.0.1.dar"
       step "validate"
       (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
@@ -114,7 +114,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "  iMethod : ()"
         ]
       step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
+      callProcessSilent damlc ["build", "--package-root", projDir]
       let dar = projDir </> ".daml/dist/good-0.0.1.dar"
       step "validate"
       (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
@@ -153,7 +153,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "      iMethod = ()"
         ]
       step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
+      callProcessSilent damlc ["build", "--package-root", projDir]
       let dar = projDir </> ".daml/dist/good-0.0.1.dar"
       step "validate"
       (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["validate-dar", dar] ""
@@ -175,7 +175,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "good = 1"
         ]
       step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
+      callProcessSilent damlc ["build", "--package-root", projDir]
       let origDar = projDir </> ".daml/dist/good-0.0.1.dar"
       let hackedDar = projDir </> "hacked.dar"
       step "unzip/trash-selected.dalf/re-zip"
@@ -205,7 +205,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "good = 1"
         ]
       step "build"
-      callProcessSilent damlc ["build", "--project-root", projDir]
+      callProcessSilent damlc ["build", "--package-root", projDir]
       let origDar = projDir </> ".daml/dist/good-0.0.1.dar"
       let hackedDar = projDir </> "hacked.dar"
       step "unzip/rm-file/re-zip"
@@ -268,7 +268,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               readProcessWithExitCode
                 damlc
                 [ "test"
-                , "--project-root"
+                , "--package-root"
                 , dir ]
                 ""
             stderr @?= ""
@@ -318,7 +318,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 damlc
                   [ "test"
                   , "--show-coverage"
-                  , "--project-root"
+                  , "--package-root"
                   , dir ]
                   ""
             stderr @?= ""
@@ -393,7 +393,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
 --                damlc
 --                  [ "test"
 --                  , "--show-coverage"
---                  , "--project-root"
+--                  , "--package-root"
 --                  , dir ]
 --                  ""
 --            stderr @?= ""
@@ -436,7 +436,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           callProcessSilent
             damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , projDir </> "a"
             ]
           createDirectoryIfMissing True (projDir </> "b")
@@ -470,7 +470,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 [ "test"
                 , "--show-coverage"
                 , "--all"
-                , "--project-root"
+                , "--package-root"
                 , projDir </> "b"
                 , "--files"
                 , bFilePath ]
@@ -553,7 +553,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           callProcessSilent
             damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , projDir </> "a"
             ]
           createDirectoryIfMissing True (projDir </> "b")
@@ -596,7 +596,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 [ "test"
                 , "--show-coverage"
                 , "--all"
-                , "--project-root"
+                , "--package-root"
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
@@ -653,7 +653,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , "Dep"
                 , "--show-coverage"
                 , "--all"
-                , "--project-root"
+                , "--package-root"
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
@@ -706,7 +706,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , ":Archive$"
                 , "--show-coverage"
                 , "--all"
-                , "--project-root"
+                , "--package-root"
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
@@ -761,7 +761,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , "Dep"
                 , "--show-coverage"
                 , "--all"
-                , "--project-root"
+                , "--package-root"
                 , projDir </> "b" ]
                 ""
           stderr @?= ""
@@ -819,7 +819,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           callProcessSilent
             damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , projDir </> "a"
             ]
           createDirectoryIfMissing True (projDir </> "b")
@@ -846,7 +846,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
                 , "--test-pattern"
                 , "needle"
                 , "--all"
-                , "--project-root"
+                , "--package-root"
                 , projDir </> "b"
                 , "--files"
                 , bFilePath ]
@@ -921,14 +921,14 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           callProcessSilent
             damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , projDir
             ]
           (exitCode, stdoutTestT1Run, stderr) <-
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "-p", "testT1"
                 , "--save-coverage", projDir </> "testT1-results"
                 ]
@@ -940,7 +940,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "-p", "testBoth"
                 , "--save-coverage", projDir </> "testBoth-results"
                 ]
@@ -952,7 +952,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--save-coverage", projDir </> "test-all-results"
                 ]
                 ""
@@ -963,7 +963,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--load-coverage-only"
                 ]
                 ""
@@ -985,7 +985,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testT1-results"
                 ]
@@ -1011,7 +1011,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testBoth-results"
                 ]
@@ -1037,7 +1037,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testT1-results"
                 , "--load-coverage", projDir </> "testBoth-results"
@@ -1064,7 +1064,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--load-coverage-only"
                 , "--load-coverage", projDir </> "testBoth-results" -- reorder the way in which we read the results, should be identical
                 , "--load-coverage", projDir </> "testT1-results"
@@ -1080,7 +1080,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root", projDir
+                , "--package-root", projDir
                 , "--load-coverage", projDir </> "testT1-results"
                 , "-p", "testBoth"
                 ]
@@ -1115,7 +1115,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           callProcessSilent
             damlc
             [ "build"
-            , "--project-root"
+            , "--package-root"
             , projDir </> "a" ]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
@@ -1147,7 +1147,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               damlc
               ["test"
               , "--show-coverage"
-              , "--project-root"
+              , "--package-root"
               , projDir </> "b"
               , "--files"
               , bFilePath]
@@ -1191,7 +1191,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               readProcessWithExitCode
                 damlc
                 ["test"
-                , "--project-root"
+                , "--package-root"
                 , dir
                 , "--files"
                 , file ]
@@ -1203,12 +1203,12 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             assertInfixOf "Test Summary" (out!!1)
             assertInfixOf "Foo.daml:y: ok" (out!!3)
             assertInfixOf "Foo.daml:x: failed" (out!!4)
-    , testCase "damlc test --files outside of project" $
+    , testCase "damlc test --files outside of package" $
         -- TODO: does this test make sense with a daml.yaml file?
         withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
-            , "name: test-files-outside-project"
+            , "name: test-files-outside-package"
             , "version: 0.0.1"
             , "source: ."
             , "dependencies: [daml-prim, daml-stdlib, " <> show scriptDar <> "]"
@@ -1223,7 +1223,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
                 [ "test"
-                , "--project-root"
+                , "--package-root"
                 , projDir
                 , "--files"
                 , projDir </> "Main.daml" ]
@@ -1231,7 +1231,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           exitCode @?= ExitSuccess
           assertBool ("Succeeding script in " <> stdout) ("Main.daml:test: ok" `isInfixOf` stdout)
           stderr @?= ""
-    , testCase "damlc test --project-root relative" $ withTempDir $ \projDir -> do
+    , testCase "damlc test --package-root relative" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "relative")
           writeFileUTF8 (projDir </> "relative" </> "Main.daml") $ unlines
             [ "module Main where"
@@ -1250,8 +1250,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             callProcessSilent
               damlc
               [ "test"
-              , "--project-root=relative" ]
-    , testCase "damlc test --project-root proj --junit a.xml" $ withTempDir $ \tempDir -> do
+              , "--package-root=relative" ]
+    , testCase "damlc test --package-root proj --junit a.xml" $ withTempDir $ \tempDir -> do
           createDirectoryIfMissing True (tempDir </> "proj")
           writeFileUTF8 (tempDir </> "proj" </> "Main.daml") $ unlines
             [ "module Main where"
@@ -1270,11 +1270,11 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             callProcessSilent
               damlc
                 [ "test"
-                , "--project-root=proj"
+                , "--package-root=proj"
                 , "--junit=a.xml"
                 ]
           exists <- doesFileExist $ tempDir </> "a.xml"
-          -- Check that the junit output was created relative to CWD not the project.
+          -- Check that the junit output was created relative to CWD not the package.
           assertBool "JUnit output was not created" exists
     , testCase "grpc-max-message-size applies to service results" $ withTempDir $ \tempDir -> do
         writeFileUTF8 (tempDir </> "Main.daml") $ unlines
@@ -1295,7 +1295,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
         callProcessSilent
           damlc
             [ "test"
-            , "--project-root"
+            , "--package-root"
             , tempDir ]
     , testCase "Rollback archive" $ do
         withTempDir $ \dir -> do
@@ -1344,7 +1344,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               readProcessWithExitCode
                 damlc
                 [ "test"
-                , "--project-root"
+                , "--package-root"
                 , dir ]
                 ""
             stderr @?= ""
@@ -1352,7 +1352,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             let out = lines stdout
             out!!3 @?= "./Main.daml:test: ok, 1 active contracts, 3 transactions."
     ] <>
-    [ testCase ("damlc test " <> unwords (args "") <> " in project") $ withTempDir $ \projDir -> do
+    [ testCase ("damlc test " <> unwords (args "") <> " in package") $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "a")
           writeFileUTF8 (projDir </> "a" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1365,7 +1365,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             [ "module A where"
             , "a = 1"
             ]
-          callProcessSilent damlc ["build", "--project-root", projDir </> "a"]
+          callProcessSilent damlc ["build", "--package-root", projDir </> "a"]
           createDirectoryIfMissing True (projDir </> "b")
           writeFileUTF8 (projDir </> "b" </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -1386,7 +1386,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
             readProcessWithExitCode
               damlc
               ( "test"
-              : "--project-root"
+              : "--package-root"
               : (projDir </> "b")
               : args projDir )
               ""

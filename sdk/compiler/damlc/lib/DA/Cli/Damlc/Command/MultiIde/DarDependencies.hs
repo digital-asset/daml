@@ -11,7 +11,7 @@ import qualified DA.Daml.LF.Ast.Base as LF
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.Proto3.Archive (DecodingMode (..), decodeArchive)
 import DA.Daml.LF.Reader (DalfManifest(..), readManifest, readDalfManifest)
-import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Consts (packageConfigName)
 import Data.Bifunctor (second)
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
@@ -102,7 +102,7 @@ unpackDar miState darFile = do
         <> ["data-dependencies: "]
         <> fmap (\(path, _) -> "  - " <> makeRelative darUnpackLocation path) darDepArchives
 
-  writeFile (darUnpackLocation </> projectConfigName) damlYamlContent
+  writeFile (darUnpackLocation </> packageConfigName) damlYamlContent
 
 extractPackageMetadataFromEntry :: Entry -> (String, String, String)
 extractPackageMetadataFromEntry = extractPackageMetadataFromDalfPath . eRelativePath

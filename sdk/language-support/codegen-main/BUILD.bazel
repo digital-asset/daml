@@ -25,7 +25,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//daml-assistant/scala-daml-project-config",
+        "//daml-assistant/scala-daml-package-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
     ],
@@ -44,7 +44,7 @@ da_scala_binary(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
-        "//daml-assistant/scala-daml-project-config",
+        "//daml-assistant/scala-daml-package-config",
         "//language-support/codegen-common",
         "//language-support/java/codegen:lib",
     ],
