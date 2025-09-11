@@ -1093,15 +1093,9 @@ toDiagnostics lvl world scriptFile scriptRange = \case
         }
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
-encodeModule lfVersion m =
+encodeModule lfVersion m = do
     case LF.moduleSource m of
-      Just file ->
-        if isAbsolute file
-          then use_ EncodeModule $ toNormalizedFilePath' file
-          else do
-            imports <- use_ GeneratePackageImports $ toNormalizedFilePath' file
-            pure $ SS.encodeModuleWithImports lfVersion (m, imports)
-            -- pure $ SS.encodeModule lfVersion m
+      Just file -> use_ EncodeModule $ toNormalizedFilePath' file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScriptRootsRule :: Rules ()
@@ -1393,10 +1387,11 @@ encodeModuleRule options =
     define $ \EncodeModule file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
+        imports <- use_ GeneratePackageImports file
         files <- discardInternalModules (optUnitId options) fs
         encodedDeps <- uses_ EncodeModule files
         m <- moduleForScript file
-        let (hash, bs) = SS.encodeModule lfVersion m
+        let (hash, bs) = SS.encodeModuleWithImports lfVersion (m, imports)
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
 -- dlint
