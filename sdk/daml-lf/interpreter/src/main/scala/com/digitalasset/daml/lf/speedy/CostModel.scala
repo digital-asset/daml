@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.value.Value.ContractId
 import data.{FrontStack, Ref}
 
 abstract class CostModel {
@@ -33,7 +34,7 @@ abstract class CostModel {
   lazy val BTextMapInsert: CostFunction3[Value, Value, TextMap] = BGenMapInsert
   lazy val BTextMapLookup: CostFunction2[Value, TextMap] = BGenMapLookup
   lazy val BTextMapDelete: CostFunction2[Value, TextMap] = BGenMapDelete
-  val BTextMapToList: CostFunction1[TextMap]
+  val BTextMapToList: CostFunction1[TextMap] = BGenMapToList
   lazy val BTextMapSize = BGenMapSize
   val BGenMapEmpty = NotDefined
   val BGenMapInsert: CostFunction3[Value, Value, GenMap]
@@ -56,14 +57,16 @@ abstract class CostModel {
   val BTextToNumeric: CostFunction2[Int, Text]
   val BTextToCodePoints: CostFunction1[Text]
   val BSHA256Text: CostFunction1[Text]
+  val BSHA256Hex: CostFunction1[Text]
   val BKECCAK256Text: CostFunction1[Text]
-  val BSECP256K1Bool: CostFunction1[Text]
+  val BSECP256K1Bool: CostFunction3[Text, Text, Text]
+  val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text]
   val BDecodeHex: CostFunction1[Text]
   val BEncodeHex: CostFunction1[Text]
   val BTextToContractId: CostFunction1[Text]
   val BDateToUnixDays: CostFunction1[Date]
   val BExplodeText: CostFunction1[Text]
-  val BImplodeText = CostAware
+  val BEImplodeText: CostFunction1[FrontStack[SValue]]
   val BTimestampToUnixMicroseconds: CostFunction1[Timestamp]
   val BDateToText: CostFunction1[Date]
   val BUnixDaysToDate: CostFunction1[Int64]
@@ -257,13 +260,16 @@ object CostModel {
     override val BTextToNumeric: CostFunction2[Int, Text] = CostFunction2.Null
     override val BTextToCodePoints: CostFunction1[Text] = CostFunction1.Null
     override val BSHA256Text: CostFunction1[Text] = CostFunction1.Null
+    override val BSHA256Hex: CostFunction1[Text] = CostFunction1.Null
     override val BKECCAK256Text: CostFunction1[Text] = CostFunction1.Null
-    override val BSECP256K1Bool: CostFunction1[Text] = CostFunction1.Null
+    override val BSECP256K1Bool: CostFunction3[Text, Text, Text] = CostFunction3.Null
+    override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BDecodeHex: CostFunction1[Text] = CostFunction1.Null
     override val BEncodeHex: CostFunction1[Text] = CostFunction1.Null
     override val BTextToContractId: CostFunction1[Text] = CostFunction1.Null
     override val BDateToUnixDays: CostFunction1[Date] = CostFunction1.Null
     override val BExplodeText: CostFunction1[Text] = CostFunction1.Null
+    override val BEImplodeText: CostFunction1[FrontStack[SValue]] = CostFunction1.Null
     override val BTimestampToUnixMicroseconds: CostFunction1[Timestamp] = CostFunction1.Null
     override val BDateToText: CostFunction1[Date] = CostFunction1.Null
     override val BUnixDaysToDate: CostFunction1[Int64] = CostFunction1.Null
@@ -362,6 +368,12 @@ object CostModel {
       ByteArraySize.b * 2, // Each char takes 2 bytes if string is not LATIN1.
     )
 
+    /** Memory model for an Ascii `java.lang.String` of length `n`.
+      * We know that each char takes 1 byte.
+      */
+    val AsciiStringSize =
+      LinearPolynomial(STRING_SHELL_BYTES + ByteArraySize.a, ByteArraySize.b)
+
     /** The memory overhead of a protobuf `ByteString` object shell. */
     private val BYTESTRING_SHELL_BYTES = roundTo8(
       OBJECT_HEADER_BYTES + // Header
@@ -438,6 +450,17 @@ object CostModel {
       HashWrapperSize +
         BytesSize.calculate(crypto.Hash.underlyingHashLength)
 
+    val CONTRACTID_V1_SHELL_BYTES = roundTo8(
+      OBJECT_HEADER_BYTES + // Header
+        REFERENCE_BYTES + // discriminator
+        REFERENCE_BYTES // .suffix
+    )
+
+    val ContractIdSize =
+      CONTRACTID_V1_SHELL_BYTES +
+        HashSize +
+        BytesSize.calculate(ContractId.V1.MaxSuffixLength)
+
     val IMMARRAY_SHELL_BYTES = roundTo8(
       OBJECT_HEADER_BYTES + // Header
         INT_BYTES + // .start
@@ -501,6 +524,21 @@ object CostModel {
         REFERENCE_BYTES // .value
     )
 
+    val SContractIdWrapperSize = roundTo8(
+      OBJECT_HEADER_BYTES + // Header
+        REFERENCE_BYTES // .value
+    )
+
+    val SOptionalWrapperSize = roundTo8(
+      OBJECT_HEADER_BYTES + // Header
+        REFERENCE_BYTES // .value
+    )
+
+    val SListWrapperSize = roundTo8(
+      OBJECT_HEADER_BYTES + // Header
+        REFERENCE_BYTES // .value
+    )
+
     override val AddNumeric: CostFunction2[Numeric, Numeric] =
       CostFunction2.Constant(NumericSize + SNumericWrapperSize)
     override val SubNumeric: CostFunction2[Numeric, Numeric] =
@@ -523,6 +561,7 @@ object CostModel {
       CostFunction2.Constant(SInt64Size)
     override val BDivInt64: CostFunction2[Int64, Int64] =
       CostFunction2.Constant(SInt64Size)
+    CostFunction2.Constant(SInt64Size)
     override val BModInt64: CostFunction2[Int64, Int64] =
       CostFunction2.Constant(SInt64Size)
     override val BExpInt64: CostFunction2[Int64, Int64] =
@@ -531,7 +570,6 @@ object CostModel {
       CostFunction2.Constant(NumericSize + SNumericWrapperSize)
     override val BNumericToInt64: CostFunction1[Numeric] =
       CostFunction1.Constant(NumericSize + SNumericWrapperSize)
-    override val BTextMapToList: CostFunction1[TextMap] = CostFunction1.Null
     override val BGenMapInsert: CostFunction3[Value, Value, GenMap] = CostFunction3.Null
     override val BGenMapLookup: CostFunction2[Value, GenMap] = CostFunction2.Null
     override val BGenMapDelete: CostFunction2[Value, GenMap] = CostFunction2.Null
@@ -539,36 +577,81 @@ object CostModel {
     override val BGenMapKeys: CostFunction1[GenMap] = CostFunction1.Null
     override val BGenMapValues: CostFunction1[GenMap] = CostFunction1.Null
     override val BGenMapSize: CostFunction1[GenMap] = CostFunction1.Null
-    override val BAppendText: CostFunction2[Text, Text] = CostFunction2.Null
+    override val BAppendText: CostFunction2[Text, Text] = {
+      val poly = LinearPolynomial(STextWrapperSize, StringSize.b)
+      (x: String, y: String) => poly.calculate(x.length + y.length)
+    }
     override val BInt64ToText: CostFunction1[Int64] =
       // 20 = "-9223372036854775808".length
-      CostFunction1.Constant(STextWrapperSize + StringSize.calculate(20))
+      CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(20))
     override val BNumericToText: CostFunction1[Numeric] = {
       // 40 = "-99999999999999999999999999999999999999.".length
-      CostFunction1.Constant(STextWrapperSize + StringSize.calculate(40))
+      CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(40))
     }
     override val BTimestampToText: CostFunction1[Timestamp] =
       // 27 = "9999-12-31T23:59:59.999999Z".length
-      CostFunction1.Constant(STextWrapperSize + StringSize.calculate(27))
+      CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(27))
     override val BPartyToText: CostFunction1[Party] =
       CostFunction1.Constant(STextWrapperSize) // We reuse the underlying string
-    override val BContractIdToText: CostFunction1[ContractId] = CostFunction1.Null
-    override val BCodePointsToText: CostFunction1[FrontStack[Long]] = CostFunction1.Null
+    override val BContractIdToText: CostFunction1[ContractId] =
+      // Only for V1 ContractId
+      // Remy: We may want to shorted for canton
+      CostFunction1.Constant(
+        SOptionalWrapperSize + OptionSize + STextWrapperSize + AsciiStringSize.calculate(254)
+      )
+    override val BCodePointsToText: CostFunction1[FrontStack[Long]] = {
+      // a code point is at most 2 chars in UTF-16
+      val poly = LinearPolynomial(STextWrapperSize, StringSize.b * 2)
+      (codePoints: FrontStack[Long]) => poly.calculate(codePoints.length)
+    }
     override val BTextToParty: CostFunction1[Text] =
-      CostFunction1.Constant(SPartyWrapperSize) // We reuse the underlying string
-    override val BTextToInt64: CostFunction1[Text] = CostFunction1.Constant(SInt64Size)
+      CostFunction1.Constant(
+        SOptionalWrapperSize + OptionSize + SPartyWrapperSize
+      ) // We reuse the underlying string
+    override val BTextToInt64: CostFunction1[Text] =
+      CostFunction1.Constant(SOptionalWrapperSize + OptionSize + SInt64Size)
     override val BTextToNumeric: CostFunction2[Int, Text] =
-      CostFunction2.Constant(SNumericWrapperSize + NumericSize)
-    override val BTextToCodePoints: CostFunction1[Text] = CostFunction1.Null
-    override val BSHA256Text: CostFunction1[Text] = CostFunction1.Null
-    override val BKECCAK256Text: CostFunction1[Text] = CostFunction1.Null
-    override val BSECP256K1Bool: CostFunction1[Text] = CostFunction1.Null
-    override val BDecodeHex: CostFunction1[Text] = CostFunction1.Null
-    override val BEncodeHex: CostFunction1[Text] = CostFunction1.Null
-    override val BTextToContractId: CostFunction1[Text] = CostFunction1.Null
+      CostFunction2.Constant(SOptionalWrapperSize + OptionSize + SNumericWrapperSize + NumericSize)
+    override val BTextToCodePoints: CostFunction1[Text] = {
+      val poly = LinearPolynomial(SListWrapperSize + FrontStackSize.a, FrontStackSize.b)
+      (text: String) => poly.calculate(text.length)
+    }
+    override val BSHA256Text: CostFunction1[Text] =
+      CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
+    override val BSHA256Hex: CostFunction1[Text] =
+      CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
+    override val BKECCAK256Text: CostFunction1[Text] =
+      CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
+    override val BSECP256K1Bool: CostFunction3[Text, Text, Text] =
+      CostFunction3.Constant(SBoolSize)
+    override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] =
+      CostFunction3.Constant(SBoolSize)
+    override val BDecodeHex: CostFunction1[Text] = {
+      val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b / 2)
+      (t: String) => poly.calculate(t.length)
+    }
+    override val BEncodeHex: CostFunction1[Text] = { (t: String) =>
+      STextWrapperSize + StringSize.a + StringSize.b * t.length / 2
+    }
+    override val BTextToContractId: CostFunction1[Text] =
+      CostFunction1.Constant(SContractIdWrapperSize + ContractIdSize)
     override val BDateToUnixDays: CostFunction1[Date] =
       CostFunction1.Constant(SInt64Size)
-    override val BExplodeText: CostFunction1[Text] = CostFunction1.Null
+    override val BExplodeText: CostFunction1[Text] = {
+      val poly =
+        LinearPolynomial(SListWrapperSize + FrontStackSize.a, FrontStackSize.b * SInt64Size)
+      (text: String) => poly.calculate(text.length)
+    }
+    override val BEImplodeText: CostFunction1[FrontStack[SValue]] = {
+      val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b)
+      (list: FrontStack[SValue]) =>
+        // be carefull computation of n should use bounded memory
+        val n = list.iterator.map {
+          case SText(s) => s.length
+          case _ => 0 // should not happen
+        }.sum
+        poly.calculate(n)
+    }
     override val BTimestampToUnixMicroseconds: CostFunction1[Timestamp] =
       CostFunction1.Constant(SInt64Size)
     override val BDateToText: CostFunction1[Date] =
@@ -578,12 +661,12 @@ object CostModel {
       CostFunction1.Constant(SDateWrapperSize + DateSize)
     override val BUnixMicrosecondsToTimestamp: CostFunction1[Int64] =
       CostFunction1.Constant(STimestampWrapperSize + TimestampSize)
-    override val BEqual: CostFunction2[Value, Value] = CostFunction2.Null
-    override val BLess: CostFunction2[Value, Value] = CostFunction2.Null
-    override val BLessEq: CostFunction2[Value, Value] = CostFunction2.Null
-    override val BGreater: CostFunction2[Value, Value] = CostFunction2.Null
-    override val BGreaterEq: CostFunction2[Value, Value] = CostFunction2.Null
-    override val BCoerceContractId: CostFunction1[ContractId] = CostFunction1.Null
+    override val BEqual: CostFunction2[Value, Value] = CostFunction2.Constant(SBoolSize)
+    override val BLess: CostFunction2[Value, Value] = CostFunction2.Constant(SBoolSize)
+    override val BLessEq: CostFunction2[Value, Value] = CostFunction2.Constant(SBoolSize)
+    override val BGreater: CostFunction2[Value, Value] = CostFunction2.Constant(SBoolSize)
+    override val BGreaterEq: CostFunction2[Value, Value] = CostFunction2.Constant(SBoolSize)
+    override val BCoerceContractId: CostFunction1[ContractId] = CostFunction1.Constant(0L)
 
     override val KontStackIncrease: CostFunction1[Int] = CostFunction1.Null
     override val EnvIncrease: CostFunction1[Int] = CostFunction1.Null
