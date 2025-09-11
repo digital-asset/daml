@@ -148,6 +148,14 @@ private[lf] object Speedy {
     }
   }
 
+  final case class ContractMetadata(
+      signatories: Set[Party],
+      observers: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+  ) {
+    val stakeholders: Set[Party] = signatories union observers
+  }
+
   final case class ContractInfo(
       version: TxVersion,
       packageName: Ref.PackageName,
@@ -173,6 +181,12 @@ private[lf] object Speedy {
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
         version = version,
       )
+
+    lazy val metadata = ContractMetadata(
+      signatories,
+      observers,
+      keyOpt.map(_.globalKeyWithMaintainers),
+    )
   }
 
   private[speedy] def throwLimitError(location: String, error: IError.Dev.Limit.Error): Nothing =

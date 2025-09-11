@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
 }
@@ -31,7 +32,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
-import scala.math.Ordered.orderingToOrdered
 import scala.util.{Failure, Success, Try}
 
 class TestTraceLog extends TraceLog {
@@ -64,8 +64,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private val packageId = Ref.PackageId.assertFromString("-pkg-")
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(packageId, languageVersion = languageVersion)
-
-  private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
 
   private[this] final def tuple2TyCon: String = {
     val Tuple2 =
@@ -366,6 +364,15 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
+  private[this] val normalizedKeyValue = Value.ValueRecord(
+    None,
+    ImmArray(
+      None -> Value.ValueList(FrontStack(Value.ValueParty(alice))),
+      None -> Value.ValueNone,
+      None -> Value.ValueRecord(None, ImmArray()),
+    ),
+  )
+
   private val testTxVersion: TransactionVersion = languageVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
@@ -382,6 +389,18 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           None -> keyValue,
           None -> emptyNestedValue,
         ),
+      ),
+      signatories = List(alice),
+      observers = List(observer),
+      contractKeyWithMaintainers = Some(
+        GlobalKeyWithMaintainers(
+          GlobalKey.assertBuild(
+            templateId = T,
+            packageName = pkg.pkgName,
+            key = normalizedKeyValue,
+          ),
+          Set(alice),
+        )
       ),
     )
 
@@ -414,6 +433,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
       None,
       ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
     ),
+    signatories = List(alice),
   )
 
   private[this] val iface_contract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
@@ -431,6 +451,18 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         None -> emptyNestedValue,
       ),
     ),
+    signatories = List(alice),
+    observers = List(bob),
+    contractKeyWithMaintainers = Some(
+      GlobalKeyWithMaintainers(
+        GlobalKey.assertBuild(
+          templateId = Human,
+          packageName = pkg.pkgName,
+          key = normalizedKeyValue,
+        ),
+        Set(alice),
+      )
+    ),
   )
 
   private[this] val getContract = Map(cId -> visibleContract)
@@ -446,6 +478,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     packageName = pkg.pkgName,
     template = Dummy,
     arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+    signatories = List(alice),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 
@@ -1148,11 +1181,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getWronglyTypedContract,
           )
           inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _))))
-                if !upgradingEnabled =>
-              msgs shouldBe Seq("starts test")
-            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy))))
-                if upgradingEnabled =>
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
               msgs shouldBe Seq("starts test")
           }
         }
@@ -2332,11 +2361,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getWronglyTypedContract,
           )
           inside(res) {
-            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _))))
-                if !upgradingEnabled =>
-              msgs shouldBe Seq("starts test")
-            case Success(Left(SErrorDamlException(IE.WronglyTypedContract(_, T, Dummy))))
-                if upgradingEnabled =>
+            case Success(Left(SErrorDamlException(IE.ContractNotActive(_, Dummy, _)))) =>
               msgs shouldBe Seq("starts test")
           }
         }

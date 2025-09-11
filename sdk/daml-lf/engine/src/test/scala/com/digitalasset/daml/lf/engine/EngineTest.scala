@@ -1686,6 +1686,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
         arg =
           ValueRecord(None /* lookerUpTemplateId */, ImmArray((None /* p */, ValueParty(alice)))),
+        signatories = List(alice),
       )
 
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2030,7 +2031,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
-        arg = ValueRecord(None /* fetcherTemplateId */, ImmArray((None /* p */, ValueParty(alice)))),
+        arg =
+          ValueRecord(None /* fetcherTemplateId */, ImmArray((None /* p */, ValueParty(alice)))),
+        signatories = List(alice),
       )
 
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2106,6 +2109,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           (None, ValueParty(alice)),
         ),
       ),
+      signatories = List(alice),
     )
     val contracts = defaultContracts + (fetcherCid -> fetcherInst)
     val correctCommand =
@@ -2284,6 +2288,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             (None, ValueText("text666")),
           ),
         ),
+        signatories = List(party),
+        contractKeyWithMaintainers = Some(
+          GlobalKeyWithMaintainers(
+            GlobalKey.assertBuild(
+              templateId = TypeConId(exceptionsPkgId, "Exceptions:K"),
+              packageName = exceptionsPkg.pkgName,
+              key = ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(666)))),
+            ),
+            Set(party),
+          )
+        ),
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2434,6 +2449,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             (None, ValueText("text777")),
           ),
         ),
+        signatories = List(party),
+        contractKeyWithMaintainers = Some(
+          GlobalKeyWithMaintainers(
+            GlobalKey.assertBuild(
+              templateId = TypeConId(exceptionsPkgId, "Exceptions:K"),
+              packageName = exceptionsPkg.pkgName,
+              key = ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(777)))),
+            ),
+            Set(party),
+          )
+        ),
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2511,6 +2537,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             (None, ValueInt64(0)), // matches 0 in the daml code
             (None, ValueText("text0")),
           ),
+        ),
+        signatories = List(party),
+        contractKeyWithMaintainers = Some(
+          GlobalKeyWithMaintainers(
+            GlobalKey.assertBuild(
+              templateId = TypeConId(exceptionsPkgId, "Exceptions:K"),
+              packageName = exceptionsPkg.pkgName,
+              key = ValueRecord(None, ImmArray((None, ValueParty(party)), (None, ValueInt64(0)))),
+            ),
+            Set(party),
+          )
         ),
       )
     )
@@ -2663,6 +2700,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 (None /* p */, ValueParty(alice))
               ),
             ),
+            signatories = List(alice),
           ),
       )
 
@@ -2759,6 +2797,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 (None /* p */, ValueParty(alice))
               ),
             ),
+            signatories = List(alice),
           ),
       )
 
@@ -2841,7 +2880,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             arg = createArg,
-            signatories = List(party),
+            signatories = List(alice),
             observers = List.empty,
           ),
         fetcherCid ->
@@ -2855,6 +2894,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 (None /* p */, ValueParty(alice))
               ),
             ),
+            signatories = List(alice),
           ),
       )
 

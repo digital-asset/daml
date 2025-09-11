@@ -216,16 +216,17 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
   val implementsContract: FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      newVersion,
-      implementsPkg.pkgName,
-      implementsTemplateId,
-      Value.ValueRecord(
+      version = newVersion,
+      packageName = implementsPkg.pkgName,
+      template = implementsTemplateId,
+      arg = Value.ValueRecord(
         None,
         ImmArray(
           None -> Value.ValueParty(contractParty),
           None -> Value.ValueText("test"),
         ),
       ),
+      signatories = List(contractParty),
     )
 
   val testData = Seq(

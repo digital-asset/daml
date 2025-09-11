@@ -414,10 +414,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                TransactionVersion.StableVersions.max,
-                basePkg.pkgName,
-                tplId,
-                tplPayload,
+                version = TransactionVersion.StableVersions.max,
+                packageName = basePkg.pkgName,
+                template = tplId,
+                arg = tplPayload,
+                signatories = List(alice),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -443,10 +444,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                TransactionVersion.StableVersions.max,
-                basePkg.pkgName,
-                tplId,
-                tplPayload,
+                version = TransactionVersion.StableVersions.max,
+                packageName = basePkg.pkgName,
+                template = tplId,
+                arg = tplPayload,
+                signatories = List(alice),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -469,10 +471,12 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                TransactionVersion.StableVersions.max,
+                version = TransactionVersion.StableVersions.max,
                 packageName = basePkg.pkgName,
                 template = iouId,
                 arg = iouPayload,
+                signatories = List(alice),
+                observers = List(bob),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -490,10 +494,12 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                TransactionVersion.StableVersions.max,
-                extraPkg.pkgName,
-                extraIouId,
-                iouPayload,
+                version = TransactionVersion.StableVersions.max,
+                packageName = extraPkg.pkgName,
+                template = extraIouId,
+                arg = iouPayload,
+                signatories = List(alice),
+                observers = List(bob),
               )
             ),
             getPkg = PartialFunction.empty,
@@ -511,10 +517,12 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                TransactionVersion.StableVersions.max,
-                extraPkg.pkgName,
-                extraIouId,
-                iouPayload,
+                version = TransactionVersion.StableVersions.max,
+                packageName = extraPkg.pkgName,
+                template = extraIouId,
+                arg = iouPayload,
+                signatories = List(alice),
+                observers = List(bob),
               )
             ),
             getPkg = { case `extraPkgId` =>

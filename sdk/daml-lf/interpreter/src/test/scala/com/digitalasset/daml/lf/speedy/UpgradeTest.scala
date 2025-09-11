@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
@@ -25,6 +25,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
@@ -41,6 +42,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = majorLanguageVersion.dev)
+
+  private[this] val compilerConfig = Compiler.Config.Dev(majorLanguageVersion)
 
   val ifacePkgId = Ref.PackageId.assertFromString("-iface-")
   private lazy val ifacePkg = {
@@ -74,8 +77,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, data: M:D };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -97,8 +100,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, data: M:D };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -120,8 +123,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, data: M:D };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -143,8 +146,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, data: M:D };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
@@ -154,7 +157,29 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
+  lazy val utilPkgId = Ref.PackageId.assertFromString("-util-")
+  private lazy val utilPkg = {
+    implicit def pkgId: Ref.PackageId = pkgId0
+    p""" metadata ( '-util-' : '1.0.0' )
+    module M {
+      val mkParty : Text -> Party =
+        \(t:Text) ->
+          case TEXT_TO_PARTY t of
+            None -> ERROR @Party "none"
+          | Some x -> x;
+
+
+      val mkList: Party -> Option Party -> List Party =
+        \(sig: Party) -> \(optSig: Option Party) ->
+          case optSig of
+            None -> Cons @Party [sig] Nil @Party
+          | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
+    }
+    """
+  }
+
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
+  @nowarn("cat=unused")
   private lazy val pkg0 = {
     implicit def pkgId: Ref.PackageId = pkgId0
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
@@ -163,21 +188,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories M:mkList (M:T {sig} this) (None @Party);
-        observers M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
-
-      val mkList: Party -> Option Party -> List Party =
-        \(sig: Party) -> \(optSig: Option Party) ->
-          case optSig of
-            None -> Cons @Party [sig] Nil @Party
-          | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
-
     }
     """
   }
@@ -191,8 +209,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories M:mkList (M:T {sig} this) (None @Party);
-        observers M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
         implements '-iface-':M:Iface {
           view = '-iface-':M:MyUnit {};
           method myChoice = "myChoice v1";
@@ -200,15 +218,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
-      val mkParty : Text -> Party =
-        \(t:Text) ->
-          case TEXT_TO_PARTY t of
-            None -> ERROR @Party "none"
-          | Some x -> x;
-
       val do_create: Text -> Text -> Int64 -> Update (ContractId M:T) =
         \(sig: Text) -> \(obs: Text) -> \(n: Int64) ->
-          create @M:T M:T { sig = M:mkParty sig, obs = M:mkParty obs, aNumber = n };
+          create @M:T M:T { sig = '-util-':M:mkParty sig, obs = '-util-':M:mkParty obs, aNumber = n };
 
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
@@ -234,8 +246,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
         choice NoOp (self) (arg: Unit) : Unit,
           controllers Cons @Party [M:T {sig} this] Nil @Party,
           observers Nil @Party
@@ -267,8 +279,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {sig} this) (M:T {optSig} this);
-        observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {sig} this) (M:T {optSig} this);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
         choice NoOp (self) (arg: Unit) : Unit,
           controllers Cons @Party [M:T {sig} this] Nil @Party,
           observers Nil @Party
@@ -296,10 +308,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
       template (this: T) = {
         precondition True;
-        signatories '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
-        observers '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
+        signatories '-util-':M:mkList (M:T {obs} this) (None @Party);
+        observers '-util-':M:mkList (M:T {sig} this) (None @Party);
         choice NoOp (self) (u: Unit) : Unit,
-          controllers '-pkg1-':M:mkList (M:T {sig} this) (None @Party),
+          controllers '-util-':M:mkList (M:T {sig} this) (None @Party),
           observers Nil @Party
           to upure @Unit ();
         key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
@@ -319,23 +331,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     pkg1.pkgName
   }
 
-  private lazy val pkgs =
-    PureCompiledPackages.assertBuild(
-      Map(
-        ifacePkgId -> ifacePkg,
-        variantPkgIdV1 -> variantPkgV1,
-        variantPkgIdV2 -> variantPkgV2,
-        enumPkgIdV1 -> enumPkgV1,
-        enumPkgIdV2 -> enumPkgV2,
-        pkgId0 -> pkg0,
-        pkgId1 -> pkg1,
-        pkgId2 -> pkg2,
-        pkgId3 -> pkg3,
-        pkgId4 -> pkg4,
-      ),
-      Compiler.Config.Dev(majorLanguageVersion),
-    )
-
   private val alice = Ref.Party.assertFromString("alice")
   private val bob = Ref.Party.assertFromString("bob")
 
@@ -345,8 +340,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   def go(
       e: Expr,
+      availablePackages: Map[Ref.PackageId, Package],
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   ): Either[SError, Success] = {
+
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
 
     val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
 
@@ -368,13 +366,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(
       e: Expr,
-      packageName: Ref.PackageName,
-      template: Identifier,
-      arg: Value,
-      signatories: Iterable[Ref.Party],
-      observers: Iterable[Ref.Party],
-      contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
+      availablePackages: Map[Ref.PackageId, Package],
+      globalContractPackageName: Ref.PackageName,
+      globalContractTemplateId: Identifier,
+      globalContractArg: Value,
+      globalContractSignatories: Iterable[Ref.Party],
+      globalContractObservers: Iterable[Ref.Party],
+      globalContractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
   ): Either[SError, Success] = {
+
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = ArraySeq[SValue](SContractId(theCid))
@@ -391,12 +392,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           theCid -> TransactionBuilder
             .fatContractInstanceWithDummyDefaults(
               VDev,
-              packageName,
-              template,
-              arg,
-              signatories,
-              observers,
-              contractKeyWithMaintainers,
+              globalContractPackageName,
+              globalContractTemplateId,
+              globalContractArg,
+              globalContractSignatories,
+              globalContractObservers,
+              globalContractKeyWithMaintainers,
             )
         ),
       )
@@ -406,9 +407,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   // The given contractSValue is wrapped as a disclosedContract
   def goDisclosed(
       e: Expr,
-      templateId: Ref.TypeConId,
-      contractSValue: SValue,
+      availablePackages: Map[Ref.PackageId, Package],
+      disclosureTemplateId: Ref.TypeConId,
+      disclosureContractArg: SValue,
+      disclosureSignatories: Set[Ref.Party],
+      disclosureObservers: Set[Ref.Party],
+      disclosureKeyOpt: Option[Speedy.CachedKey],
   ): Either[SError, Success] = {
+
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = ArraySeq[SValue](SContractId(theCid))
@@ -422,11 +429,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       Speedy.ContractInfo(
         version = VDev,
         packageName = pkgName,
-        templateId = templateId,
-        value = contractSValue,
-        signatories = Set(alice),
-        observers = Set.empty,
-        keyOpt = None,
+        templateId = disclosureTemplateId,
+        value = disclosureContractArg,
+        signatories = disclosureSignatories,
+        observers = disclosureObservers,
+        keyOpt = disclosureKeyOpt,
       )
     machine.addDisclosedContracts(theCid, contractInfo)
 
@@ -484,19 +491,39 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ),
         )
 
-      inside(
-        go(
-          e"'-pkg3-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-pkg2-':M:T",
-          arg = v_missingField,
-          signatories = List(alice),
-          observers = List(bob),
-          contractKeyWithMaintainers = Some(v_missingFieldKey),
-        )
-      ) { case Right((sv, v)) =>
-        sv shouldBe sv_extendedWithNone
-        v shouldBe v_missingField
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId3 -> pkg3,
+        ),
+      )
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        inside(
+          go(
+            e"'-pkg3-':M:do_fetch",
+            availablePackages = availablePackages,
+            globalContractPackageName = pkgName,
+            globalContractTemplateId = i"'-pkg2-':M:T",
+            globalContractArg = v_missingField,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List(bob),
+            globalContractKeyWithMaintainers = Some(v_missingFieldKey),
+          )
+        ) { case Right((sv, v)) =>
+          sv shouldBe sv_extendedWithNone
+          v shouldBe v_missingField
+        }
       }
     }
 
@@ -513,12 +540,19 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-pkg1-':M:T",
-          arg = v_missingField,
-          signatories = List(alice),
-          observers = List.empty,
-          contractKeyWithMaintainers = Some(v_missingFieldKey),
+          // We cannot test the case where the creation package is unavailable because this test case tests the case
+          // when we try to read it back using the same package version.
+          availablePackages = Map(
+            utilPkgId -> utilPkg,
+            ifacePkgId -> ifacePkg,
+            pkgId1 -> pkg1,
+          ),
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg1-':M:T",
+          globalContractArg = v_missingField,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List.empty,
+          globalContractKeyWithMaintainers = Some(v_missingFieldKey),
         )
       ) {
         case Left(
@@ -550,33 +584,56 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         pkgName,
       )
 
-      val negativeTestCase = i"'-pkg2-':M:T"
-      val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
-      go(
-        e"'-pkg3-':M:do_fetch",
-        packageName = pkgName,
-        template = negativeTestCase,
-        arg = v,
-        signatories = List(alice),
-        observers = List(bob),
-        contractKeyWithMaintainers = Some(key(i"'-pkg2-':M:T")),
-      ) shouldBe a[
-        Right[_, _]
-      ]
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId3 -> pkg3,
+        ),
+      )
 
+      val negativeTestCase = i"'-pkg2-':M:T"
+      forEvery(availablePackagesCases) { availablePackages =>
+        go(
+          e"'-pkg3-':M:do_fetch",
+          availablePackages = availablePackages,
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = negativeTestCase,
+          globalContractArg = v,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          globalContractKeyWithMaintainers = Some(key(i"'-pkg2-':M:T")),
+        ) shouldBe a[
+          Right[_, _]
+        ]
+      }
+
+      val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
       forEvery(positiveTestCases) { tyCon =>
-        inside(
-          go(e"'-pkg3-':M:do_fetch", pkgName, tyCon, v, List(alice), List(bob), Some(key(tyCon)))
-        ) {
-          case Left(
-                SError.SErrorDamlException(
-                  IE.Dev(
-                    _,
-                    IE.Dev.TranslationError(error),
-                  )
-                )
-              ) =>
-            error shouldBe a[IE.Dev.TranslationError.LookupError]
+        forEvery(availablePackagesCases) { availablePackages =>
+          inside(
+            go(
+              e"'-pkg3-':M:do_fetch",
+              availablePackages = availablePackages,
+              globalContractPackageName = pkgName,
+              globalContractTemplateId = tyCon,
+              globalContractArg = v,
+              globalContractSignatories = List(alice),
+              globalContractObservers = List(bob),
+              globalContractKeyWithMaintainers = Some(key(tyCon)),
+            )
+          ) { case Left(SError.SErrorDamlException(error)) =>
+            error shouldBe a[IE.WronglyTypedContract]
+          }
         }
       }
     }
@@ -586,19 +643,39 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "correct fields" in {
 
-      val res =
-        go(
-          e"'-pkg1-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-pkg2-':M:T",
-          arg = v1_base,
-          signatories = List(alice),
-          observers = List(bob),
-          contractKeyWithMaintainers = Some(v2_key),
-        )
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+        ),
+      )
 
-      inside(res) { case Right((_, v)) =>
-        v shouldBe v1_base
+      forEvery(availablePackagesCases) { availablePackages =>
+        val res =
+          go(
+            e"'-pkg1-':M:do_fetch",
+            availablePackages = availablePackages,
+            globalContractPackageName = pkgName,
+            globalContractTemplateId = i"'-pkg2-':M:T",
+            globalContractArg = v1_base,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List(bob),
+            globalContractKeyWithMaintainers = Some(v2_key),
+          )
+
+        inside(res) { case Right((_, v)) =>
+          v shouldBe v1_base
+        }
       }
     }
 
@@ -622,12 +699,19 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-pkg1-':M:T",
-          arg = v1_extraText,
-          signatories = List(alice),
-          observers = List(bob),
-          contractKeyWithMaintainers = Some(v1_extraTextKey),
+          // We cannot test the case where the creation package is unavailable because this test cases tests the case
+          // when we try to read it back using the same package version.
+          availablePackages = Map(
+            utilPkgId -> utilPkg,
+            ifacePkgId -> ifacePkg,
+            pkgId1 -> pkg1,
+          ),
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg1-':M:T",
+          globalContractArg = v1_extraText,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          globalContractKeyWithMaintainers = Some(v1_extraTextKey),
         )
 
       inside(res) {
@@ -661,28 +745,48 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         pkgName,
       )
 
-      val res = go(
-        e"'-pkg2-':M:do_fetch",
-        packageName = pkgName,
-        template = i"'-pkg3-':M:T",
-        arg = v1_extraSome,
-        signatories = List(alice),
-        observers = List(bob),
-        Some(v1_extraSomeKey),
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+        ),
       )
 
-      inside(res) {
-        case Left(
-              SError.SErrorDamlException(
-                IE.Dev(
-                  _,
-                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+      forEvery(availablePackagesCases) { availablePackages =>
+        val res = go(
+          e"'-pkg2-':M:do_fetch",
+          availablePackages = availablePackages,
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg3-':M:T",
+          globalContractArg = v1_extraSome,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          Some(v1_extraSomeKey),
+        )
+
+        inside(res) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(
+                    _,
+                    IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                  )
                 )
-              )
-            ) =>
-          reason should include(
-            "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading."
-          )
+              ) =>
+            reason should include(
+              "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading."
+            )
+        }
       }
     }
 
@@ -702,19 +806,39 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         pkgName,
       )
 
-      val res =
-        go(
-          e"'-pkg1-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-pkg3-':M:T",
-          arg = v1_extraNone,
-          signatories = List(alice),
-          observers = List(bob),
-          contractKeyWithMaintainers = Some(v1_extraNoneKey),
-        )
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+        ),
+      )
 
-      inside(res) { case Right((_, v)) =>
-        v shouldBe v1_base
+      forEvery(availablePackagesCases) { availablePackages =>
+        val res =
+          go(
+            e"'-pkg1-':M:do_fetch",
+            availablePackages = availablePackages,
+            globalContractPackageName = pkgName,
+            globalContractTemplateId = i"'-pkg3-':M:T",
+            globalContractArg = v1_extraNone,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List(bob),
+            globalContractKeyWithMaintainers = Some(v1_extraNoneKey),
+          )
+
+        inside(res) { case Right((_, v)) =>
+          v shouldBe v1_base
+        }
       }
     }
 
@@ -726,26 +850,44 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ValueVariant(None, Ref.Name.assertFromString("tag"), tag),
       )
 
-      inside(
-        go(
-          e"'-variant-v2-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-variant-v1-':M:T",
-          arg = v1Arg,
-          signatories = List(alice),
-          observers = List(bob),
-          contractKeyWithMaintainers = None,
-        )
-      ) {
-        case Left(
-              SError.SErrorDamlException(
-                IE.Dev(
-                  _,
-                  IE.Dev.TranslationError(error),
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          variantPkgIdV1 -> variantPkgV1,
+          variantPkgIdV2 -> variantPkgV2,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          variantPkgIdV2 -> variantPkgV2,
+        ),
+      )
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        inside(
+          go(
+            e"'-variant-v2-':M:do_fetch",
+            availablePackages = availablePackages,
+            globalContractPackageName = pkgName,
+            globalContractTemplateId = i"'-variant-v1-':M:T",
+            globalContractArg = v1Arg,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List(bob),
+            globalContractKeyWithMaintainers = None,
+          )
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(
+                    _,
+                    IE.Dev.TranslationError(error),
+                  )
                 )
-              )
-            ) =>
-          error shouldBe a[IE.Dev.TranslationError.LookupError]
+              ) =>
+            error shouldBe a[IE.Dev.TranslationError.LookupError]
+        }
       }
     }
 
@@ -757,48 +899,89 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         black,
       )
 
-      inside(
-        go(
-          e"'-enum-v2-':M:do_fetch",
-          packageName = pkgName,
-          template = i"'-enum-v1-':M:T",
-          arg = v1Arg,
-          signatories = List(alice),
-          observers = List(bob),
-          contractKeyWithMaintainers = None,
-        )
-      ) {
-        case Left(
-              SError.SErrorDamlException(
-                IE.Dev(
-                  _,
-                  IE.Dev.TranslationError(error),
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          enumPkgIdV1 -> enumPkgV1,
+          enumPkgIdV2 -> enumPkgV2,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          enumPkgIdV2 -> enumPkgV2,
+        ),
+      )
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        inside(
+          go(
+            e"'-enum-v2-':M:do_fetch",
+            availablePackages = availablePackages,
+            globalContractPackageName = pkgName,
+            globalContractTemplateId = i"'-enum-v1-':M:T",
+            globalContractArg = v1Arg,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List(bob),
+            globalContractKeyWithMaintainers = None,
+          )
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(
+                    _,
+                    IE.Dev.TranslationError(error),
+                  )
                 )
-              )
-            ) =>
-          error shouldBe a[IE.Dev.TranslationError.LookupError]
+              ) =>
+            error shouldBe a[IE.Dev.TranslationError.LookupError]
+        }
       }
     }
   }
 
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch the same contract using different versions.
-      val res = go(
-        e"""\(cid: ContractId '-pkg1-':M:T) ->
+
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+      )
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        // The following code is not properly typed, but emulates two commands that fetch the same contract using different versions.
+        val res = go(
+          e"""\(cid: ContractId '-pkg2-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        packageName = pkgName,
-        template = i"'-pkg1-':M:T",
-        arg = v1_base,
-        signatories = List(alice),
-        observers = List(bob),
-        contractKeyWithMaintainers = Some(v1_key),
-      )
-      res shouldBe a[Right[_, _]]
+          availablePackages = availablePackages,
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg1-':M:T",
+          globalContractArg = v1_base,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          globalContractKeyWithMaintainers = Some(v1_key),
+        )
+        res shouldBe a[Right[_, _]]
+      }
     }
 
     "be able to fetch a locally created contract using different versions" in {
@@ -807,7 +990,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
               _: '-pkg2-':M:T <- fetch_template @'-pkg2-':M:T cid
             in upure @(ContractId '-pkg1-':M:T) cid
-          """
+          """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
       )
       inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
@@ -816,12 +1007,20 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be able to fetch by key a locally created contract using different versions" in {
       val res = go(
-        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+        e"""let alice : Party = '-util-':M:mkParty "alice"
             in ubind
               cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
               _: '-pkg2-':M:T <- fetch_by_key @'-pkg2-':M:T alice
             in upure @(ContractId '-pkg1-':M:T) cid
-          """
+          """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
       )
       inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
@@ -834,7 +1033,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
               _: Unit <- exercise @'-pkg2-':M:T NoOp cid ()
             in upure @(ContractId '-pkg1-':M:T) cid
-          """
+          """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
       )
       inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
@@ -843,12 +1050,20 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be able to exercise by key a locally created contract using different versions" in {
       val res = go(
-        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+        e"""let alice : Party = '-util-':M:mkParty "alice"
             in ubind
                  cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
                  _: Unit <- exercise_by_key @'-pkg2-':M:T NoOp alice ()
                in upure @(ContractId '-pkg1-':M:T) cid
-          """
+          """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
       )
       inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
@@ -857,7 +1072,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be able to exercise by interface locally created contract using different versions" in {
       val res = go(
-        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+        e"""let alice : Party = '-util-':M:mkParty "alice"
             in ubind
                  cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
                  res: Text <- exercise_interface @'-iface-':M:Iface
@@ -866,6 +1081,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                                 alice
                in upure @(ContractId '-pkg1-':M:T) cid
           """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
       inside(res) { case Right((_, v)) =>
@@ -874,22 +1097,44 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "do recompute and check immutability of meta data when using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res: Either[SError, (SValue, Value)] = go(
-        e"""\(cid: ContractId '-pkg1-':M:T) ->
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
+      )
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
+        val res: Either[SError, (SValue, Value)] = go(
+          e"""\(cid: ContractId '-pkg2-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        packageName = pkgName,
-        template = i"'-pkg1-':M:T",
-        arg = v1_base,
-        signatories = List(alice),
-        observers = List(bob),
-        contractKeyWithMaintainers = Some(v1_key),
-      )
-      res shouldBe a[Right[_, _]]
+          availablePackages = availablePackages,
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg1-':M:T",
+          globalContractArg = v1_base,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          globalContractKeyWithMaintainers = Some(v1_key),
+        )
+        res shouldBe a[Right[_, _]]
+      }
     }
   }
 
@@ -913,7 +1158,36 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((_, v)) =>
+      inside(
+        goDisclosed(
+          e"'-pkg1-':M:do_fetch",
+          // We cannot test the case where the creation package is unavailable because this test case tests the case
+          // when we try to read it back using the same package version.
+          availablePackages = Map(
+            utilPkgId -> utilPkg,
+            ifacePkgId -> ifacePkg,
+            pkgId1 -> pkg1,
+          ),
+          disclosureTemplateId = i"'-pkg1-':M:T",
+          disclosureContractArg = sv1_base,
+          disclosureSignatories = Set(alice),
+          disclosureObservers = Set(bob),
+          disclosureKeyOpt = Some(
+            Speedy.CachedKey(
+              packageName = pkg1.pkgName,
+              globalKeyWithMaintainers = GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(
+                  templateId = i"'-pkg1-':M:T",
+                  packageName = pkg1.pkgName,
+                  key = ValueParty(alice),
+                ),
+                Set(alice),
+              ),
+              SValue.SParty(alice),
+            )
+          ),
+        )
+      ) { case Right((_, v)) =>
         v shouldBe v1_base
       }
     }
@@ -935,7 +1209,36 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((_, v)) =>
+      inside(
+        goDisclosed(
+          e"'-pkg1-':M:do_fetch",
+          // We cannot test the case where the creation package is unavailable because this test case tests the case
+          // when we try to read it back using the same package version.
+          availablePackages = Map(
+            utilPkgId -> utilPkg,
+            ifacePkgId -> ifacePkg,
+            pkgId1 -> pkg1,
+          ),
+          disclosureTemplateId = i"'-pkg1-':M:T",
+          disclosureContractArg = sv1_base,
+          disclosureSignatories = Set(alice),
+          disclosureObservers = Set(bob),
+          disclosureKeyOpt = Some(
+            Speedy.CachedKey(
+              packageName = pkg1.pkgName,
+              globalKeyWithMaintainers = GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(
+                  templateId = i"'-pkg1-':M:T",
+                  packageName = pkg1.pkgName,
+                  key = ValueParty(alice),
+                ),
+                Set(alice),
+              ),
+              SValue.SParty(alice),
+            )
+          ),
+        )
+      ) { case Right((_, v)) =>
         v shouldBe v1_base
       }
     }

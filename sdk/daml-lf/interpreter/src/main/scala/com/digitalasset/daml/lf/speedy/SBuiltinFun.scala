@@ -1516,51 +1516,95 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  /** Fetches the requested contract ID, upgrades it to the preferred template version for the same package name,
-    * and compares the computed views according to the old and the new versions. If the two views agree then caches
-    * the upgraded contract and returns it (via the continuation) as an SAny.
+  /** Fetches the requested contract ID and:
+    *  - authenticates the contract against its contract ID if the contract ID uses a legacy hashing method
+    *  - ensures that the contract is still active according to the contract state machine
+    *  - pulls the preferred template with the same package name and qualified ID as that of the contract
+    *  - loads the package of the preferred template
+    *  - verifies that the preferred template implements the requested interface
+    *  - typechecks and converts to an SValue the argument of the source contract according to the preferred template
+    *  - computes the metadata of the contract according to the preferred template (including the ensure clause),
+    *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - returns the converted argument wrapped in an SAny
     */
   private[this] def fetchInterface(
       machine: UpdateMachine,
       coid: V.ContractId,
       interfaceId: TypeConId,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    fetchSourceContractId(machine, coid)({ case (_, srcContract) =>
-      ensureContractActive(machine, coid, srcContract.templateId) {
-        machine.checkContractVisibility(coid, srcContract)
-        machine.enforceLimitAddInputContract()
-        machine.enforceLimitSignatoriesAndObservers(coid, srcContract)
-        val srcTmplId = srcContract.templateId
-        val pkgName = srcContract.packageName
-        val srcArg = srcContract.value.asInstanceOf[SRecord]
-        resolvePackageName(machine, pkgName) { pkgId =>
-          val dstTmplId = srcTmplId.copy(pkg = pkgId)
-          machine.ensurePackageIsLoaded(
-            NameOf.qualifiedNameOfCurrentFunc,
-            dstTmplId.packageId,
-            language.Reference.Template(dstTmplId.toRef),
-          ) { () =>
-            ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-              fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
-                case None =>
-                  Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
-                case Some(dstArg) =>
-                  fetchValidateDstContract(
-                    machine,
-                    coid,
-                    srcTmplId,
-                    srcContract,
-                    dstTmplId,
-                    dstArg,
-                  )({ case (dstTmplId, dstArg, _) =>
-                    k(SAny(Ast.TTyCon(dstTmplId), dstArg))
-                  })
-              }
+
+    def processSrcContract(
+        srcPackageName: Ref.PackageName,
+        srcTmplId: TypeConId,
+        srcMetadata: ContractMetadata,
+        srcArg: V,
+    ): Control[Question.Update] = {
+      resolvePackageName(machine, srcPackageName) { pkgId =>
+        val dstTmplId = srcTmplId.copy(pkg = pkgId)
+        machine.ensurePackageIsLoaded(
+          NameOf.qualifiedNameOfCurrentFunc,
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId.toRef),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
+            importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+              fetchValidateDstContract(
+                machine,
+                coid,
+                srcTmplId,
+                srcMetadata,
+                dstTmplId,
+                dstSArg,
+              )({ case (dstTmplId, dstArg, _) =>
+                k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+              })
             }
           }
         }
       }
-    })
+    }
+
+    machine.getIfLocalContract(coid) match {
+      case Some((srcTmplId, srcSArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
+          // its metadata.
+          // We do not need to load the package of srcTmplId because if the contract was created locally, then the
+          // package is already loaded.
+          getContractInfo(
+            machine,
+            coid,
+            srcTmplId,
+            srcSArg,
+            allowCatchingContractInfoErrors = false,
+          ) { srcContracInfo =>
+            processSrcContract(
+              srcContracInfo.packageName,
+              srcTmplId,
+              srcContracInfo.metadata,
+              srcContracInfo.arg,
+            )
+          }
+        }
+      case None =>
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            ensureContractActive(machine, coid, coinst.templateId) {
+              processSrcContract(
+                coinst.packageName,
+                coinst.templateId,
+                ContractMetadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
+              )
+            }
+          }
+        )
+    }
   }
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
@@ -2622,41 +2666,92 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** Fetches the requested contract ID and:
+    *  - authenticates the contract against its contract ID if the contract ID uses a legacy hashing method
+    *  - ensures that the contract is still active according to the contract state machine
+    *  - verifies that the source template's qualified name matches that of the target template
+    *  - loads the package of the target template
+    *  - typechecks and converts to an SValue the argument of the source contract according to the target template
+    *  - computes the metadata of the contract according to the target template (including the ensure clause),
+    *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - returns the converted argument
+    */
   private def fetchTemplate(
       machine: UpdateMachine,
       dstTmplId: TypeConId,
       coid: V.ContractId,
-  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchSourceContractId(machine, coid) { case (localTemplateArg, srcContract) =>
-      val srcTmplId = srcContract.templateId
-      localTemplateArg match {
-        // If the local contract has the same package ID as the target template ID, then we don't need to
-        // import its value and validate its contract info again.
-        case Some(localTemplateArg) if (srcTmplId == dstTmplId) =>
-          f(localTemplateArg)
-        case _ =>
-          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
-            Control.Error(
-              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
-            )
-          else
-            machine.ensurePackageIsLoaded(
-              NameOf.qualifiedNameOfCurrentFunc,
-              dstTmplId.packageId,
-              language.Reference.Template(dstTmplId.toRef),
-            ) { () =>
-              importValue(
-                machine,
-                Ast.TTyCon(dstTmplId),
-                srcContract.arg,
-              )(dstArg =>
-                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
-                  case (_, _, dstContract) =>
-                    f(dstContract.value)
-                })
+  )(k: SValue => Control[Question.Update]): Control[Question.Update] = {
+
+    def processSrcContract(
+        srcTmplId: TypeConId,
+        srcMetadata: ContractMetadata,
+        srcArg: V,
+    ): Control[Question.Update] = {
+      if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+        Control.Error(
+          IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+        )
+      else
+        machine.ensurePackageIsLoaded(
+          NameOf.qualifiedNameOfCurrentFunc,
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId.toRef),
+        )(() => {
+          importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+            fetchValidateDstContract(
+              machine,
+              coid,
+              srcTmplId,
+              srcMetadata,
+              dstTmplId,
+              dstSArg,
+            )({ case (_, _, dstContract) =>
+              k(dstContract.value)
+            })
+          }
+        })
+    }
+
+    machine.getIfLocalContract(coid) match {
+      case Some((srcTmplId, srcSArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          // If the local contract has the same package ID as the target template ID, then we don't need to
+          // import its value and validate its contract info again.
+          if (srcTmplId == dstTmplId)
+            k(srcSArg)
+          else {
+            // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
+            // its metadata.
+            // We do not need to load the package of srcTmplId because if the contract was created locally, then the
+            // package is already loaded.
+            getContractInfo(
+              machine,
+              coid,
+              srcTmplId,
+              srcSArg,
+              allowCatchingContractInfoErrors = false,
+            ) { srcContracInfo =>
+              processSrcContract(srcTmplId, srcContracInfo.metadata, srcContracInfo.arg)
+            }
+          }
+        }
+      case None =>
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            ensureContractActive(machine, coid, coinst.templateId) {
+              processSrcContract(
+                coinst.templateId,
+                ContractMetadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
               )
             }
-      }
+          }
+        )
     }
   }
 
@@ -2664,7 +2759,7 @@ private[lf] object SBuiltinFun {
       machine: UpdateMachine,
       coid: V.ContractId,
       srcTmplId: TypeConId,
-      srcContract: ContractInfo,
+      srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
   )(k: (TypeConId, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
@@ -2679,50 +2774,17 @@ private[lf] object SBuiltinFun {
         machine.checkContractVisibility(coid, dstContract)
         machine.enforceLimitAddInputContract()
         machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
-        // In Validation mode, we always call validateContractInfo
-        // In Submission mode, we only call validateContractInfo when src != dest
-        val needValidationCall: Boolean =
-          machine.validating || srcTmplId.packageId != dstTmplId.packageId
-        if (needValidationCall) {
-          checkContractUpgradable(coid, srcContract, dstContract) { () =>
-            k(dstTmplId, dstTmplArg, dstContract)
-          }
-        } else {
+        checkContractUpgradable(
+          coid,
+          srcTmplId,
+          dstTmplId,
+          srcContractMetadata,
+          dstContract.metadata,
+        ) { () =>
           k(dstTmplId, dstTmplArg, dstContract)
         }
       }
     }
-
-  private def fetchSourceContractId(
-      machine: UpdateMachine,
-      coid: V.ContractId,
-  )(f: (Option[SValue], ContractInfo) => Control[Question.Update]): Control[Question.Update] = {
-    machine.getIfLocalContract(coid) match {
-      case Some((srcTmplId, templateArg)) =>
-        ensureContractActive(machine, coid, srcTmplId) {
-          getContractInfo(
-            machine,
-            coid,
-            srcTmplId,
-            templateArg,
-            allowCatchingContractInfoErrors = false,
-          )(f(Some(templateArg), _))
-        }
-      case None =>
-        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
-          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
-          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
-            machine.ensurePackageIsLoaded(
-              NameOf.qualifiedNameOfCurrentFunc,
-              coinst.templateId.packageId,
-              language.Reference.Template(coinst.templateId.toRef),
-            ) { () =>
-              importContractInfo(machine, coinst)(f(None, _))
-            }
-          }
-        )
-    }
-  }
 
   /** Authenticates the provided FatContractInstance using [hashingMethod] if [hashingMethod] is
     * one of [[HashingMethod.Legacy]] or [[HashingMethod.UpgradeFriendly]]. Does nothing if the
@@ -2784,83 +2846,25 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def importContractInfo[Q](machine: Machine[Q], coinst: FatContractInstance)(
-      f: ContractInfo => Control[Q]
-  ): Control[Q] =
-    importValue(machine, Ast.TTyCon(coinst.templateId), coinst.createArg) { createArgSValue =>
-      def cont(mbCachedKey: Option[CachedKey]): Control[Q] = {
-        f(
-          ContractInfo(
-            version = coinst.version,
-            packageName = coinst.packageName,
-            templateId = coinst.templateId,
-            value = createArgSValue,
-            signatories = coinst.signatories,
-            observers = coinst.nonSignatoryStakeholders,
-            keyOpt = mbCachedKey,
-          )
-        )
-      }
-      coinst.contractKeyWithMaintainers match {
-        case None => cont(None)
-        case Some(key) =>
-          importKey(machine, key)(cachedKey => cont(Some(cachedKey)))
-      }
-    }
-
-  private def importKey[Q](machine: Machine[Q], key: GlobalKeyWithMaintainers)(
-      f: CachedKey => Control[Q]
-  ): Control[Q] = {
-    // TODO(https://github.com/digital-asset/daml/issues/21667): once the engine is defensive about contract imports,
-    //     we can no longer assume that key.globalKey.templateId resolves to a template, or that this template defines
-    //     a key. For now, we assume that all fat contract instances coming from ResultNeedContract are well-typed and
-    //     thus it is ok to crash when that isn't the case.
-    val keyType =
-      machine.compiledPackages
-        .signatures(key.globalKey.templateId.packageId)
-        .modules(key.globalKey.qualifiedName.module)
-        .templates(key.globalKey.qualifiedName.name)
-        .key
-        .getOrElse(
-          throw SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"template ${key.globalKey.templateId} does not define a key",
-          )
-        )
-        .typ
-    importValue(machine, keyType, key.globalKey.key) { keySValue =>
-      f(
-        CachedKey(
-          packageName = key.globalKey.packageName,
-          // The IDE ledger does not normalize keys in fat contract instances, which breaks the upgrade check when
-          // comparing them against the recomputed ones. So we normalize them on import for now.
-          globalKeyWithMaintainers = key.copy(globalKey =
-            GlobalKey
-              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue)
-          ),
-          key = keySValue,
-        )
-      )
-    }
-  }
-
   /** Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not. */
   private def checkContractUpgradable(
       coid: V.ContractId,
-      original: ContractInfo,
-      recomputed: ContractInfo,
+      srcTemplateId: TypeConId,
+      recomputedTemplateId: TypeConId,
+      original: ContractMetadata,
+      recomputed: ContractMetadata,
   )(
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
 
-    def check[T](getter: ContractInfo => T, desc: String): Option[String] =
+    def check[T](getter: ContractMetadata => T, desc: String): Option[String] =
       Option.when(getter(recomputed) != getter(original))(
         s"$desc mismatch: $original vs $recomputed"
       )
 
     List(
       check(_.signatories, "signatories"),
-      // This definition of observers allows observers to lose parties that are signatories
+      // Comparing stakeholders allows observers to lose parties that are signatories
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
@@ -2872,11 +2876,11 @@ private[lf] object SBuiltinFun {
             // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
-              srcTemplateId = original.templateId,
-              dstTemplateId = recomputed.templateId,
+              srcTemplateId = srcTemplateId,
+              dstTemplateId = recomputedTemplateId,
               signatories = recomputed.signatories,
               observers = recomputed.observers,
-              keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
+              keyOpt = recomputed.keyOpt,
               msg = errors.mkString("['", "', '", "']"),
             )
           )
