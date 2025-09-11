@@ -36,19 +36,12 @@ if ($scala_test_targets.count -gt 0) {
     # https://stackoverflow.com/a/48671797/841562
     $bazelexitcode = 0
     $tmp = New-TemporaryFile
-    try {
-      $append = $false
-      $out = [System.IO.StreamWriter]::new($tmp, $append)
-      bazel.exe aquery `
-        "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
-        "outputs('.*_scala_test.*', //...)" `
-        | % {
-          $out.WriteLine($_)
-        }
-      $bazelexitcode = $lastexitcode
-    } finally {
-      $out.Close()
-    }
+    bazel.exe aquery `
+      "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
+      "--output_groups=scala_test_info" `
+      "outputs('.*_scala_test.*', //...)" `
+      > $tmp.FullName
+    $bazelexitcode = $lastexitcode
 
     if ($bazelexitcode -ne 0) {
       $errmsg = Get-Content $tmp

@@ -18,7 +18,7 @@ steps:
       cd ..
       
       report="sdk/test-events.json"
-      mapping="sdk/scala-test-suite-name-map.json"
+      mapping="sdk/scala-test-suite-name-map.json" # present only on windows builds
       if [ -f $report ]; then
         python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report $mapping
       else
