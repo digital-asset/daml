@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  GlobalKey,
   GlobalKeyWithMaintainers,
   TransactionVersion,
 }
@@ -363,6 +364,15 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
+  private[this] val normalizedKeyValue = Value.ValueRecord(
+    None,
+    ImmArray(
+      None -> Value.ValueList(FrontStack(Value.ValueParty(alice))),
+      None -> Value.ValueNone,
+      None -> Value.ValueRecord(None, ImmArray()),
+    ),
+  )
+
   private val testTxVersion: TransactionVersion = languageVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
@@ -379,6 +389,18 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           None -> keyValue,
           None -> emptyNestedValue,
         ),
+      ),
+      signatories = List(alice),
+      observers = List(observer),
+      contractKeyWithMaintainers = Some(
+        GlobalKeyWithMaintainers(
+          GlobalKey.assertBuild(
+            templateId = T,
+            packageName = pkg.pkgName,
+            key = normalizedKeyValue,
+          ),
+          Set(alice),
+        )
       ),
     )
 
@@ -411,6 +433,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
       None,
       ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
     ),
+    signatories = List(alice),
   )
 
   private[this] val iface_contract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
@@ -428,6 +451,18 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         None -> emptyNestedValue,
       ),
     ),
+    signatories = List(alice),
+    observers = List(bob),
+    contractKeyWithMaintainers = Some(
+      GlobalKeyWithMaintainers(
+        GlobalKey.assertBuild(
+          templateId = Human,
+          packageName = pkg.pkgName,
+          key = normalizedKeyValue,
+        ),
+        Set(alice),
+      )
+    ),
   )
 
   private[this] val getContract = Map(cId -> visibleContract)
@@ -443,6 +478,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     packageName = pkg.pkgName,
     template = Dummy,
     arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+    signatories = List(alice),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 

@@ -79,13 +79,15 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
           packageName = interfacesPkg.pkgName,
           template = idT1,
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          signatories = List(party),
         ),
       cid2 ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = LanguageMajorVersion.V2.minStableVersion,
-          interfacesPkg.pkgName,
-          idT2,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          packageName = interfacesPkg.pkgName,
+          template = idT2,
+          arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+          signatories = List(party),
         ),
     )
     def consume[X](x: Result[X]) = x.consume(contracts, allInterfacesPkgs)

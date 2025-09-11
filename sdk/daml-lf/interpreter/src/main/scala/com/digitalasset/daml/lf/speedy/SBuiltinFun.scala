@@ -2527,21 +2527,13 @@ private[lf] object SBuiltinFun {
         machine.checkContractVisibility(coid, dstContract)
         machine.enforceLimitAddInputContract()
         machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
-        // In Validation mode, we always call validateContractInfo
-        // In Submission mode, we only call validateContractInfo when src != dest
-        val needValidationCall: Boolean =
-          machine.validating || srcTmplId.packageId != dstTmplId.packageId
-        if (needValidationCall) {
-          checkContractUpgradable(
-            coid,
-            srcTmplId,
-            dstTmplId,
-            srcContractMetadata,
-            dstContract.metadata,
-          ) { () =>
-            k(dstTmplId, dstTmplArg, dstContract)
-          }
-        } else {
+        checkContractUpgradable(
+          coid,
+          srcTmplId,
+          dstTmplId,
+          srcContractMetadata,
+          dstContract.metadata,
+        ) { () =>
           k(dstTmplId, dstTmplArg, dstContract)
         }
       }

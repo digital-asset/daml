@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
@@ -340,11 +340,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   def go(
       e: Expr,
-      vettedPackages: Map[Ref.PackageId, Package],
+      availablePackages: Map[Ref.PackageId, Package],
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   ): Either[SError, Success] = {
 
-    val pkgs = PureCompiledPackages.assertBuild(vettedPackages, compilerConfig)
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
 
     val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
 
@@ -366,7 +366,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(
       e: Expr,
-      vettedPackages: Map[Ref.PackageId, Package],
+      availablePackages: Map[Ref.PackageId, Package],
       globalContractPackageName: Ref.PackageName,
       globalContractTemplateId: Identifier,
       globalContractArg: Value,
@@ -375,7 +375,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       globalContractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
   ): Either[SError, Success] = {
 
-    val pkgs = PureCompiledPackages.assertBuild(vettedPackages, compilerConfig)
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = ArraySeq[SValue](SContractId(theCid))
@@ -407,12 +407,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   // The given contractSValue is wrapped as a disclosedContract
   def goDisclosed(
       e: Expr,
-      vettedPackages: Map[Ref.PackageId, Package],
+      availablePackages: Map[Ref.PackageId, Package],
       disclosureTemplateId: Ref.TypeConId,
       disclosureContractArg: SValue,
+      disclosureSignatories: Set[Ref.Party],
+      disclosureObservers: Set[Ref.Party],
+      disclosureKeyOpt: Option[Speedy.CachedKey],
   ): Either[SError, Success] = {
 
-    val pkgs = PureCompiledPackages.assertBuild(vettedPackages, compilerConfig)
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = ArraySeq[SValue](SContractId(theCid))
@@ -428,9 +431,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         packageName = pkgName,
         templateId = disclosureTemplateId,
         value = disclosureContractArg,
-        signatories = Set(alice),
-        observers = Set.empty,
-        keyOpt = None,
+        signatories = disclosureSignatories,
+        observers = disclosureObservers,
+        keyOpt = disclosureKeyOpt,
       )
     machine.addDisclosedContracts(theCid, contractInfo)
 
@@ -488,16 +491,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ),
         )
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId2 -> pkg2,
           pkgId3 -> pkg3,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -505,11 +508,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         inside(
           go(
             e"'-pkg3-':M:do_fetch",
-            vettedPackages = vettedPackages,
+            availablePackages = availablePackages,
             globalContractPackageName = pkgName,
             globalContractTemplateId = i"'-pkg2-':M:T",
             globalContractArg = v_missingField,
@@ -537,7 +540,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
-          vettedPackages = Map(
+          availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
             pkgId1 -> pkg1,
@@ -579,16 +582,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         pkgName,
       )
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId2 -> pkg2,
           pkgId3 -> pkg3,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -597,10 +600,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       val negativeTestCase = i"'-pkg2-':M:T"
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         go(
           e"'-pkg3-':M:do_fetch",
-          vettedPackages = vettedPackages,
+          availablePackages = availablePackages,
           globalContractPackageName = pkgName,
           globalContractTemplateId = negativeTestCase,
           globalContractArg = v,
@@ -614,11 +617,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
       val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
       forEvery(positiveTestCases) { tyCon =>
-        forEvery(vettedPackagesCases) { vettedPackages =>
+        forEvery(availablePackagesCases) { availablePackages =>
           inside(
             go(
               e"'-pkg3-':M:do_fetch",
-              vettedPackages = vettedPackages,
+              availablePackages = availablePackages,
               globalContractPackageName = pkgName,
               globalContractTemplateId = tyCon,
               globalContractArg = v,
@@ -638,16 +641,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "correct fields" in {
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
           pkgId2 -> pkg2,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -655,11 +658,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         val res =
           go(
             e"'-pkg1-':M:do_fetch",
-            vettedPackages = vettedPackages,
+            availablePackages = availablePackages,
             globalContractPackageName = pkgName,
             globalContractTemplateId = i"'-pkg2-':M:T",
             globalContractArg = v1_base,
@@ -694,7 +697,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          vettedPackages = Map(
+          availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
             pkgId1 -> pkg1,
@@ -738,16 +741,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         pkgName,
       )
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId2 -> pkg2,
           pkgId3 -> pkg3,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -755,10 +758,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         val res = go(
           e"'-pkg2-':M:do_fetch",
-          vettedPackages = vettedPackages,
+          availablePackages = availablePackages,
           globalContractPackageName = pkgName,
           globalContractTemplateId = i"'-pkg3-':M:T",
           globalContractArg = v1_extraSome,
@@ -799,16 +802,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         pkgName,
       )
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
           pkgId3 -> pkg3,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -816,11 +819,11 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         val res =
           go(
             e"'-pkg1-':M:do_fetch",
-            vettedPackages = vettedPackages,
+            availablePackages = availablePackages,
             globalContractPackageName = pkgName,
             globalContractTemplateId = i"'-pkg3-':M:T",
             globalContractArg = v1_extraNone,
@@ -843,26 +846,26 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ValueVariant(None, Ref.Name.assertFromString("tag"), tag),
       )
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           variantPkgIdV1 -> variantPkgV1,
           variantPkgIdV2 -> variantPkgV2,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           variantPkgIdV2 -> variantPkgV2,
         ),
       )
 
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         inside(
           go(
             e"'-variant-v2-':M:do_fetch",
-            vettedPackages = vettedPackages,
+            availablePackages = availablePackages,
             globalContractPackageName = pkgName,
             globalContractTemplateId = i"'-variant-v1-':M:T",
             globalContractArg = v1Arg,
@@ -892,26 +895,26 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         black,
       )
 
-      val vettedPackagesCases = Table(
-        "vettedPackages",
-        // with creation package vetted
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
         Map(
           utilPkgId -> utilPkg,
           enumPkgIdV1 -> enumPkgV1,
           enumPkgIdV2 -> enumPkgV2,
         ),
-        // without creation package vetted
+        // with creation package unavailable
         Map(
           utilPkgId -> utilPkg,
           enumPkgIdV2 -> enumPkgV2,
         ),
       )
 
-      forEvery(vettedPackagesCases) { vettedPackages =>
+      forEvery(availablePackagesCases) { availablePackages =>
         inside(
           go(
             e"'-enum-v2-':M:do_fetch",
-            vettedPackages = vettedPackages,
+            availablePackages = availablePackages,
             globalContractPackageName = pkgName,
             globalContractTemplateId = i"'-enum-v1-':M:T",
             globalContractArg = v1Arg,
@@ -944,7 +947,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -968,7 +971,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               _: '-pkg2-':M:T <- fetch_template @'-pkg2-':M:T cid
             in upure @(ContractId '-pkg1-':M:T) cid
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -988,7 +991,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               _: '-pkg2-':M:T <- fetch_by_key @'-pkg2-':M:T alice
             in upure @(ContractId '-pkg1-':M:T) cid
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -1007,7 +1010,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               _: Unit <- exercise @'-pkg2-':M:T NoOp cid ()
             in upure @(ContractId '-pkg1-':M:T) cid
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -1027,7 +1030,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  _: Unit <- exercise_by_key @'-pkg2-':M:T NoOp alice ()
                in upure @(ContractId '-pkg1-':M:T) cid
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -1050,7 +1053,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                                 alice
                in upure @(ContractId '-pkg1-':M:T) cid
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -1072,7 +1075,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        vettedPackages = Map(
+        availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
@@ -1113,13 +1116,29 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         goDisclosed(
           e"'-pkg1-':M:do_fetch",
-          vettedPackages = Map(
+          availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
             pkgId1 -> pkg1,
           ),
           disclosureTemplateId = i"'-pkg1-':M:T",
           disclosureContractArg = sv1_base,
+          disclosureSignatories = Set(alice),
+          disclosureObservers = Set(bob),
+          disclosureKeyOpt = Some(
+            Speedy.CachedKey(
+              packageName = pkg1.pkgName,
+              globalKeyWithMaintainers = GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(
+                  templateId = i"'-pkg1-':M:T",
+                  packageName = pkg1.pkgName,
+                  key = ValueParty(alice),
+                ),
+                Set(alice),
+              ),
+              SValue.SParty(alice),
+            )
+          ),
         )
       ) { case Right((_, v)) =>
         v shouldBe v1_base
@@ -1146,13 +1165,29 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         goDisclosed(
           e"'-pkg1-':M:do_fetch",
-          vettedPackages = Map(
+          availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
             pkgId1 -> pkg1,
           ),
           disclosureTemplateId = i"'-pkg1-':M:T",
           disclosureContractArg = sv1_base,
+          disclosureSignatories = Set(alice),
+          disclosureObservers = Set(bob),
+          disclosureKeyOpt = Some(
+            Speedy.CachedKey(
+              packageName = pkg1.pkgName,
+              globalKeyWithMaintainers = GlobalKeyWithMaintainers(
+                GlobalKey.assertBuild(
+                  templateId = i"'-pkg1-':M:T",
+                  packageName = pkg1.pkgName,
+                  key = ValueParty(alice),
+                ),
+                Set(alice),
+              ),
+              SValue.SParty(alice),
+            )
+          ),
         )
       ) { case Right((_, v)) =>
         v shouldBe v1_base
