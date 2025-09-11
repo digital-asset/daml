@@ -41,8 +41,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         internedStrings,
       )
 
-    val dependencyTracker = new PackageDependencyTracker(packageId)
-
     val metadata: PackageMetadata = {
       if (!lfPackage.hasMetadata)
         throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
@@ -51,11 +49,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     val imports = decodePackageImports(lfPackage)
 
+    val dependencyTracker =
+      if (languageVersion >= LV.Features.explicitPkgImports)
+        None
+      else
+        Some(new PackageDependencyTracker(packageId))
+
     val env0 = Env(
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      optDependencyTracker = Some(dependencyTracker),
+      optDependencyTracker = dependencyTracker,
       onlySerializableDataDefs = onlySerializableDataDefs,
       imports = imports,
     )
