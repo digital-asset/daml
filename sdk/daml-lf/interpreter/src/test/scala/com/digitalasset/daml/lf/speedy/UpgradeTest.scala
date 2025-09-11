@@ -540,6 +540,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
+          // We cannot test the case where the creation package is unavailable because this test case tests the case
+          // when we try to read it back using the same package version.
           availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
@@ -697,6 +699,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
+          // We cannot test the case where the creation package is unavailable because this test cases tests the case
+          // when we try to read it back using the same package version.
           availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
@@ -939,29 +943,45 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch the same contract using different versions.
-      val res = go(
-        e"""\(cid: ContractId '-pkg1-':M:T) ->
-               ubind
-                 x1: Unit <- '-pkg2-':M:do_fetch cid;
-                 x2: Unit <- '-pkg3-':M:do_fetch cid
-               in upure @Unit ()
-          """,
-        availablePackages = Map(
+
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
           pkgId2 -> pkg2,
           pkgId3 -> pkg3,
         ),
-        globalContractPackageName = pkgName,
-        globalContractTemplateId = i"'-pkg1-':M:T",
-        globalContractArg = v1_base,
-        globalContractSignatories = List(alice),
-        globalContractObservers = List(bob),
-        globalContractKeyWithMaintainers = Some(v1_key),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
       )
-      res shouldBe a[Right[_, _]]
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        // The following code is not properly typed, but emulates two commands that fetch the same contract using different versions.
+        val res = go(
+          e"""\(cid: ContractId '-pkg2-':M:T) ->
+               ubind
+                 x1: Unit <- '-pkg2-':M:do_fetch cid;
+                 x2: Unit <- '-pkg3-':M:do_fetch cid
+               in upure @Unit ()
+          """,
+          availablePackages = availablePackages,
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg1-':M:T",
+          globalContractArg = v1_base,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          globalContractKeyWithMaintainers = Some(v1_key),
+        )
+        res shouldBe a[Right[_, _]]
+      }
     }
 
     "be able to fetch a locally created contract using different versions" in {
@@ -971,6 +991,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               _: '-pkg2-':M:T <- fetch_template @'-pkg2-':M:T cid
             in upure @(ContractId '-pkg1-':M:T) cid
           """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
         availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -991,6 +1013,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               _: '-pkg2-':M:T <- fetch_by_key @'-pkg2-':M:T alice
             in upure @(ContractId '-pkg1-':M:T) cid
           """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
         availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -1010,6 +1034,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               _: Unit <- exercise @'-pkg2-':M:T NoOp cid ()
             in upure @(ContractId '-pkg1-':M:T) cid
           """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
         availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -1030,6 +1056,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  _: Unit <- exercise_by_key @'-pkg2-':M:T NoOp alice ()
                in upure @(ContractId '-pkg1-':M:T) cid
           """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
         availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -1053,6 +1081,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                                 alice
                in upure @(ContractId '-pkg1-':M:T) cid
           """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
         availablePackages = Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
@@ -1067,29 +1097,44 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "do recompute and check immutability of meta data when using different versions" in {
-      // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res: Either[SError, (SValue, Value)] = go(
-        e"""\(cid: ContractId '-pkg1-':M:T) ->
-               ubind
-                 x1: Unit <- '-pkg2-':M:do_fetch cid;
-                 x2: Unit <- '-pkg3-':M:do_fetch cid
-               in upure @Unit ()
-          """,
-        availablePackages = Map(
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
           utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
           pkgId2 -> pkg2,
           pkgId3 -> pkg3,
         ),
-        globalContractPackageName = pkgName,
-        globalContractTemplateId = i"'-pkg1-':M:T",
-        globalContractArg = v1_base,
-        globalContractSignatories = List(alice),
-        globalContractObservers = List(bob),
-        globalContractKeyWithMaintainers = Some(v1_key),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId2 -> pkg2,
+          pkgId3 -> pkg3,
+        ),
       )
-      res shouldBe a[Right[_, _]]
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
+        val res: Either[SError, (SValue, Value)] = go(
+          e"""\(cid: ContractId '-pkg2-':M:T) ->
+               ubind
+                 x1: Unit <- '-pkg2-':M:do_fetch cid;
+                 x2: Unit <- '-pkg3-':M:do_fetch cid
+               in upure @Unit ()
+          """,
+          availablePackages = availablePackages,
+          globalContractPackageName = pkgName,
+          globalContractTemplateId = i"'-pkg1-':M:T",
+          globalContractArg = v1_base,
+          globalContractSignatories = List(alice),
+          globalContractObservers = List(bob),
+          globalContractKeyWithMaintainers = Some(v1_key),
+        )
+        res shouldBe a[Right[_, _]]
+      }
     }
   }
 
@@ -1116,6 +1161,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         goDisclosed(
           e"'-pkg1-':M:do_fetch",
+          // We cannot test the case where the creation package is unavailable because this test case tests the case
+          // when we try to read it back using the same package version.
           availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
@@ -1165,6 +1212,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         goDisclosed(
           e"'-pkg1-':M:do_fetch",
+          // We cannot test the case where the creation package is unavailable because this test case tests the case
+          // when we try to read it back using the same package version.
           availablePackages = Map(
             utilPkgId -> utilPkg,
             ifacePkgId -> ifacePkg,
