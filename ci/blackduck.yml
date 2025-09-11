@@ -151,8 +151,6 @@ jobs:
       eval "$(./dev-env/bin/dade-assist)"
       source $(bash_lib)
       
-      gh auth status
-      export GITHUB_TOKEN=$(gh auth token)
       git config --global url.https://${GITHUB_TOKEN}@github.com/.insteadOf https://github.com/
       
       branch="notices-update-$(Build.BuildId)"
@@ -169,6 +167,7 @@ jobs:
       fi
     env:
       AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+      GITHUB_TOKEN: $(GH_DAML_READWRITE)
     displayName: 'Open PR to update NOTICES file'
     name: out
     condition: and(succeeded(),
