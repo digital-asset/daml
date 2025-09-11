@@ -43,10 +43,13 @@ def extract_test_name_map(mapping_filename: str):
     """
     Extracts the short and long test names from a file. The file is a JSON object
     with keys being the short names and values being the long names.
+    In linux env, this file is not generated but mapping is also not needed.
     """
+    if not os.path.exists(mapping_filename):
+        return {}
     with open(mapping_filename, 'r', encoding='utf-8-sig') as f:
         content = f.read().replace("@", "")
-        print(f"content: {content}")
+        print(f"content: {content}") ##
         return json.loads(content)
 
 def getTestName(test_name: str, test_name_map: dict):
@@ -181,11 +184,11 @@ if __name__ == "__main__":
     [_, access_token, branch, report_filename, mapping_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
-    print(f"mapping file: {mapping_filename}")
+    print(f"mapping file: {mapping_filename}") ##
     test_name_map = extract_test_name_map(mapping_filename)
-    print(f"^^^^ {test_name_map}")
+    print(f"^^^^ {test_name_map}") ##
     for test_name in failing_tests:
-        print(f"Reporting {test_name}")
+        print(f"Reporting {test_name} - {getTestName(test_name, test_name_map)}")
         #print(f"=== {test_name_map[test_name]}")
         #report_failed_test(branch, test_name)
         print_failed_test(branch, getTestName(test_name, test_name_map))

@@ -16,8 +16,6 @@ steps:
         eval "$(dev-env/bin/dade assist)"
       fi
       cd ..
-      echo "mapping:" 
-      echo ">>$(cat sdk/scala-test-suite-name-map.json)<<"
       
       report="sdk/test-events.json"
       mapping="sdk/scala-test-suite-name-map.json"
