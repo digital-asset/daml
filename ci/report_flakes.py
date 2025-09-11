@@ -49,7 +49,6 @@ def extract_test_name_map(mapping_filename: str):
         return {}
     with open(mapping_filename, 'r', encoding='utf-8-sig') as f:
         content = f.read().replace("@", "")
-        print(f"content: {content}") ##
         return json.loads(content)
 
 def getTestName(test_name: str, test_name_map: dict):
@@ -184,13 +183,10 @@ if __name__ == "__main__":
     [_, access_token, branch, report_filename, mapping_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
-    print(f"mapping file: {mapping_filename}") ##
     test_name_map = extract_test_name_map(mapping_filename)
-    print(f"^^^^ {test_name_map}") ##
+    print(f"Using {len(test_name_map)} short-long name mappings.")
     for test_name in failing_tests:
         print(f"Reporting {test_name} - {getTestName(test_name, test_name_map)}")
-        #print(f"=== {test_name_map[test_name]}")
-        #report_failed_test(branch, test_name)
         print_failed_test(branch, getTestName(test_name, test_name_map))
     if failing_tests:
         print('Increasing logs retention to 2 years')

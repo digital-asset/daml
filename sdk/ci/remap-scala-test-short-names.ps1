@@ -21,19 +21,6 @@ if ($scala_test_targets.count -gt 0) {
     # `da_scala_test_short_name_aspect` aspect.
     # After capturing the command output the actual output lines are
     # matched to extract the mapping file names.
-    # Bazel writes the output of --experimental_show_artifacts to stderr
-    # instead of stdout. In Powershell this means that these outputs are not
-    # plain strings, but instead error objects. Simply redirecting these to
-    # stdout and piping them into further processing will lead to
-    # indeterministically missing items or indeterministically introduced
-    # additional newlines which may break paths.
-    #
-    # To work around this we extract the error message from error objects,
-    # introduce appropriate newlines, and write the output to a temporary file
-    # before further processing.
-    #
-    # This solution is taken and adapted from
-    # https://stackoverflow.com/a/48671797/841562
     $bazelexitcode = 0
     $tmp = New-TemporaryFile
     bazel.exe aquery `
