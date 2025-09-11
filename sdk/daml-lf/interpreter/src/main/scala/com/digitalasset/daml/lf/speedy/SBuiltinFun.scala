@@ -460,7 +460,7 @@ private[lf] object SBuiltinFun {
         case v => crash(s"type mismatch implodeText: expected SText, got $v")
       }
 
-      machine.updateGasBudget(_.BImplodeText.cost)
+      machine.updateGasBudget(_.BImplodeText.cost(xs))
 
       SText(Utf8.implode(ts.toImmArray))
     }

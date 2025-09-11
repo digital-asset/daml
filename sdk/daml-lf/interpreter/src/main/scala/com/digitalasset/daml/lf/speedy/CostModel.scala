@@ -66,7 +66,7 @@ abstract class CostModel {
   val BTextToContractId: CostFunction1[Text]
   val BDateToUnixDays: CostFunction1[Date]
   val BExplodeText: CostFunction1[Text]
-  val BEImplodeText: CostFunction1[FrontStack[SValue]]
+  val BImplodeText: CostFunction1[FrontStack[SValue]]
   val BTimestampToUnixMicroseconds: CostFunction1[Timestamp]
   val BDateToText: CostFunction1[Date]
   val BUnixDaysToDate: CostFunction1[Int64]
@@ -269,7 +269,7 @@ object CostModel {
     override val BTextToContractId: CostFunction1[Text] = CostFunction1.Null
     override val BDateToUnixDays: CostFunction1[Date] = CostFunction1.Null
     override val BExplodeText: CostFunction1[Text] = CostFunction1.Null
-    override val BEImplodeText: CostFunction1[FrontStack[SValue]] = CostFunction1.Null
+    override val BImplodeText: CostFunction1[FrontStack[SValue]] = CostFunction1.Null
     override val BTimestampToUnixMicroseconds: CostFunction1[Timestamp] = CostFunction1.Null
     override val BDateToText: CostFunction1[Date] = CostFunction1.Null
     override val BUnixDaysToDate: CostFunction1[Int64] = CostFunction1.Null
@@ -561,7 +561,6 @@ object CostModel {
       CostFunction2.Constant(SInt64Size)
     override val BDivInt64: CostFunction2[Int64, Int64] =
       CostFunction2.Constant(SInt64Size)
-    CostFunction2.Constant(SInt64Size)
     override val BModInt64: CostFunction2[Int64, Int64] =
       CostFunction2.Constant(SInt64Size)
     override val BExpInt64: CostFunction2[Int64, Int64] =
@@ -642,7 +641,7 @@ object CostModel {
         LinearPolynomial(SListWrapperSize + FrontStackSize.a, FrontStackSize.b * SInt64Size)
       (text: String) => poly.calculate(text.length)
     }
-    override val BEImplodeText: CostFunction1[FrontStack[SValue]] = {
+    override val BImplodeText: CostFunction1[FrontStack[SValue]] = {
       val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b)
       (list: FrontStack[SValue]) =>
         // be carefull computation of n should use bounded memory
