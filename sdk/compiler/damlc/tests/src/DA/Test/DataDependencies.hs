@@ -25,7 +25,6 @@ import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
-import Text.Printf
 
 import SdkVersion (SdkVersioned, damlStdlib, sdkVersion, withSdkVersions)
 
@@ -672,7 +671,6 @@ tests TestArgs{..} =
         genSimpleDalf <-
             locateRunfiles
             (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> genSimpleDalfExe)
-        putStrLn $ printf "the daml.yaml dir: %s" (show $ projDir </> "daml.yaml")
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
           [ "sdk-version: " <> sdkVersion
           , "name: proj"
@@ -682,7 +680,6 @@ tests TestArgs{..} =
           , "data-dependencies: [simple-dalf-1.0.0.dalf]"
           , "build-options: [--package=simple-dalf-1.0.0]"
           ]
-        putStrLn $ printf "the a.daml dir: %s" (show $ projDir </> "A.daml")
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "module A where"
             , "import Daml.Script"
