@@ -854,14 +854,14 @@ depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.ele
 
 generatePackageImports :: Rules ()
 generatePackageImports =
-    defineEarlyCutoff $ \GeneratePackageImports file -> do
-      PackageMap pkgMap <- use_ GeneratePackageMap file
-      deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      let imports = depsToIds pkgMap deps
-      let hash :: BS.ByteString
-          hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
-      return (Just hash, ([], Just (Right imports)))
-
+  --TODO[RB]: probably see if we need to guard this on the version
+  defineEarlyCutoff $ \GeneratePackageImports file -> do
+    PackageMap pkgMap <- use_ GeneratePackageMap file
+    deps <- depPkgDeps <$> use_ GetDependencyInformation file
+    let imports = depsToIds pkgMap deps
+    let hash :: BS.ByteString
+        hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
+    return (Just hash, ([], Just (Right imports)))
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.

@@ -26,7 +26,6 @@ import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
 import qualified Data.Map            as M
 import           Data.Int
-import           Data.Either (isRight, fromRight)
 
 import           Text.Printf (printf)
 
@@ -210,27 +209,16 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) -> do
         (eMap :: Either NoPkgImportsReason ImportMap) <- asks (view importMap)
-        ifVersion (\v -> p `notElem` stableIds && isRight eMap && v `supports` featureFlatArchive) version
+        ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
           {-then-}
-            (do
-                let (mID :: Maybe Int32) = M.lookup p $ fromRight (error "can't happen") eMap
-                return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
+             (case eMap of
+               Left r ->
+                 error $ printf "Did not find imported package ids (Left), reason: " $ show r
+               Right ids ->
+                 let (mID :: Maybe Int32) = M.lookup p ids
+                 in  maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) (return . P.SelfOrImportedPackageIdSumPackageImportId) mID)
           {-else-}
             (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
-      -- ImportedPackageId p@(PackageId pkgId) ->
-      --   ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
-      --     {-then-}
-      --       (do
-      --         -- (mID :: Maybe Int32) <- asks (M.lookup p . fromJust . view importMap)
-      --         (eMap :: Either String ImportMap) <- asks (view importMap)
-      --         case eMap of
-      --             Left str ->
-      --               error $ printf "Expected an ImportMap but did not find it, reason: %s" str
-      --             Right mp -> do
-      --               let (mID :: Maybe Int32) = M.lookup p mp
-      --               return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
-      --     {-else-}
-      --       (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
