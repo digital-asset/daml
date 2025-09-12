@@ -1,0 +1,126 @@
+SUnit
+f715a5813cf70a50636c4ac72e7cfce25cff51f103b5cab6ab6277e86787c5a3
+SBool(true)
+04d74f55228a97092bad6346896c20e55479176d647bde99c6907cd392774142
+SBool(false)
+965c33abadcf5521406dec8f383af54ce283c1921324bd969cee3c3c2038056a
+SInt64(-1)
+10f9ae4fbff93578a6af97221d2b224f32c188c62b8d9e59d202a0f8681d2e48
+SInt64(0)
+afded2c33781331206999e6008262fce0bd5546e4f0a46fda0b1241246a14c5f
+SInt64(1)
+0dc5621a5e3f27c5b1c396d781e6debeb22673ed3c78e9fff05090203d247b11
+SNumeric(-10000.0000000000)
+579ed3d4243a90f21868f4403fea6afe5163bed06a65850662fd7a961a22237a
+SNumeric(0E-10)
+9d387d635dc2fa85dffd5c86672f9a839c56e0d629083ad2838242ba5edefde1
+SNumeric(10000.0000000000)
+757ef72632ddaa242a854d6f7ab84a63b44e1ae537f7b294bc316d8d28a7b94f
+SNumeric(-10000)
+e5ebf7bef34c5d34e0e01ad27b17f85db36a534ebefc24b71fb8ae843bad8c5d
+SNumeric(0)
+9d387d635dc2fa85dffd5c86672f9a839c56e0d629083ad2838242ba5edefde1
+SNumeric(10000)
+e92c88c1da684a6798c1df8973b482a34831112bbcadc06a545c0fbdf60dd9f6
+SDate(1970-01-01)
+171d80099c4cfe33b3b65c8a3591efb7459d3d5a041ea372d7e8cabd0d8f75c6
+SDate(1969-07-21)
+6f418029c77eda86dbfc8d4a4a96eb3ee45dff6ca0aae4ebd7b7de1976a19686
+SDate(2019-12-16)
+def742e13aaa46ec7c05b0999dd023a3750d3acd64c2a40a5bd1f7083078540e
+STimestamp(1970-01-01T00:00:00Z)
+6eb1242aee4f6f93892d941de59d4087d588b3db7253f5a70e02640bc7c8a413
+STimestamp(1969-07-21T02:56:15Z)
+a25e79f4b414a50579126761f714f27cc77455b070f1c585b408e90d1e7d645c
+STimestamp(2019-12-16T11:17:54.940779Z)
+309ed3e08fec1bbd72156029a1339ae5507ec39d2c027a9b22ce845a8cea56ee
+SText()
+c9f4f8971e9421f75c6e8ff7621d9217626bfb64dda50ae12e779686d116f014
+SText(someText)
+019cb323f31e9a7fc4d937b27e316e77fb7b255b2d77ada2ac238508e8e411b8
+SText(a¶‱😂)
+c96d4ef36afe3682d0859dd6bfdb2b56e34bbc022cb81b90c2be4668a52b7b9d
+SParty(alice)
+7012b68de316b8554a7adc2a8081fe69a51a86137813b38f24e71bfdcd4a9927
+SParty(bob)
+e51d64cd109e12a6c3d0d54a89465aa21cdbba198fb1fa1cae2c4b5d576667a7
+SOptional(None)
+d7ac8167ab21644c84b59de6d9785b759b9e0fcb4c94c83fa74fd6e1018fc46e
+SOptional(Some(SBool(false)))
+2204a7b6634cbfa49a1546d4ce78cafdff55831cb59593bb84c4fe4c18ca33fa
+SOptional(Some(SBool(true)))
+2ae134a8b01a80aa4f5b274fb8491da0f648843513be3a74fa8d666f8623559a
+SOptional(Some(SOptional(None)))
+0989ea11bd1cc721021c3184ca9e83f45a43aa87d06f8a4082bf97ea4c0fef44
+SOptional(Some(SOptional(Some(SBool(false)))))
+8d0725a55f86ce40d24dfb3c6396f299e91549c654ca9d2e64b1da6c57a683ca
+SList(FrontStack())
+c3a70da9c3c54837e5126ab3439e2b8a304e9f8a0d10297a0cc9881444c5205b
+SList(FrontStack(SBool(false)))
+50af81d2c7cb7282f678d6418ef87be0d6186c1d62fe5dd2852f99c6f17d456c
+SList(FrontStack(SBool(true)))
+171f98e3ddf1853b66f0ccc23d20a8ffa02b6438564abf1361a5d1478880ca27
+SList(FrontStack(SBool(false),SBool(false)))
+2378685110786d6e09db17db149fc0f41120f0f5eea04d79afbeafcb7466fb5a
+SList(FrontStack(SBool(false),SBool(true)))
+9b1a073487cdff78cc22aacae8447788e63f13659b142f76c980684b92f378e1
+SList(FrontStack(SBool(true),SBool(false)))
+6dabfb3c68fd9bcfeafb30da8ace649d758234f8d5b9011617aa51f7fcf51dd6
+SMap(true,TreeMap())
+4be9ecfbb6f295dd79481178d757ec58230e1ec9ac7091c2f1879d9bb9b9d823
+SMap(true,TreeMap(SText(a) -> SBool(false)))
+ac9918aaa6a5f21885389b988406d9888d752e340a20be6b42af201d3c1a0a6d
+SMap(true,TreeMap(SText(a) -> SBool(true)))
+43233cf3a08f575858917cdde8eb8e2d656690161d733009f97255ccbec0fede
+SMap(true,TreeMap(SText(b) -> SBool(false)))
+ed4e0fb29242cd2ad4ace76a27f8f1028513fe3e1c8ebec06f2832e2fbde5c9b
+SMap(true,TreeMap(SText(a) -> SBool(false), SText(b) -> SBool(false)))
+36fa78e1a827731f16bfdcb6493e61ea207dac4ff5e5b4e382048c94e2f9ff3f
+SMap(true,TreeMap(SText(a) -> SBool(true), SText(b) -> SBool(false)))
+60b0b0638bb3bed97901e3a7590205e3bed7114bf0f3c09c632385a073b3def1
+SMap(true,TreeMap(SText(a) -> SBool(false), SText(b) -> SBool(true)))
+c3e41e63ad9b04efdb0708081b2c99bf0116ee3e54ecc5b63dcb09fe8e046015
+SMap(true,TreeMap(SText(a) -> SBool(false), SText(c) -> SBool(false)))
+5c6fecf0fa4129c4c5082a0ff5860cc5a0127380bc3335909860bc6a4b75350a
+SMap(false,TreeMap())
+b307c27351ecd9c7f99cdd2290439bc9b33c1ff04de0ca2cbc9132dd53ef9fcd
+SMap(false,TreeMap(SText(a) -> SBool(false)))
+aa4948e1884a831d90785075fc2859121f729d384809b09e5cade0beee4cde1b
+SMap(false,TreeMap(SText(a) -> SBool(true)))
+7d1f7411ea8ca193a4bdaece2bf105181582bafe790a3e12c3a8ae8762ed5bb3
+SMap(false,TreeMap(SText(b) -> SBool(false)))
+d292cd5317cb9043c64994407db50e3688f2b74f2922fa939ec8aaa85ba5c34f
+SMap(false,TreeMap(SText(a) -> SBool(false), SText(b) -> SBool(false)))
+d721d72eee50ecaadcb47c5e2c4562dc96a22b9ac4ba6676dbae3e02e89ba74b
+SMap(false,TreeMap(SText(a) -> SBool(true), SText(b) -> SBool(false)))
+f95a0f28f24d82fa9cd898f2219c405345a78a8c4e7afba3b0fe32beab4ff7fb
+SMap(false,TreeMap(SText(a) -> SBool(false), SText(b) -> SBool(true)))
+5f5947d7059f363b1315fc392f51a32398688d125ecb3e1870fc55508160ba18
+SMap(false,TreeMap(SText(a) -> SBool(false), SText(c) -> SBool(false)))
+4969b4b56515a381f8294b84f048a39cd433d65e1cfa94c68a060cfeab561163
+SEnum(pkgId:Mod:Color,Red,0)
+4f35bb91ad68a85e59b9200f89c97ba2d3b90513e8b41b71f6859f1b82353dca
+SEnum(pkgId:Mod:Color,Green,1)
+b0a33b4886cf5b7837eb15a8cbbbde21edd5b069209b319f3263ff068fc2eb7c
+SEnum(pkgId:Mod:ColorBis,Green,1)
+72bef343ef54f43d28a36a615584348938580a13a1419e9e447c8fa30eb0102b
+SRecord(pkgId:Mod:Unit,ImmArray(),ArraySeq())
+6f5d7bdb660302a5ae9432b8f476cbdcd4f0936fd0c67b32ac995d79cade60e0
+SRecord(pkgId:Mod:UnitBis,ImmArray(),ArraySeq())
+af210124603be00134424a1c4f21258968371d6d193ca86bb6b2533e7a8fbe3f
+SRecord(pkgId:Mod:Tuple,ImmArray(_1,_2),ArraySeq(SBool(false), SBool(false)))
+5e39d06188d9cf78d98d8d7f8b348f929ca63d7f958a8143c182f37498f08444
+SRecord(pkgId:Mod:Tuple,ImmArray(_1,_2),ArraySeq(SBool(true), SBool(false)))
+16f2554d100382464384475ec25f971e2457da83cd84dfc85dc705631ca3bd31
+SRecord(pkgId:Mod:Tuple,ImmArray(_1,_2),ArraySeq(SBool(false), SBool(true)))
+48862c65ac404711e44e0d8b1e166aafcbdd08a669853f62ab168fe970a42918
+SRecord(pkgId:Mod:TupleBis,ImmArray(_1,_2),ArraySeq(SBool(false), SBool(false)))
+7668badcabd2caec2262a93b6be01e498eb3394287053d5d3c939fe3820a3ae0
+SVariant(pkgId:Mod:Either,Left,0,SBool(false))
+2828683048b6078e027d0e80af599f5baea20fd194270c7c45b26fbe04ca3ad9
+SVariant(pkgId:Mod:Either,Left,0,SBool(true))
+dbfef1915aa4dde158d409d0f3d78f6996bd025409cc5869a2a17f2896aa254d
+SVariant(pkgId:Mod:Either,Right,1,SBool(false))
+d6a378fcc67bdf83d4136f39604654535035972789690e6e0406d5e2124abfeb
+SVariant(pkgId:Mod:EitherBis,Left,0,SBool(false))
+291cb9dc019348123416b3fa9c47b3aff954e5611f9eebb1bd3f7d9414c967ed

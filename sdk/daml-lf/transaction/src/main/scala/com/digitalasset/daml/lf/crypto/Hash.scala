@@ -98,7 +98,7 @@ object Hash {
         )
   }
 
-  private def handleError[X](x: => X): Either[HashingError, X] =
+  private[crypto] def handleError[X](x: => X): Either[HashingError, X] =
     try {
       Right(x)
     } catch {
@@ -942,7 +942,7 @@ object Hash {
 
   private[crypto] class Version private (val id: Byte)
 
-  private object Version {
+  private[crypto] object Version {
     val Legacy = new Version(0) // LF 1.x to LF 2.1
     val UpgradeFriendly = new Version(1) // from LF 2.1
     val TypedNormalForm = new Version(3) // from LF 2.2

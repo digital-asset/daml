@@ -2,14 +2,26 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
+// We use the same package as daml-lf/transaction/src/main/scala/com/digitalasset/daml/lf/crypto/Hash.scala in order
+// to access classes and methods visible to the crypto package only. Yet this file is located in a different
+// bazel package so that it can depend on SValues, which we do not want the transaction package to depend on.
 package crypto
 
 import com.daml.crypto.MessageDigestPrototype
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash.{Builder, Purpose, Version, underlyingHashLength}
+import com.digitalasset.daml.lf.crypto.Hash.{
+  Builder,
+  HashingError,
+  Purpose,
+  Version,
+  aCid2Bytes,
+  bigIntNumericToBytes,
+  noCid2String,
+  underlyingHashLength,
+}
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast.VariantConName
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue.{SOptional, SText}
@@ -18,15 +30,69 @@ import com.digitalasset.daml.lf.value.Value
 import java.nio.ByteBuffer
 import scala.collection.immutable.{ArraySeq, TreeMap}
 
+/** Methods for hashing SValues modulo trailing Nones. */
 object SValueHash {
 
-  private[crypto] final class SValueHashBuilder(
-      version: Version,
+  // --- public interface ---
+
+  /** Hashes a contract key modulo trailing Nones. Throws [[HashingError]] if [key] contains non-serializable values. */
+  @throws[HashingError]
+  def assertHashContractKey(
+      packageName: Ref.PackageName,
+      templateName: Ref.QualifiedName,
+      key: SValue,
+  ): Hash = {
+    builder(Purpose.ContractKey, noCid2String, HashTracer.NoOp)
+      .addQualifiedName(templateName)
+      .addString(packageName)
+      .addSValue(key)
+      .build
+  }
+
+  /** Hashes a contract key modulo trailing Nones. Returns a Left if [key] contains non-serializable values. */
+  def hashContractKey(
+      packageName: Ref.PackageName,
+      templateName: Ref.QualifiedName,
+      key: SValue,
+  ): Either[HashingError, Hash] =
+    Hash.handleError(assertHashContractKey(packageName, templateName, key))
+
+  /** Hashes a contract modulo trailing Nones. Throws [[HashingError]] if [arg] contains non-serializable values. */
+  @throws[HashingError]
+  def assertHashContractInstance(
+      packageName: Ref.PackageName,
+      templateName: Ref.QualifiedName,
+      arg: SValue,
+  ): Hash = {
+    builder(Purpose.ThinContractInstance, aCid2Bytes, HashTracer.NoOp)
+      .addString(packageName)
+      .addQualifiedName(templateName)
+      .addSValue(arg)
+      .build
+  }
+
+  /** Hashes a contract modulo trailing Nones. Returns a Left if [arg] contains non-serializable values. */
+  def hashContractInstance(
+      packageName: Ref.PackageName,
+      templateName: Ref.QualifiedName,
+      arg: SValue,
+  ): Either[HashingError, Hash] =
+    Hash.handleError(assertHashContractInstance(packageName, templateName, arg))
+
+  // --- implementation ---
+
+  private def builder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
-      numericToBytes: data.Numeric => Bytes,
       hashTracer: HashTracer,
-  ) extends Builder(numericToBytes) {
+  ): SValueHashBuilder =
+    new SValueHashBuilder(purpose, cid2Bytes, hashTracer).addVersion
+
+  private[crypto] final class SValueHashBuilder(
+      purpose: Purpose,
+      cid2Bytes: Value.ContractId => Bytes,
+      hashTracer: HashTracer,
+  ) extends Builder(bigIntNumericToBytes) {
 
     private val INT64_TAG: Byte = 0
     private val NUMERIC_TAG: Byte = 1
@@ -60,11 +126,14 @@ object SValueHash {
     override protected def doFinal(buf: Array[Byte]): Unit =
       assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
-    def addVersion: this.type =
-      addByte(version.id, s"${formatByteToHexString(version.id)} (Value Encoding Version)")
+    private[crypto] def addVersion: this.type =
+      addByte(
+        Version.TypedNormalForm.id,
+        s"${formatByteToHexString(Version.TypedNormalForm.id)} (Value Encoding Version)",
+      )
         .addByte(purpose.id, s"${formatByteToHexString(purpose.id)} (Value Encoding Purpose)")
 
-    def addSValue(svalue: SValue): this.type =
+    private[crypto] def addSValue(svalue: SValue): this.type =
       svalue match {
         case SValue.SUnit =>
           // We could use value.productPrefix to enrich the context here and for all values
@@ -121,7 +190,7 @@ object SValueHash {
           throw new IllegalArgumentException(s"Unexpected SValue during hashing: $svalue")
       }
 
-    def addCid(cid: Value.ContractId): this.type =
+    private def addCid(cid: Value.ContractId): this.type =
       addBytes(cid2Bytes(cid), s"${cid.coid} (contractId)")
 
     private def addList(vs: FrontStack[SValue]): this.type =
@@ -153,7 +222,11 @@ object SValueHash {
         case None => addByte(0.toByte, "None (optional)")
       }
 
-    def addRecord(id: Identifier, labels: ImmArray[Name], values: ArraySeq[SValue]): this.type = {
+    private def addRecord(
+        id: Identifier,
+        labels: ImmArray[Name],
+        values: ArraySeq[SValue],
+    ): this.type = {
       discard(addQualifiedName(id.qualifiedName))
       val trailingNonesSize = values.reverseIterator.takeWhile {
         case SOptional(None) => true
