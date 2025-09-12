@@ -4,13 +4,16 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.PromiseUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcStreamingReceiver.AuthenticationTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.abort
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.topology.SequencerId
@@ -94,10 +97,47 @@ abstract class P2PGrpcStreamingReceiver(
         s"$this: Received sequencer ID for '$remotePeerId' already from authentication or first message"
       )
     }
-    logger.trace(
-      s"Forwarding gRPC message from '$remotePeerId' to p2p network input module: $message"
-    )
-    inputModule.asyncSend(message)
+
+    sequencerIdPromiseUS.futureUS
+      .map { sequencerId =>
+        if (validateNodeId(message, sequencerId)) {
+          logger.trace(
+            s"Forwarding gRPC message from '$remotePeerId' to p2p network input module: $message"
+          )
+          inputModule.asyncSend(message)
+        }
+      }
+      .onShutdown(
+        logger.debug(s"Dropping gRPC message from '$remotePeerId' on shutdown")
+      )
+      .discard
+  }
+
+  private def validateNodeId(message: BftOrderingMessage, sequencerId: SequencerId): Boolean = {
+    def emitNonCompliance(
+        metrics: BftOrderingMetrics
+    )(from: BftNodeId)(implicit mc: MetricsContext): Unit = {
+      val mcWithLabels = mc.withExtraLabels(
+        metrics.security.noncompliant.labels.Sequencer -> from,
+        metrics.security.noncompliant.labels.violationType.Key ->
+          metrics.security.noncompliant.labels.violationType.values.WrongGrpcMessageSentByBftNodeId,
+      )
+      metrics.security.noncompliant.behavior.mark()(mcWithLabels)
+    }
+
+    val bftNodeId = SequencerNodeId.toBftNodeId(sequencerId)
+
+    if (bftNodeId != message.sentBy) {
+      // Signature verification uses the `from` field (a.k.a. original sender) from the underlying (signed) message,
+      //  so validating the `sentBy` field from the top-level message is fine.
+      val msg =
+        s"$this: Sequencer ID (`$sequencerId`) from authentication and `sentBy` (`${message.sentBy}`) " +
+          s"do not match in gRPC message from '$remotePeerId'"
+      logger.warn(msg)
+      emitNonCompliance(metrics)(bftNodeId)
+      onError(new RuntimeException(msg))
+      false
+    } else true
   }
 
   final override def onError(t: Throwable): Unit = {

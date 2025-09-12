@@ -18,6 +18,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
@@ -61,7 +62,12 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
   /** Return the synchronizer ID to which the connections in the pool are connected. Empty if the
     * pool has not yet reached enough validated connections to initialize.
     */
-  def physicalSynchronizerId: Option[PhysicalSynchronizerId]
+  def physicalSynchronizerIdO: Option[PhysicalSynchronizerId]
+
+  /** Return the static parameters of the synchronizer to which the connections in the pool are
+    * connected. Empty if the pool has not yet reached enough validated connections to initialize.
+    */
+  def staticSynchronizerParametersO: Option[StaticSynchronizerParameters]
 
   /** Start the connection pool. This will start all the configured connections and begin validating
     * them.

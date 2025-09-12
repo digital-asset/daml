@@ -7,7 +7,7 @@ import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.LedgerTimeBoundaries
-import com.digitalasset.canton.ledger.api.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
@@ -25,7 +25,13 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandInterpreter.PackageResolver
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
-import com.digitalasset.canton.protocol.{CantonContractIdVersion, LfFatContractInst}
+import com.digitalasset.canton.protocol.{
+  CantonContractIdV1Version,
+  CantonContractIdV2Version,
+  CantonContractIdVersion,
+  LfFatContractInst,
+  LfHash,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -48,7 +54,7 @@ import scala.util.chaining.scalaUtilChainingOps
 private[apiserver] trait CommandInterpreter {
 
   def interpret(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -78,7 +84,7 @@ final class StoreBackedCommandInterpreter(
     with NamedLogging {
 
   override def interpret(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -124,7 +130,7 @@ final class StoreBackedCommandInterpreter(
   }
 
   private def commandInterpretationResult(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
       updateTx: SubmittedTransaction,
       meta: Transaction.Metadata,
@@ -185,7 +191,7 @@ final class StoreBackedCommandInterpreter(
   }
 
   private def submitToEngine(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
       interpretationTimeNanos: AtomicLong,
   )(implicit
@@ -280,14 +286,19 @@ final class StoreBackedCommandInterpreter(
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
-          // TODO(#23971) - Add support for V2 contract IDs
-          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
-            case Right(v1Version) =>
+          (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
+            case Right(version) =>
+              val hashingMethod = version match {
+                case v1: CantonContractIdV1Version => v1.contractHashingMethod
+                case _: CantonContractIdV2Version =>
+                  // TODO(#23971) - Add support for transforming the contract argument prior to hashing and switch to TypedNormalForm
+                  LfHash.HashingMethod.UpgradeFriendly
+              }
               timedLookup(acoid).map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    v1Version.contractHashingMethod,
+                    hashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound

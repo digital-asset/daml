@@ -130,12 +130,19 @@ class TransactionConfirmationRequestFactoryTest
       override def generateUuid(): UUID = transactionUuid
     }
 
+  // Input factory
+  private val transactionFactory: ExampleTransactionFactory =
+    new ExampleTransactionFactory()(ledgerTime = ledgerTime)
+
   // Device under test
   private def confirmationRequestFactory(
       transactionTreeFactoryResult: Either[TransactionTreeConversionError, GenTransactionTree]
   ): TransactionConfirmationRequestFactory = {
 
     val transactionTreeFactory: TransactionTreeFactory = new TransactionTreeFactory {
+      override def cantonContractIdVersion: CantonContractIdVersion =
+        transactionFactory.cantonContractIdVersion
+
       override def createTransactionTree(
           transaction: WellFormedTransaction[WithoutSuffixes],
           submitterInfo: SubmitterInfo,
@@ -208,10 +215,6 @@ class TransactionConfirmationRequestFactoryTest
     EitherT.leftT(ContractLookupError(id, "Error in test: argument should not be used"))
   }
   // This isn't used because the transaction tree factory is mocked
-
-  // Input factory
-  private val transactionFactory: ExampleTransactionFactory =
-    new ExampleTransactionFactory()(ledgerTime = ledgerTime)
 
   // Since the ConfirmationRequestFactory signs the envelopes in parallel,
   // we cannot predict the counter that SymbolicCrypto uses to randomize the signatures.

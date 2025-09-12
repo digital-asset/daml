@@ -166,7 +166,8 @@ final class GeneratorsData(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[CreateActionDescription] =
     for {
-      contractId <- Arbitrary.arbitrary[LfContractId]
+      // Contract IDs in action descriptions are always relative
+      contractId <- relativeLfContractIdArb.arbitrary
       seed <- Arbitrary.arbitrary[LfHash]
     } yield CreateActionDescription(contractId, seed)(rpv)
 
@@ -174,7 +175,8 @@ final class GeneratorsData(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[ExerciseActionDescription] =
     for {
-      inputContractId <- Arbitrary.arbitrary[LfContractId]
+      // Input contract IDs in exercise descriptions are always suffixed, but not necessarily absolute
+      inputContractId <- suffixedLfContractIdArb.arbitrary
 
       templateId <- Arbitrary.arbitrary[LfTemplateId]
 
@@ -211,7 +213,8 @@ final class GeneratorsData(
       rpv: RepresentativeProtocolVersion[ActionDescription.type]
   ): Gen[FetchActionDescription] =
     for {
-      inputContractId <- Arbitrary.arbitrary[LfContractId]
+      // Input contract IDs in fetch action descriptions are always suffixed, but not necessarily absolute
+      inputContractId <- suffixedLfContractIdArb.arbitrary
       actors <- boundedSetGen[LfPartyId]
       byKey <- Gen.oneOf(true, false)
       templateId <- Arbitrary.arbitrary[LfTemplateId]

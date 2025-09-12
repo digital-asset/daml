@@ -179,10 +179,12 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     pendingSends.put(submission.messageId, startedAt).discard
 
     // Picking a correct max sequencing time could be technically difficult,
-    // so instead we pick the biggest point in time that should ensure the sequencer always
+    // so instead we pick the next day, which should ensure the sequencer always
     // attempts to sequence valid sends
     def extendMaxSequencingTime(submission: SubmissionRequest): SubmissionRequest =
-      submission.updateMaxSequencingTime(maxSequencingTime = CantonTimestamp.MaxValue)
+      submission.updateMaxSequencingTime(maxSequencingTime =
+        CantonTimestamp.now().plus(24.hours.toJava)
+      )
 
     def handleSendResult(
         result: Either[SendAsyncClientError, Unit]

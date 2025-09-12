@@ -198,7 +198,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           )
         )
 
-        // Change the protocol keys
+        // Change the protocol keys and threshold
         cpn.topology.party_to_key_mappings.sign_and_update(
           aliceE.partyId,
           env.daId,

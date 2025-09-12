@@ -22,34 +22,31 @@ object CantonContractIdVersion {
     if (protocolVersion >= ProtocolVersion.v34) Right(AuthenticatedContractIdVersionV11)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
-  def extractCantonContractIdV1Version(
-      contractId: LfContractId
-  ): Either[String, CantonContractIdV1Version] =
-    extractCantonContractIdVersion(contractId)
-      .leftMap(e => s"Contract id is malformed: $e")
-      .flatMap {
-        case c: CantonContractIdV1Version => Right(c)
-        case other => Left(s"Expected CantonContractIdV1Version, got: $other")
-      }
-
   def extractCantonContractIdVersion(
       contractId: LfContractId
-  ): Either[MalformedContractId, CantonContractIdVersion] =
+  ): Either[String, CantonContractIdVersion] =
+    contractId match {
+      case v1: LfContractId.V1 => extractCantonContractIdVersionV1(v1)
+      case v2: LfContractId.V2 => extractCantonContractIdVersionV2(v2)
+    }
+
+  private def extractCantonContractIdVersionV1(
+      contractId: LfContractId.V1
+  ): Either[String, CantonContractIdV1Version] = {
+    val suffix = contractId.suffix
     for {
-      suffix <- contractId match {
-        case LfContractId.V1(_, suffix) => Right(suffix)
-        case _ => Left(MalformedContractId(contractId.coid, s"Expected V1 contract id"))
-      }
-      versionedContractId <- CantonContractIdVersion
-        .fromContractSuffix(suffix)
-        .leftMap(error => MalformedContractId(contractId.toString, error))
-
+      version <- CantonContractIdVersion.fromContractSuffixV1(suffix)
       unprefixedSuffix = suffix.slice(versionPrefixBytesSize, suffix.length)
-
       _ <- Hash
         .fromByteString(unprefixedSuffix.toByteString)
-        .leftMap(err => MalformedContractId(contractId.toString, err.message))
-    } yield versionedContractId
+        .leftMap(err => s"Malformed contract id suffix: ${err.message}")
+    } yield version
+  }
+
+  def extractCantonContractIdVersionV2(
+      contractId: LfContractId.V2
+  ): Either[String, CantonContractIdV2Version] =
+    fromContractSuffixV2(contractId.suffix)
 
   // Only use when the contract has been authenticated
   def tryCantonContractIdVersion(contractId: LfContractId): CantonContractIdVersion =
@@ -59,16 +56,43 @@ object CantonContractIdVersion {
       )
     }
 
-  private def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
+  private def fromContractSuffixV1(
+      contractSuffix: Bytes
+  ): Either[String, CantonContractIdV1Version] =
     if (contractSuffix.startsWith(AuthenticatedContractIdVersionV11.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV11)
     } else if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV10)
     } else {
       Left(
-        s"Suffix ${contractSuffix.toHexString} is not a supported contract-id prefix"
+        s"Malformed contract ID: Suffix '${contractSuffix.toHexString}' is not a supported contract-id V1 prefix"
       )
     }
+
+  private def fromContractSuffixV2(
+      contractSuffix: Bytes
+  ): Either[String, CantonContractIdV2Version] =
+    if (
+      contractSuffix.startsWith(CantonContractIdV2Version0.versionPrefixBytesAbsolute) ||
+      contractSuffix.startsWith(CantonContractIdV2Version0.versionPrefixBytesRelative)
+    ) {
+      Right(CantonContractIdV2Version0)
+    } else {
+      Left(
+        s"Malformed contract ID: Suffix '${contractSuffix.toHexString}' is not a supported contract-id V2 prefix"
+      )
+    }
+
+  /** The list of all known contract ID versions.
+    *
+    * Lazily initialized to work around bug https://github.com/scala/bug/issues/9115
+    */
+  lazy val all: Seq[CantonContractIdVersion] =
+    Seq(
+      AuthenticatedContractIdVersionV10,
+      AuthenticatedContractIdVersionV11,
+      CantonContractIdV2Version0,
+    )
 }
 
 sealed trait CantonContractIdVersion
@@ -117,10 +141,14 @@ case object AuthenticatedContractIdVersionV11 extends CantonContractIdV1Version(
 }
 
 sealed trait CantonContractIdV2Version extends CantonContractIdVersion {
+  def versionPrefixBytesRelative: Bytes
+  def versionPrefixBytesAbsolute: Bytes
   override type AuthenticationData = ContractAuthenticationDataV2
 }
 
 case object CantonContractIdV2Version0 extends CantonContractIdV2Version {
+  override lazy val versionPrefixBytesRelative: Bytes = Bytes.fromByteArray(Array(0x00.toByte))
+  override lazy val versionPrefixBytesAbsolute: Bytes = Bytes.fromByteArray(Array(0x80.toByte))
   override protected def comparisonKey: Int = 256
 }
 
@@ -141,9 +169,4 @@ object ContractIdSyntax {
 
   implicit val orderingLfContractId: Ordering[LfContractId] =
     Ordering.by[LfContractId, String](_.coid)
-}
-
-final case class MalformedContractId(id: String, message: String) {
-  override def toString: String =
-    s"malformed contract id '$id'" + (if (message.nonEmpty) s". $message" else "")
 }

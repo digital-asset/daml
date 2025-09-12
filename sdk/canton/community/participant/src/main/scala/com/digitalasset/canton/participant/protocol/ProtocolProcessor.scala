@@ -783,6 +783,8 @@ abstract class ProtocolProcessor[
         )
         (incorrectRecipients, viewsWithCorrectRootHashAndRecipients) = checkRecipientsResult
 
+        // TODO(#23971) Absolutize ledger effects before passing them to ExtractUsedAndCreated
+
         (fullViewsWithCorrectRootHashAndRecipients, incorrectDecryptedViews) =
           steps.computeFullViews(viewsWithCorrectRootHashAndRecipients)
 

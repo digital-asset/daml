@@ -38,6 +38,8 @@ object ByteStringUtil {
     }
   }
 
+  val orderingByteString: Ordering[ByteString] = orderByteString.toOrdering
+
   def compressGzip(bytes: ByteString): ByteString = {
     val rawSize = bytes.size()
     val compressed = new ByteArrayOutputStream(rawSize)

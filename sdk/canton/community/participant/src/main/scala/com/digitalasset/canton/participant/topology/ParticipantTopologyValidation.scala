@@ -52,7 +52,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
     val toBeKept = currentlyVettedPackages.intersect(nextPackageIds)
     for {
       _ <- checkPackageDependencies(
-        currentlyVettedPackages,
+        toBeKept,
         toBeAdded,
         packageDependencyResolver,
         forceFlags,

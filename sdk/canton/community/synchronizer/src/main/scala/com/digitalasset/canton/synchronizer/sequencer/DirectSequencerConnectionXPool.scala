@@ -50,7 +50,11 @@ class DirectSequencerConnectionXPool(
     loggerFactory,
   )
 
-  override def physicalSynchronizerId: Option[PhysicalSynchronizerId] = Some(mySynchronizerId)
+  override def physicalSynchronizerIdO: Option[PhysicalSynchronizerId] = Some(mySynchronizerId)
+
+  override def staticSynchronizerParametersO: Option[StaticSynchronizerParameters] = Some(
+    staticParameters
+  )
 
   override def start()(implicit
       traceContext: TraceContext

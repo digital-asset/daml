@@ -45,7 +45,7 @@ class JsUpdateServiceTest
   private val filters = Filters(Seq(interfaceFilter))
 
   "toUpdateFormat" should {
-    "add a wildcard when filters do not contain a wildcard filter" in {
+    "add a wildcard when filters do not contain a wildcard filter and is needed for trees" in {
       combinations.foreach { case (verbose, byParty, anyParty) =>
         val interfaceFilter = CumulativeFilter(
           IdentifierFilter.InterfaceFilter(
@@ -70,7 +70,7 @@ class JsUpdateServiceTest
             filtersForAnyParty = if (anyParty) Some(filters) else None,
           )
 
-        val updateFormat = toUpdateFormat(txFilter, verbose)
+        val updateFormat = toUpdateFormat(filter = txFilter, verbose = verbose, forTrees = true)
 
         updateFormat.includeTransactions.flatMap(_.eventFormat) should not be empty
         checkEventFormat(
@@ -110,7 +110,7 @@ class JsUpdateServiceTest
             filtersForAnyParty = if (anyParty) Some(filters.addCumulative(wf)) else None,
           )
 
-        val updateFormat = toUpdateFormat(txFilter, verbose)
+        val updateFormat = toUpdateFormat(filter = txFilter, verbose = verbose, forTrees = true)
 
         updateFormat.includeTransactions.flatMap(_.eventFormat) should not be empty
         checkEventFormat(
@@ -127,6 +127,39 @@ class JsUpdateServiceTest
           interfaceFilter = interfaceFilter,
           includeCreatedEventBlob = true,
         )
+
+        updateFormat.includeTopologyEvents shouldBe empty
+      }
+      succeed
+    }
+
+    "NOT add a wildcard when filters are NOT needed for trees" in {
+      combinations.foreach { case (verbose, byParty, anyParty) =>
+        val txFilter =
+          TransactionFilter(
+            filtersByParty =
+              if (byParty) Map("party" -> filters)
+              else Map.empty,
+            filtersForAnyParty = if (anyParty) Some(filters) else None,
+          )
+
+        val updateFormat = toUpdateFormat(filter = txFilter, verbose = verbose, forTrees = false)
+
+        updateFormat.includeTransactions.flatMap(_.eventFormat) should not be empty
+        val eventFormatTx =
+          updateFormat.includeTransactions.flatMap(_.eventFormat).toList.loneElement
+        eventFormatTx.verbose shouldBe verbose
+        (eventFormatTx.filtersByParty.values ++ eventFormatTx.filtersForAnyParty).foreach {
+          filters =>
+            filters.cumulative shouldBe Seq(interfaceFilter)
+        }
+
+        updateFormat.includeReassignments should not be empty
+        val eventFormatRe = updateFormat.includeReassignments.toList.loneElement
+        (eventFormatRe.filtersByParty.values ++ eventFormatRe.filtersForAnyParty).foreach {
+          filters =>
+            filters.cumulative shouldBe Seq(interfaceFilter)
+        }
 
         updateFormat.includeTopologyEvents shouldBe empty
       }

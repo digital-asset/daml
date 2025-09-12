@@ -8,7 +8,10 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeL
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch, ViewPosition}
-import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.protocol.ContractIdAbsolutizer.{
+  ContractIdAbsolutizationDataV1,
+  ContractIdAbsolutizationDataV2,
+}
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.pruning.CounterParticipantIntervalsBehind
 import com.digitalasset.canton.sequencing.TrafficControlParameters
@@ -24,7 +27,7 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{GeneratorsLf, LfPartyId, ReassignmentCounter}
-import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
@@ -182,46 +185,68 @@ final class GeneratorsProtocol(
     Arbitrary(SerializableRawContractInstance.create(contractInstance).value)
   }
 
-  private def contractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11
-
   private lazy val symbolicCrypto: CryptoPureApi = new SymbolicPureCrypto()
-  private lazy val contractIdSuffixer: ContractIdSuffixer =
-    new ContractIdSuffixer(symbolicCrypto, contractIdVersion)
 
-  {
-    // If this pattern match is not exhaustive anymore, update the method below
-    ((_: CantonContractIdVersion) match {
-      case AuthenticatedContractIdVersionV10 => ()
-      case AuthenticatedContractIdVersionV11 => ()
-      case CantonContractIdV2Version0 => () // TODO(#23971): Add support for V2
-    }).discard
-  }
   def serializableContractArb(
       metadata: ContractMetadata
   ): Arbitrary[SerializableContract] =
-    Arbitrary(
+    Arbitrary {
+      val contractInst =
+        metadata.maybeKeyWithMaintainers.fold(ExampleTransactionFactory.contractInstance())(key =>
+          ExampleTransactionFactory.contractInstance(
+            templateId = key.globalKey.templateId,
+            packageName = key.globalKey.packageName,
+          )
+        )
+      val rawContractInstance = SerializableRawContractInstance.create(contractInst).value
       for {
-        rawContractInstance <- Arbitrary.arbitrary[SerializableRawContractInstance]
         ledgerCreateTime <- Arbitrary.arbitrary[CreationTime.CreatedAt]
-
-        psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
-        mediatorGroup <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid
 
-        index <- Gen.posNum[Int]
-        contractIdDiscriminator = ExampleTransactionFactory.lfHash(index)
+        contractIdVersion <- Gen.oneOf(CantonContractIdVersion.all)
+        contractIdSuffixer = new ContractIdSuffixer(symbolicCrypto, contractIdVersion)
 
-        salt = ContractSalt.create(symbolicCrypto)(
-          transactionUUID,
-          psid,
-          mediatorGroup,
-          TestSalt.generateSalt(saltIndex),
-          createIndex = 0,
-          ViewPosition(List.empty),
-        )
-        unsuffixedContractId = LfContractId.V1(contractIdDiscriminator)
+        unsuffixedContractIdAndSaltAndAbsolutizationData <- contractIdVersion match {
+          case _: CantonContractIdV1Version =>
+            for {
+              psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+              mediatorGroup <- Arbitrary.arbitrary[MediatorGroupRecipient]
+              index <- Gen.posNum[Int]
+            } yield {
+              val contractIdDiscriminator = ExampleTransactionFactory.lfHash(index)
+              val salt = ContractSalt.createV1(symbolicCrypto)(
+                transactionUUID,
+                psid,
+                mediatorGroup,
+                TestSalt.generateSalt(saltIndex),
+                createIndex = 0,
+                ViewPosition(List.empty),
+              )
+              (LfContractId.V1(contractIdDiscriminator), salt, ContractIdAbsolutizationDataV1)
+            }
+          case _: CantonContractIdV2Version =>
+            for {
+              index <- Gen.posNum[Int]
+              time <- Arbitrary.arbitrary[CantonTimestamp]
+              transactionId <- Arbitrary.arbitrary[TransactionId]
+            } yield {
+              val discriminator = ExampleTransactionFactory.lfHash(index)
+              val salt = ContractSalt.createV2(symbolicCrypto)(
+                TestSalt.generateSalt(saltIndex),
+                createIndex = 0,
+                ViewPosition(List.empty),
+              )
+              val absolutizationData = ContractIdAbsolutizationDataV2(
+                transactionId,
+                CantonTimestamp(ledgerCreateTime.time),
+              )
+              (LfContractId.V2.unsuffixed(time.toLf, discriminator), salt, absolutizationData)
+            }
+        }
+        (unsuffixedContractId, salt, absolutizationData) =
+          unsuffixedContractIdAndSaltAndAbsolutizationData
         unsuffixedCreateNode = LfNodeCreate(
           unsuffixedContractId,
           rawContractInstance.contractInstance,
@@ -229,22 +254,38 @@ final class GeneratorsProtocol(
           metadata.stakeholders,
           metadata.maybeKeyWithMaintainers,
         )
-        ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
+        relativeLedgerCreateTime = contractIdVersion match {
+          case _: CantonContractIdV1Version => ledgerCreateTime
+          case _: CantonContractIdV2Version => CreationTime.Now
+        }
+        ContractIdSuffixer
+          .RelativeSuffixResult(relativeCreateNode, _, _, relativeAuthenticationData) =
           contractIdSuffixer
             .relativeSuffixForLocalContract(
               salt,
-              ledgerCreateTime,
+              relativeLedgerCreateTime,
               unsuffixedCreateNode,
             )
             .valueOr(err => throw new IllegalArgumentException(s"Failed to suffix contract: $err"))
-      } yield SerializableContract(
-        suffixedCreateNode.coid,
-        rawContractInstance,
-        metadata,
-        ledgerCreateTime,
-        authenticationData,
-      )
-    )
+        relativeFci = FatContractInstance.fromCreateNode(
+          relativeCreateNode,
+          relativeLedgerCreateTime,
+          relativeAuthenticationData.toLfBytes,
+        )
+        fci = {
+          val absolutizer = new ContractIdAbsolutizer(symbolicCrypto, absolutizationData)
+          absolutizer
+            .absolutizeFci(relativeFci)
+            .valueOr(err =>
+              throw new IllegalArgumentException(s"Failed to absolutize contract: $err")
+            )
+        }
+      } yield SerializableContract
+        .fromLfFatContractInst(fci)
+        .valueOr(err =>
+          throw new IllegalArgumentException(s"failed to create serializable contract: $err")
+        )
+    }
 
   def serializableContractArb(
       canHaveEmptyKey: Boolean

@@ -107,4 +107,5 @@ object HashPurpose {
   val SessionKeyDelegation = HashPurpose(56, "SessionKeyDelegation")
   val ReassignmentId = HashPurpose(57, "ReassignmentId")
   val EncryptedSessionKey = HashPurpose(58, "EncryptedSessionKey")
+  val ContractIdAbsolutization = HashPurpose(59, "ContractIdAbsolutization")
 }

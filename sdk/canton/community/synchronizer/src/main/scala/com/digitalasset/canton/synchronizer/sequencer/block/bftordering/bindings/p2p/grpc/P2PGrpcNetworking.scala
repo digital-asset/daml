@@ -5,14 +5,18 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.binding
 
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.TlsClientConfig
+import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.AuthenticationServices
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.stub.StreamObserver
 
+import scala.util.Try
 import scala.util.control.NonFatal
 
 object P2PGrpcNetworking {
@@ -52,11 +56,7 @@ object P2PGrpcNetworking {
         with Product
         with PrettyPrinting {
 
-      // Used for metrics
       lazy val url = s"${if (transportSecurity) "https" else "http"}://$address:$port"
-
-      // Used for logs
-      lazy val logString = s"${if (transportSecurity) "https" else "http"}_${address}_$port"
 
       override def compare(that: Id): Int =
         Id.unapply(this).compare(Id.unapply(that))
@@ -130,10 +130,30 @@ object P2PGrpcNetworking {
       clock: Clock,
   )
 
-  private[grpc] def completeGrpcStreamObserver(endpoint: StreamObserver[?]): Unit =
-    try {
-      endpoint.onCompleted()
-    } catch {
-      case NonFatal(_) => () // Already completed
-    }
+  private[grpc] def completeGrpcStreamObserver(
+      streamObserver: StreamObserver[?],
+      logger: TracedLogger,
+  )(implicit traceContext: TraceContext): Unit =
+    completeWith(streamObserver.toString, logger)(() => streamObserver.onCompleted())
+
+  private[grpc] def failGrpcStreamObserver(
+      streamObserver: StreamObserver[?],
+      throwable: Throwable,
+      logger: TracedLogger,
+  )(implicit traceContext: TraceContext): Unit =
+    completeWith(streamObserver.toString, logger)(() => streamObserver.onError(throwable))
+
+  private def completeWith(description: String, logger: TracedLogger)(
+      complete: () => Unit
+  )(implicit traceContext: TraceContext): Unit =
+    Try(complete()).recover {
+      case NonFatal(t) =>
+        logger.debug(
+          s"Could not complete '$description' due to a regular exception, likely already completed",
+          t,
+        )
+      case t: Throwable =>
+        logger.error(s"Could not complete '$description' due to a fatal exception", t)
+        throw t
+    }.discard
 }

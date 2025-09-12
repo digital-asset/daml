@@ -28,6 +28,7 @@ import com.digitalasset.canton.metrics.{CommonMockMetrics, TrafficConsumptionMet
 import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, UnsignedProtocolMessage}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParametersLookup,
+  StaticSynchronizerParameters,
   SynchronizerParametersLookup,
   TestSynchronizerParameters,
   v30,
@@ -1612,7 +1613,10 @@ final class SequencerClientTest
 
     override protected def loggerFactory: NamedLoggerFactory =
       SequencerClientTest.this.loggerFactory
-    override def physicalSynchronizerId: Option[PhysicalSynchronizerId] = ???
+
+    override def physicalSynchronizerIdO: Option[PhysicalSynchronizerId] = ???
+
+    override def staticSynchronizerParametersO: Option[StaticSynchronizerParameters] = ???
 
     override def start()(implicit
         traceContext: TraceContext

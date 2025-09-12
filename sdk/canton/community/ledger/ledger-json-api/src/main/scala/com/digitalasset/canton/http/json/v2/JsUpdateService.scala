@@ -73,11 +73,11 @@ class JsUpdateService(
   def endpoints() = List(
     websocket(
       JsUpdateService.getUpdatesEndpoint,
-      getFlats,
+      getUpdates,
     ),
     asList(
       JsUpdateService.getUpdatesListEndpoint,
-      getFlats,
+      getUpdates,
       timeoutOpenEndedStream = true,
     ),
     websocket(
@@ -214,7 +214,7 @@ class JsUpdateService(
         .resultToRight
     }
 
-  private def getFlats(
+  private def getUpdates(
       caller: CallerContext
   ): TracedInput[Unit] => Flow[LegacyDTOs.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
     req => {
@@ -232,7 +232,20 @@ class JsUpdateService(
           verbose = request.verbose,
           updateFormat = request.updateFormat,
         )
+      } via
+        prepareSingleWsStream(
+          updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
+          (r: update_service.GetUpdatesResponse) => protocolConverters.GetUpdatesResponse.toJson(r),
+        )
+    }
 
+  private def getFlats(
+      caller: CallerContext
+  ): TracedInput[Unit] => Flow[LegacyDTOs.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
+    req => {
+      implicit val tc = req.traceContext
+      Flow[LegacyDTOs.GetUpdatesRequest].map { req =>
+        toGetUpdatesRequest(req, forTrees = false)
       } via
         prepareSingleWsStream(
           updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
@@ -250,7 +263,7 @@ class JsUpdateService(
     wsReq => {
       implicit val tc: TraceContext = wsReq.traceContext
       Flow[LegacyDTOs.GetUpdatesRequest].map { req =>
-        toGetUpdatesRequest(req)
+        toGetUpdatesRequest(req, forTrees = true)
       } via
         prepareSingleWsStream(
           updateServiceClient(caller.token()).getUpdates,
@@ -260,7 +273,8 @@ class JsUpdateService(
     }
 
   private def toGetUpdatesRequest(
-      req: LegacyDTOs.GetUpdatesRequest
+      req: LegacyDTOs.GetUpdatesRequest,
+      forTrees: Boolean,
   )(implicit traceContext: TraceContext): update_service.GetUpdatesRequest =
     (req.updateFormat, req.filter, req.verbose) match {
       case (Some(_), Some(_), _) =>
@@ -295,7 +309,7 @@ class JsUpdateService(
           endInclusive = req.endInclusive,
           filter = None,
           verbose = false,
-          updateFormat = Some(toUpdateFormat(filter, verbose)),
+          updateFormat = Some(toUpdateFormat(filter, verbose, forTrees)),
         )
     }
 
@@ -591,13 +605,14 @@ object JsUpdateServiceConverters {
   def toUpdateFormat(
       filter: LegacyDTOs.TransactionFilter,
       verbose: Boolean,
+      forTrees: Boolean,
   ): UpdateFormat = {
-    def addWildcardIfAbsent(f: Filters): Filters =
+    def addWildcardCond(f: Filters): Filters =
       if (
         f.cumulative.map(_.identifierFilter).exists {
           case _: WildcardFilter => true
           case _ => false
-        }
+        } || !forTrees
       )
         f
       else
@@ -609,9 +624,9 @@ object JsUpdateServiceConverters {
 
     val eventFormat = EventFormat(
       filtersByParty = filter.filtersByParty.map { case (party, f) =>
-        party -> addWildcardIfAbsent(f)
+        party -> addWildcardCond(f)
       },
-      filtersForAnyParty = filter.filtersForAnyParty.map(addWildcardIfAbsent),
+      filtersForAnyParty = filter.filtersForAnyParty.map(addWildcardCond),
       verbose = verbose,
     )
 

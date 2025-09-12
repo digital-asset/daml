@@ -9,7 +9,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
+  P2PEndpoint,
+  failGrpcStreamObserver,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoActorContext
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
@@ -291,7 +294,8 @@ object PekkoP2PGrpcNetworking {
                     s"Connection-managing actor $actorName failed sending message $msg to sender $peerSender",
                     exception,
                   )
-                  peerSender.onError(exception) // Required by the gRPC streaming API
+                  // Failing the stream in case of an exception when sending is required by the gRPC streaming API
+                  failGrpcStreamObserver(peerSender, exception, logger)
                   // gRPC requires onError to be the last event, so the connection must be invalidated even though
                   //  the send operation will be retried.
                   connectionManager.shutdownConnection(

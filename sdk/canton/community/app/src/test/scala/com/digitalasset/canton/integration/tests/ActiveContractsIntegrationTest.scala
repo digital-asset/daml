@@ -196,7 +196,7 @@ class ActiveContractsIntegrationTest
       packageName = packageName,
     )
 
-    val contractSalt = ContractSalt.create(pureCrypto)(
+    val contractSalt = ContractSalt.createV1(pureCrypto)(
       transactionUuid = new UUID(1L, 1L),
       psid = psid,
       mediator = MediatorGroupRecipient(MediatorGroupIndex.one),

@@ -23,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   AuthenticationInitialState,
   P2PEndpoint,
   completeGrpcStreamObserver,
+  failGrpcStreamObserver,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.{
   AddEndpointHeaderClientInterceptor,
@@ -159,7 +160,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
         closeNetworkRefs,
       )
       .foreach { peerSender =>
-        completeGrpcStreamObserver(peerSender)
+        completeGrpcStreamObserver(peerSender, logger)
         maybeP2PEndpointId.foreach(notifyEndpointDisconnection)
       }
   }
@@ -191,7 +192,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
   private def cleanupPeerSender(
       peerSender: StreamObserver[BftOrderingMessage]
   )(implicit traceContext: TraceContext): Unit = {
-    completeGrpcStreamObserver(peerSender)
+    completeGrpcStreamObserver(peerSender, logger)
     p2pGrpcConnectionState
       .unassociateSenderAndReturnEndpointIds(peerSender)
       .foreach(notifyEndpointDisconnection)
@@ -362,7 +363,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
       logger.info(
         s"Completing peer sender $peerSender for $bftNodeId <-> $maybeP2PEndpointId because one already exists"
       )
-      completeGrpcStreamObserver(peerSender)
+      completeGrpcStreamObserver(peerSender, logger)
     }
   }
 
@@ -618,7 +619,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 case Failure(exception) =>
                   // Close the connection by failing the sender; no need to close the receiver as it will be
                   //  uninstalled by closing the connection and no state has been updated yet.
-                  peerSender.onError(exception)
+                  failGrpcStreamObserver(peerSender, exception, logger)
                   retry(
                     failedOperationName = s"open endpoint $p2pEndpointId",
                     exception,
@@ -649,7 +650,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                         )
                         // Close the connection by failing the sender; no need to close the receiver as it will be
                         //  uninstalled by closing the connection and no state has been updated yet.
-                        peerSender.onError(exception)
+                        failGrpcStreamObserver(peerSender, exception, logger)
                         retry(
                           s"create a stream to $p2pEndpointId",
                           exception,
@@ -733,7 +734,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             exception,
           )
           // Close the sender and fail accepting the connection
-          peerSender.onError(exception)
+          failGrpcStreamObserver(peerSender, exception, logger)
           throw exception
 
         case Success(_) =>
