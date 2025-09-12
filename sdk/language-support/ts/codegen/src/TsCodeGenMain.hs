@@ -253,7 +253,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
     Nothing -- If no serializable types or interfaces, nothing to do.
   | otherwise =
     let (decls, refs) = unzip (map (genDataDef curPkgId curPkgNameVer mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
-        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
+        (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgNameVer mod) $ NM.toList ifaces)
         imports = (SelfPackageId, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
         rootPath = map (const "..") (unModuleName modName)
@@ -357,14 +357,14 @@ genDataDef curPkgId curPkgNameVer mod ifcChoices tpls def = case unTypeConName (
         (decls, refs) = genDefDataType curPkgId curPkgNameVer c2 mod ifcChoices tpls def
         tyDecls = [d | DeclTypeDef d <- decls]
 
-genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
-genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView} =
+genIfaceDecl :: PackageNameVersion -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
+genIfaceDecl curPkgNameVer mod DefInterface {intName, intChoices, intView} =
   ( [ DeclInterface
         (InterfaceDef
            { ifName = name
+           , ifPkgNameVer = curPkgNameVer
            , ifChoices = choices
            , ifModule = moduleName mod
-           , ifPkgId = pkgId
            , ifView = view
            })
     ]
@@ -505,15 +505,15 @@ renderTemplateDef TemplateDef {..} =
 
 data InterfaceDef = InterfaceDef
   { ifName :: T.Text
+  , ifPkgNameVer :: PackageNameVersion
   , ifModule :: ModuleName
-  , ifPkgId :: PackageId
   , ifChoices :: [ChoiceDef]
   , ifView :: (TsTypeConRef, JsSerializerConRef)
   }
 
 renderInterfaceDef :: InterfaceDef -> (T.Text, T.Text)
-renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
-                                ifPkgId, ifView} = (jsSource, tsDecl)
+renderInterfaceDef InterfaceDef{ifName, ifPkgNameVer, ifChoices,
+                                ifModule, ifView} = (jsSource, tsDecl)
   where
     jsSource = T.unlines $ concat
       [ [ "exports." <> ifName <> " = damlTypes.assembleInterface("
@@ -547,7 +547,7 @@ renderInterfaceDef InterfaceDef{ifName, ifChoices, ifModule,
       ]
     (TsTypeConRef viewTy, JsSerializerConRef viewCompanion) = ifView
     ifaceId =
-        unPackageId ifPkgId <> ":" <>
+        pkgNameVerToPackageRef ifPkgNameVer <> ":" <>
         T.intercalate "." (unModuleName ifModule) <> ":" <>
         ifName
 

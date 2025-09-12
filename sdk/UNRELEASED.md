@@ -9,5 +9,21 @@ schedule, i.e. if you add an entry effective at or after the first
 header, prepend the new date header that corresponds to the
 Wednesday after your change.
 
-## Until YYYY-MM-DD (Exclusive)
+## Until 2025-09-18 (Exclusive)
+- typescript codegen has been changed to produce the interface definitions that use package id rather than package name.
+  Following definition
+  ```
+  exports.Token = damlTypes.assembleInterface(
+    '41d34898b0a96f443eef3fa59e0ca61465caa5e1c2ca24ecb8e7de5e1ba611f5:Main:Token',
+    function () { return exports.EmptyInterfaceView; },
+    {
+    ...
+  ```
+  becomes
+  ```
+  exports.Token = damlTypes.assembleInterface(
+    '#tokens:Main:Token',
+    function () { return exports.EmptyInterfaceView; },
+    {
+  ```
 
