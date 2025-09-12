@@ -152,7 +152,7 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_1 <= _): _*)) {
+      forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_dev < _): _*)) {
         version =>
           val Right(dar) =
             UniversalArchiveDecoder
