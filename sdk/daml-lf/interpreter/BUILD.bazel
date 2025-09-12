@@ -16,6 +16,7 @@ load(
     "COMPILER_LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
 )
+load("@os_info//:os_info.bzl", "is_darwin")
 
 da_scala_library(
     name = "interpreter",
@@ -162,7 +163,7 @@ da_scala_test(
         "@maven//:org_openjdk_jol_jol_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-)
+) if not is_darwin else []
 
 scala_repl(
     name = "interpreter@repl",
