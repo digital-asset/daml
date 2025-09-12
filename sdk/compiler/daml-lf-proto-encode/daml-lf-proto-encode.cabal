@@ -29,12 +29,12 @@ library
       da-hs-base,
       -- //compiler/daml-lf-ast:daml-lf-ast
       daml-lf-ast,
-      -- //compiler/daml-lf-proto-encode:daml-lf-proto-encode-internal
-      daml-lf-proto-encode-internal,
       -- //daml-lf/archive:daml_lf_archive_haskell_proto
       daml-lf-proto-types,
       -- //compiler/daml-lf-proto-util:daml-lf-proto-util
       daml-lf-proto-util,
+      -- //compiler/daml-lf-proto-encode:internal
+      internal,
       -- @@stackage//:memory
       memory,
       -- @@stackage//:proto3-suite
