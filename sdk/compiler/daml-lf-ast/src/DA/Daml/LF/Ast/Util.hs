@@ -83,13 +83,6 @@ isUtilityPackage pkg =
       && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
   ) $ packageModules pkg
 
--- mergeImportedPackages :: String -> ImportedPackages -> ImportedPackages -> ImportedPackages
--- mergeImportedPackages callsite r l = case (r, l) of
---     (Right s1, Right s2) -> Right $ s1 <> s2
---     (Left  r1, Left  r2) -> Left $ Combined [r1, r2]
---     (Right _ , Left  s2) -> error $ printf "trying to mix set/unset package exports, unset reason: %s (merging from %s)" s2 callsite
---     (Left  s1, Right _ ) -> error $ printf "trying to mix set/unset package exports, unset reason: %s (merging from %s)" s1 callsite
-
 mergeImportedPackages' :: ImportedPackages -> ImportedPackages -> ImportedPackages
 mergeImportedPackages' r l = case (r, l) of
     (Right s1, Right s2) -> Right $ s1 <> s2

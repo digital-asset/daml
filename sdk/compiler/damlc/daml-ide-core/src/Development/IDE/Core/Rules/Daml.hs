@@ -381,7 +381,7 @@ packageMetadataFromOptions options = LF.PackageMetadata
 extractImports :: [LF.ModuleWithImports] -> ([LF.Module], LF.ImportedPackages)
 extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `merge` imps)) ([], Right Set.empty)
   where
-    merge = LF.mergeImportedPackages'
+    merge = LF.mergeImportedPackages
 
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for

@@ -267,7 +267,7 @@ getSrcRoot fileOrDir = do
 mergePkgs :: LF.PackageMetadata -> LF.Version -> [WhnfPackage] -> LF.Package
 mergePkgs meta ver pkgs =
     let mergedMods = foldl' NM.union NM.empty $ map (LF.packageModules . getWhnfPackage) pkgs
-        merge = LF.mergeImportedPackages' -- "DA.Daml.Compiler.Dar:mergePkgs"
+        merge = LF.mergeImportedPackages
         mergedImports = foldl' merge (Right S.empty) $ map (LF.importedPackages . getWhnfPackage) pkgs
      in LF.Package
             { LF.packageLfVersion = ver
