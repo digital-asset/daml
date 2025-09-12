@@ -1210,7 +1210,7 @@ class JsonV2Tests
             Source
               .single(
                 TextMessage(
-                  updatesRequest.asJson.noSpaces
+                  updatesRequestLegacy.asJson.noSpaces
                 )
               )
               .concatMat(Source.maybe[Message])(Keep.left)
@@ -1233,10 +1233,43 @@ class JsonV2Tests
               }
           }
           _ <- {
+            val webSocketFlow =
+              websocket(fixture.uri.withPath(Uri.Path("/v2/updates/flats")), jwt)
+            Source
+              .single(
+                TextMessage(
+                  updatesRequestLegacy
+                    .copy(filter = None)
+                    .asJson
+                    .noSpaces
+                )
+              )
+              .concatMat(Source.maybe[Message])(Keep.left)
+              .via(webSocketFlow)
+              .take(1)
+              .collect { case m: TextMessage =>
+                m.getStrictText
+              }
+              .toMat(Sink.seq)(Keep.right)
+              .run()
+              .map { updates =>
+                updates
+                  .map(decode[JsCantonError])
+                  .collect { case Right(error) =>
+                    error.errorCategory shouldBe ErrorCategory.InvalidIndependentOfSystemState.asInt
+                    error.code should include("INVALID_ARGUMENT")
+                    error.cause should include(
+                      "Either filter/verbose or update_format is required. Please use either backwards compatible arguments (filter and verbose) or update_format."
+                    )
+                  }
+                  .head
+              }
+          }
+          _ <- {
             fixture
               .postJsonStringRequest(
                 fixture.uri withPath Uri.Path("/v2/updates/flats") withQuery Query(("wait", "500")),
-                updatesRequest.asJson.toString(),
+                updatesRequestLegacy.asJson.toString(),
                 headers,
               )
               .map { case (status, result) =>

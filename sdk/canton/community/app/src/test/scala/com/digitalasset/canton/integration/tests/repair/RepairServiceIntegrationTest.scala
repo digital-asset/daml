@@ -803,7 +803,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               ),
             )
 
-            val contractSalt = ContractSalt.create(pureCrypto)(
+            val contractSalt = ContractSalt.createV1(pureCrypto)(
               transactionUuid = new UUID(1L, 1L),
               psid = daId,
               mediator = MediatorGroupRecipient(MediatorGroupIndex.one),

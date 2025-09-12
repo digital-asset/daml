@@ -27,7 +27,10 @@ import com.digitalasset.canton.participant.store.ExtendedContractLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.*
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV1
+import com.digitalasset.canton.protocol.ContractIdAbsolutizer.{
+  ContractIdAbsolutizationDataV1,
+  ContractIdAbsolutizationDataV2,
+}
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithAbsoluteSuffixes,
   WithSuffixesAndMerged,
@@ -108,6 +111,7 @@ class ModelConformanceChecker(
       .parTraverse { case (view, viewPos, submittingParticipantO) =>
         for {
           wfTxE <- checkView(
+            transactionId,
             view,
             viewPos,
             mediator,
@@ -267,6 +271,7 @@ class ModelConformanceChecker(
   }
 
   private def checkView(
+      transactionId: TransactionId,
       view: TransactionView,
       viewPosition: ViewPosition,
       mediator: MediatorGroupRecipient,
@@ -329,7 +334,12 @@ class ModelConformanceChecker(
       )
 
       salts = transactionTreeFactory.saltsFromView(view)
-      absolutizer = new ContractIdAbsolutizer(hashOps, ContractIdAbsolutizationDataV1)
+      absolutizationData = transactionTreeFactory.cantonContractIdVersion match {
+        case _: CantonContractIdV1Version => ContractIdAbsolutizationDataV1
+        case _: CantonContractIdV2Version =>
+          ContractIdAbsolutizationDataV2(transactionId, metadata.ledgerTime)
+      }
+      absolutizer = new ContractIdAbsolutizer(hashOps, absolutizationData)
 
       reconstructedViewAndTx <- checked(
         transactionTreeFactory.tryReconstruct(

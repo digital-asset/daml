@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCreated.{
   CreatedContractPrep,
   InputContractPrep,
@@ -16,16 +14,9 @@ import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext, LfPartyId
 
 class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContext {
 
-  val etf: ExampleTransactionFactory = new ExampleTransactionFactory()()
-
-  private val emptyUsedAndCreatedContracts = UsedAndCreatedContracts(
-    witnessed = Map.empty[LfContractId, ContractInstance],
-    checkActivenessTxInputs = Set.empty[LfContractId],
-    consumedInputsOfHostedStakeholders = Map.empty[LfContractId, Set[LfPartyId]],
-    used = Map.empty[LfContractId, ContractInstance],
-    maybeCreated = Map.empty[LfContractId, Option[NewContractInstance]],
-    transient = Map.empty[LfContractId, Set[LfPartyId]],
-    maybeUnknown = Set.empty[LfContractId],
+  val etf: ExampleTransactionFactory = new ExampleTransactionFactory()(
+    // TODO(#23971) Make this work with Contract ID V2
+    cantonContractIdVersion = AuthenticatedContractIdVersionV11
   )
 
   private val singleExercise = etf.SingleExercise(etf.deriveNodeSeed(1))
@@ -36,63 +27,31 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
   private def buildUnderTest(
       hostedParties: Map[LfPartyId, Option[ParticipantAttributes]]
   ): ExtractUsedAndCreated =
-    new ExtractUsedAndCreated(
-      hostedParties = hostedParties,
-      loggerFactory = loggerFactory,
-    )
+    new ExtractUsedAndCreated(hostedParties, loggerFactory)
 
-  private val underTest = buildUnderTest(
-    hostedParties =
-      informeeParties.map(_ -> Some(ParticipantAttributes(ParticipantPermission.Observation))).toMap
-  )
+  s"ExtractUsedAndCreated for version $AuthenticatedContractIdVersionV11" when {
+    val relevantExamples = etf.standardHappyCases.filter(_.rootViews.nonEmpty)
 
-  "Build used and created" should {
+    forEvery(relevantExamples) { example =>
+      s"checking $example" must {
 
-    val tree = etf.rootTransactionViewTree(singleCreate.view0)
-    val transactionViewTrees = NonEmpty(Seq, (tree, Option.empty[Signature]))
-    val transactionViews = transactionViewTrees.map { case (viewTree, _) => viewTree.view }
+        val dataViews = ExtractUsedAndCreated.viewDataFromRootViews(example.rootViews)
+        val parties = ExtractUsedAndCreated.extractPartyIds(dataViews)
+        val hostedParties =
+          parties.map(_ -> Some(ParticipantAttributes(ParticipantPermission.Observation))).toMap
+        val sut = buildUnderTest(hostedParties)
 
-    val actual = underTest.usedAndCreated(transactionViews)
-
-    val expected = UsedAndCreated(
-      contracts = emptyUsedAndCreatedContracts.copy(maybeCreated =
-        Map(
-          singleCreate.contractId -> singleCreate.created.headOption
-        )
-      ),
-      hostedWitnesses = informeeParties,
-    )
-
-    "match" in {
-      actual shouldBe expected
+        "yield the correct result" in {
+          val expected = example.usedAndCreated
+          val usedAndCreated = sut.usedAndCreated(dataViews)
+          usedAndCreated.contracts shouldBe expected
+          usedAndCreated.hostedWitnesses shouldBe hostedParties.keySet
+        }
+      }
     }
   }
 
   "Input contract prep" should {
-
-    "Extract input contracts" in {
-
-      val viewData = ViewData(
-        singleExercise.view0.viewParticipantData.tryUnwrap,
-        singleExercise.view0.viewCommonData.tryUnwrap,
-      )
-
-      val actual = underTest.inputContractPrep(Seq(viewData))
-
-      val serializedContract = singleExercise.used.head
-      val expected = InputContractPrep(
-        used = Map(singleExercise.contractId -> serializedContract),
-        divulged = Map.empty,
-        consumedOfHostedStakeholders = Map(
-          singleExercise.contractId ->
-            informeeParties
-        ),
-        contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
-        contractIdsAllowedToBeUnknown = Set.empty,
-      )
-
-      actual shouldBe expected
-    }
 
     "Extract divulged contracts" in {
 
@@ -100,18 +59,14 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         hostedParties = informeeParties.map(_ -> None).toMap
       )
 
-      val viewData = ViewData(
-        singleExercise.view0.viewParticipantData.tryUnwrap,
-        singleExercise.view0.viewCommonData.tryUnwrap,
-      )
-
+      val viewData = ViewData.tryFromView(singleExercise.view0)
       val actual = underTestWithNoHostedParties.inputContractPrep(Seq(viewData))
 
       val serializedContract = singleExercise.used.head
 
       val expected = InputContractPrep(
-        used = Map(singleExercise.contractId -> serializedContract),
-        divulged = Map(singleExercise.contractId -> serializedContract),
+        used = Map(singleExercise.absolutizedContractId -> serializedContract),
+        divulged = Map(singleExercise.absolutizedContractId -> serializedContract),
         consumedOfHostedStakeholders = Map.empty,
         contractIdsOfHostedInformeeStakeholder = Set.empty,
         contractIdsAllowedToBeUnknown = Set.empty,
@@ -122,10 +77,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
     "Onboarding" should {
 
-      val viewData = ViewData(
-        singleExercise.view0.viewParticipantData.tryUnwrap,
-        singleExercise.view0.viewCommonData.tryUnwrap,
-      )
+      val viewData = ViewData.tryFromView(singleExercise.view0)
       val serializedContract = singleExercise.used.head
       val signatories = singleExercise.node.signatories
       val observers = singleExercise.node.stakeholders -- signatories
@@ -140,11 +92,12 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         val actual = underTestOnlyOnboardingHostedParties.inputContractPrep(Seq(viewData))
 
         val expected = InputContractPrep(
-          used = Map(singleExercise.contractId -> serializedContract),
+          used = Map(singleExercise.absolutizedContractId -> serializedContract),
           divulged = Map.empty,
-          consumedOfHostedStakeholders = Map(singleExercise.contractId -> informeeParties),
-          contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
-          contractIdsAllowedToBeUnknown = Set(singleExercise.contractId),
+          consumedOfHostedStakeholders =
+            Map(singleExercise.absolutizedContractId -> informeeParties),
+          contractIdsOfHostedInformeeStakeholder = Set(singleExercise.absolutizedContractId),
+          contractIdsAllowedToBeUnknown = Set(singleExercise.absolutizedContractId),
         )
 
         actual shouldBe expected
@@ -162,10 +115,11 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         val actual = underTestOnlyOnboardingHostedParties.inputContractPrep(Seq(viewData))
 
         val expected = InputContractPrep(
-          used = Map(singleExercise.contractId -> serializedContract),
+          used = Map(singleExercise.absolutizedContractId -> serializedContract),
           divulged = Map.empty,
-          consumedOfHostedStakeholders = Map(singleExercise.contractId -> informeeParties),
-          contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
+          consumedOfHostedStakeholders =
+            Map(singleExercise.absolutizedContractId -> informeeParties),
+          contractIdsOfHostedInformeeStakeholder = Set(singleExercise.absolutizedContractId),
           contractIdsAllowedToBeUnknown = Set.empty,
         )
 
@@ -176,74 +130,22 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
   "Created contract prep" should {
 
-    "Extract created contracts" in {
-
-      val viewData = ViewData(
-        singleCreate.view0.viewParticipantData.tryUnwrap,
-        singleCreate.view0.viewCommonData.tryUnwrap,
-      )
-
-      val actual = underTest.createdContractPrep(Seq(viewData))
-
-      val expected = CreatedContractPrep(
-        createdContractsOfHostedInformees = Map(
-          singleCreate.contractId -> singleCreate.created.headOption
-        ),
-        witnessed = Map.empty,
-      )
-
-      actual shouldBe expected
-    }
-
     "Extract witnessed contracts" in {
 
       val underTestWithNoHostedParties = buildUnderTest(
         hostedParties = informeeParties.map(_ -> None).toMap
       )
 
-      val viewData = ViewData(
-        singleCreate.view0.viewParticipantData.tryUnwrap,
-        singleCreate.view0.viewCommonData.tryUnwrap,
-      )
-
+      val viewData = ViewData.tryFromView(singleCreate.view0)
       val actual = underTestWithNoHostedParties.createdContractPrep(Seq(viewData))
 
       val expected = CreatedContractPrep(
         createdContractsOfHostedInformees = Map.empty,
-        witnessed = Map(singleCreate.contractId -> singleCreate.created.head),
+        witnessed = Map(singleCreate.absolutizedContractId -> singleCreate.created.head),
       )
 
       actual shouldBe expected
     }
 
-  }
-
-  "Transient contract prep" should {
-
-    "Extract transient contract ids" in {
-
-      val viewCreatedConsumed = etf.view(
-        node = singleCreate.node,
-        viewIndex = 0,
-        consumed = singleCreate.created.map(_.contractId).toSet,
-        coreInputs = singleCreate.used,
-        created = singleCreate.created,
-        resolvedKeys = Map.empty,
-        seed = singleCreate.nodeSeed,
-        isRoot = true,
-        packagePreference = Set.empty,
-      )
-
-      val viewData = ViewData(
-        viewCreatedConsumed.viewParticipantData.tryUnwrap,
-        viewCreatedConsumed.viewCommonData.tryUnwrap,
-      )
-
-      val actual = underTest.transientContractsPrep(Seq(viewData))
-
-      val expected = Set(singleCreate.contractId)
-
-      actual shouldBe expected
-    }
   }
 }

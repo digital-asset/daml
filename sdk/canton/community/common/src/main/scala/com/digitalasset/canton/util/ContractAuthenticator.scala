@@ -41,9 +41,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
 
   override def legacyAuthenticate(contract: FatContractInstance): Either[String, Unit] =
     for {
-      idVersion <- CantonContractIdVersion
-        .extractCantonContractIdVersion(contract.contractId)
-        .leftMap(e => s"Malformed contract id: $e")
+      idVersion <- CantonContractIdVersion.extractCantonContractIdVersion(contract.contractId)
       idVersionV1 <- idVersion match {
         case v: CantonContractIdV1Version => Right(v)
         case other => Left(s"Unsupported contract authentication id version: $other")
@@ -63,10 +61,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
     for {
       metadata <- ContractMetadata.create(contract.signatories, contract.stakeholders, gk)
       contractIdVersion <- CantonContractIdVersion
-        .extractCantonContractIdVersion(
-          contract.contractId
-        )
-        .leftMap(_.toString)
+        .extractCantonContractIdVersion(contract.contractId)
       authenticationData <- ContractAuthenticationData
         .fromLfBytes(contractIdVersion, contract.authenticationData)
         .leftMap(_.toString)
@@ -103,10 +98,8 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
         for {
           salt <- authenticationData match {
             case ContractAuthenticationDataV1(salt) => Right(salt)
-            case ContractAuthenticationDataV2() =>
-              Left(
-                "Cannot authenticate contract with V1 contract ID via a V2 authentication data"
-              )
+            case _: ContractAuthenticationDataV2 =>
+              Left("Cannot authenticate contract with V1 contract ID via a V2 authentication data")
           }
           recomputedUnicum <- unicumGenerator.recomputeUnicum(
             salt,

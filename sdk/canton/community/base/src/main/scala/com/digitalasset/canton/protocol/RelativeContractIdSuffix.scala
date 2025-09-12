@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.protocol
 
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.daml.lf.data.Bytes
+import com.google.protobuf.ByteString
 
 /** Represents the suffix of a relative contract ID, i.e., between suffixing and absolutization */
 sealed trait RelativeContractIdSuffix {
@@ -17,4 +20,21 @@ final case class ContractIdSuffixV1(
   override def toBytes: Bytes = unicum.toContractIdSuffix(contractIdVersion)
 }
 
-// TODO(#23971) Add RelativeContractIdSuffixV2
+final case class RelativeContractIdSuffixV2(
+    contractIdVersion: CantonContractIdV2Version,
+    suffix: Bytes,
+) extends RelativeContractIdSuffix
+    with PrettyPrinting {
+  override def toBytes: Bytes = contractIdVersion.versionPrefixBytesRelative ++ suffix
+
+  override protected def pretty: Pretty[RelativeContractIdSuffixV2] = prettyOfClass(
+    unnamedParam(_.toBytes.toHexString)
+  )
+}
+
+object RelativeContractIdSuffixV2 {
+  implicit val orderingRelativeContractIdSuffixV2: Ordering[RelativeContractIdSuffixV2] =
+    Ordering.by[RelativeContractIdSuffixV2, ByteString](_.toBytes.toByteString)(
+      ByteStringUtil.orderingByteString
+    )
+}

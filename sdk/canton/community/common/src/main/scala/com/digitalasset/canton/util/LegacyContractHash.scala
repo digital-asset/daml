@@ -38,7 +38,6 @@ object LegacyContractHash {
     for {
       idVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(contractInstance.contractId)
-        .leftMap(e => s"Malformed contract id: $e")
       idVersionV1 <- idVersion match {
         case v: CantonContractIdV1Version => Right(v)
         case other => Left(s"Unsupported contract authentication id version: $other")

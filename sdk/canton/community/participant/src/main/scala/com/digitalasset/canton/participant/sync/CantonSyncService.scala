@@ -843,7 +843,7 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
-    sequencerInfoLoader
+    sequencerInfoLoader // TODO(i27622): use the connection pool to validate the config
       .validateSequencerConnection(
         config.synchronizerAlias,
         config.synchronizerId,

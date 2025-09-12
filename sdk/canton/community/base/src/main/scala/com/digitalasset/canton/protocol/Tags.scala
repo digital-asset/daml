@@ -102,6 +102,16 @@ final case class TransactionId(private val hash: Hash) extends HasCryptographicE
 
 object TransactionId {
 
+  /** The all-zeros transaction ID. This transaction ID is used as the creating transaction ID for
+    * contracts whose creation transaction ID is unknown.
+    */
+  val zero: TransactionId = {
+    val algo = HashAlgorithm.Sha256
+    new TransactionId(
+      Hash.tryFromByteStringRaw(ByteString.copyFrom(new Array[Byte](algo.length.toInt)), algo)
+    )
+  }
+
   def fromProtoPrimitive(bytes: ByteString): ParsingResult[TransactionId] =
     Hash
       .fromByteString(bytes)

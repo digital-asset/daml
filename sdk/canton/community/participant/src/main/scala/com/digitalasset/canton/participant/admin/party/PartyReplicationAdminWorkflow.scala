@@ -227,9 +227,7 @@ class PartyReplicationAdminWorkflow(
     participantId.adminParty.toProtoPrimitive match {
       case `contract`.data.sourceParticipant | `contract`.data.targetParticipant =>
         (for {
-          // TODO(#23971): Once there is support for V2 contract ids, pick the V1 or V2 depending on the
-          //  synchronizer's protocol version.
-          lfContractId <- LfContractId.V1.fromString(contract.id.contractId)
+          lfContractId <- LfContractId.fromString(contract.id.contractId)
           params <- PartyReplicationAgreementParams.fromDaml(contract.data, synchronizerIdS)
         } yield partyReplicator
           .processPartyReplicationAgreement(lfContractId, mightNotRememberAgreement)(params))

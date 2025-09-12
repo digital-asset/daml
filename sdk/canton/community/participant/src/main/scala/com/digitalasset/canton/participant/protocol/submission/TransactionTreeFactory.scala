@@ -36,6 +36,11 @@ import scala.concurrent.{ExecutionContext, Future}
 
 trait TransactionTreeFactory {
 
+  /** The [[com.digitalasset.canton.protocol.CantonContractIdVersion]] to be used for newly created
+    * contracts
+    */
+  def cantonContractIdVersion: CantonContractIdVersion
+
   /** Converts a `transaction: LfTransaction` to the corresponding transaction tree, if possible.
     *
     * @param keyResolver
@@ -167,6 +172,13 @@ object TransactionTreeFactory {
       err =>
         show"Detected conflicting package-ids for the same package name\n${err.conflicts}"
     }
+  }
+
+  final case class ContractIdAbsolutizationError(message: String)
+      extends TransactionTreeConversionError {
+    override protected def pretty: Pretty[ContractIdAbsolutizationError] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
   }
 
   final case class PackageUnknownTo(

@@ -65,7 +65,7 @@ object ContractValidator {
     ): EitherT[FutureUnlessShutdown, String, Unit] =
       for {
         contractIdVersion <- EitherT.fromEither[FutureUnlessShutdown](
-          CantonContractIdVersion.extractCantonContractIdV1Version(contract.contractId)
+          extractContractIdV1Version(contract.contractId)
         )
         result <- lfContractValidation.validate(
           contract,
@@ -80,11 +80,20 @@ object ContractValidator {
         contractHash: LfHash,
     ): Either[String, Unit] =
       for {
-        contractIdVersion <- CantonContractIdVersion.extractCantonContractIdV1Version(
-          contract.contractId
-        )
+        contractIdVersion <- extractContractIdV1Version(contract.contractId)
         _ <- authenticateHashInternal(contract, contractHash, contractIdVersion)
       } yield ()
+
+    private def extractContractIdV1Version(
+        contractId: LfContractId
+    ): Either[String, CantonContractIdV1Version] =
+      for {
+        contractIdVersion <- CantonContractIdVersion.extractCantonContractIdVersion(contractId)
+        contractIdVersionV1 <- contractIdVersion match {
+          case v1: CantonContractIdV1Version => Right(v1)
+          case v2: CantonContractIdV2Version => Left(s"ContractId V2 are not supported: $v2")
+        }
+      } yield contractIdVersionV1
 
     private def authenticateHashInternal(
         contract: FatContractInstance,

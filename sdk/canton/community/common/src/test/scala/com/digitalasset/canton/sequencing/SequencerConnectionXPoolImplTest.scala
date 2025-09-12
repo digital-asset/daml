@@ -39,7 +39,7 @@ class SequencerConnectionXPoolImplTest
           initializedF.futureValueUS.valueOrFail("initialization")
           listener.shouldStabilizeOn(ComponentHealthState.Ok())
           pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-          pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+          pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
         }
 
         clue("Stop connections non-fatally") {
@@ -177,7 +177,7 @@ class SequencerConnectionXPoolImplTest
           },
         )
 
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
 
         // Changing the expected synchronizer is not supported
         inside(
@@ -198,7 +198,7 @@ class SequencerConnectionXPoolImplTest
         pool.start().futureValueUS.valueOrFail("initialization")
 
         pool.nbSequencers shouldBe NonNegativeInt.tryCreate(5)
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
 
         val initialConnections = createdConnections.snapshotAndClear()
 
@@ -237,7 +237,7 @@ class SequencerConnectionXPoolImplTest
         pool.start().futureValueUS.valueOrFail("initialization")
 
         pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
 
         val initialConnections = createdConnections.snapshotAndClear()
 
@@ -384,7 +384,7 @@ class SequencerConnectionXPoolImplTest
             initializedF.futureValueUS.valueOrFail("initialization")
 
             // Threshold should be reached on synchronizer 2
-            pool.physicalSynchronizerId.value shouldBe testSynchronizerId(2)
+            pool.physicalSynchronizerIdO.value shouldBe testSynchronizerId(2)
             pool.nbSequencers shouldBe NonNegativeInt.tryCreate(5)
 
             eventually() {
@@ -417,7 +417,7 @@ class SequencerConnectionXPoolImplTest
         pool.start().futureValueUS.valueOrFail("initialization")
 
         pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
         eventually() {
           pool.nbConnections shouldBe NonNegativeInt.tryCreate(6)
         }
@@ -497,7 +497,7 @@ class SequencerConnectionXPoolImplTest
           {
             pool.start().futureValueUS.valueOrFail("initialization")
             pool.nbSequencers shouldBe NonNegativeInt.tryCreate(2)
-            pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(2))
+            pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(2))
 
             eventually() {
               // Wait until the bad bootstrap has been logged
