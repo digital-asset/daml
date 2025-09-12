@@ -155,6 +155,7 @@ def install_java_deps():
             "org.apache.pekko:pekko-stream-testkit_{}:{}".format(scala_major_version, pekko_version),
             "org.apache.pekko:pekko-stream_{}:{}".format(scala_major_version, pekko_version),
             "org.apache.pekko:pekko-testkit_{}:{}".format(scala_major_version, pekko_version),
+            "org.openjdk.jol:jol-core:0.17",
             #            "io.gatling.highcharts:gatling-charts-highcharts:{}".format(gatling_version),
             #            "io.gatling:gatling-app:{}".format(gatling_version),
             #            "io.gatling:gatling-charts:{}".format(gatling_version),

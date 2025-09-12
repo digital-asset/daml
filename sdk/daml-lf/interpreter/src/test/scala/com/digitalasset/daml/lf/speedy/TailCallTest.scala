@@ -64,7 +64,7 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
    }
   """)
 
-  // Evaluate an expression with optionally bounded env and kont stacks
+  // Evaluate an expression with specific cost model and gasBudget env and kont stacks
   def runExpr(e: Ast.Expr, gasBudget: Long, costModel: CostModel): SValue = {
     // create the machine
     val machine = Speedy.UpdateMachine(
@@ -82,7 +82,6 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
       initialKontStackSize = 1,
     )
 
-    // maybe replace the kont-stack with a bounded version
     // run the machine
     machine.run() match {
       case SResultFinal(v) => v
