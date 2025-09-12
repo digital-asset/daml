@@ -91,6 +91,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
   def vetPackagesById(packageIds: Iterable[String]): Future[Unit] = {
     for {
       vettedPackages <- listVettedPackages()
+      _ = println("VET_PACKAGES, VETTED PACKAGES: " + vettedPackages.toList.head._2.size)
       newVettedPackages = packageIds.map(pkgId =>
         protocol.VettedPackages.VettedPackage(pkgId, None, None)
       ) ++ vettedPackages(participantUid)
@@ -104,6 +105,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
     val packageIdsSet = packageIds.toSet
     for {
       vettedPackages <- listVettedPackages()
+      _ = println("UNVET_PACKAGES, VETTED PACKAGES: " + vettedPackages.toList.head._2.size)
       newVettedPackages = vettedPackages(participantUid).filterNot(pkg =>
         packageIdsSet.contains(pkg.packageId)
       )

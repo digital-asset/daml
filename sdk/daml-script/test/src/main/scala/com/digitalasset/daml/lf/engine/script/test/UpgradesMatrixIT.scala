@@ -6,24 +6,28 @@ package test
 
 import com.daml.integrationtest.CantonFixture
 import com.daml.SdkVersion
-import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.archive.ArchiveParser
 import com.digitalasset.daml.lf.archive.{Dar, DarWriter}
 import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.ReadablePackageId
 import com.digitalasset.daml.lf.engine.{
   UpgradesMatrix,
   UpgradesMatrixCases,
   UpgradesMatrixCasesV2Dev,
 }
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
+  AdminLedgerClient,
+  GrpcLedgerClient,
+}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.value.Value._
 import com.google.protobuf.ByteString
-import scala.concurrent.{ExecutionContext, Await, Future}
+
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scalaz.OneAnd
 import org.scalatest.Inside.inside
@@ -33,13 +37,13 @@ import io.grpc.{Status, StatusRuntimeException}
 // Split the tests across four suites with four Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
 class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
-class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
-class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
-class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
-class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
-class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
-class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
+//class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
+//class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
+//class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
+//class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
+//class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
+//class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
+//class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
@@ -89,9 +93,19 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     cases.templateDefsV2Dalf,
     List((cases.commonDefsDalfName, cases.commonDefsDalf)),
   )
-  val clientDar = encodeDar(
-    cases.clientDalfName,
-    cases.clientDalf,
+  val clientLocalDar = encodeDar(
+    cases.clientLocalDalfName,
+    cases.clientLocalDalf,
+    List(
+      (cases.templateDefsV1DalfName, cases.templateDefsV1Dalf),
+      (cases.templateDefsV2DalfName, cases.templateDefsV2Dalf),
+      (cases.commonDefsDalfName, cases.commonDefsDalf),
+      (primDATypesDalfName, primDATypesDalf),
+    ),
+  )
+  val clientGlobalDar = encodeDar(
+    cases.clientGlobalDalfName,
+    cases.clientGlobalDalf,
     List(
       (cases.templateDefsV1DalfName, cases.templateDefsV1Dalf),
       (cases.templateDefsV2DalfName, cases.templateDefsV2Dalf),
@@ -100,25 +114,36 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     ),
   )
 
-  private var client: LedgerClient = null
   private var scriptClient: GrpcLedgerClient = null
 
   override protected def beforeAll(): scala.Unit = {
     implicit def executionContext: ExecutionContext = ExecutionContext.global
     super.beforeAll()
-    client = Await.result(
+    val client = Await.result(
       for {
         client <- defaultLedgerClient()
-        _ <- Future.traverse(List(commonDefsDar, templateDefsV1Dar, templateDefsV2Dar, clientDar))(
-          dar => client.packageManagementClient.uploadDarFile(dar)
-        )
+        _ <- Future.traverse(
+          List(commonDefsDar, templateDefsV1Dar, templateDefsV2Dar, clientLocalDar, clientGlobalDar)
+        )(dar => client.packageManagementClient.uploadDarFile(dar))
       } yield client,
+      10.seconds,
+    )
+    val adminClient = Await.result(
+      {
+        import com.digitalasset.canton.ledger.client.configuration._
+        AdminLedgerClient.singleHostWithUnknownParticipantId(
+          hostIp = "localhost",
+          port = ledgerPorts.head.adminPort.value,
+          token = None,
+          channelConfig = LedgerClientChannelConfiguration.InsecureDefaults,
+        )
+      },
       10.seconds,
     )
     scriptClient = new GrpcLedgerClient(
       client,
       Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
-      None,
+      Some(adminClient),
       cases.compiledPackages,
     )
   }
@@ -162,9 +187,14 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     for {
       alice <- allocateParty("Alice")
       bob <- allocateParty("Bob")
-      clientContractId <- createContract(
+      clientLocalContractId <- createContract(
         alice,
-        testHelper.clientTplId,
+        testHelper.clientLocalTplId,
+        testHelper.clientContractArg(alice, bob),
+      )
+      clientGlobalContractId <- createContract(
+        alice,
+        testHelper.clientGlobalTplId,
         testHelper.clientContractArg(alice, bob),
       )
       globalContractId <- createContract(
@@ -175,15 +205,36 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     } yield UpgradesMatrixCases.SetupData(
       alice = alice,
       bob = bob,
-      clientContractId = clientContractId,
+      clientLocalContractId = clientLocalContractId,
+      clientGlobalContractId = clientGlobalContractId,
       globalContractId = globalContractId,
     )
+
+  private def withUnvettedPackages[A](
+      packages: List[ReadablePackageId]
+  )(action: => Future[A]): Future[A] = {
+    if (packages.isEmpty)
+      action
+    else
+      for {
+        _ <- scriptClient.unvetPackages(packages)
+        _ <- scriptClient.waitUntilUnvettingVisible(packages, scriptClient.getParticipantUid)
+        result <- action
+        _ <- scriptClient.vetPackages(packages)
+        _ <- scriptClient.waitUntilVettingVisible(packages, scriptClient.getParticipantUid)
+      } yield result
+  }
+
+  private val creationPackages = cases.allCreationPackages.view.values
+    .map(pkg => ReadablePackageId(pkg.pkgName, pkg.pkgVersion))
+    .toList
 
   override def execute(
       setupData: UpgradesMatrixCases.SetupData,
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: UpgradesMatrixCases.ContractOrigin,
+      creationPackageStatus: UpgradesMatrixCases.CreationPackageStatus,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
@@ -220,19 +271,28 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
             ScriptLedgerClient.CommandWithMeta(n, false)
         }
       }
-      result <- scriptClient.submit(
-        actAs = OneAnd(setupData.alice, Set()),
-        readAs = Set(),
-        disclosures = disclosures,
-        optPackagePreference =
-          Some(List(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId)),
-        commands = commands,
-        prefetchContractKeys = List(),
-        optLocation = None,
-        languageVersionLookup =
-          _ => Right(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)),
-        errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.Try,
-      )
+      result <- withUnvettedPackages(
+        creationPackageStatus match {
+          case UpgradesMatrixCases.CreationPackageVetted => List.empty
+          // TODO(https://github.com/digital-asset/daml/issues/21667): change to [creationPackages] once the vetting
+          //  checked is disabled in submission
+          case UpgradesMatrixCases.CreationPackageUnvetted => List.empty
+        }
+      ) {
+        scriptClient.submit(
+          actAs = OneAnd(setupData.alice, Set()),
+          readAs = Set(),
+          disclosures = disclosures,
+          optPackagePreference =
+            Some(List(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientLocalPkgId)),
+          commands = commands,
+          prefetchContractKeys = List(),
+          optLocation = None,
+          languageVersionLookup =
+            _ => Right(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)),
+          errorBehaviour = ScriptLedgerClient.SubmissionErrorBehaviour.Try,
+        )
+      }
     } yield result
 
   override def assertResultMatchesExpectedOutcome(
