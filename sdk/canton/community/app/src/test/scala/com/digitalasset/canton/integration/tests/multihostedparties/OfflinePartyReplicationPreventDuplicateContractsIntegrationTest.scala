@@ -3,31 +3,19 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.EnvironmentDefinition
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.examples.IouSyntax.testIou
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-}
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceAlarm,
   SyncServiceSynchronizerDisconnect,
 }
-import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.{HasExecutionContext, HasTempDirectory, config}
 
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -52,38 +40,18 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
   *     respectively
   */
 sealed trait OfflinePartyReplicationPreventDuplicateContractsIntegrationTest
-    extends CommunityIntegrationTest
-    with SharedEnvironment
-    with HasTempDirectory
-    with HasExecutionContext {
+    extends OfflinePartyReplicationIntegrationTestBase {
 
-  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
-  // Alice's replication to the target participant may trigger ACS commitment mismatch warnings.
-  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
-  // test flakes, `reconciliationInterval` is set to one year.
-  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
-
-  protected var source: LocalParticipantReference = _
-  protected var target: LocalParticipantReference = _
-  protected var alice: PartyId = _
-  protected var bob: PartyId = _
   protected var ledgerEndP1: Long = _
   protected var activationOffset: NonNegativeLong = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1.withSetup { implicit env =>
+    super.environmentDefinition.withSetup { implicit env =>
       import env.*
-
-      participants.local.synchronizers.connect_local(sequencer1, daName)
-      participants.local.dars.upload(CantonExamplesPath)
-      sequencer1.topology.synchronizer_parameters
-        .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
 
       source = participant1
       target = participant2
 
-      alice = source.parties.enable("Alice")
-      bob = target.parties.enable("Bob")
       val charlie = participant3.parties.enable("Charlie")
 
       IouSyntax.createIou(participant1)(alice, charlie, 3.33).discard
@@ -122,16 +90,6 @@ sealed trait OfflinePartyReplicationPreventDuplicateContractsIntegrationTest
         completeAfter = PositiveInt.one,
       )
     }
-
-  private val acsSnapshot =
-    tempDirectory.toTempFile("offline_party_replication_prevent_dup_contracts_snapshot.gz")
-
-  protected val acsSnapshotPath: String = acsSnapshot.toString
-
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-  )
 
 }
 

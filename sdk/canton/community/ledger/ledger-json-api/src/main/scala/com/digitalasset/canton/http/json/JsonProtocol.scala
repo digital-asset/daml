@@ -114,8 +114,11 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat0(() => IdentityProviderAdmin)
   implicit val canReadAsAnyParty: JsonFormat[CanReadAsAnyParty.type] =
     jsonFormat0(() => CanReadAsAnyParty)
+  implicit val canExecuteAsAnyParty: JsonFormat[CanExecuteAsAnyParty.type] =
+    jsonFormat0(() => CanExecuteAsAnyParty)
   implicit val canActAs: JsonFormat[CanActAs] = jsonFormat1(CanActAs.apply)
   implicit val canReadAs: JsonFormat[CanReadAs] = jsonFormat1(CanReadAs.apply)
+  implicit val canExecuteAs: JsonFormat[CanExecuteAs] = jsonFormat1(CanExecuteAs.apply)
 
   implicit val userRight: JsonFormat[UserRight] = {
     val participantAdminTypeName = ParticipantAdmin.getClass.getSimpleName.replace("$", "")
@@ -123,7 +126,9 @@ object JsonProtocol extends JsonProtocolLow {
       IdentityProviderAdmin.getClass.getSimpleName.replace("$", "")
     val canActAsTypeName = classOf[CanActAs].getSimpleName
     val canReadAsTypeName = classOf[CanReadAs].getSimpleName
+    val canExecuteAsTypeName = classOf[CanExecuteAs].getSimpleName
     val canReadAsAnyPartyTypeName = CanReadAsAnyParty.getClass.getSimpleName.replace("$", "")
+    val canExecuteAsAnyPartyTypeName = CanExecuteAsAnyParty.getClass.getSimpleName.replace("$", "")
 
     jsonFormatFromADT[UserRight](
       {
@@ -131,7 +136,9 @@ object JsonProtocol extends JsonProtocolLow {
         case `identityProviderAdminTypeName` => _ => IdentityProviderAdmin
         case `canActAsTypeName` => canActAs.read(_)
         case `canReadAsTypeName` => canReadAs.read(_)
+        case `canExecuteAsTypeName` => canExecuteAs.read(_)
         case `canReadAsAnyPartyTypeName` => _ => CanReadAsAnyParty
+        case `canExecuteAsAnyPartyTypeName` => _ => CanExecuteAsAnyParty
         case typeName => deserializationError(s"Unknown user right type: $typeName")
       },
       {
@@ -140,6 +147,8 @@ object JsonProtocol extends JsonProtocolLow {
         case canActAsObj: CanActAs => canActAs.write(canActAsObj)
         case canReadAsObj: CanReadAs => canReadAs.write(canReadAsObj)
         case CanReadAsAnyParty => canReadAsAnyParty.write(CanReadAsAnyParty)
+        case canExecuteAsObj: CanExecuteAs => canExecuteAs.write(canExecuteAsObj)
+        case CanExecuteAsAnyParty => canExecuteAsAnyParty.write(CanExecuteAsAnyParty)
       },
     )
   }

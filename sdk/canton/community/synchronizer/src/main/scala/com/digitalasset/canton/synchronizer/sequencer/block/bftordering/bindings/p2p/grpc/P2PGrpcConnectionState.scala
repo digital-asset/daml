@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PConnectionState
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PConnectionState.P2PEndpointIdAssociationResult
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   P2PAddress,
@@ -144,6 +145,8 @@ final class P2PGrpcConnectionState(
   // All update operations ensure that:
   //
   // - A P2P endpoint ID is associated with a BFT node ID as soon as the association is known.
+  // - Associating a P2P endpoint ID to this BFT node ID returns an error.
+  // - Re-associating a P2P endpoint ID to a different BFT node ID returns an error.
   // - All P2P endpoint IDs for a BFT node ID point to the same network reference to which the BFT node ID also points,
   //   replacing and closing duplicates as they are identified.
   // - No new sender is associated with a BFT node ID if one is already associated with it.
@@ -153,31 +156,59 @@ final class P2PGrpcConnectionState(
 
   override def associateP2PEndpointIdToBftNodeId(
       p2pAddress: P2PAddress
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext): P2PEndpointIdAssociationResult = {
     val maybeP2PEndpoint = p2pAddress.maybeP2PEndpoint
     val maybeBftNodeId = p2pAddress.maybeBftNodeId
-    maybeP2PEndpoint.flatMap(e => maybeBftNodeId.map(_ -> e)).foreach {
-      case (bftNodeId, p2pEndpoint) => associateP2PEndpointIdToBftNodeId(p2pEndpoint.id, bftNodeId)
-    }
+    maybeP2PEndpoint
+      .flatMap(e => maybeBftNodeId.map(_ -> e))
+      .fold(Right(()): Either[P2PConnectionState.Error, Unit]) { case (bftNodeId, p2pEndpoint) =>
+        associateP2PEndpointIdToBftNodeId(p2pEndpoint.id, bftNodeId)
+      }
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
   def associateP2PEndpointIdToBftNodeId(
       p2pEndpointId: P2PEndpoint.Id,
       bftNodeId: BftNodeId,
-  )(implicit traceContext: TraceContext): Unit =
+  )(implicit traceContext: TraceContext): P2PEndpointIdAssociationResult =
     mutex(this) {
+      var result: P2PEndpointIdAssociationResult = Right(())
+      var changesMade = false
       p2pEndpointIdToBftNodeId
         .updateWith(p2pEndpointId) {
           case Some(previousBftNodeId) =>
-            if (previousBftNodeId == bftNodeId)
+            if (previousBftNodeId == bftNodeId) {
               logger.debug(s"Endpoint $p2pEndpointId already associated with $bftNodeId, no change")
-            Some(bftNodeId)
-          case None =>
+            } else {
+              result = Left(
+                P2PConnectionState.Error
+                  .P2PEndpointIdAlreadyAssociated(p2pEndpointId, previousBftNodeId, bftNodeId)
+              )
+              logger.warn(
+                "Possible impersonation attempt: " +
+                  s"endpoint $p2pEndpointId is already associated with $previousBftNodeId, " +
+                  s"not associating it to $bftNodeId; if this is a legitimate change, " +
+                  "the previous association must be removed first"
+              )
+            }
+            Some(previousBftNodeId)
+          case _ if bftNodeId == thisNode =>
+            result = Left(
+              P2PConnectionState.Error.CannotAssociateP2PEndpointIdsToSelf(p2pEndpointId, thisNode)
+            )
+            logger.warn(
+              s"Possible impersonation attempt: not associating $p2pEndpointId to this node ($thisNode)"
+            )
+            None
+          case _ =>
             logger.debug(s"Associated $p2pEndpointId -> $bftNodeId, no previous association")
+            changesMade = true
             Some(bftNodeId)
         }
         .discard
-      consolidateNetworkRefs(bftNodeId)
+      if (changesMade)
+        consolidateNetworkRefs(bftNodeId)
+      result
     }
 
   // Adds a new sender or completes the endpoint information if already present, returning `false` in that case;

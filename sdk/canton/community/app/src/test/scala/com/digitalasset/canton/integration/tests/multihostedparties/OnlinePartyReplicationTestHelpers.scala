@@ -180,7 +180,7 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
     */
   protected def modifyDecentralizedPartyTopology(
       decentralizedParty: PartyId,
-      partyOwners: Seq[InstanceReference],
+      authorizers: Seq[InstanceReference],
       propose: (
           InstanceReference,
           PartyToParticipant,
@@ -189,15 +189,15 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       verifyBeforeAfter: (PartyToParticipant, PartyToParticipant) => Unit,
   )(implicit env: integration.TestConsoleEnvironment): PositiveInt = {
     import env.*
-    val ptpCurrent = partyOwners.head.topology.party_to_participant_mappings
+    val ptpCurrent = authorizers.head.topology.party_to_participant_mappings
       .list(daId, filterParty = decentralizedParty.filterString)
       .loneElement
     val serial = ptpCurrent.context.serial.increment
 
-    partyOwners.foreach(propose(_, ptpCurrent.item, serial).discard)
+    authorizers.foreach(propose(_, ptpCurrent.item, serial).discard)
 
     eventually() {
-      partyOwners.foreach(po =>
+      authorizers.foreach(po =>
         verifyBeforeAfter(
           ptpCurrent.item,
           po.topology.party_to_participant_mappings

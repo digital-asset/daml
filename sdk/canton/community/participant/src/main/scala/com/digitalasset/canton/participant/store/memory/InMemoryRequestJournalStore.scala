@@ -159,6 +159,12 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
       }
     }
 
+  override def lastRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = lastRequestTimeWithRequestTimestampBeforeOrAt(
+    requestTimestamp
+  ).map(_.map(_.timestamp))
+
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
 
   override def totalDirtyRequests()(implicit

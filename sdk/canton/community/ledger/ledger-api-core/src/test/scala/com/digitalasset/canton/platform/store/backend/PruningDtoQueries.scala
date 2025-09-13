@@ -80,8 +80,8 @@ class PruningDtoQueries {
     SQL"SELECT event_sequential_id, party_id FROM lapi_pe_reassignment_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
       .asVectorOf(idFilterParser(FilterUnassign.apply))(c)
 
-  def txMeta(implicit c: Connection): Seq[TxMeta] =
-    SQL"SELECT event_offset AS ledger_offset FROM lapi_transaction_meta ORDER BY event_offset"
+  def updateMeta(implicit c: Connection): Seq[TxMeta] =
+    SQL"SELECT event_offset AS ledger_offset FROM lapi_update_meta ORDER BY event_offset"
       .asVectorOf(offsetParser(TxMeta.apply))(c)
   def completions(implicit c: Connection): Seq[Completion] =
     SQL"SELECT completion_offset AS ledger_offset FROM lapi_command_completions ORDER BY completion_offset"

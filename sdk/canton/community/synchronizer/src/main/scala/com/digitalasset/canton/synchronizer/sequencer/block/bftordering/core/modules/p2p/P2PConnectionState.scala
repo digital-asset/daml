@@ -15,6 +15,8 @@ import com.digitalasset.canton.tracing.TraceContext
 
 trait P2PConnectionState {
 
+  import P2PConnectionState.*
+
   def isDefined(p2pEndpointId: P2PEndpoint.Id)(implicit traceContext: TraceContext): Boolean
 
   def isOutgoing(p2pEndpointId: P2PEndpoint.Id): Boolean
@@ -23,7 +25,7 @@ trait P2PConnectionState {
 
   def associateP2PEndpointIdToBftNodeId(
       p2pAddress: P2PAddress
-  )(implicit traceContext: TraceContext): Unit
+  )(implicit traceContext: TraceContext): P2PEndpointIdAssociationResult
 
   def addNetworkRefIfMissing(
       p2pAddressId: P2PAddress.Id
@@ -40,4 +42,32 @@ trait P2PConnectionState {
   def connections(implicit
       traceContext: TraceContext
   ): Seq[(Option[P2PEndpoint.Id], Option[BftNodeId])]
+}
+
+object P2PConnectionState {
+
+  type P2PEndpointIdAssociationResult = Either[Error, Unit]
+
+  sealed trait Error extends Product with Serializable
+
+  object Error {
+
+    final case class CannotAssociateP2PEndpointIdsToSelf(
+        p2pEndpointId: P2PEndpoint.Id,
+        thisBftNodeId: BftNodeId,
+    ) extends Error {
+      override def toString: String =
+        s"Cannot associate any P2P endpoint ID $p2pEndpointId to self ($thisBftNodeId)"
+    }
+
+    final case class P2PEndpointIdAlreadyAssociated(
+        p2pEndpointId: P2PEndpoint.Id,
+        previousBftNodeId: BftNodeId,
+        newBftNodeId: BftNodeId,
+    ) extends Error {
+      override def toString: String =
+        s"Cannot associate P2P endpoint ID $p2pEndpointId to $newBftNodeId " +
+          s"as it is already associated with $previousBftNodeId"
+    }
+  }
 }

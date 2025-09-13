@@ -369,6 +369,8 @@ class DeclarativeParticipantApi(
           annotations = user.annotations,
           identityProviderId = user.identityProviderId,
           readAsAnyParty = user.rights.readAsAnyParty,
+          executeAs = user.rights.executeAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
+          executeAsAnyParty = user.rights.executeAsAnyParty,
         )
       ).map(_ => ())
 
@@ -414,38 +416,46 @@ class DeclarativeParticipantApi(
         )
         val (grantReadAsAny, revokeReadAsAny) =
           grantOrRevoke(existing.readAsAnyParty, desired.readAsAnyParty)
+        val (grantExecuteAsAny, revokeExecuteAsAny) =
+          grantOrRevoke(existing.executeAsAnyParty, desired.executeAsAnyParty)
         val (grantReadAs, revokeReadAs) =
+          grantOrRevokeSet(existing.readAs, desired.readAs)
+        val (grantExecuteAs, revokeExecuteAs) =
           grantOrRevokeSet(existing.readAs, desired.readAs)
         val (grantActAs, revokeActAs) =
           grantOrRevokeSet(existing.actAs, desired.actAs)
         val grantE =
           if (
-            grantParticipantAdmin || grantIdpAdmin || grantReadAsAny || grantReadAs.nonEmpty || grantActAs.nonEmpty
+            grantParticipantAdmin || grantIdpAdmin || grantReadAsAny || grantReadAs.nonEmpty || grantActAs.nonEmpty || grantExecuteAsAny || grantExecuteAs.nonEmpty
           ) {
             queryLedgerApi(
               LedgerApiCommands.Users.Rights.Grant(
                 id = id,
                 actAs = grantActAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
                 readAs = grantReadAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
+                executeAs = grantExecuteAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
                 identityProviderId = identityProviderId,
                 participantAdmin = grantParticipantAdmin,
                 readAsAnyParty = grantReadAsAny,
+                executeAsAnyParty = grantExecuteAsAny,
                 identityProviderAdmin = grantIdpAdmin,
               )
             ).map(_ => ())
           } else Either.unit
         val revokeE =
           if (
-            revokeParticipantAdmin || revokeIdpAdmin || revokeReadAsAny || revokeReadAs.nonEmpty || revokeActAs.nonEmpty
+            revokeParticipantAdmin || revokeIdpAdmin || revokeReadAsAny || revokeReadAs.nonEmpty || revokeActAs.nonEmpty || revokeExecuteAsAny || revokeExecuteAs.nonEmpty
           ) {
             queryLedgerApi(
               LedgerApiCommands.Users.Rights.Revoke(
                 id = id,
                 actAs = revokeActAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
                 readAs = revokeReadAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
+                executeAs = revokeExecuteAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
                 identityProviderId = identityProviderId,
                 participantAdmin = revokeParticipantAdmin,
                 readAsAnyParty = revokeReadAsAny,
+                executeAsAnyParty = revokeExecuteAsAny,
                 identityProviderAdmin = revokeIdpAdmin,
               )
             ).map(_ => ())

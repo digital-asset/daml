@@ -286,6 +286,17 @@ class StoreBasedSynchronizerTopologyClient(
     )
   }
 
+  override def tryHypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit traceContext: TraceContext): StoreBasedTopologySnapshot =
+    ErrorUtil.internalError(
+      new UnsupportedOperationException(
+        "tryHypotheticalSnapshot is not " +
+          "supported on store-based synchronizer topology clients"
+      )
+    )
+
   /** @return
     *   the timestamp as of which the latest known effective time will be valid, i.e.
     *   latestKnownEffectiveTimestamp.immediateSuccessor

@@ -16,7 +16,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.{
   CantonCryptoProvider,
   FingerprintKeyId,
@@ -26,6 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   PekkoFutureUnlessShutdown,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.{
   OrderingTopologyProvider,
   TopologyActivationTime,

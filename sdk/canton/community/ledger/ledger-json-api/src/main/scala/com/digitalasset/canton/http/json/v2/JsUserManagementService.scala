@@ -341,6 +341,8 @@ object JsUserManagementCodecs {
     deriveRelaxedCodec
   implicit val canActAsRW: Codec[user_management_service.Right.CanActAs] = deriveRelaxedCodec
   implicit val canReadAsRW: Codec[user_management_service.Right.CanReadAs] = deriveRelaxedCodec
+  implicit val canExecuteAsRW: Codec[user_management_service.Right.CanExecuteAs] =
+    deriveRelaxedCodec
   implicit val rightKindidentityProviderAdminRW
       : Codec[user_management_service.Right.Kind.IdentityProviderAdmin] =
     deriveRelaxedCodec
@@ -348,12 +350,19 @@ object JsUserManagementCodecs {
     deriveRelaxedCodec
   implicit val canReadAsAnyPartyRWRW: Codec[user_management_service.Right.CanReadAsAnyParty] =
     deriveRelaxedCodec
+  implicit val canExecuteAsAnyPartyRWRW: Codec[user_management_service.Right.CanExecuteAsAnyParty] =
+    deriveRelaxedCodec
   implicit val kindCanActAsRWRW: Codec[user_management_service.Right.Kind.CanActAs] =
     deriveRelaxedCodec
   implicit val kindCanReadAsRWRW: Codec[user_management_service.Right.Kind.CanReadAs] =
     deriveRelaxedCodec
   implicit val kindCanReadAsAnyPartyRW
       : Codec[user_management_service.Right.Kind.CanReadAsAnyParty] =
+    deriveRelaxedCodec
+  implicit val kindCanExecuteAsRWRW: Codec[user_management_service.Right.Kind.CanExecuteAs] =
+    deriveRelaxedCodec
+  implicit val kindCanExecuteAsAnyPartyRW
+      : Codec[user_management_service.Right.Kind.CanExecuteAsAnyParty] =
     deriveRelaxedCodec
   implicit val kindParticipantAdminRWRW
       : Codec[user_management_service.Right.Kind.ParticipantAdmin] =

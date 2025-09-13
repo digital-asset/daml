@@ -465,7 +465,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       .map(Ref.TransactionId.assertFromString)
       .map { updateId =>
         executeSql(
-          txPointwiseQueries.fetchIdsFromTransactionMeta(
+          txPointwiseQueries.fetchIdsFromUpdateMeta(
             lookupKey = LookupKey.UpdateId(updateId)
           )
         )
@@ -480,7 +480,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       .map(Offset.tryFromLong)
       .map { offset =>
         executeSql(
-          txPointwiseQueries.fetchIdsFromTransactionMeta(
+          txPointwiseQueries.fetchIdsFromUpdateMeta(
             lookupKey = LookupKey.Offset(offset)
           )
         )

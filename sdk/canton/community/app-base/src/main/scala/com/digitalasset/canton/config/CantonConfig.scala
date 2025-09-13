@@ -1196,6 +1196,8 @@ object CantonConfig {
         deriveReader[SessionEncryptionKeyCacheConfig]
       implicit val cacheConfigReader: ConfigReader[CacheConfig] =
         deriveReader[CacheConfig]
+      implicit val cacheConfigWithSizeOnlyReader: ConfigReader[CacheConfigWithSizeOnly] =
+        deriveReader[CacheConfigWithSizeOnly]
       deriveReader[CachingConfigs]
     }
 
@@ -1857,6 +1859,8 @@ object CantonConfig {
       implicit val sessionEncryptionKeyCacheConfigWriter
           : ConfigWriter[SessionEncryptionKeyCacheConfig] =
         deriveWriter[SessionEncryptionKeyCacheConfig]
+      implicit val cacheConfigWithSizeOnlyWriter: ConfigWriter[CacheConfigWithSizeOnly] =
+        deriveWriter[CacheConfigWithSizeOnly]
       deriveWriter[CachingConfigs]
     }
 

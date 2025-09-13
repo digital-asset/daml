@@ -793,7 +793,7 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               Some(senderTs),
               Some(incorrectSubmissionCostNN),
-              cryptoClient.headSnapshot.ipsSnapshot.timestamp,
+              sequencingTs,
               Some(sequencerId),
               Some(
                 TrafficReceipt(
@@ -859,7 +859,7 @@ class EnterpriseSequencerRateLimitManagerTest
               participant1.member,
               None,
               Some(submissionCostNN),
-              cryptoClient.headSnapshot.ipsSnapshot.timestamp,
+              sequencingTs,
               Some(sequencerId),
               Some(
                 TrafficReceipt(

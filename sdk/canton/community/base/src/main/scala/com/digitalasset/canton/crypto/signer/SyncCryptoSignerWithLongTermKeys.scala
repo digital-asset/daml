@@ -4,8 +4,6 @@
 package com.digitalasset.canton.crypto.signer
 
 import cats.data.EitherT
-import cats.syntax.either.*
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore
@@ -23,36 +21,10 @@ import scala.concurrent.ExecutionContext
 class SyncCryptoSignerWithLongTermKeys(
     member: Member,
     signPrivateApiWithLongTermKeys: SigningPrivateOps,
-    cryptoPrivateStore: CryptoPrivateStore,
+    override protected val cryptoPrivateStore: CryptoPrivateStore,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends SyncCryptoSigner {
-
-  private def findSigningKey(
-      topologySnapshot: TopologySnapshot,
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] =
-    for {
-      signingKeys <- EitherT.right(topologySnapshot.signingKeys(member, usage))
-      existingKeys <- signingKeys.toList
-        .parFilterA(pk => cryptoPrivateStore.existsSigningKey(pk.fingerprint))
-        .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
-      kk <- NonEmpty
-        .from(existingKeys)
-        .map(PublicKey.getLatestKey)
-        .toRight[SyncCryptoError](
-          SyncCryptoError
-            .KeyNotAvailable(
-              member,
-              KeyPurpose.Signing,
-              topologySnapshot.timestamp,
-              signingKeys.map(_.fingerprint),
-            )
-        )
-        .toEitherT[FutureUnlessShutdown]
-    } yield kk.fingerprint
 
   /** Sign given hash with signing key for (member, domain, timestamp)
     */
@@ -64,9 +36,9 @@ class SyncCryptoSignerWithLongTermKeys(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
     for {
-      fingerprint <- findSigningKey(topologySnapshot, usage)
+      signingPublicKey <- findSigningKey(member, topologySnapshot, usage)
       signature <- signPrivateApiWithLongTermKeys
-        .sign(hash, fingerprint, usage)
+        .sign(hash, signingPublicKey.id, usage)
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
     } yield signature
 

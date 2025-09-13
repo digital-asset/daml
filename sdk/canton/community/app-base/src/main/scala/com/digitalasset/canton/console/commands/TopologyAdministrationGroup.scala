@@ -1739,6 +1739,43 @@ class TopologyAdministrationGroup(
       runAdminCommand(command)
     }
 
+    @VisibleForTesting
+    @Help.Summary("Remove the party from the synchronizer")
+    @Help.Description("Unlike propose above, sign the new transaction using the global store")
+    private[canton] def sign_and_remove(
+        party: ExternalParty,
+        synchronizer: Synchronizer,
+        synchronize: Option[config.NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.bounded
+        ),
+    ): Unit =
+      findCurrent(party.partyId, synchronizer) match {
+        case Some(current) =>
+          val psid = current.context.storeId match {
+            case TopologyStoreId.Synchronizer(Right(psid)) => psid
+            case other =>
+              consoleEnvironment.raiseError(
+                s"Expected topology store id to be physical but found: $other"
+              )
+          }
+
+          val transaction = TopologyTransaction(
+            TopologyChangeOp.Remove,
+            serial = current.context.serial.increment,
+            mapping = current.item,
+            protocolVersion = psid.protocolVersion,
+          )
+
+          transactions.load(
+            Seq(consoleEnvironment.global_secret.sign(transaction, party, psid.protocolVersion)),
+            psid,
+            synchronize = synchronize,
+          )
+
+        case None =>
+          consoleEnvironment.raiseError(s"Unable to find mapping for party $party")
+      }
+
     @Help.Summary("List party to participant mapping transactions from synchronizer store")
     @Help.Description(
       """List the party to participant mapping transactions present in the stores. Party to participant mappings

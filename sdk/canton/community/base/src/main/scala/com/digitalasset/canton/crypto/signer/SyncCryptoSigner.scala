@@ -4,13 +4,19 @@
 package com.digitalasset.canton.crypto.signer
 
 import cats.data.EitherT
+import cats.syntax.either.*
+import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{CacheConfig, CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.crypto.{
   Hash,
+  KeyPurpose,
+  PublicKey,
   Signature,
   SigningKeyUsage,
+  SigningPublicKey,
   SyncCryptoError,
   SynchronizerCrypto,
 }
@@ -28,6 +34,8 @@ import scala.concurrent.ExecutionContext
   */
 trait SyncCryptoSigner extends NamedLogging with AutoCloseable {
 
+  protected def cryptoPrivateStore: CryptoPrivateStore
+
   /** Signs a given hash using the currently active signing keys in the current topology state.
     */
   def sign(
@@ -37,6 +45,34 @@ trait SyncCryptoSigner extends NamedLogging with AutoCloseable {
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature]
+
+  protected def findSigningKey(
+      member: Member,
+      topologySnapshot: TopologySnapshot,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, SyncCryptoError, SigningPublicKey] =
+    for {
+      signingKeys <- EitherT.right(topologySnapshot.signingKeys(member, usage))
+      existingKeys <- signingKeys.toList
+        .parFilterA(pk => cryptoPrivateStore.existsSigningKey(pk.fingerprint))
+        .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
+      kk <- NonEmpty
+        .from(existingKeys)
+        .map(PublicKey.getLatestKey)
+        .toRight[SyncCryptoError](
+          SyncCryptoError
+            .KeyNotAvailable(
+              member,
+              KeyPurpose.Signing,
+              topologySnapshot.timestamp,
+              signingKeys.map(_.fingerprint),
+            )
+        )
+        .toEitherT[FutureUnlessShutdown]
+    } yield kk
 
 }
 
@@ -76,6 +112,7 @@ object SyncCryptoSigner {
           staticSynchronizerParameters,
           member,
           crypto.privateCrypto,
+          crypto.cryptoPrivateStore,
           sessionSigningKeysConfig,
           publicKeyConversionCacheConfig,
           futureSupervisor: FutureSupervisor,

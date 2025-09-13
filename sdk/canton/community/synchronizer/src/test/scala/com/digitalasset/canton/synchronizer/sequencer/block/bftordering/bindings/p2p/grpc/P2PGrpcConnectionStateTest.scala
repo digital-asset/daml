@@ -10,6 +10,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PConnectionState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   P2PAddress,
@@ -47,6 +48,49 @@ class P2PGrpcConnectionStateTest extends AnyWordSpec with BftSequencerBaseTest {
       state.isOutgoing(APeerP2PEndpoint.id) shouldBe false
       state.isDefined(AnotherPeerP2PEndpoint.id) shouldBe true
       state.isOutgoing(AnotherPeerP2PEndpoint.id) shouldBe false
+    }
+
+    "reject associating a P2P endpoint ID to the self BFT node ID" in {
+      val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
+
+      state.connections shouldBe empty
+
+      suppressProblemLogs(
+        state.associateP2PEndpointIdToBftNodeId(APeerP2PEndpoint.id, SelfBftNodeId) shouldBe Left(
+          P2PConnectionState.Error
+            .CannotAssociateP2PEndpointIdsToSelf(APeerP2PEndpoint.id, SelfBftNodeId)
+        )
+      )
+
+      state.connections shouldBe empty
+      state.isDefined(APeerP2PEndpoint.id) shouldBe false
+      state.isOutgoing(APeerP2PEndpoint.id) shouldBe false
+    }
+
+    "reject associating a P2P endpoint ID to a BFT node ID if already associated to another BFT node ID" in {
+      val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)
+
+      state.connections shouldBe empty
+
+      state.associateP2PEndpointIdToBftNodeId(APeerP2PEndpoint.id, APeerBftNodeId)
+
+      suppressProblemLogs(
+        state.associateP2PEndpointIdToBftNodeId(
+          APeerP2PEndpoint.id,
+          AnotherPeerBftNodeId,
+        ) shouldBe Left(
+          P2PConnectionState.Error
+            .P2PEndpointIdAlreadyAssociated(
+              APeerP2PEndpoint.id,
+              APeerBftNodeId,
+              AnotherPeerBftNodeId,
+            )
+        )
+      )
+
+      state.connections should contain only Some(APeerP2PEndpoint.id) -> Some(APeerBftNodeId)
+      state.isDefined(APeerP2PEndpoint.id) shouldBe true
+      state.isOutgoing(APeerP2PEndpoint.id) shouldBe false
     }
 
     "associate a gRPC streaming sender with a BFT node ID only if missing" in {
@@ -257,13 +301,11 @@ object P2PGrpcConnectionStateTest {
   private val AnotherPeerP2PEndpointAddressId = P2PAddress.Endpoint(AnotherPeerP2PEndpoint).id
 
   private val APeerBftNodeId = BftNodeId("2")
+  private val AnotherPeerBftNodeId = BftNodeId("3")
   private val APeerP2PNodeAddressId = P2PAddress.NodeId(APeerBftNodeId).id
 
   private val ASender = mock[StreamObserver[BftOrderingMessage]]
   private val AnotherSender = mock[StreamObserver[BftOrderingMessage]]
 
-  private def createNewNetworkRef(): P2PNetworkRef[BftOrderingMessage] = {
-    val result = mock[P2PNetworkRef[BftOrderingMessage]]
-    result
-  }
+  private def createNewNetworkRef() = mock[P2PNetworkRef[BftOrderingMessage]]
 }

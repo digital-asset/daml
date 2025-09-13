@@ -28,10 +28,12 @@ import com.digitalasset.canton.participant.admin.PackageService.*
 import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore.readPackageId
-import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
+import com.digitalasset.canton.participant.store.memory.{
+  MutablePackageMetadataView,
+  PackageMetadataView,
+}
 import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
@@ -93,9 +95,7 @@ class PackageService(
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = packageDependencyResolver.damlPackageStore
 
-  def getPackageMetadataSnapshot(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): PackageMetadata = packageUploader.getPackageMetadataSnapshot
+  def getPackageMetadataView: PackageMetadataView = packageUploader.getPackageMetadataView
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext

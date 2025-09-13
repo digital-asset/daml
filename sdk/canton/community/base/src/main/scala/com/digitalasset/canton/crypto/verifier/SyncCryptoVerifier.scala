@@ -212,7 +212,7 @@ class SyncCryptoVerifier(
     def invalidSessionKey =
       EitherT.leftT[FutureUnlessShutdown, Unit](
         SignatureCheckError.InvalidSignatureDelegation(
-          "The current signature delegation" +
+          "The current signature delegation " +
             s"is only valid from ${validityPeriod.fromInclusive} to ${validityPeriod.toExclusive} while the " +
             s"current timestamp is $currentTimestamp"
         ): SignatureCheckError

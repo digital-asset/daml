@@ -81,7 +81,7 @@ sealed trait TransactionPointwiseReaderLegacy {
       // Fetching event sequential id range corresponding to the requested transaction id
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
         eventStorageBackend.updatePointwiseQueries
-          .fetchIdsFromTransactionMeta(
+          .fetchIdsFromUpdateMeta(
             lookupKey = lookupKey
           )
       )

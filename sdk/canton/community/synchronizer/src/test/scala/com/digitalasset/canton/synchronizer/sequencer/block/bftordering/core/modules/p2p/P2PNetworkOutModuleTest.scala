@@ -220,97 +220,6 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       }
     }
 
-    "a node tries to authenticate as self" should {
-      "be disconnected" in {
-        val mempoolSpy =
-          spy(fakeIgnoringModule[Mempool.Message])
-        val (context, state, module, p2pNetworkManager) =
-          setupWithDefaultDepsExpectingSilence(
-            mempool = mempoolSpy,
-            availability = fakeIgnoringModule,
-            consensus = fakeIgnoringModule,
-            output = fakeIgnoringModule,
-            pruning = fakeIgnoringModule,
-          )
-
-        implicit val ctx: ProgrammableUnitTestContext[P2PNetworkOut.Message] = context
-
-        connect(p2pNetworkManager, otherInitialEndpointsTupled._1)
-        authenticate(p2pNetworkManager, otherInitialEndpointsTupled._1)
-        connect(p2pNetworkManager, otherInitialEndpointsTupled._2)
-        authenticate(p2pNetworkManager, otherInitialEndpointsTupled._2)
-        connect(p2pNetworkManager, otherInitialEndpointsTupled._3)
-        suppressProblemLogs {
-          authenticate(
-            p2pNetworkManager,
-            otherInitialEndpointsTupled._3,
-            Some(selfNode),
-          )
-          context.selfMessages.foreach(module.receive) // Perform all authentications
-        }
-
-        verify(mempoolSpy, never).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 1))
-        verify(mempoolSpy, times(1)).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 2))
-        verify(mempoolSpy, times(2)).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 3))
-        verify(mempoolSpy, never).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 4))
-
-        state.p2pConnectionState.connections should contain theSameElementsAs Seq(
-          Some(otherInitialEndpointsTupled._1.id) -> Some(
-            endpointToTestBftNodeId(otherInitialEndpointsTupled._1)
-          ),
-          Some(otherInitialEndpointsTupled._2.id) -> Some(
-            endpointToTestBftNodeId(otherInitialEndpointsTupled._2)
-          ),
-          Some(otherInitialEndpointsTupled._3.id) -> None,
-        )
-      }
-    }
-
-    "a node tries to re-authenticate as another node" should {
-      "be disconnected" in {
-        val mempoolSpy =
-          spy(fakeIgnoringModule[Mempool.Message])
-        val (context, state, module, p2pNetworkManager) =
-          setupWithIgnoringDefaultDeps(mempool = mempoolSpy)
-
-        implicit val ctx: ProgrammableUnitTestContext[P2PNetworkOut.Message] = context
-
-        import state.*
-
-        connect(p2pNetworkManager, otherInitialEndpointsTupled._1)
-        authenticate(p2pNetworkManager, otherInitialEndpointsTupled._1)
-        connect(p2pNetworkManager, otherInitialEndpointsTupled._2)
-        authenticate(p2pNetworkManager, otherInitialEndpointsTupled._2)
-        connect(p2pNetworkManager, otherInitialEndpointsTupled._3)
-        authenticate(p2pNetworkManager, otherInitialEndpointsTupled._3)
-        suppressProblemLogs {
-          authenticate(
-            p2pNetworkManager,
-            otherInitialEndpointsTupled._3,
-            Some(endpointToTestBftNodeId(otherInitialEndpointsTupled._2)),
-          )
-          context.selfMessages.foreach(module.receive) // Perform all authentications
-        }
-
-        verify(mempoolSpy, never).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 1))
-        verify(mempoolSpy, times(1)).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 2))
-        verify(mempoolSpy, times(1)).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 3))
-        verify(mempoolSpy, times(2)).asyncSend(Mempool.P2PConnectivityUpdate(aMembership, 4))
-
-        p2pConnectionState.connections should contain allElementsOf Seq(
-          Some(otherInitialEndpointsTupled._1.id) -> Some(
-            endpointToTestBftNodeId(otherInitialEndpointsTupled._1)
-          ),
-          Some(otherInitialEndpointsTupled._2.id) -> Some(
-            endpointToTestBftNodeId(otherInitialEndpointsTupled._2)
-          ),
-        )
-        p2pNetworkManager.disconnected should contain(otherInitialEndpointsTupled._3.id)
-        availabilityStarted shouldBe true
-        consensusStarted shouldBe true
-      }
-    }
-
     "is requested to multicast a network message and " +
       "all nodes are authenticated" should {
         "send the message to all nodes" in {
@@ -923,10 +832,6 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
     val nodeActions: mutable.Map[P2PEndpoint, P2PConnectionEventListener] =
       mutable.Map.empty
-
-    val disconnected: mutable.Set[P2PEndpoint.Id] =
-      mutable.Set.empty
-
     override def createNetworkRef[ActorContextT](
         context: ProgrammableUnitTestContext[ActorContextT],
         p2pAddress: P2PAddress,
@@ -949,8 +854,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
     override def shutdownOutgoingConnection(
         p2pEndpointId: P2PEndpoint.Id
-    )(implicit traceContext: TraceContext): Unit =
-      disconnected.add(p2pEndpointId).discard
+    )(implicit traceContext: TraceContext): Unit = ()
   }
 }
 

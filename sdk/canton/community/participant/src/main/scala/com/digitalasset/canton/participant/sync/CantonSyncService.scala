@@ -66,6 +66,7 @@ import com.digitalasset.canton.participant.protocol.submission.routing.{
 import com.digitalasset.canton.participant.pruning.PruningProcessor
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.UnknownAlias
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   PartyAllocationCannotDetermineSynchronizer,
@@ -719,9 +720,11 @@ class CantonSyncService(
       .listPackages()
       .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
+  def getPackageMetadataView: PackageMetadataView = packageService.getPackageMetadataView
+
   override def getPackageMetadataSnapshot(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): PackageMetadata = packageService.getPackageMetadataSnapshot
+  ): PackageMetadata = getPackageMetadataView.getSnapshot
 
   /** Executes ordered sequence of steps to recover any state that might have been lost if the
     * participant previously crashed. Needs to be invoked after the input stores have been created,

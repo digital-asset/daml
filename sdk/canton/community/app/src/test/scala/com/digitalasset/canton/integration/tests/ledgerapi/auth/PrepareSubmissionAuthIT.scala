@@ -13,7 +13,8 @@ import scala.concurrent.Future
 // PrepareSubmission authorizes like a read only command
 final class PrepareSubmissionAuthIT
     extends ReadOnlyServiceCallAuthTests
-    with SubmitDummyPreparedSubmission {
+    with SubmitDummyPreparedSubmission
+    with ExecuteAsAuthTests {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "InteractiveSubmissionService#PrepareSubmission"

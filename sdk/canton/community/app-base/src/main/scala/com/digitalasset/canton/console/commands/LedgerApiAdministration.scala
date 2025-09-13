@@ -2016,6 +2016,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           annotations: the set of key-value pairs linked to this user
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
+          executeAs: the set of parties for whom this user is allowed to operate interactive submissions
+          executeAsAnyParty: flag (default false) indicating if the user is allowed to operate interactive submissions as any party
           """
       )
       def create(
@@ -2029,6 +2031,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
           readAsAnyParty: Boolean = false,
+          executeAs: Set[PartyId] = Set(),
+          executeAsAnyParty: Boolean = false,
       ): User = {
         val lapiUser = consoleEnvironment.run {
           ledgerApiCommand(
@@ -2043,6 +2047,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               annotations = annotations,
               identityProviderId = identityProviderId,
               readAsAnyParty = readAsAnyParty,
+              executeAs = executeAs.map(_.toLf),
+              executeAsAnyParty = executeAsAnyParty,
             )
           )
         }
@@ -2208,6 +2214,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           identityProviderAdmin: flag (default false) indicating if the user is allowed to manage users and parties assigned to the same identity provider
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
+          executeAs: the set of parties for whom this user is allowed to operate interactive submissions
+          executeAsAnyParty: flag (default false) indicating if the user is allowed to operate interactive submissions as any party
           """)
         def grant(
             id: String,
@@ -2217,6 +2225,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             identityProviderAdmin: Boolean = false,
             identityProviderId: String = "",
             readAsAnyParty: Boolean = false,
+            executeAs: Set[PartyId] = Set(),
+            executeAsAnyParty: Boolean = false,
         ): UserRights =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -2224,10 +2234,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 id = id,
                 actAs = actAs.map(_.toLf),
                 readAs = readAs.map(_.toLf),
+                executeAs = executeAs.map(_.toLf),
                 participantAdmin = participantAdmin,
                 identityProviderAdmin = identityProviderAdmin,
                 identityProviderId = identityProviderId,
                 readAsAnyParty = readAsAnyParty,
+                executeAsAnyParty = executeAsAnyParty,
               )
             ).flatMap(_ =>
               ledgerApiCommand(
@@ -2248,6 +2260,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           identityProviderAdmin: if set to true, the identity provider admin rights will be removed
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
+          executeAs: the set of parties for whom this user is allowed to operate interactive submissions
+          executeAsAnyParty: flag (default false) indicating if the user is allowed to operate interactive submissions as any party
           """)
         def revoke(
             id: String,
@@ -2257,6 +2271,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             identityProviderAdmin: Boolean = false,
             identityProviderId: String = "",
             readAsAnyParty: Boolean = false,
+            executeAs: Set[PartyId] = Set(),
+            executeAsAnyParty: Boolean = false,
         ): UserRights =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -2264,10 +2280,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 id = id,
                 actAs = actAs.map(_.toLf),
                 readAs = readAs.map(_.toLf),
+                executeAs = executeAs.map(_.toLf),
                 participantAdmin = participantAdmin,
                 identityProviderAdmin = identityProviderAdmin,
                 identityProviderId = identityProviderId,
                 readAsAnyParty = readAsAnyParty,
+                executeAsAnyParty = executeAsAnyParty,
               )
             ).flatMap(_ =>
               ledgerApiCommand(

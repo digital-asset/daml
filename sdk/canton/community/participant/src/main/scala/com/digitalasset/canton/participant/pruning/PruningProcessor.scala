@@ -10,7 +10,6 @@ import cats.syntax.traverse.*
 import cats.{Eval, Monad}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -283,24 +282,14 @@ class PruningProcessor(
         case (synchronizerId, state) =>
           participantNodePersistentState.value.ledgerApiStore
             .lastSynchronizerOffsetBeforeOrAt(synchronizerId.logical, pruneUpToInclusive)
-            .flatMap(
+            .map(
               _.filter(synchronizerOffset => Option(synchronizerOffset.offset) > pruneFromExclusive)
-                .map(synchronizerOffset =>
-                  state.requestJournalStore
-                    .lastRequestTimeWithRequestTimestampBeforeOrAt(
-                      CantonTimestamp(synchronizerOffset.recordTime)
-                    )
-                    .map(timeOfRequestO =>
-                      Some(
-                        PruningCutoffs.SynchronizerOffset(
-                          state = state,
-                          lastTimestamp = CantonTimestamp(synchronizerOffset.recordTime),
-                          lastRequestCounter = timeOfRequestO.map(_.rc),
-                        )
-                      )
-                    )
-                )
-                .getOrElse(FutureUnlessShutdown.pure(None))
+                .map { synchronizerOffset =>
+                  PruningCutoffs.SynchronizerOffset(
+                    state = state,
+                    lastTimestamp = CantonTimestamp(synchronizerOffset.recordTime),
+                  )
+                }
             )
       }
     } yield PruningCutoffs(
@@ -377,12 +366,9 @@ class PruningProcessor(
   private def pruneSynchronizer(synchronizerOffset: PruningCutoffs.SynchronizerOffset)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val PruningCutoffs.SynchronizerOffset(state, lastTimestamp, lastRequestCounter) =
-      synchronizerOffset
+    val PruningCutoffs.SynchronizerOffset(state, lastTimestamp) = synchronizerOffset
 
-    logger.info(
-      show"Pruning ${state.synchronizerIdx.synchronizerId} up to $lastTimestamp and request counter $lastRequestCounter"
-    )
+    logger.info(show"Pruning ${state.synchronizerIdx.synchronizerId} up to $lastTimestamp")
 
     // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
     logger.debug("Pruning sequenced event store...")
@@ -629,16 +615,13 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   object PruningCutoffs {
 
     /** @param state
-      *   SyncsyPersistentState of the synchronizer
+      *   SyncPersistentState of the synchronizer
       * @param lastTimestamp
       *   Last sequencing timestamp below the given globalOffset
-      * @param lastRequestCounter
-      *   Last request counter below the given globalOffset
       */
     final case class SynchronizerOffset(
         state: SyncPersistentState,
         lastTimestamp: CantonTimestamp,
-        lastRequestCounter: Option[RequestCounter],
     )
   }
 }

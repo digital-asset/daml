@@ -191,11 +191,14 @@ class UseLedgerApiTestTool(
     val testInclusionsAfterEnvArgConsideration = envArgTestsInclusion
       .map { selectedTests =>
         val filtered = testInclusions.filter(selectedTests.testCaseEnabled)
-        if (filtered.isEmpty)
-          throw new IllegalArgumentException(
+        if (filtered.isEmpty) {
+          // Fine to use the scalatest cancel here as this method is expected to be invoked from
+          // from a ScalaTest case.
+          org.scalatest.Assertions.cancel(
             s"After applying the restriction from the env var $LapittRunOnlyEnvVarName no tests remain to be run. " +
               s"Original test selection: $testInclusions. Restriction applied: $selectedTests."
           )
+        }
 
         filtered
       }

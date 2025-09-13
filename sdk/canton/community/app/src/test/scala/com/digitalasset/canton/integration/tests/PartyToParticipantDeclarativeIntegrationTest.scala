@@ -55,7 +55,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
     }
 
   "Party to participant declarative" should {
-    "support all topology changes" in { implicit env =>
+    "support all topology changes (local)" in { implicit env =>
       import env.*
 
       // We consider only one synchronizer in this case since changes are per synchronizer
@@ -96,20 +96,85 @@ final class PartyToParticipantDeclarativeIntegrationTest
       )
     }
 
-    "allow party offboarding" in { implicit env =>
+    "support all topology changes (external)" in { implicit env =>
+      import env.*
+
+      // We consider only one synchronizer in this case since changes are per synchronizer
+
+      val chopperE = participant1.parties.external.enable("chopperE", synchronizer = daName)
+
+      // TODO(#27835) Add multi-synchronizer support
+      // participant1.parties.enable("chopper", synchronizer = acmeName)
+
+      def changeTopology(
+          newThreshold: PositiveInt,
+          newPermissions: Set[(ParticipantId, ParticipantPermission)],
+      ): Unit = PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId))(
+        owningParticipants = Map(),
+        externalParties = Set(chopperE),
+        targetTopology = Map(chopperE.partyId -> Map(daId -> (newThreshold, newPermissions))),
+      )
+
+      // replication on p2
+      changeTopology(
+        PositiveInt.one,
+        Set((participant1, Submission), (participant2, Submission)),
+      )
+
+      // changing threshold from one to two and permission on p2
+      changeTopology(
+        PositiveInt.two,
+        Set((participant1, Submission), (participant2, Confirmation)),
+      )
+
+      // offboarding from p1 and changing permission on p2
+      changeTopology(
+        PositiveInt.one,
+        Set((participant2, Submission)),
+      )
+
+      // onboarding to p1 again
+      changeTopology(
+        PositiveInt.one,
+        Set((participant1, Confirmation), (participant2, Submission)),
+      )
+    }
+
+    "allow party offboarding from synchronizer (local)" in { implicit env =>
       import env.*
 
       val bob = participant1.parties.enable("bob", synchronizer = daName)
-      participant1.parties.enable("bob", synchronizer = acmeName)
 
-      Seq(daId, acmeId).foreach { synchronizerId =>
-        PartyToParticipantDeclarative.forParty(Set(participant1), synchronizerId)(
-          participant1,
-          bob,
-          PositiveInt.one,
-          Set((participant1, Submission)),
-        )
-      }
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bob.filterString) should not be empty
+
+      PartyToParticipantDeclarative(Set(participant1), Set(daId))(
+        Map(bob -> participant1),
+        // Offboarding from da
+        Map(),
+      )
+
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bob.filterString) shouldBe empty
+    }
+
+    "allow party offboarding from synchronizer (external)" in { implicit env =>
+      import env.*
+
+      val bobE = participant1.parties.external.enable("bobE", synchronizer = daName)
+
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bobE.filterString) should not be empty
+
+      PartyToParticipantDeclarative(Set(participant1), Set(daId))(
+        Map(),
+        // Offboarding from da
+        Map(),
+        externalParties = Set(bobE),
+      )
+
+      participant1.topology.party_to_participant_mappings
+        .list(daId, filterParty = bobE.filterString) shouldBe empty
     }
   }
 

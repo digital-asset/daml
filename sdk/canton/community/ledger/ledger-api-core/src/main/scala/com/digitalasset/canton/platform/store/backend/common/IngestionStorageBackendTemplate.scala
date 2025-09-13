@@ -57,7 +57,7 @@ private[backend] class IngestionStorageBackendTemplate(
           .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
       SQL"DELETE FROM lapi_pe_assign_id_filter_stakeholder WHERE ${QueryStrategy
           .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
-      SQL"DELETE FROM lapi_transaction_meta WHERE ${QueryStrategy
+      SQL"DELETE FROM lapi_update_meta WHERE ${QueryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
       // As reassignment global offsets are persisted before the ledger end, they might change after indexer recovery, so in the cleanup
       // phase here we make sure that all the persisted global offsets are revoked which are after the ledger end.

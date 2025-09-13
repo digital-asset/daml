@@ -2168,6 +2168,10 @@ messages:
     message:
       comments: A right granted to a user.
       fieldComments:
+        can_execute_as: The user can prepare and execute submissions as a specific
+          party.
+        can_execute_as_any_party: The user can prepare and execute submissions as
+          any party on a participant.
         can_read_as_any_party: The user can read as any party on a participant
         identity_provider_admin: The user can administer users and parties assigned
           to the same identity provider as the one of the user.
@@ -3165,6 +3169,10 @@ oneOfs:
       message:
         comments: Required
         fieldComments:
+          can_execute_as: The user can prepare and execute submissions as a specific
+            party.
+          can_execute_as_any_party: The user can prepare and execute submissions as
+            any party on a participant.
           can_read_as_any_party: The user can read as any party on a participant
           identity_provider_admin: The user can administer users and parties assigned
             to the same identity provider as the one of the user.

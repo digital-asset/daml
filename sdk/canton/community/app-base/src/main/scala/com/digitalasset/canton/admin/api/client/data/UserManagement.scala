@@ -54,7 +54,9 @@ object LedgerApiUser {
 final case class UserRights(
     actAs: Set[PartyId],
     readAs: Set[PartyId],
+    executeAs: Set[PartyId],
     readAsAnyParty: Boolean,
+    executeAsAnyParty: Boolean,
     participantAdmin: Boolean,
     identityProviderAdmin: Boolean,
 )
@@ -62,17 +64,34 @@ object UserRights {
   def fromProtoV0(
       values: Seq[ProtoUserRight]
   ): ParsingResult[UserRights] =
-    Right(values.map(_.kind).foldLeft(UserRights(Set(), Set(), false, false, false)) {
-      case (acc, Kind.Empty) => acc
-      case (acc, Kind.ParticipantAdmin(_)) => acc.copy(participantAdmin = true)
-      case (acc, Kind.CanActAs(value)) =>
-        acc.copy(actAs = acc.actAs + PartyId.tryFromProtoPrimitive(value.party))
-      case (acc, Kind.CanReadAs(value)) =>
-        acc.copy(readAs = acc.readAs + PartyId.tryFromProtoPrimitive(value.party))
-      case (acc, Kind.IdentityProviderAdmin(_)) =>
-        acc.copy(identityProviderAdmin = true)
-      case (acc, Kind.CanReadAsAnyParty(_)) => acc.copy(readAsAnyParty = true)
-    })
+    Right(
+      values
+        .map(_.kind)
+        .foldLeft(
+          UserRights(
+            actAs = Set(),
+            readAs = Set(),
+            executeAs = Set(),
+            readAsAnyParty = false,
+            executeAsAnyParty = false,
+            participantAdmin = false,
+            identityProviderAdmin = false,
+          )
+        ) {
+          case (acc, Kind.Empty) => acc
+          case (acc, Kind.ParticipantAdmin(_)) => acc.copy(participantAdmin = true)
+          case (acc, Kind.CanActAs(value)) =>
+            acc.copy(actAs = acc.actAs + PartyId.tryFromProtoPrimitive(value.party))
+          case (acc, Kind.CanReadAs(value)) =>
+            acc.copy(readAs = acc.readAs + PartyId.tryFromProtoPrimitive(value.party))
+          case (acc, Kind.CanExecuteAs(value)) =>
+            acc.copy(executeAs = acc.executeAs + PartyId.tryFromProtoPrimitive(value.party))
+          case (acc, Kind.IdentityProviderAdmin(_)) =>
+            acc.copy(identityProviderAdmin = true)
+          case (acc, Kind.CanReadAsAnyParty(_)) => acc.copy(readAsAnyParty = true)
+          case (acc, Kind.CanExecuteAsAnyParty(_)) => acc.copy(executeAsAnyParty = true)
+        }
+    )
 }
 
 final case class ListLedgerApiUsersResult(users: Seq[LedgerApiUser], nextPageToken: String)

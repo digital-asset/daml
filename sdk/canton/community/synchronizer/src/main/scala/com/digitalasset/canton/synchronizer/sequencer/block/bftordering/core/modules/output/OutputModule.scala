@@ -947,4 +947,15 @@ object OutputModule {
           false
       }
   }
+
+  class FixedResultRequestInspector(result: Boolean) extends RequestInspector {
+
+    override def isRequestToAllMembersOfSynchronizer(
+        request: OrderingRequest,
+        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        logger: TracedLogger,
+        traceContext: TraceContext,
+    )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
+      result
+  }
 }

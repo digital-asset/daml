@@ -55,7 +55,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
         val alice = "alice"
 
         // Enable alice on other participants, on all synchronizers
-        new PartiesAllocator(participants.all.toSet)(
+        PartiesAllocator(participants.all.toSet)(
           Seq(alice -> participant1),
           Map(
             alice -> Map(
@@ -69,7 +69,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
               )),
             )
           ),
-        ).run()
+        )
 
         aliceId = alice.toPartyId(participant1)
       }

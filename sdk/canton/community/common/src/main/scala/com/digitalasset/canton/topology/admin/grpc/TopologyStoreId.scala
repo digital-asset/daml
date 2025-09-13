@@ -35,9 +35,12 @@ object TopologyStoreId {
   }
 
   implicit def synchronizerIdIsTopologyStoreId(
-      synchronizerId: SynchronizerId
-  ): TopologyStoreId.Synchronizer =
-    TopologyStoreId.Synchronizer(synchronizerId)
+      synchronizer: com.digitalasset.canton.topology.Synchronizer
+  ): TopologyStoreId.Synchronizer = synchronizer match {
+    case id: SynchronizerId => TopologyStoreId.Synchronizer(id)
+    case psid: PhysicalSynchronizerId => TopologyStoreId.Synchronizer(psid)
+  }
+
   implicit def physicalSynchronizerIdIsTopologyStoreId(
       synchronizerId: PhysicalSynchronizerId
   ): TopologyStoreId.Synchronizer =

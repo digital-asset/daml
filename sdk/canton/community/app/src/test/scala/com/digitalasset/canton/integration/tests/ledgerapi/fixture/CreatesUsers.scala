@@ -22,7 +22,9 @@ trait CreatesUsers {
       userId: String,
       readAsParties: List[String] = List.empty,
       actAsParties: List[String] = List.empty,
+      executeAsParties: List[String] = List.empty,
       readAsAnyParty: Boolean = false,
+      executeAsAnyParty: Boolean = false,
   )
 
   private def wrapStub[Stub <: io.grpc.stub.AbstractStub[Stub]](
@@ -59,6 +61,7 @@ trait CreatesUsers {
     for {
       readAsParties <- resolveParties(partyStub, prerequisiteUser.readAsParties)
       actAsParties <- resolveParties(partyStub, prerequisiteUser.actAsParties)
+      executeAsParties <- resolveParties(partyStub, prerequisiteUser.executeAsParties)
       primaryParty = (readAsParties ++ actAsParties).headOption.getOrElse("")
       user = User(
         id = prerequisiteUser.userId,
@@ -70,13 +73,21 @@ trait CreatesUsers {
       rights = readAsParties.map(p =>
         proto.Right(proto.Right.Kind.CanReadAs(proto.Right.CanReadAs(p)))
       ) ++
-        actAsParties.map(p =>
-          proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(p)))
+        actAsParties.map(p => proto.Right(proto.Right.Kind.CanActAs(proto.Right.CanActAs(p)))) ++
+        executeAsParties.map(p =>
+          proto.Right(proto.Right.Kind.CanExecuteAs(proto.Right.CanExecuteAs(p)))
         ) ++ (if (prerequisiteUser.readAsAnyParty)
                 Seq(
                   proto.Right(proto.Right.Kind.CanReadAsAnyParty(proto.Right.CanReadAsAnyParty()))
                 )
-              else Seq.empty)
+              else Seq.empty) ++ (if (prerequisiteUser.executeAsAnyParty)
+                                    Seq(
+                                      proto.Right(
+                                        proto.Right.Kind
+                                          .CanExecuteAsAnyParty(proto.Right.CanExecuteAsAnyParty())
+                                      )
+                                    )
+                                  else Seq.empty)
       req = proto.CreateUserRequest(Some(user), rights)
       user <- userStub.createUser(req).map(_.getUser)
     } yield user

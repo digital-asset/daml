@@ -60,19 +60,24 @@ class HttpServiceIntegrationTestUserManagement
       import spray.json.*
       val ham = getUniqueParty("ham")
       val spam = getUniqueParty("spam")
+      val clam = getUniqueParty("clam")
       List[http.UserRight](
         http.CanActAs(ham),
         http.CanReadAs(spam),
+        http.CanExecuteAs(clam),
         http.ParticipantAdmin,
         http.IdentityProviderAdmin,
         http.CanReadAsAnyParty,
+        http.CanExecuteAsAnyParty,
       ).toJson shouldBe
         List(
           Map("type" -> "CanActAs", "party" -> ham.unwrap),
           Map("type" -> "CanReadAs", "party" -> spam.unwrap),
+          Map("type" -> "CanExecuteAs", "party" -> clam.unwrap),
           Map("type" -> "ParticipantAdmin"),
           Map("type" -> "IdentityProviderAdmin"),
           Map("type" -> "CanReadAsAnyParty"),
+          Map("type" -> "CanExecuteAsAnyParty"),
         ).toJson
     }
   }

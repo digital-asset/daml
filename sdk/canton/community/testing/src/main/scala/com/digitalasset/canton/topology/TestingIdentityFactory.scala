@@ -417,6 +417,23 @@ class TestingIdentityFactory(
           topologySnapshot(synchronizerId, timestampForSynchronizerParameters = timestamp)
         }
 
+        override def tryHypotheticalSnapshot(
+            timestamp: CantonTimestamp,
+            desiredTimestamp: CantonTimestamp,
+        )(implicit
+            traceContext: TraceContext
+        ): TopologySnapshot = {
+          require(
+            timestamp <= upToInclusive,
+            s"Topology information not yet available for $timestamp",
+          )
+          topologySnapshot(
+            synchronizerId,
+            timestampForSynchronizerParameters = timestamp,
+            timestampOfSnapshot = desiredTimestamp,
+          )
+        }
+
         override def currentSnapshotApproximation(implicit
             traceContext: TraceContext
         ): TopologySnapshot =
@@ -467,6 +484,14 @@ class TestingIdentityFactory(
         override def snapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[TopologySnapshot] = awaitSnapshot(timestamp)
+
+        override def hypotheticalSnapshot(
+            timestamp: CantonTimestamp,
+            desiredSnapshot: CantonTimestamp,
+        )(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[TopologySnapshot] =
+          FutureUnlessShutdown.fromTry(Try(tryHypotheticalSnapshot(timestamp, desiredSnapshot)))
 
         override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
             traceContext: TraceContext

@@ -82,6 +82,29 @@ object CacheConfigWithTimeout {
   }
 }
 
+/** Configuration settings for a cache where elements are only evicted when the maximum size is
+  * reached.
+  *
+  * @param maximumSize
+  *   the maximum size of the cache
+  */
+final case class CacheConfigWithSizeOnly(
+    maximumSize: PositiveNumeric[Long]
+) extends UniformCantonConfigValidation {
+  def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
+    Scaffeine()
+      .maximumSize(maximumSize.value)
+      .executor(executionContext.execute(_))
+}
+
+object CacheConfigWithSizeOnly {
+  implicit val cacheConfigWithWSizeOnlyCantonConfigValidator
+      : CantonConfigValidator[CacheConfigWithSizeOnly] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[CacheConfigWithSizeOnly]
+  }
+}
+
 /** Configuration settings for a cache that stores: (a) the public asymmetric encryptions of the
   * session keys for the sender and (b) the decrypting results in the receiver. This reduces the
   * amount of asymmetric operations that need to be performed for each of the views that share the
@@ -142,6 +165,7 @@ final case class CachingConfigs(
     publicKeyConversionCache: CacheConfig = CachingConfigs.defaultPublicKeyConversionCache,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
+    packageUpgradeCache: CacheConfigWithSizeOnly = CachingConfigs.defaultPackageUpgradeCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
     kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
@@ -180,10 +204,13 @@ object CachingConfigs {
       maximumSize = PositiveNumeric.tryCreate(10000),
       NonNegativeFiniteDuration.ofMinutes(15),
     )
+  val defaultPackageUpgradeCache: CacheConfigWithSizeOnly = CacheConfigWithSizeOnly(
+    maximumSize = PositiveNumeric.tryCreate(10000)
+  )
   val defaultMemberCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val kmsMetadataCache: CacheConfig =
-    CacheConfig(maximumSize = PositiveNumeric.tryCreate(20))
+    CacheConfig.apply(maximumSize = PositiveNumeric.tryCreate(20))
   val defaultFinalizedMediatorConfirmationRequestsCache =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultSequencerPayloadCache: CacheConfigWithMemoryBounds =

@@ -19,7 +19,10 @@ import com.digitalasset.canton.participant.admin.PackageService.{
   DarMainPackageId,
   catchUpstreamErrors,
 }
-import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
+import com.digitalasset.canton.participant.store.memory.{
+  MutablePackageMetadataView,
+  PackageMetadataView,
+}
 import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
@@ -47,9 +50,7 @@ class PackageUploader(
     extends NamedLogging
     with FlagCloseable {
 
-  def getPackageMetadataSnapshot(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): PackageMetadata = packageMetadataView.value.getSnapshot
+  def getPackageMetadataView: PackageMetadataView = packageMetadataView.value
 
   def validateDar(
       payload: ByteString,

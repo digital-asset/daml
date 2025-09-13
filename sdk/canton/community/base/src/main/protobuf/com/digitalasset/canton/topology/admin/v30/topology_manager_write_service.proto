@@ -243,4 +243,6 @@ enum ForceFlag {
    * signatory-assigning participants and thus the assignment would be stuck.
    */
   FORCE_FLAG_ALLOW_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS_FOR_PARTY = 11;
+  /** Required when vetting a package that fails upgrade checking */
+  FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 12;
 }

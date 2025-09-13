@@ -203,7 +203,7 @@ class DbPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value.getSnapshot),
+        Some(packageMetadataView.value),
         packageDependencyResolver,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),

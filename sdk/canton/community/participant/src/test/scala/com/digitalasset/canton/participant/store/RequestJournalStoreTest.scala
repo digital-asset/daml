@@ -366,6 +366,18 @@ trait RequestJournalStoreTest extends FailOnShutdown {
           secondAfter shouldBe Some(TimeOfRequest(rc + 2, tsWithSecs(3)))
         }
       }
+
+      "return the same request timestamp as lastRequestTimestampBeforeOrAt" in {
+        val store = mk()
+        for {
+          _ <- setupRequests(store)
+          timeOfRequest <- store.lastRequestTimeWithRequestTimestampBeforeOrAt(tsWithSecs(1))
+          timestamp <- store.lastRequestTimestampBeforeOrAt(tsWithSecs(1))
+        } yield {
+          timeOfRequest shouldBe Some(TimeOfRequest(rc, tsWithSecs(1)))
+          timeOfRequest.map(_.timestamp) shouldBe timestamp
+        }
+      }
     }
   }
 }

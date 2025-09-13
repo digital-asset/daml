@@ -239,8 +239,14 @@ class JsonProtocolTest
     "Encoding and decoding CanReadAs should result in the same object" in {
       testIsomorphic(http.CanReadAs(http.Party("canReadAs")))
     }
+    "Encoding and decoding CanExecuteAs should result in the same object" in {
+      testIsomorphic(http.CanExecuteAs(http.Party("canExecuteAs")))
+    }
     "Encoding and decoding CanReadAsAnyParty should result in the same object" in {
       testIsomorphic(http.CanReadAsAnyParty)
+    }
+    "Encoding and decoding CanExecuteAsAnyParty should result in the same object" in {
+      testIsomorphic(http.CanExecuteAsAnyParty)
     }
   }
 

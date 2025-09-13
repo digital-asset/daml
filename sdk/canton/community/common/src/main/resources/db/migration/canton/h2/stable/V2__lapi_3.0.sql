@@ -94,7 +94,7 @@ CREATE TABLE lapi_command_completions (
     synchronizer_id INTEGER NOT NULL,
     message_uuid VARCHAR,
     is_transaction BOOLEAN NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT NOT NULL
 );
 
 CREATE INDEX lapi_command_completions_user_id_offset_idx ON lapi_command_completions USING btree (user_id, completion_offset);
@@ -147,7 +147,7 @@ CREATE TABLE lapi_events_create (
     authentication_data BINARY LARGE OBJECT NOT NULL,
 
     synchronizer_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT,
+    trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
     external_transaction_hash  BINARY LARGE OBJECT
 );
@@ -208,7 +208,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_result_compression SMALLINT,
 
     synchronizer_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT,
+    trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
     external_transaction_hash  BINARY LARGE OBJECT
 );
@@ -265,7 +265,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_result_compression SMALLINT,
 
     synchronizer_id INTEGER NOT NULL,
-    trace_context BINARY LARGE OBJECT,
+    trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
     external_transaction_hash  BINARY LARGE OBJECT
 );
@@ -316,7 +316,7 @@ CREATE TABLE lapi_events_unassign (
     -- * unassigned specific
     assignment_exclusivity BIGINT,
 
-    trace_context BINARY LARGE OBJECT,
+    trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL
 );
 
@@ -373,7 +373,7 @@ CREATE TABLE lapi_events_assign (
     ledger_effective_time BIGINT NOT NULL,
     authentication_data BINARY LARGE OBJECT NOT NULL,
 
-    trace_context BINARY LARGE OBJECT,
+    trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL
 );
 
@@ -402,7 +402,7 @@ CREATE TABLE lapi_events_party_to_participant (
     participant_authorization_event INTEGER NOT NULL,
     synchronizer_id INTEGER NOT NULL,
     record_time BIGINT NOT NULL,
-    trace_context BINARY LARGE OBJECT
+    trace_context BINARY LARGE OBJECT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -496,7 +496,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx   ON lapi_pe_non_con
 --
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_transaction_meta(
+CREATE TABLE lapi_update_meta(
     update_id VARCHAR NOT NULL,
     event_offset BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
@@ -505,11 +505,11 @@ CREATE TABLE lapi_transaction_meta(
     event_sequential_id_first BIGINT NOT NULL,
     event_sequential_id_last BIGINT NOT NULL
 );
-CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta(update_id);
-CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta(event_offset);
-CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
-CREATE INDEX lapi_transaction_meta_synchronizer_record_time_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time);
-CREATE INDEX lapi_transaction_meta_synchronizer_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, event_offset);
+CREATE INDEX lapi_update_meta_uid_idx ON lapi_update_meta(update_id);
+CREATE INDEX lapi_update_meta_event_offset_idx ON lapi_update_meta(event_offset);
+CREATE INDEX lapi_update_meta_publication_time_idx ON lapi_update_meta USING btree (publication_time, event_offset);
+CREATE INDEX lapi_update_meta_synchronizer_record_time_idx ON lapi_update_meta USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_update_meta_synchronizer_offset_idx ON lapi_update_meta USING btree (synchronizer_id, event_offset);
 
 -- NOTE: We keep participant user and party record tables independent from indexer-based tables, such that
 --       we maintain a property that they can be moved to a separate database without any extra schema changes.

@@ -60,12 +60,14 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
   protected val randomPartyReadUser: String = "readAs-" + randomParty
   protected val randomPartyActUser: String = "actAs-" + randomParty
   protected val readAsAnyPartyUser: String = "readAsAnyParty-" + UUID.randomUUID.toString
+  protected val executeAsAnyPartyUser: String = "executeAsAnyParty-" + UUID.randomUUID.toString
 
   protected def prerequisiteParties: List[String] = List(randomParty)
   protected def prerequisiteUsers: List[PrerequisiteUser] = List(
     PrerequisiteUser(randomPartyReadUser, readAsParties = List(randomParty)),
     PrerequisiteUser(randomPartyActUser, actAsParties = List(randomParty)),
     PrerequisiteUser(readAsAnyPartyUser, readAsAnyParty = true),
+    PrerequisiteUser(executeAsAnyPartyUser, executeAsAnyParty = true),
   )
 
   override def beforeAll(): Unit = {
@@ -140,5 +142,9 @@ trait SecurityTags extends CreatesUsers with CreatesParties with BeforeAndAfterA
 
   protected def canBeAUser(userId: String, issuer: Option[String]) = ServiceCallContext(
     Option(toHeader(standardToken(userId, issuer = issuer)))
+  )
+
+  protected def canExecuteAsAnyParty: ServiceCallContext = ServiceCallContext(
+    Option(toHeader(standardToken(executeAsAnyPartyUser)))
   )
 }
