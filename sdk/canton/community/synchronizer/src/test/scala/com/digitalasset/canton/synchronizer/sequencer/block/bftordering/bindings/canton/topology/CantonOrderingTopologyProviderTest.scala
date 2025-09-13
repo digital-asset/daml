@@ -22,8 +22,8 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.FingerprintKeyId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.digitalasset.canton.topology.*

@@ -85,26 +85,21 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
         disableEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys))
     }
 
-  private def disableSessionKeysInKmsConfig(kmsConfig: KmsConfig): KmsConfig =
+  private def setSessionKeysInKmsConfig(kmsConfig: KmsConfig, enabled: Boolean): KmsConfig =
     kmsConfig match {
       case driverConfig: KmsConfig.Driver =>
-        driverConfig.focus(_.sessionSigningKeys.enabled).replace(false)
+        driverConfig.focus(_.sessionSigningKeys.enabled).replace(enabled)
       case awsConfig: KmsConfig.Aws =>
-        awsConfig.focus(_.sessionSigningKeys.enabled).replace(false)
+        awsConfig.focus(_.sessionSigningKeys.enabled).replace(enabled)
       case gcpConfig: KmsConfig.Gcp =>
-        gcpConfig.focus(_.sessionSigningKeys.enabled).replace(false)
+        gcpConfig.focus(_.sessionSigningKeys.enabled).replace(enabled)
     }
 
   private def addKmsConfig(conf: CryptoConfig, disableSessionKeys: Boolean): CryptoConfig =
     conf
       .focus(_.kms)
       .replace(
-        Some(
-          {
-            if (disableSessionKeys) disableSessionKeysInKmsConfig(kmsConfig)
-            else kmsConfig
-          }
-        )
+        Some(setSessionKeysInKmsConfig(kmsConfig, enabled = !disableSessionKeys))
       )
 
   private def enableEncryptedPrivateStore(conf: CryptoConfig): CryptoConfig =

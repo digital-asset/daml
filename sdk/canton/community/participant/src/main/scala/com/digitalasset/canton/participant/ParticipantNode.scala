@@ -51,15 +51,18 @@ import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, Prun
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
-import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataViewImpl
+import com.digitalasset.canton.participant.store.memory.{
+  MutablePackageMetadataViewImpl,
+  PackageMetadataView,
+}
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerRegistry
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
@@ -118,6 +121,10 @@ class ParticipantNodeBootstrap(
 
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
   private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver]
+  private val packageUpgradeValidator = new PackageUpgradeValidator(
+    arguments.parameterConfig.general.cachingConfigs.packageUpgradeCache,
+    loggerFactory,
+  )
   override def metrics: ParticipantMetrics = arguments.metrics
 
   override protected val adminTokenConfig: AdminTokenConfig =
@@ -208,12 +215,12 @@ class ParticipantNodeBootstrap(
         .traverse(_.ledgerApiIndexer.asEval.value.ledgerApiStore.value.ledgerEnd)
         .map(_.flatten)
 
-    def getPackageMetadataSnapshot(): Option[PackageMetadata] =
+    def getPackageMetadataView(): Option[PackageMetadataView] =
       // In some rare cases, it is possible to vet packages before the package service is created.
       // For instance, in a major upgrade, we import a topology snapshot as soon as the node
       // topology is ready, and before the participant services are created.
       // In such case, we cannot get a proper PackageMetadata snapshot and we bypass the upgrade checks.
-      cantonSyncService.get.map(_.getPackageMetadataSnapshot)
+      cantonSyncService.get.map(_.getPackageMetadataView)
 
     val topologyManager = new AuthorizedTopologyManager(
       nodeId,
@@ -225,7 +232,6 @@ class ParticipantNodeBootstrap(
       futureSupervisor,
       bootstrapStageCallback.loggerFactory,
     ) with ParticipantTopologyValidation {
-
       override def validatePackageVetting(
           currentlyVettedPackages: Set[LfPackageId],
           nextPackageIds: Set[LfPackageId],
@@ -236,7 +242,7 @@ class ParticipantNodeBootstrap(
         validatePackageVetting(
           currentlyVettedPackages,
           nextPackageIds,
-          getPackageMetadataSnapshot(),
+          getPackageMetadataView(),
           resolver,
           acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
@@ -450,6 +456,7 @@ class ParticipantNodeBootstrap(
             MutablePackageMetadataViewImpl.createAndInitialize(
               clock,
               packageDependencyResolver.damlPackageStore,
+              packageUpgradeValidator,
               loggerFactory,
               config.parameters.packageMetadataView,
               parameters.processingTimeouts,

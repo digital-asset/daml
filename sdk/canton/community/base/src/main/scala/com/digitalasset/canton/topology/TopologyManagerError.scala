@@ -1074,16 +1074,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           oldPackage: Util.PkgIdWithNameAndVersion,
           newPackage: Util.PkgIdWithNameAndVersion,
           upgradeError: String,
-          // as opposed to a downgrade check, where the new package is a downgrade of the old one
-          isUpgradeCheck: Boolean,
       )(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
-            if (isUpgradeCheck) {
-              s"Upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: $upgradeError"
-            } else {
-              s"Upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: $upgradeError"
-            }
+            s"Upgrade checks indicate that $newPackage cannot be an upgrade of $oldPackage. Reason: $upgradeError"
           )
           with TopologyManagerError
     }
@@ -1119,14 +1113,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         ) {
       @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
       final case class Error(
-          newPackage: Util.PkgIdWithNameAndVersion,
-          existingPackage: Ref.PackageId,
-          packageVersion: Ref.PackageVersion,
+          firstPackage: Util.PkgIdWithNameAndVersion,
+          secondPackage: Util.PkgIdWithNameAndVersion,
       )(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"Tried to vet a package $newPackage, but a different package $existingPackage with the same name and version has previously been vetted."
+              s"Tried to vet two packages with the same name and version: $firstPackage and $secondPackage."
           )
           with TopologyManagerError
     }

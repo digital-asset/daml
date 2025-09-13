@@ -444,7 +444,7 @@ private[backend] object AppendOnlySchema {
       )
 
     val transactionMeta: Table[DbDto.TransactionMeta] =
-      fieldStrategy.insert("lapi_transaction_meta")(
+      fieldStrategy.insert("lapi_update_meta")(
         "update_id" -> fieldStrategy.string(_ => _.update_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),

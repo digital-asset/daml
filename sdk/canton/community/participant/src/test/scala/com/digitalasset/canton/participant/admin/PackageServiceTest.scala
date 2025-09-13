@@ -10,7 +10,7 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.BaseTest.getResourcePath
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{CachingConfigs, PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataViewImpl,
 }
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil}
@@ -117,6 +118,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       .createAndInitialize(
         clock,
         packageDependencyResolver.damlPackageStore,
+        new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
         loggerFactory,
         PackageMetadataViewConfig(),
         processingTimeouts,
