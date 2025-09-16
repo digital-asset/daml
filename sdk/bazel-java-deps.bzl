@@ -48,7 +48,7 @@ guava_version = "33.3.0-jre"
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
 dropwizard_version = "4.1.33"
-opentelemetry_version = "1.36.0"
+opentelemetry_version = "1.12.0"
 prometheus_version = "0.14.1"
 
 # group libraries controlled by the same org
@@ -175,10 +175,10 @@ def install_java_deps():
             "io.opentelemetry:opentelemetry-exporter-zipkin:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-common:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:{}".format(opentelemetry_version),
-            "io.opentelemetry:opentelemetry-sdk-logs:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-extension-autoconfigure:{}-alpha".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-logs:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-metrics-testing:1.13.0-alpha",
-            "io.opentelemetry:opentelemetry-sdk-metrics:{}".format(opentelemetry_version),
+            "io.opentelemetry:opentelemetry-sdk-metrics:{}-alpha".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-testing:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk-trace:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-sdk:{}".format(opentelemetry_version),
