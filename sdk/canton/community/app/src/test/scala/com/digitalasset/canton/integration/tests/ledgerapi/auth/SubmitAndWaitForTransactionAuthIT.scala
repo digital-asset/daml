@@ -12,7 +12,8 @@ import scala.concurrent.Future
 
 final class SubmitAndWaitForTransactionAuthIT
     extends SyncServiceCallAuthTests
-    with SubmitAndWaitDummyCommand {
+    with SubmitAndWaitDummyCommand
+    with ExecuteAsAuthTests {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "CommandService#SubmitAndWaitForTransaction"

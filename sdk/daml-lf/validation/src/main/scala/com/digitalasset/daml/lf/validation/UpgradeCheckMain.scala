@@ -10,13 +10,12 @@ import com.digitalasset.daml.lf.archive.{Error => ArchiveError}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Util
-import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 
-import scala.concurrent.{Await, ExecutionContext}
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.topology.TopologyManagerError
+import com.digitalasset.canton.config.CachingConfigs
 
 final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
@@ -37,7 +36,8 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
     result.left.map(CouldNotReadDar(path, _))
   }
 
-  val validator = new PackageUpgradeValidator(loggerFactory)
+  val validator =
+    new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory)
 
   def check(paths: Array[String]): Int = {
     logger.debug(s"Called UpgradeCheckMain with paths: ${paths.toSeq.mkString("\n")}")
@@ -47,25 +47,26 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
       failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
       1
     } else {
-      val packageSigs = for { dar <- dars; (pkgId, pkg) <- dar.all.toSeq } yield {
+      val packageSigs = for {
+        dar <- dars
+        (pkgId, pkg) <- dar.all.toSeq
+        if pkg.supportsUpgrades(pkgId)
+      } yield {
         logger.debug(s"Package with ID $pkgId and metadata ${pkg.metadata}")
         pkgId -> Util.toSignature(pkg)
       }
 
       val validation = validator.validateUpgrade(
-        upgradingPackages = packageSigs.toList,
-        upgradablePackages = Map.empty,
+        allPackages = packageSigs.toList.distinct
       )
-      Await.result(validation.value, Duration.Inf) match {
-        case UnlessShutdown.Outcome(
-              Left(err: TopologyManagerError.ParticipantTopologyManagerError.Upgradeability.Error)
-            ) =>
+      validation match {
+        case Left(err: TopologyManagerError.ParticipantTopologyManagerError.Upgradeability.Error) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")
           1
-        case UnlessShutdown.Outcome(Left(err)) =>
+        case Left(err) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")
           1
-        case UnlessShutdown.Outcome(Right(())) => 0
+        case Right(()) => 0
         case _ => 1
       }
     }

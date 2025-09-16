@@ -34,7 +34,7 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table lapi_pe_non_consuming_id_filter_informee;
       truncate table lapi_pe_assign_id_filter_stakeholder;
       truncate table lapi_pe_reassignment_id_filter_stakeholder;
-      truncate table lapi_transaction_meta;
+      truncate table lapi_update_meta;
       truncate table lapi_users;
       truncate table lapi_user_rights;
       truncate table lapi_user_annotations;

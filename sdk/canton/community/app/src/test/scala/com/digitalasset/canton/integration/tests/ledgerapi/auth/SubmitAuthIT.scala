@@ -10,7 +10,10 @@ import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitDummyC
 
 import scala.concurrent.Future
 
-final class SubmitAuthIT extends SyncServiceCallAuthTests with SubmitDummyCommand {
+final class SubmitAuthIT
+    extends SyncServiceCallAuthTests
+    with SubmitDummyCommand
+    with ExecuteAsAuthTests {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "CommandSubmissionService#Submit"

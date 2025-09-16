@@ -87,7 +87,8 @@ object KmsConfig {
       name: String,
       config: ConfigValue,
       healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(10),
-      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.default,
+      // TODO(#27529): Enable after the topology snapshot problem has been fixed
+      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
   ) extends KmsConfig
       with UniformCantonConfigValidation
@@ -123,7 +124,8 @@ object KmsConfig {
       region: String,
       multiRegionKey: Boolean = false,
       auditLogging: Boolean = false,
-      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.default,
+      // TODO(#27529): Enable after the topology snapshot problem has been fixed
+      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
       disableSslVerification: Boolean = false,
       endpointOverride: Option[String] = None,
@@ -160,7 +162,8 @@ object KmsConfig {
       projectId: String,
       keyRingId: String,
       auditLogging: Boolean = false,
-      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.default,
+      // TODO(#27529): Enable after the topology snapshot problem has been fixed
+      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       override val retries: RetryConfig = RetryConfig(),
       endpointOverride: Option[String] = None,
   ) extends KmsConfig

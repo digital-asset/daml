@@ -18,6 +18,7 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   final protected val mainActor: String = "mainActor-" + UUID.randomUUID.toString
   protected val mainActorReadUser: String = "readAs-" + mainActor
   protected val mainActorActUser: String = "actAs-" + mainActor
+  protected val mainActorExecuteUser: String = "executeAs-" + mainActor
 
   // the party id is not determined before allocating the party, so it needs to be passed as an argument after
   // retrieving the actual id via the console environment
@@ -32,6 +33,7 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
   protected override def prerequisiteUsers: List[PrerequisiteUser] = List(
     PrerequisiteUser(mainActorReadUser, readAsParties = List(mainActor)),
     PrerequisiteUser(mainActorActUser, actAsParties = List(mainActor)),
+    PrerequisiteUser(mainActorExecuteUser, executeAsParties = List(mainActor)),
   ) ++ super.prerequisiteUsers
 
   protected def serviceCallWithMainActorUser(
@@ -106,4 +108,7 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
     ServiceCallContext(
       Option(toHeader(expiringIn(Duration.ofDays(1), standardToken(mainActorActUser))))
     )
+
+  protected def canExecuteAsMainActor =
+    ServiceCallContext(Option(toHeader(standardToken(mainActorExecuteUser))))
 }

@@ -1053,10 +1053,10 @@ abstract class EventStorageBackendTemplate(
             delete_events.event_offset <= $pruneUpToInclusive"""
     }
 
-    pruneWithLogging(queryDescription = "Transaction Meta pruning") {
+    pruneWithLogging(queryDescription = "Update Meta pruning") {
       SQL"""
            DELETE FROM
-              lapi_transaction_meta m
+              lapi_update_meta m
            WHERE
             m.event_offset <= $pruneUpToInclusive
          """
@@ -1324,7 +1324,7 @@ abstract class EventStorageBackendTemplate(
      SELECT
         event_sequential_id_first
      FROM
-        lapi_transaction_meta
+        lapi_update_meta
      WHERE
         ${QueryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
         AND ${QueryStrategy.offsetIsLessOrEqual("event_offset", ledgerEnd.map(_.lastOffset))}
@@ -1577,7 +1577,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
             record_time >= ${afterOrAtRecordTimeInclusive.micros}
@@ -1623,7 +1623,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             $synchronizerIdFilter
             ${QueryStrategy.offsetIsLessOrEqual("event_offset", safeBeforeOrAtOffset)}
@@ -1655,7 +1655,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
             record_time <= ${beforeOrAtRecordTimeInclusive.micros} AND
@@ -1681,7 +1681,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             event_offset = $offset
           """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
@@ -1704,7 +1704,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
           ORDER BY publication_time ASC, event_offset ASC
@@ -1737,7 +1737,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             publication_time <= ${safePublicationTime.micros}
           ORDER BY publication_time DESC, event_offset DESC

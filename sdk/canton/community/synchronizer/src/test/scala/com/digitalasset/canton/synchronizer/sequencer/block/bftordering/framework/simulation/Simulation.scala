@@ -385,10 +385,10 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           val machine = tryGetMachine(from)
           runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
         case CrashNode(node) =>
-          logger.info(s"Crashing '$node'")(TraceContext.empty)
+          logger.info(s"Crashing '$node' at ${whatToDo.at}")(TraceContext.empty)
           crashNode(node)
         case RestartNode(node) =>
-          logger.info(s"Restarting '$node'")(TraceContext.empty)
+          logger.info(s"Restarting '$node' at ${whatToDo.at}")(TraceContext.empty)
           restartNode(node)
         case MakeSystemHealthy =>
           local.makeHealthy()

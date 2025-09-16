@@ -39,7 +39,7 @@ final class UpdatePointwiseReader(
     for {
       // Fetching event sequential id range corresponding to the requested update id or offset
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.updatePointwiseQueries.fetchIdsFromTransactionMeta(
+        eventStorageBackend.updatePointwiseQueries.fetchIdsFromUpdateMeta(
           lookupKey = lookupKey
         )
       )

@@ -229,6 +229,7 @@ da_scala_library(
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:canton-community-magnolify-addon:__VERSION__"],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     deps = [
         "//libs-scala/nonempty",
         "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",

@@ -2753,8 +2753,8 @@ object AcsCommitmentProcessor extends HasLoggerName {
       |with other participants. The counter-participant will log an ACS_COMMITMENT_MISMATCH."""
       )
       @Resolution(
-        """Please contact the other participant in order to check the cause of the mismatch. Either repair
-            |the store of this participant or of the counter-participant."""
+        """Please consult the runbook on inspecting commitment mismatches in order to check the cause of the mismatch.
+          |Either repair the store of this participant or of the counter participant."""
       )
       object NoSharedContracts extends AlarmErrorCode(id = "ACS_MISMATCH_NO_SHARED_CONTRACTS") {
         final case class Mismatch(synchronizerId: SynchronizerId, remote: AcsCommitmentData)

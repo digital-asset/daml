@@ -496,6 +496,8 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case UserRight.CanActAs(p) => toRight("CanActAs", 1, SParty(p))
       case UserRight.CanReadAs(p) => toRight("CanReadAs", 2, SParty(p))
       case UserRight.CanReadAsAnyParty => toRight("CanReadAsAnyParty", 3, SUnit)
+      case UserRight.CanExecuteAs(p) => toRight("CanExecuteAs", 2, SParty(p))
+      case UserRight.CanExecuteAsAnyParty => toRight("CanExecuteAsAnyParty", 3, SUnit)
     })
   }
 
@@ -513,6 +515,10 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         toParty(v).map(UserRight.CanActAs(_))
       case SVariant(_, "CanReadAsAnyParty", _, SUnit) =>
         Right(UserRight.CanReadAsAnyParty)
+      case SVariant(_, "CanExecuteAs", _, v) =>
+        toParty(v).map(UserRight.CanExecuteAs(_))
+      case SVariant(_, "CanExecuteAsAnyParty", _, SUnit) =>
+        Right(UserRight.CanExecuteAsAnyParty)
       case _ => Left(s"Expected ParticipantAdmin, CanReadAs or CanActAs but got $v")
     }
 

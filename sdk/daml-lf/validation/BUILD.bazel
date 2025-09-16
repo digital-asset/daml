@@ -55,6 +55,7 @@ da_scala_library(
         "//canton:community_base",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
+        "//canton:community_magnolify-addon",
         "//canton:community_util-observability",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_proto_java",

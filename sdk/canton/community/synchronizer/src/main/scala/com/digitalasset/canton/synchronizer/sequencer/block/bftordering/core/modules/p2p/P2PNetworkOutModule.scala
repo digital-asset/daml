@@ -21,7 +21,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PMetrics.{
   emitAuthenticatedCount,
   emitConnectedCount,
-  emitIdentityEquivocation,
   emitSendStats,
   sendMetricsContext,
 }
@@ -131,38 +130,18 @@ final class P2PNetworkOutModule[
       case P2PNetworkOut.Network.Authenticated(bftNodeId, maybeP2PEndpoint) =>
         val maybeP2PEndpointId = maybeP2PEndpoint.map(_.id)
         val p2pEndpointIdString = maybeP2PEndpointId.map(_.toString).getOrElse("<unknown>")
-        if (bftNodeId == thisBftNodeId) {
-          emitIdentityEquivocation(metrics, maybeP2PEndpointId, bftNodeId)
-          logger.warn(
-            s"A node authenticated from $p2pEndpointIdString with the sequencer ID of this very node " +
-              s"($thisBftNodeId); this could indicate malicious behavior: disconnecting it"
-          )
-          maybeP2PEndpointId.foreach(disconnect)
-        } else {
-          maybeP2PEndpointId.flatMap(p2pConnectionState.getBftNodeId) match {
-            case Some(existingBftNodeId) if existingBftNodeId != bftNodeId =>
-              emitIdentityEquivocation(metrics, maybeP2PEndpointId, existingBftNodeId)
-              logger.warn(
-                s"On reconnection, a node authenticated from endpoint $p2pEndpointIdString " +
-                  s"with a different sequencer id $bftNodeId, but it was already authenticated " +
-                  s"as $existingBftNodeId; this could indicate malicious behavior: disconnecting it"
-              )
-              maybeP2PEndpointId.foreach(disconnect)
-            case _ =>
-              logger.info(
-                s"Authenticated node $bftNodeId at $p2pEndpointIdString, marking endpoint (if known) as connected " +
-                  "and ensuring connectivity to it"
-              )
-              maybeP2PEndpointId.foreach(connectedP2PEndpointIds.add(_).discard)
-              ensureConnectivity(P2PAddress.NodeId(bftNodeId, maybeP2PEndpoint))
-              emitConnectionStateMetricsAndLogEndpointsStatus(notifyMempool = true)
-              maxNodesContemporarilyAuthenticated = Math.max(
-                maxNodesContemporarilyAuthenticated,
-                authenticatedCountIncludingSelf,
-              )
-              startModulesIfNeeded()
-          }
-        }
+        logger.info(
+          s"Authenticated node $bftNodeId at $p2pEndpointIdString, marking endpoint (if known) as connected " +
+            "and ensuring connectivity to it"
+        )
+        maybeP2PEndpointId.foreach(connectedP2PEndpointIds.add(_).discard)
+        ensureConnectivity(P2PAddress.NodeId(bftNodeId, maybeP2PEndpoint))
+        emitConnectionStateMetricsAndLogEndpointsStatus(notifyMempool = true)
+        maxNodesContemporarilyAuthenticated = Math.max(
+          maxNodesContemporarilyAuthenticated,
+          authenticatedCountIncludingSelf,
+        )
+        startModulesIfNeeded()
 
       case P2PNetworkOut.Network.TopologyUpdate(newMembership) =>
         membership = newMembership
@@ -430,17 +409,17 @@ final class P2PNetworkOutModule[
   )(implicit
       context: E#ActorContextT[P2PNetworkOut.Message],
       traceContext: TraceContext,
-  ): Unit = {
-    p2pConnectionState.associateP2PEndpointIdToBftNodeId(p2pAddress)
-    p2pConnectionState.addNetworkRefIfMissing(p2pAddress.id) { () =>
-      logger.info(
-        s"Not creating new network ref for '$p2pAddress' as it already exists"
-      )
-    } { () =>
-      logger.info(s"Creating new network ref for '$p2pAddress'")
-      p2pNetworkManager.createNetworkRef(context, p2pAddress)
+  ): Unit =
+    p2pConnectionState.associateP2PEndpointIdToBftNodeId(p2pAddress).foreach { _ =>
+      p2pConnectionState.addNetworkRefIfMissing(p2pAddress.id) { () =>
+        logger.info(
+          s"Not creating new network ref for '$p2pAddress' as it already exists"
+        )
+      } { () =>
+        logger.info(s"Creating new network ref for '$p2pAddress'")
+        p2pNetworkManager.createNetworkRef(context, p2pAddress)
+      }
     }
-  }
 
   private def authenticatedCountIncludingSelf =
     p2pConnectionState.authenticatedCount.value + 1

@@ -252,6 +252,14 @@ class SequencedEventValidatorTest
       when(syncCrypto.pureCrypto).thenReturn(subscriberCryptoApi.pureCrypto)
       when(syncCrypto.snapshot(timestamp = ts(1))(fixtureTraceContext))
         .thenAnswer[CantonTimestamp](tm => subscriberCryptoApi.snapshot(tm)(fixtureTraceContext))
+      when(
+        syncCrypto.hypotheticalSnapshot(timestamp = ts(1), desiredTimestamp = ts(1))(
+          fixtureTraceContext
+        )
+      )
+        .thenAnswer[CantonTimestamp](tm =>
+          subscriberCryptoApi.hypotheticalSnapshot(tm, tm)(fixtureTraceContext)
+        )
       when(syncCrypto.topologyKnownUntilTimestamp).thenReturn(CantonTimestamp.MaxValue)
       val validator = mkValidator(syncCryptoApi = syncCrypto)
       val priorEvent =
@@ -268,7 +276,6 @@ class SequencedEventValidatorTest
           counter = 42,
           topologyTimestampO = Some(ts(1)),
         ).futureValueUS
-
       valueOrFail(
         validator.validate(
           Some(priorEvent),

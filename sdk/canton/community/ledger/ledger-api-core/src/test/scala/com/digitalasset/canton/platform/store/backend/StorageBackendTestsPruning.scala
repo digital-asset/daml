@@ -1022,7 +1022,7 @@ private[backend] trait StorageBackendTestsPruning
     cp(Statement.discard(queries.eventUnassign shouldBe unassign))
     cp(Statement.discard(queries.filterUnassign shouldBe unassignFilter))
     // other
-    cp(Statement.discard(queries.txMeta shouldBe txMeta))
+    cp(Statement.discard(queries.updateMeta shouldBe txMeta))
     cp(Statement.discard(queries.completions shouldBe completion))
     cp.reportAll()
     succeed
