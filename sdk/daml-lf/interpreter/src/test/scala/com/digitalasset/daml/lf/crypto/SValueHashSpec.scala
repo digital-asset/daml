@@ -932,6 +932,32 @@ class SValueHashSpec
 
         hash1 should !==(hash2)
       }
+
+      "not identify values of different types" in {
+        // These SValues would all hash to the same value if it weren't for the type tag
+        val potentialCollisions = Table[List[SV]](
+          "potential collisions",
+          List(
+            // without type tags, this hashes to [0]
+            SV.SBool(false),
+            // without type tags, this hashes to [0]
+            SV.SOptional(None)),
+          List(
+            // without type tags, this hashes to [0,0,0,4] ++ [0,0,0,0]
+            SV.SList(FrontStack(SV.SBool(false), SV.SBool(false), SV.SBool(false), SV.SBool(false))),
+            // without type tags, this hashes to [0,0,0,4,0,0,0,0]
+            SV.SInt64(4L * 256 * 256 * 256 * 256)),
+          List(
+            // without type tags, this hashes to [0,0,0,0]
+            SV.SList(FrontStack.empty),
+            // without type tags, this hashes to [0,0,0,0]
+            SV.SText("")
+          )
+        )
+        forEvery(potentialCollisions) { values =>
+          values.map(assertHash(defQualName("module", "name"), _)).toSet.size shouldBe values.size
+        }
+      }
     }
   }
 
