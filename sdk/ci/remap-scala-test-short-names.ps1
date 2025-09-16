@@ -23,10 +23,10 @@ if ($scala_test_targets.count -gt 0) {
     # matched to extract the mapping file names.
     $bazelexitcode = 0
     $tmp = New-TemporaryFile
-    bazel.exe aquery `
+    bazel.exe build `
       "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
       "--output_groups=scala_test_info" `
-      "outputs('.*_scala_test.*', //...)" `
+      $scala_test_targets `
       > $tmp.FullName
     $bazelexitcode = $lastexitcode
 

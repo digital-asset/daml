@@ -49,6 +49,7 @@ def extract_test_name_map(mapping_filename: str):
         return {}
     with open(mapping_filename, 'r', encoding='utf-8-sig') as f:
         content = f.read().replace("@", "")
+        print(content)
         return json.loads(content)
 
 def getTestName(test_name: str, test_name_map: dict):
