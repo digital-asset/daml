@@ -47,13 +47,17 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
       failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
       1
     } else {
-      val packageSigs = for { dar <- dars; (pkgId, pkg) <- dar.all.toSeq } yield {
+      val packageSigs = for {
+        dar <- dars
+        (pkgId, pkg) <- dar.all.toSeq
+        if pkg.supportsUpgrades(pkgId)
+      } yield {
         logger.debug(s"Package with ID $pkgId and metadata ${pkg.metadata}")
         pkgId -> Util.toSignature(pkg)
       }
 
       val validation = validator.validateUpgrade(
-        allPackages = packageSigs.toList
+        allPackages = packageSigs.toList.distinct
       )
       validation match {
         case Left(err: TopologyManagerError.ParticipantTopologyManagerError.Upgradeability.Error) =>
