@@ -23,12 +23,14 @@ if ($scala_test_targets.count -gt 0) {
     # matched to extract the mapping file names.
     $bazelexitcode = 0
     $tmp = New-TemporaryFile
+    echo "REMAP: running bazel build"
     bazel.exe build `
       "--aspects=//bazel_tools:scala.bzl%da_scala_test_short_name_aspect" `
       "--output_groups=scala_test_info" `
       $scala_test_targets `
       > $tmp.FullName
     $bazelexitcode = $lastexitcode
+    echo "REMAP: bazel build end"
 
     if ($bazelexitcode -ne 0) {
       $errmsg = Get-Content $tmp
