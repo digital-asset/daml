@@ -136,9 +136,9 @@ final class CachingSynchronizerTopologyClient(
     }
   }
 
-  override def trySnapshot(
+  private def findSnapshotEntry(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): TopologySnapshotLoader = {
+  )(implicit traceContext: TraceContext): Option[SnapshotEntry] = {
     ErrorUtil.requireArgument(
       timestamp <= topologyKnownUntilTimestamp,
       s"requested snapshot=$timestamp, available snapshot=$topologyKnownUntilTimestamp",
@@ -146,17 +146,41 @@ final class CachingSynchronizerTopologyClient(
     // find a matching existing snapshot
     // including `<` is safe as it's guarded by the `topologyKnownUntilTimestamp` check,
     //  i.e., there will be no other snapshots in between, and the snapshot timestamp can be safely "overridden"
-    val cur = snapshots.get().find(_.timestamp <= timestamp)
-    cur match {
+    snapshots.get().find(_.timestamp <= timestamp)
+  }
+
+  override def trySnapshot(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): TopologySnapshotLoader =
+    findSnapshotEntry(timestamp) match {
       // we'll use the cached snapshot client which defines the time-period this timestamp is in
       case Some(snapshotEntry) =>
         new ForwardingTopologySnapshotClient(timestamp, snapshotEntry.get(), loggerFactory)
-      // this timestamp is outside of the window where we have tracked the timestamps of changes.
+      // this timestamp is outside the window where we have tracked the timestamps of changes.
       // so let's do this pointwise
       case None =>
         pointwise.get(timestamp)
     }
-  }
+
+  override def tryHypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit traceContext: TraceContext): TopologySnapshotLoader =
+    findSnapshotEntry(timestamp) match {
+      // we'll use the cached snapshot client which defines the time-period this desiredTimestamp is in
+      case Some(snapshotEntry) =>
+        new ForwardingTopologySnapshotClient(desiredTimestamp, snapshotEntry.get(), loggerFactory)
+      // This timestamp is outside the window where we have tracked the timestamps of changes. We create
+      // a new snapshot based on the original timestamp but with a forward timestamp reference. We do not
+      // cache this value because, in a BFT read of sequencer subscriptions, we need a snapshot prior to the
+      // sequencer aggregation and can be certain that no intervening message occurs after the aggregation.
+      case None =>
+        new ForwardingTopologySnapshotClient(
+          desiredTimestamp,
+          pointwise.get(timestamp),
+          loggerFactory,
+        )
+    }
 
   override def synchronizerId: SynchronizerId = delegate.synchronizerId
   override def psid: PhysicalSynchronizerId = delegate.psid

@@ -74,7 +74,7 @@ CREATE TABLE lapi_command_completions (
     synchronizer_id integer not null,
     message_uuid varchar collate "C",
     is_transaction boolean not null,
-    trace_context bytea
+    trace_context bytea not null
 );
 
 CREATE INDEX lapi_command_completions_user_id_offset_idx ON lapi_command_completions USING btree (user_id, completion_offset);
@@ -126,7 +126,7 @@ CREATE TABLE lapi_events_assign (
     authentication_data bytea not null,
 
     create_key_maintainers integer[],
-    trace_context bytea,
+    trace_context bytea not null,
     record_time bigint not null
 );
 
@@ -186,7 +186,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_result_compression smallint,
 
     synchronizer_id integer not null,
-    trace_context bytea,
+    trace_context bytea not null,
     record_time bigint not null,
     external_transaction_hash bytea
 );
@@ -241,7 +241,7 @@ CREATE TABLE lapi_events_create (
     authentication_data bytea not null,
     synchronizer_id integer not null,
     create_key_maintainers integer[],
-    trace_context bytea,
+    trace_context bytea not null,
     record_time bigint not null,
     external_transaction_hash bytea
 );
@@ -301,7 +301,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_result_compression smallint,
 
     synchronizer_id integer not null,
-    trace_context bytea,
+    trace_context bytea not null,
     record_time bigint not null,
     external_transaction_hash bytea
 );
@@ -347,7 +347,7 @@ CREATE TABLE lapi_events_unassign (
     -- * unassigned specific
     assignment_exclusivity bigint,
 
-    trace_context bytea,
+    trace_context bytea not null,
     record_time bigint not null
 );
 
@@ -373,7 +373,7 @@ CREATE TABLE lapi_events_party_to_participant (
     participant_authorization_event integer not null,
     synchronizer_id integer not null,
     record_time bigint not null,
-    trace_context bytea
+    trace_context bytea not null
 );
 
 -- offset index: used to translate to sequential_id
@@ -433,7 +433,7 @@ CREATE TABLE lapi_party_record_annotations (
 --
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_transaction_meta (
+CREATE TABLE lapi_update_meta (
     update_id varchar collate "C" not null,
     event_offset bigint not null,
     publication_time bigint not null,
@@ -443,11 +443,11 @@ CREATE TABLE lapi_transaction_meta (
     event_sequential_id_last bigint not null
 );
 
-CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta USING btree (event_offset);
-CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta USING btree (update_id);
-CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
-CREATE INDEX lapi_transaction_meta_synchronizer_record_time_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time, event_offset);
-CREATE INDEX lapi_transaction_meta_synchronizer_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, event_offset);
+CREATE INDEX lapi_update_meta_event_offset_idx ON lapi_update_meta USING btree (event_offset);
+CREATE INDEX lapi_update_meta_uid_idx ON lapi_update_meta USING btree (update_id);
+CREATE INDEX lapi_update_meta_publication_time_idx ON lapi_update_meta USING btree (publication_time, event_offset);
+CREATE INDEX lapi_update_meta_synchronizer_record_time_offset_idx ON lapi_update_meta USING btree (synchronizer_id, record_time, event_offset);
+CREATE INDEX lapi_update_meta_synchronizer_offset_idx ON lapi_update_meta USING btree (synchronizer_id, event_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- User entries

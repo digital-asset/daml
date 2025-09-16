@@ -63,6 +63,9 @@ object ForceFlag {
   case object AllowUnvalidatedSigningKeys
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS)
 
+  case object AllowVetIncompatibleUpgrades
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES)
+
   /** This should only be used internally in situations where
     *   - the caller knows what they are doing
     *   - it's not necessarily clear which specific flags to use, but there also isn't really any
@@ -84,6 +87,7 @@ object ForceFlag {
       PreparationTimeRecordTimeToleranceIncrease,
       AllowInsufficientParticipantPermissionForSignatoryParty,
       AllowInsufficientSignatoryAssigningParticipantsForParty,
+      AllowVetIncompatibleUpgrades,
     )
       .map(ff => ff.toProtoV30 -> ff)
       .toMap

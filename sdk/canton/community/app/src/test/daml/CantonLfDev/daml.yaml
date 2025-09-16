@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250910.14190.0.vfd26e4fc
+sdk-version: 3.4.0-snapshot.20250912.14196.0.v0a56b042
 build-options: 
 - --target=2.dev
 name: CantonLfDev

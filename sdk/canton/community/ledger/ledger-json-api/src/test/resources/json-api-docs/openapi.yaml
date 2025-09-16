@@ -2073,6 +2073,33 @@ components:
       properties:
         party:
           type: string
+    CanExecuteAs:
+      title: CanExecuteAs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAs1'
+    CanExecuteAs1:
+      title: CanExecuteAs
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+    CanExecuteAsAnyParty:
+      title: CanExecuteAsAnyParty
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAsAnyParty1'
+    CanExecuteAsAnyParty1:
+      title: CanExecuteAsAnyParty
+      type: object
     CanReadAs:
       title: CanReadAs
       type: object
@@ -4932,6 +4959,18 @@ components:
         properties:
           CanActAs:
             $ref: '#/components/schemas/CanActAs'
+      - type: object
+        required:
+        - CanExecuteAs
+        properties:
+          CanExecuteAs:
+            $ref: '#/components/schemas/CanExecuteAs'
+      - type: object
+        required:
+        - CanExecuteAsAnyParty
+        properties:
+          CanExecuteAsAnyParty:
+            $ref: '#/components/schemas/CanExecuteAsAnyParty'
       - type: object
         required:
         - CanReadAs

@@ -55,7 +55,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
 
         val alice = "alice"
         // Enable alice on other participants, on all synchronizers
-        new PartiesAllocator(participants.all.toSet)(
+        PartiesAllocator(participants.all.toSet)(
           Seq(alice -> participant1),
           Map(
             alice -> Map(
@@ -63,7 +63,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
               acmeId -> (PositiveInt.one, Set((participant1, Submission))),
             )
           ),
-        ).run()
+        )
 
       }
 
@@ -102,7 +102,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
     import env.*
 
     val bob = "bob"
-    new PartiesAllocator(participants.all.toSet)(
+    PartiesAllocator(participants.all.toSet)(
       Seq(bob -> participant1),
       Map(
         bob -> Map(
@@ -110,7 +110,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
           acmeId -> (PositiveInt.one, Set((participant1, Submission), (participant2, Submission))),
         )
       ),
-    ).run()
+    )
 
     val bobId = bob.toPartyId(participant1)
     createCycleContract(participant1, bobId, "bob-contract")
@@ -151,7 +151,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
   "change permission to observer" in { implicit env =>
     import env.*
 
-    new PartiesAllocator(participants.all.toSet)(
+    PartiesAllocator(participants.all.toSet)(
       Seq("alex" -> participant1),
       Map(
         "alex" -> Map(
@@ -159,7 +159,8 @@ class TopologyValidationMultiSynchronizerIntegrationTest
           acmeId -> (PositiveInt.one, Set((participant1, Submission))),
         )
       ),
-    ).run()
+    )
+
     val alexId = "alex".toPartyId(participant1)
     createCycleContract(participant1, alexId, "alex-contract")
 

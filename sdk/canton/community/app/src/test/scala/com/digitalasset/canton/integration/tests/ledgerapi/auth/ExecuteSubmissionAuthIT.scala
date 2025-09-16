@@ -14,13 +14,15 @@ import scala.concurrent.{ExecutionContext, Future}
 // ExecuteSubmission authorizes like a submission command
 final class ExecuteSubmissionAuthIT
     extends SyncServiceCallAuthTests
-    with SubmitDummyPreparedSubmission {
+    with SubmitDummyPreparedSubmission
+    with ExecuteAsAuthTests {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def successfulBehavior(f: Future[Any])(implicit ec: ExecutionContext): Assertion =
     expectInvalidArgument(f)
 
   override def serviceCallName: String = "InteractiveSubmissionService#ExecuteSubmission"
+  override def executeAsShouldSucceed: Boolean = true
 
   override def serviceCall(context: ServiceCallContext)(implicit
       env: TestConsoleEnvironment
@@ -36,5 +38,4 @@ final class ExecuteSubmissionAuthIT
     } yield executeResp
 
   }
-
 }
