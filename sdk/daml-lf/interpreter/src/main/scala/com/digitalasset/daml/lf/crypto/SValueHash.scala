@@ -43,8 +43,8 @@ object SValueHash {
       key: SValue,
   ): Hash = {
     builder(Purpose.ContractKey, noCid2String, HashTracer.NoOp)
-      .addQualifiedName(templateName)
       .addString(packageName)
+      .addQualifiedName(templateName)
       .addSValue(key)
       .build
   }

@@ -26,19 +26,30 @@ class SValueHashSpec
     with BazelRunfiles {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
+  private val packageId1 = Ref.PackageId.assertFromString("package-1")
   private val packageName0 = Ref.PackageName.assertFromString("package-name-0")
+  private val packageName1 = Ref.PackageName.assertFromString("package-name-1")
 
-  private def assertHashContractKey(templateName: Ref.QualifiedName, key: SV): Hash =
-    SValueHash.assertHashContractKey(packageName0, templateName, key)
+  private def assertHashContractKey(
+      packageName: Ref.PackageName,
+      templateName: Ref.QualifiedName,
+      key: SV,
+  ): Hash =
+    SValueHash.assertHashContractKey(packageName, templateName, key)
 
   private def hashContractKey(
+      packageName: Ref.PackageName,
       templateName: Ref.QualifiedName,
       key: SV,
   ): Either[Hash.HashingError, Hash] =
-    SValueHash.hashContractKey(packageName0, templateName, key)
+    SValueHash.hashContractKey(packageName, templateName, key)
 
-  private def assertHashContractInstance(templateName: Ref.QualifiedName, key: SV): Hash =
-    SValueHash.assertHashContractInstance(packageName0, templateName: Ref.QualifiedName, key: SV)
+  private def assertHashContractInstance(
+      packageName: Ref.PackageName,
+      templateName: Ref.QualifiedName,
+      key: SV,
+  ): Hash =
+    SValueHash.assertHashContractInstance(packageName, templateName: Ref.QualifiedName, key: SV)
 
   /** A complex record value whose expected hashes are [[expectedComplexRecordContractHash]] and
     * [[expectedComplexRecordKeyHash]]
@@ -97,7 +108,7 @@ class SValueHashSpec
 
   /** The expected hash of [[complexRecord]] for the key hasher */
   private val expectedComplexRecordKeyHash =
-    "e6245a943bd1d2f749eba7fb21fe0f3d248bbc31c7812361c9f5d0135a7bfcbd"
+    "115251e29818e522e262fcaa70a1ca3c92c3102697b6661d0138bf5841ae1adb"
 
   /** A list of values whose expected hashes are recorded in expected-stability-values-contract-hashes.txt and
     * expected-stability-values-key-hashes.txt
@@ -304,7 +315,11 @@ class SValueHashSpec
       val sep = System.lineSeparator()
       val actualOutput = contractIdValues
         .map { value =>
-          val hash = assertHashContractInstance(defQualName("module", "name"), value).toHexString
+          val hash = assertHashContractInstance(
+            packageName0,
+            defQualName("module", "name"),
+            value,
+          ).toHexString
           s"${value.toString}$sep$hash"
         }
         .mkString(sep)
@@ -317,8 +332,9 @@ class SValueHashSpec
     "reject contract IDs" in {
       forEvery(nestingCases) { nest =>
         forEvery(Table("contract id", contractIdValues: _*)) { value =>
-          inside(hashContractKey(defQualName("module", "name"), nest(value))) { case Left(error) =>
-            error shouldBe a[Hash.HashingError.ForbiddenContractId]
+          inside(hashContractKey(packageName0, defQualName("module", "name"), nest(value))) {
+            case Left(error) =>
+              error shouldBe a[Hash.HashingError.ForbiddenContractId]
           }
         }
       }
@@ -327,7 +343,12 @@ class SValueHashSpec
 
   // Tests that apply to both the contract hasher and the key hasher
   for (
-    (hasherName, assertHash, expectedComplexRecordHash, expectedStabilityValuesHashes) <- List(
+    (
+      hasherName,
+      assertHashWithPackageName,
+      expectedComplexRecordHash,
+      expectedStabilityValuesHashes,
+    ) <- List(
       (
         "contract hasher",
         assertHashContractInstance _,
@@ -342,6 +363,13 @@ class SValueHashSpec
       ),
     )
   ) {
+
+    // Most test cases are not sensitive to the package name, so we declare this shorthand.
+    def assertHash(
+      templateName: Ref.QualifiedName,
+      value: SV,
+    ): Hash =
+      assertHashWithPackageName(packageName0, templateName, value)
 
     hasherName should {
 
@@ -539,10 +567,6 @@ class SValueHashSpec
         hash1 should !==(hash2)
       }
 
-      "not produce collision in Map of records" in {
-        // TODO: come up with a collision between maps of records if there is no end of record marker
-      }
-
       "not produce collision in GenMap keys" in {
         def genMap(elements: (String, Long)*) =
           SV.SMap(isTextMap = false, elements.map { case (k, v) => SV.SText(k) -> SV.SInt64(v) })
@@ -698,6 +722,215 @@ class SValueHashSpec
             .map(assertHash(defQualName("module", "name"), _))
             .size shouldBe 1
         }
+      }
+
+      "not identify values with different package names" in {
+        val sval = SV.SInt64(0L)
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHashWithPackageName(packageName0, templateName, sval)
+        val hash2 = assertHashWithPackageName(packageName1, templateName, sval)
+
+        hash1 should !==(hash2)
+      }
+
+      "not identify values with different template names" in {
+        val sval = SV.SInt64(0L)
+
+        val hash1 = assertHash(defQualName("module", "name1"), sval)
+        val hash2 = assertHash(defQualName("module", "name2"), sval)
+
+        hash1 should !==(hash2)
+      }
+
+      "identify records with different package IDs but otherwise same package, template, and qualified names" in {
+        val record1 = sRecord(
+          Ref.Identifier(
+            packageId0,
+            defQualName("module", "Record"),
+          ),
+          List.empty,
+        )
+        val record2 = sRecord(
+          Ref.Identifier(
+            packageId1,
+            defQualName("module", "Record"),
+          ),
+          List.empty,
+        )
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, record1)
+        val hash2 = assertHash(templateName, record2)
+
+        hash1 shouldBe hash2
+      }
+
+      "not identify records with different template names" in {
+        val record = sRecord(
+          defRef(name = "Record"),
+          List.empty,
+        )
+
+        val hash1 = assertHash(defQualName("module", "name1"), record)
+        val hash2 = assertHash(defQualName("module", "name2"), record)
+
+        hash1 should !==(hash2)
+      }
+
+      "not identify records with different record names" in {
+        val record1 = sRecord(
+          defRef(name = "Record1"),
+          List.empty,
+        )
+        val record2 = sRecord(
+          defRef(name = "Record2"),
+          List.empty,
+        )
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, record1)
+        val hash2 = assertHash(templateName, record2)
+
+        hash1 should !==(hash2)
+      }
+
+      "not identify records with different labels" in {
+        val record1 = sRecord(
+          defRef(name = "Record"),
+          List("a" -> SV.SInt64(0L)),
+        )
+        val record2 = sRecord(
+          defRef(name = "Record"),
+          List("b" -> SV.SInt64(0L)),
+        )
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, record1)
+        val hash2 = assertHash(templateName, record2)
+
+        hash1 should !==(hash2)
+      }
+
+      "identify variants with different package IDs but otherwise same package, template, and qualified names" in {
+        val variant1 = SV.SVariant(
+          Ref.Identifier(
+            packageId0,
+            defQualName("module", "Variant"),
+          ),
+          Ref.Name.assertFromString("Cons"),
+          0,
+          SV.SInt64(0L),
+        )
+        val variant2 = SV.SVariant(
+          Ref.Identifier(
+            packageId1,
+            defQualName("module", "Variant"),
+          ),
+          Ref.Name.assertFromString("Cons"),
+          0,
+          SV.SInt64(0L),
+        )
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, variant1)
+        val hash2 = assertHash(templateName, variant2)
+
+        hash1 shouldBe hash2
+      }
+
+      "not identify variants with different template names" in {
+        val record = SV.SVariant(
+          defRef(name = "Variant"),
+          Ref.Name.assertFromString("Cons"),
+          0,
+          SV.SInt64(0L),
+        )
+
+        val hash1 = assertHash(defQualName("module", "name1"), record)
+        val hash2 = assertHash(defQualName("module", "name2"), record)
+
+        hash1 should !==(hash2)
+      }
+
+      "not identify variants with different variant names" in {
+        val variant1 = SV.SVariant(
+          defRef(name = "Variant1"),
+          Ref.Name.assertFromString("Cons"),
+          0,
+          SV.SInt64(0L),
+        )
+        val variant2 = SV.SVariant(
+          defRef(name = "Variant2"),
+          Ref.Name.assertFromString("Cons"),
+          0,
+          SV.SInt64(0L),
+        )
+
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, variant1)
+        val hash2 = assertHash(templateName, variant2)
+
+        hash1 should !==(hash2)
+      }
+
+      "identify enums with different package IDs but otherwise same package, template, and qualified names" in {
+        val enum1 = SV.SEnum(
+          Ref.Identifier(
+            packageId0,
+            defQualName("module", "Enum"),
+          ),
+          Ref.Name.assertFromString("Cons"),
+          0
+        )
+        val enum2 = SV.SEnum(
+          Ref.Identifier(
+            packageId1,
+            defQualName("module", "Enum"),
+          ),
+          Ref.Name.assertFromString("Cons"),
+          0
+        )
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, enum1)
+        val hash2 = assertHash(templateName, enum2)
+
+        hash1 shouldBe hash2
+      }
+
+      "not identify enums with different template names" in {
+        val record = SV.SEnum(
+          defRef(name = "Enum"),
+          Ref.Name.assertFromString("Cons"),
+          0
+        )
+
+        val hash1 = assertHash(defQualName("module", "name1"), record)
+        val hash2 = assertHash(defQualName("module", "name2"), record)
+
+        hash1 should !==(hash2)
+      }
+
+      "not identify enums with different enum names" in {
+        val enum1 = SV.SEnum(
+          defRef(name = "Enum1"),
+          Ref.Name.assertFromString("Cons"),
+          0
+        )
+        val enum2 = SV.SEnum(
+          defRef(name = "Enum2"),
+          Ref.Name.assertFromString("Cons"),
+          0
+        )
+
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, enum1)
+        val hash2 = assertHash(templateName, enum2)
+
+        hash1 should !==(hash2)
       }
     }
   }
