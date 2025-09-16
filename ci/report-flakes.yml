@@ -26,8 +26,8 @@ steps:
       fi
     condition: and(
       succeededOrFailed(),
-      eq(${{parameters.is_release}}, 'false'),
-      eq(variables['Build.SourceBranchName'], 'main'))
+      eq(${{parameters.is_release}}, 'false')) #,
+      #eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)
