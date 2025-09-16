@@ -30,7 +30,7 @@ import com.digitalasset.daml.lf.value.Value
 import java.nio.ByteBuffer
 import scala.collection.immutable.{ArraySeq, TreeMap}
 
-/** Methods for hashing SValues modulo trailing Nones. */
+/** Methods for hashing SValues modulo trailing Nones and package IDs. */
 object SValueHash {
 
   // --- public interface ---

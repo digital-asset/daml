@@ -366,8 +366,8 @@ class SValueHashSpec
 
     // Most test cases are not sensitive to the package name, so we declare this shorthand.
     def assertHash(
-      templateName: Ref.QualifiedName,
-      value: SV,
+        templateName: Ref.QualifiedName,
+        value: SV,
     ): Hash =
       assertHashWithPackageName(packageName0, templateName, value)
 
@@ -882,7 +882,7 @@ class SValueHashSpec
             defQualName("module", "Enum"),
           ),
           Ref.Name.assertFromString("Cons"),
-          0
+          0,
         )
         val enum2 = SV.SEnum(
           Ref.Identifier(
@@ -890,7 +890,7 @@ class SValueHashSpec
             defQualName("module", "Enum"),
           ),
           Ref.Name.assertFromString("Cons"),
-          0
+          0,
         )
         val templateName = defQualName("module", "name")
 
@@ -904,7 +904,7 @@ class SValueHashSpec
         val record = SV.SEnum(
           defRef(name = "Enum"),
           Ref.Name.assertFromString("Cons"),
-          0
+          0,
         )
 
         val hash1 = assertHash(defQualName("module", "name1"), record)
@@ -917,12 +917,12 @@ class SValueHashSpec
         val enum1 = SV.SEnum(
           defRef(name = "Enum1"),
           Ref.Name.assertFromString("Cons"),
-          0
+          0,
         )
         val enum2 = SV.SEnum(
           defRef(name = "Enum2"),
           Ref.Name.assertFromString("Cons"),
-          0
+          0,
         )
 
         val templateName = defQualName("module", "name")
@@ -941,18 +941,22 @@ class SValueHashSpec
             // without type tags, this hashes to [0]
             SV.SBool(false),
             // without type tags, this hashes to [0]
-            SV.SOptional(None)),
+            SV.SOptional(None),
+          ),
           List(
             // without type tags, this hashes to [0,0,0,4] ++ [0,0,0,0]
-            SV.SList(FrontStack(SV.SBool(false), SV.SBool(false), SV.SBool(false), SV.SBool(false))),
+            SV.SList(
+              FrontStack(SV.SBool(false), SV.SBool(false), SV.SBool(false), SV.SBool(false))
+            ),
             // without type tags, this hashes to [0,0,0,4,0,0,0,0]
-            SV.SInt64(4L * 256 * 256 * 256 * 256)),
+            SV.SInt64(4L * 256 * 256 * 256 * 256),
+          ),
           List(
             // without type tags, this hashes to [0,0,0,0]
             SV.SList(FrontStack.empty),
             // without type tags, this hashes to [0,0,0,0]
-            SV.SText("")
-          )
+            SV.SText(""),
+          ),
         )
         forEvery(potentialCollisions) { values =>
           values.map(assertHash(defQualName("module", "name"), _)).toSet.size shouldBe values.size
