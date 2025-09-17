@@ -10,15 +10,13 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.{Error => EE}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.SExpr.SEImportValue
-import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside.inside
 import org.scalatest.{Assertion, ParallelTestExecution}
 import com.digitalasset.daml.lf.transaction.CreationTime
-import com.digitalasset.daml.lf.engine.UpgradesMatrix
+import com.digitalasset.daml.lf.speedy.ValueTranslator
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 import scala.collection.immutable
@@ -55,7 +53,8 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     )
 
   def normalize(value: Value, typ: Ast.Type): Value = {
-    Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
+    new ValueTranslator(cases.compiledPackages.pkgInterface, forbidLocalContractIds = true)
+      .translateValue(typ, value) match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
       case Right(sValue) => sValue.toNormalizedValue
     }
