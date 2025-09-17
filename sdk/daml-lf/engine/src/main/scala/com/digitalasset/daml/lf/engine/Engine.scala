@@ -170,7 +170,7 @@ class Engine(val config: EngineConfig) {
         disclosedContractIds,
         disclosedKeyHashes,
       )
-      inputCost <- preprocessor.getInputCost
+      _ <- preprocessor.getInputCost
       result <-
         interpretCommands(
           validating = false,
@@ -184,7 +184,6 @@ class Engine(val config: EngineConfig) {
           packageResolution = pkgResolution,
           engineLogger = engineLogger,
           submissionInfo = Some(Engine.SubmissionInfo(participantId, submissionSeed, submitters)),
-          preprocessorInputCost = Some(inputCost),
         )
       (tx, meta, _) = result
     } yield (tx, meta)
@@ -400,7 +399,6 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
-      preprocessorInputCost: Option[preprocessing.CostModel.Cost] = None,
   )(implicit
       loggingContext: LoggingContext
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
@@ -420,7 +418,6 @@ class Engine(val config: EngineConfig) {
         packageResolution,
         engineLogger,
         submissionInfo,
-        preprocessorInputCost,
       )
     } yield result
 
@@ -443,8 +440,6 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
-      preprocessorInputCost: Option[preprocessing.CostModel.Cost] = None,
-      engineGasBudget: Option[speedy.CostModel.Cost] = None,
   )(implicit
       loggingContext: LoggingContext
   ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
@@ -464,7 +459,6 @@ class Engine(val config: EngineConfig) {
       packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
-      initialGasBudget = engineGasBudget.map(_ - preprocessorInputCost.getOrElse(0L)), // FIXME:
     )
     interpretLoop(machine, ledgerTime, submissionInfo)
   }
