@@ -875,6 +875,28 @@ class SValueHashSpec
         hash1 should !==(hash2)
       }
 
+      "not identify variants constructors with different ranks" in {
+        val variant1 = SV.SVariant(
+          defRef(name = "Variant"),
+          Ref.Name.assertFromString("Cons"),
+          0,
+          SV.SInt64(0L),
+        )
+        val variant2 = SV.SVariant(
+          defRef(name = "Variant"),
+          Ref.Name.assertFromString("Cons"),
+          1,
+          SV.SInt64(0L),
+        )
+
+        val templateName = defQualName("module", "name")
+
+        val hash1 = assertHash(templateName, variant1)
+        val hash2 = assertHash(templateName, variant2)
+
+        hash1 should !==(hash2)
+      }
+
       "identify enums with different package IDs but otherwise same package, template, and qualified names" in {
         val enum1 = SV.SEnum(
           Ref.Identifier(
