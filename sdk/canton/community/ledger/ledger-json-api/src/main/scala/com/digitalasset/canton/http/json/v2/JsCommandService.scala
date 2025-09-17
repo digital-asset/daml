@@ -6,11 +6,19 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.command_service.{
   CommandServiceGrpc,
+  SubmitAndWaitForTransactionRequest,
   SubmitAndWaitRequest,
   SubmitAndWaitResponse,
 }
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
-import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
+import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter,
+  EventFormat,
+  Filters,
+  TransactionFormat,
+  WildcardFilter,
+}
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.api.v2.{
   command_completion_service,
@@ -31,6 +39,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransaction,
   JsTransactionTree,
 }
+import com.digitalasset.canton.http.json.v2.LegacyDTOs.toTransactionTree
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -46,7 +55,6 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, webSocketBody}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsCommandService(
@@ -141,8 +149,6 @@ class JsCommandService(
     } yield result
   }
 
-  // TODO(#23504) remove when TransactionTree is removed from the API
-  @nowarn("cat=deprecation")
   def submitAndWaitForTransactionTree(
       callerContext: CallerContext
   ): TracedInput[JsCommands] => Future[
@@ -152,14 +158,47 @@ class JsCommandService(
     for {
 
       commands <- protocolConverters.Commands.fromJson(req.in)
-      submitAndWaitRequest =
-        SubmitAndWaitRequest(commands = Some(commands))
+      submitAndWaitForTransactionRequest =
+        SubmitAndWaitForTransactionRequest(
+          commands = Some(commands),
+          transactionFormat = Some(
+            TransactionFormat(
+              eventFormat = Some(
+                EventFormat(
+                  filtersByParty = commands.actAs
+                    .map(party =>
+                      party -> Filters(
+                        Seq(
+                          CumulativeFilter.defaultInstance
+                            .withWildcardFilter(WildcardFilter.defaultInstance)
+                        )
+                      )
+                    )
+                    .toMap,
+                  filtersForAnyParty = None,
+                  verbose = true,
+                )
+              ),
+              transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+            )
+          ),
+        )
       result <- commandServiceClient(callerContext.token())
-        .submitAndWaitForTransactionTree(submitAndWaitRequest)
-        .flatMap(r => protocolConverters.SubmitAndWaitTransactionTreeResponse.toJson(r))
+        .submitAndWaitForTransaction(submitAndWaitForTransactionRequest)
+        .flatMap(r =>
+          protocolConverters.SubmitAndWaitTransactionTreeResponseLegacy
+            .toJson(toSubmitAndWaitTransactionTreeResponse(r))
+        )
         .resultToRight
     } yield result
   }
+
+  private def toSubmitAndWaitTransactionTreeResponse(
+      response: command_service.SubmitAndWaitForTransactionResponse
+  ): LegacyDTOs.SubmitAndWaitForTransactionTreeResponse =
+    LegacyDTOs.SubmitAndWaitForTransactionTreeResponse(
+      response.transaction.map(toTransactionTree)
+    )
 
   def submitAndWaitForTransaction(
       callerContext: CallerContext
@@ -300,7 +339,9 @@ object JsCommandService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction-tree"))
     .in(jsonBody[JsCommands])
     .out(jsonBody[JsSubmitAndWaitForTransactionTreeResponse])
-    .description("Submit a batch of commands and wait for the transaction trees response")
+    .description(
+      "Submit a batch of commands and wait for the transaction trees response (deprecated: use submit-and-wait-for-transaction instead)"
+    )
 
   val submitAndWait = commands.post
     .in(sttp.tapir.stringToPath("submit-and-wait"))

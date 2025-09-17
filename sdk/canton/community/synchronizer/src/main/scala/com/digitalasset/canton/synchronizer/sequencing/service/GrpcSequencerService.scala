@@ -29,6 +29,7 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.sequencer.api.v30
+import com.digitalasset.canton.sequencer.api.v30.{GetTimeRequest, GetTimeResponse}
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -724,5 +725,20 @@ class GrpcSequencerService(
     } yield v30.GetTrafficStateForMemberResponse(trafficO.map(_.toProtoV30))
 
     EitherTUtil.toFuture(result.onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError)))
+  }
+
+  override def getTime(request: GetTimeRequest): Future[GetTimeResponse] = {
+    // This call is authenticated but does not require special authorization.
+
+    // Traffic is not impacted as no events are emitted.
+
+    // The returned information is expected to be readily available and served from transient memory,
+    //  hence this call is expected to be fast and impose minimal load on sequencers,
+    //  so network-level rate limiting is enough to secure it against denial-of-service attacks;
+    //  for this reason we don't apply application-level rate limiting.
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    sequencer.sequencingTime
+      .map(time => GetTimeResponse(time.map(_.toProtoPrimitive)))
+      .onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
   }
 }

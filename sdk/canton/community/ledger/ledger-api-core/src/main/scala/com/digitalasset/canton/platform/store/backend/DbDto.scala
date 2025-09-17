@@ -24,6 +24,7 @@ object DbDto {
       contract_id: Array[Byte],
       template_id: String,
       package_id: String,
+      representative_package_id: String,
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_argument: Array[Byte],

@@ -525,7 +525,7 @@ object Module {
       p2pNetworkInModuleRef: ModuleRef[P2PMessageT],
       p2pNetworkOutAdminModuleRef: ModuleRef[P2PNetworkOut.Admin],
       consensusAdminModuleRef: ModuleRef[Consensus.Admin],
-      outputModuleRef: ModuleRef[Output.SequencerSnapshotMessage],
+      outputModuleRef: ModuleRef[Output.Message[E]],
       pruningModuleRef: ModuleRef[Pruning.Message],
       p2pNetworkManager: P2PNetworkManagerT,
   )

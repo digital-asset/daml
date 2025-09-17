@@ -34,7 +34,7 @@ object DbDtoToStringsForInterning {
 
   private def packageIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
-      case dbDto: DbDto.EventCreate => Iterator(dbDto.package_id)
+      case dbDto: DbDto.EventCreate => Iterator(dbDto.package_id, dbDto.representative_package_id)
       case dbDto: DbDto.EventAssign => Iterator(dbDto.package_id)
       case dbDto: DbDto.EventExercise => Iterator(dbDto.package_id)
       case dbDto: DbDto.EventUnassign => Iterator(dbDto.package_id)

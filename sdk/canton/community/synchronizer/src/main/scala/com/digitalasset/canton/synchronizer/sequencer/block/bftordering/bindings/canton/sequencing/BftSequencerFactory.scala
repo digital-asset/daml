@@ -108,6 +108,7 @@ class BftSequencerFactory(
         synchronizerLoggerFactory,
         storageSetup,
         nodeParameters.loggingConfig.queryCost,
+        futureSupervisor,
       ),
       name,
       cryptoApi,

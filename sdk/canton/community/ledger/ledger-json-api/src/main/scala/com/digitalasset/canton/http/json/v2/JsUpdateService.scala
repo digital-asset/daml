@@ -5,16 +5,18 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2 as lapi
-import com.daml.ledger.api.v2.event.Event.Event
-import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter.WildcardFilter
-import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
+  TRANSACTION_SHAPE_ACS_DELTA,
+  TRANSACTION_SHAPE_LEDGER_EFFECTS,
+}
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
   EventFormat,
   Filters,
   ParticipantAuthorizationTopologyFormat,
   TransactionFormat,
+  TransactionShape,
   UpdateFormat,
 }
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
@@ -31,6 +33,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
 }
 import com.digitalasset.canton.http.json.v2.JsUpdateServiceConverters.toUpdateFormat
+import com.digitalasset.canton.http.json.v2.LegacyDTOs.toTransactionTree
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -131,29 +134,119 @@ class JsUpdateService(
   ] = { req =>
     implicit val tc: TraceContext = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
-      .getTransactionTreeByOffset(
-        update_service.GetTransactionByOffsetRequest(
+      .getUpdateByOffset(
+        update_service.GetUpdateByOffsetRequest(
           offset = req.in._1,
-          requestingParties = req.in._2,
-          transactionFormat = None,
+          updateFormat = Some(
+            getUpdateFormatForPointwiseQueries(
+              requestingParties = req.in._2,
+              transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+            )
+          ),
         )
       )
-      .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_))
+      .flatMap((r: update_service.GetUpdateResponse) =>
+        protocolConverters.GetTransactionTreeResponseLegacy.toJson(toGetTransactionTreeResponse(r))
+      )
       .resultToRight
   }
 
+  private def getUpdateFormatForPointwiseQueries(
+      requestingParties: Seq[String],
+      transactionShape: TransactionShape,
+  ): UpdateFormat = {
+    val eventFormat = EventFormat(
+      filtersByParty = requestingParties
+        .map(party =>
+          party -> Filters(
+            cumulative = List(
+              CumulativeFilter(
+                WildcardFilter(
+                  transaction_filter.WildcardFilter.defaultInstance
+                )
+              )
+            )
+          )
+        )
+        .toMap,
+      filtersForAnyParty = None,
+      verbose = true,
+    )
+    val transactionFormat = TransactionFormat(
+      transactionShape = transactionShape,
+      eventFormat = Some(eventFormat),
+    )
+    UpdateFormat(
+      includeTransactions = Some(transactionFormat),
+      includeReassignments = None,
+      includeTopologyEvents = None,
+    )
+  }
+
+  private def toGetTransactionTreeResponse(
+      update: update_service.GetUpdateResponse
+  ): LegacyDTOs.GetTransactionTreeResponse =
+    LegacyDTOs.GetTransactionTreeResponse(update.update.transaction.map(toTransactionTree))
+
   private def getTransactionByOffset(
       caller: CallerContext
-  ): TracedInput[update_service.GetTransactionByOffsetRequest] => Future[
+  ): TracedInput[LegacyDTOs.GetTransactionByOffsetRequest] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
     req => {
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
-        .getTransactionByOffset(req.in)
-        .flatMap(protocolConverters.GetTransactionResponse.toJson(_))
+        .getUpdateByOffset(
+          update_service.GetUpdateByOffsetRequest(
+            offset = req.in.offset,
+            updateFormat = Some(
+              getUpdateFormatForFlatQueries(
+                requestingParties = req.in.requestingParties,
+                transactionFormat = req.in.transactionFormat,
+              )
+            ),
+          )
+        )
+        .flatMap((r: update_service.GetUpdateResponse) =>
+          protocolConverters.GetTransactionResponseLegacy.toJson(toGetTransactionResponse(r))
+        )
         .resultToRight
     }
+
+  private def getUpdateFormatForFlatQueries(
+      requestingParties: Seq[String],
+      transactionFormat: Option[TransactionFormat],
+  )(implicit traceContext: TraceContext): UpdateFormat =
+    (requestingParties, transactionFormat) match {
+      case (Nil, Some(format)) =>
+        UpdateFormat(
+          includeTransactions = Some(format),
+          includeReassignments = None,
+          includeTopologyEvents = None,
+        )
+      case (Nil, None) =>
+        throw RequestValidationErrors.InvalidArgument
+          .Reject(
+            "Either transaction_format or requesting_parties is required. Please use either backwards compatible arguments (requesting_parties) or transaction_format."
+          )
+          .asGrpcError
+      case (_, Some(_)) =>
+        throw RequestValidationErrors.InvalidArgument
+          .Reject(
+            "Both transaction_format and requesting_parties are set. Please use either backwards compatible arguments (requesting_parties) or transaction_format but not both."
+          )
+          .asGrpcError
+      case (requestingParties, None) =>
+        getUpdateFormatForPointwiseQueries(
+          requestingParties = requestingParties,
+          transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+        )
+    }
+
+  private def toGetTransactionResponse(
+      update: update_service.GetUpdateResponse
+  ): LegacyDTOs.GetTransactionResponse =
+    LegacyDTOs.GetTransactionResponse(update.update.transaction)
 
   private def getUpdateByOffset(
       caller: CallerContext
@@ -183,13 +276,25 @@ class JsUpdateService(
 
   private def getTransactionById(
       caller: CallerContext
-  ): TracedInput[update_service.GetTransactionByIdRequest] => Future[
+  ): TracedInput[LegacyDTOs.GetTransactionByIdRequest] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] = { req =>
     implicit val tc = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
-      .getTransactionById(req.in)
-      .flatMap(protocolConverters.GetTransactionResponse.toJson(_))
+      .getUpdateById(
+        update_service.GetUpdateByIdRequest(
+          updateId = req.in.updateId,
+          updateFormat = Some(
+            getUpdateFormatForFlatQueries(
+              requestingParties = req.in.requestingParties,
+              transactionFormat = req.in.transactionFormat,
+            )
+          ),
+        )
+      )
+      .flatMap((r: update_service.GetUpdateResponse) =>
+        protocolConverters.GetTransactionResponseLegacy.toJson(toGetTransactionResponse(r))
+      )
       .resultToRight
   }
 
@@ -201,15 +306,21 @@ class JsUpdateService(
     req => {
       implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
-        .getTransactionTreeById(
-          update_service.GetTransactionByIdRequest(
+        .getUpdateById(
+          update_service.GetUpdateByIdRequest(
             updateId = req.in._1,
-            requestingParties = req.in._2,
-            transactionFormat = None,
+            updateFormat = Some(
+              getUpdateFormatForPointwiseQueries(
+                requestingParties = req.in._2,
+                transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+              )
+            ),
           )
         )
-        .flatMap { tr =>
-          protocolConverters.GetTransactionTreeResponse.toJson(tr)
+        .flatMap { (r: update_service.GetUpdateResponse) =>
+          protocolConverters.GetTransactionTreeResponseLegacy.toJson(
+            toGetTransactionTreeResponse(r)
+          )
         }
         .resultToRight
     }
@@ -330,33 +441,8 @@ class JsUpdateService(
       }
     )
 
-  private def toTransactionTree(tx: Transaction): LegacyDTOs.TransactionTree =
-    LegacyDTOs.TransactionTree(
-      updateId = tx.updateId,
-      commandId = tx.commandId,
-      workflowId = tx.workflowId,
-      effectiveAt = tx.effectiveAt,
-      offset = tx.offset,
-      eventsById = tx.events
-        .collect(e =>
-          e.event match {
-            case Event.Created(created) =>
-              created.nodeId -> LegacyDTOs.TreeEvent(LegacyDTOs.TreeEvent.Kind.Created(created))
-            case Event.Exercised(exercised) =>
-              exercised.nodeId -> LegacyDTOs.TreeEvent(
-                LegacyDTOs.TreeEvent.Kind.Exercised(exercised)
-              )
-          }
-        )
-        .toMap,
-      synchronizerId = tx.synchronizerId,
-      traceContext = tx.traceContext,
-      recordTime = tx.recordTime,
-    )
 }
 
-// TODO(#23504) remove deprecated methods
-@nowarn("cat=deprecation")
 object JsUpdateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsUpdateServiceCodecs.*
@@ -431,28 +517,32 @@ object JsUpdateService extends DocumentationEndpoints {
     .in(path[Long]("offset"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
-    .description("Get transaction tree by offset")
+    .description(
+      "Get transaction tree by offset (deprecated: use v2/updates/update-by-offset instead)"
+    )
 
   val getTransactionTreeByIdEndpoint = updates.get
     .in(sttp.tapir.stringToPath("transaction-tree-by-id"))
     .in(path[String]("update-id"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
-    .description("Get transaction tree by  id")
+    .description("Get transaction tree by id (deprecated: use v2/updates/update-by-id instead)")
 
   val getTransactionByIdEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("transaction-by-id"))
-      .in(jsonBody[update_service.GetTransactionByIdRequest])
+      .in(jsonBody[LegacyDTOs.GetTransactionByIdRequest])
       .out(jsonBody[JsGetTransactionResponse])
-      .description("Get transaction by id")
+      .description("Get transaction by id (deprecated: use v2/updates/update-by-id instead)")
 
   val getTransactionByOffsetEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("transaction-by-offset"))
-      .in(jsonBody[update_service.GetTransactionByOffsetRequest])
+      .in(jsonBody[LegacyDTOs.GetTransactionByOffsetRequest])
       .out(jsonBody[JsGetTransactionResponse])
-      .description("Get transaction by offset")
+      .description(
+        "Get transaction by offset (deprecated: use v2/updates/update-by-offset instead)"
+      )
 
   val getUpdateByOffsetEndpoint =
     updates.post
@@ -530,6 +620,11 @@ object JsUpdateServiceCodecs {
     deriveRelaxedCodec
   implicit val getTransactionByOffsetRequestRW
       : Codec[update_service.GetTransactionByOffsetRequest] =
+    deriveRelaxedCodec
+  implicit val getTransactionByIdRequestLegacyRW: Codec[LegacyDTOs.GetTransactionByIdRequest] =
+    deriveRelaxedCodec
+  implicit val getTransactionByOffsetRequestLegacyRW
+      : Codec[LegacyDTOs.GetTransactionByOffsetRequest] =
     deriveRelaxedCodec
   implicit val getUpdateByIdRequestRW: Codec[update_service.GetUpdateByIdRequest] =
     deriveRelaxedCodec

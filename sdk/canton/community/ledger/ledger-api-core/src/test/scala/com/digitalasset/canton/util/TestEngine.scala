@@ -11,7 +11,6 @@ import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, TestSalt}
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
-  ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -63,8 +62,7 @@ class TestEngine(
   }
 
   private val commandsValidator = new CommandsValidator(
-    validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
-    validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
+    validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
   )
 
   val packageResolver: PackageId => TraceContext => FutureUnlessShutdown[Option[Package]] =

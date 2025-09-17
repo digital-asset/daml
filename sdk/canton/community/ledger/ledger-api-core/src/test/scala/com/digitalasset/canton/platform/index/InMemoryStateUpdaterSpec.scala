@@ -540,6 +540,8 @@ object InMemoryStateUpdaterSpec {
   private val participantId = Ref.ParticipantId.assertFromString("participant1")
   private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
   private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
+  private val representativePackageId =
+    Ref.PackageId.assertFromString("some-representative-package-id")
 
   trait Scope
       extends Matchers
@@ -896,6 +898,7 @@ object InMemoryStateUpdaterSpec {
       createKey = createdNode.keyOpt.map(_.globalKey),
       createKeyMaintainers = createdNode.keyOpt.map(_.maintainers),
       authenticationData = someContractMetadataBytes,
+      representativePackageId = representativePackageId,
     )
 
   implicit val defaultValueProviderCreatedEvent

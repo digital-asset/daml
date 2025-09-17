@@ -106,6 +106,14 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
+  /** Return a "current" sequencing time such that, when a `sendAsyncSigned` operation is
+    * subsequently called, if sequenced, the sequencing time of the resulting event is guaranteed to
+    * be later than the sequencing time previously returned by the `sequencingTime` call.
+    */
+  def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
+
   /** Return the last timestamp of the containing block of the provided timestamp. This is needed to
     * determine the effective timestamp to observe in topology processing, required to produce a
     * correct snapshot.

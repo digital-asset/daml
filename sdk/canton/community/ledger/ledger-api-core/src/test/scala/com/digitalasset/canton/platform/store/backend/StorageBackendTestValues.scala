@@ -53,6 +53,8 @@ private[store] object StorageBackendTestValues {
   val somePackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkg")
   val someTemplateId: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template")
   val someTemplateIdFull: Ref.FullIdentifier = someTemplateId.toFullIdentifier(somePackageId)
+  val someRepresentativePackageId: Ref.PackageId =
+    Ref.PackageId.assertFromString("representative-pkg")
   val someTemplateId2: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template2")
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someParticipantId)
@@ -113,6 +115,7 @@ private[store] object StorageBackendTestValues {
       recordTime: Timestamp = someTime,
       externalTransactionHash: Option[Array[Byte]] = None,
       emptyFlatEventWitnesses: Boolean = false,
+      representativePackageId: Ref.PackageId = somePackageId,
   ): DbDto.EventCreate = {
     val updateId = updateIdFromOffset(offset)
     val stakeholders = Set(signatory, observer)
@@ -145,6 +148,7 @@ private[store] object StorageBackendTestValues {
       trace_context = traceContext,
       record_time = recordTime.micros,
       external_transaction_hash = externalTransactionHash,
+      representative_package_id = representativePackageId,
     )
   }
 

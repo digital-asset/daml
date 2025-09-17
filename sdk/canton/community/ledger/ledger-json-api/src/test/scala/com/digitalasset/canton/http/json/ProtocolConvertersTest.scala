@@ -72,6 +72,7 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
     JsMapping(converters.Transaction),
     JsMapping(converters.TransactionTree),
     JsMapping(converters.SubmitAndWaitTransactionTreeResponse),
+    JsMapping(converters.SubmitAndWaitTransactionTreeResponseLegacy),
     JsMapping(converters.SubmitAndWaitTransactionResponse),
     JsMapping(converters.SubmitAndWaitForReassignmentResponse),
     JsMapping(converters.SubmitAndWaitForTransactionRequest),
@@ -84,7 +85,7 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
     JsMapping(converters.Reassignment),
     JsMapping(converters.GetUpdatesResponse),
     JsMapping(converters.GetUpdateTreesResponseLegacy),
-    JsMapping(converters.GetTransactionResponse),
+    JsMapping(converters.GetTransactionResponseLegacy),
 //    JsMapping(converters.PrepareSubmissionRequest),//we only need toJson
 //    JsMapping(converters.PrepareSubmissionResponse), // we only need toJson
 //    JsMapping(converters.ExecuteSubmissionRequest), // we only need fromJson
@@ -178,6 +179,29 @@ object Arbitraries {
         arb.arbitrary.sample.filter(_ != Update.Empty)
       ).getOrElse(
         throw new RuntimeException("Failed to generate non-empty GetUpdateTreesResponse.Update")
+      )
+    }
+  }
+  implicit val arbSubmitAndWaitTransactionTreeResponseLegacy
+      : Arbitrary[LegacyDTOs.SubmitAndWaitForTransactionTreeResponse] = {
+    val arb = ArbitraryDerivation[LegacyDTOs.SubmitAndWaitForTransactionTreeResponse]
+    Arbitrary {
+      retryUntilSome(
+        arb.arbitrary.sample.filter(_.transaction.isDefined)
+      ).getOrElse(
+        throw new RuntimeException(
+          "Failed to generate non-empty SubmitAndWaitForTransactionTreeResponse"
+        )
+      )
+    }
+  }
+  implicit val arbGetTransactionResponseLegacy: Arbitrary[LegacyDTOs.GetTransactionResponse] = {
+    val arb = ArbitraryDerivation[LegacyDTOs.GetTransactionResponse]
+    Arbitrary {
+      retryUntilSome(
+        arb.arbitrary.sample.filter(_.transaction.isDefined)
+      ).getOrElse(
+        throw new RuntimeException("Failed to generate non-empty GetTransactionResponse")
       )
     }
   }

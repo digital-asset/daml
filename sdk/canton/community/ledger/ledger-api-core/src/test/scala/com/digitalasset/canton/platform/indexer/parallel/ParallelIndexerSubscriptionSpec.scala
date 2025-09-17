@@ -8,6 +8,7 @@ import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
   TopologyTransactionEffective,
@@ -120,6 +121,7 @@ class ParallelIndexerSubscriptionSpec
     contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_id = "",
+    representative_package_id = "",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_argument = Array.empty,
@@ -1307,6 +1309,7 @@ class ParallelIndexerSubscriptionSpec
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = Ref.TransactionId.fromLong(15000),
       contractAuthenticationData = Map.empty,
+      representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       repairCounter = repairCounter,
       recordTime = recordTime,

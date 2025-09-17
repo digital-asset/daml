@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   TopologyEvent,
 }
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
@@ -344,6 +345,17 @@ object UpdateToDbDto {
     val treeWitnesses =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
     val treeWitnessesWithoutFlatWitnesses = treeWitnesses.diff(flatWitnesses)
+    val representativePackageId = transactionAccepted.representativePackageIds match {
+      case RepresentativePackageIds.SameAsContractPackageId =>
+        create.templateId.packageId
+      case RepresentativePackageIds.DedicatedRepresentativePackageIds(representativePackageIds) =>
+        representativePackageIds.getOrElse(
+          create.coid,
+          throw new IllegalStateException(
+            s"Missing representative package id for contract $create.coid"
+          ),
+        )
+    }
     Iterator(
       DbDto.EventCreate(
         event_offset = offset.unwrap,
@@ -357,6 +369,7 @@ object UpdateToDbDto {
         contract_id = create.coid.toBytes.toByteArray,
         template_id = templateId,
         package_id = create.templateId.packageId.toString,
+        representative_package_id = representativePackageId.toString,
         flat_event_witnesses = flatWitnesses,
         tree_event_witnesses = treeWitnesses,
         create_argument = compressionStrategy.createArgumentCompression.compress(createArgument),

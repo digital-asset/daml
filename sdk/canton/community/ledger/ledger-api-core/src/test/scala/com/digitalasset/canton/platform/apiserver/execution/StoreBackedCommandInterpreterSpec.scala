@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{CreationTime, Node as LfNode}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Node as LfNode}
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import monocle.Monocle.toAppliedFocusOps
@@ -54,10 +54,14 @@ class StoreBackedCommandInterpreterSpec
   private val createCycleApiCommand: Commands =
     testEngine.validateCommand(new Cycle("id", alice).create().commands.loneElement, alice)
 
-  private def repeatCycleApiCommand(cid: ContractId): Commands =
+  private def repeatCycleApiCommand(
+      cid: ContractId,
+      disclosedContracts: Seq[FatContractInstance] = Seq.empty,
+  ): Commands =
     testEngine.validateCommand(
       new Cycle.ContractId(cid.coid).exerciseRepeat().commands().loneElement,
       alice,
+      disclosedContracts,
     )
 
   private def createCycleContract() = {
@@ -309,85 +313,98 @@ class StoreBackedCommandInterpreterSpec
 
     }
 
-    "complete if contract authentication passes" in {
+    forAll(Seq(true, false)) { disclosed =>
+      val contractType = if (disclosed) "disclosed contract" else "local contract"
+      s"complete if $contractType authentication passes" in {
 
-      val (_, _, contract) = createCycleContract()
-      val inst: LfFatContractInst = contract.inst
+        val (_, _, contract) = createCycleContract()
+        val inst: LfFatContractInst = contract.inst
 
-      val contractStore = mock[ContractStore]
+        val contractStore = mock[ContractStore]
 
-      when(
-        contractStore.lookupContractState(
-          contractId = any[ContractId]
-        )(any[LoggingContextWithTrace])
-      ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
+        when(
+          contractStore.lookupContractState(
+            contractId = any[ContractId]
+          )(any[LoggingContextWithTrace])
+        ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
 
-      when(
-        contractStore.lookupActiveContract(
-          readers = any[Set[Ref.Party]],
-          contractId = eqTo(inst.contractId),
-        )(any[LoggingContextWithTrace])
-      ).thenReturn(Future.successful(Some(inst)))
-
-      val commands = repeatCycleApiCommand(inst.contractId)
-
-      val sut = mkSut(
-        testEngine.engine,
-        contractStore = contractStore,
-        contractAuthenticator = (_, _) => Either.unit,
-      )
-
-      sut
-        .interpret(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory),
-          executionContext,
-        )
-        .map {
-          case Right(_) => succeed
-          case other => fail(s"Expected success, got $other")
+        // When a disclosed contract should be used the mock will cause a failure if it is tried and so
+        // verifies that the disclosed key lookup takes precedence.
+        if (!disclosed) {
+          when(
+            contractStore.lookupActiveContract(
+              readers = any[Set[Ref.Party]],
+              contractId = eqTo(inst.contractId),
+            )(any[LoggingContextWithTrace])
+          ).thenReturn(Future.successful(Some(inst)))
         }
 
-    }
+        val commands =
+          repeatCycleApiCommand(inst.contractId, if (disclosed) Seq(inst) else Seq.empty)
 
-    "error if contract authentication fails" in {
-
-      val (_, _, contract) = createCycleContract()
-      val inst: LfFatContractInst = contract.inst
-
-      val contractStore = mock[ContractStore]
-
-      when(
-        contractStore.lookupContractState(
-          contractId = any[ContractId]
-        )(any[LoggingContextWithTrace])
-      ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
-
-      when(
-        contractStore.lookupActiveContract(
-          readers = any[Set[Ref.Party]],
-          contractId = eqTo(inst.contractId),
-        )(any[LoggingContextWithTrace])
-      ).thenReturn(Future.successful(Some(inst)))
-
-      val commands = repeatCycleApiCommand(inst.contractId)
-
-      val sut = mkSut(
-        testEngine.engine,
-        contractStore = contractStore,
-        contractAuthenticator = (_, _) => Left("Not authorized"),
-      )
-
-      sut
-        .interpret(commands, submissionSeed)(
-          LoggingContextWithTrace(loggerFactory),
-          executionContext,
+        val sut = mkSut(
+          testEngine.engine,
+          contractStore = contractStore,
+          contractAuthenticator = (_, _) => Either.unit,
         )
-        .map {
-          case Left(ErrorCause.DamlLf(engine.Error.Interpretation(_, _))) => succeed
-          case other => fail(s"Did not expect: $other")
+
+        sut
+          .interpret(commands, submissionSeed)(
+            LoggingContextWithTrace(loggerFactory),
+            executionContext,
+          )
+          .map {
+            case Right(_) => succeed
+            case other => fail(s"Expected success, got $other")
+          }
+      }
+
+      s"error if $contractType authentication fails" in {
+
+        val (_, _, contract) = createCycleContract()
+        val inst: LfFatContractInst = contract.inst
+
+        val contractStore = mock[ContractStore]
+
+        when(
+          contractStore.lookupContractState(
+            contractId = any[ContractId]
+          )(any[LoggingContextWithTrace])
+        ).thenReturn(Future.successful(ContractState.NotFound)) // prefetch only
+
+        // When a disclosed contract should be used the mock will cause a failure if it is tried and so
+        // verifies that the disclosed lookup takes precedence.
+        if (!disclosed) {
+          when(
+            contractStore.lookupActiveContract(
+              readers = any[Set[Ref.Party]],
+              contractId = eqTo(inst.contractId),
+            )(any[LoggingContextWithTrace])
+          ).thenReturn(Future.successful(Some(inst)))
         }
 
+        val commands =
+          repeatCycleApiCommand(inst.contractId, if (disclosed) Seq(inst) else Seq.empty)
+
+        val sut = mkSut(
+          testEngine.engine,
+          contractStore = contractStore,
+          contractAuthenticator = (_, _) => Left("Not authorized"),
+        )
+
+        sut
+          .interpret(commands, submissionSeed)(
+            LoggingContextWithTrace(loggerFactory),
+            executionContext,
+          )
+          .map {
+            case Left(ErrorCause.DamlLf(engine.Error.Interpretation(_, _))) => succeed
+            case other => fail(s"Did not expect: $other")
+          }
+
+      }
     }
+
   }
 
 }
