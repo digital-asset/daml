@@ -31,7 +31,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
-import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
+import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion, supports, featurePackageImports )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
@@ -856,12 +856,17 @@ generatePackageImports :: Rules ()
 generatePackageImports =
   --TODO[RB]: probably see if we need to guard this on the version
   defineEarlyCutoff $ \GeneratePackageImports file -> do
-    PackageMap pkgMap <- use_ GeneratePackageMap file
-    deps <- depPkgDeps <$> use_ GetDependencyInformation file
-    let imports = depsToIds pkgMap deps
+    lfVersion <- getDamlLfVersion
+    imports <- if lfVersion `supports` featurePackageImports
+      then do
+        PackageMap pkgMap <- use_ GeneratePackageMap file
+        deps <- depPkgDeps <$> use_ GetDependencyInformation file
+        return $ Right $ depsToIds pkgMap deps
+      else
+        return $ Left LF.LfDoesNotSupportPkgImports
     let hash :: BS.ByteString
-        hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
-    return (Just hash, ([], Just (Right imports)))
+        hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList $ fromRight mempty imports)
+    return (Just hash, ([], Just imports))
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
