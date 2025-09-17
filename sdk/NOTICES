@@ -516,6 +516,7 @@ Jackson-dataformat-TOML 2.14.0 : Apache License 2.0
 Janino 3.1.4: https://janino-compiler.github.io/janino/ : BSD 3-clause "New" or "Revised" License
 java-jwt 4.2.1: https://github.com/auth0/java-jwt : MIT License
 Java Native Access (JNA) 5.13.0: https://github.com/twall/jna : (GNU Lesser General Public License v2.1 or later OR Apache License 2.0)
+Java Object Layout: Core 0.17: http://maven.apache.org : GNU General Public License v2.0 w/Classpath exception
 javaparser-core 3.2.12 : (Apache License 2.0 OR GNU Lesser General Public License v3.0 or later)
 JavaPoet 1.13.0 : Apache License 2.0
 Java Servlet API 3.1.0: http://servlet-spec.java.net : (Common Development and Distribution License 1.1 OR Sun GPL With Classpath Exception v2.0)
@@ -4257,7 +4258,7 @@ exceptions or additional permissions here}.”
 ---
 
 GNU General Public License v2.0 w/Classpath exception
-(Checker Framework 3.28.0, javax.annotation API 1.3.2)
+(Checker Framework 3.28.0, Java Object Layout: Core 0.17, javax.annotation API 1.3.2)
 
 GNU Classpath License
 =====================
