@@ -1,6 +1,5 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 module DA.Daml.Compiler.Dar
     ( createDarFile
     , buildDar
@@ -65,7 +64,7 @@ import Module
 import qualified Module as Ghc
 import HscTypes
 import qualified Data.SemVer as V
-import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion(..))
+import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion(..))
 
 import SdkVersion.Class (SdkVersioned)
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
@@ -115,7 +114,7 @@ buildDar ::
     -> FromDalf
     -> UpgradeInfo
     -> WarningFlags TypeCheckerError.ErrorOrWarning
-    -> Maybe ProjectPath
+    -> Maybe PackagePath
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
 buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath = do
     liftIO $
@@ -165,9 +164,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                          Just _ -> pure $ Just []
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies files
-                 let mbNormalizedProjectPath = toNormalizedFilePath' . unwrapProjectPath <$> mbProjectPath
-                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedProjectPath
-                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedProjectPath
+                 let mbNormalizedPackagePath = toNormalizedFilePath' . unwrapPackagePath <$> mbProjectPath
+                 rootDepsUnitIds <- liftIO $ maybe (pure []) (fmap directDependencies . readMetadata) mbNormalizedPackagePath
+                 pkgMap <- lift $ maybe (pure $ PackageMap mempty) (use_ GeneratePackageMap) mbNormalizedPackagePath
                  let rootDepsDalfs = mapMaybe (flip Map.lookup $ getPackageMap pkgMap) rootDepsUnitIds
 
                  MaybeT $
@@ -440,4 +439,3 @@ makeRelative' a b =
     -- Note that NormalizedFilePath only takes care of normalizing slashes.
     -- Here we also want to normalise things like ./a to a
     makeRelative (normalise $ fromNormalizedFilePath a) (normalise $ fromNormalizedFilePath b)
-

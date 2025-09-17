@@ -17,8 +17,7 @@ This library contains TypeScript types corresponding to primitive Daml data type
 `Template`, `ContractId`, `Int`, `Text` etc. as well as their encoders and decoders to interact with
 the [JSON API](https://docs.daml.com/json-api/index.html) of a Daml ledger.
 
-For creating a Daml distributed application, you'll most likely want to use the
-[@daml/ledger](https://www.npmjs.com/package/@daml/ledger) package. 
+For creating a Daml distributed application, you'll most likely want to use the `openapi`.
 
 ## Source
 https://github.com/digital-asset/daml.

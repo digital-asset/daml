@@ -7,7 +7,8 @@
 
 module Upload (
     uploadToMavenCentral,
-    mavenConfigFromEnv,
+    tryUploadToGoogleArtifactRegistry,
+    uploadToGoogleArtifactRegistry,
 ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
@@ -30,14 +31,20 @@ import           Network.Connection (TLSSettings(..))
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
 import           Network.HTTP.Client.MultipartFormData
-import           Network.HTTP.Simple (setRequestBasicAuth, setRequestHeader, setRequestMethod, setRequestPath, setRequestQueryString)
+import           Network.HTTP.Simple ( setRequestBasicAuth
+                                     , setRequestBodyFile
+                                     , setRequestHeader
+                                     , setRequestMethod
+                                     , setRequestPath
+                                     , setRequestQueryString
+                                     , setRequestBearerAuth
+                                     )
 import           Network.HTTP.Types.Status
 import           Path
-import           System.Environment
 import           System.IO.Temp
 import Text.Printf
-
 import Types
+import qualified UnliftIO.Exception as Unlift
 import Util
 
 
@@ -103,6 +110,37 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
 
     return ()
 
+tryUploadToGoogleArtifactRegistry :: (MonadCI m) => GoogleArtifactRegistryConfig -> Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
+tryUploadToGoogleArtifactRegistry config releaseDir artifacts =
+    Unlift.catch
+      (uploadToGoogleArtifactRegistry config releaseDir artifacts)
+      (\(e :: HttpException) -> $logError $ "Failed uploading to Google Artifact Registry: " <> T.pack (show e))
+
+
+uploadToGoogleArtifactRegistry :: (MonadCI m) => GoogleArtifactRegistryConfig -> Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
+uploadToGoogleArtifactRegistry GoogleArtifactRegistryConfig{..} releaseDir artifacts = do
+    -- Create HTTP Connection manager with 30 s response timeout
+    manager <- liftIO $ newManager tlsManagerSettings { managerResponseTimeout = responseTimeoutMicro (30 * 1000 * 1000) }
+
+    parsedUrlRequest <- parseUrlThrow $ T.unpack garUrl -- Note: Will throw exception on non-2XX responses
+    let repositoryPath = decodeUtf8 $ path parsedUrlRequest
+    let baseRequest = setRequestBearerAuth (T.encodeUtf8 garKey)
+            $ setRequestMethod "PUT"
+            $ setRequestHeader "User-Agent" ["http-conduit"] parsedUrlRequest
+
+    for_ artifacts $ \(_, file) -> do
+        let absFile = releaseDir </> file -- (T.intercalate "/" (groupId <> [artifactId]))
+        let artUploadPath = repositoryPath <> "/" <> T.pack (toFilePath file)
+
+        $logDebug ("(Uploading " <> artUploadPath <> " from " <> tshow absFile <> ")")
+
+        let request = setRequestPath (encodeUtf8 artUploadPath)
+                $ setRequestBodyFile (fromAbsFile absFile) baseRequest
+
+        _ <- recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody request manager)
+
+        return ()
+
 decodeSigningKey :: (MonadCI m) => String -> m BS.ByteString
 decodeSigningKey signingKey =  case Base64.decode $ C8.pack signingKey of
     Left err -> throwIO $ CannotDecodeSigningKey err
@@ -140,21 +178,6 @@ noVerifyTlsManagerSettings = mkManagerSettings
     , settingUseServerName = False
     }
     Nothing
-
-mavenConfigFromEnv :: (MonadIO m, E.MonadThrow m) => m MavenUploadConfig
-mavenConfigFromEnv = do
-    url <- liftIO $ getEnv "MAVEN_URL"
-    user <- liftIO $ getEnv "MAVEN_USERNAME"
-    password <- liftIO $ getEnv "MAVEN_PASSWORD"
-    mbAllowUnsecureTls <- liftIO $ lookupEnv "MAVEN_UNSECURE_TLS"
-    signingKey <- liftIO $ getEnv "GPG_KEY"
-    pure MavenUploadConfig
-        { mucUrl = T.pack url
-        , mucUser = T.pack user
-        , mucPassword = T.pack password
-        , mucAllowUnsecureTls = MavenAllowUnsecureTls $ mbAllowUnsecureTls == Just "True"
-        , mucSigningKey = signingKey
-        }
 
 --
 -- HTTP Response Handlers

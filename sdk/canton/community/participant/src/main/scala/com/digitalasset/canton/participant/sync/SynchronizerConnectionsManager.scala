@@ -105,7 +105,7 @@ private[sync] class SynchronizerConnectionsManager(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     participantNodeEphemeralState: ParticipantNodeEphemeralState,
     syncPersistentStateManager: SyncPersistentStateManager,
-    packageService: Eval[PackageService],
+    packageService: PackageService,
     identityPusher: ParticipantTopologyDispatcher,
     partyNotifier: LedgerServerPartyNotifier,
     syncCrypto: SyncCryptoApiParticipantProvider,

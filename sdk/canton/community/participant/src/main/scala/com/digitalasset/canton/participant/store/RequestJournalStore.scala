@@ -40,10 +40,23 @@ trait RequestJournalStore { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[RequestData]]
 
-  /** Finds the highest request time before or equal to the given timestamp */
+  /** Finds the highest request time before or equal to the given timestamp
+    *
+    * Use only in one-off situations if request counter is needed in addition to request timestamp
+    * such as when reconnecting to a synchronizer or in test state inspection.
+    */
   def lastRequestTimeWithRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TimeOfRequest]]
+
+  /** Finds the highest timestamp before or equal to the given timestamp
+    *
+    * Use over lastRequestTimeWithRequestTimestampBeforeOrAt for performance reasons if request
+    * counter is not needed.
+    */
+  def lastRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Replaces the state of the request. The operation will only succeed if the current state is
     * equal to the given `oldState` and the provided `requestTimestamp` matches the stored
@@ -130,18 +143,17 @@ trait RequestJournalStore { this: NamedLogging =>
     // * The first request whose commit time is after the clean synchronizer index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      cleanTimeOfRequest <- cleanSynchronizerIndexO
-        .fold[FutureUnlessShutdown[Option[TimeOfRequest]]](FutureUnlessShutdown.pure(None))(
-          synchronizerIndex =>
-            lastRequestTimeWithRequestTimestampBeforeOrAt(synchronizerIndex.recordTime)
+      cleanRequestTimestamp <- cleanSynchronizerIndexO
+        .fold[FutureUnlessShutdown[Option[CantonTimestamp]]](FutureUnlessShutdown.pure(None))(
+          synchronizerIndex => lastRequestTimestampBeforeOrAt(synchronizerIndex.recordTime)
         )
-      requestReplayTs <- cleanTimeOfRequest match {
+      requestReplayTs <- cleanRequestTimestamp match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
-        case Some(timeOfRequest) =>
-          firstRequestWithCommitTimeAfter(timeOfRequest.timestamp).map { res =>
-            val ts = res.fold(timeOfRequest.timestamp)(_.requestTimestamp)
+        case Some(timestamp) =>
+          firstRequestWithCommitTimeAfter(timestamp).map { res =>
+            val ts = res.fold(timestamp)(_.requestTimestamp)
             // If the only processed requests so far are repair requests, it can happen that `ts == CantonTimestamp.MinValue`.
             // Taking the predecessor throws an exception.
             if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor

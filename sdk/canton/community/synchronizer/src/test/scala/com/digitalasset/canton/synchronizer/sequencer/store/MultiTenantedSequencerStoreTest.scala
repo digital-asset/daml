@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.store
 
 import cats.syntax.either.*
 import cats.syntax.option.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
@@ -28,6 +29,7 @@ trait MultiTenantedSequencerStoreTest
     val alice: Member = ParticipantId("alice")
     val bob: Member = ParticipantId("bob")
     val instanceDiscriminator = UUID.randomUUID()
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
     def mkInstanceStore(instanceIndex: Int, store: SequencerStore) =
       new SimpleSequencerWriterStore(instanceIndex, store)
 
@@ -99,8 +101,12 @@ trait MultiTenantedSequencerStoreTest
         val sequencer2 = mkInstanceStore(2, store)
 
         for {
-          aliceId <- store.registerMember(alice, ts(0))
-          bobId <- store.registerMember(bob, ts(0))
+          registeredAlice <- store.registerMember(alice, ts(0))
+          aliceId = registeredAlice.memberId
+
+          registeredBob <- store.registerMember(bob, ts(0))
+          bobId = registeredBob.memberId
+
           _ <- writeDelivers(sequencer1, bobId)(1)
           _ <- writeDelivers(sequencer2, aliceId)(2, 3, 4, 5)
           _ <- sequencer1.saveWatermark(ts(4)).valueOrFail("saveWatermark1")
@@ -130,7 +136,9 @@ trait MultiTenantedSequencerStoreTest
         val sequencer3 = mkInstanceStore(3, store)
 
         for {
-          aliceId <- store.registerMember(alice, ts(0))
+          registeredAlice <- store.registerMember(alice, ts(0))
+          aliceId = registeredAlice.memberId
+
           _ <- writeDelivers(sequencer1, aliceId)(1, 4)
           _ <- writeDelivers(sequencer2, aliceId)(2, 5)
           _ <- writeDelivers(sequencer3, aliceId)(3, 6)
@@ -167,7 +175,9 @@ trait MultiTenantedSequencerStoreTest
         val sequencer3 = mkInstanceStore(3, store)
 
         for {
-          aliceId <- store.registerMember(alice, ts(0))
+          registeredAlice <- store.registerMember(alice, ts(0))
+          aliceId = registeredAlice.memberId
+
           // deliver event 7 is ahead of all other events, but won't be included in s1's watermark
           _ <- writeDelivers(sequencer1, aliceId)(1, 7, 8)
           _ <- writeDelivers(sequencer2, aliceId)(2, 5, 9)
@@ -197,7 +207,9 @@ trait MultiTenantedSequencerStoreTest
         val sequencer3 = mkInstanceStore(3, store)
 
         for {
-          aliceId <- store.registerMember(alice, ts(0))
+          registeredAlice <- store.registerMember(alice, ts(0))
+          aliceId = registeredAlice.memberId
+
           _ <- writeDelivers(sequencer1, aliceId)(1, 4)
           _ <- writeDelivers(sequencer2, aliceId)(2, 5)
           _ <- writeDelivers(sequencer3, aliceId)(3, 6)

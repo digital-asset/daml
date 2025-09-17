@@ -55,7 +55,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
         val alice = "alice"
 
         // Enable alice on other participants, on all synchronizers
-        new PartiesAllocator(participants.all.toSet)(
+        PartiesAllocator(participants.all.toSet)(
           Seq(alice -> participant1),
           Map(
             alice -> Map(
@@ -69,7 +69,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
               )),
             )
           ),
-        ).run()
+        )
 
         aliceId = alice.toPartyId(participant1)
       }
@@ -110,6 +110,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
 
     val updates = participant2.ledger_api.updates.reassignments(
       partyIds = Set(aliceId),
+      filterTemplates = Seq.empty,
       completeAfter = 1,
       beginOffsetExclusive = begin,
       synchronizerFilter = Some(daId),
@@ -157,6 +158,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
 
     val updates = participant1.ledger_api.updates.reassignments(
       partyIds = Set(aliceId),
+      filterTemplates = Seq.empty,
       completeAfter = 1,
       beginOffsetExclusive = begin,
       resultFilter = _.isUnassignment,

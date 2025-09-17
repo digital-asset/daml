@@ -14,8 +14,10 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.TestEngine.{InMemoryPackageStore, TxAndMeta}
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.DamlLf
@@ -25,6 +27,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, Party, Quali
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
@@ -63,6 +66,9 @@ class TestEngine(
     validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
     validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
   )
+
+  val packageResolver: PackageId => TraceContext => FutureUnlessShutdown[Option[Package]] =
+    packageId => _ => FutureUnlessShutdown.pure(packageStore.getPackage(packageId))
 
   val packageStore: InMemoryPackageStore = packagePaths.foldLeft(InMemoryPackageStore()) { (s, p) =>
     s.withDarFile(new File(p)).value

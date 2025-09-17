@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
 import com.digitalasset.canton.crypto.TestSalt
-import com.digitalasset.canton.data.ViewPosition
+import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
@@ -38,6 +38,7 @@ import com.digitalasset.canton.{
   SynchronizerAlias,
   config,
 }
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value
@@ -250,10 +251,17 @@ sealed trait RepairServiceIntegrationTestStableLf
             case entry if entry.synchronizerId.contains(daId.logical) => entry.contractId
           }
 
+        def queryCreateLETs(): Seq[Timestamp] =
+          participant1.ledger_api.state.acs.of_all().collect {
+            case entry if entry.synchronizerId.contains(daId.logical) =>
+              CantonTimestamp.fromProtoTimestamp(entry.event.createdAt.value).value.underlying
+          }
+
         withParticipantsInitialized { (alice, bob) =>
           val c1 = createContractInstance(participant2, acmeName, acmeId, alice, bob)
           val c2 = createContractInstance(participant2, acmeName, acmeId, alice, bob)
           val cids = Set(c1, c2).map(_.contract.contractId.coid)
+          val createLETs = Set(c1, c2).map(_.contract.createdAt.time)
 
           queryCids() should contain noElementsOf cids
 
@@ -262,11 +270,13 @@ sealed trait RepairServiceIntegrationTestStableLf
           withSynchronizerConnected(daName) {
             eventually() {
               queryCids() should contain allElementsOf cids
+              queryCreateLETs() should contain allElementsOf createLETs
             }
           }
         }
       }
 
+      // TODO(#23073) - Un-ignore this test part once #27325 has been re-implemented
       "contract has been unassigned" taggedAs SecurityTest(
         SecurityTest.Property.Integrity,
         "virtual shared ledger",
@@ -275,7 +285,7 @@ sealed trait RepairServiceIntegrationTestStableLf
           "initiates an unassignment, but the assignment cannot be completed due to concurrent topology changes",
           "resurrect the contract via repair",
         ),
-      ) in { implicit env =>
+      ) ignore { implicit env =>
         withParticipantsInitialized { (alice, bob) =>
           import env.*
 
@@ -310,6 +320,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             contract.copy(reassignmentCounter = ReassignmentCounter(2))
           }
 
+          // TODO(#23073) - Note that the repair.add fails because it goes through ACS import (Old)
           participant1.repair.add(daId, testedProtocolVersion, Seq(contractInstance))
 
           // Ideally we should be able to query the contract as active
@@ -792,7 +803,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               ),
             )
 
-            val contractSalt = ContractSalt.create(pureCrypto)(
+            val contractSalt = ContractSalt.createV1(pureCrypto)(
               transactionUuid = new UUID(1L, 1L),
               psid = daId,
               mediator = MediatorGroupRecipient(MediatorGroupIndex.one),

@@ -8,6 +8,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 
+import scala.collection.immutable.SeqMap
+
 class PartyToParticipantComputations(override protected val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {
 
@@ -17,10 +19,10 @@ class PartyToParticipantComputations(override protected val loggerFactory: Named
     * If a participant in `adds` is already permissioned, the permissions are updated.
     */
   def computeNewPermissions(
-      existingPermissions: Map[ParticipantId, ParticipantPermission],
+      existingPermissions: SeqMap[ParticipantId, ParticipantPermission],
       adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
       removes: Seq[ParticipantId] = Nil,
-  ): Either[String, Map[ParticipantId, ParticipantPermission]] = {
+  ): Either[String, SeqMap[ParticipantId, ParticipantPermission]] = {
 
     val conflictsO =
       NonEmpty.from(adds.map { case (participantId, _) => participantId }.intersect(removes))

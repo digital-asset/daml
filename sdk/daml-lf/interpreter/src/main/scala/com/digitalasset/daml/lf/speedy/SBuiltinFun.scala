@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash.hashContractInstance
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.Hash.{HashingMethod, hashContractInstance}
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -86,16 +87,17 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinF
     * execution is immediate.
     *
     * @param args arguments for executing the pure builtin
+    * @param machine the Speedy machine (machine state may be modified by the builtin)
     * @return the pure builtin's resulting value (wrapped as a Control value)
     */
-  private[speedy] def executePure(args: ArraySeq[SValue]): SValue
+  private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SValue
 
-  override private[speedy] final def execute[Q](
+  private[speedy] final override def execute[Q](
       args: ArraySeq[SValue],
       machine: Machine[Q],
-  ): Control.Value = {
-    Control.Value(executePure(args))
-  }
+  ): Control.Value =
+    Control.Value(executePure(args, machine))
+
 }
 
 private[speedy] sealed abstract class UpdateBuiltin(arity: Int)
@@ -421,9 +423,15 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBShiftNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SNumeric = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SNumeric = {
       val outputScale = getSScale(args, 0)
       val x = getSNumeric(args, 1)
+
+      machine.updateGasBudget(_.BShiftNumeric.cost(outputScale, x))
+
       val inputScale = x.scale
       SNumeric(
         Numeric.assertFromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
@@ -435,24 +443,38 @@ private[lf] object SBuiltinFun {
   // Text functions
   //
   final case object SBExplodeText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList =
-      SList(FrontStack.from(Utf8.explode(getSText(args, 0)).map(SText)))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
+      val arg0 = getSText(args, 0)
+
+      machine.updateGasBudget(_.BExplodeText.cost(arg0))
+
+      SList(FrontStack.from(Utf8.explode(arg0).map(SText)))
+    }
   }
 
   final case object SBImplodeText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SText = {
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
       val xs = getSList(args, 0)
       val ts = xs.map {
         case SText(t) => t
         case v => crash(s"type mismatch implodeText: expected SText, got $v")
       }
+
+      machine.updateGasBudget(_.BImplodeText.cost(xs))
+
       SText(Utf8.implode(ts.toImmArray))
     }
   }
 
   final case object SBAppendText extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SText =
-      SText(getSText(args, 0) + getSText(args, 1))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
+      val arg0 = getSText(args, 0)
+      val arg1 = getSText(args, 1)
+
+      machine.updateGasBudget(_.BAppendText.cost(arg0, arg1))
+
+      SText(arg0 + arg1)
+    }
   }
 
   private[this] def litToText(location: String, x: SValue): String =
@@ -472,8 +494,10 @@ private[lf] object SBuiltinFun {
     }
 
   final case object SBToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SText =
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
+
       SText(litToText(NameOf.qualifiedNameOfCurrentFunc, args(0)))
+    }
   }
 
   final case object SBContractIdToText extends SBuiltinFun(1) {
@@ -492,13 +516,21 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBPartyToQuotedText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SText =
-      SText(s"'${getSParty(args, 0): String}'")
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
+      val arg0 = getSParty(args, 0)
+
+      machine.updateGasBudget(_.BPartyToText.cost(arg0))
+
+      SText(s"'${arg0: String}'")
+    }
   }
 
   final case object SBCodePointsToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SText = {
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
       val codePoints = getSList(args, 0).map(_.asInstanceOf[SInt64].value)
+
+      machine.updateGasBudget(_.BCodePointsToText.cost(codePoints))
+
       Utf8.pack(codePoints.toImmArray) match {
         case Right(value) =>
           SText(value)
@@ -509,8 +541,15 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTextToParty extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional = {
-      Party.fromString(getSText(args, 0)) match {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
+      val arg0 = getSText(args, 0)
+
+      machine.updateGasBudget(_.BTextToParty.cost(arg0))
+
+      Party.fromString(arg0) match {
         case Left(_) => SV.None
         case Right(p) => SOptional(Some(SParty(p)))
       }
@@ -520,8 +559,14 @@ private[lf] object SBuiltinFun {
   final case object SBTextToInt64 extends SBuiltinPure(1) {
     private val pattern = """[+-]?\d+""".r.pattern
 
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
       val s = getSText(args, 0)
+
+      machine.updateGasBudget(_.BTextToInt64.cost(s))
+
       if (pattern.matcher(s).matches())
         try {
           SOptional(Some(SInt64(java.lang.Long.parseLong(s))))
@@ -542,9 +587,15 @@ private[lf] object SBuiltinFun {
     private val validFormat =
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
       val scale = getSScale(args, 0)
       val string = getSText(args, 1)
+
+      machine.updateGasBudget(_.BTextToNumeric.cost(scale, string))
+
       string match {
         case validFormat(signPart, intPart, _, decPartOrNull) =>
           val decPart = Option(decPartOrNull).filterNot(_ == "0").getOrElse("")
@@ -570,8 +621,11 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTextToCodePoints extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList = {
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
       val string = getSText(args, 0)
+
+      machine.updateGasBudget(_.BTextToCodePoints.cost(string))
+
       val codePoints = Utf8.unpack(string)
       SList(FrontStack.from(codePoints.map(SInt64)))
     }
@@ -591,16 +645,22 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBSHA256Text extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SText =
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SText = {
+
+      machine.updateGasBudget(_.BSHA256Text.cost(getSText(args, 0)))
+
       SText(Utf8.sha256(Utf8.getBytes(getSText(args, 0))))
+    }
   }
 
   final case object SBSHA256Hex extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: ArraySeq[SValue],
         machine: Machine[Q],
-    ): Control[Q] = {
+    ): Control[Nothing] = {
       val hex = getSText(args, 0)
+
+      machine.updateGasBudget(_.BSHA256Text.cost(hex))
 
       Ref.HexString.fromString(hex) match {
         case Right(s) =>
@@ -766,10 +826,15 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBEncodeHex extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SValue = {
-      val arg = getSText(args, 0)
-      val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg))
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SValue = {
+      val arg0 = getSText(args, 0)
 
+      machine.updateGasBudget(_.BEncodeHex.cost(arg0))
+
+      val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg0))
       SText(hexArg)
     }
   }
@@ -803,38 +868,103 @@ private[lf] object SBuiltinFun {
 
   final case object SBMapToList extends SBuiltinPure(1) {
 
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList =
-      SValue.toList(getSMap(args, 0).entries)
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
+      val arg0 = getSMap(args, 0)
+
+      if (arg0.isTextMap) {
+        machine.updateGasBudget(_.BTextMapToList.cost(arg0))
+      } else {
+        machine.updateGasBudget(_.BGenMapToList.cost(arg0))
+      }
+
+      SValue.toList(arg0.entries)
+    }
   }
 
   final case object SBMapInsert extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SMap =
-      getSMap(args, 2).insert(getSMapKey(args, 0), args(1))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SMap = {
+      val arg0 = getSMapKey(args, 0)
+      val arg1 = args(1)
+      val arg2 = getSMap(args, 2)
+
+      if (arg2.isTextMap) {
+        machine.updateGasBudget(_.BTextMapInsert.cost(arg0, arg1, arg2))
+      } else {
+        machine.updateGasBudget(_.BGenMapInsert.cost(arg0, arg1, arg2))
+      }
+
+      arg2.insert(arg0, arg1)
+    }
   }
 
   final case object SBMapLookup extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional =
-      SOptional(getSMap(args, 1).get(getSMapKey(args, 0)))
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
+      val arg0 = getSMapKey(args, 0)
+      val arg1 = getSMap(args, 1)
+
+      if (arg1.isTextMap) {
+        machine.updateGasBudget(_.BTextMapLookup.cost(arg0, arg1))
+      } else {
+        machine.updateGasBudget(_.BGenMapLookup.cost(arg0, arg1))
+      }
+
+      SOptional(arg1.get(arg0))
+    }
   }
 
   final case object SBMapDelete extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SMap =
-      getSMap(args, 1).delete(getSMapKey(args, 0))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SMap = {
+      val arg0 = getSMapKey(args, 0)
+      val arg1 = getSMap(args, 1)
+
+      if (arg1.isTextMap) {
+        machine.updateGasBudget(_.BTextMapDelete.cost(arg0, arg1))
+      } else {
+        machine.updateGasBudget(_.BGenMapDelete.cost(arg0, arg1))
+      }
+
+      arg1.delete(arg0)
+    }
   }
 
   final case object SBMapKeys extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList =
-      SList(getSMap(args, 0).entries.keys.to(FrontStack))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
+      val arg0 = getSMap(args, 0)
+
+      machine.updateGasBudget(_.BGenMapKeys.cost(arg0))
+
+      SList(arg0.entries.keys.to(FrontStack))
+    }
   }
 
   final case object SBMapValues extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList =
-      SList(getSMap(args, 0).entries.values.to(FrontStack))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
+      val arg0 = getSMap(args, 0)
+
+      machine.updateGasBudget(_.BGenMapValues.cost(arg0))
+
+      SList(arg0.entries.values.to(FrontStack))
+    }
   }
 
   final case object SBMapSize extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SInt64 =
-      SInt64(getSMap(args, 0).entries.size.toLong)
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SInt64 = {
+      val arg0 = getSMap(args, 0)
+
+      if (arg0.isTextMap) {
+        machine.updateGasBudget(_.BTextMapSize.cost(arg0))
+      } else {
+        machine.updateGasBudget(_.BGenMapSize.cost(arg0))
+      }
+
+      SInt64(arg0.entries.size.toLong)
+    }
   }
 
   //
@@ -857,8 +987,16 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBDateToUnixDays extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SInt64 =
-      SInt64(getSDate(args, 0).days.toLong)
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SInt64 = {
+      val date = getSDate(args, 0)
+
+      machine.updateGasBudget(_.BDateToUnixDays.cost(date))
+
+      SInt64(date.days.toLong)
+    }
   }
 
   final case object SBUnixDaysToDate extends SBuiltinArithmetic("UNIX_DAYS_TO_DATE", 1) {
@@ -869,8 +1007,16 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTimestampToUnixMicroseconds extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SInt64 =
-      SInt64(getSTimestamp(args, 0).micros)
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SInt64 = {
+      val arg0 = getSTimestamp(args, 0)
+
+      machine.updateGasBudget(_.BTimestampToUnixMicroseconds.cost(arg0))
+
+      SInt64(arg0.micros)
+    }
   }
 
   final case object SBUnixMicrosecondsToTimestamp
@@ -885,14 +1031,24 @@ private[lf] object SBuiltinFun {
   // Equality and comparisons
   //
   final case object SBEqual extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SBool = {
-      SBool(svalue.Equality.areEqual(args(0), args(1)))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SBool = {
+      val arg0 = args(0)
+      val arg1 = args(1)
+
+      machine.updateGasBudget(_.BEqual.cost(arg0, arg1))
+
+      SBool(svalue.Equality.areEqual(arg0, arg1))
     }
   }
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SBool = {
-      SBool(pred(svalue.Ordering.compare(args(0), args(1))))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SBool = {
+      val arg0 = args(0)
+      val arg1 = args(1)
+
+      machine.updateGasBudget(_.BEqual.cost(arg0, arg1))
+
+      SBool(pred(svalue.Ordering.compare(arg0, arg1)))
     }
   }
 
@@ -903,20 +1059,26 @@ private[lf] object SBuiltinFun {
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList =
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
       SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
+    }
   }
 
   /** $cons :: a -> List a -> List a */
   final case object SBCons extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SList = {
-      SList(args(0) +: getSList(args, 1))
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
+      val headSValue = args(0)
+      val tailSList = getSList(args, 1)
+      SList(headSValue +: tailSList)
     }
   }
 
   /** $some :: a -> Optional a */
   final case object SBSome extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
       SOptional(Some(args(0)))
     }
   }
@@ -924,14 +1086,20 @@ private[lf] object SBuiltinFun {
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length) {
-    override private[speedy] final def executePure(args: ArraySeq[SValue]): SValue = {
+    override private[speedy] final def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SValue = {
       SRecord(id, fields, args)
     }
   }
 
   /** $rupd[R, field] :: R -> a -> R */
   final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: ArraySeq[SValue]): SValue = {
+    override private[speedy] final def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
@@ -943,7 +1111,10 @@ private[lf] object SBuiltinFun {
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
   final case class SBRecUpdMulti(id: Identifier, updateFields: List[Int])
       extends SBuiltinPure(1 + updateFields.length) {
-    override private[speedy] final def executePure(args: ArraySeq[SValue]): SValue = {
+    override private[speedy] final def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
@@ -958,8 +1129,12 @@ private[lf] object SBuiltinFun {
 
   /** $rproj[R, field] :: R -> a */
   final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: ArraySeq[SValue]): SValue =
+    override private[speedy] final def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SValue = {
       getSRecord(args, 0).values(field)
+    }
   }
 
   // SBStructCon sorts the field after evaluation of its arguments to preserve
@@ -968,7 +1143,10 @@ private[lf] object SBuiltinFun {
   final case class SBStructCon(inputFieldsOrder: Struct[Int])
       extends SBuiltinPure(inputFieldsOrder.size) {
     private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SStruct = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SStruct = {
       val sortedFields = new Array[SValue](inputFieldsOrder.size)
       var j = 0
       inputFieldsOrder.values.foreach { i =>
@@ -986,7 +1164,10 @@ private[lf] object SBuiltinFun {
     // avoid its reevaluations, hence obtaining an amortized constant
     // complexity.
     private[this] var fieldIndex = -1
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SValue = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SValue = {
       val struct = getSStruct(args, 0)
       if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
       struct.values(fieldIndex)
@@ -995,8 +1176,15 @@ private[lf] object SBuiltinFun {
 
   /** $tupd[field] :: Struct -> a -> Struct */
   final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SStruct = {
+
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SStruct = {
       val struct = getSStruct(args, 0)
+
+      machine.updateGasBudget(_.EStructUp.cost(struct.values.size))
+
       struct.copy(values = struct.values.updated(struct.fieldNames.indexOf(field), args(1)))
     }
   }
@@ -1004,20 +1192,36 @@ private[lf] object SBuiltinFun {
   /** $vcon[V, variant] :: a -> V */
   final case class SBVariantCon(id: Identifier, variant: Ast.VariantConName, constructorRank: Int)
       extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SVariant = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SVariant = {
+
+      machine.updateGasBudget(_.EVariantCon.cost)
+
       SVariant(id, variant, constructorRank, args(0))
     }
   }
 
   final object SBScaleBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SInt64 = {
-      SInt64(getSBigNumeric(args, 0).scale().toLong)
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SInt64 = {
+      val arg0 = getSBigNumeric(args, 0)
+
+      SInt64(arg0.scale().toLong)
     }
   }
 
   final object SBPrecisionBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SInt64 = {
-      SInt64(getSBigNumeric(args, 0).precision().toLong)
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SInt64 = {
+      val arg0 = getSBigNumeric(args, 0)
+
+      SInt64(arg0.precision().toLong)
     }
   }
 
@@ -1075,8 +1279,12 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBNumericToBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SBigNumeric = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SBigNumeric = {
       val x = getSNumeric(args, 0)
+
       SBigNumeric.fromNumeric(x)
     }
   }
@@ -1174,7 +1382,7 @@ private[lf] object SBuiltinFun {
         val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
-        val chosenValue = args(0).toNormalizedValue(exerciseVersion)
+        val chosenValue = args(0).toNormalizedValue
         val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args(2))
         machine.enforceChoiceControllersLimit(
           controllers,
@@ -1288,51 +1496,95 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  /** Fetches the requested contract ID, upgrades it to the preferred template version for the same package name,
-    * and compares the computed views according to the old and the new versions. If the two views agree then caches
-    * the upgraded contract and returns it (via the continuation) as an SAny.
+  /** Fetches the requested contract ID and:
+    *  - authenticates the contract against its contract ID if the contract ID uses a legacy hashing method
+    *  - ensures that the contract is still active according to the contract state machine
+    *  - pulls the preferred template with the same package name and qualified ID as that of the contract
+    *  - loads the package of the preferred template
+    *  - verifies that the preferred template implements the requested interface
+    *  - typechecks and converts to an SValue the argument of the source contract according to the preferred template
+    *  - computes the metadata of the contract according to the preferred template (including the ensure clause),
+    *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - returns the converted argument wrapped in an SAny
     */
   private[this] def fetchInterface(
       machine: UpdateMachine,
       coid: V.ContractId,
       interfaceId: TypeConId,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    fetchSourceContractId(machine, coid)({ case (_, srcContract) =>
-      ensureContractActive(machine, coid, srcContract.templateId) {
-        machine.checkContractVisibility(coid, srcContract)
-        machine.enforceLimitAddInputContract()
-        machine.enforceLimitSignatoriesAndObservers(coid, srcContract)
-        val srcTmplId = srcContract.templateId
-        val pkgName = srcContract.packageName
-        val srcArg = srcContract.value.asInstanceOf[SRecord]
-        resolvePackageName(machine, pkgName) { pkgId =>
-          val dstTmplId = srcTmplId.copy(pkg = pkgId)
-          machine.ensurePackageIsLoaded(
-            NameOf.qualifiedNameOfCurrentFunc,
-            dstTmplId.packageId,
-            language.Reference.Template(dstTmplId.toRef),
-          ) { () =>
-            ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-              fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
-                case None =>
-                  Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
-                case Some(dstArg) =>
-                  fetchValidateDstContract(
-                    machine,
-                    coid,
-                    srcTmplId,
-                    srcContract,
-                    dstTmplId,
-                    dstArg,
-                  )({ case (dstTmplId, dstArg, _) =>
-                    k(SAny(Ast.TTyCon(dstTmplId), dstArg))
-                  })
-              }
+
+    def processSrcContract(
+        srcPackageName: Ref.PackageName,
+        srcTmplId: TypeConId,
+        srcMetadata: ContractMetadata,
+        srcArg: V,
+    ): Control[Question.Update] = {
+      resolvePackageName(machine, srcPackageName) { pkgId =>
+        val dstTmplId = srcTmplId.copy(pkg = pkgId)
+        machine.ensurePackageIsLoaded(
+          NameOf.qualifiedNameOfCurrentFunc,
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId.toRef),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
+            importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+              fetchValidateDstContract(
+                machine,
+                coid,
+                srcTmplId,
+                srcMetadata,
+                dstTmplId,
+                dstSArg,
+              )({ case (dstTmplId, dstArg, _) =>
+                k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+              })
             }
           }
         }
       }
-    })
+    }
+
+    machine.getIfLocalContract(coid) match {
+      case Some((srcTmplId, srcSArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
+          // its metadata.
+          // We do not need to load the package of srcTmplId because if the contract was created locally, then the
+          // package is already loaded.
+          getContractInfo(
+            machine,
+            coid,
+            srcTmplId,
+            srcSArg,
+            allowCatchingContractInfoErrors = false,
+          ) { srcContracInfo =>
+            processSrcContract(
+              srcContracInfo.packageName,
+              srcTmplId,
+              srcContracInfo.metadata,
+              srcContracInfo.arg,
+            )
+          }
+        }
+      case None =>
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            ensureContractActive(machine, coid, coinst.templateId) {
+              processSrcContract(
+                coinst.packageName,
+                coinst.templateId,
+                ContractMetadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
+              )
+            }
+          }
+        )
+    }
   }
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
@@ -1379,11 +1631,9 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBGuardConstTrue extends SBuiltinPure(1) {
-    override private[speedy] def executePure(
-        args: ArraySeq[SValue]
-    ): SBool = {
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SBool = {
       discard(getSAnyContract(args, 0))
-      SBool(true)
+      SValue.SValue.True
     }
   }
 
@@ -1477,7 +1727,7 @@ private[lf] object SBuiltinFun {
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
   final case class SBToAnyContract(tplId: TypeConId) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SAny = {
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SAny = {
       SAnyContract(tplId, getSRecord(args, 0))
     }
   }
@@ -1511,10 +1761,10 @@ private[lf] object SBuiltinFun {
       val srcPkgName = machine.tmplId2PackageName(dstTplId)
       val dstPkgName = machine.tmplId2PackageName(srcTplId)
       if (srcPkgName == dstPkgName) {
-        // This isn't ideal as its a large uncached computation in a non Update primative.
+        // This isn't ideal as it's a large uncached computation in a non Update primitive.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toUnnormalizedValue) { templateArg =>
+        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
           k(Some(templateArg))
         }
       } else {
@@ -1700,7 +1950,7 @@ private[lf] object SBuiltinFun {
       val keyVersion = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args(0))
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, args(0))
       val mbCoid = args(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1778,10 +2028,9 @@ private[lf] object SBuiltinFun {
       val templateId = operation.templateId
 
       val keyValue = args(0)
-      val version = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
@@ -2019,7 +2268,7 @@ private[lf] object SBuiltinFun {
     *    -> Any (where t = ty)
     */
   final case class SBToAny(ty: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SAny = {
+    override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SAny = {
       SAny(ty, args(0))
     }
   }
@@ -2029,7 +2278,10 @@ private[lf] object SBuiltinFun {
     *    -> Optional t (where t = expectedType)
     */
   final case class SBFromAny(expectedTy: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
       val any = getSAny(args, 0)
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
@@ -2040,7 +2292,10 @@ private[lf] object SBuiltinFun {
     *    -> TypeRep (where t = TTyCon(_))
     */
   final case class SBInterfaceTemplateTypeRep(tycon: TypeConId) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): STypeRep = {
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): STypeRep = {
       val (tyCon, _) = getSAnyContract(args, 0)
       STypeRep(Ast.TTyCon(tyCon))
     }
@@ -2051,11 +2306,15 @@ private[lf] object SBuiltinFun {
     *    -> Optional Text
     */
   final case object SBTypeRepTyConName extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: ArraySeq[SValue]): SOptional =
+    override private[speedy] def executePure(
+        args: ArraySeq[SValue],
+        machine: Machine[_],
+    ): SOptional = {
       getSTypeRep(args, 0) match {
         case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
         case _ => SOptional(None)
       }
+    }
   }
 
   /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
@@ -2287,15 +2546,14 @@ private[lf] object SBuiltinFun {
 
   private[this] def extractKey(
       location: String,
-      packageTxVersion: TransactionVersion,
-      pkgName: Ref.PackageName,
-      templateId: Ref.TypeConId,
+      pkgName: PackageName,
+      templateId: TypeConId,
       v: SValue,
-  ): CachedKey =
+  ) =
     v match {
       case SStruct(_, vals) =>
         val keyValue = vals(keyIdx)
-        val gkey = Speedy.Machine.assertGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
+        val gkey = Speedy.Machine.assertGlobalKey(pkgName, templateId, keyValue)
         CachedKey(
           packageName = pkgName,
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(
@@ -2348,7 +2606,7 @@ private[lf] object SBuiltinFun {
         val mbKey = vals(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
-              extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, _)
+              extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, _)
             )
           case v =>
             throw SErrorCrash(
@@ -2376,41 +2634,92 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** Fetches the requested contract ID and:
+    *  - authenticates the contract against its contract ID if the contract ID uses a legacy hashing method
+    *  - ensures that the contract is still active according to the contract state machine
+    *  - verifies that the source template's qualified name matches that of the target template
+    *  - loads the package of the target template
+    *  - typechecks and converts to an SValue the argument of the source contract according to the target template
+    *  - computes the metadata of the contract according to the target template (including the ensure clause),
+    *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - returns the converted argument
+    */
   private def fetchTemplate(
       machine: UpdateMachine,
       dstTmplId: TypeConId,
       coid: V.ContractId,
-  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchSourceContractId(machine, coid) { case (localTemplateArg, srcContract) =>
-      val srcTmplId = srcContract.templateId
-      localTemplateArg match {
-        // If the local contract has the same package ID as the target template ID, then we don't need to
-        // import its value and validate its contract info again.
-        case Some(localTemplateArg) if (srcTmplId == dstTmplId) =>
-          f(localTemplateArg)
-        case _ =>
-          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
-            Control.Error(
-              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
-            )
-          else
-            machine.ensurePackageIsLoaded(
-              NameOf.qualifiedNameOfCurrentFunc,
-              dstTmplId.packageId,
-              language.Reference.Template(dstTmplId.toRef),
-            ) { () =>
-              importValue(
-                machine,
-                Ast.TTyCon(dstTmplId),
-                srcContract.arg,
-              )(dstArg =>
-                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
-                  case (_, _, dstContract) =>
-                    f(dstContract.value)
-                })
+  )(k: SValue => Control[Question.Update]): Control[Question.Update] = {
+
+    def processSrcContract(
+        srcTmplId: TypeConId,
+        srcMetadata: ContractMetadata,
+        srcArg: V,
+    ): Control[Question.Update] = {
+      if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+        Control.Error(
+          IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+        )
+      else
+        machine.ensurePackageIsLoaded(
+          NameOf.qualifiedNameOfCurrentFunc,
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId.toRef),
+        )(() => {
+          importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+            fetchValidateDstContract(
+              machine,
+              coid,
+              srcTmplId,
+              srcMetadata,
+              dstTmplId,
+              dstSArg,
+            )({ case (_, _, dstContract) =>
+              k(dstContract.value)
+            })
+          }
+        })
+    }
+
+    machine.getIfLocalContract(coid) match {
+      case Some((srcTmplId, srcSArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          // If the local contract has the same package ID as the target template ID, then we don't need to
+          // import its value and validate its contract info again.
+          if (srcTmplId == dstTmplId)
+            k(srcSArg)
+          else {
+            // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
+            // its metadata.
+            // We do not need to load the package of srcTmplId because if the contract was created locally, then the
+            // package is already loaded.
+            getContractInfo(
+              machine,
+              coid,
+              srcTmplId,
+              srcSArg,
+              allowCatchingContractInfoErrors = false,
+            ) { srcContracInfo =>
+              processSrcContract(srcTmplId, srcContracInfo.metadata, srcContracInfo.arg)
+            }
+          }
+        }
+      case None =>
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            ensureContractActive(machine, coid, coinst.templateId) {
+              processSrcContract(
+                coinst.templateId,
+                ContractMetadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
               )
             }
-      }
+          }
+        )
     }
   }
 
@@ -2418,7 +2727,7 @@ private[lf] object SBuiltinFun {
       machine: UpdateMachine,
       coid: V.ContractId,
       srcTmplId: TypeConId,
-      srcContract: ContractInfo,
+      srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
   )(k: (TypeConId, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
@@ -2433,129 +2742,97 @@ private[lf] object SBuiltinFun {
         machine.checkContractVisibility(coid, dstContract)
         machine.enforceLimitAddInputContract()
         machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
-        // In Validation mode, we always call validateContractInfo
-        // In Submission mode, we only call validateContractInfo when src != dest
-        val needValidationCall: Boolean =
-          machine.validating || srcTmplId.packageId != dstTmplId.packageId
-        if (needValidationCall) {
-          checkContractUpgradable(coid, srcContract, dstContract) { () =>
-            k(dstTmplId, dstTmplArg, dstContract)
-          }
-        } else {
+        checkContractUpgradable(
+          coid,
+          srcTmplId,
+          dstTmplId,
+          srcContractMetadata,
+          dstContract.metadata,
+        ) { () =>
           k(dstTmplId, dstTmplArg, dstContract)
         }
       }
     }
 
-  private def fetchSourceContractId(
-      machine: UpdateMachine,
+  /** Authenticates the provided FatContractInstance using [hashingMethod] if [hashingMethod] is
+    * one of [[HashingMethod.Legacy]] or [[HashingMethod.UpgradeFriendly]]. Does nothing if the
+    * hashing method is [[HashingMethod.TypedNormalForm]].
+    */
+  private def authenticateIfLegacyContract(
       coid: V.ContractId,
-  )(f: (Option[SValue], ContractInfo) => Control[Question.Update]): Control[Question.Update] = {
-    machine.getIfLocalContract(coid) match {
-      case Some((srcTmplId, templateArg)) =>
-        ensureContractActive(machine, coid, srcTmplId) {
-          getContractInfo(
-            machine,
-            coid,
-            srcTmplId,
-            templateArg,
-            allowCatchingContractInfoErrors = false,
-          )(f(Some(templateArg), _))
+      coinst: FatContractInstance,
+      hashingMethod: Hash.HashingMethod,
+      authenticator: Hash => Boolean,
+  )(k: () => Control[Question.Update]): Control[Question.Update] = {
+    val mbValueHash = hashingMethod match {
+      case HashingMethod.Legacy =>
+        Some(
+          hashContractInstance(
+            coinst.templateId,
+            coinst.createArg,
+            coinst.packageName,
+            upgradeFriendly = false,
+          )
+        )
+      case HashingMethod.UpgradeFriendly =>
+        Some(
+          hashContractInstance(
+            coinst.templateId,
+            coinst.createArg,
+            coinst.packageName,
+            upgradeFriendly = true,
+          )
+        )
+      case HashingMethod.TypedNormalForm =>
+        None
+    }
+    mbValueHash match {
+      case Some(errorOrHash) =>
+        errorOrHash match {
+          case Right(hash) =>
+            if (authenticator(hash)) {
+              k()
+            } else {
+              Control.Error(
+                IE.Dev(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  IE.Dev
+                    .AuthenticationError(coid, coinst.createArg, s"failed to authenticate contract"),
+                )
+              )
+            }
+          case Left(msg) =>
+            Control.Error(
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.AuthenticationError(coid, coinst.createArg, msg),
+              )
+            )
         }
-      case None =>
-        machine.lookupContract(coid)((coinst, _, _) =>
-          machine.ensurePackageIsLoaded(
-            NameOf.qualifiedNameOfCurrentFunc,
-            coinst.templateId.packageId,
-            language.Reference.Template(coinst.templateId.toRef),
-          ) { () =>
-            importContractInfo(machine, coinst)(f(None, _))
-          }
-        )
-    }
-  }
-
-  private def importContractInfo[Q](machine: Machine[Q], coinst: FatContractInstance)(
-      f: ContractInfo => Control[Q]
-  ): Control[Q] =
-    importValue(machine, Ast.TTyCon(coinst.templateId), coinst.createArg) { createArgSValue =>
-      def cont(mbCachedKey: Option[CachedKey]): Control[Q] = {
-        f(
-          ContractInfo(
-            version = coinst.version,
-            packageName = coinst.packageName,
-            templateId = coinst.templateId,
-            value = createArgSValue,
-            signatories = coinst.signatories,
-            observers = coinst.nonSignatoryStakeholders,
-            keyOpt = mbCachedKey,
-          )
-        )
-      }
-      coinst.contractKeyWithMaintainers match {
-        case None => cont(None)
-        case Some(key) =>
-          importKey(machine, coinst.version, key)(cachedKey => cont(Some(cachedKey)))
-      }
-    }
-
-  private def importKey[Q](
-      machine: Machine[Q],
-      version: TransactionVersion,
-      key: GlobalKeyWithMaintainers,
-  )(
-      f: CachedKey => Control[Q]
-  ): Control[Q] = {
-    // TODO(https://github.com/digital-asset/daml/issues/21667): once the engine is defensive about contract imports,
-    //     we can no longer assume that key.globalKey.templateId resolves to a template, or that this template defines
-    //     a key. For now, we assume that all fat contract instances coming from ResultNeedContract are well-typed and
-    //     thus it is ok to crash when that isn't the case.
-    val keyType =
-      machine.compiledPackages
-        .signatures(key.globalKey.templateId.packageId)
-        .modules(key.globalKey.qualifiedName.module)
-        .templates(key.globalKey.qualifiedName.name)
-        .key
-        .getOrElse(
-          throw SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"template ${key.globalKey.templateId} does not define a key",
-          )
-        )
-        .typ
-    importValue(machine, keyType, key.globalKey.key) { keySValue =>
-      f(
-        CachedKey(
-          packageName = key.globalKey.packageName,
-          // The IDE ledger does not normalize keys in fat contract instances, which breaks the upgrade check when
-          // comparing them against the recomputed ones. So we normalize them on import for now.
-          globalKeyWithMaintainers = key.copy(globalKey =
-            GlobalKey
-              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue(version))
-          ),
-          key = keySValue,
-        )
-      )
+      // This is not a legacy contract, we do nothing. It will be authenticated after translation to SValue.
+      case None => k()
     }
   }
 
   /** Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not. */
   private def checkContractUpgradable(
       coid: V.ContractId,
-      original: ContractInfo,
-      recomputed: ContractInfo,
+      srcTemplateId: TypeConId,
+      recomputedTemplateId: TypeConId,
+      original: ContractMetadata,
+      recomputed: ContractMetadata,
   )(
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
 
-    def check[T](getter: ContractInfo => T, desc: String): Option[String] =
+    def check[T](getter: ContractMetadata => T, desc: String): Option[String] =
       Option.when(getter(recomputed) != getter(original))(
         s"$desc mismatch: $original vs $recomputed"
       )
 
     List(
       check(_.signatories, "signatories"),
-      // This definition of observers allows observers to lose parties that are signatories
+      // Comparing stakeholders allows observers to lose parties that are signatories
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
@@ -2567,11 +2844,11 @@ private[lf] object SBuiltinFun {
             // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
-              srcTemplateId = original.templateId,
-              dstTemplateId = recomputed.templateId,
+              srcTemplateId = srcTemplateId,
+              dstTemplateId = recomputedTemplateId,
               signatories = recomputed.signatories,
               observers = recomputed.observers,
-              keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
+              keyOpt = recomputed.keyOpt,
               msg = errors.mkString("['", "', '", "']"),
             )
           )

@@ -42,6 +42,7 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnectionXPoolFactory,
+  SequencerConnectionXPool,
   SequencerConnections,
 }
 import com.digitalasset.canton.store.*
@@ -73,7 +74,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, SingleUseCell}
+import com.digitalasset.canton.util.{MonadUtil, SingleUseCell}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
@@ -574,20 +575,9 @@ class MediatorNodeBootstrap(
       loggerFactory = loggerFactory,
     )
 
-    val connectionPoolET = for {
-      synchronizerConfig <- fetchSynchronizerConfigOrFail(synchronizerConfigurationStore)
-      connectionPool <- EitherT.fromEither[FutureUnlessShutdown](
-        connectionPoolFactory
-          .createFromOldConfig(
-            synchronizerConfig.sequencerConnections,
-            expectedPSIdO = None,
-            parameters.tracing,
-          )
-          .leftMap(error => error.toString)
-      )
-    } yield connectionPool
-
     val useNewConnectionPool = parameters.sequencerClient.useNewConnectionPool
+
+    val connectionPoolRef = new AtomicReference[Option[SequencerConnectionXPool]](None)
 
     val mediatorRuntimeET = for {
       physicalSynchronizerIdx <- EitherT
@@ -611,7 +601,7 @@ class MediatorNodeBootstrap(
           .right(
             TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
               synchronizerTopologyStore,
-              synchronizerId,
+              synchronizerPredecessor = None,
               crypto.pureCrypto,
               arguments.parameterConfig,
               arguments.clock,
@@ -667,17 +657,33 @@ class MediatorNodeBootstrap(
 
       // we wait here until the sequencer becomes active. this allows to reconfigure the
       // sequencer client address
-      info <- GrpcSequencerConnectionService.waitUntilSequencerConnectionIsValid(
-        sequencerInfoLoader,
-        this,
-        getSequencerConnectionFromStore,
-      )
-
-      connectionPool <- connectionPoolET
-      _ <-
-        if (useNewConnectionPool) {
-          connectionPool.start().leftMap(error => error.toString)
-        } else EitherTUtil.unitUS
+      connectionPoolAndInfo <-
+        if (useNewConnectionPool)
+          GrpcSequencerConnectionService.waitUntilSequencerConnectionIsValidWithPool(
+            connectionPoolFactory,
+            parameters.tracing,
+            this,
+            getSequencerConnectionFromStore,
+          )
+        else
+          for {
+            info <- GrpcSequencerConnectionService.waitUntilSequencerConnectionIsValid(
+              sequencerInfoLoader,
+              this,
+              getSequencerConnectionFromStore,
+            )
+            dummyPool <- EitherT.fromEither[FutureUnlessShutdown](
+              connectionPoolFactory
+                .createFromOldConfig(
+                  info.sequencerConnections,
+                  expectedPSIdO = None,
+                  parameters.tracing,
+                )
+                .leftMap(error => error.toString)
+            )
+          } yield (dummyPool, info)
+      (connectionPool, info) = connectionPoolAndInfo
+      _ = connectionPoolRef.set(Some(connectionPool))
 
       sequencerClient <- sequencerClientFactory
         .create(
@@ -691,7 +697,7 @@ class MediatorNodeBootstrap(
           ),
           info.sequencerConnections,
           synchronizerPredecessor = None,
-          Option.when(!useNewConnectionPool)(info.expectedSequencers),
+          info.expectedSequencersO,
           connectionPool,
         )
 
@@ -772,7 +778,7 @@ class MediatorNodeBootstrap(
     mediatorRuntimeET.thereafterF {
       case Success(Outcome(Right(_))) => Future.unit
       // In case of error or exception, ensure the pool is closed
-      case _ => connectionPoolET.map(_.close()).value.unwrap.map(_ => ())
+      case _ => Future.successful(connectionPoolRef.get.foreach(_.close()))
     }
 
   }

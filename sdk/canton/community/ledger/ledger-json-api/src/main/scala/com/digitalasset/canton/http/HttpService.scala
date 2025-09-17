@@ -9,8 +9,13 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
+import com.daml.tls.TlsVersion
 import com.digitalasset.canton.auth.AuthInterceptor
-import com.digitalasset.canton.config.{TlsClientConfig, TlsServerConfig}
+import com.digitalasset.canton.config.{
+  ServerAuthRequirementConfig,
+  TlsClientConfig,
+  TlsServerConfig,
+}
 import com.digitalasset.canton.http.json.v1.V1Routes
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
@@ -27,7 +32,8 @@ import com.digitalasset.canton.ledger.client.services.admin.{
   UserManagementClient,
 }
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.tracing.NoTracing
 import io.grpc.Channel
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthGrpc}
@@ -53,6 +59,7 @@ class HttpService(
     httpsConfiguration: Option[TlsServerConfig],
     channel: Channel,
     packageSyncService: PackageSyncService,
+    packagePreferenceBackend: PackagePreferenceBackend,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     asys: ActorSystem,
@@ -114,6 +121,7 @@ class HttpService(
             ledgerClient,
             metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
             packageSyncService,
+            packagePreferenceBackend,
             mat.executionContext,
             loggerFactory,
           )
@@ -162,7 +170,7 @@ class HttpService(
             httpsConfiguration
               .fold(serverBuilder) { config =>
                 logger.info(s"Enabling HTTPS with $config")
-                serverBuilder.enableHttps(HttpService.httpsConnectionContext(config))
+                serverBuilder.enableHttps(HttpService.httpsConnectionContext(config)(logger))
               }
               .bind(prefixedEndpoints)
           }
@@ -185,6 +193,10 @@ class HttpService(
 }
 
 object HttpService extends NoTracing {
+  // if no minimumServerProtocolVersion is set `config.protocols` returns an empty list
+  // but we still want to setup some protocols
+  private val allowedProtocols =
+    Set[TlsVersion.TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3).map(_.version)
 
   def resolveUser(userManagementClient: UserManagementClient): EndpointsCompanion.ResolveUser =
     jwt => userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value))
@@ -240,8 +252,8 @@ object HttpService extends NoTracing {
   }
 
   def buildSSLContext(config: TlsServerConfig): SSLContext = {
-    val keyStore = buildKeyStore(config)
-    buildSSLContext(keyStore)
+    val serverKeyStore = buildKeyStore(config)
+    buildSSLContext(serverKeyStore)
   }
 
   def buildSSLContext(config: TlsClientConfig): SSLContext = {
@@ -270,8 +282,46 @@ object HttpService extends NoTracing {
     context
   }
 
-  private def httpsConnectionContext(config: TlsServerConfig): HttpsConnectionContext =
-    ConnectionContext.httpsServer(buildSSLContext(config))
+  private def httpsConnectionContext(
+      config: TlsServerConfig
+  )(implicit logger: TracedLogger): HttpsConnectionContext =
+    ConnectionContext.httpsServer { () =>
+      val engine = buildSSLContext(config).createSSLEngine()
+      engine.setUseClientMode(false)
+      engine.setEnabledCipherSuites(config.ciphers.getOrElse(Seq.empty).toArray)
+      logger.info(
+        s"Ledger JSON API Enabled Ciphers: ${engine.getEnabledCipherSuites.mkString(", ")}"
+      )
+      config.clientAuth match {
+        case ServerAuthRequirementConfig.None =>
+          engine.setNeedClientAuth(false)
+          engine.setWantClientAuth(false)
+        case ServerAuthRequirementConfig.Optional =>
+          engine.setNeedClientAuth(false)
+          engine.setWantClientAuth(true)
+        case ServerAuthRequirementConfig.Require(
+              _
+            ) => // certs inside Require are only needed to construct grpc client
+          engine.setNeedClientAuth(true)
+          engine.setWantClientAuth(true)
+      }
+      logger.info(
+        s"Ledger JSON API NeedClientAuth:${engine.getNeedClientAuth} WantClientAuth:${engine.getWantClientAuth}"
+      )
+
+      val enabledProtocols = config.protocols.getOrElse(
+        engine
+          .getEnabledProtocols()
+          .toSeq
+          .filter(
+            HttpService.allowedProtocols.contains(_)
+          )
+      )
+
+      logger.info(s"Ledger JSON API enabled TLS protocols: $enabledProtocols")
+      engine.setEnabledProtocols(enabledProtocols.toArray)
+      engine
+    }
 
   // TODO(i22574): Remove OptionPartial and Null warts in HttpService
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))

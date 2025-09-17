@@ -353,10 +353,7 @@ object ParticipantId {
     }
 
   def tryFromProtoPrimitive(str: String): ParticipantId =
-    fromProtoPrimitive(str, "").fold(
-      err => throw new IllegalArgumentException(err.message),
-      identity,
-    )
+    fromProtoPrimitive(str, "").valueOr(err => throw new IllegalArgumentException(err.message))
 
   // Instances for slick (db) queries
   implicit val getResultParticipantId: GetResult[ParticipantId] =
@@ -368,20 +365,43 @@ object ParticipantId {
 sealed trait Party extends Identity with Product with Serializable {
   override def uid: UniqueIdentifier
   def partyId: PartyId
+  def toLf: LfPartyId = LfPartyId.assertFromString(uid.toProtoPrimitive)
 }
 
-final case class ExternalParty(
+/** The `private` annotation, coupled with the @VisibleForTesting for methods that create
+  * [[ExternalParty]], ensure that the class can be used only in tests.
+  */
+final case class ExternalParty private (
     partyId: PartyId,
     signingFingerprints: NonEmpty[Seq[Fingerprint]],
 ) extends Party {
   override def uid: UniqueIdentifier = partyId.uid
+
+  /** The annotation ensures that [[ExternalParty]] is used only in tests.
+    */
+  @VisibleForTesting
+  def copy(
+      partyId: PartyId = partyId,
+      signingFingerprints: NonEmpty[Seq[Fingerprint]] = signingFingerprints,
+  ): ExternalParty =
+    new ExternalParty(partyId, signingFingerprints)
+}
+
+object ExternalParty {
+
+  /** The annotation ensures that [[ExternalParty]] is used only in tests.
+    */
+  @VisibleForTesting
+  def apply(
+      partyId: PartyId,
+      signingFingerprints: NonEmpty[Seq[Fingerprint]],
+  ) = new ExternalParty(partyId, signingFingerprints)
 }
 
 /** A party identifier based on a unique identifier
   */
 final case class PartyId(uid: UniqueIdentifier) extends Party {
   def partyId: PartyId = this
-  def toLf: LfPartyId = LfPartyId.assertFromString(uid.toProtoPrimitive)
 }
 
 object PartyId {

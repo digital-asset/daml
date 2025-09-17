@@ -63,7 +63,8 @@ class SyncCryptoVerifier(
     publicKeyConversionCacheConfig: CacheConfig,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends NamedLogging {
+    extends NamedLogging
+    with AutoCloseable {
 
   /** The software-based crypto public API that is used to verify signatures with a session signing
     * key (generated in software). Except for the supported signing schemes, all other schemes are
@@ -211,7 +212,7 @@ class SyncCryptoVerifier(
     def invalidSessionKey =
       EitherT.leftT[FutureUnlessShutdown, Unit](
         SignatureCheckError.InvalidSignatureDelegation(
-          "The current signature delegation" +
+          "The current signature delegation " +
             s"is only valid from ${validityPeriod.fromInclusive} to ${validityPeriod.toExclusive} while the " +
             s"current timestamp is $currentTimestamp"
         ): SignatureCheckError
@@ -439,6 +440,10 @@ class SyncCryptoVerifier(
       }
     } yield ()
 
+  override def close(): Unit = {
+    sessionKeysVerificationCache.invalidateAll()
+    sessionKeysVerificationCache.cleanUp()
+  }
 }
 
 object SyncCryptoVerifier {

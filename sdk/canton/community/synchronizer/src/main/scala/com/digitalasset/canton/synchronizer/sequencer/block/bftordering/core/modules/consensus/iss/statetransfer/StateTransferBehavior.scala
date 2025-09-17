@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Consensus,
+  P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
@@ -157,13 +158,18 @@ final class StateTransferBehavior[E <: Env[E]](
 
     message match {
       case Consensus.Init =>
+        val epochNumber = initialState.epochState.epoch.info.number
         // Note that for onboarding, segments are created but not started
-        initialState.epochState
-          .notifyEpochCancellationToSegments(initialState.epochState.epoch.info.number)
+        logger.info(s"$messageType: cancelling segment modules for epoch $epochNumber")
+        initialState.epochState.notifyEpochCancellationToSegments(epochNumber)
 
       case Consensus.SegmentCancelledEpoch =>
         cancelledSegments += 1
-        if (initialState.epochState.epoch.segments.sizeIs == cancelledSegments) {
+        val numberOfSegments = initialState.epochState.epoch.segments.size
+        logger.info(
+          s"$messageType: received segment cancellation $cancelledSegments out of $numberOfSegments"
+        )
+        if (numberOfSegments == cancelledSegments) {
           if (stateTransferManager.inStateTransfer) {
             abort(
               s"$messageType: $stateTransferType state transfer cannot be already in progress during another state transfer"
@@ -219,7 +225,8 @@ final class StateTransferBehavior[E <: Env[E]](
           //  either the output module, or the subscribing sequencer runtime, or both are more than one epoch behind
           //  state transfer, because the output module will just reprocess the blocks to be recovered.
           logger.info(
-            s"Received NewEpochTopology for epoch $newEpochNumber, but the latest current epoch is already $currentEpochNumber; ignoring"
+            s"$messageType: received NewEpochTopology for epoch $newEpochNumber, but the latest current epoch " +
+              s"is already $currentEpochNumber; ignoring"
           )
         } else {
           abort(
@@ -512,6 +519,10 @@ final class StateTransferBehavior[E <: Env[E]](
       completedBlocks = Seq.empty,
       loggerFactory = loggerFactory,
       timeouts = timeouts,
+    )
+
+    dependencies.p2pNetworkOut.asyncSend(
+      P2PNetworkOut.Network.TopologyUpdate(epochState.epoch.currentMembership)
     )
   }
 }

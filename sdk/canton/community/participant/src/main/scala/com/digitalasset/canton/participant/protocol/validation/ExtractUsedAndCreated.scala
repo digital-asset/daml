@@ -9,11 +9,11 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.ViewAbsoluteLedgerEffect
 import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCreated.{
   CreatedContractPrep,
   InputContractPrep,
   ViewData,
-  viewDataInPreOrder,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
@@ -29,56 +29,65 @@ import scala.concurrent.ExecutionContext
 object ExtractUsedAndCreated {
 
   private[validation] final case class ViewData(
-      participant: ViewParticipantData,
-      common: ViewCommonData,
+      effects: ViewAbsoluteLedgerEffect,
+      inRollback: Boolean,
+      informees: Set[LfPartyId],
   ) {
-    def informees: Set[LfPartyId] = common.viewConfirmationParameters.informees
-
     def transientContracts(): Seq[LfContractId] =
       // Only track transient contracts outside of rollback scopes.
-      if (!participant.rollbackContext.inRollback) {
+      if (!inRollback) {
         val transientCore =
-          participant.createdCore
+          effects.createdCore
             .filter(x => x.consumedInCore && !x.rolledBack)
             .map(_.contract.contractId)
 
         // The participant might host only an actor and not a stakeholder of the contract that is archived in the core.
         // We nevertheless add all of them here because we will intersect this set with `createdContractsOfHostedStakeholdersB` later.
         // This ensures that we only cover contracts of which the participant hosts a stakeholder.
-        transientCore ++ participant.createdInSubviewArchivedInCore
+        transientCore ++ effects.createdInSubviewArchivedInCore
       } else {
         Seq.empty
       }
+  }
 
+  private[validation] object ViewData {
+    def tryFromView(v: TransactionView): ViewData = {
+      val vpd = v.viewParticipantData.tryUnwrap
+      val effects = ViewAbsoluteLedgerEffect(
+        vpd.coreInputs,
+        vpd.createdCore,
+        vpd.createdInSubviewArchivedInCore,
+        vpd.resolvedKeys,
+      )
+      ViewData(
+        effects,
+        inRollback = vpd.rollbackContext.inRollback,
+        v.viewCommonData.tryUnwrap.viewConfirmationParameters.informees,
+      )
+    }
   }
 
   private def viewDataInPreOrder(view: TransactionView): Seq[ViewData] = {
-    def viewData(v: TransactionView) = ViewData(
-      v.viewParticipantData.tryUnwrap,
-      v.viewCommonData.tryUnwrap,
-    )
     view.subviews.assertAllUnblinded(hash =>
       s"View ${view.viewHash} contains an unexpected blinded subview $hash"
     )
-    Seq(viewData(view)) ++ view.subviews.unblindedElements.flatMap(viewDataInPreOrder)
+    ViewData.tryFromView(view) +: view.subviews.unblindedElements.flatMap(viewDataInPreOrder)
   }
 
-  private def extractPartyIds(
-      rootViews: NonEmpty[Seq[TransactionView]]
-  ): Set[LfPartyId] = {
+  private[validation] def extractPartyIds(viewData: Seq[ViewData]): Set[LfPartyId] = {
     val parties = Set.newBuilder[LfPartyId]
-    rootViews.forgetNE.flatMap(viewDataInPreOrder).foreach { data =>
+    viewData.foreach { data =>
       parties ++= data.informees
-      data.participant.coreInputs.values.foreach { c =>
+      data.effects.coreInputs.values.foreach { c =>
         parties ++= c.stakeholders
         parties ++= c.maintainers
       }
-      data.participant.createdCore.foreach { c =>
+      data.effects.createdCore.foreach { c =>
         // The object invariants of metadata enforce that every maintainer is also a stakeholder.
         // Therefore, we don't have to explicitly add maintainers.
         parties ++= c.contract.metadata.stakeholders
       }
-      data.participant.resolvedKeys.values
+      data.effects.resolvedKeys.values
         .collect { case Versioned(_, FreeKey(maintainers)) => maintainers }
         .foreach(parties ++=)
     }
@@ -99,6 +108,10 @@ object ExtractUsedAndCreated {
         .toMap
     }
 
+  private[validation] def viewDataFromRootViews(
+      rootViews: Seq[TransactionView]
+  ): Seq[ViewData] = rootViews.flatMap(viewDataInPreOrder)
+
   def apply(
       participantId: ParticipantId,
       rootViews: NonEmpty[Seq[TransactionView]],
@@ -108,16 +121,12 @@ object ExtractUsedAndCreated {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[UsedAndCreated] = {
-
-    val partyIds = extractPartyIds(rootViews)
-
-    fetchHostedParties(partyIds, participantId, topologySnapshot)
-      .map { hostedParties =>
-        new ExtractUsedAndCreated(
-          hostedParties,
-          loggerFactory,
-        ).usedAndCreated(rootViews)
-      }
+    val dataViews = viewDataFromRootViews(rootViews)
+    val partyIds = extractPartyIds(dataViews)
+    fetchHostedParties(partyIds, participantId, topologySnapshot).map { hostedParties =>
+      new ExtractUsedAndCreated(hostedParties, loggerFactory)
+        .usedAndCreated(dataViews)
+    }
   }
 
   private[validation] final case class CreatedContractPrep(
@@ -142,26 +151,17 @@ private[validation] class ExtractUsedAndCreated(
 )(implicit traceContext: TraceContext)
     extends NamedLogging {
 
-  private[validation] def usedAndCreated(
-      rootViews: NonEmpty[Seq[TransactionView]]
-  ): UsedAndCreated = {
-
-    val dataViews = rootViews.forgetNE.flatMap(v => viewDataInPreOrder(v))
-
+  private[validation] def usedAndCreated(dataViews: Seq[ViewData]): UsedAndCreated = {
     val createdContracts = createdContractPrep(dataViews)
     val inputContracts = inputContractPrep(dataViews)
     val transientContracts = transientContractsPrep(dataViews)
-
     UsedAndCreated(
       contracts = usedAndCreatedContracts(createdContracts, inputContracts, transientContracts),
       hostedWitnesses = hostedParties.filter(_._2.nonEmpty).keySet,
     )
   }
 
-  private[validation] def inputContractPrep(
-      dataViews: Seq[ViewData]
-  ): InputContractPrep = {
-
+  private[validation] def inputContractPrep(dataViews: Seq[ViewData]): InputContractPrep = {
     val usedB = Map.newBuilder[LfContractId, GenContractInstance]
     val contractIdsOfHostedInformeeStakeholderB = Set.newBuilder[LfContractId]
     val contractIdsAllowedToBeUnknownB = Set.newBuilder[LfContractId]
@@ -170,7 +170,7 @@ private[validation] class ExtractUsedAndCreated(
 
     (for {
       viewData <- dataViews: Seq[ViewData]
-      inputContractWithMetadata <- viewData.participant.coreInputs.values
+      inputContractWithMetadata <- viewData.effects.coreInputs.values
     } yield {
       val informees = viewData.informees
       val contract = inputContractWithMetadata.contract
@@ -187,7 +187,7 @@ private[validation] class ExtractUsedAndCreated(
         // because they are not inputs even if they are consumed.
         if (inputContractWithMetadata.consumed) {
           // Input contracts consumed under rollback node are not necessarily consumed in the transaction.
-          if (!viewData.participant.rollbackContext.inRollback) {
+          if (!viewData.inRollback) {
             consumedOfHostedStakeholdersB +=
               contract.contractId -> stakeholders
           }
@@ -221,11 +221,11 @@ private[validation] class ExtractUsedAndCreated(
     (for {
       viewData <- dataViews
       createdAndHosts <-
-        viewData.participant.createdCore.map { cc =>
+        viewData.effects.createdCore.map { cc =>
           (cc, hostsAny(cc.contract.metadata.stakeholders))
         }
       (created, hosts) = createdAndHosts
-      rolledBack = viewData.participant.rollbackContext.inRollback || created.rolledBack
+      rolledBack = viewData.inRollback || created.rolledBack
       contract = created.contract
     } yield {
       if (hosts) {
@@ -242,7 +242,7 @@ private[validation] class ExtractUsedAndCreated(
     )
   }
 
-  private[validation] def transientContractsPrep(dataViews: Seq[ViewData]): Set[LfContractId] = {
+  private def transientContractsPrep(dataViews: Seq[ViewData]): Set[LfContractId] = {
 
     val transientContractsB = Set.newBuilder[LfContractId]
 

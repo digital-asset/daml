@@ -72,6 +72,7 @@ import com.digitalasset.canton.http.json.v2.{
   JsSubmitAndWaitForTransactionResponse,
   JsSubmitAndWaitForTransactionTreeResponse,
   JsUpdate,
+  LegacyDTOs,
 }
 import com.digitalasset.canton.http.util.ClientUtil.uniqueId
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
@@ -1209,7 +1210,7 @@ class JsonV2Tests
             Source
               .single(
                 TextMessage(
-                  updatesRequest.asJson.noSpaces
+                  updatesRequestLegacy.asJson.noSpaces
                 )
               )
               .concatMat(Source.maybe[Message])(Keep.left)
@@ -1232,10 +1233,43 @@ class JsonV2Tests
               }
           }
           _ <- {
+            val webSocketFlow =
+              websocket(fixture.uri.withPath(Uri.Path("/v2/updates/flats")), jwt)
+            Source
+              .single(
+                TextMessage(
+                  updatesRequestLegacy
+                    .copy(filter = None)
+                    .asJson
+                    .noSpaces
+                )
+              )
+              .concatMat(Source.maybe[Message])(Keep.left)
+              .via(webSocketFlow)
+              .take(1)
+              .collect { case m: TextMessage =>
+                m.getStrictText
+              }
+              .toMat(Sink.seq)(Keep.right)
+              .run()
+              .map { updates =>
+                updates
+                  .map(decode[JsCantonError])
+                  .collect { case Right(error) =>
+                    error.errorCategory shouldBe ErrorCategory.InvalidIndependentOfSystemState.asInt
+                    error.code should include("INVALID_ARGUMENT")
+                    error.cause should include(
+                      "Either filter/verbose or update_format is required. Please use either backwards compatible arguments (filter and verbose) or update_format."
+                    )
+                  }
+                  .head
+              }
+          }
+          _ <- {
             fixture
               .postJsonStringRequest(
                 fixture.uri withPath Uri.Path("/v2/updates/flats") withQuery Query(("wait", "500")),
-                updatesRequest.asJson.toString(),
+                updatesRequestLegacy.asJson.toString(),
                 headers,
               )
               .map { case (status, result) =>
@@ -1269,6 +1303,39 @@ class JsonV2Tests
               }
           }
           _ <- {
+            val webSocketFlow =
+              websocket(fixture.uri.withPath(Uri.Path("/v2/updates/trees")), jwt)
+            Source
+              .single(
+                TextMessage(
+                  updatesRequestLegacy
+                    .copy(filter = None)
+                    .asJson
+                    .noSpaces
+                )
+              )
+              .concatMat(Source.maybe[Message])(Keep.left)
+              .via(webSocketFlow)
+              .take(1)
+              .collect { case m: TextMessage =>
+                m.getStrictText
+              }
+              .toMat(Sink.seq)(Keep.right)
+              .run()
+              .map { updates =>
+                updates
+                  .map(decode[JsCantonError])
+                  .collect { case Right(error) =>
+                    error.errorCategory shouldBe ErrorCategory.InvalidIndependentOfSystemState.asInt
+                    error.code should include("INVALID_ARGUMENT")
+                    error.cause should include(
+                      "Either filter/verbose or update_format is required. Please use either backwards compatible arguments (filter and verbose) or update_format."
+                    )
+                  }
+                  .head
+              }
+          }
+          _ <- {
             fixture
               .postJsonStringRequest(
                 fixture.uri withPath Uri.Path("/v2/updates/trees") withQuery Query(("wait", "500")),
@@ -1280,6 +1347,28 @@ class JsonV2Tests
 
                 val responses = decode[Seq[JsGetUpdateTreesResponse]](result.toString()).value
                 responses.size should be >= 1
+              }
+          }
+          _ <- {
+            fixture
+              .postJsonStringRequest(
+                fixture.uri withPath Uri.Path("/v2/updates/trees") withQuery Query(("wait", "500")),
+                updatesRequestLegacy
+                  .copy(updateFormat = Some(updateFormat(alice.unwrap)))
+                  .asJson
+                  .toString(),
+                headers,
+              )
+              .map { case (status, result) =>
+                status should be(StatusCodes.BadRequest)
+                val cantonError =
+                  decode[JsCantonError](result.toString())
+                cantonError.value.errorCategory should be(
+                  ErrorCategory.InvalidIndependentOfSystemState.asInt
+                )
+                cantonError.value.cause should include(
+                  "Both update_format and filter are set. Please use either backwards compatible arguments (filter and verbose) or update_format, but not both."
+                )
               }
           }
           _ <- getRequestEncoded(
@@ -1584,7 +1673,7 @@ class JsonV2Tests
     )
   }
 
-  private val allTransactionsFilter = transaction_filter.TransactionFilter(
+  private val allTransactionsFilter = LegacyDTOs.TransactionFilter(
     filtersByParty = Map.empty,
     filtersForAnyParty = Some(
       transaction_filter.Filters(
@@ -1617,7 +1706,7 @@ class JsonV2Tests
     verbose = false,
   )
 
-  private val updatesRequestLegacy = update_service.GetUpdatesRequest(
+  private val updatesRequestLegacy = LegacyDTOs.GetUpdatesRequest(
     beginExclusive = 0,
     endInclusive = None,
     filter = Some(allTransactionsFilter),

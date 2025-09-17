@@ -163,7 +163,13 @@ class SequencerConnectionSuccessorListener(
             .value
             .map {
               case Left(error) =>
-                logger.error(s"Unable to perform handshake with $successorPSId: $error")
+                val isRetryable = error.retryable.isDefined
+
+                // e.g., transient network or pool errors
+                if (isRetryable)
+                  logger.info(s"Unable to perform handshake with $successorPSId: $error")
+                else
+                  logger.error(s"Unable to perform handshake with $successorPSId: $error")
 
               case Right(_: PhysicalSynchronizerId) =>
                 logger.info(s"Handshake with $successorPSId was successful")

@@ -159,7 +159,7 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
         extraDars
         mempty
 
-      cont (dir </> projectPackageDatabase, packageFlags)
+      cont (dir </> packageDatabasePath, packageFlags)
 
 main :: IO ()
 main = withSdkVersions $ do

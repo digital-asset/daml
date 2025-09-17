@@ -684,8 +684,13 @@ class GrpcSequencerService(
     case _ => false
   }
 
-  override def onClosed(): Unit =
+  override def onClosed(): Unit = {
+    acknowledgementConflate.foreach { cache =>
+      cache.invalidateAll()
+      cache.cleanUp()
+    }
     subscriptionPool.close()
+  }
 
   /** Return the currently known traffic state for a member. Callers must be authorized to request
     * the traffic state.

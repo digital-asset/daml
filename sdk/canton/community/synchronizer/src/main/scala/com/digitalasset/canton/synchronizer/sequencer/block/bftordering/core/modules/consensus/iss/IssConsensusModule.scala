@@ -59,6 +59,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   ConsensusSegment,
   Output,
+  P2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue
@@ -159,12 +160,12 @@ final class IssConsensusModule[E <: Env[E]](
     message match {
 
       case Consensus.Init =>
-        abortInit(
+        abort(
           s"${PreIssConsensusModule.getClass.getSimpleName} should be the only one receiving ${Consensus.Init.getClass.getSimpleName}"
         )
 
       case Consensus.SegmentCancelledEpoch =>
-        abortInit(
+        abort(
           s"${StateTransferBehavior.getClass.getSimpleName} should be the only one receiving ${Consensus.SegmentCancelledEpoch.getClass.getSimpleName}"
         )
 
@@ -254,11 +255,16 @@ final class IssConsensusModule[E <: Env[E]](
 
           setNewEpochState(newEpochInfo, Some(newMembership -> newCryptoProvider))
 
+          dependencies.p2pNetworkOut.asyncSend(
+            P2PNetworkOut.Network.TopologyUpdate(epochState.epoch.currentMembership)
+          )
+
           startConsensusForCurrentEpoch()
           logger.info(
             s"New epoch ${epochState.epoch.info.number} has started with leaders = ${newMembership.leaders}; " +
               s"ordering topology = ${newMembership.orderingTopology}"
           )
+          metrics.topology.update(newMembership)
 
           processQueuedPbftMessages()
         }

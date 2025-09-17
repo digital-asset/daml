@@ -219,18 +219,6 @@ object Error {
         byInterface: Option[TypeConId],
     ) extends Error
 
-    // TODO https://github.com/digital-asset/daml/issues/16151
-    // Move outside Dev when the feature goes GA.
-    /** We tried to soft fetch / soft exercise a contract of the wrong type --
-      * see <https://github.com/digital-asset/daml/issues/16151>.
-      */
-    final case class WronglyTypedContractSoft(
-        coid: ContractId,
-        expected: TypeConId,
-        accepted: List[TypeConId],
-        actual: TypeConId,
-    ) extends Error
-
     final case class TranslationError(error: TranslationError.Error) extends Error
 
     object TranslationError {
@@ -251,7 +239,12 @@ object Error {
       final case class NonSuffixedV1ContractId(cid: Value.ContractId.V1) extends Error
 
       final case class NonSuffixedV2ContractId(cid: Value.ContractId.V2) extends Error
+
+      final case class InvalidValue(value: Value, message: String) extends Error
     }
+
+    final case class AuthenticationError(coid: ContractId, value: Value, message: String)
+        extends Error
 
     final case class Limit(error: Limit.Error) extends Error
 
@@ -303,6 +296,14 @@ object Error {
       ) extends Error
 
       final case class TransactionInputContracts(limit: Int) extends Error
+    }
+
+    sealed case class Cost(error: Cost.Error) extends Error
+
+    object Cost {
+      sealed abstract class Error extends Serializable with Product
+
+      final case class BudgetExceeded(cause: String) extends Error
     }
   }
 

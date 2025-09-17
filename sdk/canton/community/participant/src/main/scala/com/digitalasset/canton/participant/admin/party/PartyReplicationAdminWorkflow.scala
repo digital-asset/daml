@@ -125,9 +125,16 @@ class PartyReplicationAdminWorkflow(
     ).mapK(FutureUnlessShutdown.outcomeK)
   }
 
-  override private[admin] def eventFormat: EventFormat =
-    // we can't filter by template id as we don't know when the admin workflow package is loaded
-    LedgerConnection.eventFormatByParty(Map(participantId.adminParty -> Seq.empty))
+  override private[admin] def eventFormat: EventFormat = {
+    val templates = Seq(
+      M.partyreplication.PartyReplicationProposal.TEMPLATE_ID,
+      M.partyreplication.PartyReplicationAgreement.TEMPLATE_ID,
+    )
+
+    LedgerConnection.eventFormatByParty(
+      Map(participantId.adminParty -> templates.map(LedgerConnection.mapTemplateIds))
+    )
+  }
 
   override private[admin] def processTransaction(tx: Transaction): Unit = {
     implicit val traceContext: TraceContext =
@@ -227,9 +234,7 @@ class PartyReplicationAdminWorkflow(
     participantId.adminParty.toProtoPrimitive match {
       case `contract`.data.sourceParticipant | `contract`.data.targetParticipant =>
         (for {
-          // TODO(#23971): Once there is support for V2 contract ids, pick the V1 or V2 depending on the
-          //  synchronizer's protocol version.
-          lfContractId <- LfContractId.V1.fromString(contract.id.contractId)
+          lfContractId <- LfContractId.fromString(contract.id.contractId)
           params <- PartyReplicationAgreementParams.fromDaml(contract.data, synchronizerIdS)
         } yield partyReplicator
           .processPartyReplicationAgreement(lfContractId, mightNotRememberAgreement)(params))

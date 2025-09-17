@@ -65,6 +65,9 @@ message StaticSynchronizerParameters {
 
   // Serial of the synchronizer. Must be non-negative.
   int32 serial = 8;
+
+  // Flag to enable transparency checks.
+  bool enable_transparency_checks = 9;
 }
 
 message Envelope {

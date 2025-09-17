@@ -1,40 +1,32 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChildProcess, execFileSync, spawn } from "child_process";
+import { ChildProcess, spawn } from "child_process";
 import { promises as fs } from "fs";
 import waitOn from "wait-on";
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 import { encode } from "jwt-simple";
-import Ledger, {
-  CreateEvent,
-  Event,
-  Stream,
-  PartyInfo,
-  UserRightHelper,
-  LedgerError,
-} from "@daml/ledger";
-import {
-  Choice,
-  ContractId,
-  Int,
-  emptyMap,
-  Map,
-  Party,
-  Template,
-  lookupTemplate,
-  templateIdWithPackageId,
-} from "@daml/types";
+ */
+import { Choice, Int } from "@daml/types";
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 import pEvent from "p-event";
+ */
 import _ from "lodash";
-import WebSocket from "ws";
 
 import * as buildAndLint from "@daml.js/build-and-lint-1.0.0";
 
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 const LEDGER_ID = "build-and-lint-test";
 const USER_ID = "build-and-lint-test";
 const SECRET_KEY = "secret";
+ */
 const DAML_TEXTMAP = false;
 
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 const computeUserToken = (name: string) =>
   encode(
     {
@@ -56,8 +48,13 @@ const ADMIN_TOKEN = encode(
   SECRET_KEY,
   "HS256",
 );
+ */
+
 // Further setup required after canton is started
-let ALICE_PARTY = "Alice";
+const ALICE_PARTY = "Alice";
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
+ let ALICE_PARTY = "Alice";
 let ALICE_USER = "alice";
 let ALICE_TOKEN = "";
 let BOB_PARTY = "Bob";
@@ -68,7 +65,7 @@ let CHARLIE_USER = "charlie";
 let CHARLIE_TOKEN = "";
 // Will be `build-and-lint-test::[somehash]`
 let PARTICIPANT_PARTY_DETAILS: PartyInfo | undefined = undefined;
-
+ */
 let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = "sandbox.port";
 let jsonApiPort: number | undefined = undefined;
@@ -76,7 +73,10 @@ const JSON_API_PORT_FILE = "json-api.port";
 const COMPLETION_FILE = "completion_marker";
 // Using `127.0.0.1` instead of `localhost`, as `localhost` fails to connect on MacOS in node 18
 // See this comment: https://github.com/node-fetch/node-fetch/issues/1624#issuecomment-1235826631
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 const httpBaseUrl: () => string = () => `http://127.0.0.1:${jsonApiPort}/`;
+ */
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 
@@ -136,6 +136,8 @@ beforeAll(async () => {
   });
   jsonApiPort = parseInt(jsonApiPortData);
 
+  /**
+   * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
   console.log("Uploading required dar files ..." + getEnv("DAR"));
   const ledger = new Ledger({ token: ADMIN_TOKEN, httpBaseUrl: httpBaseUrl() });
   const upDar = await fs.readFile(getEnv("DAR"));
@@ -171,6 +173,7 @@ beforeAll(async () => {
   ALICE_TOKEN = computeUserToken(ALICE_USER);
   BOB_TOKEN = computeUserToken(BOB_USER);
   CHARLIE_TOKEN = computeUserToken(CHARLIE_USER);
+   */
 
   console.log("JSON API listening on port " + jsonApiPort.toString());
 }, 300_000);
@@ -182,6 +185,8 @@ afterAll(() => {
   console.log("Killed sandbox");
 });
 
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 interface PromisifiedStream<T extends object, K, I extends string, State> {
   next(): Promise<[State, readonly Event<T, K, I>[]]>;
   close(): void;
@@ -206,6 +211,7 @@ function promisifyStream<T extends object, K, I extends string, State>(
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+ */
 
 describe("decoders for recursive types do not loop", () => {
   test("recursive enum", () => {
@@ -324,6 +330,8 @@ describe("decoder", () => {
   });
 });
 
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 function doCreateFetchAndExercise<Pkg extends string>(
   Person: Template<buildAndLint.Main.Person, buildAndLint.Main.Person.Key, Pkg>,
   AllTypes: Template<buildAndLint.Main.AllTypes, undefined, Pkg>,
@@ -832,6 +840,7 @@ test("exercise using explicit disclosure", async () => {
   );
   expect(result).toEqual(payload);
 });
+ */
 
 describe("interface definition", () => {
   const tpl = buildAndLint.Main.Asset;
@@ -892,6 +901,8 @@ describe("interface definition", () => {
   });
 });
 
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 describe("interfaces", () => {
   type Asset = buildAndLint.Main.Asset;
   const Asset = buildAndLint.Main.Asset;
@@ -1098,8 +1109,12 @@ describe("interfaces", () => {
     expect(clonedPayload).toEqual({});
     expect(clonedKey).toBeUndefined();
   });
-});
 
+});
+ */
+
+/**
+ * TODO(#21835): reactivate TS tests on top of the openapi instead of the @daml/ledger
 test("createAndExercise", async () => {
   const ledger = new Ledger({ token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl() });
 
@@ -1463,3 +1478,4 @@ test("reconnect on timeout, when multiplexing is enabled", async () => {
 
   charlieStream.close();
 });
+ */

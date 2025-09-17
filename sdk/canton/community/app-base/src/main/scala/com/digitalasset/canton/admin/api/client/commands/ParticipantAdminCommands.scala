@@ -42,6 +42,7 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
 import com.digitalasset.canton.participant.admin.party.PartyParticipantPermission
@@ -577,14 +578,15 @@ object ParticipantAdminCommands {
         NonNegativeLong.create(response.ledgerOffset).leftMap(_.toString)
     }
 
-    final case class ExportAcs(
-        parties: Set[PartyId],
-        filterSynchronizerId: Option[SynchronizerId],
-        offset: Long,
-        observer: StreamObserver[v30.ExportAcsResponse],
-        contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
+    final case class ExportPartyAcs(
+        party: PartyId,
+        synchronizerId: SynchronizerId,
+        targetParticipantId: ParticipantId,
+        beginOffsetExclusive: NonNegativeLong,
+        waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
+        observer: StreamObserver[v30.ExportPartyAcsResponse],
     ) extends GrpcAdminCommand[
-          v30.ExportAcsRequest,
+          v30.ExportPartyAcsRequest,
           CancellableContext,
           CancellableContext,
         ] {
@@ -594,70 +596,23 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): PartyManagementServiceStub =
         v30.PartyManagementServiceGrpc.stub(channel)
 
-      override protected def createRequest(): Either[String, v30.ExportAcsRequest] =
+      override protected def createRequest(): Either[String, v30.ExportPartyAcsRequest] =
         Right(
-          v30.ExportAcsRequest(
-            parties.map(_.toLf).toSeq,
-            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
-            offset,
-            contractSynchronizerRenames.map { case (source, targetSynchronizerId) =>
-              val target = v30.ExportAcsTargetSynchronizer(
-                targetSynchronizerId.toProtoPrimitive
-              )
-
-              (source.toProtoPrimitive, target)
-            },
+          v30.ExportPartyAcsRequest(
+            party.toProtoPrimitive,
+            synchronizerId.toProtoPrimitive,
+            targetParticipantId.uid.toProtoPrimitive,
+            beginOffsetExclusive.unwrap,
+            waitForActivationTimeout.map(_.toProtoPrimitive),
           )
         )
 
       override protected def submitRequest(
           service: PartyManagementServiceStub,
-          request: v30.ExportAcsRequest,
+          request: v30.ExportPartyAcsRequest,
       ): Future[CancellableContext] = {
         val context = Context.current().withCancellation()
-        context.run(() => service.exportAcs(request, observer))
-        Future.successful(context)
-      }
-
-      override protected def handleResponse(
-          response: CancellableContext
-      ): Either[String, CancellableContext] = Right(response)
-
-      override def timeoutType: GrpcAdminCommand.TimeoutType =
-        GrpcAdminCommand.DefaultUnboundedTimeout
-    }
-
-    final case class ExportAcsAtTimestamp(
-        parties: Set[PartyId],
-        filterSynchronizerId: SynchronizerId,
-        topologyTransactionEffectiveTime: Instant,
-        observer: StreamObserver[v30.ExportAcsAtTimestampResponse],
-    ) extends GrpcAdminCommand[
-          v30.ExportAcsAtTimestampRequest,
-          CancellableContext,
-          CancellableContext,
-        ] {
-
-      override type Svc = PartyManagementServiceStub
-
-      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
-        v30.PartyManagementServiceGrpc.stub(channel)
-
-      override protected def createRequest(): Either[String, v30.ExportAcsAtTimestampRequest] =
-        Right(
-          v30.ExportAcsAtTimestampRequest(
-            parties.map(_.toLf).toSeq,
-            filterSynchronizerId.toProtoPrimitive,
-            Some(Timestamp(topologyTransactionEffectiveTime)),
-          )
-        )
-
-      override protected def submitRequest(
-          service: PartyManagementServiceStub,
-          request: v30.ExportAcsAtTimestampRequest,
-      ): Future[CancellableContext] = {
-        val context = Context.current().withCancellation()
-        context.run(() => service.exportAcsAtTimestamp(request, observer))
+        context.run(() => service.exportPartyAcs(request, observer))
         Future.successful(context)
       }
 
@@ -783,10 +738,63 @@ object ParticipantAdminCommands {
           .map(_.toMap)
     }
 
+    final case class ExportAcs(
+        parties: Set[PartyId],
+        filterSynchronizerId: Option[SynchronizerId],
+        offset: NonNegativeLong,
+        observer: StreamObserver[v30.ExportAcsResponse],
+        contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId],
+        excludedStakeholders: Set[PartyId],
+    ) extends GrpcAdminCommand[
+          v30.ExportAcsRequest,
+          CancellableContext,
+          CancellableContext,
+        ] {
+
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ExportAcsRequest] =
+        Right(
+          v30.ExportAcsRequest(
+            parties.map(_.toProtoPrimitive).toSeq,
+            filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+            offset.unwrap,
+            contractSynchronizerRenames.map { case (source, targetSynchronizerId) =>
+              val target = v30.ExportAcsTargetSynchronizer(
+                targetSynchronizerId.toProtoPrimitive
+              )
+
+              (source.toProtoPrimitive, target)
+            },
+            excludedStakeholders.map(_.toProtoPrimitive).toSeq,
+          )
+        )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: v30.ExportAcsRequest,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.exportAcs(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] = Right(response)
+
+      override def timeoutType: GrpcAdminCommand.TimeoutType =
+        GrpcAdminCommand.DefaultUnboundedTimeout
+    }
+
     final case class ImportAcs(
         acsChunk: ByteString,
         workflowIdPrefix: String,
         contractIdImportMode: ContractIdImportMode,
+        excludedStakeholders: Set[PartyId],
     ) extends GrpcAdminCommand[
           v30.ImportAcsRequest,
           v30.ImportAcsResponse,
@@ -804,6 +812,7 @@ object ParticipantAdminCommands {
             acsChunk,
             workflowIdPrefix,
             contractIdImportMode.toProtoV30,
+            excludedStakeholders.map(_.toProtoPrimitive).toSeq,
           )
         )
 
@@ -818,6 +827,7 @@ object ParticipantAdminCommands {
               ByteString.copyFrom(bytes),
               workflowIdPrefix,
               contractIdImportMode.toProtoV30,
+              excludedStakeholders.map(_.toProtoPrimitive).toSeq,
             ),
           request.acsSnapshot,
         )
@@ -1505,7 +1515,6 @@ object ParticipantAdminCommands {
         Right(response.offset)
     }
 
-    // TODO(#9557) R2 The code below should be sufficient
     final case class OpenCommitment(
         observer: StreamObserver[v30.OpenCommitmentResponse],
         commitment: AcsCommitment.HashedCommitmentType,
@@ -1544,7 +1553,6 @@ object ParticipantAdminCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
-    // TODO(#9557) R2 The code below should be sufficient
     final case class CommitmentContracts(
         observer: StreamObserver[v30.InspectCommitmentContractsResponse],
         contracts: Seq[LfContractId],
@@ -2166,7 +2174,12 @@ object ParticipantAdminCommands {
     final case class NoWaitCommitments(
         counterParticipant: ParticipantId,
         synchronizers: Seq[SynchronizerId],
-    )
+    ) extends PrettyPrinting {
+      override protected def pretty: Pretty[NoWaitCommitments] = prettyOfClass(
+        param("no-wait counter-participant", _.counterParticipant),
+        param("synchronizers", _.synchronizers),
+      )
+    }
 
     object NoWaitCommitments {
       def fromSetup(setup: Seq[WaitCommitmentsSetup]): Either[String, Seq[NoWaitCommitments]] = {
@@ -2230,7 +2243,12 @@ object ParticipantAdminCommands {
     final case class WaitCommitments(
         counterParticipant: ParticipantId,
         synchronizers: Seq[SynchronizerId],
-    )
+    ) extends PrettyPrinting {
+      override protected def pretty: Pretty[WaitCommitments] = prettyOfClass(
+        param("wait counter-participant", _.counterParticipant),
+        param("synchronizers", _.synchronizers),
+      )
+    }
 
     object WaitCommitments {
       def fromSetup(setup: Seq[WaitCommitmentsSetup]): Either[String, Seq[WaitCommitments]] = {

@@ -42,7 +42,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
          record @serializable House = { owner: Party, key_maintainer: Party };
          template(this: House) = {
            precondition True;
-           signatories (TestMod:listOf @Party (TestMod:House {owner} this));
+           signatories (Cons @Party [(TestMod:House {owner} this), (TestMod:House {key_maintainer} this)] (Nil @Party));
            observers (Nil @Party);
 
            choice Destroy (self) (arg: Unit): Unit,
@@ -115,9 +115,42 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       ),
     )
   val ledgerHouseContract: FatContractInstance =
-    buildContract(ledgerParty, maintainerParty)
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
+      TransactionVersion.minVersion,
+      packageName = pkg.pkgName,
+      template = houseTemplateId,
+      arg = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(ledgerParty),
+          None -> Value.ValueParty(maintainerParty),
+        ),
+      ),
+      signatories = List(ledgerParty, maintainerParty),
+      contractKeyWithMaintainers = Some(
+        GlobalKeyWithMaintainers(
+          GlobalKey.assertBuild(
+            houseTemplateType,
+            buildContractKeyValue(maintainerParty),
+            pkg.pkgName,
+          ),
+          Set(maintainerParty),
+        )
+      ),
+    )
   val ledgerCaveContract: FatContractInstance =
-    buildContract(ledgerParty, maintainerParty, templateId = caveTemplateId)
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
+      TransactionVersion.minVersion,
+      packageName = pkg.pkgName,
+      template = caveTemplateId,
+      arg = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(ledgerParty)
+        ),
+      ),
+      signatories = List(ledgerParty),
+    )
   val disclosedCaveContractNoHash: (Value.ContractId, Speedy.ContractInfo) =
     contractId -> buildDisclosedCaveContract(disclosureParty)
   val disclosedHouseContract: (Value.ContractId, Speedy.ContractInfo) =
@@ -207,38 +240,6 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
     )
-
-  def buildContract(
-      owner: Party,
-      maintainer: Party,
-      packageName: Ref.PackageName = pkg.pkgName,
-      templateId: Ref.Identifier = houseTemplateId,
-  ): FatContractInstance = {
-    val contractFields = templateId match {
-      case `caveTemplateId` =>
-        ImmArray(
-          None -> Value.ValueParty(owner)
-        )
-
-      case `houseTemplateId` =>
-        ImmArray(
-          None -> Value.ValueParty(owner),
-          None -> Value.ValueParty(maintainer),
-        )
-
-      case _ =>
-        throw new RuntimeException(
-          s"Unknown template ID $templateId - unable to determine the contract fields"
-        )
-    }
-
-    TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      TransactionVersion.minVersion,
-      packageName = packageName,
-      template = templateId,
-      arg = Value.ValueRecord(None, contractFields),
-    )
-  }
 
   def buildHouseContractInfo(
       signatory: Party,

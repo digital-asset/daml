@@ -58,8 +58,8 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
           packageName = miniTestsPkg.pkgName,
           template = TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),
           arg = ValueRecord(
-            Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
-            ImmArray((Some[Name]("p"), ValueParty(party))),
+            None,
+            ImmArray((None, ValueParty(party))),
           ),
           signatories = List(party),
         )
@@ -68,7 +68,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   private def freshEngine = new Engine(
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
-      requireSuffixedGlobalContractId = true,
+      forbidLocalContractIds = true,
     )
   )
 
@@ -92,7 +92,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         time,
         time,
       )
-      .consume(pcs = defaultContracts, pkgs = allPackages, grantUpgradeVerification = None)
+      .consume(pcs = defaultContracts, pkgs = allPackages)
     res match {
       case Right((tx, _)) => Right(tx)
       case Left(e) => Left(e)
@@ -105,14 +105,13 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       val choiceName = "MyHello"
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
-        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
           None,
           cid,
           choiceName,
-          ValueRecord(Some(r), ImmArray.Empty),
+          ValueRecord(None, ImmArray.Empty),
         )
       }
       val Right(tx) = reinterpretCommand(theCommand)

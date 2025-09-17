@@ -126,4 +126,10 @@ class DbKmsMetadataStore(
         functionFullName,
       )
       .map(_.toList)
+
+  override def onClosed(): Unit = {
+    cache.invalidateAll()
+    cache.cleanUp()
+    super.onClosed()
+  }
 }

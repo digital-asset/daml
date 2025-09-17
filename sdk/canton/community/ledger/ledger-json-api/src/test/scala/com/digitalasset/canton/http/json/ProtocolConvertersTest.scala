@@ -5,16 +5,29 @@ package com.digitalasset.canton.http.json
 
 import com.daml.ledger.api.v2 as lapi
 import com.daml.ledger.api.v2.value.{Identifier, Record, Value}
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.http.json.v2.LegacyDTOs.GetUpdateTreesResponse.Update
+import com.digitalasset.canton.http.json.v2.LegacyDTOs.TreeEvent.Kind
 import com.digitalasset.canton.http.json.v2.{
+  LegacyDTOs,
   ProtocolConverter,
   ProtocolConverters,
   SchemaProcessors,
+  TranscodePackageIdResolver,
 }
-import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  LfPackageId,
+  LfPackageName,
+  LfPartyId,
+}
 import com.digitalasset.daml.lf.data.Ref.IdString
 import magnolify.scalacheck.semiauto.ArbitraryDerivation
-import org.scalacheck.Arbitrary
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
@@ -36,7 +49,20 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
   }
 
   private val mockSchemaProcessor = new MockSchemaProcessor()
-  private val converters = new ProtocolConverters(mockSchemaProcessor)
+  private val packageNameResolver = new TranscodePackageIdResolver {
+    implicit def ec: ExecutionContext = executorService
+    override def loggerFactory: NamedLoggerFactory = ProtocolConvertersTest.this.loggerFactory
+    override def resolvePackageNamesInternal(
+        packageNames: NonEmpty[Set[LfPackageName]],
+        party: LfPartyId,
+        packageIdSelectionPreferences: Set[LfPackageId],
+        synchronizerIdO: Option[String],
+    )(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Map[LfPackageName, LfPackageId]] =
+      FutureUnlessShutdown.pure(Map.empty)
+  }
+  private val converters = new ProtocolConverters(mockSchemaProcessor, packageNameResolver)
 
   import magnolify.scalacheck.auto.*
   private val mappings: Seq[JsMapping[_, _]] = Seq(
@@ -57,7 +83,7 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
     JsMapping(converters.ReassignmentEvent),
     JsMapping(converters.Reassignment),
     JsMapping(converters.GetUpdatesResponse),
-    JsMapping(converters.GetUpdateTreesResponse),
+    JsMapping(converters.GetUpdateTreesResponseLegacy),
     JsMapping(converters.GetTransactionResponse),
 //    JsMapping(converters.PrepareSubmissionRequest),//we only need toJson
 //    JsMapping(converters.PrepareSubmissionResponse), // we only need toJson
@@ -67,8 +93,6 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
   )
 }
 
-// TODO(#23504) remove suppression of deprecation warnings
-@nowarn("cat=deprecation")
 object Arbitraries {
   import StdGenerators.*
   import magnolify.scalacheck.auto.*
@@ -88,6 +112,12 @@ object Arbitraries {
       )
     )
   )
+
+  implicit val arbIdentifier: Arbitrary[Option[Identifier]] = Arbitrary(for {
+    packageId <- Gen.stringOfN(8, Gen.alphaChar)
+    moduleName <- Gen.stringOfN(8, Gen.alphaChar)
+    scriptName <- Gen.stringOfN(8, Gen.alphaChar)
+  } yield Some(Identifier(packageId, moduleName, scriptName)))
 
   implicit val arbJsValue: Arbitrary[ujson.Value] = Arbitrary {
     defaultJsValue
@@ -122,6 +152,15 @@ object Arbitraries {
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.transaction.TreeEvent.Kind]
     )
+  implicit val arbTreeEventLegacyKind: Arbitrary[LegacyDTOs.TreeEvent.Kind] = {
+    val arb = ArbitraryDerivation[LegacyDTOs.TreeEvent.Kind]
+    Arbitrary {
+      retryUntilSome(
+        arb.arbitrary.sample.filter(_ != Kind.Empty)
+      ).getOrElse(throw new RuntimeException("Failed to generate non-empty TreeEvent.Kind"))
+    }
+  }
+
   implicit val arbReassignmentEventEvent: Arbitrary[lapi.reassignment.ReassignmentEvent.Event] =
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.reassignment.ReassignmentEvent.Event]
@@ -131,11 +170,17 @@ object Arbitraries {
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.update_service.GetUpdatesResponse.Update]
     )
-  implicit val arbGetUpdatesTreesResponseUpdate
-      : Arbitrary[lapi.update_service.GetUpdateTreesResponse.Update] =
-    nonEmptyScalaPbOneOf(
-      ArbitraryDerivation[lapi.update_service.GetUpdateTreesResponse.Update]
-    )
+  implicit val arbGetUpdatesTreesResponseLegacyUpdate
+      : Arbitrary[LegacyDTOs.GetUpdateTreesResponse.Update] = {
+    val arb = ArbitraryDerivation[LegacyDTOs.GetUpdateTreesResponse.Update]
+    Arbitrary {
+      retryUntilSome(
+        arb.arbitrary.sample.filter(_ != Update.Empty)
+      ).getOrElse(
+        throw new RuntimeException("Failed to generate non-empty GetUpdateTreesResponse.Update")
+      )
+    }
+  }
 }
 
 class MockSchemaProcessor()(implicit val executionContext: ExecutionContext)
@@ -145,44 +190,44 @@ class MockSchemaProcessor()(implicit val executionContext: ExecutionContext)
   val simpleLapiValue =
     Future.successful(Arbitraries.defaultLapiRecord)
   override def contractArgFromJsonToProto(template: Identifier, jsonArgsValue: ujson.Value)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] = simpleLapiValue
 
   override def contractArgFromProtoToJson(template: Identifier, protoArgs: Record)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] = simpleJsValue
 
   override def choiceArgsFromJsonToProto(
       template: Identifier,
       choiceName: IdString.Name,
       jsonArgsValue: ujson.Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[Value] = simpleLapiValue
+  )(implicit traceContext: TraceContext): Future[Value] = simpleLapiValue
 
   override def choiceArgsFromProtoToJson(
       template: Identifier,
       choiceName: IdString.Name,
       protoArgs: Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[ujson.Value] = simpleJsValue
+  )(implicit traceContext: TraceContext): Future[ujson.Value] = simpleJsValue
 
   override def keyArgFromProtoToJson(template: Identifier, protoArgs: Value)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] = simpleJsValue
 
   override def keyArgFromJsonToProto(template: Identifier, protoArgs: ujson.Value)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] = simpleLapiValue
 
   override def exerciseResultFromProtoToJson(
       template: Identifier,
       choiceName: IdString.Name,
       v: Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[ujson.Value] = simpleJsValue
+  )(implicit traceContext: TraceContext): Future[ujson.Value] = simpleJsValue
 
   override def exerciseResultFromJsonToProto(
       template: Identifier,
       choiceName: IdString.Name,
       value: ujson.Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[Option[Value]] =
+  )(implicit traceContext: TraceContext): Future[Option[Value]] =
     simpleLapiValue.map(Some(_))
 }
 final case class JsMapping[LAPI, JS](converter: ProtocolConverter[LAPI, JS])(implicit
@@ -190,7 +235,7 @@ final case class JsMapping[LAPI, JS](converter: ProtocolConverter[LAPI, JS])(imp
     lapClassTag: ClassTag[LAPI],
 ) {
   def check()(implicit
-      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): Unit =
     arb.arbitrary.sample

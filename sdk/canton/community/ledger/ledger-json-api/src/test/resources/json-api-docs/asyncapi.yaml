@@ -530,7 +530,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -550,8 +550,6 @@ components:
                the listed parties and match the per-party filter.
             3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
                stakeholders include at least one of the listed parties and match the per-party filter.
-
-            Required
         filtersForAnyParty:
           $ref: '#/components/schemas/Filters'
           description: |-
@@ -1206,13 +1204,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -1269,6 +1267,10 @@ components:
             What transaction shape to use for interpreting the filters of the event format.
             Required
           type: string
+          enum:
+          - TRANSACTION_SHAPE_UNSPECIFIED
+          - TRANSACTION_SHAPE_ACS_DELTA
+          - TRANSACTION_SHAPE_LEDGER_EFFECTS
     TopologyFormat:
       title: TopologyFormat
       description: A format specifying which topology transactions to include and
@@ -1365,6 +1367,7 @@ components:
       - workflowId
       - offset
       - recordTime
+      - synchronizerId
       properties:
         updateId:
           description: |-
@@ -1411,6 +1414,12 @@ components:
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
+            Required
+          type: string
+        synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized this Reassignment.
             Required
           type: string
     JsReassignmentEvent:
@@ -1585,6 +1594,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -1610,6 +1624,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object

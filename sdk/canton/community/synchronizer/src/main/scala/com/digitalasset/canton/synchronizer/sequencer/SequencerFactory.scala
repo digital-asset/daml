@@ -65,6 +65,7 @@ abstract class DatabaseSequencerFactory(
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
     blockSequencerMode: Boolean,
+    metrics: SequencerMetrics,
 )(implicit ec: ExecutionContext)
     extends SequencerFactory
     with NamedLogging {
@@ -84,6 +85,7 @@ abstract class DatabaseSequencerFactory(
       // Overriding the store's close context with the writers, so that when the writer gets closed, the store
       // stops retrying forever
       overrideCloseContext = Some(this.closeContext),
+      sequencerMetrics = metrics,
     )
 
   override def initialize(
@@ -114,6 +116,7 @@ class CommunityDatabaseSequencerFactory(
       sequencerProtocolVersion,
       sequencerId,
       blockSequencerMode = false,
+      metrics,
     ) {
 
   override def create(

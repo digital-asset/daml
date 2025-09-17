@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.pruning
 
+import better.files.*
 import cats.implicits.*
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.ContractState.SynchronizerState.State
@@ -34,9 +35,51 @@ import com.digitalasset.canton.version.{
 }
 import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.value.Value.ContractId
+import com.google.protobuf.ByteString
+import upickle.default.*
 
+import java.util.Base64
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
+
+@SuppressWarnings(Array("org.wartremover.warts.Null"))
+object JsonCodecs {
+  implicit val contractIdRW: ReadWriter[ContractId] =
+    readwriter[String].bimap[ContractId](
+      cid => cid.coid,
+      s => LfContractId.assertFromString(s),
+    )
+
+  implicit val synchronizerIdRW: ReadWriter[SynchronizerId] =
+    readwriter[String].bimap[SynchronizerId](
+      synchronizerId => synchronizerId.toProtoPrimitive,
+      s => SynchronizerId.tryFromString(s),
+    )
+
+  implicit def genContractInstanceRW: ReadWriter[ContractInstance] =
+    readwriter[String].bimap[ContractInstance](
+      contractInstance => Base64.getEncoder.encodeToString(contractInstance.encoded.toByteArray),
+      s =>
+        ContractInstance
+          .decodeWithCreatedAt(ByteString.copyFrom(Base64.getDecoder.decode(s)))
+          .valueOr(err =>
+            throw new IllegalArgumentException(s"Invalid GenContractInstance payload: $err")
+          ),
+    )
+
+  implicit val reassignmentCounterRW: ReadWriter[ReassignmentCounter] =
+    readwriter[String].bimap[ReassignmentCounter](
+      reassignmentCounter => reassignmentCounter.unwrap.toString,
+      s => ReassignmentCounter(s.toLong),
+    )
+
+  implicit val reassignmentIdRW: ReadWriter[ReassignmentId] =
+    readwriter[String].bimap[ReassignmentId](
+      reassignmentId => reassignmentId.toProtoPrimitive,
+      ReassignmentId.tryCreate,
+    )
+}
 
 final case class CommitmentContractMetadata(
     cid: LfContractId,
@@ -62,6 +105,9 @@ object CommitmentContractMetadata
     extends HasVersionedMessageCompanion[
       CommitmentContractMetadata,
     ] {
+  import JsonCodecs.*
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  implicit val rw: ReadWriter[CommitmentContractMetadata] = macroRW
 
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
@@ -90,31 +136,52 @@ object CommitmentContractMetadata
     CommitmentContractMetadata(cid, reassignmentCounter)
 
   def compare(
-      first: Seq[CommitmentContractMetadata],
-      second: Seq[CommitmentContractMetadata],
+      localContracts: Seq[CommitmentContractMetadata],
+      remoteContracts: Seq[CommitmentContractMetadata],
   ): CompareCmtContracts = {
     // check that there are no contract id duplicates in each seq
-    val firstMap = first.map(cmt => cmt.cid -> cmt.reassignmentCounter).toMap
-    require(firstMap.keys.sizeIs != first.size, "Duplicate contract ids in first sequence")
+    val localMap = localContracts.map(cmt => cmt.cid -> cmt.reassignmentCounter).toMap
+    require(localMap.keys.sizeIs == localContracts.size, "Duplicate contract ids in local sequence")
 
-    val secondMap = first.map(cmt => cmt.cid -> cmt.reassignmentCounter).toMap
-    require(secondMap.keys.sizeIs != second.size, "Duplicate contract ids in second sequence")
+    val remoteMap = remoteContracts.map(cmt => cmt.cid -> cmt.reassignmentCounter).toMap
+    require(
+      remoteMap.keys.sizeIs == remoteContracts.size,
+      "Duplicate contract ids in remote sequence",
+    )
 
-    val (cidsInBoth, cidsOnlyFirst) = firstMap.keys.partition(cid => secondMap.contains(cid))
-    val (_, cidsOnlySecond) = secondMap.keys.partition(cid => firstMap.contains(cid))
+    val (cidsInBoth, cidsOnlyLocal) = localMap.keys.partition(cid => remoteMap.contains(cid))
+    val (_, cidsOnlyRemote) = remoteMap.keys.partition(cid => localMap.contains(cid))
 
     val (_sameContracts, diffReassignmentCounters) =
-      cidsInBoth.partition(cid => firstMap(cid) == secondMap(cid))
+      cidsInBoth.partition(cid => localMap(cid) == remoteMap(cid))
 
-    CompareCmtContracts(cidsOnlyFirst.toSeq, cidsOnlySecond.toSeq, diffReassignmentCounters.toSeq)
+    CompareCmtContracts(cidsOnlyLocal.toSeq, cidsOnlyRemote.toSeq, diffReassignmentCounters.toSeq)
   }
 }
 
 final case class CompareCmtContracts(
-    cidsOnlyFirst: Seq[LfContractId],
-    cidsOnlySecond: Seq[LfContractId],
+    cidsOnlyLocal: Seq[LfContractId],
+    cidsOnlyRemote: Seq[LfContractId],
     differentReassignmentCounters: Seq[LfContractId],
-)
+) {
+
+  def writeToFile(filename: String): Unit = {
+    val file = File(filename)
+    val jsonString = write(this, indent = 2)
+    val _ = file.write(jsonString)
+  }
+}
+
+object CompareCmtContracts {
+  import JsonCodecs.*
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  implicit val rw: ReadWriter[CompareCmtContracts] = macroRW
+
+  def readFromFile(filename: String): CompareCmtContracts = {
+    val jsonString = File(filename).contentAsString()
+    read[CompareCmtContracts](jsonString)
+  }
+}
 
 final case class CommitmentInspectContract(
     cid: LfContractId,
@@ -143,6 +210,9 @@ final case class CommitmentInspectContract(
 }
 
 object CommitmentInspectContract extends HasVersionedMessageCompanion[CommitmentInspectContract] {
+  import JsonCodecs.*
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  implicit val rw: ReadWriter[CommitmentInspectContract] = macroRW
 
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
@@ -363,6 +433,12 @@ object CommitmentInspectContract extends HasVersionedMessageCompanion[Commitment
         )
     } yield (states ++ unknownContracts).toSeq
   }
+
+  def writeToFile(filename: String, items: Seq[CommitmentInspectContract]): Unit = {
+    val file = File(filename)
+    val ndjson = items.map(p => write(p)).mkString("\n")
+    val _ = file.overwrite(ndjson)
+  }
 }
 
 final case class CommitmentMismatchInfo(
@@ -458,6 +534,10 @@ object ContractStateOnSynchronizer
     extends HasVersionedMessageCompanion[
       ContractStateOnSynchronizer
     ] {
+  import JsonCodecs.*
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  implicit val rw: ReadWriter[ContractStateOnSynchronizer] = macroRW
+
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
@@ -487,9 +567,21 @@ object ContractStateOnSynchronizer
 
 sealed trait ContractState extends Product with Serializable with PrettyPrinting
 
+object ContractState {
+  implicit val rw: ReadWriter[ContractState] = macroRW
+}
+
 sealed trait ContractActive extends ContractState
 
+object ContractActive {
+  implicit val rw: ReadWriter[ContractActive] = macroRW
+}
+
 sealed trait ContractInactive extends ContractState
+
+object ContractInactive {
+  implicit val rw: ReadWriter[ContractInactive] = macroRW
+}
 
 final case class ContractCreated()
     extends ContractActive
@@ -506,6 +598,8 @@ object ContractCreated
     extends HasVersionedMessageCompanion[
       ContractCreated
     ] {
+
+  implicit val rw: ReadWriter[ContractCreated] = macroRW
 
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
@@ -550,6 +644,10 @@ object ContractAssigned
     extends HasVersionedMessageCompanion[
       ContractAssigned
     ] {
+  import JsonCodecs.*
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  implicit val rw: ReadWriter[ContractAssigned] = macroRW
+
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
@@ -606,6 +704,10 @@ final case class ContractUnassigned(
 }
 
 object ContractUnassigned extends HasVersionedMessageCompanion[ContractUnassigned] {
+  import JsonCodecs.*
+  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
+  implicit val rw: ReadWriter[ContractUnassigned] = macroRW
+
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
@@ -657,6 +759,8 @@ object ContractArchived
     extends HasVersionedMessageCompanion[
       ContractArchived
     ] {
+  implicit val rw: ReadWriter[ContractArchived] = macroRW
+
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
@@ -690,6 +794,8 @@ object ContractUnknown
     extends HasVersionedMessageCompanion[
       ContractUnknown
     ] {
+  implicit val rw: ReadWriter[ContractUnknown] = macroRW
+
   override def supportedProtoVersions: SupportedProtoVersions =
     SupportedProtoVersions(
       ProtoVersion(30) -> ProtoCodec(
@@ -704,4 +810,25 @@ object ContractUnknown
   ): ParsingResult[ContractUnknown] = Right(ContractUnknown())
 
   override def name: String = "contract unknown"
+}
+
+object OpenCommitmentHelper {
+  def writeToFile(filename: String, result: Seq[CommitmentContractMetadata]): Unit = {
+    val file = File(filename)
+    val ndjson = result.map(p => write(p)).mkString("\n")
+    val _ = file.overwrite(ndjson)
+  }
+
+  def readFromFile(filename: String): Seq[CommitmentContractMetadata] = {
+    val file = File(filename)
+
+    val contracts: Seq[CommitmentContractMetadata] =
+      file
+        .lineIterator()
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .map(line => read[CommitmentContractMetadata](line))
+        .toSeq
+    contracts
+  }
 }

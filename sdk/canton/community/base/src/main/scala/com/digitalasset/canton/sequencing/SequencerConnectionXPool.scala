@@ -18,6 +18,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
@@ -61,7 +62,12 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
   /** Return the synchronizer ID to which the connections in the pool are connected. Empty if the
     * pool has not yet reached enough validated connections to initialize.
     */
-  def physicalSynchronizerId: Option[PhysicalSynchronizerId]
+  def physicalSynchronizerIdO: Option[PhysicalSynchronizerId]
+
+  /** Return the static parameters of the synchronizer to which the connections in the pool are
+    * connected. Empty if the pool has not yet reached enough validated connections to initialize.
+    */
+  def staticSynchronizerParametersO: Option[StaticSynchronizerParameters]
 
   /** Start the connection pool. This will start all the configured connections and begin validating
     * them.
@@ -75,7 +81,7 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
     */
   def start()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError.TimeoutError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError, Unit]
 
   /** Return the current configuration of the pool.
     */
@@ -125,12 +131,14 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
   def getAllConnections()(implicit traceContext: TraceContext): Seq[SequencerConnectionX]
 
   /** Determine whether the connection pool can still reach the given threshold, ignoring the
-    * `ignored` connections.
+    * `ignored` connections and considering an additional `extraUndecided` number of undecided
+    * connections.
     */
   def isThresholdStillReachable(
       threshold: PositiveInt,
       ignored: Set[ConnectionXConfig] = Set.empty,
-  ): Boolean
+      extraUndecided: NonNegativeInt = NonNegativeInt.zero,
+  )(implicit traceContext: TraceContext): Boolean
 
   @VisibleForTesting
   def contents: Map[SequencerId, Set[SequencerConnectionX]]
@@ -286,6 +294,7 @@ object SequencerConnectionXPool {
   object SequencerConnectionXPoolError {
     final case class InvalidConfigurationError(error: String) extends SequencerConnectionXPoolError
     final case class TimeoutError(error: String) extends SequencerConnectionXPoolError
+    final case class ThresholdUnreachableError(error: String) extends SequencerConnectionXPoolError
   }
 }
 

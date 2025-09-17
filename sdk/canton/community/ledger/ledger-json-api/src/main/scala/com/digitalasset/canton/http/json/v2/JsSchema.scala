@@ -28,7 +28,7 @@ import sttp.tapir.Schema.SName
 import sttp.tapir.SchemaType.SProduct
 import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
-import sttp.tapir.{DecodeResult, Schema, SchemaType}
+import sttp.tapir.{DecodeResult, Schema, SchemaType, Validator}
 
 import java.time.Instant
 import java.util.Base64
@@ -56,6 +56,16 @@ object JsSchema {
           s"Unrecognized enum value $v. Supported values: ${enumCompanion.values.map(_.name).mkString("[", ", ", "]")}"
         )
     }
+
+  def stringSchemaForEnum[T <: scalapb.GeneratedEnum]()(implicit
+      enumCompanion: GeneratedEnumCompanion[T]
+  ): Schema[T] =
+    Schema.string.validate(
+      Validator.enumeration(
+        implicitly[GeneratedEnumCompanion[T]].values.toList,
+        v => Some(v.name),
+      )
+    )
 
   final case class JsTransaction(
       updateId: String,
@@ -112,6 +122,7 @@ object JsSchema {
       events: Seq[JsReassignmentEvent.JsReassignmentEvent],
       traceContext: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
       recordTime: com.google.protobuf.timestamp.Timestamp,
+      synchronizerId: String,
   )
 
   object JsServicesCommonCodecs {
@@ -147,6 +158,8 @@ object JsSchema {
     // TODO(#23504) remove
     @nowarn("cat=deprecation")
     implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] =
+      deriveRelaxedCodec
+    implicit val transactionFilterLegacyRW: Codec[LegacyDTOs.TransactionFilter] =
       deriveRelaxedCodec
     implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveRelaxedCodec
 
@@ -184,9 +197,10 @@ object JsSchema {
       Schema.derived
 
     implicit val participantPermissionSchema: Schema[state_service.ParticipantPermission] =
-      Schema.string
+      stringSchemaForEnum()
 
-    implicit val transactionShapeSchema: Schema[transaction_filter.TransactionShape] = Schema.string
+    implicit val transactionShapeSchema: Schema[transaction_filter.TransactionShape] =
+      stringSchemaForEnum()
 
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =

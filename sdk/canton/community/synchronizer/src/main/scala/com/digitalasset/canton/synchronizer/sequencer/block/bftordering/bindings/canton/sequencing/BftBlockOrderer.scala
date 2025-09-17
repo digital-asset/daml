@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -33,7 +34,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.{
   BftOrderingSequencerAdminService,
   GrpcBftOrderingSequencerPruningAdminService,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.{
+  CantonOrderingTopologyProvider,
+  SequencerNodeId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerInterceptor
@@ -58,7 +62,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   P2PConnectionManagementConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PekkoBlockSubscription
@@ -101,21 +104,22 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 import io.grpc.{ServerInterceptors, ServerServiceDefinition}
+import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.stream.{KillSwitch, Materializer}
 
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 
 final class BftBlockOrderer(
     config: BftBlockOrdererConfig,
     sharedLocalStorage: Storage,
-    psId: PhysicalSynchronizerId,
+    cryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     clock: Clock,
-    orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
     authenticationServicesO: Option[
       AuthenticationServices
     ], // Owned and managed by the sequencer runtime, absent in some tests
@@ -123,11 +127,12 @@ final class BftBlockOrderer(
     sequencerSubscriptionInitialHeight: Long,
     override val orderingTimeFixMode: OrderingTimeFixMode,
     sequencerSnapshotInfo: Option[SequencerSnapshot.ImplementationSpecificInfo],
+    exitOnFatalFailures: Boolean,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
-    queryCostMonitoring: Option[QueryCostMonitoringConfig] = None,
-)(implicit executionContext: ExecutionContext, materializer: Materializer)
+    queryCostMonitoring: Option[QueryCostMonitoringConfig],
+)(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BlockOrderer
     with NamedLogging
     with FlagCloseableAsync
@@ -139,6 +144,8 @@ final class BftBlockOrderer(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
     s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
   )
+
+  private val psId: PhysicalSynchronizerId = cryptoApi.psid
 
   private implicit val protocolVersion: ProtocolVersion = psId.protocolVersion
 
@@ -232,7 +239,7 @@ final class BftBlockOrderer(
     }
   }
 
-  private val p2pGrpcConnectionState = new P2PGrpcConnectionState(loggerFactory)
+  private val p2pGrpcConnectionState = new P2PGrpcConnectionState(thisNode, loggerFactory)
 
   private val p2pEndpointsStore = setupP2PEndpointsStore(localStorage)
   private val availabilityStore = AvailabilityStore(localStorage, timeouts, loggerFactory)
@@ -258,6 +265,8 @@ final class BftBlockOrderer(
       )
   }
 
+  private val isOrdererHealthy = new AtomicBoolean(true)
+
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(
     actorSystem,
     initResult,
@@ -279,6 +288,8 @@ final class BftBlockOrderer(
       "bftOrderingPekkoModuleSystem",
       createSystemInitializer(),
       createNetworkManager,
+      exitOnFatalFailures,
+      isOrdererHealthy,
       metrics,
       loggerFactory,
     )
@@ -317,7 +328,8 @@ final class BftBlockOrderer(
         logger.info("BFT P2P endpoints from configuration written to the store (overwriting mode)")
       } else {
         logger.info(
-          "Using initial BFT network endpoints already present in the store instead of the configuration"
+          "Using initial BFT network endpoints already present in the store (populated with the configuration " +
+            "if the store is empty) instead of the configuration"
         )
       }
     }
@@ -347,10 +359,11 @@ final class BftBlockOrderer(
       // TODO(#19289) support dynamically configurable epoch length
       EpochLength(config.epochLength),
       stores,
-      orderingTopologyProvider,
+      new CantonOrderingTopologyProvider(cryptoApi, loggerFactory, metrics),
       blockSubscription,
       sequencerSnapshotAdditionalInfo,
-      new P2PNetworkOutModule.State(p2pGrpcConnectionState),
+      bootstrapMembership =>
+        new P2PNetworkOutModule.State(p2pGrpcConnectionState, bootstrapMembership),
       clock,
       new Random(new SecureRandom()),
       metrics,
@@ -482,7 +495,12 @@ final class BftBlockOrderer(
   override def send(
       signedSubmissionRequest: SignedSubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
-    logger.debug(s"sending submission")
+    logger.debug(
+      "sending submission " +
+        s"with message ID ${signedSubmissionRequest.content.sender} " +
+        s"from ${signedSubmissionRequest.content.sender} " +
+        s"to ${signedSubmissionRequest.content.batch.allRecipients} "
+    )
     sendToMempool(
       SendTag,
       signedSubmissionRequest.content.sender,
@@ -503,11 +521,18 @@ final class BftBlockOrderer(
   }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
-    val isStorageActive = localStorage.isActive
-    val description = if (isStorageActive) None else Some("BFT orderer can't connect to database")
+    val isStorageInactive = !localStorage.isActive
+    val isOrdererUnhealthy = !isOrdererHealthy.get
+
+    val description =
+      if (isStorageInactive) Some("BFT orderer can't connect to database")
+      else if (isOrdererUnhealthy)
+        Some("BFT orderer encountered a problem, check the logs for errors")
+      else None
+
     Future.successful(
       SequencerDriverHealthStatus(
-        isActive = isStorageActive,
+        isActive = description.isEmpty,
         description,
       )
     )

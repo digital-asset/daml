@@ -27,8 +27,8 @@ final case class UnassignmentData(
     submitterMetadata: ReassignmentSubmitterMetadata,
     contractsBatch: ContractsReassignmentBatch,
     reassigningParticipants: Set[ParticipantId],
-    sourceSynchronizer: Source[PhysicalSynchronizerId],
-    targetSynchronizer: Target[PhysicalSynchronizerId],
+    sourcePSId: Source[PhysicalSynchronizerId],
+    targetPSId: Target[PhysicalSynchronizerId],
     targetTimestamp: CantonTimestamp,
     // Data unknown by the submitter
     unassignmentTs: CantonTimestamp,
@@ -37,11 +37,11 @@ final case class UnassignmentData(
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     UnassignmentData.type
-  ] = UnassignmentData.protocolVersionRepresentativeFor(sourceSynchronizer.unwrap.protocolVersion)
+  ] = UnassignmentData.protocolVersionRepresentativeFor(sourcePSId.unwrap.protocolVersion)
 
   lazy val reassignmentId: ReassignmentId = ReassignmentId(
-    sourceSynchronizer.map(_.logical),
-    targetSynchronizer.map(_.logical),
+    sourcePSId.map(_.logical),
+    targetPSId.map(_.logical),
     unassignmentTs,
     contractsBatch.contractIdCounters,
   )
@@ -57,8 +57,8 @@ final case class UnassignmentData(
       )
     },
     reassigningParticipantUids = reassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
-    sourcePhysicalSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
-    targetPhysicalSynchronizerId = targetSynchronizer.unwrap.toProtoPrimitive,
+    sourcePhysicalSynchronizerId = sourcePSId.unwrap.toProtoPrimitive,
+    targetPhysicalSynchronizerId = targetPSId.unwrap.toProtoPrimitive,
     targetTimestamp = targetTimestamp.toProtoTimestamp.some,
     unassignmentTs = unassignmentTs.toProtoTimestamp.some,
   )
@@ -84,8 +84,8 @@ object UnassignmentData
     submitterMetadata = unassignmentRequest.submitterMetadata,
     contractsBatch = unassignmentRequest.contracts,
     reassigningParticipants = unassignmentRequest.reassigningParticipants,
-    sourceSynchronizer = unassignmentRequest.sourceSynchronizer,
-    targetSynchronizer = unassignmentRequest.targetSynchronizer,
+    sourcePSId = unassignmentRequest.sourceSynchronizer,
+    targetPSId = unassignmentRequest.targetSynchronizer,
     unassignmentTs = unassignmentTs,
     targetTimestamp = unassignmentRequest.targetTimeProof.timestamp,
   )
@@ -145,8 +145,8 @@ object UnassignmentData
     submitterMetadata = submitterMetadata,
     contractsBatch = contracts,
     reassigningParticipants = reassigningParticipants.toSet,
-    sourceSynchronizer = sourceSynchronizer,
-    targetSynchronizer = targetSynchronizer,
+    sourcePSId = sourceSynchronizer,
+    targetPSId = targetSynchronizer,
     targetTimestamp = targetTimestamp,
     unassignmentTs = unassignmentTs,
   )

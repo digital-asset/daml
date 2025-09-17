@@ -8,6 +8,7 @@ module Types (
     CIException(..),
     Classifier,
     GitRev,
+    GoogleArtifactRegistryConfig(..),
     GroupId,
     MavenAllowUnsecureTls(..),
     MavenCoords(..),
@@ -136,6 +137,11 @@ instance FromJSON MavenUploadConfig where
         <*> o .: "password"
         <*> (fromMaybe (MavenAllowUnsecureTls False) <$> o .:? "allowUnsecureTls")
         <*> o .: "signingKey"
+
+data GoogleArtifactRegistryConfig = GoogleArtifactRegistryConfig
+  { garUrl :: !Text
+  , garKey :: !Text
+  }
 
 -- | Whether typescript packages should also be built and uploaded.
 newtype IncludeTypescript = IncludeTypescript { getIncludeTypescript :: Bool}

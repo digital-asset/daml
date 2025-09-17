@@ -283,7 +283,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
   ): VersionedTransaction = {
     val effectiveAt = Time.Timestamp.now()
     def enrich(tx: SubmittedTransaction): CommittedTransaction = {
-      val enricher = new Enricher(engine, requireContractIdSuffix = false)
+      val enricher = new Enricher(engine, forbidLocalContractIds = false)
       val suffix = Bytes.fromByteArray(Array(0, 0))
       val suffixedTx = data.assertRight(tx.suffixCid(_ => suffix, _ => suffix))
       def consume[V](res: Result[V]): V =
@@ -304,7 +304,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
         prefetchKeys = Seq.empty,
       )
       .consume(
-        ledger.get(submitter, effectiveAt),
+        ledger.get(submitter, effectiveAt).andThen(_.nonVerbose),
         allPackages,
         { case _ =>
           sys.error("TODO keys for LargeTransactionTest")

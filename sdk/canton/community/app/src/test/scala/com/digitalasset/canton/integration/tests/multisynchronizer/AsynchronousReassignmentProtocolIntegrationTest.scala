@@ -91,7 +91,7 @@ final class AsynchronousReassignmentProtocolIntegrationTest
         val alice = "alice"
         val bob = "bob"
         // Enable alice on other participants, on all synchronizers
-        new PartiesAllocator(participants.all.toSet)(
+        PartiesAllocator(participants.all.toSet)(
           Seq(alice -> participant1, bob -> participant1),
           Map(
             alice -> Map(
@@ -103,7 +103,7 @@ final class AsynchronousReassignmentProtocolIntegrationTest
               acmeId -> (PositiveInt.one, Set((participant1, Submission))),
             ),
           ),
-        ).run()
+        )
 
         programmableSequencers.put(daName, getProgrammableSequencer(sequencer1.name))
         programmableSequencers.put(acmeName, getProgrammableSequencer(sequencer2.name))

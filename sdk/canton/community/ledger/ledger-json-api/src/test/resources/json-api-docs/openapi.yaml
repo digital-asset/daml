@@ -2073,6 +2073,33 @@ components:
       properties:
         party:
           type: string
+    CanExecuteAs:
+      title: CanExecuteAs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAs1'
+    CanExecuteAs1:
+      title: CanExecuteAs
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+    CanExecuteAsAnyParty:
+      title: CanExecuteAsAnyParty
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAsAnyParty1'
+    CanExecuteAsAnyParty1:
+      title: CanExecuteAsAnyParty
+      type: object
     CanReadAs:
       title: CanReadAs
       type: object
@@ -2321,6 +2348,11 @@ components:
           type: string
         permission:
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     CreateAndExerciseCommand:
       title: CreateAndExerciseCommand
       description: Create a contract and exercise a choice on it in the same transaction.
@@ -3254,26 +3286,11 @@ components:
             The contract id being queried.
             Required
           type: string
-        requestingParties:
-          description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-            The parties whose events the client expects to see.
-            The events associated with the contract id will only be returned if the requesting parties includes
-            at least one party that is a stakeholder of the event. For a definition of stakeholders see
-            https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-            Optional, if some parties specified, event_format needs to be unset.
-          type: array
-          items:
-            type: string
         eventFormat:
           $ref: '#/components/schemas/EventFormat'
           description: |-
             Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
-            Optional for backwards compatibility, defaults to an EventFormat where:
-
-            - filters_by_party is a template-wildcard filter for all requesting_parties
-            - filters_for_any_party is unset
-            - verbose is set
+            Required
     GetIdentityProviderConfigResponse:
       title: GetIdentityProviderConfigResponse
       type: object
@@ -3349,6 +3366,9 @@ components:
         packageStatus:
           description: The status of the package.
           type: string
+          enum:
+          - PACKAGE_STATUS_UNSPECIFIED
+          - PACKAGE_STATUS_REGISTERED
     GetParticipantIdResponse:
       title: GetParticipantIdResponse
       type: object
@@ -3573,13 +3593,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -4154,6 +4174,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4226,6 +4249,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4277,6 +4303,9 @@ components:
             The hashing scheme version used when building the hash
             Required
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
           description: |-
@@ -4541,6 +4570,9 @@ components:
         hashingSchemeVersion:
           description: The hashing scheme version used when building the hash
           type: string
+          enum:
+          - HASHING_SCHEME_VERSION_UNSPECIFIED
+          - HASHING_SCHEME_VERSION_V2
         hashingDetails:
           description: |-
             Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
@@ -4557,6 +4589,7 @@ components:
       - workflowId
       - offset
       - recordTime
+      - synchronizerId
       properties:
         updateId:
           description: |-
@@ -4603,6 +4636,12 @@ components:
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
+            Required
+          type: string
+        synchronizerId:
+          description: |-
+            A valid synchronizer id.
+            Identifies the synchronizer that synchronized this Reassignment.
             Required
           type: string
     JsReassignmentEvent:
@@ -4920,6 +4959,18 @@ components:
         properties:
           CanActAs:
             $ref: '#/components/schemas/CanActAs'
+      - type: object
+        required:
+        - CanExecuteAs
+        properties:
+          CanExecuteAs:
+            $ref: '#/components/schemas/CanExecuteAs'
+      - type: object
+        required:
+        - CanExecuteAsAnyParty
+        properties:
+          CanExecuteAsAnyParty:
+            $ref: '#/components/schemas/CanExecuteAsAnyParty'
       - type: object
         required:
         - CanReadAs
@@ -5270,6 +5321,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -5295,6 +5351,11 @@ components:
         participantPermission:
           description: Required
           type: string
+          enum:
+          - PARTICIPANT_PERMISSION_UNSPECIFIED
+          - PARTICIPANT_PERMISSION_SUBMISSION
+          - PARTICIPANT_PERMISSION_CONFIRMATION
+          - PARTICIPANT_PERMISSION_OBSERVATION
     ParticipantAuthorizationRevoked:
       title: ParticipantAuthorizationRevoked
       type: object
@@ -5557,6 +5618,12 @@ components:
         format:
           description: ''
           type: string
+          enum:
+          - SIGNATURE_FORMAT_UNSPECIFIED
+          - SIGNATURE_FORMAT_RAW
+          - SIGNATURE_FORMAT_DER
+          - SIGNATURE_FORMAT_CONCAT
+          - SIGNATURE_FORMAT_SYMBOLIC
         signature:
           description: ''
           type: string
@@ -5567,6 +5634,11 @@ components:
         signingAlgorithmSpec:
           description: The signing algorithm specification used to produce this signature
           type: string
+          enum:
+          - SIGNING_ALGORITHM_SPEC_UNSPECIFIED
+          - SIGNING_ALGORITHM_SPEC_ED25519
+          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
     SinglePartySignatures:
       title: SinglePartySignatures
       description: Signatures provided by a single party
@@ -5783,7 +5855,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.5.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -5803,8 +5875,6 @@ components:
                the listed parties and match the per-party filter.
             3. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
                stakeholders include at least one of the listed parties and match the per-party filter.
-
-            Required
         filtersForAnyParty:
           $ref: '#/components/schemas/Filters'
           description: |-
@@ -5827,6 +5897,10 @@ components:
             What transaction shape to use for interpreting the filters of the event format.
             Required
           type: string
+          enum:
+          - TRANSACTION_SHAPE_UNSPECIFIED
+          - TRANSACTION_SHAPE_ACS_DELTA
+          - TRANSACTION_SHAPE_LEDGER_EFFECTS
     TransactionTree:
       title: TransactionTree
       description: |-

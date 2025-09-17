@@ -63,7 +63,7 @@ import java.util.UUID
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 
-final class ActiveContractsIntegrationTest
+class ActiveContractsIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with AcsInspection
@@ -196,7 +196,7 @@ final class ActiveContractsIntegrationTest
       packageName = packageName,
     )
 
-    val contractSalt = ContractSalt.create(pureCrypto)(
+    val contractSalt = ContractSalt.createV1(pureCrypto)(
       transactionUuid = new UUID(1L, 1L),
       psid = psid,
       mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
@@ -224,15 +224,13 @@ final class ActiveContractsIntegrationTest
     participant1.synchronizers.reconnect_all()
     val createdEvent = eventually() {
       val endOffset = participant1.ledger_api.state.end()
-
-      participant1.ledger_api.updates
-        .reassignments(
-          partyIds = Set(signatory),
-          completeAfter = Int.MaxValue,
-          beginOffsetExclusive = startOffset,
-          endOffsetInclusive = Some(endOffset),
-        )
-        .map(_.createEvents)
+      val updates = participant1.ledger_api.updates.transactions(
+        partyIds = Set(signatory),
+        completeAfter = Int.MaxValue,
+        beginOffsetExclusive = startOffset,
+        endOffsetInclusive = Some(endOffset),
+      )
+      updates.map(_.createEvents)
     }.flatten.loneElement
     val contract = Iou.Contract.fromCreatedEvent(createdEventFromProto(toJavaProto(createdEvent)))
     ContractData(contract, createdEvent)
@@ -820,6 +818,7 @@ final class ActiveContractsIntegrationTest
     val unassignedUniqueId = participant.ledger_api.updates
       .reassignments(
         partyIds = Set(observer),
+        filterTemplates = Seq.empty,
         beginOffsetExclusive = startFromExclusive,
         completeAfter = PositiveInt.one,
         resultFilter = _.isUnassignment,

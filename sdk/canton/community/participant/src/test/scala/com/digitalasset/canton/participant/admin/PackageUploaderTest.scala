@@ -3,27 +3,26 @@
 
 package com.digitalasset.canton.participant.admin
 
-import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import cats.Eval
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{CachingConfigs, PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Dummy
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
-import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
-import com.digitalasset.canton.participant.admin.PackageTestUtils.ArchiveOps
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.participant.store.memory.{
   InMemoryDamlPackageStore,
   MutablePackageMetadataViewImpl,
 }
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
+import com.digitalasset.canton.platform.apiserver.services.admin.{
+  PackageTestUtils,
+  PackageUpgradeValidator,
+}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.{
   BaseTest,
@@ -239,114 +238,16 @@ class PackageUploaderTest
         succeed
       }
     }
-
-    "check DAR upgrade when upgrade validation is enabled" in withTestEnv(upgradeValidation =
-      true
-    ) { env =>
-      checkUpgradeValidation(
-        env,
-        expectedErrorAssertionOnIncompatibleUpload =
-          Some(_ shouldBe a[Validation.Upgradeability.Error]),
-      )
-    }
-
-    "do not check DAR upgrade when upgrade validation is disabled" in withTestEnv(
-      upgradeValidation = false
-    ) { env =>
-      checkUpgradeValidation(
-        withInitializedTestEnv = env,
-        expectedErrorAssertionOnIncompatibleUpload = None,
-      )
-    }
-  }
-
-  private def checkUpgradeValidation(
-      withInitializedTestEnv: WithInitializedTestEnv,
-      expectedErrorAssertionOnIncompatibleUpload: Option[RpcError => Assertion],
-  ) = {
-    import withInitializedTestEnv.*
-    val darV1 = PackageTestUtils
-      .sampleLfArchive(
-        packageName = LfPackageName.assertFromString("TestPkgName"),
-        packageVersion = LfPackageVersion.assertFromString("1.0.0"),
-        discriminatorFields = Seq.empty,
-      )
-      .lfArchiveToByteString
-
-    val compatibleUpgradeDar = PackageTestUtils
-      .sampleLfArchive(
-        packageName = LfPackageName.assertFromString("TestPkgName"),
-        packageVersion = LfPackageVersion.assertFromString("2.0.0"),
-        discriminatorFields = Seq("party: Option Party"),
-      )
-      .lfArchiveToByteString
-
-    val incompatibleUpgradeDarArchive = PackageTestUtils
-      .sampleLfArchive(
-        packageName = LfPackageName.assertFromString("TestPkgName"),
-        packageVersion = LfPackageVersion.assertFromString("3.0.0"),
-        discriminatorFields = Seq("text: Text"),
-      )
-
-    packageUploader
-      .upload(
-        darPayload = darV1,
-        description = None,
-        submissionId = LedgerSubmissionId.assertFromString("sub-1"),
-        expectedMainPackageId = None,
-      )
-      .futureValueUS
-      .value
-      .discard
-
-    packageUploader
-      .upload(
-        darPayload = compatibleUpgradeDar,
-        description = None,
-        submissionId = LedgerSubmissionId.assertFromString("sub-2"),
-        expectedMainPackageId = None,
-      )
-      .futureValueUS
-      .value
-      .discard
-
-    val incompatibleUploadResult = packageUploader
-      .upload(
-        darPayload = incompatibleUpgradeDarArchive.lfArchiveToByteString,
-        description = None,
-        submissionId = LedgerSubmissionId.assertFromString("sub-3"),
-        expectedMainPackageId = None,
-      )
-      .futureValueUS
-
-    val (pkgId, _astPkg) = Decode.assertDecodeArchive(incompatibleUpgradeDarArchive)
-    expectedErrorAssertionOnIncompatibleUpload
-      .map { expectedErrorAssertion =>
-        val error = incompatibleUploadResult
-          .leftOrFail("expected upload failure on incompatible upgrade")
-
-        packageStore.getDar(DarMainPackageId.tryCreate(pkgId)).value.futureValueUS shouldBe empty
-        expectedErrorAssertion(error)
-      }
-      .getOrElse({
-        incompatibleUploadResult.valueOrFail("Expected successful upload").discard
-        packageStore
-          .getDar(DarMainPackageId.tryCreate(pkgId))
-          .value
-          .futureValueUS should not be empty
-      })
   }
 
   final def withTestEnv(
       initialize: Boolean = true,
       damlPackageStore: DamlPackageStore = new InMemoryDamlPackageStore(loggerFactory),
-      upgradeValidation: Boolean = true,
       enableStrictDarValidation: Boolean = false,
   )(test: WithInitializedTestEnv => Assertion): Assertion = {
     val testEnv = new WithInitializedTestEnv(
       initialize,
       damlPackageStore,
-      upgradeValidation,
       enableStrictDarValidation,
     ) {
       override def run(): Assertion = {
@@ -362,7 +263,6 @@ class PackageUploaderTest
   private abstract class WithInitializedTestEnv(
       initialize: Boolean,
       val packageStore: DamlPackageStore,
-      upgradeValidation: Boolean,
       enableStrictDarValidation: Boolean,
   ) extends AutoCloseable {
     val clockNow: CantonTimestamp = CantonTimestamp.ofEpochMilli(1337L)
@@ -370,11 +270,11 @@ class PackageUploaderTest
     val mutablePackageMetadataViewImpl = new MutablePackageMetadataViewImpl(
       clock = clock,
       damlPackageStore = packageStore,
+      new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
       loggerFactory = loggerFactory,
       packageMetadataViewConfig = PackageMetadataViewConfig(),
       timeouts = ProcessingTimeout(),
     )
-    val packageUpgradeValidator = new PackageUpgradeValidator(loggerFactory)
     val packageUploader = new PackageUploader(
       clock = clock,
       packageStore = packageStore,
@@ -384,12 +284,8 @@ class PackageUploaderTest
         enableStackTraces = false,
         paranoidMode = true,
       ),
-      enableUpgradeValidation = upgradeValidation,
       enableStrictDarValidation = enableStrictDarValidation,
-      futureSupervisor = FutureSupervisor.Noop,
-      packageMetadataView = mutablePackageMetadataViewImpl,
-      packageUpgradeValidator = packageUpgradeValidator,
-      exitOnFatalFailures = false,
+      packageMetadataView = Eval.now(mutablePackageMetadataViewImpl),
       timeouts = ProcessingTimeout(),
       loggerFactory = loggerFactory,
     )

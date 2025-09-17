@@ -12,30 +12,18 @@ import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, ProcessingT
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
-import com.digitalasset.canton.interactive.ExternalPartyUtils.OnboardingTransactions
+import com.digitalasset.canton.data.OnboardingTransactions
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
-import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.{ExternalParty, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import com.google.protobuf.ByteString
 import org.scalatest.EitherValues
 
 import scala.concurrent.ExecutionContext
-
-object ExternalPartyUtils {
-  final case class OnboardingTransactions(
-      namespaceDelegation: SignedTopologyTransaction[TopologyChangeOp.Replace, NamespaceDelegation],
-      partyToParticipant: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
-      partyToKeyMapping: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToKeyMapping],
-  ) {
-    def toSeq: Seq[SignedTopologyTransaction[Replace, TopologyMapping]] =
-      Seq(namespaceDelegation, partyToParticipant, partyToKeyMapping)
-  }
-}
 
 trait ExternalPartyUtils extends FutureHelpers with EitherValues {
 
@@ -49,7 +37,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
 
   private val storage = new MemoryStorage(loggerFactory, timeouts)
 
-  lazy val crypto: Crypto = Crypto
+  private lazy val crypto: Crypto = Crypto
     .create(
       CryptoConfig(),
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
@@ -68,7 +56,9 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
     .valueOrFailShutdown("Failed to create crypto object")
     .futureValue
 
-  def generateProtocolSigningKeys(numberOfKeys: PositiveInt) =
+  private def generateProtocolSigningKeys(
+      numberOfKeys: PositiveInt
+  ): NonEmpty[Seq[SigningPublicKey]] =
     NonEmpty
       .from(
         Seq.fill(numberOfKeys.value)(
@@ -79,7 +69,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
         fail("Expected at least one protocol signing key")
       )
 
-  def generateExternalPartyOnboardingTransactions(
+  protected def generateExternalPartyOnboardingTransactions(
       name: String,
       confirming: Seq[ParticipantId] = Seq.empty,
       observing: Seq[ParticipantId] = Seq.empty,
@@ -207,22 +197,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
     )
   }
 
-  def signTopologyTransaction[Op <: TopologyChangeOp, M <: TopologyMapping](
-      party: PartyId,
-      topologyTransaction: TopologyTransaction[Op, M],
-  ): SignedTopologyTransaction[Op, M] =
-    SignedTopologyTransaction
-      .signAndCreate(
-        topologyTransaction,
-        NonEmpty.mk(Set, party.fingerprint),
-        isProposal = false,
-        crypto.privateCrypto,
-        testedProtocolVersion,
-      )
-      .futureValueUS
-      .value
-
-  def signTxAs(
+  protected def signTxAs(
       hash: ByteString,
       p: ExternalParty,
   ): Map[PartyId, Seq[Signature]] = {
@@ -240,5 +215,4 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
 
     Map(p.partyId -> signatures.forgetNE)
   }
-
 }

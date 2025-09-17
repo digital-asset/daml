@@ -69,6 +69,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
     synchronizerId: PhysicalSynchronizerId,
+    override val cantonContractIdVersion: CantonContractIdVersion,
     cryptoOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -76,9 +77,7 @@ class TransactionTreeFactoryImpl(
     with NamedLogging {
 
   private val protocolVersion = synchronizerId.protocolVersion
-  private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
   private val contractIdSuffixer: ContractIdSuffixer =
-    // TODO(#23971): Make this dependent on the protocol version when introducing V2 contract IDs
     new ContractIdSuffixer(cryptoOps, cantonContractIdVersion)
   private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory
 
@@ -525,18 +524,29 @@ class TransactionTreeFactoryImpl(
     ).unversioned
     val createNodeWithSuffixedArg = createNode.copy(arg = cantonContractInst.arg)
 
-    // TODO(#23971) Generalize this for Contract ID V2
-    val contractSalt = ContractSalt.create(cryptoOps)(
-      state.transactionUUID,
-      synchronizerId,
-      state.mediator,
-      viewParticipantDataSalt,
-      createIndex,
-      viewPosition,
-    )
-    val creationTime =
-      // TODO(#23971): Specialize this to `CreationTime.Now` once all locally created contracts use contract ID V2.
-      CreationTime.CreatedAt(state.ledgerTime.toLf)
+    val contractSalt = cantonContractIdVersion match {
+      case _: CantonContractIdV1Version =>
+        ContractSalt.createV1(cryptoOps)(
+          state.transactionUUID,
+          synchronizerId,
+          state.mediator,
+          viewParticipantDataSalt,
+          createIndex,
+          viewPosition,
+        )
+      case _: CantonContractIdV2Version =>
+        ContractSalt.createV2(cryptoOps)(
+          viewParticipantDataSalt,
+          createIndex,
+          viewPosition,
+        )
+    }
+    val creationTime = cantonContractIdVersion match {
+      case _: CantonContractIdV1Version =>
+        CreationTime.CreatedAt(state.ledgerTime.toLf)
+      case _: CantonContractIdV2Version =>
+        CreationTime.Now
+    }
     val ContractIdSuffixer.RelativeSuffixResult(
       suffixedCreateNode,
       localContractId,
@@ -897,10 +907,7 @@ class TransactionTreeFactoryImpl(
       )
       absolutizedTx <- EitherT
         .fromEither[FutureUnlessShutdown](absolutizer.absolutizeTransaction(suffixedTx))
-        .leftMap(
-          // TODO(#23971) Introduce appropriate error handling
-          err => throw new IllegalArgumentException(s"Failed to absolutize transaction: $err")
-        )
+        .leftMap(ContractIdAbsolutizationError(_): TransactionTreeConversionError)
     } yield {
       view -> checked(
         WellFormedTransaction.checkOrThrow(absolutizedTx, metadata, WithAbsoluteSuffixes)
@@ -949,12 +956,14 @@ object TransactionTreeFactoryImpl {
   def apply(
       submittingParticipant: ParticipantId,
       synchronizerId: PhysicalSynchronizerId,
+      cantonContractIdVersion: CantonContractIdVersion,
       cryptoOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImpl(
       submittingParticipant,
       synchronizerId,
+      cantonContractIdVersion,
       cryptoOps,
       loggerFactory,
     )

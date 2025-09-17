@@ -218,7 +218,7 @@ object SyncCryptoClient {
         loggingContext.debug(
           s"Getting topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
-        client.snapshot(timestamp)(traceContext)
+        client.hypotheticalSnapshot(timestamp, desiredTimestamp)(traceContext)
       } else {
         loggingContext.debug(
           s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
@@ -303,10 +303,23 @@ class SynchronizerCryptoClient private (
   ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.snapshot(timestamp).map(create)
 
+  override def hypotheticalSnapshot(timestamp: CantonTimestamp, desiredTimestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
+    ips.hypotheticalSnapshot(timestamp, desiredTimestamp).map(create)
+
   override def trySnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): SynchronizerSnapshotSyncCryptoApi =
     create(ips.trySnapshot(timestamp))
+
+  override def tryHypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): SynchronizerSnapshotSyncCryptoApi =
+    create(ips.tryHypotheticalSnapshot(timestamp, desiredTimestamp))
 
   override def headSnapshot(implicit
       traceContext: TraceContext
@@ -363,6 +376,7 @@ class SynchronizerCryptoClient private (
     LifeCycle.close(
       ips,
       syncCryptoSigner,
+      syncCryptoVerifier,
     )(logger)
 
   override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
@@ -573,6 +587,7 @@ class SynchronizerSnapshotSyncCryptoApi(
   override def encryptFor[M <: HasToByteString, MemberType <: Member](
       message: M,
       members: Seq[MemberType],
+      deterministicEncryption: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[
@@ -592,8 +607,8 @@ class SynchronizerSnapshotSyncCryptoApi(
         )
       )
       .flatMap(k =>
-        pureCrypto
-          .encryptWith(message, k)
+        (if (deterministicEncryption) pureCrypto.encryptDeterministicWith(message, k)
+         else pureCrypto.encryptWith(message, k))
           .bimap(error => member -> SyncCryptoEncryptionError(error), member -> _)
       )
 

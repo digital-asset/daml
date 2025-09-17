@@ -783,6 +783,11 @@ object ConfigTransforms {
       )
   }
 
+  val disableUpgradeValidation: ConfigTransform =
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.disableUpgradeValidation).replace(true)
+    )
+
   /** Enables remote mediators
     *
     * Alternatively use [[EnvironmentDefinition.buildBaseEnvironmentDefinition]] with `withRemote =
@@ -805,7 +810,7 @@ object ConfigTransforms {
       ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v34)
 
   def setTopologyTransactionRegistrationTimeout(
-      timeout: config.NonNegativeDuration
+      timeout: config.NonNegativeFiniteDuration
   ): Seq[ConfigTransform] = Seq(
     updateAllParticipantConfigs_(
       _.focus(_.topology.topologyTransactionRegistrationTimeout).replace(timeout)

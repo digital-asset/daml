@@ -41,12 +41,10 @@ abstract class TopologyTransactionProcessorTest
   protected def mk(
       store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(
         Factory.physicalSynchronizerId1a
-      ),
-      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a,
+      )
   ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val proc = new TopologyTransactionProcessor(
-      synchronizerId,
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
       _ => (),
@@ -320,7 +318,7 @@ abstract class TopologyTransactionProcessorTest
           NonEmpty(Set, key1, key7, key8),
         )
 
-        val (proc, store) = mk(mkStore(synchronizerId), synchronizerId)
+        val (proc, store) = mk(mkStore(synchronizerId))
 
         def checkDop(
             ts: CantonTimestamp,
@@ -505,7 +503,7 @@ abstract class TopologyTransactionProcessorTest
         val dop2_k7_proposal =
           mkAdd(dopMapping2, signingKey = key7, serial = PositiveInt.two, isProposal = true)
 
-        val (proc, store) = mk(mkStore(synchronizerId), synchronizerId)
+        val (proc, store) = mk(mkStore(synchronizerId))
 
         def checkDop(
             ts: CantonTimestamp,
@@ -705,7 +703,7 @@ abstract class TopologyTransactionProcessorTest
           )
           .futureValueUS
 
-        val (proc, _) = mk(store, synchronizerId)
+        val (proc, _) = mk(store)
 
         val synchronizerTimeTrackerMock = mock[SynchronizerTimeTracker]
         when(synchronizerTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext))
@@ -770,10 +768,10 @@ abstract class TopologyTransactionProcessorTest
 
 class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProcessorTest {
   protected def mkStore(
-      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a
+      psid: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a
   ): TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
-      TopologyStoreId.SynchronizerStore(synchronizerId),
+      TopologyStoreId.SynchronizerStore(psid),
       testedProtocolVersion,
       loggerFactory,
       timeouts,

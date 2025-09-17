@@ -90,7 +90,7 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     if (inStateTransfer) {
-      logger.debug("State transfer already in progress")
+      logger.info("State transfer already in progress")
     } else {
       val latestCompletedEpochNumber = latestCompletedEpoch.info.number
       logger.info(
@@ -178,7 +178,7 @@ class StateTransferManager[E <: Env[E]](
   def cancelTimeoutForEpoch(epochNumber: EpochNumber)(implicit
       traceContext: TraceContext
   ): Unit = {
-    logger.info(s"State transfer cancelling a timeout for epoch $epochNumber")
+    logger.debug(s"State transfer cancelling a timeout for epoch $epochNumber")
     timeoutManager.cancelTimeout()
   }
 

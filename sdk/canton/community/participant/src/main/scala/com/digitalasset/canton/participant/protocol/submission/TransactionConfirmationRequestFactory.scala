@@ -371,6 +371,8 @@ object TransactionConfirmationRequestFactory {
       TransactionTreeFactoryImpl(
         submitterNode,
         synchronizerId,
+        // TODO(#23971): Make this dependent on the protocol version when introducing V2 contract IDs
+        AuthenticatedContractIdVersionV11,
         cryptoOps,
         loggerFactory,
       )

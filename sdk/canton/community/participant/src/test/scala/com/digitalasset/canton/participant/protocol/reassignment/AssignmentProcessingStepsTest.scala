@@ -53,11 +53,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
   AuthenticationError,
   AuthenticationValidator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  EngineController,
-  ProcessingStartingPoints,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.{coidAbs1, reassignment10}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -86,7 +82,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{ContractAuthenticator, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.transaction.CreationTime
 import monocle.macros.syntax.lens.*
@@ -101,11 +97,11 @@ final class AssignmentProcessingStepsTest
     with HasTestCloseContext
     with HasExecutionContext
     with FailOnShutdown {
-  private lazy val sourceSynchronizer = Source(
+  private lazy val sourcePSId = Source(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source")).toPhysical
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
-  private lazy val targetSynchronizer = Target(
+  private lazy val targetPSId = Target(
     SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target")).toPhysical
   )
   private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
@@ -162,7 +158,7 @@ final class AssignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private lazy val identityFactory = TestingTopology()
-    .withSynchronizers(sourceSynchronizer.unwrap, targetSynchronizer.unwrap)
+    .withSynchronizers(sourcePSId.unwrap, targetPSId.unwrap)
     .withReversedTopology(
       Map(
         participant -> Map(
@@ -175,12 +171,12 @@ final class AssignmentProcessingStepsTest
     .build(crypto, loggerFactory)
 
   private lazy val cryptoClient =
-    identityFactory.forOwnerAndSynchronizer(participant, targetSynchronizer.unwrap)
+    identityFactory.forOwnerAndSynchronizer(participant, targetPSId.unwrap)
 
   private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
   private lazy val assignmentProcessingSteps =
-    testInstance(targetSynchronizer, cryptoClient, None)
+    testInstance(targetPSId, cryptoClient, None)
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
@@ -189,7 +185,7 @@ final class AssignmentProcessingStepsTest
     val contractStore = mock[ContractStore]
     val logical =
       new InMemoryLogicalSyncPersistentState(
-        IndexedSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
+        IndexedSynchronizer.tryCreate(targetPSId.unwrap, 1),
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
         contractStore = contractStore,
@@ -202,13 +198,15 @@ final class AssignmentProcessingStepsTest
       participant,
       clock,
       SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
-      IndexedPhysicalSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
+      IndexedPhysicalSynchronizer.tryCreate(targetPSId.unwrap, 1),
       defaultStaticSynchronizerParameters,
       packageDependencyResolver = mock[PackageDependencyResolver],
       ledgerApiStore = Eval.now(mock[LedgerApiStore]),
       logicalSyncPersistentState = logical,
+      packageMetadataView = Eval.now(mock[PackageMetadataView]),
       loggerFactory = loggerFactory,
       exitOnFatalFailures = true,
+      disableUpgradeValidation = false,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
     )
@@ -245,8 +243,8 @@ final class AssignmentProcessingStepsTest
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
-    sourceSynchronizer,
-    targetSynchronizer,
+    sourcePSId,
+    targetPSId,
     identityFactory,
   )
 
@@ -415,8 +413,8 @@ final class AssignmentProcessingStepsTest
       val unassignmentData2 = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
         sourceMediator,
         party3,
-        sourceSynchronizer,
-        targetSynchronizer,
+        sourcePSId,
+        targetPSId,
         contract,
       )
       val submissionParam2 = SubmissionParam(
@@ -441,6 +439,52 @@ final class AssignmentProcessingStepsTest
           s"Submission failed because: ${NotHostedOnParticipant(ReassignmentRef(unassignmentData2.reassignmentId), party3, participant).message}"
         )
       }
+    }
+
+    "fail when target synchronizer has different LSId" in {
+
+      val originalTargetPSId = unassignmentData.targetPSId
+
+      lazy val otherTargetPSId = Target(
+        SynchronizerId(
+          UniqueIdentifier.tryFromProtoPrimitive("synchronizer::othertarget")
+        ).toPhysical
+      )
+
+      val upgradedTargetPSId =
+        targetPSId.map(_.copy(serial = targetPSId.unwrap.serial.increment.toNonNegative))
+
+      originalTargetPSId shouldBe targetPSId
+      otherTargetPSId.map(_.logical) should not be targetPSId.map(_.logical)
+      upgradedTargetPSId.map(_.logical) shouldBe targetPSId.map(_.logical)
+
+      for {
+        deps <- statefulDependencies
+        (persistentState, state) = deps
+        _ <- setUpOrFail(unassignmentData, persistentState).failOnShutdown
+        res <-
+          testInstance(otherTargetPSId, cryptoClient, None)
+            .createSubmission(
+              submissionParam,
+              targetMediator,
+              state,
+              cryptoSnapshot,
+            )
+            .valueOrFailShutdown("assignment submission")
+            .failed
+
+        _ = res.getMessage should include("found on wrong synchronizer")
+
+        // same LSId, different PSId
+        _ <- testInstance(upgradedTargetPSId, cryptoClient, None)
+          .createSubmission(
+            submissionParam,
+            targetMediator,
+            state,
+            cryptoSnapshot,
+          )
+          .valueOrFailShutdown("assignment submission")
+      } yield succeed
     }
   }
 
@@ -498,7 +542,7 @@ final class AssignmentProcessingStepsTest
 
       inside(error) { case UnexpectedSynchronizer(_, targetD, currentD) =>
         assert(targetD == anotherSynchronizer)
-        assert(currentD == targetSynchronizer.unwrap)
+        assert(currentD == targetPSId.unwrap)
       }
     }
 
@@ -597,7 +641,7 @@ final class AssignmentProcessingStepsTest
           fullAssignmentTree = makeFullAssignmentTree(
             party1,
             testContract,
-            targetSynchronizer,
+            targetPSId,
             targetMediator,
             reassigningParticipants = Set(participant),
           )
@@ -797,7 +841,7 @@ final class AssignmentProcessingStepsTest
         ContractsReassignmentBatch(contract, initialReassignmentCounter),
         submitterInfo(submitter),
         reassignmentId,
-        sourceSynchronizer,
+        sourcePSId,
         isReassigningParticipant = false,
         hostedConfirmingReassigningParties = contract.metadata.stakeholders,
         commonValidationResult = AssignmentValidationResult.CommonValidationResult(
@@ -955,7 +999,7 @@ final class AssignmentProcessingStepsTest
   private def makeFullAssignmentTree(
       submitter: LfPartyId = party1,
       contract: ContractInstance = contract,
-      targetSynchronizer: Target[PhysicalSynchronizerId] = targetSynchronizer,
+      targetSynchronizer: Target[PhysicalSynchronizerId] = targetPSId,
       targetMediator: MediatorGroupRecipient = targetMediator,
       uuid: UUID = new UUID(4L, 5L),
       reassigningParticipants: Set[ParticipantId] = Set.empty,
@@ -964,7 +1008,7 @@ final class AssignmentProcessingStepsTest
     val seed = seedGenerator.generateSaltSeed()
 
     val reassignmentId = ReassignmentId.single(
-      sourceSynchronizer,
+      sourcePSId,
       targetSynchronizer,
       CantonTimestamp.Epoch,
       contract.contractId,
@@ -978,7 +1022,7 @@ final class AssignmentProcessingStepsTest
         reassignmentId,
         submitterInfo(submitter),
         ContractsReassignmentBatch(contract, initialReassignmentCounter),
-        sourceSynchronizer,
+        sourcePSId,
         targetSynchronizer,
         targetMediator,
         uuid,
@@ -1004,8 +1048,8 @@ final class AssignmentProcessingStepsTest
         unassignmentData.reassignmentId,
         submitterInfo(submitter),
         unassignmentData.contractsBatch,
-        unassignmentData.sourceSynchronizer,
-        unassignmentData.targetSynchronizer,
+        unassignmentData.sourcePSId,
+        unassignmentData.targetPSId,
         targetMediator,
         uuid,
         Target(testedProtocolVersion),

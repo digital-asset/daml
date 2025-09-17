@@ -125,7 +125,7 @@ class ConnectedSynchronizer(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     private[sync] val persistent: SyncPersistentState,
     val ephemeral: SyncEphemeralState,
-    val packageService: Eval[PackageService],
+    val packageService: PackageService,
     synchronizerCrypto: SynchronizerCryptoClient,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
@@ -182,11 +182,11 @@ class ConnectedSynchronizer(
     )
 
   private val packageResolver: PackageResolver = pkgId =>
-    traceContext => packageService.value.getPackage(pkgId)(traceContext)
+    traceContext => packageService.getPackage(pkgId)(traceContext)
 
   private val damle =
     new DAMLe(
-      pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
+      pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,
@@ -707,9 +707,7 @@ class ConnectedSynchronizer(
           case Right(()) => ()
         }
 
-        pendingReassignments.lastOption.map(t =>
-          t.unassignmentTs -> t.sourceSynchronizer.map(_.logical)
-        )
+        pendingReassignments.lastOption.map(t => t.unassignmentTs -> t.sourcePSId.map(_.logical))
       }
 
       resF.map {
@@ -956,7 +954,7 @@ object ConnectedSynchronizer {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         persistentState: SyncPersistentState,
         ephemeralState: SyncEphemeralState,
-        packageService: Eval[PackageService],
+        packageService: PackageService,
         synchronizerCrypto: SynchronizerCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
@@ -982,7 +980,7 @@ object ConnectedSynchronizer {
         participantNodePersistentState: Eval[ParticipantNodePersistentState],
         persistentState: SyncPersistentState,
         ephemeralState: SyncEphemeralState,
-        packageService: Eval[PackageService],
+        packageService: PackageService,
         synchronizerCrypto: SynchronizerCryptoClient,
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,

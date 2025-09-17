@@ -41,12 +41,12 @@ trait LfEnricher {
 
 object LfEnricher {
 
-  def apply(engine: Engine, requireContractIdSuffix: Boolean): LfEnricher =
+  def apply(engine: Engine, forbidLocalContractIds: Boolean): LfEnricher =
     new LfEnricherImpl(
       new Enricher(
         engine = engine,
         addTrailingNoneFields = false,
-        requireContractIdSuffix = requireContractIdSuffix,
+        forbidLocalContractIds = forbidLocalContractIds,
       )
     )
 

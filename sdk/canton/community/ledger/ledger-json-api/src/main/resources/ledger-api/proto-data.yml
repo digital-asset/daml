@@ -1119,20 +1119,9 @@ messages:
         contract_id: |-
           The contract id being queried.
           Required
-        requesting_parties: |-
-          Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-          The parties whose events the client expects to see.
-          The events associated with the contract id will only be returned if the requesting parties includes
-          at least one party that is a stakeholder of the event. For a definition of stakeholders see
-          https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
-          Optional, if some parties specified, event_format needs to be unset.
         event_format: |-
           Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
-          Optional for backwards compatibility, defaults to an EventFormat where:
-
-          - filters_by_party is a template-wildcard filter for all requesting_parties
-          - filters_for_any_party is unset
-          - verbose is set
+          Required
   GetEventsByContractIdResponse:
     message:
       comments: null
@@ -2081,6 +2070,10 @@ messages:
           This field will be populated with the trace context contained in the original submission.
           If that was not provided, a unique ledger-api-server generated trace context will be used
           instead.
+        synchronizer_id: |-
+          A valid synchronizer id.
+          Identifies the synchronizer that synchronized this Reassignment.
+          Required
         update_id: |-
           Assigned by the server. Useful for correlating logs.
           Must be a valid LedgerString (as described in ``value.proto``).
@@ -2175,6 +2168,10 @@ messages:
     message:
       comments: A right granted to a user.
       fieldComments:
+        can_execute_as: The user can prepare and execute submissions as a specific
+          party.
+        can_execute_as_any_party: The user can prepare and execute submissions as
+          any party on a participant.
         can_read_as_any_party: The user can read as any party on a participant
         identity_provider_admin: The user can administer users and parties assigned
           to the same identity provider as the one of the user.
@@ -3172,6 +3169,10 @@ oneOfs:
       message:
         comments: Required
         fieldComments:
+          can_execute_as: The user can prepare and execute submissions as a specific
+            party.
+          can_execute_as_any_party: The user can prepare and execute submissions as
+            any party on a participant.
           can_read_as_any_party: The user can read as any party on a participant
           identity_provider_admin: The user can administer users and parties assigned
             to the same identity provider as the one of the user.

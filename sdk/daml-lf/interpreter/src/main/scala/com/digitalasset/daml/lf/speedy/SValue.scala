@@ -8,7 +8,6 @@ import com.digitalasset.daml.lf.data.{TreeMap => _, _}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.daml.scalautil.Statement.discard
@@ -39,8 +38,7 @@ sealed abstract class SValue extends AnyRef {
 
   /** Convert a speedy-value to a value normalized according to the LF version.
     */
-  @scala.annotation.nowarn("cat=unused")
-  def toNormalizedValue(version: TransactionVersion): V =
+  def toNormalizedValue: V =
     toValue(
       keepTypeInfo = false,
       keepFieldName = false,
@@ -233,12 +231,12 @@ object SValue {
       * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
       * sorted map specialisation.
       */
-    def fromOrderedEntries(
+    def fromStrictlyOrderedEntries(
         isTextMap: Boolean,
         entries: Iterable[(SValue, SValue)],
     ): SMap = {
       entries.foreach { case (k, _) => comparable(k) }
-      SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+      SMap(isTextMap, data.TreeMap.fromStrictlyOrderedEntries(entries))
     }
 
     /** Build an SMap from an iterator over SValue key/value pairs.

@@ -3,16 +3,15 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
-import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -30,7 +29,7 @@ import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.DamlPackageStore.readPackageId
 import com.digitalasset.canton.participant.store.memory.{
-  MutablePackageMetadataViewImpl,
+  MutablePackageMetadataView,
   PackageMetadataView,
 }
 import com.digitalasset.canton.participant.topology.PackageOps
@@ -45,7 +44,6 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.google.protobuf.ByteString
-import org.apache.pekko.actor.ActorSystem
 import slick.jdbc.GetResult
 
 import java.util.UUID
@@ -86,7 +84,6 @@ class PackageService(
     val packageDependencyResolver: PackageDependencyResolver,
     protected val loggerFactory: NamedLoggerFactory,
     metrics: ParticipantMetrics,
-    val packageMetadataView: PackageMetadataView,
     packageOps: PackageOps,
     packageUploader: PackageUploader,
     protected val timeouts: ProcessingTimeout,
@@ -97,6 +94,8 @@ class PackageService(
 
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = packageDependencyResolver.damlPackageStore
+
+  def getPackageMetadataView: PackageMetadataView = packageUploader.getPackageMetadataView
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -459,67 +458,47 @@ class PackageService(
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     packageOps
       .vetPackages(packages, synchronizeVetting)
-      .leftMap[RpcError] { err =>
+      .leftMap { err =>
         implicit val code = err.code
         CantonPackageServiceError.IdentityManagerParentError(err)
       }
 
-  override def onClosed(): Unit = LifeCycle.close(packageUploader, packageMetadataView)(logger)
+  override def onClosed(): Unit = LifeCycle.close(packageUploader)(logger)
 
 }
 
 object PackageService {
-  def createAndInitialize(
+  def apply(
       clock: Clock,
       engine: Engine,
       packageDependencyResolver: PackageDependencyResolver,
-      enableUpgradeValidation: Boolean,
       enableStrictDarValidation: Boolean,
-      futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
       metrics: ParticipantMetrics,
-      exitOnFatalFailures: Boolean,
-      packageMetadataViewConfig: PackageMetadataViewConfig,
+      mutablePackageMetadataView: Eval[MutablePackageMetadataView],
       packageOps: PackageOps,
       timeouts: ProcessingTimeout,
   )(implicit
-      ec: ExecutionContext,
-      actorSystem: ActorSystem,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[PackageService] = {
-    val mutablePackageMetadataView = new MutablePackageMetadataViewImpl(
+      ec: ExecutionContext
+  ): PackageService = {
+    val packageUploader = new PackageUploader(
       clock,
       packageDependencyResolver.damlPackageStore,
-      loggerFactory,
-      packageMetadataViewConfig,
-      timeouts,
-    )
-
-    val packageUploader = PackageUploader(
-      clock,
       engine,
-      enableUpgradeValidation,
       enableStrictDarValidation,
-      futureSupervisor,
-      packageDependencyResolver,
       mutablePackageMetadataView,
-      exitOnFatalFailures,
       timeouts,
       loggerFactory,
     )
 
-    val packageService = new PackageService(
+    new PackageService(
       packageDependencyResolver,
       loggerFactory,
       metrics,
-      mutablePackageMetadataView,
       packageOps,
       packageUploader,
       timeouts,
     )
-
-    // Initialize the packageMetadataView and return only the PackageService. It also takes care of teardown of the packageMetadataView and packageUploader
-    mutablePackageMetadataView.refreshState.map(_ => packageService)
   }
 
   // Opaque type for the main package id of a DAR

@@ -113,7 +113,7 @@ class Engine(val config: EngineConfig) {
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
-      requireContractIdSuffix = config.requireSuffixedGlobalContractId,
+      forbidLocalContractIds = config.forbidLocalContractIds,
     )
 
   def info = new EngineInfo(config)
@@ -347,7 +347,11 @@ class Engine(val config: EngineConfig) {
     * @param key - a representation of the key that may be un-normalized
     */
   def buildGlobalKey(templateId: Identifier, key: Value): Result[GlobalKey] = {
-    preprocessor.buildGlobalKey(templateId: Identifier, key: Value)
+    preprocessor.buildGlobalKey(
+      templateId: Identifier,
+      key: Value,
+      extendLocalIdForbiddanceToRelativeV2 = false,
+    )
   }
 
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
@@ -493,7 +497,7 @@ class Engine(val config: EngineConfig) {
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,
-    requireContractIdSuffix = false,
+    forbidLocalContractIds = false,
   )
 
   private[engine] def interpretLoop(
@@ -643,24 +647,6 @@ class Engine(val config: EngineConfig) {
                 coid,
                 { (coinst, hashMethod, authenticator) =>
                   callback(coinst, hashMethod, authenticator)
-                  interpretLoop(machine, time, submissionInfo)
-                },
-              )
-
-            case Question.Update.NeedUpgradeVerification(
-                  coid,
-                  signatories,
-                  observers,
-                  keyOpt,
-                  callback,
-                ) =>
-              ResultNeedUpgradeVerification(
-                coid,
-                signatories,
-                observers,
-                keyOpt,
-                { x =>
-                  callback(x)
                   interpretLoop(machine, time, submissionInfo)
                 },
               )
@@ -826,7 +812,7 @@ class Engine(val config: EngineConfig) {
       )
       r <- interpret(machine, () => { machine.abort(); None })
       version = machine.tmplId2TxVersion(interfaceId)
-    } yield Versioned(version, r.toNormalizedValue(version))
+    } yield Versioned(version, r.toNormalizedValue)
   }
 
 }

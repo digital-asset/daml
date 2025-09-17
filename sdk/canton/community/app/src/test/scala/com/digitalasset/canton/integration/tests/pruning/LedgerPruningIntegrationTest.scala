@@ -83,7 +83,7 @@ abstract class LedgerPruningIntegrationTest
         )
       }
 
-  def pruneAtCurrentLedgerEnd(
+  protected def pruneAtCurrentLedgerEnd(
       clock: SimClock,
       participant: LocalParticipantReference,
       pingCommand: => Duration,
@@ -103,8 +103,8 @@ abstract class LedgerPruningIntegrationTest
     participant.pruning.prune(desiredPruningOffsetHex)
   }
 
-  def acsContracts(p: LocalParticipantReference, templateIdO: Option[String] = None)(implicit
-      env: TestConsoleEnvironment
+  protected def acsContracts(p: LocalParticipantReference, templateIdO: Option[String] = None)(
+      implicit env: TestConsoleEnvironment
   ): Seq[ContractInstance] = {
     val all: Seq[ContractInstance] =
       p.testing.pcs_search(env.daName, activeSet = true).map(_._2)
@@ -115,20 +115,20 @@ abstract class LedgerPruningIntegrationTest
     }
   }
 
-  def acsCount(p: LocalParticipantReference)(implicit
+  protected def acsCount(p: LocalParticipantReference)(implicit
       env: TestConsoleEnvironment
   ): Int =
     acsContracts(p).size
 
-  def pcsCount(p: LocalParticipantReference)(implicit
+  protected def pcsCount(p: LocalParticipantReference)(implicit
       env: TestConsoleEnvironment
   ): Int =
     p.testing.pcs_search(env.daName).size
 
-  def fromParticipant(req: SubmissionRequest): Boolean =
+  protected def fromParticipant(req: SubmissionRequest): Boolean =
     req.sender.code == ParticipantId.Code
 
-  def isCommitment(
+  protected def isCommitment(
       req: SubmissionRequest,
       from: LocalParticipantReference,
       to: LocalParticipantReference,
@@ -143,8 +143,8 @@ abstract class LedgerPruningIntegrationTest
   "recover ledger api server after failed prune" in { implicit env =>
     import env.*
 
-    participant1.synchronizers.connect_local(sequencer1, alias = daName)
-    participant2.synchronizers.connect_local(sequencer1, alias = daName)
+    participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+    participants.all.dars.upload(CantonExamplesPath)
 
     acsCount(participant1) shouldBe 0
     acsCount(participant2) shouldBe 0

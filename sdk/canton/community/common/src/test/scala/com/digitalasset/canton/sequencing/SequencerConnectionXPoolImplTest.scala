@@ -32,14 +32,14 @@ class SequencerConnectionXPoolImplTest
         nbConnections = PositiveInt.tryCreate(3),
         trustThreshold = PositiveInt.tryCreate(3),
         index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
-      ) { (pool, createdConnections, listener) =>
+      ) { (pool, createdConnections, listener, _) =>
         val initializedF = pool.start()
 
         clue("Normal start") {
           initializedF.futureValueUS.valueOrFail("initialization")
           listener.shouldStabilizeOn(ComponentHealthState.Ok())
           pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-          pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+          pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
         }
 
         clue("Stop connections non-fatally") {
@@ -64,18 +64,68 @@ class SequencerConnectionXPoolImplTest
       }
     }
 
-    "signal when initialization times out" in {
-      val testTimeout = config.NonNegativeDuration.tryFromDuration(2.seconds)
-
-      // TODO(i24790): update this test as it will no longer timeout when the check is implemented
-
+    "signal when the threshold cannot be reached during validation" in {
       withConnectionPool(
         nbConnections = PositiveInt.tryCreate(3),
         trustThreshold = PositiveInt.tryCreate(2),
         // 3 connections all on the same sequencer ID -- the trust threshold of 2 is unreachable
         _ => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = 1),
+      ) { (pool, _, listener, _) =>
+        inside(pool.start().futureValueUS) {
+          case Left(SequencerConnectionXPoolError.ThresholdUnreachableError(message)) =>
+            message shouldBe "Trust threshold of 2 is no longer reachable"
+        }
+        listener.shouldStabilizeOn(ComponentHealthState.failed("Component is closed"))
+      }
+    }
+
+    "signal when the threshold cannot be reached upon closing with fatal" in {
+      withConnectionPool(
+        nbConnections = PositiveInt.tryCreate(3),
+        trustThreshold = PositiveInt.tryCreate(2),
+        // 3 connections on 3 different sequencer IDs
+        attributesForConnection =
+          index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
+        blockValidation = _ => true,
+      ) { (pool, createdConnections, listener, _) =>
+        val initializedF = pool.start()
+
+        clue("Threshold remains reachable") {
+          always(durationOfSuccess = 1.second) {
+            initializedF.value.isCompleted shouldBe false
+          }
+        }
+
+        createdConnections(0).fatal(reason = "test")
+        clue("Threshold is still reachable") {
+          always(durationOfSuccess = 1.second) {
+            initializedF.value.isCompleted shouldBe false
+          }
+        }
+
+        createdConnections(1).fatal(reason = "test")
+        clue("Threshold is no longer reachable") {
+          inside(initializedF.futureValueUS) {
+            case Left(SequencerConnectionXPoolError.ThresholdUnreachableError(message)) =>
+              message shouldBe s"Trust threshold of 2 is no longer reachable"
+          }
+        }
+
+        listener.shouldStabilizeOn(ComponentHealthState.failed("Component is closed"))
+      }
+    }
+
+    "signal when initialization times out" in {
+      val testTimeout = config.NonNegativeDuration.tryFromDuration(2.seconds)
+
+      withConnectionPool(
+        nbConnections = PositiveInt.tryCreate(3),
+        trustThreshold = PositiveInt.tryCreate(2),
+        attributesForConnection =
+          index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
         testTimeouts = timeouts.copy(sequencerInfo = testTimeout),
-      ) { case (pool, _createdConnections, listener) =>
+        blockValidation = _ => true,
+      ) { (pool, _, listener, _) =>
         inside(pool.start().futureValueUS) {
           case Left(SequencerConnectionXPoolError.TimeoutError(message)) =>
             message shouldBe s"Connection pool failed to initialize within ${LoggerUtil
@@ -96,7 +146,7 @@ class SequencerConnectionXPoolImplTest
 
         },
         expectedSynchronizerIdO = Some(testSynchronizerId(1)),
-      ) { case (pool, _createdConnections, _listener) =>
+      ) { (pool, _, _, _) =>
         loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(WARN))(
           {
             pool.start().futureValueUS.valueOrFail("initialization")
@@ -127,7 +177,7 @@ class SequencerConnectionXPoolImplTest
           },
         )
 
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
 
         // Changing the expected synchronizer is not supported
         inside(
@@ -144,11 +194,11 @@ class SequencerConnectionXPoolImplTest
         nbConnections = PositiveInt.tryCreate(5),
         trustThreshold = PositiveInt.tryCreate(5),
         index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
-      ) { case (pool, createdConnections, _listener) =>
+      ) { (pool, createdConnections, _, _) =>
         pool.start().futureValueUS.valueOrFail("initialization")
 
         pool.nbSequencers shouldBe NonNegativeInt.tryCreate(5)
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
 
         val initialConnections = createdConnections.snapshotAndClear()
 
@@ -183,11 +233,11 @@ class SequencerConnectionXPoolImplTest
         nbConnections = PositiveInt.tryCreate(3),
         trustThreshold = PositiveInt.tryCreate(3),
         index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
-      ) { case (pool, createdConnections, _listener) =>
+      ) { (pool, createdConnections, _, _) =>
         pool.start().futureValueUS.valueOrFail("initialization")
 
         pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
 
         val initialConnections = createdConnections.snapshotAndClear()
 
@@ -220,38 +270,38 @@ class SequencerConnectionXPoolImplTest
 
     "handle configuration changes: change the trust threshold" in {
       withConnectionPool(
-        nbConnections = PositiveInt.tryCreate(8),
+        nbConnections = PositiveInt.tryCreate(6),
         trustThreshold = PositiveInt.tryCreate(4),
-        // 6 connections on a synchronizer, spread among 3 sequencers
-        // 2 connections on a different synchronizer, spread among 2 sequencers
-        {
-          case index if index < 6 =>
-            mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index / 2)
+        // 4 connections on a synchronizer
+        // 2 connections on a different synchronizer
+        attributesForConnection = {
+          case index if index < 4 =>
+            mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index)
           case index => mkConnectionAttributes(synchronizerIndex = 2, sequencerIndex = index)
         },
-      ) { case (pool, _createdConnections, _listener) =>
+        blockValidation = {
+          case 3 | 5 => true
+          case _ => false
+        },
+      ) { (pool, _, _, unblockValidation) =>
         val initializedF = pool.start()
 
-        clue("Unreachable threshold") {
-          // A threshold of 4 cannot be reached
-          always() {
-            pool.nbSequencers shouldBe NonNegativeInt.zero
+        clue("Threshold remains reachable") {
+          always(durationOfSuccess = 1.second) {
+            initializedF.value.isCompleted shouldBe false
           }
         }
 
-        clue("Increased threshold still unreachable") {
-          // Increasing the threshold does not help
-          pool
-            .updateConfig(pool.config.copy(trustThreshold = PositiveInt.tryCreate(5)))
-            .valueOrFail("update config")
-          pool.config.trustThreshold shouldBe PositiveInt.tryCreate(5)
-
-          always() {
-            pool.nbSequencers shouldBe NonNegativeInt.zero
+        clue("Increased threshold is rejected as unreachable") {
+          inside(
+            pool
+              .updateConfig(pool.config.copy(trustThreshold = PositiveInt.tryCreate(6)))
+          ) { case Left(SequencerConnectionXPoolError.InvalidConfigurationError(error)) =>
+            error should include("Trust threshold 6 cannot be reached")
           }
         }
 
-        clue("Reduced threshold ambiguous") {
+        clue("Reduced threshold is ambiguous") {
           inside(
             pool
               .updateConfig(pool.config.copy(trustThreshold = PositiveInt.tryCreate(1)))
@@ -269,10 +319,15 @@ class SequencerConnectionXPoolImplTest
                 .valueOrFail("update config")
               pool.config.trustThreshold shouldBe PositiveInt.tryCreate(3)
 
+              unblockValidation(3)
+              unblockValidation(5)
+
               initializedF.futureValueUS.valueOrFail("initialization")
 
-              pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-              pool.nbConnections shouldBe NonNegativeInt.tryCreate(6)
+              eventually() {
+                // Wait until the bad bootstraps have been logged
+                loggerFactory.numberOfRecordedEntries shouldBe 2
+              }
             },
             LogEntry.assertLogSeq(
               Seq(
@@ -293,12 +348,16 @@ class SequencerConnectionXPoolImplTest
         trustThreshold = PositiveInt.tryCreate(6),
         // 5 connections on synchronizer 1
         // 3 connections on synchronizer 2
-        {
+        attributesForConnection = {
           case index if index < 5 =>
             mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index)
           case index => mkConnectionAttributes(synchronizerIndex = 2, sequencerIndex = index)
         },
-      ) { case (pool, _createdConnections, _listener) =>
+        blockValidation = {
+          case 7 => true
+          case _ => false
+        },
+      ) { (pool, _, _, unblockValidation) =>
         val initializedF = pool.start()
 
         // A threshold of 6 cannot be reached
@@ -321,11 +380,17 @@ class SequencerConnectionXPoolImplTest
               )
             )
 
+            unblockValidation(7)
             initializedF.futureValueUS.valueOrFail("initialization")
 
             // Threshold should be reached on synchronizer 2
-            pool.physicalSynchronizerId.value shouldBe testSynchronizerId(2)
+            pool.physicalSynchronizerIdO.value shouldBe testSynchronizerId(2)
             pool.nbSequencers shouldBe NonNegativeInt.tryCreate(5)
+
+            eventually() {
+              // Wait until the bad bootstraps have been logged
+              loggerFactory.numberOfRecordedEntries shouldBe 3
+            }
           },
           LogEntry.assertLogSeq(
             Seq(
@@ -348,11 +413,11 @@ class SequencerConnectionXPoolImplTest
           case 3 | 4 => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = 2)
           case 5 => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = 3)
         },
-      ) { case (pool, createdConnections, _listener) =>
+      ) { (pool, createdConnections, _, _) =>
         pool.start().futureValueUS.valueOrFail("initialization")
 
         pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(1))
         eventually() {
           pool.nbConnections shouldBe NonNegativeInt.tryCreate(6)
         }
@@ -427,21 +492,16 @@ class SequencerConnectionXPoolImplTest
           case 1 => mkConnectionAttributes(synchronizerIndex = 2, sequencerIndex = 1)
           case 2 => mkConnectionAttributes(synchronizerIndex = 2, sequencerIndex = 2)
         },
-      ) { case (pool, _createdConnections, _listener) =>
+      ) { (pool, _, _, _) =>
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           {
             pool.start().futureValueUS.valueOrFail("initialization")
             pool.nbSequencers shouldBe NonNegativeInt.tryCreate(2)
+            pool.physicalSynchronizerIdO shouldBe Some(testSynchronizerId(2))
 
             eventually() {
               // Wait until the bad bootstrap has been logged
               loggerFactory.numberOfRecordedEntries shouldBe 1
-            }
-            pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(2))
-
-            pool.close()
-            eventually() {
-              pool.nbSequencers shouldBe NonNegativeInt.zero
             }
           },
           LogEntry.assertLogSeq(

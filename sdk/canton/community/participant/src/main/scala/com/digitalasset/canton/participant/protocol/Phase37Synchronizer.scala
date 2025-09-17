@@ -79,7 +79,7 @@ class Phase37Synchronizer(
     ]] =
       mkPromise[Option[
         ReplayDataOr[requestType.PendingRequestData]
-      ]]("phase37sync-register-request-data", futureSupervisor)
+      ]](s"phase37sync-register-request-data-${requestId.unwrap}", futureSupervisor)
 
     logger.debug(s"Registering a new request $ts")
 
@@ -140,7 +140,7 @@ class Phase37Synchronizer(
           )
           val promise: PromiseUnlessShutdown[RequestOutcome[requestType.PendingRequestData]] =
             mkPromise[RequestOutcome[requestType.PendingRequestData]](
-              "phase37sync-pending-request-data",
+              s"phase37sync-pending-request-data-${requestId.unwrap}",
               futureSupervisor,
             )
 

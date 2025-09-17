@@ -13,6 +13,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.DamlPackageStore
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.time.Clock
@@ -31,6 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 trait PackageMetadataView extends AutoCloseable {
   def getSnapshot(implicit errorLoggingContext: ErrorLoggingContext): PackageMetadata
+  val packageUpgradeValidator: PackageUpgradeValidator
 }
 
 /** Exposes mutable accessors to the [[PackageMetadataView]] to be used only during state
@@ -49,6 +51,7 @@ trait MutablePackageMetadataView extends PackageMetadataView {
 class MutablePackageMetadataViewImpl(
     clock: Clock,
     damlPackageStore: DamlPackageStore,
+    val packageUpgradeValidator: PackageUpgradeValidator,
     val loggerFactory: NamedLoggerFactory,
     packageMetadataViewConfig: PackageMetadataViewConfig,
     val timeouts: ProcessingTimeout,
@@ -145,12 +148,28 @@ class MutablePackageMetadataViewImpl(
       }
 }
 
-object NoopPackageMetadataView extends MutablePackageMetadataView {
-  override def refreshState(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
-    FutureUnlessShutdown.unit
-  override def getSnapshot(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): PackageMetadata = PackageMetadata()
-  override def update(other: PackageMetadata)(implicit tc: TraceContext): Unit = ()
-  override def close(): Unit = ()
+object MutablePackageMetadataViewImpl {
+  def createAndInitialize(
+      clock: Clock,
+      damlPackageStore: DamlPackageStore,
+      packageUpgradeValidator: PackageUpgradeValidator,
+      loggerFactory: NamedLoggerFactory,
+      packageMetadataViewConfig: PackageMetadataViewConfig,
+      timeouts: ProcessingTimeout,
+  )(implicit
+      actorSystem: ActorSystem,
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[MutablePackageMetadataViewImpl] = {
+    val mutablePackageMetadataView =
+      new MutablePackageMetadataViewImpl(
+        clock,
+        damlPackageStore,
+        packageUpgradeValidator,
+        loggerFactory,
+        packageMetadataViewConfig,
+        timeouts,
+      )
+    mutablePackageMetadataView.refreshState.map(_ => mutablePackageMetadataView)
+  }
 }

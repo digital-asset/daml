@@ -23,7 +23,14 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeNumeric,
   PositiveInt,
 }
-import com.digitalasset.canton.config.{BatchingConfig, CantonConfig, DbConfig, RequireTypes}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  CantonConfig,
+  DbConfig,
+  DefaultProcessingTimeouts,
+  RequireTypes,
+}
 import com.digitalasset.canton.console.{
   InstanceReference,
   LocalMediatorReference,
@@ -56,7 +63,11 @@ import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.resource.{CommunityStorageFactory, DbStorage, MemoryStorage}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as InternalTrafficControlParameters
 import com.digitalasset.canton.synchronizer.block.data.db.DbSequencerBlockStore
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.SequencerWriterConfig
+import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStore
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{SynchronizerAlias, config}
 import org.scalactic.source.Position
@@ -171,12 +182,28 @@ abstract class BaseSynchronizerRestartTest
       closeContext: CloseContext,
   ): Unit = {
     val storage = createStorageFor(sequencerReference)
+
+    val sequencerStore = new DbSequencerStore(
+      storage = storage,
+      protocolVersion = testedProtocolVersion,
+      bufferedEventsMaxMemory = SequencerWriterConfig.DefaultBufferedEventsMaxMemory,
+      bufferedEventsPreloadBatchSize = SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
+      timeouts = DefaultProcessingTimeouts.testing,
+      loggerFactory = loggerFactory,
+      sequencerMember = SequencerId(DefaultTestIdentities.physicalSynchronizerId.uid),
+      blockSequencerMode = true,
+      cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
+      sequencerMetrics = SequencerMetrics.noop(getClass.getName),
+    )
+
     val blockStore = new DbSequencerBlockStore(
       storage,
       testedProtocolVersion,
       timeouts,
       loggerFactory,
       batchingConfig = BatchingConfig(),
+      sequencerStore,
     )
 
     import storage.api.*

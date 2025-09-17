@@ -102,6 +102,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           (Some[Ref.Name]("k"), ValueInt64(42)),
         ),
       ),
+      signatories = List(alice),
     )
 
   val defaultContracts: Map[ContractId, FatContractInstance] =
@@ -115,6 +116,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
             Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
             ImmArray((Some[Name]("p"), ValueParty(party))),
           ),
+          signatories = List(party),
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
@@ -128,6 +130,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
               (Some[Ref.Name]("receiver"), ValueParty(bob)),
             ),
           ),
+          signatories = List(alice),
         ),
       toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,
@@ -275,14 +278,14 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         EngineConfig(
           allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          requireSuffixedGlobalContractId = true,
+          forbidLocalContractIds = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
-          requireSuffixedGlobalContractId = true,
+          forbidLocalContractIds = true,
         )
       )
       val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
@@ -300,6 +303,17 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         packageName = multiKeysPkg.pkgName,
         template = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),
         arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        signatories = List(party),
+        contractKeyWithMaintainers = Some(
+          GlobalKeyWithMaintainers(
+            GlobalKey.assertBuild(
+              templateId = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),
+              packageName = multiKeysPkg.pkgName,
+              key = ValueParty(party),
+            ),
+            Set(party),
+          )
+        ),
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {

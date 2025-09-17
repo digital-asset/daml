@@ -8,43 +8,31 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessCheck,
   ActivenessSet,
 }
-import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.UsedAndCreatedContracts
 
 private[protocol] final case class UsedAndCreated(
     contracts: UsedAndCreatedContracts,
     hostedWitnesses: Set[LfPartyId],
 ) {
-  def activenessSet: ActivenessSet =
-    ActivenessSet(
-      contracts = contracts.activenessCheck,
-      reassignmentIds = Set.empty,
-    )
-}
-
-private[protocol] final case class UsedAndCreatedContracts(
-    witnessed: Map[LfContractId, GenContractInstance],
-    checkActivenessTxInputs: Set[LfContractId],
-    consumedInputsOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
-    used: Map[LfContractId, GenContractInstance],
-    maybeCreated: Map[LfContractId, Option[NewContractInstance]],
-    transient: Map[LfContractId, Set[LfPartyId]],
-    maybeUnknown: Set[LfContractId],
-) {
-  def activenessCheck: ActivenessCheck[LfContractId] =
-    ActivenessCheck.tryCreate(
-      checkFresh = maybeCreated.keySet,
+  def activenessSet: ActivenessSet = {
+    val check = ActivenessCheck.tryCreate(
+      checkFresh = contracts.maybeCreated.keySet,
       checkFree = Set.empty,
       // Don't check legitimately unknown contracts for activeness.
-      checkActive = checkActivenessTxInputs -- maybeUnknown,
+      checkActive = contracts.checkActivenessTxInputs -- contracts.maybeUnknown,
       // Let key locking know not to flag legitimately unknown contracts (such as those associated
       // with party onboarding) as activeness errors.
       // Note that created contracts are always locked, even if they are transient.
-      lock = consumedInputsOfHostedStakeholders.keySet -- maybeUnknown ++ created.keySet,
+      lock =
+        contracts.consumedInputsOfHostedStakeholders.keySet -- contracts.maybeUnknown ++ contracts.created.keySet,
       lockMaybeUnknown =
-        (consumedInputsOfHostedStakeholders.keySet intersect maybeUnknown) -- created.keySet,
+        (contracts.consumedInputsOfHostedStakeholders.keySet intersect contracts.maybeUnknown) -- contracts.created.keySet,
       needPriorState = Set.empty,
     )
 
-  def created: Map[LfContractId, NewContractInstance] =
-    maybeCreated.collect { case (cid, Some(sc)) => cid -> sc }
+    ActivenessSet(
+      contracts = check,
+      reassignmentIds = Set.empty,
+    )
+  }
 }

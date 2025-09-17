@@ -195,7 +195,10 @@ class PartyReplicationTopologyWorkflow(
           topologyStore,
           proposal = true,
         ).map(_.filter { proposal =>
-          proposal.serial == serial && proposal.mapping == ptpProposal
+          proposal.serial == serial && (proposal.mapping match {
+            case PartyToParticipant(partyId, _thresholdMayDiffer, participants) =>
+              partyId == ptpProposal.partyId && participants == ptpProposal.participants
+          })
         })
       )
       // For idempotency, check if the TP has already signed the proposal in a previous try.
@@ -206,7 +209,7 @@ class PartyReplicationTopologyWorkflow(
         EitherT.rightT[FutureUnlessShutdown, String](false)
       } { existingProposal =>
         logger.debug(
-          s"About to check if target participant signature is missing from onboarding topology proposal for party replication $requestId and party $partyId"
+          s"About to check if target participant signature is missing from onboarding topology proposal for party replication $requestId and party $partyId: Existing proposal: $existingProposal"
         )
         // Check if the target participant signature is already present by extending the signed transaction.
         // If the signed transaction does not change, the TP has already signed.
@@ -230,7 +233,7 @@ class PartyReplicationTopologyWorkflow(
                 )
               else
                 logger.info(
-                  s"Onboarding proposal for party replication $requestId and party $partyId on target participant $targetParticipantId missing TP signature"
+                  s"Onboarding proposal for party replication $requestId and party $partyId on target participant $targetParticipantId missing TP signature; proposal signed by TP: $proposalSignedByTP"
                 )
             )
           }
@@ -252,7 +255,7 @@ class PartyReplicationTopologyWorkflow(
           topologyManager
             .proposeAndAuthorize(
               op = TopologyChangeOp.Replace,
-              mapping = ptpProposal,
+              mapping = existingProposalO.map(_.mapping).getOrElse(ptpProposal),
               serial = Some(serial),
               signingKeys = Seq.empty, // Rely on topology manager to use the right TP signing keys
               protocolVersion = topologyManager.managerVersion.serialization,

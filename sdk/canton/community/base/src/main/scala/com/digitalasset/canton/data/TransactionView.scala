@@ -325,7 +325,6 @@ final case class TransactionView private (
       }
     } yield this
   }
-
 }
 
 object TransactionView

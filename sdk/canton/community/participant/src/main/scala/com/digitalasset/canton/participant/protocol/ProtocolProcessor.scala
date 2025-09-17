@@ -783,6 +783,8 @@ abstract class ProtocolProcessor[
         )
         (incorrectRecipients, viewsWithCorrectRootHashAndRecipients) = checkRecipientsResult
 
+        // TODO(#23971) Absolutize ledger effects before passing them to ExtractUsedAndCreated
+
         (fullViewsWithCorrectRootHashAndRecipients, incorrectDecryptedViews) =
           steps.computeFullViews(viewsWithCorrectRootHashAndRecipients)
 
@@ -1211,6 +1213,7 @@ abstract class ProtocolProcessor[
 
     if (isCleanReplay(rc)) {
       ephemeral.requestTracker.tick(sc, ts)
+      requestDataHandle.complete(None)
       EitherTUtil.unitUS
     } else {
       for {

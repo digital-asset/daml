@@ -3,14 +3,13 @@
 
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
-import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionAndWaitResponse,
   PrepareSubmissionResponse,
 }
 import com.daml.ledger.api.v2.transaction.Transaction
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
   EventFormat,
@@ -20,34 +19,28 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat,
   WildcardFilter,
 }
-import com.daml.ledger.javaapi.data.codegen.{Created, HasCommands, Update}
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
-import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   CommandFailure,
-  InstanceReference,
   LocalParticipantReference,
   ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.examples.java.cycle.Cycle
+import com.digitalasset.canton.data.OnboardingTransactions
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.{
   ParticipantSelector,
   defaultConfirmingParticipant,
   defaultExecutingParticipant,
   defaultPreparingParticipant,
 }
-import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
   ConfigTransform,
   ConfigTransforms,
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.interactive.ExternalPartyUtils
-import com.digitalasset.canton.interactive.ExternalPartyUtils.OnboardingTransactions
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
@@ -60,12 +53,11 @@ import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
   SynchronizerId,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import monocle.Monocle.toAppliedFocusOps
 import org.scalatest.Suite
 
-import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
@@ -75,10 +67,8 @@ object BaseInteractiveSubmissionTest {
   val defaultPreparingParticipant: ParticipantSelector = _.participant1
   val defaultExecutingParticipant: ParticipantSelector = _.participant2
   val defaultConfirmingParticipant: ParticipantSelector = _.participant3
-
 }
 
-// TODO(#27482) Simplify this trait by introducing more console commands
 trait BaseInteractiveSubmissionTest
     extends ExternalPartyUtils
     with BaseTest
@@ -88,52 +78,14 @@ trait BaseInteractiveSubmissionTest
 
   override val externalPartyExecutionContext: ExecutionContext = parallelExecutionContext
 
-  protected val ppn = defaultPreparingParticipant
-  protected val cpn = defaultConfirmingParticipant
-  protected val epn = defaultExecutingParticipant
+  protected def ppn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
+    defaultPreparingParticipant(env)
+  protected def cpn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
+    defaultConfirmingParticipant(env)
+  protected def epn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
+    defaultExecutingParticipant(env)
 
-  // TODO(#27482) Check whether this can be removed and unified with local parties case
-  protected val defaultTransactionFormat = TransactionFormat(
-    eventFormat = Some(
-      EventFormat(
-        filtersByParty = Map.empty,
-        filtersForAnyParty = Some(
-          Filters(
-            Seq(
-              CumulativeFilter(
-                CumulativeFilter.IdentifierFilter.WildcardFilter(WildcardFilter(true))
-              )
-            )
-          )
-        ),
-        verbose = true,
-      )
-    ),
-    transactionShape = TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS,
-  )
-
-  protected def exportPrivateKeys(
-      externalParty: ExternalParty
-  ): NonEmpty[Seq[PrivateKey]] =
-    externalParty.signingFingerprints.map(
-      crypto.cryptoPrivateStore.toExtended.value.exportPrivateKey(_).futureValueUS.value.value
-    )
-
-  protected def exportNamespaceKey(
-      externalParty: ExternalParty
-  ): PrivateKey =
-    crypto.cryptoPrivateStore.toExtended.value
-      .exportPrivateKey(externalParty.partyId.uid.namespace.fingerprint)
-      .futureValueUS
-      .value
-      .value
-
-  protected def importExternalPartyPrivateKeys(privateKeys: NonEmpty[Seq[PrivateKey]]): Unit =
-    privateKeys.foreach(
-      crypto.cryptoPrivateStore.toExtended.value.storePrivateKey(_, None).futureValueUS.value
-    )
-
-  val enableInteractiveSubmissionTransforms: Seq[ConfigTransform] = Seq(
+  protected val enableInteractiveSubmissionTransforms: Seq[ConfigTransform] = Seq(
     ConfigTransforms.updateAllParticipantConfigs_(
       _.focus(_.ledgerApi.interactiveSubmissionService.enableVerboseHashing)
         .replace(true)
@@ -143,60 +95,14 @@ trait BaseInteractiveSubmissionTest
     ),
   )
 
-  def waitForExternalPartyToBecomeEffective(
-      party: ExternalParty,
-      nodesToSynchronize: InstanceReference*
-  )(implicit env: TestConsoleEnvironment): Unit = {
-    import env.*
-    nodesToSynchronize.foreach { p =>
-      eventually() {
-        p.topology.party_to_participant_mappings
-          .list(daId, filterParty = party.partyId.filterString) should not be empty
-        p.topology.party_to_key_mappings
-          .list(daId, filterParty = party.partyId.filterString) should not be empty
-      }
-    }
-  }
-
-  def onboardParty(
-      name: String,
-      confirming: ParticipantReference,
-      synchronizerId: PhysicalSynchronizerId,
-      extraConfirming: Seq[ParticipantReference] = Seq.empty,
-      observing: Seq[ParticipantReference] = Seq.empty,
-      confirmationThreshold: PositiveInt = PositiveInt.one,
-      numberOfKeys: PositiveInt = PositiveInt.one,
-      keyThreshold: PositiveInt = PositiveInt.one,
-  )(implicit env: TestConsoleEnvironment): ExternalParty = {
-
-    val (onboardingTransactions, externalParty) = generateExternalPartyOnboardingTransactions(
-      name,
-      Seq(confirming.id) ++ extraConfirming.map(_.id),
-      observing.map(_.id),
-      confirmationThreshold,
-      numberOfKeys,
-      keyThreshold,
-    )
-
-    loadOnboardingTransactions(
-      externalParty,
-      confirming,
-      synchronizerId,
-      onboardingTransactions,
-      extraConfirming,
-      observing,
-    )
-    externalParty
-  }
-
-  def loadOnboardingTransactions(
+  protected def loadOnboardingTransactions(
       externalParty: ExternalParty,
       confirming: ParticipantReference,
       synchronizerId: PhysicalSynchronizerId,
       onboardingTransactions: OnboardingTransactions,
       extraConfirming: Seq[ParticipantReference] = Seq.empty,
       observing: Seq[ParticipantReference] = Seq.empty,
-  )(implicit env: TestConsoleEnvironment) = {
+  )(implicit env: TestConsoleEnvironment): Unit = {
     // Start by loading the transactions signed by the party
     confirming.topology.transactions.load(
       onboardingTransactions.toSeq,
@@ -218,9 +124,7 @@ trait BaseInteractiveSubmissionTest
           )
           .loneElement
       }
-      // If the test runs with static time move the time up a bit so that the proposal becomes effective in the topology
-      if (env.environment.clock.isSimClock)
-        env.environment.simClock.value.advance(Duration.ofSeconds(1))
+
       // In practice, participant operators are expected to inspect the transaction here before authorizing it
       val transactionHash = partyToParticipantProposal.context.transactionHash
       hp.topology.transactions.authorize[PartyToParticipant](
@@ -230,8 +134,6 @@ trait BaseInteractiveSubmissionTest
       )
     }
 
-    if (env.environment.clock.isSimClock)
-      env.environment.simClock.value.advance(Duration.ofSeconds(1))
     allParticipants.foreach { hp =>
       // Wait until all participants agree the hosting is effective
       env.utils.retry_until_true(
@@ -245,74 +147,14 @@ trait BaseInteractiveSubmissionTest
     }
   }
 
-  def updateSigningKeysThreshold(
-      participant: ParticipantReference,
-      party: PartyId,
-      newThreshold: PositiveInt,
-      regenerateKeys: Option[PositiveInt] = None,
-  )(implicit env: TestConsoleEnvironment): NonEmpty[Seq[SigningPublicKey]] = {
-    val store = env.synchronizer1Id
-    val current = participant.topology.party_to_key_mappings
-      .list(store, filterParty = party.toProtoPrimitive)
-      .loneElement
-    val keys = regenerateKeys.map(generateProtocolSigningKeys).getOrElse(current.item.signingKeys)
-    val updatedTransaction = TopologyTransaction(
-      TopologyChangeOp.Replace,
-      current.context.serial.increment,
-      PartyToKeyMapping.create(current.item.party, newThreshold, keys).value,
-      testedProtocolVersion,
-    )
-    val namespaceSignature = crypto.privateCrypto
-      .sign(
-        updatedTransaction.hash.hash,
-        party.fingerprint,
-        NonEmpty.mk(Set, SigningKeyUsage.Namespace),
-      )
-      .futureValueUS
-      .value
-    // If we regenerate the keys we need to re-sign the party to key with the new keys
-    val protocolSignatures = if (regenerateKeys.isDefined) {
-      keys.map { key =>
-        crypto.privateCrypto
-          .sign(
-            updatedTransaction.hash.hash,
-            key.fingerprint,
-            NonEmpty.mk(Set, SigningKeyUsage.Protocol),
-          )
-          .futureValueUS
-          .value
-      }.forgetNE
-    } else Seq.empty
-    val signedTopologyTransaction = SignedTopologyTransaction.withTopologySignatures(
-      updatedTransaction,
-      NonEmpty
-        .mk(Seq, namespaceSignature, protocolSignatures*)
-        .map(SingleTransactionSignature(updatedTransaction.hash, _)),
-      isProposal = false,
-      protocolVersion = testedProtocolVersion,
-    )
-    participant.topology.transactions.load(
-      Seq(signedTopologyTransaction),
-      store,
-      synchronize = Some(config.NonNegativeDuration.ofSeconds(10)),
-    )
-    keys
-  }
-
-  def createCycleContract(
-      partyE: ExternalParty
-  )(implicit env: TestConsoleEnvironment): CreatedEvent =
-    externalSubmit(
-      new Cycle("test-external-signing", partyE.toProtoPrimitive).create(),
-      partyE,
-      epn(env),
-    ).events.loneElement.getCreated
-
-  def offboardParty(
-      party: PartyId,
+  // TODO(#27680) Extract into PartyToParticipantDeclarative
+  protected def offboardParty(
+      party: ExternalParty,
       participant: LocalParticipantReference,
       synchronizerId: SynchronizerId,
-  ): Unit = {
+  )(implicit env: TestConsoleEnvironment): Unit = {
+    import env.*
+
     val partyToParticipantTx = participant.topology.party_to_participant_mappings
       .list(synchronizerId, filterParty = party.toProtoPrimitive)
       .loneElement
@@ -323,7 +165,9 @@ trait BaseInteractiveSubmissionTest
       partyToParticipantMapping,
       testedProtocolVersion,
     )
-    val removeCharlieSignedTopologyTx = signTopologyTransaction(party, removeTopologyTx)
+
+    val removeCharlieSignedTopologyTx =
+      global_secret.sign(removeTopologyTx, party, testedProtocolVersion)
     participant.topology.transactions.load(
       Seq(removeCharlieSignedTopologyTx),
       TopologyStoreId.Synchronizer(synchronizerId),
@@ -331,141 +175,14 @@ trait BaseInteractiveSubmissionTest
     )
   }
 
-  def signTxAs(
-      prep: PrepareSubmissionResponse,
-      p: ExternalParty,
-  ): Map[PartyId, Seq[Signature]] =
-    signTxAs(prep.preparedTransactionHash, p)
-
-  def externalSubmit(
-      hasCommands: HasCommands,
-      as: ExternalParty,
-      executingParticipant: LocalParticipantReference,
-      transactionFormat: Option[TransactionFormat] = Some(defaultTransactionFormat),
-      prepareParticipantOverride: Option[LocalParticipantReference] = None,
-      commandId: String = UUID.randomUUID().toString,
-      disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-      // TODO(i26426): Remove when we move to 3.4
-      expectTransactionHashOnLAPI: Boolean = true,
-  )(implicit env: TestConsoleEnvironment): Transaction = {
-    import env.*
-
-    val prepare = prepareCommand(
-      as,
-      protoCmd(hasCommands),
-      preparingParticipant = _ => prepareParticipantOverride.getOrElse(executingParticipant),
-      commandId = commandId,
-      disclosedContracts = disclosedContracts,
-    )
-    val transaction = execAndWaitForTransaction(
-      prepare,
-      signTxAs(prepare, as),
-      execParticipant = _ => executingParticipant,
-      transactionFormat = transactionFormat,
-    )
-    if (expectTransactionHashOnLAPI)
-      transaction.externalTransactionHash shouldBe Some(prepare.preparedTransactionHash)
-
-    // Wait for the transaction to be available on each hosting participant too
-    val hostingParticipantIds = executingParticipant.topology.party_to_participant_mappings
-      .list(
-        synchronizerId = SynchronizerId.tryFromString(transaction.synchronizerId),
-        filterParty = as.toProtoPrimitive,
-      )
-      .loneElement
-      .item
-      .participants
-      .map(_.participantId)
-    participants.local
-      .filter(_.is_running)
-      .filter(p => hostingParticipantIds.contains(p.id) && p.id != executingParticipant.id)
-      .foreach { p =>
-        eventually() {
-          p.ledger_api.updates
-            .update_by_id(transaction.updateId, getUpdateFormat(Set(as.partyId)))
-            .collect { case tx: TransactionWrapper => tx.transaction }
-            .value
-        }
-      }
-
-    transaction
-  }
-
-  def findContractForUpdateId(
-      party: PartyId,
-      updateId: String,
-      cpn: LocalParticipantReference,
-      requireBlob: Option[TemplateId] = None,
-  ): CreatedEvent = {
-    val tx = eventually() {
-      cpn.ledger_api.updates
-        .update_by_id(updateId, getUpdateFormat(Set(party)))
-        .collect { case tx: TransactionWrapper => tx.transaction }
-        .value
-    }
-    // By default, the transaction returned above does not have the create-blob
-    // so use the contract id to look up the created event, with blob
-    val contractId = tx.events.loneElement.getCreated.contractId
-    getCreatedEvent(contractId, party, cpn, requireBlob)
-  }
-
-  protected def getCreatedEvent(
-      contractId: String,
-      partyId: PartyId,
-      participant: ParticipantReference,
-      requireBlob: Option[TemplateId] = None,
-  ): CreatedEvent = requireBlob
-    .map { templateId =>
-      participant.ledger_api.state.acs
-        .active_contracts_of_party(
-          partyId,
-          filterTemplates = Seq(templateId),
-          includeCreatedEventBlob = true,
-        )
-        .flatMap(_.createdEvent)
-        .filter(_.contractId == contractId)
-        .loneElement
-    }
-    .getOrElse {
-      participant.ledger_api.event_query
-        .by_contract_id(contractId, Seq(partyId))
-        .getCreated
-        .getCreatedEvent
-    }
-
-  def prepareCommand(
-      as: ExternalParty,
-      command: Command,
-      disclosedContracts: Seq[DisclosedContract] = Seq.empty,
-      minLedgerTimeAbs: Option[Instant] = None,
-      preparingParticipant: ParticipantSelector = defaultPreparingParticipant,
-      commandId: String = UUID.randomUUID().toString,
-  )(implicit env: TestConsoleEnvironment): PrepareSubmissionResponse =
-    preparingParticipant(env).ledger_api.interactive_submission.prepare(
-      Seq(as.partyId),
-      Seq(command),
-      disclosedContracts = disclosedContracts,
-      minLedgerTimeAbs = minLedgerTimeAbs,
-      synchronizerId = None,
-      verboseHashing = true,
-      commandId = commandId,
-    )
-
-  def prepareCycle(as: ExternalParty)(implicit
-      env: TestConsoleEnvironment
-  ): PrepareSubmissionResponse =
-    prepareCommand(as, protoCreateCycleCmd(as))
-
-  def exec(
+  protected def exec(
       prepared: PrepareSubmissionResponse,
       signatures: Map[PartyId, Seq[Signature]],
-      execParticipant: ParticipantSelector = defaultExecutingParticipant,
-  )(implicit
-      env: TestConsoleEnvironment
+      execParticipant: ParticipantReference,
   ): (String, Long) = {
     val submissionId = UUID.randomUUID().toString
-    val ledgerEnd = execParticipant(env).ledger_api.state.end()
-    execParticipant(env).ledger_api.interactive_submission.execute(
+    val ledgerEnd = execParticipant.ledger_api.state.end()
+    execParticipant.ledger_api.interactive_submission.execute(
       prepared.preparedTransaction.value,
       signatures,
       submissionId,
@@ -474,7 +191,7 @@ trait BaseInteractiveSubmissionTest
     (submissionId, ledgerEnd)
   }
 
-  def execAndWait(
+  protected def execAndWait(
       prepared: PrepareSubmissionResponse,
       signatures: Map[PartyId, Seq[Signature]],
       execParticipant: ParticipantSelector = defaultExecutingParticipant,
@@ -482,7 +199,7 @@ trait BaseInteractiveSubmissionTest
       env: TestConsoleEnvironment
   ): ExecuteSubmissionAndWaitResponse = {
     val submissionId = UUID.randomUUID().toString
-    execParticipant(env).ledger_api.interactive_submission.executeAndWait(
+    execParticipant(env).ledger_api.interactive_submission.execute_and_wait(
       prepared.preparedTransaction.value,
       signatures,
       submissionId,
@@ -490,10 +207,10 @@ trait BaseInteractiveSubmissionTest
     )
   }
 
-  def execAndWaitForTransaction(
+  protected def execAndWaitForTransaction(
       prepared: PrepareSubmissionResponse,
       signatures: Map[PartyId, Seq[Signature]],
-      transactionFormat: Option[TransactionFormat] = None,
+      transactionShape: TransactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
       execParticipant: ParticipantSelector = defaultExecutingParticipant,
   )(implicit
       env: TestConsoleEnvironment
@@ -505,11 +222,11 @@ trait BaseInteractiveSubmissionTest
         signatures,
         submissionId,
         prepared.hashingSchemeVersion,
-        transactionFormat,
+        Some(transactionShape),
       )
   }
 
-  def execFailure(
+  protected def execFailure(
       prepared: PrepareSubmissionResponse,
       signatures: Map[PartyId, Seq[Signature]],
       additionalExpectedFailure: String = "",
@@ -518,7 +235,7 @@ trait BaseInteractiveSubmissionTest
   ): Unit =
     loggerFactory.assertLoggedWarningsAndErrorsSeq(
       a[CommandFailure] shouldBe thrownBy {
-        exec(prepared, signatures)
+        exec(prepared, signatures, epn)
       },
       LogEntry.assertLogSeq(
         Seq(
@@ -534,27 +251,27 @@ trait BaseInteractiveSubmissionTest
       ),
     )
 
-  def findCompletion(
+  protected def findCompletion(
       submissionId: String,
       ledgerEnd: Long,
       observingPartyE: ExternalParty,
-      execParticipant: ParticipantSelector = defaultExecutingParticipant,
-  )(implicit
-      env: TestConsoleEnvironment
+      execParticipant: ParticipantReference,
   ): Completion =
     eventually() {
-      val completions =
-        execParticipant(env).ledger_api.completions.list(
+      execParticipant.ledger_api.completions
+        .list(
           observingPartyE.partyId,
           atLeastNumCompletions = 1,
           ledgerEnd,
+          filter = _.submissionId == submissionId,
         )
-      completions.find(_.submissionId == submissionId).value
+        .loneElement
     }
 
-  def findTransactionByUpdateId(
+  protected def findTransactionByUpdateId(
       observingPartyE: ExternalParty,
       updateId: String,
+      verbose: Boolean = false,
       confirmingParticipant: ParticipantSelector = defaultConfirmingParticipant,
   )(implicit
       env: TestConsoleEnvironment
@@ -579,7 +296,7 @@ trait BaseInteractiveSubmissionTest
                       )
                     ),
                     filtersForAnyParty = None,
-                    verbose = false,
+                    verbose = verbose,
                   )
                 ),
                 transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
@@ -596,16 +313,14 @@ trait BaseInteractiveSubmissionTest
     }
   }
 
-  def findTransactionInStream(
+  protected def findTransactionInStream(
       observingPartyE: ExternalParty,
       beginOffset: Long = 0L,
       hash: ByteString,
-      confirmingParticipant: ParticipantSelector = defaultConfirmingParticipant,
-  )(implicit
-      env: TestConsoleEnvironment
+      confirmingParticipant: ParticipantReference,
   ): Transaction = {
     val transactions =
-      confirmingParticipant(env).ledger_api.updates.transactions(
+      confirmingParticipant.ledger_api.updates.transactions(
         Set(observingPartyE.partyId),
         completeAfter = PositiveInt.one,
         beginOffsetExclusive = beginOffset,
@@ -623,14 +338,4 @@ trait BaseInteractiveSubmissionTest
         .value
     }
   }
-
-  def protoCmd(hasCommands: HasCommands): Command =
-    Command.fromJavaProto(hasCommands.commands.loneElement.toProtoCommand)
-
-  def protoCreateCycleCmd(ownerE: ExternalParty): Command =
-    protoCmd(createCycleCommand(ownerE))
-
-  def createCycleCommand(ownerE: ExternalParty): Update[Created[Cycle.ContractId]] =
-    new Cycle("test-external-signing", ownerE.toProtoPrimitive).create()
-
 }

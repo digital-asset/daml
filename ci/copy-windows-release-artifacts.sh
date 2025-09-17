@@ -50,6 +50,6 @@ function copy_oci {
 # Copy all platforms for each, publishing script picks out platform independent
 copy_oci damlc bazel-bin/compiler/damlc/damlc-oci.tar.gz
 copy_oci daml-script bazel-bin/daml-script/runner/daml-script-oci.tar.gz
-copy_oci daml2js bazel-bin/language-support/ts/codegen/daml2js-oci.tar.gz
-copy_oci codegen bazel-bin/language-support/java/codegen/codegen-oci.tar.gz
+copy_oci codegen-js bazel-bin/language-support/ts/codegen/codegen-js-oci.tar.gz
+copy_oci codegen-java bazel-bin/language-support/codegen-main/codegen-java-oci.tar.gz
 copy_oci daml-new bazel-bin/daml-assistant/daml-helper/daml-new-oci.tar.gz

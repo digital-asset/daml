@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -37,6 +38,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
   InMemorySequencerStore,
   PayloadId,
   Presequenced,
+  ReadEvents,
   SavePayloadsError,
   Sequenced,
   SequencerMemberId,
@@ -81,6 +83,8 @@ class SequencerWriterSourceTest
     with HasExecutionContext
     with ProtocolVersionChecksAsyncWordSpec
     with FailOnShutdown {
+
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   class MockEventSignaller extends EventSignaller {
     private val listenerRef =
@@ -128,13 +132,14 @@ class SequencerWriterSourceTest
     lazy val sequencerMember: Member = SequencerId(
       UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
     )
-    class InMemoryStoreWithTimeAdvancement(lFactory: NamedLoggerFactory)(implicit
+    class InMemoryStoreWithTimeAdvancement(loggerFactory: NamedLoggerFactory)(implicit
         ec: ExecutionContext
     ) extends InMemorySequencerStore(
           testedProtocolVersion,
           sequencerMember,
           blockSequencerMode = blockSequencerMode,
-          lFactory,
+          loggerFactory = loggerFactory,
+          sequencerMetrics = SequencerMetrics.noop("sequencer-writer-source-test"),
         )(
           ec
         ) {
@@ -152,6 +157,16 @@ class SequencerWriterSourceTest
         clock.advance(timeAdvancement.get())
         super.savePayloads(payloadsToInsert, instanceDiscriminator)
       }
+
+      override def readEvents(
+          memberId: SequencerMemberId,
+          member: Member,
+          fromExclusiveO: Option[CantonTimestamp] = None,
+          limit: Int = 100,
+      )(implicit
+          traceContext: TraceContext,
+          metricsContext: MetricsContext,
+      ): FutureUnlessShutdown[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
     }
 
     val store =
@@ -238,9 +253,9 @@ class SequencerWriterSourceTest
       clock.advanceTo(nowish)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId1,
           Set.empty,
           payload1,
@@ -263,7 +278,7 @@ class SequencerWriterSourceTest
           },
           _.shouldBeCantonErrorCode(PayloadToEventTimeBoundExceeded),
         )
-        events <- store.readEvents(aliceId, alice)
+        events <- store.readEvents(registeredAlice.memberId, alice)
       } yield events.events shouldBe empty
     }
   }
@@ -284,9 +299,9 @@ class SequencerWriterSourceTest
           SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[WritePayloadsFlow.type]
         )(
           for {
-            aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+            registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
             deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-              aliceId,
+              registeredAlice.memberId,
               messageId1,
               Set.empty,
               payload1,
@@ -301,7 +316,7 @@ class SequencerWriterSourceTest
               Presequenced.alwaysValid(deliver1, Some(lowerBoundExclusive.immediateSuccessor))
             )
             _ <- FutureUnlessShutdown.outcomeF(completeFlow())
-            events <- store.readEvents(aliceId, alice)
+            events <- store.readEvents(registeredAlice.memberId, alice)
           } yield {
             events.events.loneElement.timestamp shouldBe lowerBoundExclusive.immediateSuccessor
           },
@@ -330,9 +345,9 @@ class SequencerWriterSourceTest
           SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[WritePayloadsFlow.type]
         )(
           for {
-            aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+            registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
             deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-              aliceId,
+              registeredAlice.memberId,
               messageId1,
               Set.empty,
               payload1,
@@ -384,9 +399,9 @@ class SequencerWriterSourceTest
       val longAfterNow = nowish.plusSeconds(5)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId1,
           Set.empty,
           payload1,
@@ -394,7 +409,7 @@ class SequencerWriterSourceTest
           None,
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId2,
           Set.empty,
           payload2,
@@ -419,7 +434,7 @@ class SequencerWriterSourceTest
           FutureUnlessShutdown.outcomeF(completeFlow())
         }
 
-        events <- store.readEvents(aliceId, alice)
+        events <- store.readEvents(registeredAlice.memberId, alice)
       } yield {
         events.events should have size 1
         events.events.headOption.map(_.event).value should matchPattern {
@@ -442,9 +457,9 @@ class SequencerWriterSourceTest
       clock.advanceTo(nowish)
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId1,
           Set.empty,
           payload1,
@@ -452,7 +467,7 @@ class SequencerWriterSourceTest
           None,
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
-          aliceId,
+          registeredAlice.memberId,
           messageId2,
           Set.empty,
           payload1,
@@ -469,7 +484,7 @@ class SequencerWriterSourceTest
           )
         )
         _ <- completeFlow()
-        events <- store.readEvents(aliceId, alice).failOnShutdown
+        events <- store.readEvents(registeredAlice.memberId, alice).failOnShutdown
       } yield {
         events.events should have size 2
         events.events.map(_.event)
@@ -515,7 +530,7 @@ class SequencerWriterSourceTest
       import env.*
 
       for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
 
         batch = Batch.fromClosed(
           testedProtocolVersion,
@@ -551,11 +566,11 @@ class SequencerWriterSourceTest
         )("send to unknown recipient")
         _ <- eventuallyFUS(10.seconds) {
           for {
-            events <- env.store.readEvents(aliceId, alice)
+            events <- env.store.readEvents(registeredAlice.memberId, alice)
             error = events.events.collectFirst {
               case Sequenced(
                     _,
-                    deliverError @ DeliverErrorStoreEvent(`aliceId`, _, _, _, _),
+                    deliverError @ DeliverErrorStoreEvent(aliceId, _, _, _, _),
                   ) =>
                 deliverError
             }.value
@@ -630,8 +645,12 @@ class SequencerWriterSourceTest
     }
 
     for {
-      aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
-      bobId <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
+      registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+      aliceId = registeredAlice.memberId
+
+      registeredBob <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
+      bobId = registeredBob.memberId
+
       // check single members
       _ <- expectNotification(writeCount = 1)(aliceId) { () =>
         deliverEvent(aliceId)

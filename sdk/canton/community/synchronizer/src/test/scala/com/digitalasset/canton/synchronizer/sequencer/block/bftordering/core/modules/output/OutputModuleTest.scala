@@ -28,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.{
   DefaultRequestInspector,
+  FixedResultRequestInspector,
   RequestInspector,
   StartupState,
 }
@@ -849,15 +850,9 @@ class OutputModuleTest
       "receiving multiple state-transferred blocks" in {
         val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
         val output =
-          createOutputModule[ProgrammableUnitTestEnv](requestInspector = new RequestInspector {
-            override def isRequestToAllMembersOfSynchronizer(
-                request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                logger: TracedLogger,
-                traceContext: TraceContext,
-            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-              true // All requests are topology transactions
-          })(
+          createOutputModule[ProgrammableUnitTestEnv](requestInspector =
+            new FixedResultRequestInspector(true)
+          )(
             blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks)
           )
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
@@ -912,15 +907,7 @@ class OutputModuleTest
         val store = spy(createOutputMetadataStore[ProgrammableUnitTestEnv])
         val output = createOutputModule[ProgrammableUnitTestEnv](
           store = store,
-          requestInspector = new RequestInspector {
-            override def isRequestToAllMembersOfSynchronizer(
-                request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                logger: TracedLogger,
-                traceContext: TraceContext,
-            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-              true // All requests are topology transactions
-          },
+          requestInspector = new FixedResultRequestInspector(true),
         )()
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
@@ -1067,15 +1054,7 @@ class OutputModuleTest
           initialOrderingTopology = OrderingTopology.forTesting(Set(BftNodeId("node1"))),
           orderingTopologyProvider = topologyProviderSpy,
           consensusRef = consensusRef,
-          requestInspector = new RequestInspector {
-            override def isRequestToAllMembersOfSynchronizer(
-                request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                logger: TracedLogger,
-                traceContext: TraceContext,
-            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-              false // No request is for all members of synchronizer
-          },
+          requestInspector = new FixedResultRequestInspector(false),
         )()
 
         val blockData =

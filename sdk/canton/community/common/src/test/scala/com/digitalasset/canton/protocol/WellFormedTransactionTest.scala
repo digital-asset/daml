@@ -146,59 +146,6 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
         s"Contract id ${lfAbs.coid} created in node ${nid(1)} is referenced before in ${nid(0)}",
       ),
       (
-        "Unsuffixed discriminator appears with suffix in value",
-        factory.versionedTransactionWithSeeds(
-          Seq(0),
-          createNode(
-            unsuffixedId(0),
-            contractInstance = contractInstance(capturedIds = Seq(suffixedId(0, 1))),
-          ),
-        ),
-        WithoutSuffixes,
-        s"Local contract Id 000000000000000000000000000000000000000000000000000000000000000000 created in ${nid(0)} is not fresh due to ${nid(0)}",
-      ),
-      (
-        "Unsuffixed discriminator is used earlier with suffix",
-        factory.versionedTransactionWithSeeds(
-          Seq(0, 1),
-          fetchNode(suffixedId(0, 1)),
-          createNode(unsuffixedId(0)),
-        ),
-        WithoutSuffixes,
-        s"Local contract Id 000000000000000000000000000000000000000000000000000000000000000000 created in ${nid(1)} is not fresh due to ${nid(0)}",
-      ),
-      (
-        "Unsuffixed discriminator is used with suffix in later node",
-        factory.versionedTransactionWithSeeds(
-          Seq(0, 1),
-          createNode(unsuffixedId(1)),
-          exerciseNode(suffixedId(0, 1), 2),
-          fetchNode(suffixedId(1, -1)),
-        ),
-        WithoutSuffixes,
-        s"Local contract Id 000001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
-            0
-          )} is not fresh due to contract Id ${suffixedId(1, -1).coid} in ${nid(2)}",
-      ),
-      (
-        "Unsuffixed discriminator is referenced with suffix in later node",
-        factory.versionedTransactionWithSeeds(
-          Seq(0, 1),
-          createNode(unsuffixedId(1)),
-          ExampleTransactionFactory.exerciseNode(
-            suffixedId(0, 0),
-            signatories = Set(signatory),
-            actingParties = Set(signatory),
-            exerciseResult =
-              Some(contractInstance(capturedIds = Seq(suffixedId(1, -1))).unversioned.arg),
-          ),
-        ),
-        WithoutSuffixes,
-        s"Local contract Id 000001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
-            0
-          )} is not fresh due to contract Id ${suffixedId(1, -1).coid} in ${nid(1)}",
-      ),
-      (
         "Missing signatory",
         factory.versionedTransactionWithSeeds(
           Seq(0),

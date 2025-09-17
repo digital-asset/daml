@@ -4,12 +4,16 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, NoCopy, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{PackageInterface, TypeDestructor}
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
+import com.digitalasset.daml.lf.language.PackageInterface
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
@@ -33,10 +37,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
-import com.daml.nameof.NameOf
-import com.daml.scalautil.Statement.discard
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
@@ -141,11 +141,19 @@ private[lf] object Speedy {
     def templateId: TypeConId = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue: V = globalKey.key
-    def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
+    def renormalizedGlobalKeyWithMaintainers: GlobalKeyWithMaintainers = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue(version))
+        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue)
       )
     }
+  }
+
+  final case class ContractMetadata(
+      signatories: Set[Party],
+      observers: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+  ) {
+    val stakeholders: Set[Party] = signatories union observers
   }
 
   final case class ContractInfo(
@@ -160,7 +168,7 @@ private[lf] object Speedy {
     val stakeholders: Set[Party] = signatories union observers
 
     private[speedy] val any = SValue.SAnyContract(templateId, value)
-    private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] def arg = value.toNormalizedValue
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
@@ -173,6 +181,12 @@ private[lf] object Speedy {
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
         version = version,
       )
+
+    lazy val metadata = ContractMetadata(
+      signatories,
+      observers,
+      keyOpt.map(_.globalKeyWithMaintainers),
+    )
   }
 
   private[speedy] def throwLimitError(location: String, error: IError.Dev.Limit.Error): Nothing =
@@ -207,10 +221,14 @@ private[lf] object Speedy {
       /* Commit location, if a script commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
-      initialEnvSize: Int = 512,
-      initialKontStackSize: Int = 128,
+      costModel: CostModel,
+      initialGasBudget: Option[CostModel.Cost],
+      initialEnvSize: Int,
+      initialKontStackSize: Int,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update](
+        costModel = costModel,
+        initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
       ) {
@@ -284,24 +302,6 @@ private[lf] object Speedy {
           committers,
           (coinst, hashMethod, authenticator) =>
             safelyContinue(location, "NeedContract", continue(coinst, hashMethod, authenticator)),
-        )
-      )
-
-    final private[speedy] def needUpgradeVerification(
-        location: => String,
-        coid: V.ContractId,
-        signatories: Set[Party],
-        observers: Set[Party],
-        keyOpt: Option[GlobalKeyWithMaintainers],
-        continue: Option[String] => Control[Question.Update],
-    ): Control.Question[Question.Update] =
-      Control.Question(
-        Question.Update.NeedUpgradeVerification(
-          coid,
-          signatories,
-          observers,
-          keyOpt,
-          x => safelyContinue(location, "NeedUpgradeVerification", continue(x)),
         )
       )
 
@@ -778,6 +778,8 @@ private[lf] object Speedy {
         contractIdVersion: ContractIdVersion = ContractIdVersion.V1,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
+        costModel: CostModel = CostModel.Empty,
+        initialGasBudget: Option[CostModel.Cost] = None,
         initialEnvSize: Int = 512,
         initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): UpdateMachine =
@@ -804,6 +806,8 @@ private[lf] object Speedy {
         profile = new Profile(),
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
+        costModel = costModel,
+        initialGasBudget = initialGasBudget,
         initialEnvSize = initialEnvSize,
         initialKontStackSize = initialKontStackSize,
       )
@@ -829,12 +833,12 @@ private[lf] object Speedy {
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
       override val convertLegacyExceptions: Boolean,
-      initialEnvSize: Int = 512,
-      initialKontStackSize: Int = 128,
   )(implicit loggingContext: LoggingContext)
       extends Machine[Nothing](
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
+        costModel = CostModel.Empty,
+        initialGasBudget = None,
+        initialEnvSize = 512,
+        initialKontStackSize = 128,
       ) {
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -859,8 +863,13 @@ private[lf] object Speedy {
   }
 
   /** The speedy CEK machine. */
-  private[lf] sealed abstract class Machine[Q](initialEnvSize: Int, initialKontStackSize: Int)(
-      implicit val loggingContext: LoggingContext
+  private[lf] sealed abstract class Machine[Q](
+      costModel: CostModel,
+      initialGasBudget: Option[CostModel.Cost],
+      initialEnvSize: Int,
+      initialKontStackSize: Int,
+  )(implicit
+      val loggingContext: LoggingContext
   ) {
 
     val sexpr: SExpr
@@ -882,6 +891,10 @@ private[lf] object Speedy {
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
      */
     val convertLegacyExceptions: Boolean = true
+
+    var gasBudget = initialGasBudget.getOrElse(0L)
+
+    private[this] val hasGasBudget = initialGasBudget.isDefined
 
     private val stablePackages = StablePackages(
       compiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
@@ -960,6 +973,7 @@ private[lf] object Speedy {
     private[this] var actuals: Actuals = null
     /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
     private[speedy] final val env: Env = {
+      updateGasBudget(_.EnvIncrease.cost(initialEnvSize))
       new Stack(initialEnvSize)
     }
     /* [envBase] is the depth of the temporaries-stack when the current code-context was
@@ -971,6 +985,7 @@ private[lf] object Speedy {
      * once the control has been evaluated.
      */
     private[speedy] final val kontStack: Stack[Kont[Q]] = {
+      updateGasBudget(_.KontStackIncrease.cost(initialKontStackSize))
       val kontStack = new Stack[Kont[Q]](initialKontStackSize)
       kontStack.push(KPure(Control.Complete)) // stack is not full, no need to check
       kontStack
@@ -1028,6 +1043,7 @@ private[lf] object Speedy {
     @inline
     private[speedy] final def pushKont(k: Kont[Q]): Unit = {
       if (kontStack.isFull) {
+        updateGasBudget(_.KontStackIncrease.cost(kontStack.capacity))
         kontStack.grow()
       }
       kontStack.push(k)
@@ -1070,6 +1086,7 @@ private[lf] object Speedy {
     @inline
     final def pushEnv(v: SValue): Unit = {
       if (env.isFull) {
+        updateGasBudget(_.EnvIncrease.cost(env.capacity))
         env.grow()
       }
       env.push(v)
@@ -1303,196 +1320,31 @@ private[lf] object Speedy {
       }
     }
 
-    // This translates a well-typed LF value (typically coming from the ledger)
+    // This translates and type-checks an LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
-    // Note the method does not check the value is well-typed as opposed as
-    // com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
-    // All the contract IDs contained in the value are considered global.
-    // Raises an exception if missing a package.
-    private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
-
-      import TypeDestructor.SerializableTypeF._
-      val Destructor = TypeDestructor(compiledPackages.pkgInterface)
-
-      def go(ty: Type, value: V): SValue = {
-        def typeMismatch = throw SErrorCrash(
-          NameOf.qualifiedNameOfCurrentFunc,
-          s"mismatching type: $ty and value: $value",
+    private[speedy] final def importValue(typ: Type, value: V): Control[Nothing] =
+      new ValueTranslator(compiledPackages.pkgInterface, forbidLocalContractIds = true)
+        .translateValue(typ, value)
+        .fold(
+          error =>
+            Control.Error(
+              IError.Dev(NameOf.qualifiedNameOfCurrentFunc, IError.Dev.TranslationError(error))
+            ),
+          svalue => Control.Value(svalue),
         )
 
-        value match {
-          case leaf: V.ValueCidlessLeaf =>
-            leaf match {
-              case V.ValueEnum(_, consName) =>
-                Destructor.destruct(ty) match {
-                  case Right(enumF: EnumF) =>
-                    val rank =
-                      enumF
-                        .consRank(consName)
-                        .getOrElse(
-                          throw SErrorDamlException(
-                            IError.Upgrade(
-                              IError.Upgrade.DowngradeFailed(ty, value)
-                            )
-                          )
-                        )
-                    SValue.SEnum(enumF.tyCon, consName, rank)
-                  case _ =>
-                    typeMismatch
-                }
-              case V.ValueInt64(value) =>
-                SValue.SInt64(value)
-              case V.ValueNumeric(value) =>
-                SValue.SNumeric(value)
-              case V.ValueText(value) =>
-                SValue.SText(value)
-              case V.ValueTimestamp(value) =>
-                SValue.STimestamp(value)
-              case V.ValueDate(value) =>
-                SValue.SDate(value)
-              case V.ValueParty(value) =>
-                SValue.SParty(value)
-              case V.ValueBool(value) =>
-                if (value) SValue.SValue.True else SValue.SValue.False
-              case V.ValueUnit =>
-                SValue.SUnit
-            }
-          case V.ValueRecord(_, sourceElements) =>
-            Destructor.destruct(ty) match {
-              case Right(recordF: RecordF[_]) =>
-                // This code implements the compatibility transformation used for up/down-grading
-                // And handles the cases:
-                // - UPGRADE:   numT > numS : creates a None for each missing fields.
-                // - DOWNGRADE: numS > numT : drops each extra field, ensuring it is None.
-                //
-                // When numS == numT, we wont hit the code marked either as UPGRADE or DOWNGRADE,
-                // although it is still possible that the source and target types are different,
-                // but since we don't consult the source type (may be unavailable), we wont know.
-
-                val numS: Int = sourceElements.length
-                val numT: Int = recordF.fieldTypes.length
-
-                // traverse the sourceElements, "get"ing the corresponding target type
-                // when there is no corresponding type, we must be downgrading, and so we insist the value is None
-                val values0: List[SValue] =
-                  sourceElements.toSeq.view.zipWithIndex.flatMap { case ((_, v), i) =>
-                    recordF.fieldTypes.lift(i) match {
-                      case Some(targetFieldType) =>
-                        val sv: SValue = go(targetFieldType, v)
-                        List(sv)
-                      case None => { // DOWNGRADE
-                        // i ranges from 0 to numS-1. So i >= numT implies numS > numT
-                        assert((numS > i) && (i >= numT))
-                        v match {
-                          case V.ValueOptional(None) =>
-                            List.empty // ok, drop
-                          case V.ValueOptional(Some(_)) =>
-                            throw SErrorDamlException(
-                              IError.Upgrade(
-                                IError.Upgrade.DowngradeDropDefinedField(ty, i.toLong, value)
-                              )
-                            )
-                          case _ =>
-                            throw SErrorCrash(
-                              NameOf.qualifiedNameOfCurrentFunc,
-                              "Unexpected non-optional extra contract field encountered during downgrading.",
-                            )
-                        }
-                      }
-                    }
-                  }.toList
-
-                val values: ArraySeq[SValue] = {
-                  if (numT > numS) {
-                    // UPGRADE
-
-                    recordF.fieldTypes.view.drop(numS).map(Destructor.destruct(_)).foreach {
-                      case Right(OptionalF(_)) =>
-                      case _ =>
-                        throw SErrorCrash(
-                          NameOf.qualifiedNameOfCurrentFunc,
-                          "Unexpected non-optional extra template field type encountered during upgrading.",
-                        )
-                    }
-
-                    values0.padTo(numT, SValue.SValue.None)
-                  } else {
-                    values0
-                  }
-                }.to(ArraySeq)
-
-                SValue.SRecord(recordF.tyCon, recordF.fieldNames.to(ImmArray), values)
-
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueVariant(_, variant, value) =>
-            Destructor.destruct(ty) match {
-              case Right(variantF: VariantF[_]) =>
-                val rank =
-                  variantF
-                    .consRank(variant)
-                    .getOrElse(
-                      throw SErrorDamlException(
-                        IError.Upgrade(
-                          IError.Upgrade.DowngradeFailed(ty, value)
-                        )
-                      )
-                    )
-                val a = variantF.consTypes(rank)
-                SValue.SVariant(variantF.tyCon, variant, rank, go(a, value))
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueContractId(value) =>
-            SValue.SContractId(value)
-          case V.ValueList(values) =>
-            Destructor.destruct(ty) match {
-              case Right(ListF(a)) =>
-                SValue.SList(values.map(go(a, _)))
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueOptional(value) =>
-            value match {
-              case Some(value) =>
-                Destructor.destruct(ty) match {
-                  case Right(OptionalF(a)) =>
-                    SValue.SOptional(Some(go(a, value)))
-                  case _ =>
-                    typeMismatch
-                }
-              case None =>
-                SValue.SValue.None
-            }
-          case V.ValueTextMap(entries) =>
-            Destructor.destruct(ty) match {
-              case Right(TextMapF(a)) =>
-                SValue.SMap.fromOrderedEntries(
-                  isTextMap = true,
-                  entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                    SValue.SText(k) -> go(a, v)
-                  },
-                )
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueGenMap(entries) =>
-            Destructor.destruct(ty) match {
-              case Right(MapF(a, b)) =>
-                SValue.SMap.fromOrderedEntries(
-                  isTextMap = false,
-                  entries = entries.toSeq.view.map { case (k, v) =>
-                    go(a, k) -> go(b, v)
-                  },
-                )
-              case _ =>
-                typeMismatch
-            }
+    final def updateGasBudget(cost: CostModel => CostModel.Cost): Unit =
+      if (hasGasBudget) {
+        val consumed = cost(costModel)
+        if (consumed != 0) {
+          gasBudget -= consumed
+          if (gasBudget < 0)
+            throw SErrorCrash(
+              getClass.getCanonicalName,
+              "No more gas",
+            )
         }
       }
-      Control.Value(go(typ0, value0))
-    }
   }
 
   object Machine {
@@ -1570,8 +1422,6 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
         convertLegacyExceptions: Boolean = true,
-        initialEnvSize: Int = 512,
-        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1581,8 +1431,6 @@ private[lf] object Speedy {
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         convertLegacyExceptions = convertLegacyExceptions,
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1591,14 +1439,10 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
-        initialEnvSize: Int = 512,
-        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
-        initialEnvSize = initialEnvSize,
-        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1633,31 +1477,20 @@ private[lf] object Speedy {
         contractKey: SValue,
     ): Option[GlobalKey] =
       globalKey(
-        packageTxVersion = tmplId2TxVersion(pkgInterface, templateId),
         pkgName = tmplId2PackageName(pkgInterface, templateId),
         templateId = templateId,
         keyValue = contractKey,
       )
 
-    private[lf] def globalKey(
-        packageTxVersion: TxVersion,
-        pkgName: PackageName,
-        templateId: TypeConId,
-        keyValue: SValue,
-    ): Option[GlobalKey] = {
-      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+    private[lf] def globalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) = {
+      val lfValue = keyValue.toNormalizedValue
       GlobalKey
         .build(templateId, lfValue, pkgName)
         .toOption
     }
 
-    private[lf] def assertGlobalKey(
-        packageTxVersion: TxVersion,
-        pkgName: PackageName,
-        templateId: TypeConId,
-        keyValue: SValue,
-    ) =
-      globalKey(packageTxVersion, pkgName, templateId, keyValue)
+    private[lf] def assertGlobalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) =
+      globalKey(pkgName, templateId, keyValue)
         .getOrElse(
           throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
         )
@@ -1699,6 +1532,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KOverApp.cost)
+
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
@@ -1815,6 +1651,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
+
+      machine.updateGasBudget(_.KPushTo.cost)
+
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.env.keep(base)
@@ -1842,6 +1681,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KFoldl.cost)
+
       list.pop match {
         case None =>
           Control.Value(acc)
@@ -1870,6 +1712,9 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
+
+      machine.updateGasBudget(_.KFoldr.cost)
+
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1906,6 +1751,9 @@ private[lf] object Speedy {
   ) extends Kont[Q] {
 
     override def execute(machine: Machine[Q], sv: SValue): Control.Value = {
+
+      machine.updateGasBudget(_.KCacheVal.cost)
+
       v.setCached(sv)
       defn.setCached(sv)
       Control.Value(sv)
@@ -1921,11 +1769,15 @@ private[lf] object Speedy {
     override def execute(
         machine: Machine[Question.Update],
         exerciseResult: SValue,
-    ): Control[Question.Update] =
+    ): Control[Question.Update] = {
+
+      machine.updateGasBudget(_.KCloseExercise.cost)
+
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
       }
+    }
   }
 
   /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
@@ -1947,12 +1799,15 @@ private[lf] object Speedy {
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] =
+    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] = {
+      machine.updateGasBudget(_.KTryCatchHandler.cost)
+
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         restore()
         machine.ptx = machine.ptx.endTry
         Control.Value(v)
       }
+    }
   }
 
   object KTryCatchHandler {
@@ -1981,6 +1836,8 @@ private[lf] object Speedy {
       )
 
     override def execute(machine: Machine[Question.Update], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KCheckChoiceGuard.cost)
+
       v match {
         case SValue.SBool(b) =>
           if (b)
@@ -1999,6 +1856,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure[Q](label: Profile.Label) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KLabelClosure.cost)
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -2015,6 +1873,9 @@ private[lf] object Speedy {
   private[speedy] final case class KLeaveClosure[Q](machine: Machine[Q], label: Profile.Label)
       extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+
+      machine.updateGasBudget(_.KLeaveClosure.cost)
+
       machine.profile.addCloseEvent(label)
       Control.Value(v)
     }
@@ -2022,6 +1883,7 @@ private[lf] object Speedy {
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KPreventException.cost)
       Control.Value(v)
     }
   }
@@ -2029,8 +1891,10 @@ private[lf] object Speedy {
   // For when converting an exception to a failure status
   // if an exception is thrown during that conversion, we need to know to not try to convert that too,
   // but instead give back the original exception with a replacement message
+  // [Remy] cannot we use the continuation above ?
   private[speedy] final case class KConvertingException[Q](exceptionId: TypeConId) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
+      machine.updateGasBudget(_.KConvertingException.cost)
       Control.Value(v)
     }
   }

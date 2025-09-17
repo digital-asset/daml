@@ -718,84 +718,93 @@ class IssConsensusModuleTest
         }
       }
 
-      "complete the epoch when all blocks from all segments complete" in {
-        val outputBuffer =
-          new ArrayBuffer[Output.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
-        val epochLength = DefaultEpochLength
+      "send a new epoch topology to the P2P output module, " +
+        "then complete the new epoch only when all blocks from all segments complete" in {
+          val p2pNetworkOutputBuffer =
+            new ArrayBuffer[P2PNetworkOut.Message](defaultBufferSize)
+          val outputBuffer =
+            new ArrayBuffer[Output.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
+          val epochLength = DefaultEpochLength
 
-        val (context, consensus) = createIssConsensusModule(
-          outputModuleRef = fakeRecordingModule(outputBuffer),
-          epochLength = epochLength,
-        )
-        implicit val ctx: ContextType = context
-
-        consensus.receive(Consensus.Start)
-
-        // Consensus is starting from genesis, so it'll start a new epoch
-        val newEpochTopologyMsg = NewEpochTopology(
-          EpochNumber.First,
-          aMembership,
-          failingCryptoProvider,
-        )
-        val selfSentMessages = context.extractSelfMessages()
-        selfSentMessages should matchPattern {
-          case Seq(Consensus.NewEpochTopology(epochNumber, membership, _))
-              if epochNumber == newEpochTopologyMsg.epochNumber &&
-                membership.orderingTopology == newEpochTopologyMsg.membership.orderingTopology =>
-        }
-        selfSentMessages.foreach(consensus.receive)
-        // Store the new epoch and update the epoch state
-        context.runPipedMessagesAndReceiveOnModule(consensus)
-
-        // One by one, complete blocks to finish all segments in the epoch
-        (0 until epochLength.toInt).foreach { n =>
-          val leaderOfBlock = blockOrder4Nodes(n)
-          val isLastBlockInEpoch = n == epochLength - 1
-          val prePrepare = PrePrepare.create(
-            blockMetadata4Nodes(n),
-            ViewNumber.First,
-            OrderingBlock(oneRequestOrderingBlock.proofs),
-            CanonicalCommitSet(Set.empty),
-            leaderOfBlock,
+          val (context, consensus) = createIssConsensusModule(
+            p2pNetworkOutModuleRef = fakeRecordingModule(p2pNetworkOutputBuffer),
+            outputModuleRef = fakeRecordingModule(outputBuffer),
+            epochLength = epochLength,
           )
-          val expectedOrderedBlock = orderedBlockFromPrePrepare(
-            prePrepare
-          )
+          implicit val ctx: ContextType = context
 
-          consensus.receive(
-            Consensus.ConsensusMessage
-              .BlockOrdered(
-                expectedOrderedBlock,
-                CommitCertificate(prePrepare.fakeSign, Seq.empty),
-                hasCompletedLedSegment = false,
-              )
+          consensus.receive(Consensus.Start)
+
+          // Consensus is starting from genesis, so it'll start a new epoch
+          val newEpochTopologyMsg = NewEpochTopology(
+            EpochNumber.First,
+            aMembership,
+            failingCryptoProvider,
           )
-          outputBuffer should contain theSameElementsInOrderAs Seq[
-            Output.Message[FakePipeToSelfCellUnitTestEnv]
-          ](
-            Output.BlockOrdered(
-              OrderedBlockForOutput(
-                expectedOrderedBlock,
-                prePrepare.viewNumber,
-                leaderOfBlock,
-                isLastBlockInEpoch,
-                OrderedBlockForOutput.Mode.FromConsensus,
+          val selfSentMessages = context.extractSelfMessages()
+          selfSentMessages should matchPattern {
+            case Seq(Consensus.NewEpochTopology(epochNumber, membership, _))
+                if epochNumber == newEpochTopologyMsg.epochNumber &&
+                  membership.orderingTopology == newEpochTopologyMsg.membership.orderingTopology =>
+          }
+          selfSentMessages.foreach(consensus.receive)
+          // Store the new epoch and update the epoch state
+          context.runPipedMessagesAndReceiveOnModule(consensus)
+
+          p2pNetworkOutputBuffer should contain only P2PNetworkOut.Network.TopologyUpdate(
+            aMembership
+          )
+          p2pNetworkOutputBuffer.clear()
+
+          // One by one, complete blocks to finish all segments in the epoch
+          (0 until epochLength.toInt).foreach { n =>
+            val leaderOfBlock = blockOrder4Nodes(n)
+            val isLastBlockInEpoch = n == epochLength - 1
+            val prePrepare = PrePrepare.create(
+              blockMetadata4Nodes(n),
+              ViewNumber.First,
+              OrderingBlock(oneRequestOrderingBlock.proofs),
+              CanonicalCommitSet(Set.empty),
+              leaderOfBlock,
+            )
+            val expectedOrderedBlock = orderedBlockFromPrePrepare(
+              prePrepare
+            )
+
+            consensus.receive(
+              Consensus.ConsensusMessage
+                .BlockOrdered(
+                  expectedOrderedBlock,
+                  CommitCertificate(prePrepare.fakeSign, Seq.empty),
+                  hasCompletedLedSegment = false,
+                )
+            )
+            outputBuffer should contain theSameElementsInOrderAs Seq[
+              Output.Message[FakePipeToSelfCellUnitTestEnv]
+            ](
+              Output.BlockOrdered(
+                OrderedBlockForOutput(
+                  expectedOrderedBlock,
+                  prePrepare.viewNumber,
+                  leaderOfBlock,
+                  isLastBlockInEpoch,
+                  OrderedBlockForOutput.Mode.FromConsensus,
+                )
               )
             )
-          )
-          outputBuffer.clear()
+            outputBuffer.clear()
 
-          if (isLastBlockInEpoch) {
-            context.runPipedMessages() should matchPattern {
-              case Seq(Consensus.ConsensusMessage.CompleteEpochStored(_, _)) =>
+            if (isLastBlockInEpoch) {
+              context.runPipedMessages() should matchPattern {
+                case Seq(Consensus.ConsensusMessage.CompleteEpochStored(_, _)) =>
+              }
+            } else {
+              context.extractSelfMessages() shouldBe empty
             }
-          } else {
-            context.extractSelfMessages() shouldBe empty
           }
-        }
 
-        succeed
-      }
+          succeed
+        }
 
       "refuse messages for future epochs after reaching queue limits" in {
         val (context, consensus) =

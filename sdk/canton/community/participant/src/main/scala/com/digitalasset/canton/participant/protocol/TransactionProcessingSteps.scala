@@ -92,11 +92,12 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
   LfPartyId,
+  LfVersioned,
   RequestCounter,
   SequencerCounter,
   WorkflowId,
@@ -1524,6 +1525,16 @@ object TransactionProcessingSteps {
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
       disclosedContracts: Map[LfContractId, ContractInstance],
+  )
+
+  /** Projection of [[com.digitalasset.canton.data.ViewParticipantData]] to relevant fields with
+    * absolutized contract IDs
+    */
+  final case class ViewAbsoluteLedgerEffect(
+      coreInputs: Map[LfContractId, InputContract],
+      createdCore: Seq[CreatedContract],
+      createdInSubviewArchivedInCore: Set[LfContractId],
+      resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
   )
 
   final case class ParsedTransactionRequest(

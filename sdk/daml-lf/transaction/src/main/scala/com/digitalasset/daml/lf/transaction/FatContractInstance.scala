@@ -55,22 +55,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     version = version,
   )
 
-  private[lf] def toThinInstance: Value.ThinContractInstance =
-    Value.ThinContractInstance(
-      packageName,
-      templateId,
-      createArg,
-    )
-
-  private[lf] def toVersionedThinInstance: Value.VersionedThinContractInstance =
-    Versioned(
-      version,
-      Value.ThinContractInstance(
-        packageName,
-        templateId,
-        createArg,
-      ),
-    )
+  def nonVerbose: FatContractInstance
 }
 
 private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
@@ -134,6 +119,19 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     assert(authenticationData.nonEmpty)
     copy(authenticationData = authenticationData)
   }
+
+  override def nonVerbose: FatContractInstance = FatContractInstanceImpl(
+    version,
+    contractId,
+    packageName,
+    templateId,
+    createArg.nonVerbose,
+    signatories: TreeSet[Ref.Party],
+    stakeholders: TreeSet[Ref.Party],
+    contractKeyWithMaintainers.map(_.nonVerbose),
+    createdAt: Time,
+    authenticationData: Bytes,
+  )
 }
 
 object FatContractInstance {

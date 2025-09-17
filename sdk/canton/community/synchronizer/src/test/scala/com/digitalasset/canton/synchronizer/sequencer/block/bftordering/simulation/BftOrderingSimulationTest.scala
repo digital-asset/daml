@@ -256,6 +256,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
                   }.toMap,
                   alreadyOnboardedAll.keys.toSeq,
                   simSettings,
+                  DefaultEpochLength,
                   loggerFactory,
                 )
               val onboardingManager = new SequencerSnapshotOnboardingManager(
@@ -386,7 +387,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         loggerFactory,
       )
 
-    val p2pGrpcConnectionState = new P2PGrpcConnectionState(loggerFactory)
+    val p2pGrpcConnectionState = new P2PGrpcConnectionState(thisBftNodeId, logger)
 
     SimulationInitializer(
       {
@@ -417,7 +418,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             orderingTopologyProvider,
             new SimulationBlockSubscription(thisBftNodeId, sendQueue),
             sequencerSnapshotAdditionalInfo,
-            new P2PNetworkOutModule.State(p2pGrpcConnectionState),
+            bootstrapMembership =>
+              new P2PNetworkOutModule.State(p2pGrpcConnectionState, bootstrapMembership),
             clock,
             availabilityRandom,
             noopMetrics,

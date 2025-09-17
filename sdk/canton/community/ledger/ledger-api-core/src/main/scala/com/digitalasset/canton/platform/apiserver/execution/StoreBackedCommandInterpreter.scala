@@ -7,10 +7,9 @@ import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.LedgerTimeBoundaries
-import com.digitalasset.canton.ledger.api.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -24,17 +23,25 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
+import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandInterpreter.PackageResolver
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
-import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.protocol.{CantonContractIdVersion, LfFatContractInst}
+import com.digitalasset.canton.protocol.{
+  CantonContractIdV1Version,
+  CantonContractIdV2Version,
+  CantonContractIdVersion,
+  LfFatContractInst,
+  LfHash,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import scalaz.syntax.tag.*
 
@@ -47,7 +54,7 @@ import scala.util.chaining.scalaUtilChainingOps
 private[apiserver] trait CommandInterpreter {
 
   def interpret(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -62,7 +69,7 @@ private[apiserver] trait CommandInterpreter {
 final class StoreBackedCommandInterpreter(
     engine: Engine,
     participant: Ref.ParticipantId,
-    packageSyncService: PackageSyncService,
+    packageResolver: PackageResolver,
     contractStore: ContractStore,
     metrics: LedgerApiServerMetrics,
     contractAuthenticator: ContractAuthenticatorFn,
@@ -75,10 +82,9 @@ final class StoreBackedCommandInterpreter(
     ec: ExecutionContext
 ) extends CommandInterpreter
     with NamedLogging {
-  private[this] val packageLoader = new DeduplicatingPackageLoader()
 
   override def interpret(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -124,7 +130,7 @@ final class StoreBackedCommandInterpreter(
   }
 
   private def commandInterpretationResult(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
       updateTx: SubmittedTransaction,
       meta: Transaction.Metadata,
@@ -185,7 +191,7 @@ final class StoreBackedCommandInterpreter(
   }
 
   private def submitToEngine(
-      commands: ApiCommands,
+      commands: api.Commands,
       submissionSeed: crypto.Hash,
       interpretationTimeNanos: AtomicLong,
   )(implicit
@@ -280,14 +286,19 @@ final class StoreBackedCommandInterpreter(
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
-          // TODO(#23971) - Add support for V2 contract IDs
-          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
-            case Right(v1Version) =>
+          (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
+            case Right(version) =>
+              val hashingMethod = version match {
+                case v1: CantonContractIdV1Version => v1.contractHashingMethod
+                case _: CantonContractIdV2Version =>
+                  // TODO(#23971) - Add support for transforming the contract argument prior to hashing and switch to TypedNormalForm
+                  LfHash.HashingMethod.UpgradeFriendly
+              }
               timedLookup(acoid).map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    v1Version.contractHashingMethod,
+                    hashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound
@@ -295,6 +306,7 @@ final class StoreBackedCommandInterpreter(
 
             case Left(_) =>
               FutureUnlessShutdown.pure[Response](Response.UnsupportedContractIdVersion)
+
           }).flatMap(response =>
             resolveStep(
               Tracked.value(
@@ -323,15 +335,7 @@ final class StoreBackedCommandInterpreter(
             }
 
         case ResultNeedPackage(packageId, resume) =>
-          FutureUnlessShutdown
-            .outcomeF(
-              packageLoader
-                .loadPackage(
-                  packageId = packageId,
-                  delegate = packageSyncService.getLfArchive(_)(loggingContext.traceContext),
-                  metric = metrics.execution.getLfPackage,
-                )
-            )
+          packageResolver(packageId)(loggingContext.traceContext)
             .flatMap { maybePackage =>
               resolveStep(
                 Tracked.value(
@@ -388,11 +392,6 @@ final class StoreBackedCommandInterpreter(
                 FutureUnlessShutdown.pure(Left(error))
               } else resume()
           }
-
-        case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
-          throw new UnsupportedOperationException(
-            s"This callback is no longer used and will be removed in a future release [$unexpected]"
-          )
 
         case ResultPrefetch(coids, keys, resume) =>
           // Trigger loading through the state cache and the batch aggregator.
@@ -459,6 +458,8 @@ final class StoreBackedCommandInterpreter(
 }
 
 object StoreBackedCommandInterpreter {
+
+  type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
 
   def considerDisclosedContractsSynchronizerId(
       prescribedSynchronizerIdO: Option[SynchronizerId],

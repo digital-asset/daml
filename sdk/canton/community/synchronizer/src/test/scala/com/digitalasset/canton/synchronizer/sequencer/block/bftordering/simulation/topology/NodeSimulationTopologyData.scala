@@ -74,6 +74,12 @@ final case class NodeSimulationTopologyDataFactory(
     keyRotations: Seq[(FiniteDuration, Option[FiniteDuration])] = Seq.empty,
     initialKeyValidFor: Option[FiniteDuration] = None,
 ) {
+  require(
+    maybeOffboardingDelay.forall(offBoarding =>
+      maybeOnboardingDelay.forall(onboarding => onboarding <= offBoarding)
+    )
+  )
+
   def toSimulationTopologyData(
       stageStart: CantonTimestamp,
       crypto: SymbolicCrypto,

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.binding
 import cats.{Applicative, Traverse}
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelApplicativeFutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -31,7 +32,7 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.{BootstrapSetup, Cancellable}
 
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import scala.collection.mutable
 import scala.concurrent.*
 import scala.concurrent.duration.*
@@ -46,6 +47,8 @@ object PekkoModuleSystem {
 
   private def pekkoBehavior[MessageT](
       moduleSystem: PekkoModuleSystem,
+      exitOnFatalFailures: Boolean,
+      isOrdererHealthy: AtomicBoolean,
       outstandingMessages: AtomicInteger,
       moduleName: ModuleName,
       moduleNameForMetrics: String,
@@ -78,6 +81,8 @@ object PekkoModuleSystem {
           moduleSystem,
           context,
           moduleNameForMetrics,
+          exitOnFatalFailures,
+          isOrdererHealthy,
           outstandingMessages,
           loggerFactory,
         )
@@ -184,6 +189,8 @@ object PekkoModuleSystem {
       moduleSystem: PekkoModuleSystem,
       underlying: ActorContext[ModuleControl[PekkoEnv, MessageT]],
       moduleNameForMetrics: String,
+      exitOnFatalFailures: Boolean,
+      isOrdererHealthy: AtomicBoolean,
       outstandingMessages: AtomicInteger,
       override val loggerFactory: NamedLoggerFactory,
   ) extends ModuleContext[PekkoEnv, MessageT] {
@@ -278,14 +285,38 @@ object PekkoModuleSystem {
       )
     }
 
-    override def abort(failure: Throwable): Nothing =
-      throw failure
+    override def abort(failure: Throwable): Nothing = {
+      markOrdererAsUnhealthy()
+      if (exitOnFatalFailures) {
+        FatalError.exitOnFatalError(failure.getMessage, failure, logger)(TraceContext.empty)
+      } else {
+        throw failure
+      }
+    }
 
-    override def abort(msg: String): Nothing =
-      sys.error(msg)
+    override def abort(msg: String): Nothing = {
+      markOrdererAsUnhealthy()
+      if (exitOnFatalFailures) {
+        FatalError.exitOnFatalError(msg, logger)(TraceContext.empty)
+      } else {
+        sys.error(msg)
+      }
+    }
 
-    override def abort(): Nothing =
-      sys.error("Aborted")
+    override def abort(): Nothing = {
+      markOrdererAsUnhealthy()
+      val msg = "Aborted"
+      if (exitOnFatalFailures) {
+        FatalError.exitOnFatalError(msg, logger)(TraceContext.empty)
+      } else {
+        sys.error(msg)
+      }
+    }
+
+    private def markOrdererAsUnhealthy(): Unit = {
+      logger.error("Marking orderer as unhealthy")(TraceContext.empty)
+      isOrdererHealthy.set(false)
+    }
 
     override def become(module: framework.Module[PekkoEnv, MessageT]): Unit =
       underlying.self ! SetBehavior(module, ready = true)
@@ -462,6 +493,8 @@ object PekkoModuleSystem {
 
   private[bftordering] final class PekkoModuleSystem(
       underlyingRootActorContext: ActorContext[ModuleControl[PekkoEnv, Unit]],
+      exitOnFatalFailures: Boolean,
+      isOrdererHealthy: AtomicBoolean,
       val metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   ) extends ModuleSystem[PekkoEnv] {
@@ -471,6 +504,8 @@ object PekkoModuleSystem {
         this,
         underlyingRootActorContext,
         "rootActorContext",
+        exitOnFatalFailures,
+        isOrdererHealthy,
         new AtomicInteger(), // Unused
         loggerFactory,
       )
@@ -494,6 +529,8 @@ object PekkoModuleSystem {
         actorContext.spawn(
           pekkoBehavior[AcceptedMessageT](
             this,
+            exitOnFatalFailures,
+            isOrdererHealthy,
             outstandingMessages,
             moduleName,
             moduleNameForMetrics,
@@ -526,6 +563,8 @@ object PekkoModuleSystem {
           P2PConnectionEventListener,
           ModuleRef[BftOrderingMessage],
       ) => PekkoP2PGrpcNetworkManager,
+      exitOnFatalFailures: Boolean,
+      isOrdererHealthy: AtomicBoolean,
       metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -545,7 +584,14 @@ object PekkoModuleSystem {
           .supervise {
             Behaviors.setup[ModuleControl[PekkoEnv, Unit]] { actorContext =>
               val logger = loggerFactory.getLogger(getClass)
-              val moduleSystem = new PekkoModuleSystem(actorContext, metrics, loggerFactory)
+              val moduleSystem =
+                new PekkoModuleSystem(
+                  actorContext,
+                  exitOnFatalFailures,
+                  isOrdererHealthy,
+                  metrics,
+                  loggerFactory,
+                )
               resultPromise.success(
                 systemInitializer.initialize(moduleSystem, createP2PNetworkManager)
               )

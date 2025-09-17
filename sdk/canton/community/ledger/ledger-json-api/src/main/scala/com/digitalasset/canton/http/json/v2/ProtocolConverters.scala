@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
 }
 import com.daml.ledger.api.v2.reassignment.AssignedEvent
 import com.daml.ledger.api.v2.transaction.TreeEvent
+import com.digitalasset.canton.http.json.v2.IdentifierConverter.illegalValue
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
 import com.digitalasset.canton.http.json.v2.JsSchema.JsReassignmentEvent.JsReassignmentEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
@@ -24,8 +25,8 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
   JsTreeEvent,
 }
-import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf.ByteString
@@ -61,16 +62,19 @@ trait ConversionErrorSupport {
 trait ProtocolConverter[LAPI, JS] extends ConversionErrorSupport {
 
   def fromJson(jsObj: JS)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[LAPI]
 
   def toJson(lapiObj: LAPI)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[JS]
 
 }
 
-class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
+class ProtocolConverters(
+    schemaProcessors: SchemaProcessors,
+    transcodePackageIdResolver: TranscodePackageIdResolver,
+)(implicit
     val executionContext: ExecutionContext
 ) {
 
@@ -96,199 +100,244 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   implicit def toCirce(js: ujson.Value): io.circe.Json = CirceJson(js)
 
-  object Command extends ProtocolConverter[lapi.commands.Command.Command, JsCommand.Command] {
+  object Command {
 
-    override def fromJson(jsObj: JsCommand.Command)(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[lapi.commands.Command.Command] = jsObj match {
-      case JsCommand.CreateCommand(template_id, create_arguments) =>
-        for {
-          protoCreateArgsRecord <-
-            schemaProcessors
-              .contractArgFromJsonToProto(
-                template = template_id,
-                jsonArgsValue = create_arguments,
-              )
-        } yield lapi.commands.Command.Command.Create(
-          lapi.commands.CreateCommand(
-            templateId = Some(template_id),
-            createArguments = Some(protoCreateArgsRecord.getRecord),
-          )
-        )
-      case JsCommand.ExerciseCommand(template_id, contract_id, choice, choice_argument) =>
-        val lfChoiceName = Ref.ChoiceName.assertFromString(choice)
-        for {
-          choiceArgs <-
-            schemaProcessors.choiceArgsFromJsonToProto(
-              template = template_id,
-              choiceName = lfChoiceName,
-              jsonArgsValue = choice_argument,
+    def fromJson(jsObj: JsCommand.Command, decodingPackageId: String)(implicit
+        traceContext: TraceContext
+    ): Future[lapi.commands.Command.Command] = {
+      implicit class WithDecodingPackageId(orig: lapi.value.Identifier) {
+        def withDecodingPackageId: lapi.value.Identifier = orig.copy(packageId = decodingPackageId)
+      }
+      jsObj match {
+        case JsCommand.CreateCommand(template_id, create_arguments) =>
+          for {
+            protoCreateArgsRecord <-
+              schemaProcessors
+                .contractArgFromJsonToProto(
+                  template = template_id.withDecodingPackageId,
+                  jsonArgsValue = create_arguments,
+                )
+          } yield lapi.commands.Command.Command.Create(
+            lapi.commands.CreateCommand(
+              templateId = Some(template_id),
+              createArguments = Some(protoCreateArgsRecord.getRecord),
             )
-        } yield lapi.commands.Command.Command.Exercise(
-          lapi.commands.ExerciseCommand(
-            templateId = Some(template_id),
-            contractId = contract_id,
-            choiceArgument = Some(choiceArgs),
-            choice = choice,
           )
-        )
+        case JsCommand.ExerciseCommand(template_id, contract_id, choice, choice_argument) =>
+          val lfChoiceName = Ref.ChoiceName.assertFromString(choice)
+          for {
+            choiceArgs <-
+              schemaProcessors.choiceArgsFromJsonToProto(
+                template = template_id.withDecodingPackageId,
+                choiceName = lfChoiceName,
+                jsonArgsValue = choice_argument,
+              )
+          } yield lapi.commands.Command.Command.Exercise(
+            lapi.commands.ExerciseCommand(
+              templateId = Some(template_id),
+              contractId = contract_id,
+              choiceArgument = Some(choiceArgs),
+              choice = choice,
+            )
+          )
 
-      case cmd: JsCommand.ExerciseByKeyCommand =>
-        for {
-          choiceArgs <-
-            schemaProcessors.choiceArgsFromJsonToProto(
-              template = cmd.templateId,
-              choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-              jsonArgsValue = cmd.choiceArgument,
-            )
-          contractKey <-
-            schemaProcessors.contractArgFromJsonToProto(
-              template = cmd.templateId,
-              jsonArgsValue = cmd.contractKey,
-            )
-        } yield lapi.commands.Command.Command.ExerciseByKey(
-          lapi.commands.ExerciseByKeyCommand(
-            templateId = Some(cmd.templateId),
-            contractKey = Some(contractKey),
-            choice = cmd.choice,
-            choiceArgument = Some(choiceArgs),
-          )
-        )
-      case cmd: JsCommand.CreateAndExerciseCommand =>
-        for {
-          createArgs <-
-            schemaProcessors
-              .contractArgFromJsonToProto(
-                template = cmd.templateId,
-                jsonArgsValue = cmd.createArguments,
+        case cmd: JsCommand.ExerciseByKeyCommand =>
+          for {
+            choiceArgs <-
+              schemaProcessors.choiceArgsFromJsonToProto(
+                template = cmd.templateId.withDecodingPackageId,
+                choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
+                jsonArgsValue = cmd.choiceArgument,
               )
-          choiceArgs <-
-            schemaProcessors.choiceArgsFromJsonToProto(
-              template = cmd.templateId,
-              choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-              jsonArgsValue = cmd.choiceArgument,
+            contractKey <-
+              schemaProcessors.contractArgFromJsonToProto(
+                template = cmd.templateId.withDecodingPackageId,
+                jsonArgsValue = cmd.contractKey,
+              )
+          } yield lapi.commands.Command.Command.ExerciseByKey(
+            lapi.commands.ExerciseByKeyCommand(
+              templateId = Some(cmd.templateId),
+              contractKey = Some(contractKey),
+              choice = cmd.choice,
+              choiceArgument = Some(choiceArgs),
             )
-        } yield lapi.commands.Command.Command.CreateAndExercise(
-          lapi.commands.CreateAndExerciseCommand(
-            templateId = Some(cmd.templateId),
-            createArguments = Some(createArgs.getRecord),
-            choice = cmd.choice,
-            choiceArgument = Some(choiceArgs),
           )
-        )
+        case cmd: JsCommand.CreateAndExerciseCommand =>
+          for {
+            createArgs <-
+              schemaProcessors
+                .contractArgFromJsonToProto(
+                  template = cmd.templateId.withDecodingPackageId,
+                  jsonArgsValue = cmd.createArguments,
+                )
+            choiceArgs <-
+              schemaProcessors.choiceArgsFromJsonToProto(
+                template = cmd.templateId.withDecodingPackageId,
+                choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
+                jsonArgsValue = cmd.choiceArgument,
+              )
+          } yield lapi.commands.Command.Command.CreateAndExercise(
+            lapi.commands.CreateAndExerciseCommand(
+              templateId = Some(cmd.templateId),
+              createArguments = Some(createArgs.getRecord),
+              choice = cmd.choice,
+              choiceArgument = Some(choiceArgs),
+            )
+          )
+      }
     }
 
-    override def toJson(lapiObj: lapi.commands.Command.Command)(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[JsCommand.Command] = lapiObj match {
-      case lapi.commands.Command.Command.Empty =>
-        illegalValue(lapi.commands.Command.Command.Empty.toString())
-      case lapi.commands.Command.Command.Create(createCommand) =>
-        for {
-          contractArgs <- schemaProcessors.contractArgFromProtoToJson(
+    def toJson(lapiObj: lapi.commands.Command.Command, decodingPackageId: String)(implicit
+        traceContext: TraceContext
+    ): Future[JsCommand.Command] = {
+      implicit class WithDecodingPackageId(orig: lapi.value.Identifier) {
+        def withDecodingPackageId: lapi.value.Identifier = orig.copy(packageId = decodingPackageId)
+      }
+      lapiObj match {
+        case lapi.commands.Command.Command.Empty =>
+          illegalValue(lapi.commands.Command.Command.Empty.toString())
+        case lapi.commands.Command.Command.Create(createCommand) =>
+          for {
+            contractArgs <- schemaProcessors.contractArgFromProtoToJson(
+              createCommand.getTemplateId.withDecodingPackageId,
+              createCommand.getCreateArguments,
+            )
+          } yield JsCommand.CreateCommand(
             createCommand.getTemplateId,
-            createCommand.getCreateArguments,
+            contractArgs,
           )
-        } yield JsCommand.CreateCommand(
-          createCommand.getTemplateId,
-          contractArgs,
-        )
 
-      case lapi.commands.Command.Command.Exercise(exerciseCommand) =>
-        for {
-          choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
-            template = exerciseCommand.getTemplateId,
-            choiceName = Ref.ChoiceName.assertFromString(exerciseCommand.choice),
-            protoArgs = exerciseCommand.getChoiceArgument,
+        case lapi.commands.Command.Command.Exercise(exerciseCommand) =>
+          for {
+            choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
+              template = exerciseCommand.getTemplateId.withDecodingPackageId,
+              choiceName = Ref.ChoiceName.assertFromString(exerciseCommand.choice),
+              protoArgs = exerciseCommand.getChoiceArgument,
+            )
+          } yield JsCommand.ExerciseCommand(
+            exerciseCommand.getTemplateId,
+            exerciseCommand.contractId,
+            exerciseCommand.choice,
+            choiceArgs,
           )
-        } yield JsCommand.ExerciseCommand(
-          exerciseCommand.getTemplateId,
-          exerciseCommand.contractId,
-          exerciseCommand.choice,
-          choiceArgs,
-        )
 
-      case lapi.commands.Command.Command.CreateAndExercise(cmd) =>
-        for {
-          createArgs <- schemaProcessors.contractArgFromProtoToJson(
-            template = cmd.getTemplateId,
-            protoArgs = cmd.getCreateArguments,
+        case lapi.commands.Command.Command.CreateAndExercise(cmd) =>
+          for {
+            createArgs <- schemaProcessors.contractArgFromProtoToJson(
+              template = cmd.getTemplateId.withDecodingPackageId,
+              protoArgs = cmd.getCreateArguments,
+            )
+            choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
+              template = cmd.getTemplateId.withDecodingPackageId,
+              choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
+              protoArgs = cmd.getChoiceArgument,
+            )
+          } yield JsCommand.CreateAndExerciseCommand(
+            templateId = cmd.getTemplateId,
+            createArguments = createArgs,
+            choice = cmd.choice,
+            choiceArgument = choiceArgs,
           )
-          choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
-            template = cmd.getTemplateId,
-            choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-            protoArgs = cmd.getChoiceArgument,
+        case lapi.commands.Command.Command.ExerciseByKey(cmd) =>
+          for {
+            contractKey <- schemaProcessors.keyArgFromProtoToJson(
+              template = cmd.getTemplateId.withDecodingPackageId,
+              protoArgs = cmd.getContractKey,
+            )
+            choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
+              template = cmd.getTemplateId.withDecodingPackageId,
+              choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
+              protoArgs = cmd.getChoiceArgument,
+            )
+          } yield JsCommand.ExerciseByKeyCommand(
+            templateId = cmd.getTemplateId,
+            contractKey = contractKey,
+            choice = cmd.choice,
+            choiceArgument = choiceArgs,
           )
-        } yield JsCommand.CreateAndExerciseCommand(
-          templateId = cmd.getTemplateId,
-          createArguments = createArgs,
-          choice = cmd.choice,
-          choiceArgument = choiceArgs,
-        )
-      case lapi.commands.Command.Command.ExerciseByKey(cmd) =>
-        for {
-          contractKey <- schemaProcessors.keyArgFromProtoToJson(
-            template = cmd.getTemplateId,
-            protoArgs = cmd.getContractKey,
-          )
-          choiceArgs <- schemaProcessors.choiceArgsFromProtoToJson(
-            template = cmd.getTemplateId,
-            choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
-            protoArgs = cmd.getChoiceArgument,
-          )
-        } yield JsCommand.ExerciseByKeyCommand(
-          templateId = cmd.getTemplateId,
-          contractKey = contractKey,
-          choice = cmd.choice,
-          choiceArgument = choiceArgs,
-        )
+      }
     }
   }
-  object SeqCommands
-      extends ProtocolConverter[Seq[lapi.commands.Command.Command], Seq[JsCommand.Command]] {
-    def toJson(commands: Seq[lapi.commands.Command.Command])(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[Seq[JsCommand.Command]] =
-      Future.sequence(commands.map(Command.toJson(_)))
 
-    def fromJson(commands: Seq[JsCommand.Command])(implicit
-        errorLoggingContext: ErrorLoggingContext
+  object SeqCommands {
+    def toJson(
+        commands: Seq[
+          (
+              /* LAPI command */ lapi.commands.Command.Command,
+              /* The package-id the argument should be decoded with */ String,
+          )
+        ]
+    )(implicit
+        traceContext: TraceContext
+    ): Future[Seq[JsCommand.Command]] =
+      Future.sequence(commands.map { case (cmd, decodingPackageId) =>
+        Command.toJson(cmd, decodingPackageId)
+      })
+
+    def fromJson(
+        commands: Seq[
+          (
+              /* LAPI command */ JsCommand.Command,
+              /* The package-id the argument should be decoded with */ String,
+          )
+        ]
+    )(implicit
+        traceContext: TraceContext
     ): Future[Seq[lapi.commands.Command.Command]] =
-      Future.sequence(commands.map(Command.fromJson(_)))
+      Future.sequence(commands.map { case (cmd, decodingPackageId) =>
+        Command.fromJson(cmd, decodingPackageId)
+      })
   }
 
   object Commands extends ProtocolConverter[lapi.commands.Commands, JsCommands] {
 
     def fromJson(jsCommands: JsCommands)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.commands.Commands] =
       for {
-        commands <- SeqCommands.fromJson(jsCommands.commands)
+        commandsWithTranscodingPackageIds <- transcodePackageIdResolver
+          .resolveDecodingPackageIdsForJsonCommands(
+            jsCommands = jsCommands.commands,
+            actAs = jsCommands.actAs,
+            packageIdSelectionPreference = jsCommands.packageIdSelectionPreference,
+            synchronizerIdO = jsCommands.synchronizerId.filter(_.nonEmpty),
+          )
+
+        transcodedCommands <- SeqCommands.fromJson(commandsWithTranscodingPackageIds)
+
+        // TODO(#27501): Select packages for prefetched contract keys
         prefetchKeys <- jsCommands.prefetchContractKeys
           .map(PrefetchContractKey.fromJson(_))
           .sequence
       } yield {
         jsCommands
           .into[lapi.commands.Commands]
-          .withFieldConst(_.commands, commands.map(lapi.commands.Command(_)))
+          .withFieldConst(_.commands, transcodedCommands.map(lapi.commands.Command(_)))
           .withFieldConst(_.prefetchContractKeys, prefetchKeys)
           .transform
-
       }
 
     def toJson(
         lapiCommands: lapi.commands.Commands
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsCommands] =
       for {
-        commands <- SeqCommands.toJson(lapiCommands.commands.map(_.command))
+        commandsWithTranscodingPackageIds <- transcodePackageIdResolver
+          .resolveDecodingPackageIdsForGrpcCommands(
+            grpcCommands = lapiCommands.commands.map(_.command),
+            actAs = lapiCommands.actAs,
+            packageIdSelectionPreference = lapiCommands.packageIdSelectionPreference,
+            synchronizerIdO = Option(lapiCommands.synchronizerId).filter(_.nonEmpty),
+          )
+        transcodedCommands <- SeqCommands.toJson(commandsWithTranscodingPackageIds)
+        // TODO(#27501): Select packages for prefetched contract keys
         prefetchContractKeys <- lapiCommands.prefetchContractKeys
           .map(PrefetchContractKey.toJson(_))
           .sequence
       } yield lapiCommands
         .into[JsCommands]
-        .withFieldConst(_.commands, commands)
+        .withFieldConst(_.commands, transcodedCommands)
         .withFieldConst(_.prefetchContractKeys, prefetchContractKeys)
         .transform
 
@@ -299,7 +348,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         iview: JsInterfaceView
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.event.InterfaceView] = for {
 
       record <- iview.viewValue
@@ -321,7 +370,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         obj: lapi.event.InterfaceView
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsInterfaceView] =
       for {
         record <- schemaProcessors.contractArgFromProtoToJson(
@@ -337,7 +386,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   object Event extends ProtocolConverter[lapi.event.Event.Event, JsEvent.Event] {
     def toJson(event: lapi.event.Event.Event)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsEvent.Event] =
       event match {
         case lapi.event.Event.Event.Empty => illegalValue(lapi.event.Event.Event.Empty.toString())
@@ -350,7 +399,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     def fromJson(event: JsEvent.Event)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.event.Event.Event] = event match {
       case createdEvent: JsEvent.CreatedEvent =>
         CreatedEvent.fromJson(createdEvent).map(lapi.event.Event.Event.Created(_))
@@ -364,7 +413,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object Transaction extends ProtocolConverter[lapi.transaction.Transaction, JsTransaction] {
 
     def toJson(v: lapi.transaction.Transaction)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsTransaction] =
       for {
         events <- v.events.map(e => Event.toJson(e.event)).sequence
@@ -382,7 +431,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     def fromJson(v: JsTransaction)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.transaction.Transaction] = for {
       events <- v.events.map(Event.fromJson(_)).sequence
     } yield v
@@ -402,7 +451,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     override def fromJson(
         jsObj: JsTreeEvent.TreeEvent
-    )(implicit errorLoggingContext: ErrorLoggingContext): Future[TreeEvent.Kind] =
+    )(implicit traceContext: TraceContext): Future[TreeEvent.Kind] =
       jsObj match {
         case JsTreeEvent.CreatedTreeEvent(created) =>
           CreatedEvent
@@ -416,13 +465,43 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     override def toJson(lapiObj: TreeEvent.Kind)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsTreeEvent.TreeEvent] = lapiObj match {
       case lapi.transaction.TreeEvent.Kind.Empty =>
         illegalValue(lapi.transaction.TreeEvent.Kind.Empty.toString())
       case lapi.transaction.TreeEvent.Kind.Created(created) =>
         CreatedEvent.toJson(created).map(JsTreeEvent.CreatedTreeEvent(_))
       case lapi.transaction.TreeEvent.Kind.Exercised(exercised) =>
+        ExercisedEvent.toJson(exercised).map(JsTreeEvent.ExercisedTreeEvent(_))
+    }
+  }
+
+  object TransactionTreeEventLegacy
+      extends ProtocolConverter[LegacyDTOs.TreeEvent.Kind, JsTreeEvent.TreeEvent] {
+
+    override def fromJson(
+        jsObj: JsTreeEvent.TreeEvent
+    )(implicit traceContext: TraceContext): Future[LegacyDTOs.TreeEvent.Kind] =
+      jsObj match {
+        case JsTreeEvent.CreatedTreeEvent(created) =>
+          CreatedEvent
+            .fromJson(created)
+            .map(ev => LegacyDTOs.TreeEvent.Kind.Created(ev))
+
+        case JsTreeEvent.ExercisedTreeEvent(exercised) =>
+          ExercisedEvent
+            .fromJson(exercised)
+            .map(ev => LegacyDTOs.TreeEvent.Kind.Exercised(ev))
+      }
+
+    override def toJson(lapiObj: LegacyDTOs.TreeEvent.Kind)(implicit
+        traceContext: TraceContext
+    ): Future[JsTreeEvent.TreeEvent] = lapiObj match {
+      case LegacyDTOs.TreeEvent.Kind.Empty =>
+        illegalValue(LegacyDTOs.TreeEvent.Kind.Empty.toString())
+      case LegacyDTOs.TreeEvent.Kind.Created(created) =>
+        CreatedEvent.toJson(created).map(JsTreeEvent.CreatedTreeEvent(_))
+      case LegacyDTOs.TreeEvent.Kind.Exercised(exercised) =>
         ExercisedEvent.toJson(exercised).map(JsTreeEvent.ExercisedTreeEvent(_))
     }
   }
@@ -434,7 +513,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         lapiTransactionTree: lapi.transaction.TransactionTree
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsTransactionTree] =
       for {
         eventsById <- lapiTransactionTree.eventsById.toSeq.map { case (k, v) =>
@@ -449,7 +528,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         jsTransactionTree: JsTransactionTree
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.transaction.TransactionTree] =
       for {
         eventsById <- jsTransactionTree.eventsById.toSeq.map { case (k, v) =>
@@ -457,6 +536,40 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         }.sequence
       } yield jsTransactionTree
         .into[lapi.transaction.TransactionTree]
+        .withFieldConst(_.eventsById, eventsById.toMap)
+        .transform
+  }
+
+  object TransactionTreeLegacy
+      extends ProtocolConverter[LegacyDTOs.TransactionTree, JsTransactionTree] {
+    def toJson(
+        transactionTree: LegacyDTOs.TransactionTree
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsTransactionTree] =
+      for {
+        eventsById <- transactionTree.eventsById.toSeq.map { case (k, v) =>
+          TransactionTreeEventLegacy.toJson(v.kind).map(newVal => (k, newVal))
+        }.sequence
+
+      } yield transactionTree
+        .into[JsTransactionTree]
+        .withFieldConst(_.eventsById, eventsById.toMap)
+        .transform
+
+    def fromJson(
+        jsTransactionTree: JsTransactionTree
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.TransactionTree] =
+      for {
+        eventsById <- jsTransactionTree.eventsById.toSeq.map { case (k, v) =>
+          TransactionTreeEventLegacy
+            .fromJson(v)
+            .map(newVal => (k, LegacyDTOs.TreeEvent(newVal)))
+        }.sequence
+      } yield jsTransactionTree
+        .into[LegacyDTOs.TransactionTree]
         .withFieldConst(_.eventsById, eventsById.toMap)
         .transform
   }
@@ -472,7 +585,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         response: lapi.command_service.SubmitAndWaitForTransactionTreeResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsSubmitAndWaitForTransactionTreeResponse] =
       TransactionTree
         .toJson(response.getTransaction)
@@ -485,7 +598,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         response: JsSubmitAndWaitForTransactionTreeResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.command_service.SubmitAndWaitForTransactionTreeResponse] =
       TransactionTree
         .fromJson(response.transactionTree)
@@ -505,7 +618,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         response: lapi.command_service.SubmitAndWaitForTransactionResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsSubmitAndWaitForTransactionResponse] =
       for {
         transaction <- Transaction
@@ -517,7 +630,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         jsResponse: JsSubmitAndWaitForTransactionResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.command_service.SubmitAndWaitForTransactionResponse] =
       for {
         transaction <- Transaction
@@ -534,7 +647,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         response: lapi.command_service.SubmitAndWaitForReassignmentResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsSubmitAndWaitForReassignmentResponse] =
       Reassignment
         .toJson(response.getReassignment)
@@ -547,7 +660,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         jsResponse: JsSubmitAndWaitForReassignmentResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.command_service.SubmitAndWaitForReassignmentResponse] = Reassignment
       .fromJson(jsResponse.reassignment)
       .map(reassignment =>
@@ -566,7 +679,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         request: lapi.command_service.SubmitAndWaitForTransactionRequest
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsSubmitAndWaitForTransactionRequest] =
       for {
         commands <- Commands.toJson(request.getCommands)
@@ -580,7 +693,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         jsRequest: JsSubmitAndWaitForTransactionRequest
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.command_service.SubmitAndWaitForTransactionRequest] =
       for {
         commands <- Commands.fromJson(jsRequest.commands)
@@ -599,7 +712,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         response: lapi.event_query_service.GetEventsByContractIdResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetEventsByContractIdResponse] =
       for {
         createdEvents <- response.created
@@ -625,7 +738,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         obj: JsGetEventsByContractIdResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.event_query_service.GetEventsByContractIdResponse] = for {
       createdEvents <- obj.created
         .map(c => CreatedEvent.fromJson(c.createdEvent).map(Some(_)))
@@ -653,7 +766,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   object CreatedEvent extends ProtocolConverter[lapi.event.CreatedEvent, JsEvent.CreatedEvent] {
     def toJson(created: lapi.event.CreatedEvent)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsEvent.CreatedEvent] =
       for {
         contractKey <- created.contractKey
@@ -683,7 +796,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .transform
 
     def fromJson(createdEvent: JsEvent.CreatedEvent)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.event.CreatedEvent] = {
       val templateId = createdEvent.templateId
       for {
@@ -715,7 +828,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object ExercisedEvent
       extends ProtocolConverter[lapi.event.ExercisedEvent, JsEvent.ExercisedEvent] {
     def toJson(exercised: lapi.event.ExercisedEvent)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsEvent.ExercisedEvent] =
       for {
         choiceArgs <-
@@ -741,7 +854,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     def fromJson(exercisedEvent: JsEvent.ExercisedEvent)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.event.ExercisedEvent] =
       for {
         choiceArgs <-
@@ -771,7 +884,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       ] {
 
     def toJson(v: lapi.reassignment.AssignedEvent)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsAssignedEvent] =
       for {
         createdEvent <- CreatedEvent.toJson(v.getCreatedEvent)
@@ -782,7 +895,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     override def fromJson(
         jsObj: JsAssignedEvent
-    )(implicit errorLoggingContext: ErrorLoggingContext): Future[AssignedEvent] =
+    )(implicit traceContext: TraceContext): Future[AssignedEvent] =
       for {
         createdEvent <- CreatedEvent.fromJson(jsObj.createdEvent)
       } yield jsObj
@@ -799,7 +912,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         v: lapi.state_service.GetActiveContractsResponse.ContractEntry
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsContractEntry] =
       v match {
         case lapi.state_service.GetActiveContractsResponse.ContractEntry.Empty =>
@@ -836,7 +949,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         jsContractEntry: JsContractEntry
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.state_service.GetActiveContractsResponse.ContractEntry] = jsContractEntry match {
       case JsContractEntry.JsEmpty =>
         Future(lapi.state_service.GetActiveContractsResponse.ContractEntry.Empty)
@@ -886,7 +999,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         JsGetActiveContractsResponse,
       ] {
     def toJson(v: lapi.state_service.GetActiveContractsResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetActiveContractsResponse] =
       for {
         contractEntry <- ContractEntry.toJson(v.contractEntry)
@@ -898,7 +1011,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         v: JsGetActiveContractsResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.state_service.GetActiveContractsResponse] =
       ContractEntry
         .fromJson(v.contractEntry)
@@ -913,7 +1026,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object ReassignmentEvent
       extends ProtocolConverter[lapi.reassignment.ReassignmentEvent.Event, JsReassignmentEvent] {
     def toJson(v: lapi.reassignment.ReassignmentEvent.Event)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsReassignmentEvent] =
       v match {
         case lapi.reassignment.ReassignmentEvent.Event.Empty =>
@@ -930,7 +1043,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     def fromJson(jsObj: JsReassignmentEvent)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.reassignment.ReassignmentEvent.Event] =
       jsObj match {
         case event: JsReassignmentEvent.JsAssignmentEvent =>
@@ -950,7 +1063,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   }
   object Reassignment extends ProtocolConverter[lapi.reassignment.Reassignment, JsReassignment] {
     def toJson(v: lapi.reassignment.Reassignment)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsReassignment] =
       for {
         events <- v.events
@@ -962,7 +1075,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     def fromJson(value: JsReassignment)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.reassignment.Reassignment] =
       for {
         events <- value.events
@@ -976,7 +1089,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object GetUpdatesResponse
       extends ProtocolConverter[lapi.update_service.GetUpdatesResponse, JsGetUpdatesResponse] {
     def toJson(obj: lapi.update_service.GetUpdatesResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetUpdatesResponse] =
       ((obj.update match {
         case lapi.update_service.GetUpdatesResponse.Update.Empty =>
@@ -992,7 +1105,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }): Future[JsUpdate.Update]).map(update => JsGetUpdatesResponse(update))
 
     def fromJson(obj: JsGetUpdatesResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.update_service.GetUpdatesResponse] =
       (obj.update match {
         case JsUpdate.OffsetCheckpoint(value) =>
@@ -1021,7 +1134,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object GetUpdateResponse
       extends ProtocolConverter[lapi.update_service.GetUpdateResponse, JsGetUpdateResponse] {
     def toJson(obj: lapi.update_service.GetUpdateResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetUpdateResponse] =
       ((obj.update match {
         case lapi.update_service.GetUpdateResponse.Update.Empty =>
@@ -1035,7 +1148,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }): Future[JsUpdate.Update]).map(update => JsGetUpdateResponse(update))
 
     def fromJson(obj: JsGetUpdateResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.update_service.GetUpdateResponse] =
       (obj.update match {
         case JsUpdate.Reassignment(value) =>
@@ -1069,7 +1182,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         value: lapi.update_service.GetUpdateTreesResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetUpdateTreesResponse] =
       ((value.update match {
         case lapi.update_service.GetUpdateTreesResponse.Update.Empty =>
@@ -1085,7 +1198,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         jsObj: JsGetUpdateTreesResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.update_service.GetUpdateTreesResponse] =
       (jsObj.update match {
         case JsUpdateTree.OffsetCheckpoint(value) =>
@@ -1103,6 +1216,48 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
   }
 
+  object GetUpdateTreesResponseLegacy
+      extends ProtocolConverter[
+        LegacyDTOs.GetUpdateTreesResponse,
+        JsGetUpdateTreesResponse,
+      ] {
+    def toJson(
+        value: LegacyDTOs.GetUpdateTreesResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsGetUpdateTreesResponse] =
+      ((value.update match {
+        case LegacyDTOs.GetUpdateTreesResponse.Update.Empty =>
+          illegalValue(LegacyDTOs.GetUpdateTreesResponse.Update.Empty.toString())
+        case LegacyDTOs.GetUpdateTreesResponse.Update.OffsetCheckpoint(value) =>
+          Future(JsUpdateTree.OffsetCheckpoint(value))
+        case LegacyDTOs.GetUpdateTreesResponse.Update.TransactionTree(value) =>
+          TransactionTreeLegacy.toJson(value).map(JsUpdateTree.TransactionTree.apply)
+        case LegacyDTOs.GetUpdateTreesResponse.Update.Reassignment(value) =>
+          Reassignment.toJson(value).map(JsUpdateTree.Reassignment.apply)
+      }): Future[JsUpdateTree.Update]).map(update => JsGetUpdateTreesResponse(update))
+
+    def fromJson(
+        jsObj: JsGetUpdateTreesResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.GetUpdateTreesResponse] =
+      (jsObj.update match {
+        case JsUpdateTree.OffsetCheckpoint(value) =>
+          Future.successful(
+            LegacyDTOs.GetUpdateTreesResponse.Update.OffsetCheckpoint(value)
+          )
+        case JsUpdateTree.Reassignment(value) =>
+          Reassignment
+            .fromJson(value)
+            .map(LegacyDTOs.GetUpdateTreesResponse.Update.Reassignment.apply)
+        case JsUpdateTree.TransactionTree(value) =>
+          TransactionTreeLegacy
+            .fromJson(value)
+            .map(LegacyDTOs.GetUpdateTreesResponse.Update.TransactionTree.apply)
+      }).map((u: LegacyDTOs.GetUpdateTreesResponse.Update) => LegacyDTOs.GetUpdateTreesResponse(u))
+  }
+
   // TODO(#23504) remove when GetTransactionTreeResponse is removed
   @nowarn("cat=deprecation")
   object GetTransactionTreeResponse
@@ -1113,12 +1268,12 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         obj: lapi.update_service.GetTransactionTreeResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetTransactionTreeResponse] =
       TransactionTree.toJson(obj.getTransaction).map(JsGetTransactionTreeResponse.apply)
 
     def fromJson(treeResponse: JsGetTransactionTreeResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.update_service.GetTransactionTreeResponse] =
       TransactionTree
         .fromJson(treeResponse.transaction)
@@ -1134,12 +1289,12 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         JsGetTransactionResponse,
       ] {
     def toJson(obj: lapi.update_service.GetTransactionResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsGetTransactionResponse] =
       Transaction.toJson(obj.getTransaction).map(JsGetTransactionResponse.apply)
 
     def fromJson(obj: JsGetTransactionResponse)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.update_service.GetTransactionResponse] =
       Transaction
         .fromJson(obj.transaction)
@@ -1152,24 +1307,40 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         JsPrepareSubmissionRequest,
       ] {
     def fromJson(obj: JsPrepareSubmissionRequest)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.interactive.interactive_submission_service.PrepareSubmissionRequest] = for {
-      commands <- SeqCommands.fromJson(obj.commands)
+      commandsWithTranscodingPackageIds <- transcodePackageIdResolver
+        .resolveDecodingPackageIdsForJsonCommands(
+          jsCommands = obj.commands,
+          actAs = obj.actAs,
+          packageIdSelectionPreference = obj.packageIdSelectionPreference,
+          synchronizerIdO = Option(obj.synchronizerId).filter(_.nonEmpty),
+        )
+      transcodedCommands <- SeqCommands.fromJson(commandsWithTranscodingPackageIds)
       prefetchContractKeys <- obj.prefetchContractKeys.map(PrefetchContractKey.fromJson).sequence
     } yield obj
       .into[lapi.interactive.interactive_submission_service.PrepareSubmissionRequest]
-      .withFieldConst(_.commands, commands.map(lapi.commands.Command(_)))
+      .withFieldConst(_.commands, transcodedCommands.map(lapi.commands.Command(_)))
       .withFieldConst(_.prefetchContractKeys, prefetchContractKeys)
       .transform
 
     override def toJson(
         lapiObj: PrepareSubmissionRequest
-    )(implicit errorLoggingContext: ErrorLoggingContext): Future[JsPrepareSubmissionRequest] = for {
-      commands <- SeqCommands.toJson(lapiObj.commands.map(_.command))
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsPrepareSubmissionRequest] = for {
+      commandsWithTranscodingPackageIds <- transcodePackageIdResolver
+        .resolveDecodingPackageIdsForGrpcCommands(
+          grpcCommands = lapiObj.commands.map(_.command),
+          actAs = lapiObj.actAs,
+          packageIdSelectionPreference = lapiObj.packageIdSelectionPreference,
+          synchronizerIdO = Option(lapiObj.synchronizerId).filter(_.nonEmpty),
+        )
+      transcodedCommands <- SeqCommands.toJson(commandsWithTranscodingPackageIds)
       prefetchContractKeys <- lapiObj.prefetchContractKeys.map(PrefetchContractKey.toJson).sequence
     } yield lapiObj
       .into[JsPrepareSubmissionRequest]
-      .withFieldConst(_.commands, commands)
+      .withFieldConst(_.commands, transcodedCommands)
       .withFieldConst(_.prefetchContractKeys, prefetchContractKeys)
       .transform
   }
@@ -1181,7 +1352,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       ] {
     def toJson(
         obj: lapi.interactive.interactive_submission_service.PrepareSubmissionResponse
-    )(implicit errorLoggingContext: ErrorLoggingContext): Future[JsPrepareSubmissionResponse] =
+    )(implicit traceContext: TraceContext): Future[JsPrepareSubmissionResponse] =
       Future.successful(
         obj
           .into[JsPrepareSubmissionResponse]
@@ -1191,7 +1362,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     override def fromJson(
         jsObj: JsPrepareSubmissionResponse
-    )(implicit errorLoggingContext: ErrorLoggingContext): Future[PrepareSubmissionResponse] =
+    )(implicit traceContext: TraceContext): Future[PrepareSubmissionResponse] =
       Future.successful(
         jsObj
           .into[PrepareSubmissionResponse]
@@ -1211,7 +1382,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         obj: JsExecuteSubmissionRequest
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.interactive.interactive_submission_service.ExecuteSubmissionRequest] =
       Future {
         val preparedTransaction = obj.preparedTransaction.map { proto =>
@@ -1228,9 +1399,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
       }
 
-    override def toJson(lapi: ExecuteSubmissionRequest)(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[JsExecuteSubmissionRequest] = Future.successful(
+    override def toJson(
+        lapi: ExecuteSubmissionRequest
+    )(implicit traceContext: TraceContext): Future[JsExecuteSubmissionRequest] = Future.successful(
       lapi
         .into[JsExecuteSubmissionRequest]
         .withFieldConst(_.preparedTransaction, lapi.preparedTransaction.map(_.toByteString))
@@ -1246,7 +1417,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         obj: JsExecuteSubmissionAndWaitRequest
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitRequest] =
       ExecuteSubmissionRequest
         .fromJson(obj.transformInto[JsExecuteSubmissionRequest])
@@ -1258,9 +1429,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     override def toJson(
         protoRequest: lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitRequest
-    )(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[JsExecuteSubmissionAndWaitRequest] =
+    )(implicit traceContext: TraceContext): Future[JsExecuteSubmissionAndWaitRequest] =
       for {
         json <- ExecuteSubmissionRequest.toJson(
           protoRequest.transformInto[ExecuteSubmissionRequest]
@@ -1275,9 +1444,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       ] {
     def fromJson(
         obj: JsExecuteSubmissionAndWaitForTransactionRequest
-    )(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[
+    )(implicit traceContext: TraceContext): Future[
       lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionRequest
     ] =
       ExecuteSubmissionRequest
@@ -1293,7 +1460,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     override def toJson(
         protoRequest: lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionRequest
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsExecuteSubmissionAndWaitForTransactionRequest] =
       for {
         json <- ExecuteSubmissionRequest.toJson(
@@ -1314,7 +1481,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         response: lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionResponse
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[JsExecuteSubmissionAndWaitForTransactionResponse] =
       for {
         transaction <- Transaction
@@ -1323,9 +1490,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     def fromJson(
         jsResponse: JsExecuteSubmissionAndWaitForTransactionResponse
-    )(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[
+    )(implicit traceContext: TraceContext): Future[
       lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionResponse
     ] =
       for {
@@ -1343,7 +1508,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def fromJson(
         obj: js.AllocatePartyRequest
     )(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.admin.party_management_service.AllocatePartyRequest] =
       Future.successful(
         obj.into[lapi.admin.party_management_service.AllocatePartyRequest].transform
@@ -1351,9 +1516,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     def toJson(
         obj: lapi.admin.party_management_service.AllocatePartyRequest
-    )(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[js.AllocatePartyRequest] = Future.successful(
+    )(implicit traceContext: TraceContext): Future[js.AllocatePartyRequest] = Future.successful(
       obj.into[js.AllocatePartyRequest].transform
     )
   }
@@ -1364,7 +1527,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         js.PrefetchContractKey,
       ] {
     def fromJson(obj: js.PrefetchContractKey)(implicit
-        errorLoggingContext: ErrorLoggingContext
+        traceContext: TraceContext
     ): Future[lapi.commands.PrefetchContractKey] =
       for {
         contractKey <- obj.templateId
@@ -1374,9 +1537,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .withFieldConst(_.contractKey, contractKey)
         .transform
 
-    def toJson(obj: lapi.commands.PrefetchContractKey)(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Future[js.PrefetchContractKey] = for {
+    def toJson(
+        obj: lapi.commands.PrefetchContractKey
+    )(implicit traceContext: TraceContext): Future[js.PrefetchContractKey] = for {
       contractKey <- obj.contractKey
         .flatMap(ck =>
           obj.templateId.map(template =>

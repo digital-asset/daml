@@ -251,6 +251,10 @@ object PartyReplicationStatus {
       error: String,
       previousStatus: PartyReplicationStatus,
   ) extends PartyReplicationStatus {
+    require(
+      previousStatus.code != PartyReplicationStatusCode.Error,
+      s"Cannot chain previous error $previousStatus and new error $error",
+    )
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.Error
     override def params: ReplicationParams = previousStatus.params
 

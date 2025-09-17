@@ -467,7 +467,7 @@ damlStartTests getDamlStart =
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-        subtest "run a daml deploy without project parties" $ do
+        subtest "run a daml deploy without package parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
             writeFileUTF8 (projDir </> "daml.yaml") $ unlines
@@ -568,7 +568,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
-                    setupYarnEnv codegenDir workspaces [DamlTypes, DamlLedger]
+                    setupYarnEnv codegenDir workspaces [DamlTypes]
                 callCommandSilentIn projectDir $
                     unwords [ "daml", "codegen", lang
                             , darFile ++ maybe "" ("=" ++) namespace
@@ -579,9 +579,9 @@ codegenTests codegenDir = testGroup "daml codegen" (
 cantonTests :: TestTree
 cantonTests = testGroup "daml sandbox"
     [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
-        step "Creating project"
+        step "Creating package"
         callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
-        step "Building project"
+        step "Building package"
         -- TODO(#14706): remove explicit target once the default major version is 2
         callCommandSilentIn (dir </> "skeleton") "daml build --target=2.1"
         step "Finding free ports"

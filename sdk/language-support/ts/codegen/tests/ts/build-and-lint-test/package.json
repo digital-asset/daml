@@ -5,7 +5,7 @@
   "description": "Tests exercising '@daml.js/build-and-lint-1.0.0",
   "license": "Apache-2.0",
   "dependencies": {
-    "@daml/ledger": "file:../daml-ledger",
+    "@daml/types": "file:../daml-types",
     "@daml.js/build-and-lint-1.0.0": "file:../daml2js/build-and-lint-1.0.0",
     "@types/lodash": "^4.5",
     "lodash": "^4.5",

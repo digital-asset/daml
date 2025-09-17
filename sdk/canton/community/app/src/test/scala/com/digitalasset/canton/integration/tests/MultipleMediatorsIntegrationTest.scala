@@ -318,13 +318,14 @@ class MultipleMediatorsIntegrationTest
         startNodes()
         bootstrapSynchronizer(Seq(mediator1))
         participant1.synchronizers.connect_local(sequencer1, daName)
+        participant1.dars.upload(CantonExamplesPath)
         participant1.health.ping(participant1)
 
         sequencer1.topology.mediators.remove_group(daId, NonNegativeInt.zero)
 
         eventually() {
           participant1.topology.mediators
-            .list(daId, group = Some(NonNegativeInt.one)) shouldBe empty
+            .list(daId, group = Some(NonNegativeInt.zero)) shouldBe empty
         }
 
         loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -355,6 +356,7 @@ class MultipleMediatorsIntegrationTest
         startNodes()
         bootstrapSynchronizer(Seq(mediator1))
         participant1.synchronizers.connect_local(sequencer1, daName)
+        participant1.dars.upload(CantonExamplesPath)
         participant1.health.ping(participant1)
 
         val submissionF = switchMediatorDuringSubmission(

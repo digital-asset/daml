@@ -33,7 +33,7 @@ import scala.language.implicitConversions
   *  - checks value nesting does not overpass 100;
   *  - checks a LF command/value is properly typed according the
   *    Daml-LF package definitions;
-  *  - checks for Contract ID suffix (see [[requireContractIdSuffix]]);
+  *  - checks for Contract ID suffix (see [[forbidLocalContractIds]]);
   *  - translates a LF command/value into speedy command/value; and
   *  - translates a complete transaction into a list of speedy
   *    commands.
@@ -42,15 +42,14 @@ import scala.language.implicitConversions
   *   Daml-LF package definitions against the command should
   *   resolved/typechecked. It is updated dynamically each time the
   *   [[ResultNeedPackage]] continuation is called.
-  * @param requireContractIdSuffix when `true` the preprocessor will reject
-  *   any value/command/transaction that contains Contract IDs
-  *   without suffixed.
+  * @param forbidLocalContractIds when `true` the preprocessor will reject
+  *   any value/command/transaction that contains a local Contract ID.
   */
 private[engine] final class Preprocessor(
     compiledPackages: CompiledPackages,
     loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
+    forbidLocalContractIds: Boolean = true,
     initialGasBudget: Preprocessor.CostModel.Cost = 0L,
-    requireContractIdSuffix: Boolean = true,
 ) {
 
   import Preprocessor._
@@ -67,7 +66,7 @@ private[engine] final class Preprocessor(
   val commandPreprocessor =
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
-      requireContractIdSuffix = requireContractIdSuffix,
+      forbidLocalContractIds = forbidLocalContractIds,
     )
 
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
@@ -173,7 +172,11 @@ private[engine] final class Preprocessor(
   def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(pullTypePackages(ty0)) {
       // this is used only by the value enricher, strict translation is the way to go
-      commandPreprocessor.unsafeTranslateValue(ty0, v0)
+      commandPreprocessor.unsafeTranslateValue(
+        ty0,
+        v0,
+        extendLocalIdForbiddanceToRelativeV2 = false,
+      )
     }
 
   private[engine] def preprocessApiCommand(
@@ -221,9 +224,14 @@ private[engine] final class Preprocessor(
   def buildGlobalKey(
       templateId: Ref.TypeConId,
       contractKey: Value,
+      extendLocalIdForbiddanceToRelativeV2: Boolean,
   ): Result[GlobalKey] = {
     safelyRun(pullPackage(Seq(templateId))) {
-      commandPreprocessor.unsafePreprocessContractKey(contractKey, templateId)
+      commandPreprocessor.unsafePreprocessContractKey(
+        contractKey,
+        templateId,
+        extendLocalIdForbiddanceToRelativeV2,
+      )
     }
   }
 

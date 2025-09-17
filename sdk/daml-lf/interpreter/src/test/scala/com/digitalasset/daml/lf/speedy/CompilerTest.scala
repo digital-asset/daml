@@ -663,7 +663,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           coid = contractId,
           packageName = pkg.pkgName,
           templateId = templateId,
-          arg = payload.toNormalizedValue(txVersion),
+          arg = payload.toNormalizedValue,
           signatories = Set(maintainer),
           stakeholders = Set(maintainer),
           keyOpt =
@@ -671,7 +671,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
               Some(
                 GlobalKeyWithMaintainers.assertBuild(
                   templateId,
-                  payload.toNormalizedValue(txVersion),
+                  payload.toNormalizedValue,
                   Set(maintainer),
                   pkg.pkgName,
                 )

@@ -7,7 +7,7 @@ import cats.implicits.*
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
+import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -16,7 +16,7 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
-import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule, TracedLogger}
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
 import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.State
 import com.digitalasset.canton.time.WallClock
@@ -38,11 +38,13 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
+  HasExecutionContext,
   ProtocolVersionChecksAsyncWordSpec,
   SequencerCounter,
   SynchronizerAlias,
 }
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.annotation.nowarn
@@ -54,9 +56,14 @@ class StoreBasedSynchronizerOutboxTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec
+    with HasExecutionContext
     with FailOnShutdown {
   import DefaultTestIdentities.*
 
+  private lazy val topologyConfig = TopologyConfig(
+    topologyTransactionObservationTimeout = NonNegativeFiniteDuration.ofSeconds(2),
+    broadcastRetryDelay = NonNegativeFiniteDuration.ofSeconds(1),
+  )
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
@@ -87,17 +94,18 @@ class StoreBasedSynchronizerOutboxTest
       responses: Iterator[TopologyTransactionsBroadcast.State] =
         Iterator.continually(TopologyTransactionsBroadcast.State.Accepted),
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
+      dropSequencedBroadcast: Iterator[Boolean] = Iterator.continually(false),
   ) = {
     val source = new InMemoryTopologyStore(
       TopologyStoreId.AuthorizedStore,
       testedProtocolVersion,
-      loggerFactory,
+      loggerFactory.append("store", "Authorized"),
       timeouts,
     )
     val target = new InMemoryTopologyStore(
       TopologyStoreId.SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId),
       testedProtocolVersion,
-      loggerFactory,
+      loggerFactory.append("store", "Synchronizer"),
       timeouts,
     )
     val manager = new AuthorizedTopologyManager(
@@ -109,7 +117,7 @@ class StoreBasedSynchronizerOutboxTest
       // we don't need the validation logic to run, because we control the outcome of transactions manually
       timeouts,
       futureSupervisor,
-      loggerFactory,
+      loggerFactory.append("store", "Authorized"),
     )
     val client = new StoreBasedSynchronizerTopologyClient(
       clock,
@@ -117,7 +125,7 @@ class StoreBasedSynchronizerOutboxTest
       packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
-      loggerFactory = loggerFactory,
+      loggerFactory.append("store", "Synchronizer"),
     )
     val handle =
       new MockHandle(
@@ -126,6 +134,7 @@ class StoreBasedSynchronizerOutboxTest
         store = target,
         targetClient = client,
         rejections = rejections,
+        dropSequencedBroadcast = dropSequencedBroadcast,
       )
 
     (source, target, manager, handle, client)
@@ -137,6 +146,7 @@ class StoreBasedSynchronizerOutboxTest
       store: TopologyStore[TopologyStoreId],
       targetClient: StoreBasedSynchronizerTopologyClient,
       rejections: Iterator[Option[TopologyTransactionRejection]] = Iterator.continually(None),
+      dropSequencedBroadcast: Iterator[Boolean] = Iterator.continually(false),
   ) extends RegisterTopologyTransactionHandle {
 
     val buffer: ListBuffer[GenericSignedTopologyTransaction] = ListBuffer()
@@ -154,15 +164,21 @@ class StoreBasedSynchronizerOutboxTest
     )(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Seq[TopologyTransactionsBroadcast.State]] = {
-      logger.debug(s"Observed ${transactions.length} transactions")
-      buffer ++= transactions
-      batches += transactions
+      logger.debug(s"Submitting ${transactions.length} transactions")
+
+      val dropBroadcast = dropSequencedBroadcast.next()
+
+      if (!dropBroadcast) {
+        buffer ++= transactions
+        batches += transactions
+      }
       val finalResult = transactions.map(_ => responses.next())
       for {
         _ <- MonadUtil.sequentialTraverse(transactions) { x =>
-          logger.debug(s"Processing $x")
+          if (dropBroadcast) logger.debug(s"Dropping $x")
+          else logger.debug(s"Processing $x")
           val ts = CantonTimestamp.now()
-          if (finalResult.forall(_ == State.Accepted))
+          if (finalResult.forall(_ == State.Accepted) && !dropBroadcast)
             store
               .update(
                 SequencedTime(ts),
@@ -215,6 +231,7 @@ class StoreBasedSynchronizerOutboxTest
   private def push(
       manager: AuthorizedTopologyManager,
       transactions: Seq[GenericTopologyTransaction],
+      waitToBecomeEffective: Option[NonNegativeFiniteDuration] = None,
   ): FutureUnlessShutdown[
     Either[TopologyManagerError, Seq[GenericSignedTopologyTransaction]]
   ] =
@@ -227,7 +244,7 @@ class StoreBasedSynchronizerOutboxTest
           signingKeys = Seq(publicKey.fingerprint),
           testedProtocolVersion,
           expectFullAuthorization = false,
-          waitToBecomeEffective = None,
+          waitToBecomeEffective = waitToBecomeEffective,
         )
       )
       .value
@@ -238,7 +255,7 @@ class StoreBasedSynchronizerOutboxTest
       client: SynchronizerTopologyClientWithInit,
       source: TopologyStore[TopologyStoreId.AuthorizedStore],
       target: TopologyStore[TopologyStoreId.SynchronizerStore],
-      broadcastBatchSize: PositiveInt = TopologyConfig.defaultBroadcastBatchSize,
+      topologyConfig: TopologyConfig = topologyConfig,
   ): FutureUnlessShutdown[StoreBasedSynchronizerOutbox] = {
     val synchronizerOutbox = new StoreBasedSynchronizerOutbox(
       synchronizer,
@@ -250,7 +267,7 @@ class StoreBasedSynchronizerOutboxTest
       timeouts,
       loggerFactory,
       SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
-      broadcastBatchSize,
+      topologyConfig,
       futureSupervisor = FutureSupervisor.Noop,
     )
     synchronizerOutbox
@@ -332,7 +349,7 @@ class StoreBasedSynchronizerOutboxTest
           client,
           source,
           target,
-          broadcastBatchSize = PositiveInt.one,
+          topologyConfig.copy(broadcastBatchSize = PositiveInt.one),
         )
         _ <- handle.allObserved()
         observed1 = handle.clear(slice2.length)
@@ -471,6 +488,41 @@ class StoreBasedSynchronizerOutboxTest
         action,
         _.warningMessage should include("failed the following topology transactions"),
       )
+    }
+
+    "handle dropped transactions" in {
+      val (source, target, manager, handle, client) = mk(
+        1,
+        // drop the first submission, but not the second
+        dropSequencedBroadcast = Iterator(true, false),
+      )
+      for {
+
+        _ <- outboxConnected(manager, handle, client, source, target)
+        res1 <- loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
+          push(
+            manager,
+            transactions.take(1),
+            // take into account the timeouts lowered in this test, and be generous in the timeout for getting a response:
+            // * submission timeout (2s)
+            // * retryDelay (1s)
+            Some(NonNegativeFiniteDuration.ofSeconds(8)),
+          ),
+          LogEntry.assertLogSeq(
+            Seq(
+              (
+                _.warningMessage should include(
+                  "Did not observe transactions in target synchronizer store."
+                ),
+                "outbox times out waiting to observe topology transaction",
+              )
+            )
+          ),
+        )
+      } yield {
+        res1.value.map(_.transaction) shouldBe transactions.take(1)
+      }
+
     }
 
   }

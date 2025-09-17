@@ -265,16 +265,14 @@ final class Conversions(
                       cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                     )
                     builder.setChoiceGuardFailed(cgfBuilder.build)
-                  case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
-                    builder.setWronglyTypedContractSoft(
-                      proto.ScriptError.WronglyTypedContractSoft.newBuilder
-                        .setContractRef(mkContractRef(coid, actual))
-                        .setExpected(convertIdentifier(expected))
-                        .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
-                    )
                   // TODO(https://github.com/digital-asset/daml/issues/21667): handle translation errors properly
                   case Dev.TranslationError(translationError) =>
                     builder.setCrash(s"translation error: ${translationError}")
+                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle authentication errors properly
+                  case Dev.AuthenticationError(coid, value, msg) =>
+                    builder.setCrash(s"authentication error: $coid, $value, $msg")
+                  case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
+                    builder.setCrash(cause)
                 }
               case _: Upgrade =>
                 builder.setUpgradeError(

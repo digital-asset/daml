@@ -118,6 +118,8 @@ object ScaffeineCache {
     def invalidateAll(keys: Iterable[K]): Unit = underlying.synchronous().invalidateAll(keys)
 
     def invalidateAll(): Unit = underlying.synchronous().invalidateAll()
+
+    def cleanUp(): Unit = underlying.synchronous().cleanUp()
   }
 
   class TunnelledAsyncLoadingCache[F[_], K, V] private[ScaffeineCache] (
@@ -162,6 +164,9 @@ object ScaffeineCache {
 
     /** @see com.github.blemale.scaffeine.Cache.invalidateAll */
     def invalidateAll(): Unit = underlying.synchronous().invalidateAll()
+
+    /** @see com.github.blemale.scaffeine.Cache.cleanUp */
+    def cleanUp(): Unit = underlying.synchronous().cleanUp()
 
     /** @see com.github.benmanes.caffeine.cache.AsyncCache.asMap */
     // Note: We cannot use compute to remove keys conditionally on the previous value because we'd have to distribute the Option out of the Future.
@@ -228,6 +233,8 @@ object ScaffeineCache {
       underlying.invalidate(Traced(key)(TraceContext.empty))
 
     def invalidateAll(): Unit = underlying.invalidateAll()
+
+    def cleanUp(): Unit = underlying.cleanUp()
 
     // We intentionally do not pass the trace context found in the cache to the remapper
     // so that the remapper by default takes the trace context of the caller of compute.

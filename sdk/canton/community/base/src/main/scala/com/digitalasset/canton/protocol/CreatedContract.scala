@@ -51,7 +51,7 @@ object CreatedContract {
   ): Either[String, CreatedContract] =
     CantonContractIdVersion
       .extractCantonContractIdVersion(contract.contractId)
-      .leftMap(err => s"Encountered invalid Canton contract id: ${err.toString}")
+      .leftMap(err => s"Encountered invalid Canton contract id: $err")
       .map(_ => new CreatedContract(contract, consumedInCore, rolledBack))
 
   def tryCreate(

@@ -5,7 +5,6 @@
     "build-and-lint-test"
   ],
   "resolutions": {
-    "@daml/types": "file:daml-types",
-    "@daml/ledger": "file:daml-ledger"
+    "@daml/types": "file:daml-types"
   }
 }

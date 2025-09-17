@@ -288,4 +288,12 @@ object MapsUtil {
         }
       }
     }
+
+  /** Changes the map of option into the map of actual values by skipping Nones and extracting
+    * values from Somes.
+    */
+  def skipEmpty[K, V](original: Map[K, Option[V]]): Map[K, V] =
+    original.collect { case (k, Some(v)) =>
+      (k, v)
+    }
 }

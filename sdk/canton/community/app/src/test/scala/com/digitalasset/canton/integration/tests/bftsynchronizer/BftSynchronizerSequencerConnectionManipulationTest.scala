@@ -108,7 +108,7 @@ sealed trait BftSynchronizerSequencerConnectionManipulationTest
     // stop both mediators to ensure that they don't attempt to reach the sequencer and emit warnings
     Seq(mediator1, mediator2).foreach(_.stop())
     sequencer2.stop()
-    clue("restarting mediators after turning of sequencer2") {
+    clue("restarting mediators after turning off sequencer2") {
       Seq(mediator1, mediator2).foreach(_.start())
     }
 
@@ -119,7 +119,7 @@ sealed trait BftSynchronizerSequencerConnectionManipulationTest
 
     val pingTimeout = config.NonNegativeDuration.ofSeconds(40)
 
-    clue("pinging works nicely again despite p2 being offline") {
+    clue("pinging works nicely again despite sequencer2 being offline") {
       participant1.health.maybe_ping(participant2.id, timeout = pingTimeout) shouldBe defined
     }
 

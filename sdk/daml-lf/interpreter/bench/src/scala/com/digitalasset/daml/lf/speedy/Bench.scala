@@ -51,7 +51,7 @@ class Bench {
             val sumFoldrBuitlin: List Int64 -> Int64 = \(xs: List Int64) ->
               FOLDR @Int64 @Int64 ADD_INT64 0 xs;
 
-            val bnechSumFoldrBuiltin : Unit -> Int64 =
+            val benchSumFoldrBuiltin : Unit -> Int64 =
               \(_: Unit) -> Bench:sumFoldrBuitlin Bench:longList;
 
             val foldl: forall (a: *) (b: *). (a -> b -> a) -> a -> List b -> a = /\ (a: *) (b: *).
@@ -134,7 +134,7 @@ class Bench {
     Array(
       "Bench:benchFib",
       "Bench:benchSumFoldlBuiltin",
-      "Bench:bnechSumFoldrBuiltin",
+      "Bench:benchSumFoldrBuiltin",
       "Bench:benchSumFoldlCustom",
       "Bench:benchSumFoldrCustom",
       "Bench:benchMkList",
@@ -151,18 +151,40 @@ class Bench {
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = SExpr.SEApp(compiledPackages.compiler.unsafeCompile(e"$b"), ArraySeq(SValue.SUnit))
-    machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
   }
 
   @Benchmark
-  def bench(): SValue = {
+  def bench(counters: Bench.EventCounter): SValue = {
+    counters.reset()
+    machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
     machine.setExpressionToEvaluate(sexpr)
     machine.run() match {
       case SResult.SResultFinal(v) =>
+        counters.update(machine.metrics)
         v
       case otherwise =>
         throw new UnknownError(otherwise.toString)
     }
   }
 
+}
+
+object Bench {
+  @State(Scope.Thread)
+  @AuxCounters(AuxCounters.Type.EVENTS)
+  class EventCounter {
+    var stepCount: Long = 0
+    var transactionNodeCount: Long = 0
+
+    def reset(): Unit = {
+      stepCount = 0
+      transactionNodeCount = 0
+    }
+
+    def update(metrics: Speedy.Metrics): Unit = {
+      val (stepBatchCount, stepsCounted) = metrics.totalStepCount
+      stepCount += stepBatchCount * metrics.batchSize + stepsCounted
+      transactionNodeCount += metrics.transactionNodeCount
+    }
+  }
 }

@@ -90,7 +90,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
     val indexResourceOwner =
       for {
-        (inMemoryState, updaterFlow) <- LedgerApiServer.createInMemoryStateAndUpdater(
+        (inMemoryState, updaterFlow) <- LedgerApiServerInternals.createInMemoryStateAndUpdater(
           participantId = participantId,
           commandProgressTracker = CommandProgressTracker.NoOp,
           indexServiceConfig = IndexServiceConfig(),

@@ -30,7 +30,7 @@ object SymbolicCryptoProvider {
     NonEmpty.mk(Set, SymmetricKeyScheme.Aes128Gcm)
   val supportedEncryptionSpecs: RequiredEncryptionSpecs =
     RequiredEncryptionSpecs(
-      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm),
+      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc),
       NonEmpty.mk(Set, EncryptionKeySpec.EcP256),
     )
   val supportedHashAlgorithms: NonEmpty[Set[HashAlgorithm]] = NonEmpty.mk(Set, HashAlgorithm.Sha256)

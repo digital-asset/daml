@@ -30,11 +30,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
-  EngineController,
-  ProcessingSteps,
-}
+import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.*
@@ -46,8 +42,8 @@ import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -148,11 +144,16 @@ private[reassignment] class AssignmentProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
 
-      sourceSynchronizer = unassignmentData.sourceSynchronizer
-      targetSynchronizer = unassignmentData.targetSynchronizer
-      _ = if (targetSynchronizer != synchronizerId)
+      sourceSynchronizer = unassignmentData.sourcePSId
+
+      /*
+       Because an upgrade of the target synchronizer can happen between unassignment
+       and assignment, the comparison needs to be logical.
+       */
+      _ = if (unassignmentData.targetPSId.map(_.logical) != synchronizerId.map(_.logical))
         throw new IllegalStateException(
-          s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
+          s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetPSId
+              .map(_.logical)} found on wrong synchronizer ${synchronizerId.map(_.logical)}"
         )
 
       stakeholders = unassignmentData.stakeholders
@@ -177,7 +178,7 @@ private[reassignment] class AssignmentProcessingSteps(
           submitterMetadata,
           unassignmentData.contractsBatch,
           sourceSynchronizer,
-          targetSynchronizer,
+          synchronizerId,
           mediator,
           assignmentUuid,
           protocolVersion,

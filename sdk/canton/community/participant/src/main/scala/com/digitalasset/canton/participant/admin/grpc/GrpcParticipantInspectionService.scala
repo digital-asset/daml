@@ -412,7 +412,7 @@ class GrpcParticipantInspectionService(
     }
 
   /** Request metadata about shared contracts used in commitment computation at a specific time
-    * Subject to the data still being available on the participant TODO(#9557) R2
+    * Subject to the data still being available on the participant
     */
   override def openCommitment(
       request: v30.OpenCommitmentRequest,
@@ -600,8 +600,6 @@ class GrpcParticipantInspectionService(
     CantonGrpcUtil.mapErrNewEUS(result)
   }
 
-  /** TODO(#9557) R2
-    */
   override def inspectCommitmentContracts(
       request: v30.InspectCommitmentContractsRequest,
       responseObserver: StreamObserver[v30.InspectCommitmentContractsResponse],

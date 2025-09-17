@@ -9,13 +9,10 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.{
-  P2PGrpcConnectionState,
-  P2PGrpcNetworking,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
@@ -82,6 +79,7 @@ object SimulationModuleSystem {
   final case class SimulationP2PNetworkManager[P2PMessageT](
       collector: NodeCollector,
       p2pConnectionEventListener: P2PConnectionEventListener,
+      p2PGrpcConnectionState: P2PGrpcConnectionState,
       timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
   ) extends P2PNetworkManager[SimulationEnv, P2PMessageT]
@@ -89,20 +87,36 @@ object SimulationModuleSystem {
 
     override def createNetworkRef[ActorContextT](
         _context: SimulationModuleContext[ActorContextT],
-        p2pAddress: P2PAddress,
+        p2PAddress: P2PAddress,
     )(implicit traceContext: TraceContext): P2PNetworkRef[P2PMessageT] = {
-      val p2pEndpoint = p2pAddress.maybeP2PEndpoint.getOrElse(
-        throw new IllegalArgumentException("Node ID addresses are not yet supported")
+      val maybeP2PEndpoint = p2PAddress.maybeP2PEndpoint
+      val node = p2PAddress.maybeBftNodeId.getOrElse(
+        maybeP2PEndpoint
+          .map(endpointToTestBftNodeId)
+          .getOrElse(
+            throw new IllegalArgumentException("Either BftNodeId or P2PEndpoint must be provided")
+          )
       )
-      val node = endpointToTestBftNodeId(p2pEndpoint)
-      p2pEndpoint match {
-        case plaintextEndpoint: PlainTextP2PEndpoint =>
-          collector.addOpenConnection(node, plaintextEndpoint, p2pConnectionEventListener)
-          SimulationP2PNetworkRef(node, collector, timeouts, loggerFactory)
-        case _: P2PGrpcNetworking.TlsP2PEndpoint =>
-          throw new UnsupportedOperationException("TLS is not supported in simulation")
-      }
+      collector.addOpenConnection(
+        node,
+        maybeP2PEndpoint match {
+          case Some(p2pEndpoint: PlainTextP2PEndpoint) =>
+            Some(p2pEndpoint)
+          case None => None
+          case other =>
+            throw new UnsupportedOperationException(
+              s"Only plaintext endpoint are supported in simulation, found $other"
+            )
+        },
+        p2pConnectionEventListener,
+      )
+      SimulationP2PNetworkRef[P2PMessageT](node, collector, timeouts, loggerFactory)
     }
+
+    // We don't currently simulate explicit disconnections
+    override def shutdownOutgoingConnection(
+        p2pEndpointId: P2PEndpoint.Id
+    )(implicit traceContext: TraceContext): Unit = ()
   }
 
   private[simulation] case object SimulationFutureContext extends FutureContext[SimulationEnv] {
@@ -554,6 +568,7 @@ object SimulationModuleSystem {
               SimulationP2PNetworkManager[SystemNetworkMessageT](
                 collector,
                 p2pConnectionEventListener,
+                simulationInitializer.p2pGrpcConnectionState,
                 timeouts,
                 loggerFactory,
               ),

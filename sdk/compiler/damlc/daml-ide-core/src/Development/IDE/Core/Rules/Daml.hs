@@ -23,6 +23,7 @@ import HscTypes
 import MkIface
 import Maybes (MaybeErr(..), rightToMaybe)
 import TcRnMonad (initIfaceLoad)
+
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
@@ -36,8 +37,8 @@ import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Daml.Project.Consts (projectConfigName)
-import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Project.Consts (packageConfigName)
+import DA.Daml.Project.Types (PackagePath (..))
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
@@ -580,7 +581,7 @@ getUpgradedPackageErrs opts file mainPkg
     -- package versions have been checked at this point
     packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
     packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
-
+     
     lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
     lfVersionMinorLt = (<) `on` LF.versionMinor
 
@@ -616,7 +617,7 @@ extractUpgradedPackageRule opts = do
            main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
            deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
            pure (main, deps)
-        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
+        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> packageConfigName) . unwrapPackagePath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
           Right (mainPkg, _) ->
@@ -637,11 +638,11 @@ generatePackageMapRule :: Options -> Rules ()
 generatePackageMapRule opts = do
     defineNoFile $ \GeneratePackageMapIO -> do
         f <- liftIO $ do
-            findProjectRoot <- memoIO findProjectRoot
+            findPackageRoot <- memoIO findPackageRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
             pure $ \file -> do
-                mbProjectRoot <- liftIO (findProjectRoot file)
-                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
+                mPackageRoot <- liftIO (findPackageRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mPackageRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -659,17 +660,17 @@ damlGhcSessionRule :: SdkVersioned => Options -> Rules ()
 damlGhcSessionRule opts@Options{..} = do
     -- The file path here is optional so we go for defineNoFile
     -- (or the equivalent thereof for rules with cut off).
-    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+    defineEarlyCutoff $ \(DamlGhcSession mPackageRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
         let base = mkBaseUnits (optUnitId opts)
-        extraPkgFlags <- liftIO $ case mbProjectRoot of
-            Just projectRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
+        extraPkgFlags <- liftIO $ case mPackageRoot of
+            Just packageRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
                 -- We catch doesNotExistError which could happen if the
                 -- package db has never been initialized. In that case, we
                 -- return no extra package flags.
                 handleJust
                     (guard . isDoesNotExistError)
                     (const $ pure []) $ do
-                    PackageDbMetadata{..} <- readMetadata projectRoot
+                    PackageDbMetadata{..} <- readMetadata packageRoot
                     let mainPkgs = map mkPackageFlag directDependencies
                     let renamings =
                             map (\(unitId, (prefix, modules)) -> renamingToFlag unitId prefix modules)
@@ -678,9 +679,9 @@ damlGhcSessionRule opts@Options{..} = do
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag base ++ extraPkgFlags ++ optPackageImports
         env <- liftIO $ runGhcFast $ do
-            setupDamlGHC mbProjectRoot opts
+            setupDamlGHC mPackageRoot opts
             GHC.getSession
-        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mPackageRoot optPackageDbs optPackageImports
         dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
         hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
         -- In the IDE we do not care about the cache value here but for
@@ -792,8 +793,6 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    --TODO: we are not inside action and have multiple files, so IDK how to
-    --obtain the deps here?
     pure $ buildPackage meta lfVersion dalfs imports
 
 -- | Artifact directory for incremental builds.
@@ -851,25 +850,15 @@ convertUnitId pkgMap id =
 depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
 depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
 
--- generatePackageImports :: Rules ()
--- generatePackageImports =
---     define $ \GeneratePackageImports file -> do
---         -- lfVersion <- getDamlLfVersion
---         -- imports <- if lfVersion `supports` featurePackageImports
---         imports <- if version2_dev `supports` featurePackageImports
---           then do
---             PackageMap pkgMap <- use_ GeneratePackageMap file
---             deps <- depPkgDeps <$> use_ GetDependencyInformation file
---             return (Just $ depsToIds pkgMap deps)
---           else return Nothing
---         return ([]{-list of diagnostics-}, Just imports)
-
 generatePackageImports :: Rules ()
 generatePackageImports =
-    define $ \GeneratePackageImports file -> do
+    defineEarlyCutoff $ \GeneratePackageImports file -> do
       PackageMap pkgMap <- use_ GeneratePackageMap file
       deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
+      let imports = depsToIds pkgMap deps
+      let hash :: BS.ByteString
+          hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
+      return (Just hash, ([], Just (Just imports)))
 
 
 -- Generates a Daml-LF archive without adding serializability information

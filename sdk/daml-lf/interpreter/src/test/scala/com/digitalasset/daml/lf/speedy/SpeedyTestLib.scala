@@ -8,7 +8,6 @@ package speedy
 import data.Ref.PackageId
 import data.Time
 import SResult._
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
 import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -48,67 +47,6 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
-    runCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Left(e) => Left(e)
-      case Right((v, _)) => Right(v)
-    }
-  }
-
-  @throws[SError.SErrorCrash]
-  def buildTransaction(
-      machine: Speedy.UpdateMachine,
-      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, SubmittedTransaction] =
-    buildTransactionCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Right((tx, _)) =>
-        Right(tx)
-      case Left(err) =>
-        Left(err)
-    }
-
-  case class UpgradeVerificationRequest(
-      coid: ContractId,
-      signatories: Set[Party],
-      observers: Set[Party],
-      keyOpt: Option[GlobalKeyWithMaintainers],
-  )
-
-  @throws[SError.SErrorCrash]
-  def buildTransactionCollectRequests(
-      machine: Speedy.UpdateMachine,
-      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[
-    SError.SError,
-    (SubmittedTransaction, List[UpgradeVerificationRequest]),
-  ] =
-    runCollectRequests(machine, getPkg, getContract, getKey, getTime) match {
-      case Right((_, upgradeVerificationrequests)) =>
-        machine.finish.map(_.tx) match {
-          case Left(err) =>
-            Left(err)
-          case Right(tx) =>
-            Right((tx, upgradeVerificationrequests))
-        }
-      case Left(err) =>
-        Left(err)
-    }
-
-  @throws[SError.SErrorCrash]
-  def runCollectRequests(
-      machine: Speedy.Machine[Question.Update],
-      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
-      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
-  ): Either[SError.SError, (SValue, List[UpgradeVerificationRequest])] = {
-
-    var upgradeVerificationRequests: List[UpgradeVerificationRequest] = List.empty
 
     def onQuestion(question: Question.Update): Unit = question match {
       case Question.Update.NeedTime(callback) =>
@@ -129,21 +67,6 @@ private[speedy] object SpeedyTestLib {
           case None =>
             throw UnknownContract(contractId)
         }
-      case Question.Update.NeedUpgradeVerification(
-            coid,
-            signatories,
-            observers,
-            keyOpt,
-            callback,
-          ) =>
-        upgradeVerificationRequests = UpgradeVerificationRequest(
-          coid,
-          signatories,
-          observers,
-          keyOpt,
-        ) :: upgradeVerificationRequests
-        callback(None)
-
       case Question.Update.NeedPackage(pkg, _, callback) =>
         getPkg.lift(pkg) match {
           case Some(value) =>
@@ -156,9 +79,35 @@ private[speedy] object SpeedyTestLib {
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)
-      case Right(fv) => Right((fv, upgradeVerificationRequests.reverse))
+      case Right(fv) => Right(fv)
     }
   }
+
+  @throws[SError.SErrorCrash]
+  def buildTransaction(
+      machine: Speedy.UpdateMachine,
+      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
+      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+  ): Either[SError.SError, SubmittedTransaction] =
+    run(machine, getPkg, getContract, getKey, getTime) match {
+      case Right(_) => machine.finish.map(_.tx)
+      case Left(err) => Left(err)
+    }
+
+  @throws[SError.SErrorCrash]
+  def buildTransactionCollectRequests(
+      machine: Speedy.UpdateMachine,
+      getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
+      getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
+  ): Either[SError.SError, SubmittedTransaction] =
+    run(machine, getPkg, getContract, getKey, getTime) match {
+      case Right(_) => machine.finish.map(_.tx)
+      case Left(err) => Left(err)
+    }
 
   @throws[SError.SErrorCrash]
   def runTxQ[Q](
@@ -241,6 +190,10 @@ private[speedy] object SpeedyTestLib {
           limits = machine.limits,
           iterationsBetweenInterruptions = machine.iterationsBetweenInterruptions,
           packageResolution = Map.empty,
+          costModel = CostModel.Empty,
+          initialGasBudget = None,
+          initialKontStackSize = 128,
+          initialEnvSize = 512,
         )
 
       private[speedy] def withLocalContractKey(

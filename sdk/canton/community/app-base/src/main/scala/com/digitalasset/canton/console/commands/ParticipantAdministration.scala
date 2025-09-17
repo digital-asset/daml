@@ -60,6 +60,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
 import com.digitalasset.canton.participant.pruning.{
   CommitmentContractMetadata,
   CommitmentInspectContract,
+  OpenCommitmentHelper,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.messages.{
@@ -814,7 +815,6 @@ class CommitmentsAdministrationGroup(
 
   import runner.*
 
-  // TODO(#9557) R2
   @Help.Summary(
     "Opens a commitment by retrieving the metadata of active contracts shared with the counter-participant.",
     FeatureFlag.Preview,
@@ -828,6 +828,7 @@ class CommitmentsAdministrationGroup(
       | - physicalSynchronizerId: The synchronizer for which the commitment was computed
       | - timestamp: The timestamp of the commitment. Needs to correspond to a commitment tick.
       | - counterParticipant: The counter participant to whom we previously sent the commitment
+      | - outputFile: Optional file to which the result is written
       | - timeout: Time limit for the grpc call to complete
       """
   )
@@ -836,6 +837,7 @@ class CommitmentsAdministrationGroup(
       physicalSynchronizerId: PhysicalSynchronizerId,
       timestamp: CantonTimestamp,
       counterParticipant: ParticipantId,
+      outputFile: Option[String] = None,
       timeout: config.NonNegativeDuration = timeouts.unbounded,
   ): Seq[CommitmentContractMetadata] =
     check(FeatureFlag.Preview) {
@@ -873,6 +875,10 @@ class CommitmentsAdministrationGroup(
       logger.debug(
         s"Retrieved metadata for ${counterContractsMetadata.size} contracts shared with $counterParticipant at time $timestamp on synchronizer $physicalSynchronizerId"
       )
+      outputFile.foreach(filename =>
+        OpenCommitmentHelper.writeToFile(filename, counterContractsMetadata)
+      )
+
       counterContractsMetadata
     }
 
@@ -1946,6 +1952,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
+          sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
@@ -1960,6 +1967,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -1972,6 +1980,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelay = maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority = priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
+        sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
       )
       connect_by_config(config, validation, synchronize)
@@ -1989,6 +1998,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
+          sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
@@ -2002,6 +2012,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2013,6 +2024,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         psid = physicalSynchronizerId,
         priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
+        sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
       )
       connect_by_config(config, validation, synchronize)
