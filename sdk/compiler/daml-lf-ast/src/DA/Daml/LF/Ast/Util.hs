@@ -83,8 +83,8 @@ isUtilityPackage pkg =
       && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
   ) $ packageModules pkg
 
-mergeImportedPackages' :: ImportedPackages -> ImportedPackages -> ImportedPackages
-mergeImportedPackages' r l = case (r, l) of
+mergeImportedPackages :: ImportedPackages -> ImportedPackages -> ImportedPackages
+mergeImportedPackages r l = case (r, l) of
     (Right s1, Right s2) -> Right $ s1 <> s2
     (Left  r1, Left  r2) -> Left $ combineReasons r1 r2
     (Right s1, Left  _ ) -> Right s1
