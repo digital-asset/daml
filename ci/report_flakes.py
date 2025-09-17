@@ -39,6 +39,30 @@ def extract_failed_tests(report_filename: str):
             if "testResult" in entry and entry["testResult"]["status"] == "FAILED":
                 yield entry["id"]["testResult"]["label"]
 
+def extract_test_name_map(mapping_filename: str):
+    """
+    Extracts the short and long test names from a file. The file is a JSON object
+    with keys being the short names and values being the long names.
+    In linux env, this file is not generated but mapping is also not needed.
+    """
+    if not os.path.exists(mapping_filename):
+        return {}
+    with open(mapping_filename, 'r', encoding='utf-8-sig') as f:
+        content = f.read().replace("@", "")
+        print(content)
+        return json.loads(content)
+
+def getTestName(test_name: str, test_name_map: dict):
+    """
+    Returns the long name for a given short test name.
+    """
+    if test_name in test_name_map:
+        return test_name_map[test_name]
+    else:
+        return test_name
+
+def print_failed_test(branck: str, test_name: str):
+    print(f"Flaky test detected: {test_name}")
 
 def report_failed_test(branch: str, test_name: str):
     """
@@ -157,12 +181,14 @@ def az_set_logs_ttl(access_token: str, days: int):
 
 
 if __name__ == "__main__":
-    [_, access_token, branch, report_filename] = sys.argv
+    [_, access_token, branch, report_filename, mapping_filename] = sys.argv
     failing_tests = list(extract_failed_tests(report_filename))
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
+    test_name_map = extract_test_name_map(mapping_filename)
+    print(f"Using {len(test_name_map)} short-long name mappings.")
     for test_name in failing_tests:
-        print(f"Reporting {test_name}")
-        report_failed_test(branch, test_name)
+        print(f"Reporting {test_name} - {getTestName(test_name, test_name_map)}")
+        print_failed_test(branch, getTestName(test_name, test_name_map))
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
