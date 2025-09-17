@@ -304,7 +304,8 @@ class SValueHashSpec
   private def readGoldenFile(fileName: String): String =
     Using(
       Source.fromFile(
-        rlocation("daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto/" + fileName)
+        rlocation("daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/crypto/" + fileName),
+        "UTF-8",
       )
     )(_.getLines().mkString(System.lineSeparator()))
       .getOrElse(throw new RuntimeException(s"Could not read $fileName"))
