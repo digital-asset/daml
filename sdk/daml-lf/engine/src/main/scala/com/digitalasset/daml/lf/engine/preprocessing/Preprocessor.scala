@@ -44,23 +44,31 @@ import scala.language.implicitConversions
   *   [[ResultNeedPackage]] continuation is called.
   * @param forbidLocalContractIds when `true` the preprocessor will reject
   *   any value/command/transaction that contains a local Contract ID.
+  * @param costModel the preprocessor input cost model that should be used
+  * @param initialInputCost initial input cost
   */
 private[engine] final class Preprocessor(
     compiledPackages: CompiledPackages,
     loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
     forbidLocalContractIds: Boolean = true,
-    initialGasBudget: Preprocessor.CostModel.Cost = 0L,
+    costModel: Preprocessor.CostModel.CostModelImplicits =
+      Preprocessor.CostModel.EmptyCostModelImplicits,
+    initialInputCost: Preprocessor.CostModel.Cost = 0L,
 ) {
 
   import Preprocessor._
-  import Preprocessor.CostModel.StructuralCostModelImplicits._
+  import costModel._
 
   import compiledPackages.pkgInterface
 
-  private[this] var gasBudget: CostModel.Cost = initialGasBudget
+  private[this] var inputCost: CostModel.Cost = initialInputCost
 
-  def updateGasBudget[A](value: A)(implicit cost: A => CostModel.Cost): Unit = {
-    gasBudget += cost(value)
+  def updateInputCost[A](value: A)(implicit cost: A => CostModel.Cost): Unit = {
+    inputCost += cost(value)
+  }
+
+  def getInputCost: CostModel.Cost = {
+    inputCost
   }
 
   val commandPreprocessor =
@@ -195,8 +203,8 @@ private[engine] final class Preprocessor(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
       packagePreference: Set[Ref.PackageId] = Set.empty,
   ): Result[Map[Ref.PackageName, Ref.PackageId]] = {
-    updateGasBudget(packageMap)
-    updateGasBudget(packagePreference)
+    updateInputCost(packageMap)
+    updateInputCost(packagePreference)
 
     packagePreference.foldLeft(EmptyPackageResolution)((acc, pkgId) =>
       for {
@@ -241,7 +249,7 @@ private[engine] final class Preprocessor(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: data.ImmArray[command.ApiCommand],
   ): Result[ImmArray[speedy.ApiCommand]] = {
-    updateGasBudget(cmds)
+    updateInputCost(cmds)
 
     safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
@@ -251,7 +259,7 @@ private[engine] final class Preprocessor(
   def preprocessDisclosedContracts(
       discs: data.ImmArray[FatContractInstance]
   ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] = {
-    updateGasBudget(discs)
+    updateInputCost(discs)
 
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
@@ -304,7 +312,7 @@ private[engine] final class Preprocessor(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       keys: Seq[ApiContractKey],
   ): Result[Seq[GlobalKey]] = {
-    updateGasBudget(keys)
+    updateInputCost(keys)
 
     safelyRun(pullPackage(pkgResolution, keys.view.map(_.templateRef))) {
       commandPreprocessor.unsafePreprocessApiContractKeys(pkgResolution, keys)
@@ -384,7 +392,136 @@ private[lf] object Preprocessor {
   object CostModel {
     type Cost = Long
 
-    object StructuralCostModelImplicits {
+    trait CostModelImplicits {
+      implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost
+
+      implicit def costOfLanguageVersion(value: language.LanguageVersion): Cost
+
+      implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost
+
+      implicit def costOfTypeConId(value: Ref.TypeConId): Cost
+
+      implicit def costOfString(value: String): Cost
+
+      implicit def costOfContractId(value: Value.ContractId): Cost
+
+      implicit def costOfDate(value: Time.Date): Cost
+
+      implicit def costOfTimestamp(value: Time.Timestamp): Cost
+
+      implicit def costOfCreationTime(value: CreationTime): Cost
+
+      implicit def costOfInt(value: Int): Cost
+
+      implicit def costOfLong(value: Long): Cost
+
+      implicit def costOfUnit(value: Unit): Cost
+
+      implicit def costOfValue(value: Value): Cost
+
+      implicit def costOfFatContractInstance(value: FatContractInstance): Cost
+
+      implicit def costOfApiCommand(value: command.ApiCommand): Cost
+
+      implicit def costOfApiContractKey(value: ApiContractKey): Cost
+
+      implicit def costOfBytes(value: Bytes): Cost
+
+      implicit def costOfHash(value: crypto.Hash): Cost
+
+      implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost
+
+      implicit def costOfTuple2[A, B](
+          value: (A, B)
+      )(implicit fstCost: A => Cost, sndCost: B => Cost): Cost
+
+      implicit def costOfOption[A](value: Option[A])(implicit elemCost: A => Cost): Cost
+
+      implicit def costOfMap[A, B](
+          value: Map[A, B]
+      )(implicit keyCost: A => Cost, valueCost: B => Cost): Cost
+
+      implicit def costOfImmArray[A](value: ImmArray[A])(implicit elemCost: A => Cost): Cost
+
+      implicit def costOfSeq[A](value: Seq[A])(implicit elemCost: A => Cost): Cost
+
+      implicit def costOfSortedList[A](value: SortedLookupList[A])(implicit
+          elemCost: A => Cost
+      ): Cost
+
+      implicit def costOfFrontStack[A](value: FrontStack[A])(implicit elemCost: A => Cost): Cost
+
+      implicit def costOfSet[A](value: Set[A])(implicit elemCost: A => Cost): Cost
+
+      implicit def costOfTreeSet[A](value: TreeSet[A])(implicit elemCost: A => Cost): Cost
+    }
+
+    object EmptyCostModelImplicits extends CostModelImplicits {
+      implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost = 0L
+
+      implicit def costOfLanguageVersion(value: language.LanguageVersion): Cost = 0L
+
+      implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost = 0L
+
+      implicit def costOfTypeConId(value: Ref.TypeConId): Cost = 0L
+
+      implicit def costOfString(value: String): Cost = 0L
+
+      implicit def costOfContractId(value: Value.ContractId): Cost = 0L
+
+      implicit def costOfDate(value: Time.Date): Cost = 0L
+
+      implicit def costOfTimestamp(value: Time.Timestamp): Cost = 0L
+
+      implicit def costOfCreationTime(value: CreationTime): Cost = 0L
+
+      implicit def costOfInt(value: Int): Cost = 0L
+
+      implicit def costOfLong(value: Long): Cost = 0L
+
+      implicit def costOfUnit(value: Unit): Cost = 0L
+
+      implicit def costOfValue(value: Value): Cost = 0L
+
+      implicit def costOfFatContractInstance(value: FatContractInstance): Cost = 0L
+
+      implicit def costOfApiCommand(value: command.ApiCommand): Cost = 0L
+
+      implicit def costOfApiContractKey(value: ApiContractKey): Cost = 0L
+
+      implicit def costOfBytes(value: Bytes): Cost = 0L
+
+      implicit def costOfHash(value: crypto.Hash): Cost = 0L
+
+      implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost = 0L
+
+      implicit def costOfTuple2[A, B](
+          value: (A, B)
+      )(implicit fstCost: A => Cost, sndCost: B => Cost): Cost = 0L
+
+      implicit def costOfOption[A](value: Option[A])(implicit elemCost: A => Cost): Cost = 0L
+
+      implicit def costOfMap[A, B](
+          value: Map[A, B]
+      )(implicit keyCost: A => Cost, valueCost: B => Cost): Cost = 0L
+
+      implicit def costOfImmArray[A](value: ImmArray[A])(implicit elemCost: A => Cost): Cost = 0L
+
+      implicit def costOfSeq[A](value: Seq[A])(implicit elemCost: A => Cost): Cost = 0L
+
+      implicit def costOfSortedList[A](value: SortedLookupList[A])(implicit
+          elemCost: A => Cost
+      ): Cost = 0L
+
+      implicit def costOfFrontStack[A](value: FrontStack[A])(implicit elemCost: A => Cost): Cost =
+        0L
+
+      implicit def costOfSet[A](value: Set[A])(implicit elemCost: A => Cost): Cost = 0L
+
+      implicit def costOfTreeSet[A](value: TreeSet[A])(implicit elemCost: A => Cost): Cost = 0L
+    }
+
+    object StructuralCostModelImplicits extends CostModelImplicits {
       implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost =
         1 + value.segments.length.toLong
 

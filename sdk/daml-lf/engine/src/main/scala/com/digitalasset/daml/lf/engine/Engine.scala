@@ -169,6 +169,7 @@ class Engine(val config: EngineConfig) {
         disclosedContractIds,
         disclosedKeyHashes,
       )
+      inputCost = preprocessor.getInputCost
       result <-
         interpretCommands(
           validating = false,
