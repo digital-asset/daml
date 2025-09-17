@@ -6,12 +6,15 @@ package engine
 package preprocessing
 
 import com.digitalasset.daml.lf.command.{ApiContractKey, ReplayCommand}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
+  FatContractInstanceImpl,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
 }
@@ -20,6 +23,8 @@ import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
+import scala.collection.immutable.TreeSet
+import scala.language.implicitConversions
 
 /** The Command Preprocessor is responsible of the following tasks:
   *  - normalizes value representation (e.g. resolves missing type
@@ -44,12 +49,20 @@ import scala.annotation.tailrec
 private[engine] final class Preprocessor(
     compiledPackages: CompiledPackages,
     loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
+    initialGasBudget: Preprocessor.CostModel.Cost = 0L,
     requireContractIdSuffix: Boolean = true,
 ) {
 
   import Preprocessor._
+  import Preprocessor.CostModel.StructuralCostModelImplicits._
 
   import compiledPackages.pkgInterface
+
+  private[this] var gasBudget: CostModel.Cost = initialGasBudget
+
+  def updateGasBudget[A](value: A)(implicit cost: A => CostModel.Cost): Unit = {
+    gasBudget += cost(value)
+  }
 
   val commandPreprocessor =
     new CommandPreprocessor(
@@ -178,7 +191,10 @@ private[engine] final class Preprocessor(
   def buildPackageResolution(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
       packagePreference: Set[Ref.PackageId] = Set.empty,
-  ): Result[Map[Ref.PackageName, Ref.PackageId]] =
+  ): Result[Map[Ref.PackageName, Ref.PackageId]] = {
+    updateGasBudget(packageMap)
+    updateGasBudget(packagePreference)
+
     packagePreference.foldLeft(EmptyPackageResolution)((acc, pkgId) =>
       for {
         pkgName <- packageMap.get(pkgId) match {
@@ -200,6 +216,7 @@ private[engine] final class Preprocessor(
         }
       } yield m.updated(pkgName, pkgId)
     )
+  }
 
   def buildGlobalKey(
       templateId: Ref.TypeConId,
@@ -215,17 +232,23 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: data.ImmArray[command.ApiCommand],
-  ): Result[ImmArray[speedy.ApiCommand]] =
+  ): Result[ImmArray[speedy.ApiCommand]] = {
+    updateGasBudget(cmds)
+
     safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
     }
+  }
 
   def preprocessDisclosedContracts(
       discs: data.ImmArray[FatContractInstance]
-  ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] =
+  ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] = {
+    updateGasBudget(discs)
+
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }
+  }
 
   private[engine] def preprocessReplayCommand(
       cmd: ReplayCommand
@@ -272,11 +295,15 @@ private[engine] final class Preprocessor(
   def preprocessApiContractKeys(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       keys: Seq[ApiContractKey],
-  ): Result[Seq[GlobalKey]] =
+  ): Result[Seq[GlobalKey]] = {
+    updateGasBudget(keys)
+
     safelyRun(pullPackage(pkgResolution, keys.view.map(_.templateRef))) {
       commandPreprocessor.unsafePreprocessApiContractKeys(pkgResolution, keys)
     }
+  }
 
+  // TODO: do we need to calculate pre-processor sizes for pre-fetching?
   private[engine] def prefetchContractIdsAndKeys(
       commands: ImmArray[speedy.ApiCommand],
       prefetchKeys: Seq[GlobalKey],
@@ -345,6 +372,168 @@ private[engine] final class Preprocessor(
 }
 
 private[lf] object Preprocessor {
+
+  object CostModel {
+    type Cost = Long
+
+    object StructuralCostModelImplicits {
+      implicit def costOfPackageVersion(value: Ref.PackageVersion): Cost =
+        value.segments.length.toLong
+
+      implicit def costOfLanguageVersion(value: language.LanguageVersion): Cost =
+        value.pretty.length.toLong
+
+      implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost = value.toString.length.toLong
+
+      implicit def costOfTypeConId(value: Ref.TypeConId): Cost = value.toString.length.toLong
+
+      implicit def costOfString(value: String): Cost = value.length.toLong
+
+      implicit def costOfContractId(value: Value.ContractId): Cost = value.coid.length.toLong
+
+      implicit def costOfDate(value: Time.Date): Cost = 4
+
+      implicit def costOfTimestamp(value: Time.Timestamp): Cost = 4
+
+      implicit def costOfCreationTime(value: CreationTime): Cost = 4
+
+      implicit def costOfLong(value: Long): Cost = 8
+
+      implicit def costOfUnit(value: Unit): Cost = 0
+
+      // FIXME: make stack safe?
+      implicit def costOfValue(value: Value): Cost = value match {
+        case Value.ValueBool(_) =>
+          1
+        case Value.ValueText(txt) =>
+          txt.length.toLong
+        case Value.ValueEnum(tycon, value) =>
+          costOfOption(tycon) + costOfString(value)
+        case Value.ValueContractId(cid) =>
+          costOfContractId(cid)
+        case Value.ValueDate(date) =>
+          costOfDate(date)
+        case Value.ValueGenMap(map) =>
+          costOfImmArray(map)
+        case Value.ValueInt64(n) =>
+          costOfLong(n)
+        case Value.ValueList(value) =>
+          costOfFrontStack(value)(costOfValue)
+        case Value.ValueNumeric(value) =>
+          42 // FIXME:
+        case Value.ValueOptional(opt) =>
+          costOfOption(opt)(costOfValue)
+        case Value.ValueParty(p) =>
+          costOfString(p)
+        case Value.ValueRecord(tyCon, fields) =>
+          implicit def costOfFieldEntry(value: (Option[Ref.Name], Value)): Cost = {
+            costOfTuple2(value)(costOfOption, costOfValue)
+          }
+          costOfOption(tyCon) + costOfImmArray(fields)
+        case Value.ValueTextMap(ls) =>
+          costOfSortedList(ls)(costOfValue)
+        case Value.ValueTimestamp(ts) =>
+          costOfTimestamp(ts)
+        case Value.ValueUnit =>
+          costOfUnit(())
+        case Value.ValueVariant(tycon, variant, value) =>
+          costOfOption(tycon) + costOfString(variant) + costOfValue(value)
+      }
+
+      implicit def costOfFatContractInstance(value: FatContractInstance): Cost = {
+        val FatContractInstanceImpl(
+          version,
+          contractId,
+          pkgName,
+          templateId,
+          createArg,
+          signatories,
+          stakeholders,
+          contractKey,
+          createdAt,
+          authData,
+        ) = value
+
+        costOfLanguageVersion(version) + costOfContractId(contractId) + costOfString(
+          pkgName
+        ) + costOfTypeConId(templateId) + costOfValue(createArg) + costOfTreeSet(
+          signatories
+        ) + costOfTreeSet(stakeholders) + costOfOption(contractKey) + costOfCreationTime(
+          createdAt
+        ) + costOfBytes(authData)
+      }
+
+      implicit def costOfApiCommand(value: command.ApiCommand): Cost = value match {
+        case command.ApiCommand.Create(templateRef, arg) =>
+          costOfTypeConRef(templateRef) + costOfValue(arg)
+
+        case command.ApiCommand.Exercise(typeRef, contractId, choiceId, arg) =>
+          costOfTypeConRef(typeRef) + costOfContractId(contractId) + costOfString(
+            choiceId
+          ) + costOfValue(arg)
+
+        case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, arg) =>
+          costOfTypeConRef(templateRef) + costOfValue(contractKey) + costOfString(
+            choiceId
+          ) + costOfValue(arg)
+
+        case command.ApiCommand.CreateAndExercise(templateRef, createArg, choiceId, choiceArg) =>
+          costOfTypeConRef(templateRef) + costOfValue(createArg) + costOfString(
+            choiceId
+          ) + costOfValue(choiceArg)
+      }
+
+      implicit def costOfApiContractKey(value: ApiContractKey): Cost = {
+        val ApiContractKey(templateRef, contractKey) = value
+
+        costOfTypeConRef(templateRef) + costOfValue(contractKey)
+      }
+
+      implicit def costOfBytes(value: Bytes): Cost = value.length.toLong
+
+      implicit def costOfHash(value: crypto.Hash): Cost = value.bytes.length.toLong
+
+      implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost = {
+        val GlobalKeyWithMaintainers(key, maintainers) = value
+
+        costOfTypeConId(key.templateId) + costOfString(key.packageName) + costOfValue(
+          key.key
+        ) + costOfHash(key.hash) + costOfSet(maintainers)
+      }
+
+      implicit def costOfTuple2[A, B](
+          value: (A, B)
+      )(implicit fstCost: A => Cost, sndCost: B => Cost): Cost =
+        fstCost(value._1) + sndCost(value._2)
+
+      implicit def costOfOption[A](value: Option[A])(implicit elemCost: A => Cost): Cost =
+        value.map(elemCost).getOrElse(0L)
+
+      implicit def costOfMap[A, B](
+          value: Map[A, B]
+      )(implicit keyCost: A => Cost, valueCost: B => Cost): Cost =
+        value.keys.map(keyCost).sum.toLong + value.values.map(valueCost).sum.toLong
+
+      implicit def costOfImmArray[A](value: ImmArray[A])(implicit elemCost: A => Cost): Cost =
+        value.toSeq.map(elemCost).sum.toLong
+
+      implicit def costOfSeq[A](value: Seq[A])(implicit elemCost: A => Cost): Cost =
+        value.map(elemCost).sum.toLong
+
+      implicit def costOfSortedList[A](value: SortedLookupList[A])(implicit
+          elemCost: A => Cost
+      ): Cost = costOfImmArray(value.toImmArray)
+
+      implicit def costOfFrontStack[A](value: FrontStack[A])(implicit elemCost: A => Cost): Cost =
+        costOfImmArray(value.toImmArray)(elemCost)
+
+      implicit def costOfSet[A](value: Set[A])(implicit elemCost: A => Cost): Cost =
+        value.map(elemCost).sum.toLong
+
+      implicit def costOfTreeSet[A](value: TreeSet[A])(implicit elemCost: A => Cost): Cost =
+        value.map(elemCost).sum.toLong
+    }
+  }
 
   def forTesting(compilerConfig: speedy.Compiler.Config): Preprocessor =
     forTesting(new ConcurrentCompiledPackages(compilerConfig))
