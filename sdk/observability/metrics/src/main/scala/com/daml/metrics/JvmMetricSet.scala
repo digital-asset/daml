@@ -45,7 +45,7 @@ object JvmMetricSet {
 //    Classes.registerObservers(openTelemetry)
 //    Cpu.registerObservers(openTelemetry)
 //    Threads.registerObservers(openTelemetry)
-    MemoryPools.registerObservers()
-    GarbageCollector.registerObservers()
+    MemoryPools.registerObservers(GlobalOpenTelemetry.get())
+    GarbageCollector.registerObservers(GlobalOpenTelemetry.get())
   }
 }
