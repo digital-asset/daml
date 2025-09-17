@@ -18,6 +18,8 @@ NUKE=0
 REFRESH_EXTERNAL=0
 PROFILING=0
 REMOVE_NON_HEAD=0
+# 0 = no message, 1 = add path instructions, 2 = reload shell
+LOG_PATH_INSTRUCTIONS=0
 for opt in "$@"; do
   case "$opt" in
     "--damlc")
@@ -96,7 +98,7 @@ fi
 readonly DPM_HOME="$HOME/.dpm"
 
 if [[ "$NUKE" -ne 0 || "$REFRESH_EXTERNAL" -ne 0 ]]; then
-  rm -rf $DPM_HOME
+  rm -rf "$DPM_HOME"
   echo "$(tput setaf 3)Removed DPM from system.$(tput sgr 0)"
   if [[ "$NUKE" -ne 0 ]]; then exit; fi
 fi
@@ -108,7 +110,38 @@ if [ ! -d "$DPM_HOME" ]; then
 edition: private
 registry: europe-docker.pkg.dev/da-images-dev/private
 EOF
-  echo "$(tput setaf 3)DPM installed$(tput sgr 0)"
+  CONF_FILE=
+  case $SHELL in
+    *zsh)
+      CONF_FILE=".zprofile"
+      ;;
+    *bash)
+      CONF_FILE=".bashrc"
+      ;;
+    *sh)
+      CONF_FILE=".profile"
+      ;;
+  esac
+  if [ -z "$CONF_FILE" ]; then
+    LOG_PATH_INSTRUCTIONS=1
+  else
+    if [ -f "$HOME/$CONF_FILE" ]; then
+      if grep -zqv .dpm/bin "$HOME/$CONF_FILE"; then
+        echo "$(tput setaf 3)Would you like to add dpm to your PATH (in $CONF_FILE)?.$(tput sgr 0)"
+        read -p "Add to PATH? [Y/n]: " path_answer
+        if [[ $path_answer == [yY] || $path_answer == [yY][eE][sS] || $path_answer == "" ]]; then
+          echo -e "\nexport PATH=\"\$HOME/.dpm/bin:\$PATH\"" >> "$HOME/$CONF_FILE"
+          echo "$(tput setaf 5)DPM added to path$(tput sgr 0)"
+          LOG_PATH_INSTRUCTIONS=2
+        else
+          LOG_PATH_INSTRUCTIONS=1
+        fi
+      fi
+    else
+      LOG_PATH_INSTRUCTIONS=1
+    fi
+  fi
+  echo "$(tput setaf 3)DPM installed.$(tput sgr 0)"
 fi
 
 chmod -R u+w "$DPM_HOME"
@@ -117,25 +150,25 @@ assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
 
 if [ -z "$(find $DPM_HOME/cache/sdk/* -type f)" ]; then
   echo "$(tput setaf 5)No assemblies installed for copying from, installing latest.$(tput sgr 0)"
-  dpm install latest
-  echo "$(tput setaf 3)Installed $(dpm version).$(tput sgr 0)"
+  $DPM_HOME/bin/dpm install latest
+  echo "$(tput setaf 3)Installed $($DPM_HOME/bin/dpm version).$(tput sgr 0)"
 fi
 
-if [ ! -f $assembly_location ]; then
+if [ ! -f "$assembly_location" ]; then
   echo "$(tput setaf 5)No assembly found for $RELEASE_VERSION, creating new.$(tput sgr 0)"
-  latest_version=$(dpm version)
+  latest_version=$($DPM_HOME/bin/dpm version)
   assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
-  cp "$DPM_HOME/cache/sdk/${latest_version#* }/${latest_version% *}.yaml" $assembly_location
+  cp "$DPM_HOME/cache/sdk/${latest_version#* }/${latest_version% *}.yaml" "$assembly_location"
   # yq fails with a permission error when using -i, unsure why, directly overwrite instead
-  new_content=$(cat $assembly_location | version=$RELEASE_VERSION yq -M e '.spec.version |= env(version)' -)
-  echo "$new_content" > $assembly_location
+  new_content=$(cat "$assembly_location" | version=$RELEASE_VERSION yq -M e '.spec.version |= env(version)' -)
+  echo "$new_content" > "$assembly_location"
   echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version% *}.$(tput sgr 0)"
 fi
 
 all_components=(damlc daml-script codegen-js codegen-java daml-new)
 
 if [[ ! ${TO_BUILD[@]} ]]; then
-  TO_BUILD=("${all_components[@]}")
+  TO_BUILD=("${all_components[*]}")
 fi
 
 # Shamelessly stolen
@@ -153,27 +186,27 @@ update_component() {
   if [[ "$target_name" = "dpm" ]]; then
     # For DPM, we pull down from CLI
     echo "$(tput setaf 5)Pulling down new DPM binary.$(tput sgr 0)"
-    dpm_path=$DPM_HOME/cache/components/dpm/$COMPONENT_VERSION
-    mkdir -p $dpm_path
-    cd $dpm_path
+    dpm_path="$DPM_HOME/cache/components/dpm/$COMPONENT_VERSION"
+    mkdir -p "$dpm_path"
+    cd "$dpm_path"
     oras pull --platform linux/amd64 europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest
     chmod +x dpm
     cd -
-    new_content=$(cat $assembly_location | version=$COMPONENT_VERSION yq -M e '.spec.components.dpm.version |= env(version)' -)
-    echo "$new_content" > $assembly_location
+    new_content=$(cat "$assembly_location" | version=$COMPONENT_VERSION yq -M e '.spec.components.dpm.version |= env(version)' -)
+    echo "$new_content" > "$assembly_location"
     echo "$(tput setaf 3)Installed most recent dpm.$(tput sgr 0)"
   else
-    bazel_path=$(bazel query "kind('package_oci_component', //...)" 2> /dev/null | grep $target_name-oci)
+    bazel_path=$(bazel query "kind('package_oci_component', //...)" 2> /dev/null | grep "$target_name-oci")
     echo "$(tput setaf 5)Building $bazel_path.$(tput sgr 0)"
     DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build ${BAZEL_MODE_FLAGS[@]:-} $bazel_path
     echo "$(tput setaf 5)Built $bazel_path.$(tput sgr 0)"
     output_path=$(bazel cquery ${BAZEL_MODE_FLAGS[@]:-} $bazel_path --output=files 2> /dev/null)
-    component_path=$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION
-    mkdir -p $component_path
-    tar -xzf $output_path -C $component_path
+    component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
+    mkdir -p "$component_path"
+    tar -xzf $output_path -C "$component_path"
     echo "$(tput setaf 5)Unpacked component, updating assembly.$(tput sgr 0)"
-    new_content=$(cat $assembly_location | name=$target_name version=$COMPONENT_VERSION yq -M e '.spec.components.[env(name)].version |= env(version)' -)
-    echo "$new_content" > $assembly_location
+    new_content=$(cat "$assembly_location" | name=$target_name version=$COMPONENT_VERSION yq -M e '.spec.components.[env(name)].version |= env(version)' -)
+    echo "$new_content" > "$assembly_location"
     echo "$(tput setaf 3)Installed $target_name to $component_path.$(tput sgr 0)"
   fi
 }
@@ -185,6 +218,7 @@ done
 
 # Dpm doesn't seem to provide a way to override the default assembly version
 # Even if it did, we'd have to query the correct version from the assembly, as we don't always override
+# Add this in once we have a better method from the DPM team.
 # cat > "${DPM_HOME}/bin/dpm-head" << EOF
 # #!/bin/sh
 # exec env DAML_SDK_VERSION=$DAML_SDK_RELEASE_VERSION "${DPM_HOME}/cache/components/dpm/$COMPONENT_VERSION/dpm" "\$@"
@@ -192,8 +226,17 @@ done
 # chmod +x "${DPM_HEAD}/bin/dpm-head"
 
 if [[ $REMOVE_NON_HEAD -ne 0 ]]; then
-  find ~/.dpm/cache/sdk/* ! -name "$RELEASE_VERSION.yaml" -type f -exec rm -f {} +
+  find $DPM_HOME/cache/sdk/* ! -name "$RELEASE_VERSION.yaml" -type f -exec rm -f {} +
   echo "$(tput setaf 1)Removed all versions other than $RELEASE_VERSION$(tput sgr 0)"
 fi
 
 echo "$(tput setaf 2)Installed $RELEASE_VERSION to dpm.$(tput sgr 0)"
+
+case "$LOG_PATH_INSTRUCTIONS" in
+  "1")
+    echo "$(tput setaf 3)DPM was installed but not added to your \$PATH, please add \"~/.dpm/bin\" to your \$PATH.$(tput sgr 0)"
+    ;;
+  "2")
+    echo "$(tput setaf 3)DPM was added to your \$PATH, you will need to reload your shell to use DPM.$(tput sgr 0)"
+    ;;
+esac
