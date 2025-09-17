@@ -37,13 +37,13 @@ import io.grpc.{Status, StatusRuntimeException}
 // Split the tests across four suites with four Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
 class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
-//class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
-//class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
-//class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
-//class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
-//class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
-//class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-//class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
+class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
+class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
