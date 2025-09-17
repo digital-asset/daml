@@ -50,6 +50,7 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias, config}
 import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.ByteString
 import io.grpc.Context
 
 import java.time.Instant
@@ -782,8 +783,8 @@ class ParticipantPartiesAdministrationGroup(
       |target participant.
       |
       |Upon successful completion, the command writes a GZIP-compressed ACS
-      |snapshot file. This file can then be imported into the target participant's
-      |ACS using the `import_acs` repair command.
+      |snapshot file. This file should then be imported into the target participant's
+      |ACS using the `import_party_acs` command.
       |
       |The arguments are:
       |- party: The party being replicated, it must already be active on the target participant.
@@ -831,6 +832,30 @@ class ParticipantPartiesAdministrationGroup(
         timeout,
         request = "exporting party acs",
         cleanupOnError = () => file.delete(),
+      )
+    }
+
+  @Help.Summary(
+    "Import active contracts from a snapshot file to replicate a party."
+  )
+  @Help.Description(
+    """This command imports contracts from an Active Contract Set (ACS) snapshot
+      |file into the participant's ACS. It expects the given ACS snapshot file to
+      |be the result of a previous `export_party_acs` command invocation.
+      |
+      |The argument is:
+      |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
+      |                  Defaults to "canton-acs-export.gz" when undefined.
+      """
+  )
+  def import_party_acs(
+      importFilePath: String = "canton-acs-export.gz"
+  ): Unit =
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.ImportPartyAcs(
+          ByteString.copyFrom(File(importFilePath).loadBytes)
+        )
       )
     }
 

@@ -121,7 +121,6 @@ CREATE TABLE lapi_events_create (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    user_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
@@ -182,7 +181,6 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    user_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
@@ -192,9 +190,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
-    -- * information about the corresponding create event
-    create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
-
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
@@ -203,7 +198,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
-    create_key_value_compression SMALLINT,
     exercise_argument_compression SMALLINT,
     exercise_result_compression SMALLINT,
 
@@ -240,7 +234,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    user_id VARCHAR,
     submitters INTEGER ARRAY,
 
     -- * shared event information
@@ -248,9 +241,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
-
-    -- * information about the corresponding create event
-    create_key_value BINARY LARGE OBJECT,        -- used for the mutable state cache
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
@@ -260,7 +250,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
-    create_key_value_compression SMALLINT,
     exercise_argument_compression SMALLINT,
     exercise_result_compression SMALLINT,
 

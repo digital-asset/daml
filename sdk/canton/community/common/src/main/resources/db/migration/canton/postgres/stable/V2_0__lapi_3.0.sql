@@ -160,7 +160,6 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    user_id varchar collate "C",
     submitters integer[],
 
     -- * shared event information
@@ -170,9 +169,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 
-    -- * information about the corresponding create event
-    create_key_value bytea,          -- used for the mutable state cache
-
     -- * choice data
     exercise_choice varchar collate "C" not null,
     exercise_argument bytea not null,
@@ -181,7 +177,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     exercise_last_descendant_node_id integer not null,
 
     -- * compression flags
-    create_key_value_compression smallint,
     exercise_argument_compression smallint,
     exercise_result_compression smallint,
 
@@ -218,7 +213,6 @@ CREATE TABLE lapi_events_create (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    user_id varchar collate "C",
     submitters integer[],
 
     -- * shared event information
@@ -250,7 +244,7 @@ CREATE TABLE lapi_events_create (
 CREATE INDEX lapi_events_create_contract_id_idx ON lapi_events_create USING hash (contract_id);
 
 -- lookup by contract_key
-CREATE INDEX lapi_events_create_create_key_hash_idx ON lapi_events_create USING btree (create_key_hash, event_sequential_id);
+CREATE INDEX lapi_events_create_create_key_hash_idx ON lapi_events_create USING btree (create_key_hash, event_sequential_id) WHERE create_key_hash IS NOT NULL;
 
 -- offset index: used to translate to sequential_id
 CREATE INDEX lapi_events_create_event_offset_idx ON lapi_events_create USING btree (event_offset);
@@ -276,7 +270,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    user_id varchar collate "C",
     submitters integer[],
 
     -- * shared event information
@@ -284,9 +277,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     template_id integer not null,
     package_id integer not null,
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
-
-    -- * information about the corresponding create event
-    create_key_value bytea,     -- used for the mutable state cache
 
     -- * choice data
     exercise_choice varchar collate "C" not null,
@@ -296,7 +286,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     exercise_last_descendant_node_id integer not null,
 
     -- * compression flags
-    create_key_value_compression smallint,
     exercise_argument_compression smallint,
     exercise_result_compression smallint,
 
@@ -444,7 +433,7 @@ CREATE TABLE lapi_update_meta (
 );
 
 CREATE INDEX lapi_update_meta_event_offset_idx ON lapi_update_meta USING btree (event_offset);
-CREATE INDEX lapi_update_meta_uid_idx ON lapi_update_meta USING btree (update_id);
+CREATE INDEX lapi_update_meta_uid_idx ON lapi_update_meta USING hash (update_id);
 CREATE INDEX lapi_update_meta_publication_time_idx ON lapi_update_meta USING btree (publication_time, event_offset);
 CREATE INDEX lapi_update_meta_synchronizer_record_time_offset_idx ON lapi_update_meta USING btree (synchronizer_id, record_time, event_offset);
 CREATE INDEX lapi_update_meta_synchronizer_offset_idx ON lapi_update_meta USING btree (synchronizer_id, event_offset);

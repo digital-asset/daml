@@ -624,6 +624,41 @@ object ParticipantAdminCommands {
         GrpcAdminCommand.DefaultUnboundedTimeout
     }
 
+    final case class ImportPartyAcs(
+        acsChunk: ByteString
+    ) extends GrpcAdminCommand[
+          v30.ImportPartyAcsRequest,
+          v30.ImportPartyAcsResponse,
+          Unit,
+        ] {
+
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.ImportPartyAcsRequest] =
+        Right(v30.ImportPartyAcsRequest(acsChunk))
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.ImportPartyAcsRequest,
+      ): Future[v30.ImportPartyAcsResponse] =
+        GrpcStreamingUtils.streamToServer(
+          service.importPartyAcs,
+          (bytes: Array[Byte]) =>
+            v30.ImportPartyAcsRequest(
+              ByteString.copyFrom(bytes)
+            ),
+          request.acsSnapshot,
+        )
+
+      override protected def handleResponse(
+          response: v30.ImportPartyAcsResponse
+      ): Either[String, Unit] = Either.unit
+
+    }
+
   }
 
   object ParticipantRepairManagement {

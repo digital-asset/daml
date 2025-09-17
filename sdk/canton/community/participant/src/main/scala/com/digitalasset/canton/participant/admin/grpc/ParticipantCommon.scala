@@ -4,14 +4,25 @@
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxParallelTraverse_
+import com.digitalasset.canton.ReassignmentCounter
+import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.InternalIndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.admin.data.ActiveContract as ActiveContractValueClass
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
+import com.digitalasset.canton.participant.admin.data.{
+  ActiveContract as ActiveContractValueClass,
+  ContractIdImportMode,
+  RepairContract,
+}
+import com.digitalasset.canton.participant.admin.repair.ContractIdsImportProcessor
+import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{MonadUtil, ResourceUtil}
+import com.google.protobuf.ByteString
 import org.apache.pekko.actor.ActorSystem
 
 import java.io.OutputStream
@@ -103,5 +114,128 @@ private[admin] object ParticipantCommon {
         )
         .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
+
+  private[grpc] def importAcsNewSnapshot(
+      acsSnapshot: ByteString,
+      workflowIdPrefix: String,
+      contractIdImportMode: ContractIdImportMode,
+      excludedStakeholders: Set[PartyId],
+      sync: CantonSyncService,
+      batching: BatchingConfig,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      elc: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): Future[Map[String, String]] = {
+
+    val importer = new AcsImporter(
+      sync,
+      batching,
+      loggerFactory,
+      workflowIdPrefix,
+      contractIdImportMode,
+    )
+
+    importer.runImport(acsSnapshot, excludedStakeholders)
+  }
+
+  private final class AcsImporter(
+      sync: CantonSyncService,
+      batching: BatchingConfig,
+      loggerFactory: NamedLoggerFactory,
+      workflowIdPrefix: String,
+      contractIdImportMode: ContractIdImportMode,
+  )(implicit
+      ec: ExecutionContext,
+      elc: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ) {
+
+    private val workflowIdPrefixO: Option[String] =
+      Option.when(workflowIdPrefix.nonEmpty)(workflowIdPrefix)
+
+    def runImport(
+        acsSnapshot: ByteString,
+        excludedStakeholders: Set[PartyId],
+    ): Future[Map[String, String]] = {
+
+      val contractsE = if (excludedStakeholders.isEmpty) {
+        RepairContract.loadAcsSnapshot(acsSnapshot)
+      } else {
+        RepairContract
+          .loadAcsSnapshot(acsSnapshot)
+          .map(
+            _.filter(_.contract.stakeholders.intersect(excludedStakeholders.map(_.toLf)).isEmpty)
+          )
+      }
+
+      importAcsContracts(contractsE)
+    }
+
+    private def importAcsContracts(
+        contracts: Either[String, List[RepairContract]]
+    ): Future[Map[String, String]] = {
+      val resultET = for {
+        repairContracts <- EitherT
+          .fromEither[Future](contracts)
+          .ensure( // TODO(#23073) - Remove this restriction once #27325 has been re-implemented
+            "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
+          )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
+
+        activeContractsWithRemapping <-
+          ContractIdsImportProcessor(
+            loggerFactory,
+            sync.syncPersistentStateManager,
+            sync.pureCryptoApi,
+            contractIdImportMode,
+          )(repairContracts)
+        (activeContractsWithValidContractIds, contractIdRemapping) =
+          activeContractsWithRemapping
+
+        _ <- activeContractsWithValidContractIds.groupBy(_.synchronizerId).toSeq.parTraverse_ {
+          case (synchronizerId, contracts) =>
+            MonadUtil.batchedSequentialTraverse_(
+              batching.parallelism,
+              batching.maxAcsImportBatchSize,
+            )(contracts)(
+              writeContractsBatch(synchronizerId, _)
+            )
+        }
+
+      } yield contractIdRemapping
+
+      resultET.value.flatMap {
+        case Left(error) => Future.failed(ImportAcsError.Error(error).asGrpcError)
+        case Right(contractIdRemapping) =>
+          Future.successful(
+            contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
+          )
+      }
+    }
+
+    private def writeContractsBatch(
+        synchronizerId: SynchronizerId,
+        contracts: Seq[RepairContract],
+    ): EitherT[Future, String, Unit] =
+      for {
+        alias <- EitherT.fromEither[Future](
+          sync.aliasManager
+            .aliasForSynchronizerId(synchronizerId)
+            .toRight(s"Not able to find synchronizer alias for ${synchronizerId.toString}")
+        )
+
+        _ <- EitherT.fromEither[Future](
+          sync.repairService.addContracts(
+            alias,
+            contracts,
+            ignoreAlreadyAdded = true,
+            ignoreStakeholderCheck = true,
+            workflowIdPrefix = workflowIdPrefixO,
+          )
+        )
+      } yield ()
+
+  }
 
 }

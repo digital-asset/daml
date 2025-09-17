@@ -37,8 +37,20 @@ service PartyManagementService {
   // successfully.
   rpc GetAddPartyStatus(GetAddPartyStatusRequest) returns (GetAddPartyStatusResponse);
 
-  // Export the party's ACS to replicate it onto the target participant.
+  // Party replication focused ACS export.
+  //
+  // Exports the ACS of a single party from a source participant, so that the party can be
+  // replicated onto a target participant.
+  //
+  // This endpoint works in conjunction with the ImportPartyAcs endpoint.
   rpc ExportPartyAcs(ExportPartyAcsRequest) returns (stream ExportPartyAcsResponse);
+
+  // Party replication focused ACS import.
+  //
+  // Imports the party's ACS into the target participant.
+  //
+  // This endpoint works in conjunction with ExportPartyAcs endpoint.
+  rpc ImportPartyAcs(stream ImportPartyAcsRequest) returns (ImportPartyAcsResponse);
 
   // For a given timestamp, find the highest ledger offset among all events that have record time <= timestamp.
   //
@@ -230,6 +242,17 @@ message ExportPartyAcsResponse {
   // Required
   bytes chunk = 1;
 }
+
+message ImportPartyAcsRequest {
+  // The raw binary of the ACS snapshot to be imported
+  // The binary content does not align on individual active contracts! It may contain bytes that are part of
+  // an active contract, or include several active contracts - depending on how much data fits into the
+  // configured gRPC message size.
+  // Required
+  bytes acs_snapshot = 1;
+}
+
+message ImportPartyAcsResponse {}
 
 // Requests the highest ledger offset among all events belonging to the synchronizer (`synchronizer_id`)
 // that have a record time before or at the given `timestamp`.

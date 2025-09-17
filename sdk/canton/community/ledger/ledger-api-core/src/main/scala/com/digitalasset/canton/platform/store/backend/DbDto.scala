@@ -59,13 +59,11 @@ object DbDto {
         String
       ], // only for consuming, for non-consuming exercise this field is omitted
       tree_event_witnesses: Set[String],
-      create_key_value: Option[Array[Byte]],
       exercise_choice: String,
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
       exercise_actors: Set[String],
       exercise_last_descendant_node_id: Int,
-      create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       event_sequential_id: Long,

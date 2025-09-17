@@ -1,10 +1,9 @@
 sdk-version: 3.4.0-snapshot.20250914.14200.0.v4c1522f4
 build-options: 
 - --target=2.1
-name: User
-source: .
+name: canton-builtin-admin-workflow-ping
+source: CantonBuiltinAdminWorkflowPing.daml
 version: 3.4.0
-dependencies: 
+dependencies:
 - daml-prim
 - daml-stdlib
-- daml-script

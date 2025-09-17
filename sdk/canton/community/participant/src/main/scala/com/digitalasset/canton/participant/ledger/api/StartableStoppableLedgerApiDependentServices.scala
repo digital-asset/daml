@@ -150,6 +150,7 @@ class StartableStoppableLedgerApiDependentServices(
                       partyReplicationAdminWorkflowO,
                       parameters.processingTimeouts,
                       syncService,
+                      parameters,
                       loggerFactory,
                     ),
                     ec,

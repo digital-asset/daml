@@ -221,7 +221,7 @@ final class GrpcParticipantRepairService(
       override def onCompleted(): Unit = {
         val (workflowIdPrefix, allowContractIdSuffixRecomputation) = tryArgs
 
-        val res = importAcsSnapshot(
+        val res = importAcsSnapshotOld(
           data = ByteString.copyFrom(outputStream.toByteArray),
           workflowIdPrefix = workflowIdPrefix,
           allowContractIdSuffixRecomputation = allowContractIdSuffixRecomputation,
@@ -238,12 +238,12 @@ final class GrpcParticipantRepairService(
     }
   }
 
-  private def importAcsSnapshot(
+  private def importAcsSnapshotOld(
       data: ByteString,
       workflowIdPrefix: String,
       allowContractIdSuffixRecomputation: Boolean,
   )(implicit traceContext: TraceContext): Future[Map[String, String]] =
-    importAcsContracts(
+    importAcsContractsOld(
       loadFromByteString(data).map(contracts => contracts.map(_.toRepairContract)),
       workflowIdPrefix,
       if (allowContractIdSuffixRecomputation) ContractIdImportMode.Recomputation
@@ -348,6 +348,10 @@ final class GrpcParticipantRepairService(
     parsingResult.leftMap(error => RepairServiceError.InvalidArgument.Error(error.message))
   }
 
+  /*
+   Note that `responseObserver` originates from `GrpcStreamingUtils.streamToServer` which is
+   a wrapper that turns the responses into a promise/future. This is not a true bidirectional stream.
+   */
   override def importAcs(
       responseObserver: StreamObserver[ImportAcsResponse]
   ): StreamObserver[ImportAcsRequest] = {
@@ -355,130 +359,134 @@ final class GrpcParticipantRepairService(
 
     // TODO(#23818): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
-    // (workflowIdPrefix, ContractIdImportMode)
-    val args = new AtomicReference[Option[(String, ContractIdImportMode, Set[PartyId])]](None)
-    def tryArgs: (String, ContractIdImportMode, Set[PartyId]) =
+
+    // (workflowIdPrefix, ContractIdImportMode, excludedStakeholders)
+    type ImportArgs = (String, ContractIdImportMode, Set[PartyId])
+
+    val args = new AtomicReference[Option[ImportArgs]](None)
+
+    def recordedArgs: Either[String, ImportArgs] =
       args
         .get()
-        .getOrElse(throw new IllegalStateException("The import ACS request fields are not set"))
+        .toRight("The import ACS request fields are not set")
+
+    def setOrCheck(
+        workflowIdPrefix: String,
+        contractIdImportMode: ContractIdImportMode,
+        excludeStakeholders: Set[PartyId],
+    ): Either[String, Unit] = {
+      val newOrMatchingValue = Some((workflowIdPrefix, contractIdImportMode, excludeStakeholders))
+      if (args.compareAndSet(None, newOrMatchingValue)) {
+        Right(()) // This was the first message, success, set.
+      } else {
+        recordedArgs.flatMap {
+          case (oldWorkflowIdPrefix, _, _) if oldWorkflowIdPrefix != workflowIdPrefix =>
+            Left(
+              s"Workflow ID prefix cannot be changed from $oldWorkflowIdPrefix to $workflowIdPrefix"
+            )
+          case (_, oldContractIdImportMode, _) if oldContractIdImportMode != contractIdImportMode =>
+            Left(
+              s"Contract ID import mode cannot be changed from $oldContractIdImportMode to $contractIdImportMode"
+            )
+          case (_, _, oldExcludedStakeholders) if oldExcludedStakeholders != excludeStakeholders =>
+            Left(
+              s"Exclude parties cannot be changed from $oldExcludedStakeholders to $excludeStakeholders"
+            )
+          case _ => Right(()) // All arguments matched successfully
+        }
+      }
+    }
 
     new StreamObserver[ImportAcsRequest] {
-      def setOrCheck(
-          workflowIdPrefix: String,
-          contractIdImportMode: ContractIdImportMode,
-          excludeStakeholders: Set[PartyId],
-      ): Try[Unit] =
-        Try {
-          val newOrMatchingValue =
-            Some((workflowIdPrefix, contractIdImportMode, excludeStakeholders))
-          if (!args.compareAndSet(None, newOrMatchingValue)) {
-            val (oldWorkflowIdPrefix, oldContractIdImportMode, oldExcludedStakeholders) = tryArgs
-            if (workflowIdPrefix != oldWorkflowIdPrefix) {
-              throw new IllegalArgumentException(
-                s"Workflow ID prefix cannot be changed from $oldWorkflowIdPrefix to $workflowIdPrefix"
-              )
-            } else if (oldContractIdImportMode != contractIdImportMode) {
-              throw new IllegalArgumentException(
-                s"Contract ID import mode cannot be changed from $oldContractIdImportMode to $contractIdImportMode"
-              )
-            } else if (oldExcludedStakeholders != excludeStakeholders) {
-              throw new IllegalArgumentException(
-                s"Exclude parties cannot be changed from $oldExcludedStakeholders to $excludeStakeholders"
-              )
-            }
-          }
-        }
 
       override def onNext(request: ImportAcsRequest): Unit = {
 
-        val processRequest =
-          for {
-            contractIdRecomputationMode <- ContractIdImportMode
-              .fromProtoV30(
-                request.contractIdSuffixRecomputationMode
-              )
-              .fold(
-                left => Failure(new IllegalArgumentException(left.message)),
-                right => Success(right),
-              )
-            excludedStakeholders <- request.excludedStakeholderIds
-              .traverse(party =>
-                UniqueIdentifier
-                  .fromProtoPrimitive(party, "excluded_stakeholder_ids")
-                  .map(PartyId(_))
-              )
-              .fold(
-                left => Failure(new IllegalArgumentException(left.message)),
-                right => Success(right),
-              )
-            _ <- setOrCheck(
-              request.workflowIdPrefix,
-              contractIdRecomputationMode,
-              excludedStakeholders.toSet,
+        val processRequest: Either[String, Unit] = for {
+          contractIdRecomputationMode <- ContractIdImportMode
+            .fromProtoV30(
+              request.contractIdSuffixRecomputationMode
             )
-            _ <- Try(outputStream.write(request.acsSnapshot.toByteArray))
-          } yield ()
+            .leftMap(_.message)
+          excludedStakeholders <- request.excludedStakeholderIds
+            .traverse(party =>
+              UniqueIdentifier
+                .fromProtoPrimitive(party, "excluded_stakeholder_ids")
+                .map(PartyId(_))
+            )
+            .leftMap(_.message)
+          _ <- setOrCheck(
+            request.workflowIdPrefix,
+            contractIdRecomputationMode,
+            excludedStakeholders.toSet,
+          )
+        } yield ()
 
-        processRequest match {
-          case Failure(exception) =>
-            outputStream.close()
-            responseObserver.onError(exception)
-          case Success(_) =>
-            () // Nothing to do, just move on to the next request
+        processRequest.fold(
+          // On failure: Signal the error, that is throw an exception.
+          // Observer's top-level onError will handle cleanup.
+          errorMessage => responseObserver.onError(new IllegalArgumentException(errorMessage)),
+          _ => outputStream.write(request.acsSnapshot.toByteArray),
+        )
+
+      }
+
+      override def onError(t: Throwable): Unit =
+        try {
+          responseObserver.onError(t)
+        } finally {
+          outputStream.close()
         }
-      }
-
-      override def onError(t: Throwable): Unit = {
-        responseObserver.onError(t)
-        outputStream.close()
-      }
 
       override def onCompleted(): Unit = {
-        val (workflowIdPrefix, contractIdImportMode, excludedStakeholders) = tryArgs
 
-        val res = importAcsNewSnapshot(
-          acsSnapshot = ByteString.copyFrom(outputStream.toByteArray),
-          workflowIdPrefix = workflowIdPrefix,
-          contractIdImportMode = contractIdImportMode,
-          excludedStakeholders = excludedStakeholders,
-        )
+        val result: EitherT[Future, Throwable, Map[String, String]] = for {
 
-        Try(Await.result(res, processingTimeout.unbounded.duration)) match {
-          case Failure(exception) => responseObserver.onError(exception)
-          case Success(contractIdRemapping) =>
-            responseObserver.onNext(ImportAcsResponse(contractIdRemapping))
-            responseObserver.onCompleted()
-        }
-        outputStream.close()
+          argsTuple <- EitherT.fromEither[Future](
+            recordedArgs.leftMap(new IllegalStateException(_))
+          )
+          (workflowIdPrefix, contractIdImportMode, excludedStakeholders) = argsTuple
+
+          acsSnapshot <- EitherT.fromEither[Future](
+            Try(ByteString.copyFrom(outputStream.toByteArray)).toEither
+          )
+
+          contractIdRemapping <- EitherT.liftF[Future, Throwable, Map[String, String]](
+            ParticipantCommon.importAcsNewSnapshot(
+              acsSnapshot = acsSnapshot,
+              workflowIdPrefix = workflowIdPrefix,
+              contractIdImportMode = contractIdImportMode,
+              excludedStakeholders = excludedStakeholders,
+              sync,
+              batching,
+              loggerFactory,
+            )
+          )
+        } yield contractIdRemapping
+
+        result
+          .thereafter { _ =>
+            outputStream.close()
+          }
+          .value // Get the underlying Future[Either[...]]
+          .onComplete {
+            // The Future itself failed (e.g., a fatal error in `thereafter`)
+            case Failure(exception) =>
+              responseObserver.onError(exception)
+
+            case Success(result) =>
+              result match {
+                case Left(exception) =>
+                  responseObserver.onError(exception)
+                case Right(contractIdRemapping) =>
+                  responseObserver.onNext(ImportAcsResponse(contractIdRemapping))
+                  responseObserver.onCompleted()
+              }
+          }
       }
     }
   }
 
-  private def importAcsNewSnapshot(
-      acsSnapshot: ByteString,
-      workflowIdPrefix: String,
-      contractIdImportMode: ContractIdImportMode,
-      excludedStakeholders: Set[PartyId],
-  )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
-
-    val contractsE = if (excludedStakeholders.isEmpty) {
-      RepairContract.loadAcsSnapshot(acsSnapshot)
-    } else {
-      RepairContract
-        .loadAcsSnapshot(acsSnapshot)
-        .map(
-          _.filter(_.contract.stakeholders.intersect(excludedStakeholders.map(_.toLf)).isEmpty)
-        )
-    }
-
-    importAcsContracts(
-      contractsE,
-      workflowIdPrefix,
-      contractIdImportMode,
-    )
-  }
-
-  private def importAcsContracts(
+  private def importAcsContractsOld(
       contracts: Either[String, List[RepairContract]],
       workflowIdPrefix: String,
       contractIdImportMode: ContractIdImportMode,
@@ -508,7 +516,7 @@ final class GrpcParticipantRepairService(
             batching.parallelism,
             batching.maxAcsImportBatchSize,
           )(contracts)(
-            writeContractsBatch(workflowIdPrefixO)(synchronizerId, _)
+            writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
           )
       }
 
@@ -523,7 +531,7 @@ final class GrpcParticipantRepairService(
     }
   }
 
-  private def writeContractsBatch(
+  private def writeContractsBatchOld(
       workflowIdPrefixO: Option[String]
   )(synchronizerId: SynchronizerId, contracts: Seq[RepairContract])(implicit
       traceContext: TraceContext

@@ -88,7 +88,7 @@ admin_channel = grpc.insecure_channel(f"localhost:{admin_port}")
 
 # [Define ping template]
 ping_template_id = value_pb2.Identifier(
-    package_id="#AdminWorkflows",
+    package_id="#canton-builtin-admin-workflow-ping",
     module_name="Canton.Internal.Ping",
     entity_name="Ping",
 )
