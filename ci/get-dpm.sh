@@ -24,7 +24,7 @@ trap on_exit EXIT
 # boxes: Ubuntu 20.04, Ubuntu 22.04 (https://oras.land/docs/installation)
 if [ ! -x "$(command -v oras)" ]; then
   curl -o ${TEMP_DIR}/oras_${ORAS_VERSION}_${CPU_ARCH}.tar.gz \
-   -sqL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_linux_${CPU_ARCH}.tar.gz"
+   -sqL "https://github.com/oras-project/oras/releases/download/v${ORAS_VERSION}/oras_${ORAS_VERSION}_${OS_TYPE}_${CPU_ARCH}.tar.gz"
   tar -zxf ${TEMP_DIR}/oras_${ORAS_VERSION}_*.tar.gz -C ${TEMP_DIR}
   ORAS="${TEMP_DIR}/oras"
 fi
