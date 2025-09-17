@@ -30,9 +30,21 @@ if [ ! -x "$(command -v oras)" ]; then
 fi
 
 # Prepare dpm install destination
-[[ ! -d "${HOME}/.dpm/bin" ]] && mkdir -pv "${HOME}/.dpm/bin"
+mkdir -p "${HOME}/.dpm/bin"
+
 # Get dpm from artifacts registry
+rm -f ${HOME}/.dpm/bin/dpm
 ${ORAS} pull --platform "${OS_TYPE}/${CPU_ARCH}" -o "${HOME}/.dpm/bin" "${DPM_URL}"
 # Set execute permission
 chmod -v +x "${HOME}/.dpm/bin/dpm"
+# Find out what version it is
+version_line=$(${HOME}/.dpm/bin/dpm version --assistant | grep -o 'version: .*')
+version=${version_line#version: }
+
+# Move to correct component location
+mkdir -p "${HOME}/.dpm/cache/components/dpm/${version}"
+mv -f "${HOME}/.dpm/bin/dpm" "${HOME}/.dpm/cache/components/dpm/${version}/dpm"
+# Create symlink for .dpm/bin, to match DPM's current behaviour
+ln -sf "${HOME}/.dpm/cache/components/dpm/${version}/dpm" "${HOME}/.dpm/bin/dpm"
+
 "${HOME}/.dpm/bin/dpm" version --assistant

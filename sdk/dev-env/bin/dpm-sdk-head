@@ -186,13 +186,12 @@ update_component() {
   if [[ "$target_name" = "dpm" ]]; then
     # For DPM, we pull down from CLI
     echo "$(tput setaf 5)Pulling down new DPM binary.$(tput sgr 0)"
-    dpm_path="$DPM_HOME/cache/components/dpm/$COMPONENT_VERSION"
-    mkdir -p "$dpm_path"
-    cd "$dpm_path"
-    oras pull --platform linux/amd64 europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest
-    chmod +x dpm
-    cd -
-    new_content=$(cat "$assembly_location" | version=$COMPONENT_VERSION yq -M e '.spec.components.dpm.version |= env(version)' -)
+
+    $REPO_ROOT/../ci/get-dpm.sh "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+    version_line=$($DPM_HOME/bin/dpm version --assistant | grep -o 'version: .*')
+    dpm_version=${version_line#version: }
+
+    new_content=$(cat "$assembly_location" | version=$dpm_version yq -M e '.spec.assistant.version |= env(version)' -)
     echo "$new_content" > "$assembly_location"
     echo "$(tput setaf 3)Installed most recent dpm.$(tput sgr 0)"
   else
@@ -216,9 +215,6 @@ do
   update_component $component_name
 done
 
-# Dpm doesn't seem to provide a way to override the default assembly version
-# Even if it did, we'd have to query the correct version from the assembly, as we don't always override
-# Add this in once we have a better method from the DPM team.
 # cat > "${DPM_HOME}/bin/dpm-head" << EOF
 # #!/bin/sh
 # exec env DAML_SDK_VERSION=$DAML_SDK_RELEASE_VERSION "${DPM_HOME}/cache/components/dpm/$COMPONENT_VERSION/dpm" "\$@"
