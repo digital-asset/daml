@@ -164,7 +164,7 @@ object UpgradesMatrixCasesV2MaxStable
   * In order to test scenarios where the operation is triggered by a choice body, we need "clients" contracts whose only
   * role is to exercise/fetch/lookup the v1 contract. The templates for these client contracts are defined in
   * [[clientLocalPkg]] and [[clientGlobalPkg]]. They are split into two templates: one whose choices creates local
-  * v1 contracts, and one whose choices act on global contracts. The former statically refers to v1 templates while
+  * v1 contracts, and one whose choices act on global contracts by fetching them. The former statically refers to v1 templates while
   * the latter doesn't, allowing us to test cases where the creation package of the contract being upgraded is not
   * vetted.
   * They define a large number of choices: one per combination of operation, catch behavior, entry point and test case.
