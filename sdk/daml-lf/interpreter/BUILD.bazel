@@ -42,6 +42,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/crypto",
         "//libs-scala/nameof",
         "//libs-scala/scala-utils",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -83,6 +84,12 @@ da_scala_test_suite(
             "src/test/**/SBuiltinBigNumericTest.scala",
         ],
     ),
+    data =
+        [
+            "src/test/scala/com/digitalasset/daml/lf/crypto/expected-stability-contract-id-hashes.txt",
+            "src/test/scala/com/digitalasset/daml/lf/crypto/expected-stability-values-contract-hashes.txt",
+            "src/test/scala/com/digitalasset/daml/lf/crypto/expected-stability-values-key-hashes.txt",
+        ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatest_scalatest_core",
@@ -98,6 +105,7 @@ da_scala_test_suite(
     deps = [
         ":interpreter",
         ":interpreter-test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/data:crypto-data-test",
