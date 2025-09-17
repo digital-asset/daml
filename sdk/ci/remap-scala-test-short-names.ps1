@@ -31,6 +31,8 @@ if ($scala_test_targets.count -gt 0) {
       > $tmp.FullName
     $bazelexitcode = $lastexitcode
     echo "REMAP: bazel build end"
+    gc $tmp.FullName
+    echo "END"
 
     if ($bazelexitcode -ne 0) {
       $errmsg = Get-Content $tmp
