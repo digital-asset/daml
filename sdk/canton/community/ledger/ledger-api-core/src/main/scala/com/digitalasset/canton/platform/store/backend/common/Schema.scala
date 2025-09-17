@@ -97,7 +97,6 @@ private[backend] object AppendOnlySchema {
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "user_id" -> fieldStrategy.stringOptional(_ => _.user_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
@@ -152,11 +151,9 @@ private[backend] object AppendOnlySchema {
         "node_id" -> fieldStrategy.int(_ => _.node_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "user_id" -> fieldStrategy.stringOptional(_ => _.user_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
-        "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
         "exercise_choice" -> fieldStrategy.string(_ => _.exercise_choice),
         "exercise_argument" -> fieldStrategy.bytea(_ => _.exercise_argument),
         "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
@@ -176,9 +173,6 @@ private[backend] object AppendOnlySchema {
           _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
-        "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
-          _.create_key_value_compression
-        ),
         "exercise_argument_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_argument_compression
         ),

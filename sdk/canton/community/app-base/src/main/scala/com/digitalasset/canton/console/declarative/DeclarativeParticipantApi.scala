@@ -26,6 +26,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, LifeCycle, RunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.DeclarativeApiMetrics
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.participant.admin.AdminWorkflowServices
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnectionValidation}
@@ -755,7 +756,7 @@ class DeclarativeParticipantApi(
       for {
         dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
       } yield dars
-        .filterNot(_.name == "AdminWorkflows")
+        .filterNot(dar => AdminWorkflowServices.AdminWorkflowNames.contains(dar.name))
         .map(_.mainPackageId)
         .map((_, "<ignored string>"))
     run[String, String](

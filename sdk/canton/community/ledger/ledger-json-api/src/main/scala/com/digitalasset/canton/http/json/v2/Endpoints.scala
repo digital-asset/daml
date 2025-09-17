@@ -148,7 +148,7 @@ trait Endpoints extends NamedLogging {
         OUTPUT
       ], R],
       service: CallerContext => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
-      timeoutOpenEndedStream: Boolean = false,
+      timeoutOpenEndedStream: INPUT => Boolean = (_: INPUT) => false,
   )(implicit
       wsConfig: WebsocketConfig,
       materializer: Materializer,
@@ -172,7 +172,7 @@ trait Endpoints extends NamedLogging {
             .single(tracedInput.in.input)
             .via(flow)
             .take(elementsLimit)
-          (if (timeoutOpenEndedStream || tracedInput.in.waitTime.isDefined) {
+          (if (timeoutOpenEndedStream(tracedInput.in.input) || tracedInput.in.waitTime.isDefined) {
              source
                .map(Some(_))
                .idleTimeout(idleWaitTime)

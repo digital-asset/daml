@@ -437,8 +437,6 @@ object UpdateToDbDto {
         package_id = exercise.templateId.packageId.toString,
         flat_event_witnesses = flatWitnesses,
         tree_event_witnesses = treeWitnesses,
-        create_key_value = createKeyValue
-          .map(compressionStrategy.createKeyValueCompression.compress),
         exercise_choice = exercise.qualifiedChoiceName.toString,
         exercise_argument =
           compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
@@ -446,7 +444,6 @@ object UpdateToDbDto {
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
-        create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
         event_sequential_id = 0, // this is filled later

@@ -25,7 +25,7 @@ import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation.Vali
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Package.AllowedLanguageVersions
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
-import com.digitalasset.canton.participant.admin.PackageServiceTest
+import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PackageServiceTest}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageTestUtils
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageTestUtils.ArchiveOps
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
@@ -456,7 +456,7 @@ trait PackageUploadIntegrationTest
       val prim = participant1.packages.list(filterName = "daml-prim").headOption.value
       // just test whether we correctly can find the references for a given package
       participant1.packages.get_references(prim.packageId).map(_.name).toSet shouldBe Set(
-        "AdminWorkflows",
+        AdminWorkflowServices.PingDarResourceName,
         "CantonTests",
         "CantonExamples",
       )

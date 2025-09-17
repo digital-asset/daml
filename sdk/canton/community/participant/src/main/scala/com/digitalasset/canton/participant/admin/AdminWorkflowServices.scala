@@ -189,7 +189,7 @@ class AdminWorkflowServices(
       pkgRes <- pkgs.keys.toList.parTraverse(lc.packageService.getPackageStatus(_))
     } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isPackageStatusRegistered)
 
-  private def handleDamlErrorDuringPackageLoading(
+  private def handleDamlErrorDuringPackageLoading(adminWorkflow: String)(
       res: EitherT[FutureUnlessShutdown, RpcError, Unit]
   )(implicit
       traceContext: TraceContext
@@ -202,7 +202,9 @@ class AdminWorkflowServices(
               )
             ) =>
           // Log error by creating error object, but continue processing.
-          AdminWorkflowServices.CanNotAutomaticallyVetAdminWorkflowPackage.Error().discard
+          AdminWorkflowServices.CanNotAutomaticallyVetAdminWorkflowPackage
+            .Error(adminWorkflow)
+            .discard
           Either.unit
         case err =>
           Left(new IllegalStateException(CantonError.stringFromContext(err)))
@@ -220,10 +222,10 @@ class AdminWorkflowServices(
         }
 
         for {
-          adminWorkflowLoaded <- isLoaded(AdminWorkflowServices.AdminWorkflowDarResourceName)
+          adminWorkflowLoaded <- isLoaded(AdminWorkflowServices.PingDarResourceFileName)
           partReplicationWorkflowLoaded <-
             if (config.parameters.unsafeOnlinePartyReplication.isDefined)
-              isLoaded(AdminWorkflowServices.PartyReplicationDarResourceName)
+              isLoaded(AdminWorkflowServices.PartyReplicationDarResourceFileName)
             else FutureUnlessShutdown.pure(true)
         } yield adminWorkflowLoaded && partReplicationWorkflowLoaded
       }
@@ -249,7 +251,7 @@ class AdminWorkflowServices(
                 logger.debug("Admin workflow packages are already present. Skipping loading.")
                 // vet any packages that have not yet been vetted
                 EitherTUtil.toFutureUnlessShutdown(
-                  handleDamlErrorDuringPackageLoading(
+                  handleDamlErrorDuringPackageLoading(darName)(
                     packageService
                       .vetPackages(
                         packages.keys.toSeq,
@@ -262,10 +264,10 @@ class AdminWorkflowServices(
         }
 
         val resultUS = for {
-          _ <- load(AdminWorkflowServices.AdminWorkflowDarResourceName)
+          _ <- load(AdminWorkflowServices.PingDarResourceFileName)
           _ <-
             if (config.parameters.unsafeOnlinePartyReplication.isDefined)
-              load(AdminWorkflowServices.PartyReplicationDarResourceName)
+              load(AdminWorkflowServices.PartyReplicationDarResourceFileName)
             else FutureUnlessShutdown.pure(())
         } yield ()
 
@@ -295,7 +297,7 @@ class AdminWorkflowServices(
   ): EitherT[FutureUnlessShutdown, IllegalStateException, Unit] = {
     val bytes =
       withResource(AdminWorkflowServices.getDarInputStream(darName))(ByteString.readFrom)
-    handleDamlErrorDuringPackageLoading(
+    handleDamlErrorDuringPackageLoading(darName)(
       packageService
         .upload(
           darBytes = bytes,
@@ -390,8 +392,13 @@ class AdminWorkflowServices(
 
 object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
 
-  private val AdminWorkflowDarResourceName: String = "AdminWorkflows.dar"
-  private val PartyReplicationDarResourceName: String = "PartyReplication.dar"
+  val PingDarResourceName: String = "canton-builtin-admin-workflow-ping"
+  val PingDarResourceFileName: String = s"$PingDarResourceName.dar"
+  private val PartyReplicationDarResourceName: String =
+    "canton-builtin-admin-workflow-party-replication-alpha"
+  private val PartyReplicationDarResourceFileName: String =
+    s"$PartyReplicationDarResourceName.dar"
+  val AdminWorkflowNames: Set[String] = Set(PingDarResourceName, PartyReplicationDarResourceName)
 
   private def getDarInputStream(resourceName: String): InputStream =
     Option(
@@ -412,7 +419,7 @@ object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
       )
 
   lazy val AdminWorkflowPackages: Map[PackageId, Ast.Package] =
-    getDarPackages(AdminWorkflowDarResourceName) ++ getDarPackages(PartyReplicationDarResourceName)
+    getDarPackages(PingDarResourceFileName) ++ getDarPackages(PartyReplicationDarResourceFileName)
 
   @Explanation(
     """This error indicates that the admin workflow package could not be vetted. The admin workflows is
@@ -434,10 +441,10 @@ object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
         id = "CAN_NOT_AUTOMATICALLY_VET_ADMIN_WORKFLOW_PACKAGE",
         ErrorCategory.BackgroundProcessDegradationWarning,
       ) {
-    final case class Error()(implicit val loggingContext: ErrorLoggingContext)
+    final case class Error(adminWorkflow: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
           cause =
-            "Unable to vet `AdminWorkflows` automatically. Please ensure you vet this package before using one of the admin workflows."
+            s"Unable to vet `$adminWorkflow` automatically. Please ensure you vet this package before using one of the admin workflows."
         )
 
   }

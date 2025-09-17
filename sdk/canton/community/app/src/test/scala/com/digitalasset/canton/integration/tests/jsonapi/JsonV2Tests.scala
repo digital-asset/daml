@@ -43,7 +43,6 @@ import com.daml.ledger.api.v2.{
 import com.digitalasset.base.error.ErrorCategory
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.http.Party
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v2.JsCommandServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsActiveContract
@@ -75,6 +74,7 @@ import com.digitalasset.canton.http.json.v2.{
   LegacyDTOs,
 }
 import com.digitalasset.canton.http.util.ClientUtil.uniqueId
+import com.digitalasset.canton.http.{Party, WebsocketConfig}
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.{
   HttpServiceTestFixtureData,
@@ -109,6 +109,7 @@ import java.nio.file.Files
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.concurrent.Future
+import scala.concurrent.duration.*
 
 /** Simple tests of all V2 endpoints.
   *
@@ -120,6 +121,11 @@ class JsonV2Tests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+
+  // Configure extremely small wait time to avoid long test times and test edge cases
+  override def wsConfig: Option[WebsocketConfig] = Some(
+    WebsocketConfig(httpListWaitTime = 1.milliseconds)
+  )
 
   override def useTls: UseTls = UseTls.Tls
 
@@ -1190,10 +1196,26 @@ class JsonV2Tests
                   .head
               }
           }
+          // test finite stream
           _ <- {
             fixture
               .postJsonStringRequest(
-                fixture.uri withPath Uri.Path("/v2/updates") withQuery Query(("wait", "500")),
+                fixture.uri withPath Uri.Path("/v2/updates"),
+                updatesRequest.copy(endInclusive = Some(offset)).asJson.toString(),
+                headers,
+              )
+              .map { case (status, result) =>
+                status should be(StatusCodes.OK)
+                val responses = decode[Seq[JsGetUpdatesResponse]](result.toString()).value
+                responses.size should be >= 1 // if zero it means timeouted (endInclusive is set -> so timeout should not be active)
+              }
+          }
+          _ <- {
+            fixture
+              .postJsonStringRequest(
+                fixture.uri withPath Uri.Path("/v2/updates") withQuery Query(
+                  ("stream_idle_timeout_ms", "500")
+                ),
                 updatesRequest.asJson.toString(),
                 headers,
               )
@@ -1265,10 +1287,13 @@ class JsonV2Tests
                   .head
               }
           }
+
           _ <- {
             fixture
               .postJsonStringRequest(
-                fixture.uri withPath Uri.Path("/v2/updates/flats") withQuery Query(("wait", "500")),
+                fixture.uri withPath Uri.Path("/v2/updates/flats") withQuery Query(
+                  ("stream_idle_timeout_ms", "1500")
+                ),
                 updatesRequestLegacy.asJson.toString(),
                 headers,
               )
@@ -1338,7 +1363,9 @@ class JsonV2Tests
           _ <- {
             fixture
               .postJsonStringRequest(
-                fixture.uri withPath Uri.Path("/v2/updates/trees") withQuery Query(("wait", "500")),
+                fixture.uri withPath Uri.Path("/v2/updates/trees") withQuery Query(
+                  ("stream_idle_timeout_ms", "1500")
+                ),
                 updatesRequestLegacy.asJson.toString(),
                 headers,
               )
@@ -1352,7 +1379,9 @@ class JsonV2Tests
           _ <- {
             fixture
               .postJsonStringRequest(
-                fixture.uri withPath Uri.Path("/v2/updates/trees") withQuery Query(("wait", "500")),
+                fixture.uri withPath Uri.Path("/v2/updates/trees") withQuery Query(
+                  ("stream_idle_timeout_ms", "1500")
+                ),
                 updatesRequestLegacy
                   .copy(updateFormat = Some(updateFormat(alice.unwrap)))
                   .asJson

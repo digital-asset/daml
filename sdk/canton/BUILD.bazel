@@ -1096,26 +1096,26 @@ proto_gen(
 
 daml_compile(
     name = "community_participant_admin-workflows",
-    srcs = glob(["community/participant/src/main/daml/AdminWorkflows/**/*.daml"]),
+    srcs = glob(["community/participant/src/main/daml/canton-builtin-admin-workflow-ping/**/*.daml"]),
     project_name = "AdminWorkflows",
 )
 
 daml_compile(
     name = "community_participant_party-replication",
-    srcs = glob(["community/participant/src/main/daml/PartyReplication/**/*.daml"]),
+    srcs = glob(["community/participant/src/main/daml/canton-builtin-admin-workflow-party-replication-alpha/**/*.daml"]),
     project_name = "PartyReplication",
 )
 
 copy_file(
     name = "community_participant_admin-workflows_dar",
     src = ":community_participant_admin-workflows.dar",
-    out = "community_participant_resources/AdminWorkflows.dar",
+    out = "community_participant_resources/canton-builtin-admin-workflow-ping.dar",
 )
 
 copy_file(
     name = "community_participant_party-replication_dar",
     src = ":community_participant_party-replication.dar",
-    out = "community_participant_resources/PartyReplication.dar",
+    out = "community_participant_resources/canton-builtin-admin-workflow-party-replication-alpha.dar",
 )
 
 dar_to_java(

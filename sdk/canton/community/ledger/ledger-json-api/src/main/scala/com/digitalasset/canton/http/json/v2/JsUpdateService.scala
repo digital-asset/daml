@@ -78,7 +78,7 @@ class JsUpdateService(
     asList(
       JsUpdateService.getUpdatesListEndpoint,
       getUpdates,
-      timeoutOpenEndedStream = true,
+      timeoutOpenEndedStream = (r: LegacyDTOs.GetUpdatesRequest) => r.endInclusive.isEmpty,
     ),
     websocket(
       JsUpdateService.getUpdatesFlatEndpoint,
@@ -87,7 +87,7 @@ class JsUpdateService(
     asList(
       JsUpdateService.getUpdatesFlatListEndpoint,
       getFlats,
-      timeoutOpenEndedStream = true,
+      timeoutOpenEndedStream = (r: LegacyDTOs.GetUpdatesRequest) => r.endInclusive.isEmpty,
     ),
     websocket(
       JsUpdateService.getUpdatesTreeEndpoint,
@@ -96,7 +96,7 @@ class JsUpdateService(
     asList(
       JsUpdateService.getUpdatesTreeListEndpoint,
       getTrees,
-      timeoutOpenEndedStream = true,
+      timeoutOpenEndedStream = (r: LegacyDTOs.GetUpdatesRequest) => r.endInclusive.isEmpty,
     ),
     withServerLogic(
       JsUpdateService.getTransactionTreeByOffsetEndpoint,

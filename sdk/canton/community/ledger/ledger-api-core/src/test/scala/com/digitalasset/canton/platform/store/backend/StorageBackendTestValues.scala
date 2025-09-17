@@ -186,13 +186,11 @@ private[store] object StorageBackendTestValues {
       flat_event_witnesses =
         if (consuming && !emptyFlatEventWitnesses) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
-      create_key_value = None,
       exercise_choice = "exercise_choice",
       exercise_argument = someSerializedDamlLfValue,
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Set(actor),
       exercise_last_descendant_node_id = 0,
-      create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,
       event_sequential_id = eventSequentialId,

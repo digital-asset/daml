@@ -84,7 +84,7 @@ final class OffPROnboardingClearanceIntegrationTest
       exportFilePath = acsSnapshotPath,
     )
 
-    target.repair.import_acs(acsSnapshotPath)
+    target.parties.import_party_acs(acsSnapshotPath)
 
     assertOnboardingFlag(daId, setOnTarget = true)
 
