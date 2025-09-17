@@ -12,6 +12,11 @@ import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.UpgradesMatrixCases.{
+  CreationPackageStatus,
+  CreationPackageUnvetted,
+  CreationPackageVetted,
+}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.ReadablePackageId
 import com.digitalasset.daml.lf.engine.{
   UpgradesMatrix,
@@ -36,14 +41,15 @@ import io.grpc.{Status, StatusRuntimeException}
 
 // Split the tests across four suites with four Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
-class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
-class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
-class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
-class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
-class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
-class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
+class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(CreationPackageUnvetted, 2, 0)
+class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(CreationPackageUnvetted, 2, 1)
+
+class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 0)
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 1)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 2)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 3)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 4)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 5)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
@@ -125,26 +131,25 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         _ <- Future.traverse(
           List(commonDefsDar, templateDefsV1Dar, templateDefsV2Dar, clientLocalDar, clientGlobalDar)
         )(dar => client.packageManagementClient.uploadDarFile(dar))
-      } yield client,
-      10.seconds,
-    )
-    val adminClient = Await.result(
-      {
-        import com.digitalasset.canton.ledger.client.configuration._
-        AdminLedgerClient.singleHostWithUnknownParticipantId(
-          hostIp = "localhost",
-          port = ledgerPorts.head.adminPort.value,
-          token = None,
-          channelConfig = LedgerClientChannelConfiguration.InsecureDefaults,
+        adminClient <- createAdminClient()
+        scriptClient = new GrpcLedgerClient(
+          client,
+          Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
+          Some(adminClient),
+          cases.compiledPackages,
         )
-      },
-      10.seconds,
+      } yield scriptClient,
+      30.seconds,
     )
-    scriptClient = new GrpcLedgerClient(
-      client,
-      Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
-      Some(adminClient),
-      cases.compiledPackages,
+  }
+
+  private def createAdminClient(): Future[AdminLedgerClient] = {
+    import com.digitalasset.canton.ledger.client.configuration._
+    AdminLedgerClient.singleHostWithUnknownParticipantId(
+      hostIp = "localhost",
+      port = ledgerPorts.head.adminPort.value,
+      token = None,
+      channelConfig = LedgerClientChannelConfiguration.InsecureDefaults,
     )
   }
 
