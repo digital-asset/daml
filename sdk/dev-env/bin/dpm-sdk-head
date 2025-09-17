@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+# Make sure they are in the right repo
+readonly REPO_ROOT="$(bazel info workspace)"
+if [[ "${REPO_ROOT}/dev-env/bin/dpm-sdk-head" != "${BASH_SOURCE[0]}" ]]; then
+  echo "Repo root does not match the script being run."
+  echo "Make sure you run this script from a directory within the 'daml' repository "
+  exit 1
+fi
+
+BAZEL_MODE_FLAGS=()
+
+COMPONENT_VERSION=0.0.0
+RELEASE_VERSION=0.0.0
+TO_BUILD=()
+NUKE=0
+REFRESH_EXTERNAL=0
+PROFILING=0
+REMOVE_NON_HEAD=0
+for opt in "$@"; do
+  case "$opt" in
+    "--damlc")
+      TO_BUILD+=(damlc)
+      ;;
+    "--daml-script")
+      TO_BUILD+=(daml-script)
+      ;;
+    "--codegen-js")
+      TO_BUILD+=(codegen-js)
+      ;;
+    "--codegen-java")
+      TO_BUILD+=(codegen-java)
+      ;;
+    "--daml-new")
+      TO_BUILD+=(daml-new)
+      ;;
+    "--dpm")
+      TO_BUILD+=(dpm)
+      ;;
+    "--version=*")
+      RELEASE_VERSION=${opt#--version=}
+      COMPONENT_VERSION=${opt#--version=}
+      ;;
+    "--release-version=*")
+      RELEASE_VERSION=${opt#--release-version=}
+      ;;
+    "--component-version=*")
+      COMPONENT_VERSION=${opt#--component-version=}
+      ;;
+    "--profiling")
+      PROFILING=1
+      ;;
+    "--nuke")
+      NUKE=1
+      ;;
+    "--refresh-external")
+      REFRESH_EXTERNAL=1
+      ;;
+    "--remove-non-head")
+      REMOVE_NON_HEAD=1
+      ;;
+    *)
+      echo "Unknown option: $opt"
+      echo "Available options:"
+      echo "  --damlc Build and update the damlc component"
+      echo "  --daml-script Build and update the daml-script component"
+      echo "  --codegen-js Build and update the codegen-js component"
+      echo "  --codegen-java Build and update the codegen-java component"
+      echo "  --daml-new Build and update the daml-new component"
+      echo "  --dpm Fetch and update the dpm component"
+      echo "  --version=<version> Set the component and release version to be built, default 0.0.0"
+      echo "  --component-version=<version> Set the component version (internal to dpm) to be built, default 0.0.0"
+      echo "  --release-version=<version> Set the release version (sdk-version in daml.yaml) to contain built components, default 0.0.0"
+      echo "  --profiling Build Haskell executables with profiling enabled"
+      echo "  --nuke Remove DPM from your system entirely (does not build anything)"
+      echo "  --refresh-external Remove DPM and reinstall from latest public before building components"
+      echo "  --remove-non-head After installing head, remove all other installed versions (assemblies only, components remain, this will not save disk space)"
+
+      exit 1
+  esac
+done
+
+if [ -z "$(gcloud config list account --format 'value(core.account)')" ]; then
+  echo "$(tput setaf 1)GCloud reports no auth accounts, you must authenticate with gcloud to pull down DPM.$(tput sgr 0)"
+  echo "Please run the following:"
+  echo "gcloud auth login"
+  echo "gcloud auth configure-docker europe-docker.pkg.dev"
+  exit 1
+fi
+
+if [[ "$PROFILING" -ne 0 ]]; then
+  BAZEL_MODE_FLAGS+=(-c dbg)
+fi
+
+readonly DPM_HOME="$HOME/.dpm"
+
+if [[ "$NUKE" -ne 0 || "$REFRESH_EXTERNAL" -ne 0 ]]; then
+  rm -rf $DPM_HOME
+  echo "$(tput setaf 3)Removed DPM from system.$(tput sgr 0)"
+  if [[ "$NUKE" -ne 0 ]]; then exit; fi
+fi
+
+if [ ! -d "$DPM_HOME" ]; then
+  echo "$(tput setaf 5)DPM is not installed, installing latest from remote....$(tput sgr 0)"
+  $REPO_ROOT/../ci/get-dpm.sh "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+  cat > "${DPM_HOME}/dpm-config.yaml" << EOF
+edition: private
+registry: europe-docker.pkg.dev/da-images-dev/private
+EOF
+  echo "$(tput setaf 3)DPM installed$(tput sgr 0)"
+fi
+
+chmod -R u+w "$DPM_HOME"
+
+assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
+
+if [ -z "$(find $DPM_HOME/cache/sdk/* -type f)" ]; then
+  echo "$(tput setaf 5)No assemblies installed for copying from, installing latest.$(tput sgr 0)"
+  dpm install latest
+  echo "$(tput setaf 3)Installed $(dpm version).$(tput sgr 0)"
+fi
+
+if [ ! -f $assembly_location ]; then
+  echo "$(tput setaf 5)No assembly found for $RELEASE_VERSION, creating new.$(tput sgr 0)"
+  latest_version=$(dpm version)
+  assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
+  cp "$DPM_HOME/cache/sdk/${latest_version#* }/${latest_version% *}.yaml" $assembly_location
+  # yq fails with a permission error when using -i, unsure why, directly overwrite instead
+  new_content=$(cat $assembly_location | version=$RELEASE_VERSION yq -M e '.spec.version |= env(version)' -)
+  echo "$new_content" > $assembly_location
+  echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version% *}.$(tput sgr 0)"
+fi
+
+all_components=(damlc daml-script codegen-js codegen-java daml-new)
+
+if [[ ! ${TO_BUILD[@]} ]]; then
+  TO_BUILD=("${all_components[@]}")
+fi
+
+# Shamelessly stolen
+chronic() {
+  tmp=$(mktemp) || return # this will be the temp file w/ the output
+  "$@" > "$tmp" 2>&1 # this should run the command, respecting all arguments
+  ret=$?
+  [ "$ret" -eq 0 ] || cat "$tmp"  # if $? (the return of the last run command) is not zero, cat the temp file
+  rm -f "$tmp"
+  return "$ret" # return the exit status of the command
+}
+
+update_component() {
+  target_name=$1
+  if [[ "$target_name" = "dpm" ]]; then
+    # For DPM, we pull down from CLI
+    echo "$(tput setaf 5)Pulling down new DPM binary.$(tput sgr 0)"
+    dpm_path=$DPM_HOME/cache/components/dpm/$COMPONENT_VERSION
+    mkdir -p $dpm_path
+    cd $dpm_path
+    oras pull --platform linux/amd64 europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest
+    chmod +x dpm
+    cd -
+    new_content=$(cat $assembly_location | version=$COMPONENT_VERSION yq -M e '.spec.components.dpm.version |= env(version)' -)
+    echo "$new_content" > $assembly_location
+    echo "$(tput setaf 3)Installed most recent dpm.$(tput sgr 0)"
+  else
+    bazel_path=$(bazel query "kind('package_oci_component', //...)" 2> /dev/null | grep $target_name-oci)
+    echo "$(tput setaf 5)Building $bazel_path.$(tput sgr 0)"
+    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build ${BAZEL_MODE_FLAGS[@]:-} $bazel_path
+    echo "$(tput setaf 5)Built $bazel_path.$(tput sgr 0)"
+    output_path=$(bazel cquery ${BAZEL_MODE_FLAGS[@]:-} $bazel_path --output=files 2> /dev/null)
+    component_path=$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION
+    mkdir -p $component_path
+    tar -xzf $output_path -C $component_path
+    echo "$(tput setaf 5)Unpacked component, updating assembly.$(tput sgr 0)"
+    new_content=$(cat $assembly_location | name=$target_name version=$COMPONENT_VERSION yq -M e '.spec.components.[env(name)].version |= env(version)' -)
+    echo "$new_content" > $assembly_location
+    echo "$(tput setaf 3)Installed $target_name to $component_path.$(tput sgr 0)"
+  fi
+}
+
+for component_name in "${TO_BUILD[@]}"
+do
+  update_component $component_name
+done
+
+# Dpm doesn't seem to provide a way to override the default assembly version
+# Even if it did, we'd have to query the correct version from the assembly, as we don't always override
+# cat > "${DPM_HOME}/bin/dpm-head" << EOF
+# #!/bin/sh
+# exec env DAML_SDK_VERSION=$DAML_SDK_RELEASE_VERSION "${DPM_HOME}/cache/components/dpm/$COMPONENT_VERSION/dpm" "\$@"
+# EOF
+# chmod +x "${DPM_HEAD}/bin/dpm-head"
+
+if [[ $REMOVE_NON_HEAD -ne 0 ]]; then
+  find ~/.dpm/cache/sdk/* ! -name "$RELEASE_VERSION.yaml" -type f -exec rm -f {} +
+  echo "$(tput setaf 1)Removed all versions other than $RELEASE_VERSION$(tput sgr 0)"
+fi
+
+echo "$(tput setaf 2)Installed $RELEASE_VERSION to dpm.$(tput sgr 0)"
