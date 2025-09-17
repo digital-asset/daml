@@ -88,28 +88,32 @@ object SValueHash {
   ): SValueHashBuilder =
     new SValueHashBuilder(purpose, cid2Bytes, hashTracer).addVersion
 
+  private object Constants {
+    val INT64_TAG: Byte = 0
+    val NUMERIC_TAG: Byte = 1
+    val TEXT_TAG: Byte = 2
+    val TIMESTAMP_TAG: Byte = 3
+    val PARTY_TAG: Byte = 4
+    val BOOL_TAG: Byte = 5
+    val UNIT_TAG: Byte = 6
+    val DATE_TAG: Byte = 7
+    val RECORD_TAG: Byte = 8
+    val VARIANT_TAG: Byte = 9
+    val ENUM_TAG: Byte = 10
+    val LIST_TAG: Byte = 11
+    val OPTIONAL_TAG: Byte = 12
+    val TEXT_MAP_TAG: Byte = 13
+    val GEN_MAP_TAG: Byte = 14
+    val CONTRACT_ID_TAG: Byte = 15
+
+    val END_OF_RECORD: Byte = 0xff.toByte
+  }
+
   private[crypto] final class SValueHashBuilder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
       hashTracer: HashTracer,
   ) extends Builder(bigIntNumericToBytes) {
-
-    private val INT64_TAG: Byte = 0
-    private val NUMERIC_TAG: Byte = 1
-    private val TEXT_TAG: Byte = 2
-    private val TIMESTAMP_TAG: Byte = 3
-    private val PARTY_TAG: Byte = 4
-    private val BOOL_TAG: Byte = 5
-    private val UNIT_TAG: Byte = 6
-    private val DATE_TAG: Byte = 7
-    private val RECORD_TAG: Byte = 8
-    private val VARIANT_TAG: Byte = 9
-    private val ENUM_TAG: Byte = 10
-    private val LIST_TAG: Byte = 11
-    private val OPTIONAL_TAG: Byte = 12
-    private val TEXT_MAP_TAG: Byte = 13
-    private val GEN_MAP_TAG: Byte = 14
-    private val CONTRACT_ID_TAG: Byte = 15
 
     protected val md = MessageDigestPrototype.Sha256.newDigest
 
@@ -133,7 +137,9 @@ object SValueHash {
       )
         .addByte(purpose.id, s"${formatByteToHexString(purpose.id)} (Value Encoding Purpose)")
 
-    private[crypto] def addSValue(svalue: SValue): this.type =
+    private[crypto] def addSValue(svalue: SValue): this.type = {
+      import Constants._
+
       svalue match {
         case SValue.SUnit =>
           // We could use value.productPrefix to enrich the context here and for all values
@@ -187,14 +193,17 @@ object SValueHash {
           }
         case _: SValue.SAny | _: SValue.SBigNumeric | _: SValue.SPAP | _: SValue.SStruct |
             SValue.SToken | _: SValue.STypeRep =>
-          throw new IllegalArgumentException(s"Unexpected SValue during hashing: $svalue")
+          throw new IllegalArgumentException(
+            s"Unexpected non-serializable SValue during hashing: $svalue"
+          )
       }
+    }
 
     private def addCid(cid: Value.ContractId): this.type =
       addBytes(cid2Bytes(cid), s"${cid.coid} (contractId)")
 
     private def addList(vs: FrontStack[SValue]): this.type =
-      iterateOver(vs.toImmArray)(_ addSValue _)
+      iterateOver(vs.iterator, vs.length)(_ addSValue _)
 
     private def addVariant(
         id: Identifier,
@@ -232,11 +241,11 @@ object SValueHash {
         case SOptional(None) => true
         case _ => false
       }.size
-      labels.iterator.take(labels.length - trailingNonesSize).zip(values).foreach { case (l, v) =>
-        addString(l).addSValue(v)
+      (labels.toSeq zip values).dropRight(trailingNonesSize).foreach { case (l, v) =>
+        discard[this.type](addString(l).addSValue(v))
       }
       // This delimits the end of the record. Note that this does not collide with any of the tags.
-      addByte(0xff.toByte, "record end")
+      addByte(Constants.END_OF_RECORD, "record end")
     }
 
     private def addTextMap(entries: TreeMap[SValue, SValue]): this.type =
