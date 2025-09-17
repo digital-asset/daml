@@ -351,6 +351,7 @@ da_haskell_test(
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
         "//daml-script/daml:daml-script-2.1.dar",
+        "//daml-script/daml:daml-script-2.2.dar",
         ghc_pkg,
     ],
     hackage_deps = [
