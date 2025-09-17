@@ -1096,13 +1096,13 @@ proto_gen(
 
 daml_compile(
     name = "community_participant_admin-workflows",
-    srcs = glob(["community/participant/src/main/daml/AdminWorkflows/**/*.daml"]),
+    srcs = glob(["community/participant/src/main/daml/canton-builtin-admin-workflow-ping/**/*.daml"]),
     project_name = "AdminWorkflows",
 )
 
 daml_compile(
     name = "community_participant_party-replication",
-    srcs = glob(["community/participant/src/main/daml/PartyReplication/**/*.daml"]),
+    srcs = glob(["community/participant/src/main/daml/canton-builtin-admin-workflow-party-replication-alpha/**/*.daml"]),
     project_name = "PartyReplication",
 )
 
