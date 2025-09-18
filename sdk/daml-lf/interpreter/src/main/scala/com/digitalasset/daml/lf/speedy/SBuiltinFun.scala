@@ -2739,7 +2739,6 @@ private[lf] object SBuiltinFun {
       allowCatchingContractInfoErrors = false,
     ) { dstContract =>
       ensureContractActive(machine, coid, dstContract.templateId) {
-        machine.checkContractVisibility(coid, dstContract)
         machine.enforceLimitAddInputContract()
         machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
         checkContractUpgradable(
