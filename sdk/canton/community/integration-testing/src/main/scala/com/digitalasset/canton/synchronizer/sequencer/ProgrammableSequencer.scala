@@ -106,6 +106,11 @@ class ProgrammableSequencer(
     SequencerTrafficStatus
   ] = baseSequencer.trafficStatus(members, selector)
 
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    baseSequencer.sequencingTime
+
   /** Run body with a given policy.
     *
     * Points to consider:

@@ -24,6 +24,7 @@ object DbDto {
       contract_id: Array[Byte],
       template_id: String,
       package_id: String,
+      representative_package_id: String,
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_argument: Array[Byte],
@@ -182,42 +183,49 @@ object DbDto {
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterCreateNonStakeholderInformee(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterConsumingStakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterConsumingNonStakeholderInformee(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterNonConsumingInformee(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterUnassignStakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterAssignStakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class TransactionMeta(

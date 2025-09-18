@@ -207,6 +207,7 @@ class StoreBasedSynchronizerTopologyClient(
       s"Observed: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp"
     )
     observedInternal(sequencedTimestamp, effectiveTimestamp)
+    FutureUnlessShutdown.unit
   }
 
   override def numPendingChanges: Int = pendingChanges.get()
@@ -214,15 +215,7 @@ class StoreBasedSynchronizerTopologyClient(
   private def observedInternal(
       sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-
-    def logIfNoPendingTopologyChanges(): Unit =
-      if (pendingChanges.decrementAndGet() == 0) {
-        logger.debug(
-          s"Effective at $effectiveTimestamp, there are no more pending topology changes (last were from $sequencedTimestamp)"
-        )
-      }
-
+  )(implicit traceContext: TraceContext): Unit = {
     // we update the head timestamp approximation with the current sequenced timestamp, right now
     updateHead(
       sequencedTimestamp,
@@ -236,22 +229,31 @@ class StoreBasedSynchronizerTopologyClient(
     // right keys at the right time.
     if (effectiveTimestamp.value > sequencedTimestamp.value) {
       pendingChanges.incrementAndGet()
-      synchronizerTimeTracker.get match {
-        // use the synchronizer time tracker if available to figure out time precisely
-        case Some(timeTracker) =>
-          timeTracker.awaitTick(effectiveTimestamp.value) match {
-            case Some(future) =>
-              future.foreach { _ =>
-                updateHead(
-                  sequencedTimestamp,
-                  effectiveTimestamp,
-                  ApproximateTime(effectiveTimestamp.value),
-                  potentialTopologyChange = true,
-                )
-                logIfNoPendingTopologyChanges()
-              }
-            // the effective timestamp has already been witnessed
-            case None =>
+
+      // As a last resort, use the time tracker for precise time calculation. This solution does not scale well
+      //  on its own, as all members can trigger time proofs and flood sequencers. Note that the time tracker sends
+      //  a time proof if it's not cancelled, the observation time has elapsed, and the time-advancing broadcast was
+      //  ineffective (e.g., was triggered too early).
+      awaitEffectiveTime(effectiveTimestamp, sequencedTimestamp)
+    }
+  }
+
+  private def awaitEffectiveTime(
+      effectiveTimestamp: EffectiveTime,
+      sequencedTimestamp: SequencedTime,
+  )(implicit traceContext: TraceContext): Unit = {
+    def logIfNoPendingTopologyChanges(): Unit =
+      if (pendingChanges.decrementAndGet() == 0) {
+        logger.debug(
+          s"Effective at $effectiveTimestamp, there are no more pending topology changes (last were from $sequencedTimestamp)"
+        )
+      }
+
+    synchronizerTimeTracker.get match {
+      case Some(timeTracker) =>
+        timeTracker.awaitTick(effectiveTimestamp.value) match {
+          case Some(future) =>
+            future.foreach { _ =>
               updateHead(
                 sequencedTimestamp,
                 effectiveTimestamp,
@@ -259,12 +261,20 @@ class StoreBasedSynchronizerTopologyClient(
                 potentialTopologyChange = true,
               )
               logIfNoPendingTopologyChanges()
-          }
-        case None =>
-          logger.warn("Not advancing the time using the time tracker as it's unavailable")
-      }
+            }
+          case None =>
+            // the effective timestamp has already been witnessed
+            updateHead(
+              sequencedTimestamp,
+              effectiveTimestamp,
+              ApproximateTime(effectiveTimestamp.value),
+              potentialTopologyChange = true,
+            )
+            logIfNoPendingTopologyChanges()
+        }
+      case None =>
+        logger.warn("Not advancing the time using the time tracker as it's unavailable")
     }
-    FutureUnlessShutdown.unit
   }
 
   /** Returns whether a snapshot for the given timestamp is available. */

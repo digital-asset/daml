@@ -273,6 +273,7 @@ object SequentialWriteDaoSpec {
     contract_id = Array(24),
     template_id = "",
     package_id = "2",
+    representative_package_id = "3",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_argument = Array.empty,
@@ -333,8 +334,8 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.party -> List(someParty, someEventCreated),
     allEventsFixture.get.party -> List(
       someEventCreated,
-      DbDto.IdFilterCreateStakeholder(0L, "", ""),
-      DbDto.IdFilterCreateStakeholder(0L, "", ""),
+      DbDto.IdFilterCreateStakeholder(0L, "", "", first_per_sequential_id = true),
+      DbDto.IdFilterCreateStakeholder(0L, "", "", first_per_sequential_id = false),
       someEventExercise,
     ),
   )

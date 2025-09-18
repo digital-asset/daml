@@ -203,6 +203,10 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
         successorO: Option[SynchronizerSuccessor],
         announcementEffectiveTime: EffectiveTime,
     )(implicit traceContext: TraceContext): Unit = ???
+
+    override def sequencingTime(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Option[CantonTimestamp]] = ???
   }
 
   "sendAsyncSigned" should {

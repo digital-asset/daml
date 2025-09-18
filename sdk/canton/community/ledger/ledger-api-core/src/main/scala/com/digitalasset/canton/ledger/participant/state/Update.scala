@@ -8,6 +8,7 @@ import com.digitalasset.base.error.GrpcStatuses
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.SynchronizerId
@@ -271,6 +272,11 @@ object Update {
       */
     def contractAuthenticationData: Map[Value.ContractId, Bytes]
 
+    /** The representative package-ids for the contracts created in this transaction See
+      * [[TransactionAccepted.RepresentativePackageIds]] for more details.
+      */
+    def representativePackageIds: RepresentativePackageIds
+
     def externalTransactionHash: Option[Hash]
 
     def isAcsDelta(contractId: Value.ContractId): Boolean
@@ -303,6 +309,30 @@ object Update {
           Logging.synchronizerId(txAccepted.synchronizerId),
         )
     }
+
+    /** For each contract created in a transaction, a representative package exists in the
+      * Participant package store that is guaranteed to type-check the contract's argument. Such a
+      * package-id guarantee is required for ensuring correct rendering of contract create values on
+      * the gRPC/JSON Ledger API read queries.
+      */
+    sealed trait RepresentativePackageIds extends Product with Serializable
+    object RepresentativePackageIds {
+      def from(
+          representativePackageIds: Map[Value.ContractId, Ref.PackageId]
+      ): DedicatedRepresentativePackageIds =
+        DedicatedRepresentativePackageIds(representativePackageIds)
+
+      /** Signals that the representative package-id of the created contracts referenced in this
+        * transaction are the same as the contract's creation package-id.
+        */
+      case object SameAsContractPackageId extends RepresentativePackageIds
+
+      // TODO(#27872): Not used at the moment, but will be used by ACS import
+      final case class DedicatedRepresentativePackageIds(
+          representativePackageIds: Map[Value.ContractId, Ref.PackageId]
+      ) extends RepresentativePackageIds
+      val Empty: DedicatedRepresentativePackageIds = DedicatedRepresentativePackageIds(Map.empty)
+    }
   }
 
   final case class SequencedTransactionAccepted(
@@ -321,6 +351,9 @@ object Update {
       with AcsChangeSequencedUpdate {
     override def isAcsDelta(contractId: Value.ContractId): Boolean =
       acsChangeFactory.contractActivenessChanged(contractId)
+
+    override val representativePackageIds: RepresentativePackageIds.SameAsContractPackageId.type =
+      RepresentativePackageIds.SameAsContractPackageId
   }
 
   final case class RepairTransactionAccepted(
@@ -328,6 +361,7 @@ object Update {
       transaction: CommittedTransaction,
       updateId: data.UpdateId,
       contractAuthenticationData: Map[Value.ContractId, Bytes],
+      representativePackageIds: RepresentativePackageIds,
       synchronizerId: SynchronizerId,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,

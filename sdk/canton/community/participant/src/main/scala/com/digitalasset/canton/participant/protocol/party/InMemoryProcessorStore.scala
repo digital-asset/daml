@@ -119,15 +119,9 @@ final class TargetParticipantStore extends PartyReplicationProcessorStore {
   )
 
   private[party] def requestedContractsCount: NonNegativeInt = state.get().requestedContractsCount
-  private[party] def increaseRequestedContractsCount(delta: PositiveInt): NonNegativeInt =
+  private[party] def setRequestedContractsCount(count: NonNegativeInt): Unit =
     state
-      .updateAndGet(state =>
-        state.copy(requestedContractsCount = state.requestedContractsCount.map(_ + delta.unwrap))
-      )
-      .requestedContractsCount
-  private[party] def resetRequestedContractsCount(reset: NonNegativeInt): Unit =
-    state
-      .updateAndGet(_.copy(requestedContractsCount = reset))
+      .updateAndGet(_.copy(requestedContractsCount = count))
       .discard
 
   def processedContractsCount: NonNegativeInt = state.get().processedContractsCount

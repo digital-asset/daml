@@ -568,7 +568,7 @@ class UpdatesStreamReader(
   ): Source[Entry[T], NotUsed] = {
     // Pekko requires for this buffer's size to be a power of two.
     val inputBufferSize = Utils.largestSmallerOrEqualPowerOfTwo(maxParallelPayloadQueries)
-    ids.async
+    ids
       .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
       .mapAsync(maxParallelPayloadQueries)(ids =>
         payloadQueriesLimiter.execute {

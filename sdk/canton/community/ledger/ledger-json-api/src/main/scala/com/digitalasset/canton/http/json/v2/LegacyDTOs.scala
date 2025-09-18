@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.daml.ledger.api.v2.event.Event.Event
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment}
 
 /** Data structures that replicate legacy gRPC messages for backwards compatibility */
@@ -71,6 +73,54 @@ object LegacyDTOs {
       verbose: Boolean,
       activeAtOffset: Long,
       eventFormat: Option[com.daml.ledger.api.v2.transaction_filter.EventFormat],
+  )
+
+  final case class SubmitAndWaitForTransactionTreeResponse(
+      transaction: Option[TransactionTree]
+  )
+
+  def toTransactionTree(tx: Transaction): LegacyDTOs.TransactionTree =
+    LegacyDTOs.TransactionTree(
+      updateId = tx.updateId,
+      commandId = tx.commandId,
+      workflowId = tx.workflowId,
+      effectiveAt = tx.effectiveAt,
+      offset = tx.offset,
+      eventsById = tx.events
+        .collect(e =>
+          e.event match {
+            case Event.Created(created) =>
+              created.nodeId -> LegacyDTOs.TreeEvent(LegacyDTOs.TreeEvent.Kind.Created(created))
+            case Event.Exercised(exercised) =>
+              exercised.nodeId -> LegacyDTOs.TreeEvent(
+                LegacyDTOs.TreeEvent.Kind.Exercised(exercised)
+              )
+          }
+        )
+        .toMap,
+      synchronizerId = tx.synchronizerId,
+      traceContext = tx.traceContext,
+      recordTime = tx.recordTime,
+    )
+
+  final case class GetTransactionTreeResponse(
+      transaction: Option[TransactionTree]
+  )
+
+  final case class GetTransactionByIdRequest(
+      updateId: String,
+      requestingParties: Seq[String],
+      transactionFormat: Option[com.daml.ledger.api.v2.transaction_filter.TransactionFormat],
+  )
+
+  final case class GetTransactionByOffsetRequest(
+      offset: Long,
+      requestingParties: Seq[String],
+      transactionFormat: Option[com.daml.ledger.api.v2.transaction_filter.TransactionFormat],
+  )
+
+  final case class GetTransactionResponse(
+      transaction: Option[com.daml.ledger.api.v2.transaction.Transaction]
   )
 
 }

@@ -11,6 +11,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -439,12 +440,13 @@ private[platform] object InMemoryStateUpdater {
 
     val events = rawEvents.collect {
       case NodeInfo(nodeId, create: Create, _) =>
+        val contractId = create.coid
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
           updateId = txAccepted.updateId,
           nodeId = nodeId.index,
           eventSequentialId = 0L,
-          contractId = create.coid,
+          contractId = contractId,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
           packageName = create.packageName,
@@ -456,7 +458,7 @@ private[platform] object InMemoryStateUpdater {
           ),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
           flatEventWitnesses =
-            if (txAccepted.isAcsDelta(create.coid)) create.stakeholders else Set.empty,
+            if (txAccepted.isAcsDelta(contractId)) create.stakeholders else Set.empty,
           submitters = txAccepted.completionInfoO
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
@@ -468,11 +470,23 @@ private[platform] object InMemoryStateUpdater {
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
           authenticationData = txAccepted.contractAuthenticationData.getOrElse(
-            create.coid,
+            contractId,
             throw new IllegalStateException(
-              s"missing authentication data for contract ${create.coid}"
+              s"missing authentication data for contract $contractId"
             ),
           ),
+          representativePackageId = txAccepted.representativePackageIds match {
+            case RepresentativePackageIds.SameAsContractPackageId => create.templateId.packageId
+            case RepresentativePackageIds.DedicatedRepresentativePackageIds(
+                  representativePackageIds
+                ) =>
+              representativePackageIds.getOrElse(
+                contractId,
+                throw new IllegalStateException(
+                  s"Missing representative package id for contract $contractId"
+                ),
+              )
+          },
         )
       case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>
         TransactionLogUpdate.ExercisedEvent(

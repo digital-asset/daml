@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
-import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
@@ -132,6 +132,7 @@ final class BftBlockOrderer(
     override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
     queryCostMonitoring: Option[QueryCostMonitoringConfig],
+    futureSupervisor: FutureSupervisor,
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BlockOrderer
     with NamedLogging
@@ -541,6 +542,17 @@ final class BftBlockOrderer(
   override def subscribe(
   )(implicit traceContext: TraceContext): Source[RawLedgerBlock, KillSwitch] =
     blockSubscription.subscription().map(BlockFormat.blockOrdererBlockToRawLedgerBlock(logger))
+
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
+    val maybeTimePromise =
+      mkPromise[Option[CantonTimestamp]]("get-current-bft-time", futureSupervisor)
+    outputModuleRef.asyncSend(Output.GetCurrentBftTime { maybeTime =>
+      maybeTimePromise.outcome_(maybeTime)
+    })
+    maybeTimePromise.futureUS
+  }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     logger.debug("Beginning async BFT block orderer shutdown")(TraceContext.empty)

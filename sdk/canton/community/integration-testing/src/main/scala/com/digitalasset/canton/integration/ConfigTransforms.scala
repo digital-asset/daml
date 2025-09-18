@@ -848,6 +848,13 @@ object ConfigTransforms {
   def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
     _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 
+  def zeroReassignmentTimeProofFreshnessProportion: ConfigTransform =
+    ConfigTransforms.updateAllParticipantConfigs_(
+      // Always send time proofs for reassignments to avoid using outdated topology snapshots.
+      // We don't want to change the default to avoid potential time proof flooding in production.
+      _.focus(_.parameters.reassignmentTimeProofFreshnessProportion).replace(NonNegativeInt.zero)
+    )
+
   def disableConnectionPool: ConfigTransform = setConnectionPool(false)
 
   /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.

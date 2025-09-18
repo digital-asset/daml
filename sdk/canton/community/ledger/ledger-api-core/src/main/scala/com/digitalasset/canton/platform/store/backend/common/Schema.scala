@@ -108,6 +108,9 @@ private[backend] object AppendOnlySchema {
         "package_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.packageId.unsafe.internalize(dbDto.package_id)
         ),
+        "representative_package_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.packageId.unsafe.internalize(dbDto.representative_package_id)
+        ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
@@ -367,6 +370,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterCreateNonStakeholderInformeeTable
@@ -379,6 +385,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterConsumingStakeholderTable: Table[DbDto.IdFilterConsumingStakeholder] =
@@ -389,6 +398,9 @@ private[backend] object AppendOnlySchema {
         ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
         ),
       )
 
@@ -402,6 +414,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterNonConsumingInformeeTable: Table[DbDto.IdFilterNonConsumingInformee] =
@@ -412,6 +427,9 @@ private[backend] object AppendOnlySchema {
         ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
         ),
       )
 
@@ -424,6 +442,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterAssignStakeholderTable: Table[DbDto.IdFilterAssignStakeholder] =
@@ -434,6 +455,9 @@ private[backend] object AppendOnlySchema {
         ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
         ),
       )
 

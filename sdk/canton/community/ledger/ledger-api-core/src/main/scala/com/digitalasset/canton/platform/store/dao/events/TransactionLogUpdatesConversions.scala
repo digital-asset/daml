@@ -27,6 +27,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
@@ -749,6 +750,7 @@ private[events] object TransactionLogUpdatesConversions {
       offset = createdEvent.eventOffset,
       nodeId = createdEvent.nodeId,
       authenticationData = createdEvent.authenticationData,
+      representativePackageId = createdEvent.representativePackageId,
       createdEventWitnesses = createdWitnesses(createdEvent),
       flatEventWitnesses = createdEvent.flatEventWitnesses,
     )
@@ -763,6 +765,7 @@ private[events] object TransactionLogUpdatesConversions {
       offset: Offset,
       nodeId: Int,
       authenticationData: Bytes,
+      representativePackageId: LfPackageId,
       createdEventWitnesses: Set[Party],
       flatEventWitnesses: Set[Party],
   )(implicit
@@ -801,6 +804,7 @@ private[events] object TransactionLogUpdatesConversions {
           nodeId = nodeId,
           contractId = create.coid.coid,
           templateId = Some(LfEngineToApi.toApiIdentifier(create.templateId)),
+          representativePackageId = representativePackageId,
           packageName = create.packageName,
           contractKey = apiContractData.contractKey,
           createArguments = Some(apiContractData.createArguments),
@@ -857,6 +861,8 @@ private[events] object TransactionLogUpdatesConversions {
             offset = reassignmentAccepted.offset,
             nodeId = assigned.nodeId,
             authenticationData = assigned.contractAuthenticationData,
+            // TODO(#27872): Use the assignment representative package ID when available
+            representativePackageId = assigned.createNode.templateId.packageId,
             createdEventWitnesses = assigned.createNode.stakeholders,
             flatEventWitnesses = assigned.createNode.stakeholders,
           ).map(createdEvent =>

@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
+import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
@@ -21,6 +22,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   TopologyEvent,
 }
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.{
   Reassignment,
   ReassignmentInfo,
@@ -200,8 +202,20 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     val updateId = Ref.TransactionId.assertFromString("UpdateId")
 
-    def handleTransactionAcceptedSingleCreateNode(isAcsDelta: Boolean): Unit = {
-      s"handle TransactionAccepted (single create node, isAcsDelta = $isAcsDelta)" in {
+    // We only care about distinguishing between repair and sequencer transactions for create nodes
+    // since for create nodes the representative package-id assignment policies are different between the two
+    def handleTransactionAcceptedSingleCreateNode(
+        isAcsDelta: Boolean,
+        isRepairTransaction: Boolean,
+    ): Unit = {
+      assert(
+        isRepairTransaction && isAcsDelta || !isRepairTransaction,
+        "Repair transaction is implicitly an ACS delta",
+      )
+      val updateName =
+        if (isRepairTransaction) classOf[state.Update.RepairTransactionAccepted].getSimpleName
+        else classOf[state.Update.SequencedTransactionAccepted].getSimpleName
+      s"handle $updateName (single create node, isAcsDelta = $isAcsDelta)" in {
         val completionInfo = someCompletionInfo
         val transactionMeta = someTransactionMeta
         val externalTransactionHash = someExternalTransactionHash
@@ -220,31 +234,46 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           )
         val createNodeId = builder.add(createNode)
         val transaction = builder.buildCommitted()
-        val update = state.Update.SequencedTransactionAccepted(
-          completionInfoO = Some(completionInfo),
-          transactionMeta = transactionMeta,
-          transaction = transaction,
-          updateId = updateId,
-          contractAuthenticationData = Map(contractId -> someContractAuthenticationData),
-          synchronizerId = someSynchronizerId1,
-          recordTime = someRecordTime,
-          externalTransactionHash = Some(externalTransactionHash),
-          acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
-        )
+        val update =
+          if (isRepairTransaction)
+            state.Update.RepairTransactionAccepted(
+              transactionMeta = transactionMeta,
+              transaction = transaction,
+              updateId = updateId,
+              contractAuthenticationData = Map(contractId -> someContractAuthenticationData),
+              representativePackageIds = RepresentativePackageIds.DedicatedRepresentativePackageIds(
+                Map(contractId -> someRepresentativePackageId)
+              ),
+              synchronizerId = someSynchronizerId1,
+              recordTime = someRecordTime,
+              repairCounter = RepairCounter(1337),
+            )
+          else
+            state.Update.SequencedTransactionAccepted(
+              completionInfoO = Some(completionInfo),
+              transactionMeta = transactionMeta,
+              transaction = transaction,
+              updateId = updateId,
+              contractAuthenticationData = Map(contractId -> someContractAuthenticationData),
+              synchronizerId = someSynchronizerId1,
+              recordTime = someRecordTime,
+              externalTransactionHash = Some(externalTransactionHash),
+              acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
+            )
         val dtos = updateToDtos(update)
 
-        dtos.head shouldEqual DbDto.EventCreate(
+        val dtoCreate = DbDto.EventCreate(
           event_offset = someOffset.unwrap,
           update_id = updateId,
           ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
+          command_id = Option.when(!isRepairTransaction)(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
-          submitters = Some(completionInfo.actAs.toSet),
+          user_id = Option.when(!isRepairTransaction)(completionInfo.userId),
+          submitters = Option.when(!isRepairTransaction)(completionInfo.actAs.toSet),
           node_id = createNodeId.index,
           contract_id = createNode.coid.toBytes.toByteArray,
           template_id = templateIdWithPackageName(createNode),
-          package_id = createNode.templateId.packageId.toString,
+          package_id = createNode.templateId.packageId,
           flat_event_witnesses =
             if (isAcsDelta) Set("signatory1", "signatory2", "signatory3", "observer")
             else Set.empty, // stakeholders
@@ -269,9 +298,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
           record_time = someRecordTime.toMicros,
-          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          external_transaction_hash =
+            Option.when(!isRepairTransaction)(externalTransactionHash.unwrap.toByteArray),
+          representative_package_id =
+            if (isRepairTransaction) someRepresentativePackageId
+            else createNode.templateId.packageId,
         )
-        dtos(5) shouldEqual DbDto.CommandCompletion(
+        val dtoCompletion = DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
           record_time = someRecordTime.toMicros,
           publication_time = 0,
@@ -291,7 +324,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
         )
-        dtos(6) shouldEqual DbDto.TransactionMeta(
+        val dtoTransactionMeta = DbDto.TransactionMeta(
           update_id = updateId,
           event_offset = someOffset.unwrap,
           publication_time = 0,
@@ -300,6 +333,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
         )
+
+        dtos.head shouldEqual dtoCreate
+        if (!isRepairTransaction) {
+          dtos(5) shouldEqual dtoCompletion
+          dtos(6) shouldEqual dtoTransactionMeta
+        } else {
+          dtos(5) shouldEqual dtoTransactionMeta
+        }
         Set(dtos(1), dtos(2), dtos(3), dtos(4)) should contain theSameElementsAs
           (if (isAcsDelta)
              Set(
@@ -307,19 +348,27 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory1",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterCreateStakeholder(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory2",
+                 first_per_sequential_id = false,
                ),
                DbDto.IdFilterCreateStakeholder(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory3",
+                 first_per_sequential_id = false,
                ),
                DbDto
-                 .IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+                 .IdFilterCreateStakeholder(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "observer",
+                   first_per_sequential_id = false,
+                 ),
              )
            else
              Set(
@@ -327,30 +376,38 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory1",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterCreateNonStakeholderInformee(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory2",
+                 first_per_sequential_id = false,
                ),
                DbDto.IdFilterCreateNonStakeholderInformee(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory3",
+                 first_per_sequential_id = false,
                ),
                DbDto.IdFilterCreateNonStakeholderInformee(
                  0L,
                  templateIdWithPackageName(createNode),
                  "observer",
+                 first_per_sequential_id = false,
                ),
              ))
 
-        dtos.size shouldEqual 7
+        if (isRepairTransaction)
+          dtos.size shouldEqual 6
+        else
+          dtos.size shouldEqual 7
       }
     }
 
-    handleTransactionAcceptedSingleCreateNode(isAcsDelta = true)
-    handleTransactionAcceptedSingleCreateNode(isAcsDelta = false)
+    handleTransactionAcceptedSingleCreateNode(isAcsDelta = false, isRepairTransaction = false)
+    handleTransactionAcceptedSingleCreateNode(isAcsDelta = true, isRepairTransaction = false)
+    handleTransactionAcceptedSingleCreateNode(isAcsDelta = true, isRepairTransaction = true)
 
     def handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta: Boolean): Unit = {
       s"handle TransactionAccepted (single consuming exercise node, isAcsDelta = $isAcsDelta)" in {
@@ -461,11 +518,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "signatory",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterConsumingStakeholder(
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "observer",
+                 first_per_sequential_id = false,
                ),
              )
            else
@@ -474,11 +533,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "signatory",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterConsumingNonStakeholderInformee(
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "observer",
+                 first_per_sequential_id = false,
                ),
              ))
 
@@ -562,6 +623,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -705,6 +767,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeA),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -738,6 +801,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeB),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -771,6 +835,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeC),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -804,6 +869,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeD),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -991,16 +1057,19 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "observer",
+          first_per_sequential_id = false,
         ),
         DbDto.IdFilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "divulgee",
+          first_per_sequential_id = true,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -1104,10 +1173,21 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+        representative_package_id = createNode.templateId.packageId,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer",
+          first_per_sequential_id = false,
+        ),
       )
       dtos(3) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1141,16 +1221,19 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         template_id = templateIdWithPackageName(exerciseNode),
         party_id = "signatory",
+        first_per_sequential_id = true,
       )
       dtos(5) shouldEqual DbDto.IdFilterConsumingStakeholder(
         event_sequential_id = 0,
         template_id = templateIdWithPackageName(exerciseNode),
         party_id = "observer",
+        first_per_sequential_id = false,
       )
       dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
         template_id = templateIdWithPackageName(exerciseNode),
         party_id = "divulgee",
+        first_per_sequential_id = true,
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.unwrap,
@@ -1317,10 +1400,21 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+        representative_package_id = createNode.templateId.packageId,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer",
+          first_per_sequential_id = false,
+        ),
       )
       dtos.size shouldEqual 4
     }
@@ -1454,10 +1548,21 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             trace_context = serializedEmptyTraceContext,
             record_time = someRecordTime.toMicros,
             external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+            representative_package_id = createNode.templateId.packageId,
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-            DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+            DbDto.IdFilterCreateStakeholder(
+              0L,
+              templateIdWithPackageName(createNode),
+              "signatory",
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterCreateStakeholder(
+              0L,
+              templateIdWithPackageName(createNode),
+              "observer",
+              first_per_sequential_id = false,
+            ),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.unwrap,
@@ -1592,9 +1697,24 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
-        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "observer2"),
+        DbDto.IdFilterAssignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterAssignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer",
+          first_per_sequential_id = false,
+        ),
+        DbDto.IdFilterAssignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer2",
+          first_per_sequential_id = false,
+        ),
       )
       dtos.size shouldEqual 6
     }
@@ -1693,9 +1813,24 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "signatory12"),
-        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "observer23"),
-        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "asdasdasd"),
+        DbDto.IdFilterUnassignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory12",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterUnassignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer23",
+          first_per_sequential_id = false,
+        ),
+        DbDto.IdFilterUnassignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "asdasdasd",
+          first_per_sequential_id = false,
+        ),
       )
       dtos.size shouldEqual 6
     }
@@ -1933,6 +2068,7 @@ object UpdateToDbDtoSpec {
   private val someExternalTransactionHash =
     Hash.digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)
   private val someContractAuthenticationData = Bytes.assertFromString("00abcd")
+  private val someRepresentativePackageId = Ref.PackageId.assertFromString("rp-id")
 
   implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
 

@@ -427,7 +427,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       )
     }
 
-    def fetchContracsAsDisclosed(
+    def fetchContractsAsDisclosed(
         participant: LocalParticipantReference,
         readerParty: PartyId,
         templateId: Identifier,
