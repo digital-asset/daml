@@ -1264,59 +1264,53 @@ private[lf] object Speedy {
       */
     // TODO: share common code with executeApplication
     private[speedy] final def enterApplication(
-        vfun: SValue,
+        vfun: SValue.SPAP,
         newArgs: ArraySeq[SExprAtomic],
     ): Control[Q] = {
-      vfun match {
-        case SValue.SPAP(prim, actualsSoFar, arity) =>
-          val missing = arity - actualsSoFar.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-          val othersLength = newArgs.length - missing
+      val missing = vfun.arity - vfun.actuals.size
+      val newArgsLimit = Math.min(missing, newArgs.length)
+      val othersLength = newArgs.length - missing
 
-          val actuals: ArraySeq[SValue] = {
-            val array = Array.ofDim[SValue](actualsSoFar.size + newArgsLimit)
-            discard[Int](actualsSoFar.copyToArray(array))
-            // Evaluate the arguments
-            var i = 0
-            var j = actualsSoFar.size
-            while (i < newArgsLimit) {
-              array(j) = newArgs(i).lookupValue(this)
-              i += 1
-              j += 1
+      val actuals: ArraySeq[SValue] = {
+        val array = Array.ofDim[SValue](vfun.actuals.size + newArgsLimit)
+        discard[Int](vfun.actuals.copyToArray(array))
+        // Evaluate the arguments
+        var i = 0
+        var j = vfun.actuals.size
+        while (i < newArgsLimit) {
+          array(j) = newArgs(i).lookupValue(this)
+          i += 1
+          j += 1
+        }
+        ArraySeq.unsafeWrapArray(array)
+      }
+      // Not enough arguments. Return a PAP.
+      if (othersLength < 0) {
+        Control.Value(vfun.copy(actuals = actuals))
+      } else {
+        // Too many arguments: Push a continuation to re-apply the over-applied args.
+        if (othersLength > 0) {
+          this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
+        }
+        // Now the correct number of arguments is ensured. What kind of prim do we have?
+        vfun.prim match {
+          case closure: SValue.PClosure =>
+            this.frame = closure.frame
+            this.actuals = actuals
+            // Maybe push a continuation for the profiler
+            val label = closure.label
+            if (label != null) {
+              this.profile.addOpenEvent(label)
+              this.pushKont(KLeaveClosure(this, label))
             }
-            ArraySeq.unsafeWrapArray(array)
-          }
-          // Not enough arguments. Return a PAP.
-          if (othersLength < 0) {
-            Control.Value(SValue.SPAP(prim, actuals, arity))
-          } else {
-            // Too many arguments: Push a continuation to re-apply the over-applied args.
-            if (othersLength > 0) {
-              this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
-            }
-            // Now the correct number of arguments is ensured. What kind of prim do we have?
-            prim match {
-              case closure: SValue.PClosure =>
-                this.frame = closure.frame
-                this.actuals = actuals
-                // Maybe push a continuation for the profiler
-                val label = closure.label
-                if (label != null) {
-                  this.profile.addOpenEvent(label)
-                  this.pushKont(KLeaveClosure(this, label))
-                }
-                // Start evaluating the body of the closure.
-                popTempStackToBase()
-                Control.Expression(closure.expr)
+            // Start evaluating the body of the closure.
+            popTempStackToBase()
+            Control.Expression(closure.expr)
 
-              case SValue.PBuiltin(builtin) =>
-                this.actuals = actuals
-                builtin.execute(actuals, this)
-            }
-          }
-
-        case _ =>
-          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
+          case SValue.PBuiltin(builtin) =>
+            this.actuals = actuals
+            builtin.execute(actuals, this)
+        }
       }
     }
 
@@ -1531,7 +1525,12 @@ private[lf] object Speedy {
       newArgs: ArraySeq[SExprAtomic],
   ) extends Kont[Q]
       with NoCopy {
-    override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], value: SValue): Control[Q] = {
+
+      val vfun = value match {
+        case vfun: SValue.SPAP => vfun
+        case _ => throw SErrorCrash("KOverApp", s"Expected SPAP, got $value")
+      }
 
       machine.updateGasBudget(_.KOverApp.cost)
 
@@ -1676,7 +1675,7 @@ private[lf] object Speedy {
   private[speedy] final case class KFoldl[Q] private (
       frame: Frame,
       actuals: Actuals,
-      func: SValue,
+      func: SValue.SPAP,
       var list: FrontStack[SValue],
   ) extends Kont[Q]
       with NoCopy {
@@ -1699,14 +1698,14 @@ private[lf] object Speedy {
   }
 
   object KFoldl {
-    def apply[Q](machine: Machine[Q], func: SValue, list: FrontStack[SValue]): KFoldl[Q] =
+    def apply[Q](machine: Machine[Q], func: SValue.SPAP, list: FrontStack[SValue]): KFoldl[Q] =
       KFoldl(machine.currentFrame, machine.currentActuals, func, list)
   }
 
   private[speedy] final case class KFoldr[Q] private (
       frame: Frame,
       actuals: Actuals,
-      func: SValue,
+      func: SValue.SPAP,
       list: ImmArray[SValue],
       var lastIndex: Int,
   ) extends Kont[Q]
@@ -1731,7 +1730,7 @@ private[lf] object Speedy {
   object KFoldr {
     def apply[Q](
         machine: Machine[Q],
-        func: SValue,
+        func: SValue.SPAP,
         list: ImmArray[SValue],
         lastIndex: Int,
     ): KFoldr[Q] =

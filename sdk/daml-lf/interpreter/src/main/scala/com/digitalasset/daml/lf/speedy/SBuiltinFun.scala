@@ -265,6 +265,12 @@ private[lf] object SBuiltinFun {
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 
+  final protected def getSPAP(values: ArraySeq[SValue], i: Int): SPAP =
+    values(i) match {
+      case pap: SPAP => pap
+      case otherwise => unexpectedType(i, "SPAP", otherwise)
+    }
+
   final protected def checkToken(args: ArraySeq[SValue], i: Int): Unit =
     args(i) match {
       case SToken => ()
@@ -844,7 +850,7 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control.Value = {
-      val func = args(0)
+      val func = getSPAP(args, 0)
       val init = args(1)
       val list = getSList(args, 2)
       machine.pushKont(KFoldl(machine, func, list))
@@ -857,7 +863,7 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val func = args(0).asInstanceOf[SPAP]
+      val func = getSPAP(args, 0)
       val init = args(1)
       val list = getSList(args, 2)
       val array = list.toImmArray
@@ -2241,7 +2247,10 @@ private[lf] object SBuiltinFun {
         case None =>
           machine.handleException(excep) // re-throw
         case Some(handler) =>
-          machine.enterApplication(handler, ArraySeq(SEValue(SToken)))
+          handler match {
+            case handler: SPAP => machine.enterApplication(handler, ArraySeq(SEValue(SToken)))
+            case _ => crash(s"Expected SPAP, got $handler")
+          }
       }
     }
   }
@@ -2375,7 +2384,7 @@ private[lf] object SBuiltinFun {
         ),
       )
 
-    private val closure: SValue = {
+    private val closure: SPAP = {
       val frame = ArraySeq.empty[SValue]
       val arity = 3
       SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArraySeq.empty, arity)
