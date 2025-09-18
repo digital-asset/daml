@@ -17,9 +17,12 @@ fi
 # cleanup file on exit signal
 function on_exit () {
   rm -rf ${TEMP_DIR}
+}
+function on_failure () {
   rm -rf "${HOME}/.dpm"
 }
 trap on_exit EXIT
+trap on_failure ERR
 # ORAS CLI is also a built-in tool in some VM images for GitHub-hosted runners used for GitHub Actions,
 # as well as for Microsoft-hosted agents used for Azure Pipelines,
 # boxes: Ubuntu 20.04, Ubuntu 22.04 (https://oras.land/docs/installation)
