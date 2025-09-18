@@ -87,7 +87,13 @@ if [ -z "$(gcloud config list account --format 'value(core.account)')" ]; then
   echo "$(tput setaf 1)GCloud reports no auth accounts, you must authenticate with gcloud to pull down DPM.$(tput sgr 0)"
   echo "Please run the following:"
   echo "gcloud auth login"
-  # TODO: Check this is also configured, else the  error is ugly
+  echo "gcloud auth configure-docker europe-docker.pkg.dev"
+  exit 1
+fi
+
+if [ ! -f "$HOME/.docker/config.json" ] || grep -zqv europe-docker.pkg.dev "$HOME/.docker/config.json"; then
+  echo "$(tput setaf 1)GCloud docker configuration is missing (you do not need to install docker).$(tput sgr 0)"
+  echo "Please run the following:"
   echo "gcloud auth configure-docker europe-docker.pkg.dev"
   exit 1
 fi
@@ -172,15 +178,19 @@ if [[ ! ${TO_BUILD[@]} ]]; then
   TO_BUILD=("${all_components[@]}")
 fi
 
-# Shamelessly stolen
-# Doesn't seem to work?
+# Imitate `chronic` from coreutils
 chronic() {
-  tmp=$(mktemp) || return # this will be the temp file w/ the output
-  "$@" > "$tmp" 2>&1 # this should run the command, respecting all arguments
+  # Store stdout and stderr to a tmp file
+  tmp=$(mktemp) || return
+  # Don't die just yet!
+  set +e
+  "$@" > "$tmp" 2>&1
   ret=$?
-  [ "$ret" -eq 0 ] || cat "$tmp"  # if $? (the return of the last run command) is not zero, cat the temp file
+  set -e
+  [ "$ret" -eq 0 ] || cat "$tmp"
   rm -f "$tmp"
-  return "$ret" # return the exit status of the command
+  # Now you can die
+  return "$ret"
 }
 
 update_component() {
@@ -213,11 +223,11 @@ update_component() {
   fi
 }
 
-# Doesn't seem to work on macOS
 for i in "${!TO_BUILD[@]}"; do
   update_component "${TO_BUILD[$i]}" "($(expr $i + 1)/${#TO_BUILD[@]})"
 done
 
+# TODO: Implement fully once DPM supports this, See https://github.com/DACH-NY/dpm/issues/421
 # cat > "${DPM_HOME}/bin/dpm-head" << EOF
 # #!/bin/sh
 # exec env DAML_SDK_VERSION=$DAML_SDK_RELEASE_VERSION "${DPM_HOME}/cache/components/dpm/$COMPONENT_VERSION/dpm" "\$@"
