@@ -292,6 +292,7 @@ private[lf] object IdeLedgerRunner {
 
   def submit[R](
       compiledPackages: CompiledPackages,
+      disclosures: Iterable[FatContractInstance],
       ledger: LedgerApi[R],
       committers: Set[Party],
       readAs: Set[Party],
@@ -303,6 +304,13 @@ private[lf] object IdeLedgerRunner {
       warningLog: WarningLog = Speedy.Machine.newWarningLog,
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
+
+    val disclosuresByCoid = disclosures.map(fci => fci.contractId -> fci).toMap
+    val disclosuresByKey = disclosures.collect {
+      case fci if fci.contractKeyWithMaintainers.isDefined =>
+        fci.contractKeyWithMaintainers.get.globalKey -> fci.contractId
+    }.toMap
+
     val ledgerMachine = Speedy.UpdateMachine(
       packageResolution = packageResolution,
       compiledPackages = compiledPackages,
@@ -329,29 +337,47 @@ private[lf] object IdeLedgerRunner {
         case SResultQuestion(question) =>
           question match {
             case Question.Update.NeedContract(coid, committers, callback) =>
-              ledger.lookupContract(
-                coid,
-                committers,
-                readAs,
-                (fcoinst: FatContractInstance) =>
+              disclosuresByCoid.get(coid) match {
+                case Some(fcoinst) =>
                   callback(
                     fcoinst.nonVerbose,
                     Hash.HashingMethod.TypedNormalForm,
                     _ => throw new NotImplementedError("authentication not implemented yet"),
-                  ),
-              ) match {
-                case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
-                case Right(_) => go()
+                  )
+                  go()
+                case None =>
+                  ledger.lookupContract(
+                    coid,
+                    committers,
+                    readAs,
+                    (fcoinst: FatContractInstance) =>
+                      callback(
+                        fcoinst.nonVerbose,
+                        Hash.HashingMethod.TypedNormalForm,
+                        _ => throw new NotImplementedError("authentication not implemented yet"),
+                      ),
+                  ) match {
+                    case Left(err) =>
+                      SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
+                    case Right(_) => go()
+                  }
               }
             case Question.Update.NeedKey(keyWithMaintainers, committers, callback) =>
-              ledger.lookupKey(
-                keyWithMaintainers.globalKey,
-                committers,
-                readAs,
-                callback,
-              ) match {
-                case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
-                case Right(_) => go()
+              disclosuresByKey.get(keyWithMaintainers.globalKey) match {
+                case Some(fcoinst) =>
+                  discard[Boolean](callback(Some(fcoinst)))
+                  go()
+                case None =>
+                  ledger.lookupKey(
+                    keyWithMaintainers.globalKey,
+                    committers,
+                    readAs,
+                    callback,
+                  ) match {
+                    case Left(err) =>
+                      SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
+                    case Right(_) => go()
+                  }
               }
             case Question.Update.NeedTime(callback) =>
               callback(ledger.currentTime)
