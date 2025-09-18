@@ -114,7 +114,8 @@ public class TemplateMethodTest {
           Collections.emptySet(),
           Collections.emptySet(),
           Instant.ofEpochMilli(0),
-          false);
+          false,
+          SimpleTemplate.PACKAGE_ID);
 
   @Test
   void contractHasCompanion() {
