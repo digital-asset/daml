@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 
 # Make sure they are in the right repo
 readonly REPO_ROOT="$(bazel info workspace)"
@@ -114,7 +114,7 @@ EOF
   CONF_FILE=
   case $SHELL in
     *zsh)
-      CONF_FILE=".zprofile"
+      CONF_FILE=".zshrc"
       ;;
     *bash)
       CONF_FILE=".bashrc"

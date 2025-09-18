@@ -17,6 +17,7 @@ fi
 # cleanup file on exit signal
 function on_exit () {
   rm -rf ${TEMP_DIR}
+  rm -rf "${HOME}/.dpm"
 }
 trap on_exit EXIT
 # ORAS CLI is also a built-in tool in some VM images for GitHub-hosted runners used for GitHub Actions,
