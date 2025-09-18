@@ -102,7 +102,6 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             submitters = Set(party),
             readAs = Set.empty,
             commands = ImmArray(speedyCmd),
-            disclosures = ImmArray.empty,
             ledgerTime = let,
             preparationTime = let,
             seeding = seeding,

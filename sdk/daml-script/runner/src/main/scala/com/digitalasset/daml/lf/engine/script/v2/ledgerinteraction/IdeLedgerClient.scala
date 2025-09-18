@@ -681,7 +681,7 @@ class IdeLedgerClient(
       for {
         speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
+        translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
         result =
           IdeLedgerRunner.submit(
             compiledPackages,

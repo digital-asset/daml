@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
@@ -401,44 +401,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             )
         ),
       )
-      .map(sv => (sv, sv.toNormalizedValue))
-  }
-
-  // The given contractSValue is wrapped as a disclosedContract
-  def goDisclosed(
-      e: Expr,
-      availablePackages: Map[Ref.PackageId, Package],
-      disclosureTemplateId: Ref.TypeConId,
-      disclosureContractArg: SValue,
-      disclosureSignatories: Set[Ref.Party],
-      disclosureObservers: Set[Ref.Party],
-      disclosureKeyOpt: Option[Speedy.CachedKey],
-  ): Either[SError, Success] = {
-
-    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
-
-    val se: SExpr = pkgs.compiler.unsafeCompile(e)
-    val args = ArraySeq[SValue](SContractId(theCid))
-    val sexprToEval = SEApp(se, args)
-
-    implicit def logContext: LoggingContext = LoggingContext.ForTesting
-    val seed = crypto.Hash.hashPrivateKey("seed")
-    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
-
-    val contractInfo: Speedy.ContractInfo =
-      Speedy.ContractInfo(
-        version = VDev,
-        packageName = pkgName,
-        templateId = disclosureTemplateId,
-        value = disclosureContractArg,
-        signatories = disclosureSignatories,
-        observers = disclosureObservers,
-        keyOpt = disclosureKeyOpt,
-      )
-    machine.addDisclosedContracts(theCid, contractInfo)
-
-    SpeedyTestLib
-      .run(machine)
       .map(sv => (sv, sv.toNormalizedValue))
   }
 
@@ -1134,112 +1096,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractKeyWithMaintainers = Some(v1_key),
         )
         res shouldBe a[Right[_, _]]
-      }
-    }
-  }
-
-  "Disclosed contracts" - {
-
-    implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
-
-    "correct fields" in {
-
-      // This is the SValue equivalent of v1_base
-      val sv1_base: SValue = {
-        def fields = ImmArray(
-          n"sig",
-          n"obs",
-          n"aNumber",
-        )
-        def values = ArraySeq[SValue](
-          SValue.SParty(alice), // And it needs to be a party
-          SValue.SParty(bob),
-          SValue.SInt64(100),
-        )
-        SValue.SRecord(i"'-pkg1-':M:T", fields, values)
-      }
-      inside(
-        goDisclosed(
-          e"'-pkg1-':M:do_fetch",
-          // We cannot test the case where the creation package is unavailable because this test case tests the case
-          // when we try to read it back using the same package version.
-          availablePackages = Map(
-            utilPkgId -> utilPkg,
-            ifacePkgId -> ifacePkg,
-            pkgId1 -> pkg1,
-          ),
-          disclosureTemplateId = i"'-pkg1-':M:T",
-          disclosureContractArg = sv1_base,
-          disclosureSignatories = Set(alice),
-          disclosureObservers = Set(bob),
-          disclosureKeyOpt = Some(
-            Speedy.CachedKey(
-              packageName = pkg1.pkgName,
-              globalKeyWithMaintainers = GlobalKeyWithMaintainers(
-                GlobalKey.assertBuild(
-                  templateId = i"'-pkg1-':M:T",
-                  packageName = pkg1.pkgName,
-                  key = ValueParty(alice),
-                ),
-                Set(alice),
-              ),
-              SValue.SParty(alice),
-            )
-          ),
-        )
-      ) { case Right((_, v)) =>
-        v shouldBe v1_base
-      }
-    }
-
-    "requires downgrade" in {
-
-      val sv1_base: SValue = {
-        def fields = ImmArray(
-          n"sig",
-          n"obs",
-          n"aNumber",
-          n"extraField",
-        )
-        def values = ArraySeq[SValue](
-          SValue.SParty(alice),
-          SValue.SParty(bob),
-          SValue.SInt64(100),
-          SValue.SOptional(None),
-        )
-        SValue.SRecord(i"'-unknown-':M:T", fields, values)
-      }
-      inside(
-        goDisclosed(
-          e"'-pkg1-':M:do_fetch",
-          // We cannot test the case where the creation package is unavailable because this test case tests the case
-          // when we try to read it back using the same package version.
-          availablePackages = Map(
-            utilPkgId -> utilPkg,
-            ifacePkgId -> ifacePkg,
-            pkgId1 -> pkg1,
-          ),
-          disclosureTemplateId = i"'-pkg1-':M:T",
-          disclosureContractArg = sv1_base,
-          disclosureSignatories = Set(alice),
-          disclosureObservers = Set(bob),
-          disclosureKeyOpt = Some(
-            Speedy.CachedKey(
-              packageName = pkg1.pkgName,
-              globalKeyWithMaintainers = GlobalKeyWithMaintainers(
-                GlobalKey.assertBuild(
-                  templateId = i"'-pkg1-':M:T",
-                  packageName = pkg1.pkgName,
-                  key = ValueParty(alice),
-                ),
-                Set(alice),
-              ),
-              SValue.SParty(alice),
-            )
-          ),
-        )
-      ) { case Right((_, v)) =>
-        v shouldBe v1_base
       }
     }
   }

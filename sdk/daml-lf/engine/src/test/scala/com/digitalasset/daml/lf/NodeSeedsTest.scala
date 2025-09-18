@@ -95,7 +95,6 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
         ),
         participantId = Ref.ParticipantId.assertFromString("participant"),
         submissionSeed = crypto.Hash.hashPrivateKey(getClass.getName + time.toString),
-        prefetchKeys = Seq.empty,
       )
       .consume(pcs = contracts, pkgs = packages)
 
