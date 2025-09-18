@@ -171,16 +171,13 @@ class TransactionTreeFactoryImpl(
 
       _ <-
         if (validatePackageVettings) {
-          val commandExecutionPackages = requiredPackagesByParty(rootViewDecompositions)
-          val inputContractPackages = inputContractPackagesByParty(rootViews)
-          val packagesByParty =
-            MapsUtil.mergeMapsOfSets(commandExecutionPackages, inputContractPackages)
+          val requiredPackageByParty = requiredPackagesByParty(rootViewDecompositions)
           UsableSynchronizers
             .checkPackagesVetted(
               synchronizerId = synchronizerId,
               snapshot = topologySnapshot,
-              requiredPackagesByParty = packagesByParty,
-              metadata.ledgerTime,
+              requiredPackagesByParty = requiredPackageByParty,
+              ledgerTime = metadata.ledgerTime,
             )
             .leftMap[TransactionTreeConversionError](_.transformInto[UnknownPackageError])
         } else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
@@ -239,30 +236,6 @@ class TransactionTreeFactoryImpl(
     rootViewDecompositions.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) { case (acc, view) =>
       MapsUtil.mergeMapsOfSets(acc, requiredPackagesByParty(view, Set.empty))
     }
-  }
-
-  /** @return set of packages required for input contract consistency checking, by party */
-  private def inputContractPackagesByParty(
-      rootViews: Seq[TransactionView]
-  ): Map[LfPartyId, Set[PackageId]] = {
-
-    def viewPartyPackages(view: TransactionView): Map[LfPartyId, Set[PackageId]] = {
-      val inputPackages = checked(view.viewParticipantData.tryUnwrap).coreInputs.values
-        .map(_.contract.templateId.packageId)
-        .toSet
-      val informees = checked(view.viewCommonData.tryUnwrap).viewConfirmationParameters.informees
-      val viewMap = informees.map(_ -> inputPackages).toMap
-      val subviewMap = viewsPartyPackages(view.subviews.unblindedElements)
-      MapsUtil.mergeMapsOfSets(subviewMap, viewMap)
-    }
-
-    def viewsPartyPackages(views: Seq[TransactionView]): Map[LfPartyId, Set[PackageId]] =
-      views.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) { case (acc, view) =>
-        MapsUtil.mergeMapsOfSets(acc, viewPartyPackages(view))
-      }
-
-    viewsPartyPackages(rootViews)
-
   }
 
   private def createRootViews(

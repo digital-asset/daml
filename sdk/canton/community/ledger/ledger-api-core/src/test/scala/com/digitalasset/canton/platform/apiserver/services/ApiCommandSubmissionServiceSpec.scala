@@ -12,7 +12,6 @@ import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequ
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
-  ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -131,8 +130,7 @@ class ApiCommandSubmissionServiceSpec
     new ApiCommandSubmissionService(
       commandSubmissionService = commandSubmissionService,
       commandsValidator = new CommandsValidator(
-        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
-        validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
+        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
       ),
       submissionSyncService = null,
       currentLedgerTime = () => Instant.EPOCH,

@@ -251,6 +251,7 @@ object JsSchema {
         observers: Seq[String],
         createdAt: protobuf.timestamp.Timestamp,
         packageName: String,
+        representativePackageId: String,
         acsDelta: Boolean,
     ) extends Event
 

@@ -524,4 +524,10 @@ class DatabaseSequencer(
       announcementEffectiveTime: EffectiveTime,
   )(implicit traceContext: TraceContext): Unit =
     reader.updateSynchronizerSuccessor(successorO, announcementEffectiveTime)
+
+  // TODO(#27919): provide a proper implementation
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.pure(None)
 }

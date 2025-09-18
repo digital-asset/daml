@@ -219,6 +219,7 @@ CREATE TABLE lapi_events_create (
     contract_id bytea not null,
     template_id integer not null,
     package_id integer not null,
+    representative_package_id integer not null,
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 

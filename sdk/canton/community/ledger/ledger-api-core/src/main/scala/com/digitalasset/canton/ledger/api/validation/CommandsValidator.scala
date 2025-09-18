@@ -44,8 +44,8 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
 
 final class CommandsValidator(
-    validateDisclosedContracts: ValidateDisclosedContracts,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
+    validateDisclosedContracts: ValidateDisclosedContracts = ValidateDisclosedContracts,
     topologyAwarePackageSelectionEnabled: Boolean = false,
 ) {
 
@@ -75,7 +75,7 @@ final class CommandsValidator(
         prepareRequest.minLedgerTime.flatMap(_.time.minLedgerTimeAbs),
         prepareRequest.minLedgerTime.flatMap(_.time.minLedgerTimeRel),
       )
-      validatedDisclosedContracts <- validateDisclosedContracts.fromDisclosedContracts(
+      validatedDisclosedContracts <- validateDisclosedContracts.validateDisclosedContracts(
         prepareRequest.disclosedContracts
       )
       packageResolutions <- validateUpgradingPackageResolutions(
@@ -139,7 +139,7 @@ final class CommandsValidator(
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
       )
-      validatedDisclosedContracts <- validateDisclosedContracts(commands)
+      validatedDisclosedContracts <- validateDisclosedContracts.validateCommands(commands)
       packageResolutions <- validateUpgradingPackageResolutions(
         commands.packageIdSelectionPreference
       )

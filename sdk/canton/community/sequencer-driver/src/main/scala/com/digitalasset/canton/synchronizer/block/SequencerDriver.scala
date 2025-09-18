@@ -179,6 +179,14 @@ trait SequencerDriver extends AutoCloseable {
       traceContext: TraceContext
   ): Source[RawLedgerBlock, KillSwitch]
 
+  /** Return a "current" sequencing time such that, when a `send` operation is subsequently called,
+    * if sequenced, the sequencing time of the resulting event is guaranteed to be later than the
+    * sequencing time previously returned by the `sequencingTime` call.
+    */
+  def sequencingTime(implicit
+      traceContext: TraceContext
+  ): Future[Option[Long]]
+
   // Operability
 
   def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus]

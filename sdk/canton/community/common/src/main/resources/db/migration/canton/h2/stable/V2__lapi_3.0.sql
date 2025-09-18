@@ -127,6 +127,7 @@ CREATE TABLE lapi_events_create (
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
+    representative_package_id INTEGER NOT NULL,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 

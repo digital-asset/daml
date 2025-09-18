@@ -514,6 +514,14 @@ messages:
         package_name: |-
           The package name of the created contract.
           Required
+        representative_package_id: |-
+          A package-id present in the participant package store that typechecks the contract's argument.
+          This may differ from the package-id of the template used to create the contract.
+          For contracts created before Canton 3.4, this field matches the contract's creation package-id.
+
+          NOTE: Experimental, server internal concept, not for client consumption. Subject to change without notice.
+
+          Required
         acs_delta: |-
           Whether this event would be part of respective ACS_DELTA shaped stream,
           and should therefore considered when tracking contract activeness on the client-side.

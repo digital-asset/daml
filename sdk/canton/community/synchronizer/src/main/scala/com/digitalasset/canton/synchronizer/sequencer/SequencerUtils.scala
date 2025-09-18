@@ -4,7 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicSynchronizerParametersWithValidity
+import com.digitalasset.canton.protocol.{
+  DynamicSynchronizerParametersHistory,
+  DynamicSynchronizerParametersWithValidity,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 object SequencerUtils {
@@ -64,15 +67,8 @@ object SequencerUtils {
       upgradeTime: CantonTimestamp,
       parameterChanges: Seq[DynamicSynchronizerParametersWithValidity],
   ): NonNegativeFiniteDuration = {
-
-    val maxTime = parameterChanges.foldLeft(upgradeTime) { case (previousBound, parametersChange) =>
-      val parameters = parametersChange.parameters
-      val maxTime = parametersChange.validUntil.getOrElse(upgradeTime)
-
-      val newBound = maxTime + parameters.decisionTimeout
-
-      newBound.max(previousBound)
-    }
+    val maxTime =
+      DynamicSynchronizerParametersHistory.latestDecisionDeadline(parameterChanges, upgradeTime)
 
     NonNegativeFiniteDuration.tryCreate(maxTime - upgradeTime)
   }

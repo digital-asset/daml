@@ -203,7 +203,7 @@ class SubmitRequestValidatorTest
   private val testedCommandValidator = {
     val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-    when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
+    when(validateDisclosedContractsMock.validateCommands(any[Commands])(any[ErrorLoggingContext]))
       .thenReturn(Right(internal.disclosedContracts))
 
     new CommandsValidator(
@@ -484,7 +484,7 @@ class SubmitRequestValidatorTest
               internal.maxDeduplicationDuration,
             )
             inside(result) { case Right(valid) =>
-              valid.deduplicationPeriod shouldBe (expectedDeduplication)
+              valid.deduplicationPeriod shouldBe expectedDeduplication
             }
         }
       }
@@ -555,7 +555,9 @@ class SubmitRequestValidatorTest
       "fail when disclosed contracts validation fails" in {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-        when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
+        when(
+          validateDisclosedContractsMock.validateCommands(any[Commands])(any[ErrorLoggingContext])
+        )
           .thenReturn(
             Left(
               RequestValidationErrors.InvalidField
@@ -565,8 +567,8 @@ class SubmitRequestValidatorTest
           )
 
         val failingDisclosedContractsValidator = new CommandsValidator(
-          validateDisclosedContracts = validateDisclosedContractsMock,
           validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
+          validateDisclosedContracts = validateDisclosedContractsMock,
         )
 
         requestMustFailWith(
@@ -587,7 +589,9 @@ class SubmitRequestValidatorTest
       "when upgrading" should {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-        when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
+        when(
+          validateDisclosedContractsMock.validateCommands(any[Commands])(any[ErrorLoggingContext])
+        )
           .thenReturn(Right(internal.disclosedContracts))
 
         val packageMap =

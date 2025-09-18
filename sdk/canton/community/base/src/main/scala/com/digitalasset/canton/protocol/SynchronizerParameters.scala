@@ -334,8 +334,7 @@ object OnboardingRestriction {
   *   protobuf version v2 and protocol version v30. If None, the catch-up mode is disabled: the
   *   participant does not trigger the catch-up mode when lagging behind. If not None, it specifies
   *   the number of reconciliation intervals that the participant skips in catch-up mode, and the
-  *   number of catch-up intervals intervals a participant should lag behind in order to enter
-  *   catch-up mode.
+  *   number of catch-up intervals a participant should lag behind in order to enter catch-up mode.
   * @param preparationTimeRecordTimeTolerance
   *   the maximum absolute difference between the preparation time and the record time of a command.
   *   If the absolute difference would be larger for a command, then the command must be rejected.
@@ -931,6 +930,38 @@ final case class DynamicSynchronizerParametersWithValidity(
     parameters.sequencerTopologyTimestampTolerance
   def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =
     parameters.submissionCostTimestampTopologyTolerance
+}
+
+/** Utility functions for operating on a sequence (history) of dynamic synchronizer parameters.
+  */
+object DynamicSynchronizerParametersHistory {
+
+  /** Computes the latest possible decision deadline based on a history of parameter changes.
+    *
+    * For each item in the history, a potential deadline is calculated by adding its
+    * `decisionTimeout` to its `validUntil` timestamp. This method returns the maximum value among
+    * all computed deadlines and the initial `lowerBound`.
+    *
+    * @param history
+    *   The sequence of parameter changes over time.
+    * @param lowerBound
+    *   The minimum timestamp for the result. It also serves as a fallback for items that have an
+    *   undefined `validUntil`.
+    * @return
+    *   The latest possible decision deadline, guaranteed to be at least `lowerBound`.
+    */
+  def latestDecisionDeadline(
+      history: Seq[DynamicSynchronizerParametersWithValidity],
+      lowerBound: CantonTimestamp,
+  ): CantonTimestamp =
+    history.foldLeft(lowerBound) { case (previousBound, parametersChange) =>
+      val parameters = parametersChange.parameters
+      val maxTime = parametersChange.validUntil.getOrElse(lowerBound)
+
+      val newBound = maxTime + parameters.decisionTimeout
+
+      newBound.max(previousBound)
+    }
 }
 
 /** The class specifies the catch-up parameters governing the catch-up mode of a participant lagging

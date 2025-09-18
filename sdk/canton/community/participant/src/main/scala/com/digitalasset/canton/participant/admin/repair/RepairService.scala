@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -988,6 +989,8 @@ final class RepairService(
       ),
       updateId = repair.transactionId.tryAsLedgerTransactionId,
       contractAuthenticationData = Map.empty,
+      // TODO(#27872): Populate with the representative package IDs computed during ACS import
+      representativePackageIds = RepresentativePackageIds.SameAsContractPackageId,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
@@ -1027,6 +1030,8 @@ final class RepairService(
       ),
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       contractAuthenticationData = contractAuthenticationData,
+      // TODO(#27872): Populate with the representative package IDs computed during ACS import
+      representativePackageIds = RepresentativePackageIds.SameAsContractPackageId,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repairCounter,
       recordTime = repair.timestamp,

@@ -5,32 +5,17 @@ package com.digitalasset.canton.integration.tests.jsonapi
 
 import com.daml.jwt.Jwt
 import com.digitalasset.canton.http
-import com.digitalasset.canton.http.json.JsonProtocol.*
-import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v1.WebsocketEndpoints.{tokenPrefix, wsProtocol}
 import com.digitalasset.daml.lf.data.Ref
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.pekko.NotUsed
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.http.scaladsl.model.Uri
-import org.apache.pekko.http.scaladsl.model.ws.{
-  BinaryMessage,
-  Message,
-  TextMessage,
-  WebSocketRequest,
-}
-import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
+import org.apache.pekko.http.scaladsl.model.ws.Message
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import org.scalacheck.Gen
 import org.scalatest.Assertions
 import org.scalatest.matchers.{MatchResult, Matcher}
 import scalaz.\/
-import scalaz.std.option.*
-import scalaz.std.vector.*
-import scalaz.syntax.std.option.*
-import scalaz.syntax.tag.*
-import scalaz.syntax.traverse.*
 import spray.json.{
   DefaultJsonProtocol,
   JsArray,
@@ -41,12 +26,7 @@ import spray.json.{
   JsString,
   JsValue,
   RootJsonReader,
-  enrichAny as `sj enrichAny`,
-  enrichString as `sj enrichString`,
 }
-
-import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
 
 private[jsonapi] object WebsocketTestFixture extends StrictLogging with Assertions {
 
@@ -255,100 +235,6 @@ private[jsonapi] object WebsocketTestFixture extends StrictLogging with Assertio
       else Gen const Leaf(x)
   }
 
-  def singleClientQueryStream(
-      jwt: Jwt,
-      serviceUri: Uri,
-      query: String,
-      offset: Option[http.Offset] = None,
-  )(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "query", serviceUri, query, offset)
-
-  def singleClientFetchStream(
-      jwt: Jwt,
-      serviceUri: Uri,
-      request: String,
-      offset: Option[http.Offset] = None,
-  )(implicit asys: ActorSystem): Source[Message, NotUsed] =
-    singleClientWSStream(jwt, "fetch", serviceUri, request, offset)
-
-  def singleClientWSStream(
-      jwt: Jwt,
-      path: String,
-      serviceUri: Uri,
-      query: String,
-      offset: Option[http.Offset],
-  )(implicit asys: ActorSystem): Source[Message, NotUsed] = {
-    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
-    logger.info(
-      s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}"
-    )
-    val webSocketFlow =
-      Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol(jwt)))
-    offset
-      .cata(
-        off =>
-          Source.fromIterator(() =>
-            Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator
-          ),
-        Source single query,
-      )
-      .map(TextMessage(_))
-      // pekko-http will cancel the whole stream once the input ends so we use
-      // Source.maybe to keep the input open.
-      .concatMat(Source.maybe[Message])(Keep.left)
-      .via(webSocketFlow)
-  }
-
-  val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =
-    Flow[Message]
-      .collect { case m: TextMessage => m.getStrictText }
-      .filterNot(isOffsetTick)
-      .toMat(Sink.seq)(Keep.right)
-
-  val collectResultsAsTextMessage: Sink[Message, Future[Seq[String]]] =
-    Flow[Message]
-      .collect { case m: TextMessage => m.getStrictText }
-      .toMat(Sink.seq)(Keep.right)
-
-  private def isOffsetTick(str: String): Boolean =
-    SprayJson
-      .decode[EventsBlock](str)
-      .map(isOffsetTick)
-      .valueOr(_ => false)
-
-  def isOffsetTick(v: JsValue): Boolean =
-    SprayJson
-      .decode[EventsBlock](v)
-      .map(isOffsetTick)
-      .valueOr(_ => false)
-
-  def isOffsetTick(x: EventsBlock): Boolean = {
-    val hasOffset = x.offset
-      .collect {
-        case JsString(offset) => offset.length > 0
-        case JsNull => true // JsNull is for LedgerBegin
-      }
-      .getOrElse(false)
-
-    x.events.isEmpty && hasOffset
-  }
-
-  def isAbsoluteOffsetTick(x: EventsBlock): Boolean = {
-    val hasAbsoluteOffset = x.offset
-      .collect { case JsString(offset) =>
-        offset.length > 0
-      }
-      .getOrElse(false)
-
-    x.events.isEmpty && hasAbsoluteOffset
-  }
-
-  def isAcs(x: EventsBlock): Boolean =
-    x.events.nonEmpty && x.offset.isEmpty
-
-  def eventsBlockVector(msgs: Vector[String]): SprayJson.JsonReaderError \/ Vector[EventsBlock] =
-    msgs.traverse(SprayJson.decode[EventsBlock])
-
   def matchJsValue(expected: JsValue) = new JsValueMatcher(expected)
 
   def matchJsValues(expected: Seq[JsValue]) = new MultipleJsValuesMatcher(expected)
@@ -388,31 +274,5 @@ private[jsonapi] object WebsocketTestFixture extends StrictLogging with Assertio
       go
     }
   }
-
-  def parseResp(implicit
-      ec: ExecutionContext,
-      fm: Materializer,
-  ): Flow[Message, JsValue, NotUsed] =
-    Flow[Message]
-      .mapAsync(1) {
-        case _: BinaryMessage => fail("shouldn't get BinaryMessage")
-        case tm: TextMessage => tm.toStrict(1.second).map(_.text.parseJson)
-      }
-      .filter {
-        case JsObject(fields) => !(fields contains "heartbeat")
-        case _ => true
-      }
-  val remainingDeltas: Sink[JsValue, Future[ContractDelta.T]] =
-    Sink.fold[ContractDelta.T, JsValue]((Vector.empty, Vector.empty, Option.empty[http.Offset])) {
-      (acc, jsv) =>
-        import http.Offset.semigroup
-        import scalaz.std.tuple.*
-        import scalaz.std.vector.*
-        import scalaz.syntax.semigroup.*
-        jsv match {
-          case ContractDelta(c, a, o) => acc |+| ((c, a, o))
-          case _ => acc
-        }
-    }
 
 }

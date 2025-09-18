@@ -288,10 +288,6 @@ trait Endpoints extends NamedLogging {
         .map(Right(_))
         .recover(handleError.andThen(_.left.map(_._2)))
 
-    def resultWithStatusToRight: Future[Either[CustomError, R]] =
-      future
-        .map(Right(_))
-        .recover(handleError)
   }
 
   /** Utility to prepare flow from a gRPC method with an observer.

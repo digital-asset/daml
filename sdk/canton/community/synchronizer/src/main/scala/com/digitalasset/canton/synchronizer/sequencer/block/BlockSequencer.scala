@@ -758,4 +758,9 @@ class BlockSequencer(
       timestamp,
       stateManager.getHeadState.block.latestSequencerEventTimestamp,
     )
+
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    blockOrderer.sequencingTime
 }
