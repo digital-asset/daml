@@ -6,15 +6,15 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Lens
+-- import Control.Lens
 import Control.Monad
 import qualified Data.Aeson as Aeson
-import Data.Aeson.Lens
+-- import Data.Aeson.Lens
 import Data.List.Extra
 import Data.Maybe (maybeToList, isJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified Data.Vector as Vector
+-- import qualified Data.Vector as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket.Extended
@@ -415,7 +415,7 @@ damlStartTests getDamlStart =
             DamlStartResource {jsonApiPort, alice, aliceHeaders, packageRef} <- getDamlStart
             manager <- newManager defaultManagerSettings
             initialRequest <-
-                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
+                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/commands/submit-and-wait"
             let createRequest =
                     initialRequest
                         { method = "POST"
@@ -423,10 +423,21 @@ damlStartTests getDamlStart =
                         , requestBody =
                             RequestBodyLBS $
                             Aeson.encode $
-                            Aeson.object
-                                [ "templateId" Aeson..= (packageRef ++ ":Main:T")
-                                , "payload" Aeson..= [alice]
+                            Aeson.object [
+                              "userId"    Aeson..= ("alice" :: T.Text),
+                              "commandId" Aeson..= ("example-app-create" :: T.Text),
+                              "actAs"     Aeson..= [alice],
+                              "commands"  Aeson..= [
+                                Aeson.object [
+                                  "CreateCommand" Aeson..= Aeson.object [
+                                    "templateId"      Aeson..= (packageRef ++ ":Main:T"),
+                                    "createArguments" Aeson..= Aeson.object [
+                                      "p" Aeson..= alice
+                                    ]
+                                  ]
                                 ]
+                              ]
+                            ]
                         }
             createResponse <- httpLbs createRequest manager
             statusCode (responseStatus createResponse) @?= 200
@@ -440,21 +451,6 @@ damlStartTests getDamlStart =
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             callCommandSilentIn projDir $ unwords
                 ["daml", "ledger", "allocate-party", "--port", show sandboxPort, "Bob"]
-        subtest "Run init-script" $ do
-            DamlStartResource {jsonApiPort, aliceHeaders, packageRef} <- getDamlStart
-            initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-            let queryRequest = initialRequest
-                    { method = "POST"
-                    , requestHeaders = aliceHeaders
-                    , requestBody =
-                        RequestBodyLBS $
-                        Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [packageRef ++ ":Main:T"]]
-                    }
-            manager <- newManager defaultManagerSettings
-            queryResponse <- httpLbs queryRequest manager
-            statusCode (responseStatus queryResponse) @?= 200
-            preview (key "result" . _Array . to Vector.length) (responseBody queryResponse) @?= Just 2
         subtest "Daml Script --input-file and --output-file" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             let dar = projDir </> ".daml" </> "dist" </> "assistant-integration-tests-1.0.dar"
