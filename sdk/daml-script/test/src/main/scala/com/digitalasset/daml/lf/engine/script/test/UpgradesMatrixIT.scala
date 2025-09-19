@@ -4,52 +4,45 @@
 package com.digitalasset.daml.lf.engine.script
 package test
 
-import com.daml.integrationtest.CantonFixture
 import com.daml.SdkVersion
-import com.digitalasset.daml.lf.archive.ArchiveParser
-import com.digitalasset.daml.lf.archive.{Dar, DarWriter}
+import com.daml.integrationtest.CantonFixture
 import com.digitalasset.daml.lf.archive.DamlLf._
+import com.digitalasset.daml.lf.archive.{ArchiveParser, Dar, DarWriter}
 import com.digitalasset.daml.lf.command.ApiCommand
-import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.UpgradesMatrixCases.{
-  CreationPackageStatus,
-  CreationPackageUnvetted,
-  CreationPackageVetted,
-}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.ReadablePackageId
-import com.digitalasset.daml.lf.engine.{
-  UpgradesMatrix,
-  UpgradesMatrixCases,
-  UpgradesMatrixCasesV2Dev,
-}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
   AdminLedgerClient,
   GrpcLedgerClient,
 }
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
+import com.digitalasset.daml.lf.engine.{
+  UpgradesMatrix,
+  UpgradesMatrixCases,
+  UpgradesMatrixCasesV2Dev,
+}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.value.Value._
 import com.google.protobuf.ByteString
-
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration._
-import scalaz.OneAnd
-import org.scalatest.Inside.inside
-import org.scalatest.Assertion
 import io.grpc.{Status, StatusRuntimeException}
+import org.scalatest.Assertion
+import org.scalatest.Inside.inside
+import scalaz.OneAnd
 
-// Split the tests across four suites with four Canton runners, which brings
+import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContext, Future}
+
+// Split the tests across eight suites with eight Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(CreationPackageUnvetted, 2, 0)
-class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(CreationPackageUnvetted, 2, 1)
-
-class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 0)
-class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 1)
-class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 2)
-class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 3)
-class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 4)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(CreationPackageVetted, 6, 5)
+class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
+class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
+class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 5)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
@@ -125,13 +118,21 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
   override protected def beforeAll(): scala.Unit = {
     implicit def executionContext: ExecutionContext = ExecutionContext.global
     super.beforeAll()
-    val client = Await.result(
+    scriptClient = Await.result(
       for {
         client <- defaultLedgerClient()
         _ <- Future.traverse(
           List(commonDefsDar, templateDefsV1Dar, templateDefsV2Dar, clientLocalDar, clientGlobalDar)
         )(dar => client.packageManagementClient.uploadDarFile(dar))
-        adminClient <- createAdminClient()
+        adminClient <- {
+          import com.digitalasset.canton.ledger.client.configuration._
+          AdminLedgerClient.singleHostWithUnknownParticipantId(
+            hostIp = "localhost",
+            port = ledgerPorts.head.adminPort.value,
+            token = None,
+            channelConfig = LedgerClientChannelConfiguration.InsecureDefaults,
+          )
+        }
         scriptClient = new GrpcLedgerClient(
           client,
           Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
@@ -140,16 +141,6 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         )
       } yield scriptClient,
       30.seconds,
-    )
-  }
-
-  private def createAdminClient(): Future[AdminLedgerClient] = {
-    import com.digitalasset.canton.ledger.client.configuration._
-    AdminLedgerClient.singleHostWithUnknownParticipantId(
-      hostIp = "localhost",
-      port = ledgerPorts.head.adminPort.value,
-      token = None,
-      channelConfig = LedgerClientChannelConfiguration.InsecureDefaults,
     )
   }
 
@@ -279,9 +270,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
       result <- withUnvettedPackages(
         creationPackageStatus match {
           case UpgradesMatrixCases.CreationPackageVetted => List.empty
-          // TODO(https://github.com/digital-asset/daml/issues/21667): change to [creationPackages] once the vetting
-          //  checked is disabled in submission
-          case UpgradesMatrixCases.CreationPackageUnvetted => List.empty
+          case UpgradesMatrixCases.CreationPackageUnvetted => creationPackages
         }
       ) {
         scriptClient.submit(
