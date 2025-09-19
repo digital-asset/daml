@@ -667,28 +667,13 @@ class IdeLedgerClient(
         }
 
       val eitherSpeedyDisclosures
-          : Either[script.IdeLedgerRunner.SubmissionError, ImmArray[speedy.DisclosedContract]] = {
-        import scalaz.syntax.traverse._
-        import scalaz.std.either._
-        for {
-          fatContacts <-
-            disclosures
-              .to(ImmArray)
-              .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
-              .left
-              .map(err =>
-                makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage))
-              )
-          contracts = fatContacts
-          disclosures <-
-            try {
-              val (preprocessedDisclosed, _, _) =
-                preprocessor.unsafePreprocessDisclosedContracts(contracts)
-              Right(preprocessedDisclosed)
-            } catch {
-              case Error.Preprocessing.Lookup(err) => Left(makeLookupError(err))
-            }
-        } yield disclosures
+          : Either[script.IdeLedgerRunner.SubmissionError, List[FatContractInstance]] = {
+        import cats.implicits._
+
+        disclosures
+          .traverse(b => TransactionCoder.decodeFatContractInstance(b.blob.toByteString))
+          .left
+          .map(err => makeEmptySubmissionError(script.Error.DisclosureDecoding(err.errorMessage)))
       }
 
       val ledgerApi = IdeLedgerRunner.ScriptLedgerApi(ledger)
@@ -696,10 +681,11 @@ class IdeLedgerClient(
       for {
         speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, speedyDisclosures)
+        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
         result =
           IdeLedgerRunner.submit(
             compiledPackages,
+            speedyDisclosures,
             ledgerApi,
             actAs.toSet,
             readAs,
