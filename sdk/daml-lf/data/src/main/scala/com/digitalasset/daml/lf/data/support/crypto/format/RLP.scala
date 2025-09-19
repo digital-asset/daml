@@ -73,13 +73,19 @@ object RLP {
 
   private def encodeLen(data: Bytes, extra: Int): Bytes = {
     val len = data.length
-    val numLenBits = if (len <= 1) 1 else Math.ceil(Math.log10(len.toDouble) / Math.log10(2))
-    val numLenBytes = Math.ceil(numLenBits / 8).toInt
-    val lenBytes = Bytes.fromByteArray(
-      ByteBuffer.allocate(numLenBytes).order(ByteOrder.BIG_ENDIAN).putInt(len).array()
-    )
+    // Ethereum encodes integers in big endian format with no leading zeros.
+    // So, integer 0 would be represented as Bytes.Empty
+    if (len == 0) {
+      Bytes.fromByte(extra.toByte)
+    } else {
+      val numLenBits = if (len == 1) 1 else Math.ceil(Math.log10(len.toDouble) / Math.log10(2))
+      val numLenBytes = Math.ceil(numLenBits / 8).toInt
+      val lenBytes = Bytes.fromByteArray(
+        ByteBuffer.allocate(numLenBytes).order(ByteOrder.BIG_ENDIAN).putInt(len).array()
+      )
 
-    Bytes.fromByte((lenBytes.length + extra).toByte) ++ lenBytes
+      Bytes.fromByte((lenBytes.length + extra).toByte) ++ lenBytes
+    }
   }
 
   private def decodeLen(lenBytes: Bytes, extra: Int): Int = {
