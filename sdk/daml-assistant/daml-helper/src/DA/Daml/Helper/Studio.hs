@@ -44,9 +44,10 @@ runDamlStudio replaceExt remainingArguments = do
             , runfilesPathPrefix = mainWorkspace </> "compiler"
             }
 
-    let removeOldBundledExtension = whenJust oldBundled removePathForcibly
+    let usingDpm = isNothing mSdkPath
+        removeOldBundledExtension = whenJust oldBundled removePathForcibly
         uninstall name = do
-            (exitCode, out, err) <- runVsCodeCommand ["--uninstall-extension", name]
+            (exitCode, out, err) <- runVsCodeCommand ["--uninstall-extension", name] []
             when (exitCode /= ExitSuccess) $ do
                 hPutStrLn stderr . unlines $
                     [ "Failed to uninstall published version of Daml Studio."
@@ -71,6 +72,7 @@ runDamlStudio replaceExt remainingArguments = do
             when (not publishedExtensionIsInstalled) $ do
                 (exitCode, _out, err) <- runVsCodeCommand
                     ["--install-extension", publishedExtensionName]
+                    []
                 when (exitCode /= ExitSuccess) $ do
                     hPutStr stderr . unlines $
                         [ err
@@ -99,7 +101,9 @@ runDamlStudio replaceExt remainingArguments = do
     -- Then, open visual studio code.
     mPackagePath <- getPackagePath
     let path = fromMaybe "." mPackagePath
-    (exitCode, _out, err) <- runVsCodeCommand (path : remainingArguments)
+    -- Set env var for updating the VSCode option for whether to use DPM
+    -- If not set, extension will not update the option
+    (exitCode, _out, err) <- runVsCodeCommand (path : remainingArguments) [("DAML_USING_DPM", if usingDpm then "1" else "0")]
     when (exitCode /= ExitSuccess) $ do
         hPutStrLn stderr . unlines $
             [ err
@@ -117,8 +121,8 @@ data ReplaceExtension
     -- ^ Replace with published extension (the default).
 
 -- | Run VS Code command with arguments, returning the exit code, stdout & stderr.
-runVsCodeCommand :: [String] -> IO (ExitCode, String, String)
-runVsCodeCommand args = do
+runVsCodeCommand :: [String] -> [(String, String)] -> IO (ExitCode, String, String)
+runVsCodeCommand args extraEnv = do
     originalEnv <- getEnvironment
     let envVarsToRemove = resolutionFileEnvVar : damlEnvVars
         strippedEnv = filter ((`notElem` envVarsToRemove) . fst) originalEnv
@@ -127,7 +131,7 @@ runVsCodeCommand args = do
         commandEnv = addVsCodeToPath strippedEnv
             -- ^ Ensure "code" is in PATH before running command.
         command = toVsCodeCommand args
-        process = setEnv commandEnv command
+        process = setEnv (extraEnv ++ commandEnv) command
     (exit, out, err) <- readProcess process
     pure (exit, UTF8.toString out, UTF8.toString err)
 
@@ -188,7 +192,7 @@ getInstalledExtensions = do
 
           getExtensions :: IO [Lowercase]
           getExtensions = do
-              (_exitCode, extensionsStr, _err) <- runVsCodeCommand ["--list-extensions"]
+              (_exitCode, extensionsStr, _err) <- runVsCodeCommand ["--list-extensions"] []
               pure $ map Lowercase $ lines extensionsStr
 
 newtype Lowercase = Lowercase { originalString :: String }
@@ -202,7 +206,7 @@ instance Ord Lowercase where
 
 installBundledExtension :: FilePath -> IO ()
 installBundledExtension pathToVsix = do
-    (exitCode, _out, err) <- runVsCodeCommand ["--install-extension", pathToVsix]
+    (exitCode, _out, err) <- runVsCodeCommand ["--install-extension", pathToVsix] []
     when (exitCode /= ExitSuccess) $ do
         hPutStr stderr . unlines $
            [ err

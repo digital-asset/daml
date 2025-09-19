@@ -12,6 +12,7 @@ module DA.Daml.Resolution.Config
   , ExpandedSdkPackages (..)
   , ResolutionData (..)
   , PackageResolutionData (..)
+  , ErrorPackageResolution (..)
   , ValidPackageResolution (..)
   , ResolutionError (..)
   , DPMUnsupportedError (..)

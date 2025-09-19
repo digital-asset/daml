@@ -52,6 +52,13 @@ export async function activate(context: vscode.ExtensionContext) {
     ),
   };
 
+  if (process.env.DAML_USING_DPM != undefined) {
+    await vscode.workspace
+      .getConfiguration("daml")
+      .update("useDPMWhenAvailable", process.env.DAML_USING_DPM == "1");
+    process.env.DAML_USING_DPM = undefined;
+  }
+
   await startLanguageServers(context);
 
   vscode.workspace.onDidChangeConfiguration(
