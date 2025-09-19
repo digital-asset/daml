@@ -114,6 +114,7 @@ class Engine(val config: EngineConfig) {
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
       forbidLocalContractIds = config.forbidLocalContractIds,
+      costModel = preprocessing.CostModel.EmptyCostModelImplicits,
     )
 
   def info = new EngineInfo(config)
@@ -169,6 +170,7 @@ class Engine(val config: EngineConfig) {
         disclosedContractIds,
         disclosedKeyHashes,
       )
+      _ <- preprocessor.getInputCost
       result <-
         interpretCommands(
           validating = false,

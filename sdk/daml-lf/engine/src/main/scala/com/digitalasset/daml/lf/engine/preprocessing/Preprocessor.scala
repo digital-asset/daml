@@ -39,16 +39,44 @@ import scala.annotation.tailrec
   *   [[ResultNeedPackage]] continuation is called.
   * @param forbidLocalContractIds when `true` the preprocessor will reject
   *   any value/command/transaction that contains a local Contract ID.
+  * @param costModel the preprocessor input cost model that should be used
+  * @param initialInputCost initial input cost
+  * @param maxInputCost maximum input cost. Any input cost that exceeds this value will cause engine evaluation to
+  *   terminate with an error.
   */
 private[engine] final class Preprocessor(
     compiledPackages: CompiledPackages,
     loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
     forbidLocalContractIds: Boolean = true,
+    costModel: CostModel.CostModelImplicits = CostModel.EmptyCostModelImplicits,
+    initialInputCost: CostModel.Cost = 0L,
+    maxInputCost: CostModel.Cost = Long.MaxValue,
 ) {
 
   import Preprocessor._
+  import costModel._
 
   import compiledPackages.pkgInterface
+
+  private[this] var inputCost: CostModel.Cost = initialInputCost
+
+  def updateInputCost[A](value: A)(implicit cost: A => CostModel.Cost): Unit = {
+    inputCost += cost(value)
+  }
+
+  def getInputCost: Result[CostModel.Cost] = {
+    if (inputCost <= maxInputCost) {
+      ResultDone(inputCost)
+    } else {
+      ResultError(
+        Error.Preprocessing.Internal(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "Preprocessing input cost budget exceeded",
+          None,
+        )
+      )
+    }
+  }
 
   val commandPreprocessor =
     new CommandPreprocessor(
@@ -181,7 +209,10 @@ private[engine] final class Preprocessor(
   def buildPackageResolution(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
       packagePreference: Set[Ref.PackageId] = Set.empty,
-  ): Result[Map[Ref.PackageName, Ref.PackageId]] =
+  ): Result[Map[Ref.PackageName, Ref.PackageId]] = {
+    updateInputCost(packageMap)
+    updateInputCost(packagePreference)
+
     packagePreference.foldLeft(EmptyPackageResolution)((acc, pkgId) =>
       for {
         pkgName <- packageMap.get(pkgId) match {
@@ -203,6 +234,7 @@ private[engine] final class Preprocessor(
         }
       } yield m.updated(pkgName, pkgId)
     )
+  }
 
   def buildGlobalKey(
       templateId: Ref.TypeConId,
@@ -223,17 +255,23 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: data.ImmArray[command.ApiCommand],
-  ): Result[ImmArray[speedy.ApiCommand]] =
+  ): Result[ImmArray[speedy.ApiCommand]] = {
+    updateInputCost(cmds)
+
     safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
     }
+  }
 
   def preprocessDisclosedContracts(
       discs: data.ImmArray[FatContractInstance]
-  ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] =
+  ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] = {
+    updateInputCost(discs)
+
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
       commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }
+  }
 
   private[engine] def preprocessReplayCommand(
       cmd: ReplayCommand
@@ -280,11 +318,15 @@ private[engine] final class Preprocessor(
   def preprocessApiContractKeys(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       keys: Seq[ApiContractKey],
-  ): Result[Seq[GlobalKey]] =
+  ): Result[Seq[GlobalKey]] = {
+    updateInputCost(keys)
+
     safelyRun(pullPackage(pkgResolution, keys.view.map(_.templateRef))) {
       commandPreprocessor.unsafePreprocessApiContractKeys(pkgResolution, keys)
     }
+  }
 
+  // TODO: do we need to calculate pre-processor sizes for pre-fetching?
   private[engine] def prefetchContractIdsAndKeys(
       commands: ImmArray[speedy.ApiCommand],
       prefetchKeys: Seq[GlobalKey],
