@@ -305,8 +305,8 @@ private[lf] object IdeLedgerRunner {
       doEnrichment: Boolean = true,
   )(implicit loggingContext: LoggingContext): SubmissionResult[R] = {
 
-    val disclosuresByCoid = disclosures.map(fci => fci.contractId -> fci).toMap
-    val disclosuresByKey = disclosures.collect {
+    val disclosuresByCoid = disclosures.view.map(fci => fci.contractId -> fci).toMap
+    val disclosuresByKey = disclosures.view.collect {
       case fci if fci.contractKeyWithMaintainers.isDefined =>
         fci.contractKeyWithMaintainers.get.globalKey -> fci.contractId
     }.toMap
