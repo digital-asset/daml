@@ -1897,10 +1897,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       ) match {
         case (_, _, _, _, Local, CreationPackageUnvetted) =>
           None // local contracts cannot be created from unvetted packages
-        case (_, _, _, _, Disclosed, CreationPackageUnvetted) =>
-          // TODO(https://github.com/digital-asset/daml/issues/21667): support unvetted creation packages for disclosed
-          //  contracts
-          None
         case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _, _) =>
           None // There are no fetch* or lookupByKey commands
         case (_, Exercise | ExerciseInterface, _, Command, Local, _) =>

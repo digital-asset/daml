@@ -89,18 +89,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         signatories = immutable.Set(setupData.alice),
       )
 
-    val globalContract: FatContractInstance =
-      TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
-        packageName = cases.templateDefsPkgName,
-        template = testHelper.v1TplId,
-        arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
-        signatories = immutable.Set(setupData.alice),
-        observers = immutable.Set.empty,
-        contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
-      )
-
-    val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
+    val globalContract: FatContractInstance = FatContractInstanceImpl(
       version = cases.langVersion,
       contractId = setupData.globalContractId,
       packageName = cases.templateDefsPkgName,
@@ -121,12 +110,8 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     val submitters = Set(setupData.alice)
     val readAs = Set.empty[Party]
 
-    val disclosures = contractOrigin match {
-      case UpgradesMatrixCases.Disclosed => ImmArray(globalContractDisclosure)
-      case _ => ImmArray.empty
-    }
     val lookupContractById = contractOrigin match {
-      case UpgradesMatrixCases.Global =>
+      case UpgradesMatrixCases.Global | UpgradesMatrixCases.Disclosed =>
         Map(
           setupData.clientLocalContractId -> clientLocalContract,
           setupData.clientGlobalContractId -> clientGlobalContract,
@@ -139,7 +124,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         )
     }
     val lookupContractByKey = contractOrigin match {
-      case UpgradesMatrixCases.Global =>
+      case UpgradesMatrixCases.Global | UpgradesMatrixCases.Disclosed =>
         val keyMap = Map(
           testHelper
             .globalContractKeyWithMaintainers(setupData)
@@ -161,7 +146,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = disclosures,
+        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,
