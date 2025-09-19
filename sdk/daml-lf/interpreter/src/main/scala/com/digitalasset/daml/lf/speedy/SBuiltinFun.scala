@@ -1325,7 +1325,7 @@ private[lf] object SBuiltinFun {
                 contractKey.lfValue,
               )
             )
-          case _ => {
+          case _ =>
             machine.ptx
               .insertCreate(
                 preparationTime = machine.preparationTime,
@@ -1333,20 +1333,18 @@ private[lf] object SBuiltinFun {
                 optLocation = machine.getLastLocation,
                 contractIdVersion = machine.contractIdVersion,
               ) match {
-              case Right((coid, newPtx)) => {
+              case Right((coid, newPtx)) =>
                 machine.enforceLimitSignatoriesAndObservers(coid, contract)
                 machine.storeLocalContract(coid, templateId, templateArg)
                 machine.ptx = newPtx
                 machine.insertContractInfoCache(coid, contract)
                 machine.metrics.incrTransactionNodeCount()
                 Control.Value(SContractId(coid))
-              }
-              case Left((newPtx, err)) => {
+
+              case Left((newPtx, err)) =>
                 machine.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
                 Control.Error(convTxError(err))
-              }
             }
-          }
         }
       }
     }
@@ -1382,7 +1380,6 @@ private[lf] object SBuiltinFun {
         coid,
         templateId,
         templateArg,
-        allowCatchingContractInfoErrors = false,
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
         val pkgName = machine.tmplId2PackageName(templateId)
@@ -1541,9 +1538,9 @@ private[lf] object SBuiltinFun {
                 srcMetadata,
                 dstTmplId,
                 dstSArg,
-              )({ case (dstTmplId, dstArg, _) =>
+              ) { case (dstTmplId, dstArg, _) =>
                 k(SAny(Ast.TTyCon(dstTmplId), dstArg))
-              })
+              }
             }
           }
         }
@@ -1562,7 +1559,6 @@ private[lf] object SBuiltinFun {
             coid,
             srcTmplId,
             srcSArg,
-            allowCatchingContractInfoErrors = false,
           ) { srcContracInfo =>
             processSrcContract(
               srcContracInfo.packageName,
@@ -1749,9 +1745,7 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Q] = {
       val (srcTplId, srcArg) = getSAnyContract(args, 0)
-      fromInterface(machine, srcTplId, srcArg, dstTplId) { dstArg =>
-        Control.Value(SOptional(dstArg))
-      }
+      fromInterface(machine, srcTplId, srcArg, dstTplId)
     }
   }
 
@@ -1760,9 +1754,9 @@ private[lf] object SBuiltinFun {
       srcTplId: TypeConId,
       srcArg: SRecord,
       dstTplId: TypeConId,
-  )(k: Option[SValue] => Control[Q]): Control[Q] = {
+  ): Control[Q] = {
     if (dstTplId == srcTplId) {
-      k(Some(srcArg))
+      Control.Value(SOptional(Some(srcArg)))
     } else if (dstTplId.qualifiedName == srcTplId.qualifiedName) {
       val srcPkgName = machine.tmplId2PackageName(dstTplId)
       val dstPkgName = machine.tmplId2PackageName(srcTplId)
@@ -1771,13 +1765,13 @@ private[lf] object SBuiltinFun {
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
         importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
-          k(Some(templateArg))
+          Control.Value(SOptional(Some(templateArg)))
         }
       } else {
-        k(None)
+        Control.Value(SValue.SValue.None)
       }
     } else {
-      k(None)
+      Control.Value(SValue.SValue.None)
     }
   }
 
@@ -1878,23 +1872,15 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Nothing] = {
       val (templateId, record) = getSAnyContract(args, 0)
-      viewInterface(machine, ifaceId, templateId, record)(Control.Expression)
-    }
-  }
 
-  private[this] def viewInterface[Q](
-      machine: Machine[_],
-      ifaceId: TypeConId,
-      templateId: TypeConId,
-      record: SValue,
-  )(k: SExpr => Control[Q]): Control[Q] = {
-    val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
-      crash(
-        s"Attempted to call view for interface ${ifaceId} on a wrapped " +
-          s"template of type ${ifaceId}, but there's no matching interface instance."
-      )
-    )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-    k(SEApp(SEVal(ref), ArraySeq(record)))
+      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+        crash(
+          s"Attempted to call view for interface ${ifaceId} on a wrapped " +
+            s"template of type ${ifaceId}, but there's no matching interface instance."
+        )
+      )(iiRef => InterfaceInstanceViewDefRef(iiRef))
+      Control.Expression(SEApp(SEVal(ref), ArraySeq(record)))
+    }
   }
 
   /** $insertFetch[tid]
@@ -1919,7 +1905,6 @@ private[lf] object SBuiltinFun {
           coid,
           templateId,
           templateArg,
-          allowCatchingContractInfoErrors = false,
         ) { contract =>
           val version = machine.tmplId2TxVersion(templateId)
           machine.ptx.insertFetch(
@@ -2058,7 +2043,6 @@ private[lf] object SBuiltinFun {
                     coid,
                     templateId,
                     templateArg,
-                    allowCatchingContractInfoErrors = false,
                   )(_ => operation.handleKeyFound(coid))
                 }
 
@@ -2079,7 +2063,6 @@ private[lf] object SBuiltinFun {
                         coid,
                         templateId,
                         templateArg,
-                        allowCatchingContractInfoErrors = false,
                       )(_ => operation.handleKeyFound(coid))
                     }
                   (c, true)
@@ -2706,7 +2689,6 @@ private[lf] object SBuiltinFun {
               coid,
               srcTmplId,
               srcSArg,
-              allowCatchingContractInfoErrors = false,
             ) { srcContracInfo =>
               processSrcContract(srcTmplId, srcContracInfo.metadata, srcContracInfo.arg)
             }
@@ -2745,7 +2727,6 @@ private[lf] object SBuiltinFun {
       coid,
       dstTmplId,
       dstTmplArg,
-      allowCatchingContractInfoErrors = false,
     ) { dstContract =>
       ensureContractActive(machine, coid, dstContract.templateId) {
         machine.enforceLimitAddInputContract()
@@ -2867,8 +2848,10 @@ private[lf] object SBuiltinFun {
   private def importValue[Q](machine: Machine[Q], typ: Ast.Type, value: V)(
       f: SValue => Control[Q]
   ): Control[Q] = {
-    val e = SEImportValue(typ, value)
-    executeExpression(machine, e)(f)
+    machine.importValue(typ, value) match {
+      case Right(value) => f(value)
+      case Left(error) => Control.Error(error)
+    }
   }
 
   // Get the contract info for a contract, computing if not in our cache
@@ -2877,7 +2860,6 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       templateId: Identifier,
       templateArg: SValue,
-      allowCatchingContractInfoErrors: Boolean,
   )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
     machine.contractInfoCache.get((coid, templateId.packageId)) match {
       case Some(contract) =>
@@ -2889,7 +2871,7 @@ private[lf] object SBuiltinFun {
           machine,
           templateId,
           templateArg,
-          allowCatchingContractInfoErrors,
+          allowCatchingContractInfoErrors = false,
         ) { contract =>
           machine.insertContractInfoCache(coid, contract)
           f(contract)
