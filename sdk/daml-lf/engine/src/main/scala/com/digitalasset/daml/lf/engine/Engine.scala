@@ -42,6 +42,7 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.data
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
@@ -114,7 +115,7 @@ class Engine(val config: EngineConfig) {
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
       forbidLocalContractIds = config.forbidLocalContractIds,
-      costModel = preprocessing.CostModel.EmptyCostModelImplicits,
+      costModel = data.CostModel.EmptyCostModelImplicits,
     )
 
   def info = new EngineInfo(config)

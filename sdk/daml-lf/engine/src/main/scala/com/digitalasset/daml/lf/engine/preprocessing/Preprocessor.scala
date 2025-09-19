@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.digitalasset.daml.lf.command.{ApiContractKey, ReplayCommand}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{CostModel, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.{
@@ -336,7 +336,7 @@ private[engine] final class Preprocessor(
     updateInputCost(prefetchKeys)
     updateInputCost(disclosedContractIds)
     updateInputCost(disclosedKeyHashes)
-    
+
     safelyRun(
       ResultError(
         Error.Preprocessing.Internal(

@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
-package engine
-package preprocessing
+package data
 
 import com.digitalasset.daml.lf.command.ApiContractKey
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -14,6 +12,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
 }
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.{command, crypto, language, speedy}
 
 import scala.collection.immutable.TreeSet
 import scala.language.implicitConversions
@@ -29,7 +28,7 @@ private[lf] object CostModel {
 
     implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost
 
-    implicit def costOfTypeConId(value: Ref.TypeConId): Cost
+    implicit def costOfIdentifier(value: Ref.Identifier): Cost
 
     implicit def costOfString(value: String): Cost
 
@@ -49,9 +48,13 @@ private[lf] object CostModel {
 
     implicit def costOfValue(value: Value): Cost
 
+    implicit def costOfSpeedyValue(value: speedy.SValue): Cost
+
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost
 
     implicit def costOfApiCommand(value: command.ApiCommand): Cost
+
+    implicit def costOfSpeedyApiCommand(value: speedy.ApiCommand): Cost
 
     implicit def costOfApiContractKey(value: ApiContractKey): Cost
 
@@ -93,7 +96,7 @@ private[lf] object CostModel {
 
     implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost = 0L
 
-    implicit def costOfTypeConId(value: Ref.TypeConId): Cost = 0L
+    implicit def costOfIdentifier(value: Ref.Identifier): Cost = 0L
 
     implicit def costOfString(value: String): Cost = 0L
 
@@ -113,9 +116,13 @@ private[lf] object CostModel {
 
     implicit def costOfValue(value: Value): Cost = 0L
 
+    implicit def costOfSpeedyValue(value: speedy.SValue): Cost = 0L
+
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost = 0L
 
     implicit def costOfApiCommand(value: command.ApiCommand): Cost = 0L
+
+    implicit def costOfSpeedyApiCommand(value: speedy.ApiCommand): Cost = 0L
 
     implicit def costOfApiContractKey(value: ApiContractKey): Cost = 0L
 
@@ -160,7 +167,7 @@ private[lf] object CostModel {
 
     implicit def costOfTypeConRef(value: Ref.TypeConRef): Cost = 1 + value.toString.length.toLong
 
-    implicit def costOfTypeConId(value: Ref.TypeConId): Cost = 1 + value.toString.length.toLong
+    implicit def costOfIdentifier(value: Ref.Identifier): Cost = 1 + value.toString.length.toLong
 
     implicit def costOfString(value: String): Cost = value.length.toLong
 
@@ -218,6 +225,8 @@ private[lf] object CostModel {
         1 + costOfOption(tycon) + costOfString(variant) + costOfValue(value)
     }
 
+    implicit def costOfSpeedyValue(value: speedy.SValue): Cost = costOfValue(value.toNormalizedValue)
+
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost = {
       val FatContractInstanceImpl(
         version,
@@ -232,16 +241,16 @@ private[lf] object CostModel {
         authData,
       ) = value
 
-      1 + costOfLanguageVersion(version)
-        + costOfContractId(contractId)
-        + costOfString(pkgName)
-        + costOfTypeConId(templateId)
-        + costOfValue(createArg)
-        + costOfTreeSet(signatories)
-        + costOfTreeSet(stakeholders)
-        + costOfOption(contractKey)
-        + costOfCreationTime(createdAt)
-        + costOfBytes(authData)
+      1 + costOfLanguageVersion(version) +
+        costOfContractId(contractId) +
+        costOfString(pkgName) +
+        costOfIdentifier(templateId) +
+        costOfValue(createArg) +
+        costOfTreeSet(signatories) +
+        costOfTreeSet(stakeholders) +
+        costOfOption(contractKey) +
+        costOfCreationTime(createdAt) +
+        costOfBytes(authData)
     }
 
     implicit def costOfApiCommand(value: command.ApiCommand): Cost = value match {
@@ -249,22 +258,48 @@ private[lf] object CostModel {
         1 + costOfTypeConRef(templateRef) + costOfValue(arg)
 
       case command.ApiCommand.Exercise(typeRef, contractId, choiceId, arg) =>
-        1 + costOfTypeConRef(typeRef)
-          + costOfContractId(contractId)
-          + costOfString(choiceId)
-          + costOfValue(arg)
+        1 + costOfTypeConRef(typeRef) +
+          costOfContractId(contractId) +
+          costOfString(choiceId) +
+          costOfValue(arg)
 
       case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, arg) =>
-        1 + costOfTypeConRef(templateRef)
-          + costOfValue(contractKey)
-          + costOfString(choiceId)
-          + costOfValue(arg)
+        1 + costOfTypeConRef(templateRef) +
+          costOfValue(contractKey) +
+          costOfString(choiceId) +
+          costOfValue(arg)
 
       case command.ApiCommand.CreateAndExercise(templateRef, createArg, choiceId, choiceArg) =>
-        1 + costOfTypeConRef(templateRef)
-          + costOfValue(createArg)
-          + costOfString(choiceId)
-          + costOfValue(choiceArg)
+        1 + costOfTypeConRef(templateRef) +
+          costOfValue(createArg) +
+          costOfString(choiceId) +
+          costOfValue(choiceArg)
+    }
+
+    implicit def costOfSpeedyApiCommand(value: speedy.ApiCommand): Cost = value match {
+      case speedy.Command.Create(templateId, arg) =>
+        1 + costOfIdentifier(templateId) +
+          costOfSpeedyValue(arg)
+      case speedy.Command.CreateAndExercise(templateId, createArg, choiceId, choiceArg) =>
+        1 + costOfIdentifier(templateId) +
+          costOfSpeedyValue(createArg) +
+          costOfString(choiceId) +
+          costOfSpeedyValue(choiceArg)
+      case speedy.Command.ExerciseTemplate(templateId, contractId, choiceId, arg) =>
+        1 + costOfIdentifier(templateId) +
+          costOfSpeedyValue(contractId) +
+          costOfString(choiceId) +
+          costOfSpeedyValue(arg)
+      case speedy.Command.ExerciseInterface(interfaceId, contractId, choiceId, arg) =>
+        1 + costOfIdentifier(interfaceId) +
+          costOfSpeedyValue(contractId) +
+          costOfString(choiceId) +
+          costOfSpeedyValue(arg)
+      case speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) =>
+        1 + costOfIdentifier(templateId) +
+          costOfSpeedyValue(key) +
+          costOfString(choiceId) +
+          costOfSpeedyValue(arg)
     }
 
     implicit def costOfApiContractKey(value: ApiContractKey): Cost = {
@@ -280,10 +315,10 @@ private[lf] object CostModel {
     implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost = {
       val GlobalKeyWithMaintainers(key, maintainers) = value
       val costOfGlobalKey =
-        1 + costOfTypeConId(key.templateId)
-          + costOfString(key.packageName)
-          + costOfValue(key.key)
-          + costOfHash(key.hash)
+        1 + costOfIdentifier(key.templateId) +
+          costOfString(key.packageName) +
+          costOfValue(key.key) +
+          costOfHash(key.hash)
 
       1 + costOfGlobalKey + costOfSet(maintainers)
     }
