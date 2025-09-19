@@ -118,7 +118,7 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   )
 
   private[metrics] val bufferedReaderConversion: Item = Item(
-    bufferedReaderPrefix :+ "conversion",
+    bufferedReaderPrefix :+ "com/digitalasset/daml/lf/data/crypto/format",
     summary = "The time to convert a buffered fetched event to a ledger api stream response.",
     description = """Entries are stored in the buffer in a custom deserialized representation.
                       |When served to the gRPC layer, the entries are processed and serialized.
