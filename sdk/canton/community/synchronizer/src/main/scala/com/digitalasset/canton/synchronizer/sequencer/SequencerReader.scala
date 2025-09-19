@@ -48,12 +48,13 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{Member, SequencerId}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
+import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Source}
 import org.apache.pekko.{Done, NotUsed}
@@ -128,9 +129,10 @@ class SequencerReader(
     topologyClientMember: Member,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
+)(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends NamedLogging
     with FlagCloseable
+    with Spanning
     with HasCloseContext {
 
   private val psid = syncCryptoApi.psid
@@ -339,32 +341,34 @@ class SequencerReader(
         eventTraceContext,
       ) = unsignedEventData
       implicit val traceContext: TraceContext = eventTraceContext
-      logger.trace(
-        s"Latest topology client timestamp for $member at sequencing timestamp ${event.timestamp} is $previousTopologyClientTimestamp / $latestTopologyClientTimestamp"
-      )
-
-      val res = for {
-        signingSnapshot <- OptionT
-          .fromOption[FutureUnlessShutdown](topologySnapshotO)
-          .getOrElseF {
-            val warnIfApproximate =
-              event.previousTimestamp.nonEmpty // warn if we are not at genesis
-            SyncCryptoClient.getSnapshotForTimestamp(
-              syncCryptoApi,
-              event.timestamp,
-              previousTopologyClientTimestamp,
-              protocolVersion,
-              warnIfApproximate = warnIfApproximate,
-            )
-          }
-        _ = logger.debug(
-          s"Signing event with sequencing timestamp ${event.timestamp} for $member"
+      withSpan("SequencerReader.signValidatedEvent") { implicit traceContext => span =>
+        logger.trace(
+          s"Latest topology client timestamp for $member at sequencing timestamp ${event.timestamp} is $previousTopologyClientTimestamp / $latestTopologyClientTimestamp"
         )
-        signed <- synchronizeWithClosing("sign-event")(
-          signEvent(event, signingSnapshot).value
-        )
-      } yield signed
-      EitherT(res)
+        span.setAttribute("member", member.toString)
+        val res = for {
+          signingSnapshot <- OptionT
+            .fromOption[FutureUnlessShutdown](topologySnapshotO)
+            .getOrElseF {
+              val warnIfApproximate =
+                event.previousTimestamp.nonEmpty // warn if we are not at genesis
+              SyncCryptoClient.getSnapshotForTimestamp(
+                syncCryptoApi,
+                event.timestamp,
+                previousTopologyClientTimestamp,
+                protocolVersion,
+                warnIfApproximate = warnIfApproximate,
+              )
+            }
+          _ = logger.debug(
+            s"Signing event with sequencing timestamp ${event.timestamp} for $member"
+          )
+          signed <- synchronizeWithClosing("sign-event")(
+            signEvent(event, signingSnapshot).value
+          )
+        } yield signed
+        EitherT(res)
+      }
     }
 
     def latestTopologyClientTimestampAfter(

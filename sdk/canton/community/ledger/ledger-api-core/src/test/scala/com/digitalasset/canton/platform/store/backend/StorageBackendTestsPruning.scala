@@ -84,7 +84,12 @@ private[backend] trait StorageBackendTestsPruning
             consuming = false,
             signatory = signatoryParty,
           ),
-          DbDto.IdFilterNonConsumingInformee(5L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterNonConsumingInformee(
+            5L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           dtoExercise(
             offset = offset(4),
             eventSequentialId = 6L,
@@ -93,15 +98,30 @@ private[backend] trait StorageBackendTestsPruning
             signatory = signatoryParty,
             actor = actorParty,
           ),
-          DbDto.IdFilterConsumingStakeholder(6L, someTemplateId.toString, signatoryParty),
-          DbDto.IdFilterConsumingNonStakeholderInformee(6L, someTemplateId.toString, actorParty),
+          DbDto.IdFilterConsumingStakeholder(
+            6L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
+          DbDto.IdFilterConsumingNonStakeholderInformee(
+            6L,
+            someTemplateId.toString,
+            actorParty,
+            first_per_sequential_id = true,
+          ),
           dtoUnassign(
             offset = offset(5),
             eventSequentialId = 7L,
             contractId = hashCid("#1"),
             signatory = signatoryParty,
           ),
-          DbDto.IdFilterUnassignStakeholder(7L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterUnassignStakeholder(
+            7L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
         ) ++
           Vector(
             dtoExercise(
@@ -111,7 +131,12 @@ private[backend] trait StorageBackendTestsPruning
               consuming = false,
               signatory = signatoryParty,
             ),
-            DbDto.IdFilterNonConsumingInformee(8L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterNonConsumingInformee(
+              8L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
             dtoExercise(
               offset = offset(7),
               eventSequentialId = 9L,
@@ -120,15 +145,30 @@ private[backend] trait StorageBackendTestsPruning
               signatory = signatoryParty,
               actor = actorParty,
             ),
-            DbDto.IdFilterConsumingStakeholder(9L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterConsumingNonStakeholderInformee(9L, someTemplateId.toString, actorParty),
+            DbDto.IdFilterConsumingStakeholder(
+              9L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterConsumingNonStakeholderInformee(
+              9L,
+              someTemplateId.toString,
+              actorParty,
+              first_per_sequential_id = true,
+            ),
             dtoUnassign(
               offset = offset(8),
               eventSequentialId = 10L,
               contractId = hashCid("#1"),
               signatory = signatoryParty,
             ),
-            DbDto.IdFilterUnassignStakeholder(10L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterUnassignStakeholder(
+              10L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
           ),
         _,
       )
@@ -205,17 +245,38 @@ private[backend] trait StorageBackendTestsPruning
         ) ++
           Vector(
             create,
-            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty),
+            DbDto.IdFilterCreateStakeholder(
+              1L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterCreateStakeholder(
+              1L,
+              someTemplateId.toString,
+              observerParty,
+              first_per_sequential_id = false,
+            ),
             DbDto.IdFilterCreateNonStakeholderInformee(
               1L,
               someTemplateId.toString,
               nonStakeholderInformeeParty,
+              first_per_sequential_id = true,
             ),
             metaFromSingle(create),
             archive,
-            DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, observerParty),
+            DbDto.IdFilterConsumingStakeholder(
+              2L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterConsumingStakeholder(
+              2L,
+              someTemplateId.toString,
+              observerParty,
+              first_per_sequential_id = false,
+            ),
             metaFromSingle(archive),
           ),
         _,
@@ -282,16 +343,32 @@ private[backend] trait StorageBackendTestsPruning
         ) ++
           Vector(
             create,
-            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty),
+            DbDto.IdFilterCreateStakeholder(
+              1L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterCreateStakeholder(
+              1L,
+              someTemplateId.toString,
+              observerParty,
+              first_per_sequential_id = false,
+            ),
             DbDto.IdFilterCreateNonStakeholderInformee(
               1L,
               someTemplateId.toString,
               nonStakeholderInformeeParty,
+              first_per_sequential_id = true,
             ),
             metaFromSingle(create),
             unassign,
-            DbDto.IdFilterUnassignStakeholder(2L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterUnassignStakeholder(
+              2L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
             metaFromSingle(unassign),
           ),
         _,
@@ -387,31 +464,72 @@ private[backend] trait StorageBackendTestsPruning
         Vector(
           dtoPartyEntry(offset(1), signatoryParty),
           create,
-          DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatoryParty),
-          DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, observerParty),
+          DbDto.IdFilterCreateStakeholder(
+            1L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
+          DbDto.IdFilterCreateStakeholder(
+            1L,
+            someTemplateId.toString,
+            observerParty,
+            first_per_sequential_id = false,
+          ),
           DbDto.IdFilterCreateNonStakeholderInformee(
             1L,
             someTemplateId.toString,
             nonStakeholderInformeeParty,
+            first_per_sequential_id = true,
           ),
           metaFromSingle(create),
           archiveDifferentSynchronizer,
-          DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterConsumingStakeholder(
+            2L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           metaFromSingle(archiveDifferentSynchronizer),
           archiveDifferentContractId,
-          DbDto.IdFilterConsumingStakeholder(3L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterConsumingStakeholder(
+            3L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           metaFromSingle(archiveDifferentContractId),
           unassignDifferentSynchronizer,
-          DbDto.IdFilterUnassignStakeholder(4L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterUnassignStakeholder(
+            4L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           metaFromSingle(unassignDifferentSynchronizer),
           unassignDifferentContractId,
-          DbDto.IdFilterUnassignStakeholder(5L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterUnassignStakeholder(
+            5L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           metaFromSingle(unassignDifferentContractId),
           archiveAfter,
-          DbDto.IdFilterConsumingStakeholder(6L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterConsumingStakeholder(
+            6L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           metaFromSingle(archiveAfter),
           unassignAfter,
-          DbDto.IdFilterUnassignStakeholder(7L, someTemplateId.toString, signatoryParty),
+          DbDto.IdFilterUnassignStakeholder(
+            7L,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
           metaFromSingle(unassignAfter),
         ),
         _,
@@ -544,11 +662,26 @@ private[backend] trait StorageBackendTestsPruning
         ) ++
           Vector(
             assign,
-            DbDto.IdFilterAssignStakeholder(1L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterAssignStakeholder(
+              1L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
             metaFromSingle(assign),
             archive,
-            DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, signatoryParty),
-            DbDto.IdFilterConsumingStakeholder(2L, someTemplateId.toString, observerParty),
+            DbDto.IdFilterConsumingStakeholder(
+              2L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterConsumingStakeholder(
+              2L,
+              someTemplateId.toString,
+              observerParty,
+              first_per_sequential_id = false,
+            ),
             metaFromSingle(archive),
           ),
         _,
@@ -611,10 +744,20 @@ private[backend] trait StorageBackendTestsPruning
         ) ++
           Vector(
             assign,
-            DbDto.IdFilterAssignStakeholder(1L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterAssignStakeholder(
+              1L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
             metaFromSingle(assign),
             unassign,
-            DbDto.IdFilterUnassignStakeholder(2L, someTemplateId.toString, signatoryParty),
+            DbDto.IdFilterUnassignStakeholder(
+              2L,
+              someTemplateId.toString,
+              signatoryParty,
+              first_per_sequential_id = true,
+            ),
             metaFromSingle(unassign),
           ),
         _,
@@ -660,7 +803,12 @@ private[backend] trait StorageBackendTestsPruning
       Vector(
         archive,
         DbDto
-          .IdFilterConsumingStakeholder(eventSequentialId, someTemplateId.toString, signatoryParty),
+          .IdFilterConsumingStakeholder(
+            eventSequentialId,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
         metaFromSingle(archive),
       )
     }
@@ -681,7 +829,12 @@ private[backend] trait StorageBackendTestsPruning
       Vector(
         unassign,
         DbDto
-          .IdFilterUnassignStakeholder(eventSequentialId, someTemplateId.toString, signatoryParty),
+          .IdFilterUnassignStakeholder(
+            eventSequentialId,
+            someTemplateId.toString,
+            signatoryParty,
+            first_per_sequential_id = true,
+          ),
         metaFromSingle(unassign),
       )
     }
@@ -710,7 +863,12 @@ private[backend] trait StorageBackendTestsPruning
     )
     val assignEvents = Vector(
       assign,
-      DbDto.IdFilterAssignStakeholder(4L, someTemplateId.toString, signatoryParty),
+      DbDto.IdFilterAssignStakeholder(
+        4L,
+        someTemplateId.toString,
+        signatoryParty,
+        first_per_sequential_id = true,
+      ),
       metaFromSingle(assign),
     )
     val archiveDifferentSynchronizerEarlierThanPruning = archive(
@@ -940,12 +1098,14 @@ private[backend] trait StorageBackendTestsPruning
             1L,
             someTemplateId.toString,
             divulgee,
+            first_per_sequential_id = true,
           ),
           contract2_createWithLocalStakeholder,
           DbDto.IdFilterCreateStakeholder(
             2L,
             someTemplateId.toString,
             divulgee,
+            first_per_sequential_id = true,
           ),
         ),
         _,

@@ -38,7 +38,7 @@ private[participant] object AutomaticAssignment {
       stakeholders: Set[LfPartyId],
       unassignmentSubmitterMetadata: ReassignmentSubmitterMetadata,
       participantId: ParticipantId,
-      t0: CantonTimestamp,
+      targetTimestamp: Target[CantonTimestamp],
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
@@ -62,13 +62,12 @@ private[participant] object AutomaticAssignment {
     def performAutoAssignmentOnce
         : EitherT[FutureUnlessShutdown, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
-        targetIps <- reassignmentCoordination
-          .getTimeProofAndSnapshot(
+        targetTopology <- reassignmentCoordination
+          .getRecentTopologySnapshot(
             targetSynchronizer,
             targetStaticSynchronizerParameters,
           )
-          .map(_._2)
-        possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.map(_.ipsSnapshot)))
+        possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetTopology))
         assignmentSubmitter <- EitherT.fromOption[FutureUnlessShutdown](
           possibleSubmittingParties.headOption,
           AutomaticAssignmentError("No possible submitting party for automatic assignment"),
@@ -125,7 +124,8 @@ private[participant] object AutomaticAssignment {
         exclusivityLimit <- EitherT
           .fromEither[FutureUnlessShutdown](
             targetSynchronizerParameters.unwrap
-              .assignmentExclusivityLimitFor(t0)
+              .assignmentExclusivityLimitFor(targetTimestamp.unwrap)
+              .map(Target(_))
               .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap, _))
           )
           .leftWiden[ReassignmentProcessorError]
@@ -134,7 +134,7 @@ private[participant] object AutomaticAssignment {
         _ <-
           if (targetHostedStakeholders.nonEmpty) {
             logger.info(
-              s"Registering automatic submission of assignment with ID $id at time $exclusivityLimit, where base timestamp is $t0"
+              s"Registering automatic submission of assignment with ID $id at time $exclusivityLimit, where base timestamp is $targetTimestamp"
             )
             for {
               _ <- reassignmentCoordination
@@ -176,7 +176,7 @@ private[participant] object AutomaticAssignment {
         .cryptoSnapshot(
           targetSynchronizer,
           targetStaticSynchronizerParameters,
-          t0,
+          targetTimestamp,
         )
 
       targetSnapshot = targetIps.map(_.ipsSnapshot)

@@ -372,8 +372,14 @@ private[store] object StorageBackendTestValues {
       event_sequential_id: Long,
       template_id: NameTypeConRef,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ): DbDto.IdFilterCreateStakeholder =
-    DbDto.IdFilterCreateStakeholder(event_sequential_id, template_id.toString, party_id)
+    DbDto.IdFilterCreateStakeholder(
+      event_sequential_id,
+      template_id.toString,
+      party_id,
+      first_per_sequential_id,
+    )
 
   def dtoInterning(
       internal: Int,

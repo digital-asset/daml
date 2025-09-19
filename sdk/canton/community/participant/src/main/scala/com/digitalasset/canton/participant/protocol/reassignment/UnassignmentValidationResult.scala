@@ -47,7 +47,7 @@ final case class UnassignmentValidationResult(
     unassignmentData.sourcePSId
   val targetSynchronizer: Target[PhysicalSynchronizerId] = unassignmentData.targetPSId
   val stakeholders: Set[LfPartyId] = unassignmentData.stakeholders.all
-  val targetTimestamp: CantonTimestamp = unassignmentData.targetTimestamp
+  val targetTimestamp: Target[CantonTimestamp] = unassignmentData.targetTimestamp
 
   override def reassignmentId: ReassignmentId = unassignmentData.reassignmentId
 
@@ -151,5 +151,17 @@ object UnassignmentValidationResult {
 
   final case class ReassigningParticipantValidationResult(
       errors: Seq[ReassignmentValidationError]
-  ) extends ReassignmentValidationResult.ReassigningParticipantValidationResult
+  ) extends ReassignmentValidationResult.ReassigningParticipantValidationResult {
+    def isTargetTsValidatable: Boolean = !errors.exists {
+      case UnassignmentValidationError.TargetTimestampTooFarInFuture => true
+      case _ => false
+    }
+  }
+
+  object ReassigningParticipantValidationResult {
+    val TargetTimestampTooFarInFuture: ReassigningParticipantValidationResult =
+      ReassigningParticipantValidationResult(
+        Seq(UnassignmentValidationError.TargetTimestampTooFarInFuture)
+      )
+  }
 }

@@ -63,6 +63,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "s2",
       "95",
       "96",
+      "97",
     ).sorted
     iterators.synchronizerIds.toList.sorted shouldBe List(
       "synchronizer2",
@@ -73,6 +74,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "synchronizer7",
       "synchronizer8",
       "synchronizer9",
+      "synchronizer10",
     ).sorted
     iterators.packageIds.toList.sorted shouldBe List(
       "25.1",
@@ -80,6 +82,12 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "50.1",
       "87.1",
       "94.1",
+    ).sorted
+    iterators.userIds.toList.sorted shouldBe List(
+      "65"
+    ).sorted
+    iterators.participantIds.toList.sorted shouldBe List(
+      "participant1"
     ).sorted
   }
 
@@ -234,6 +242,18 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       record_time = 0,
     ),
     DbDto.SequencerIndexMoved("synchronizer9"),
+    DbDto.EventPartyToParticipant(
+      event_sequential_id = 0,
+      event_offset = 1,
+      update_id = "",
+      party_id = "97",
+      participant_id = "participant1",
+      participant_permission = 1,
+      participant_authorization_event = 2,
+      synchronizer_id = "synchronizer10",
+      record_time = 0,
+      trace_context = Array.empty,
+    ),
   )
 
 }

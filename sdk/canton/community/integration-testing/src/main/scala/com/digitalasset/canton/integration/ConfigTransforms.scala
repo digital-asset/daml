@@ -39,6 +39,7 @@ import monocle.macros.syntax.lens.*
 import monocle.macros.{GenLens, GenPrism}
 
 import scala.concurrent.duration.*
+import scala.jdk.DurationConverters.*
 import scala.util.Random
 
 /** Utilities for transforming instances of [[CantonConfig]]. A transform itself is merely a
@@ -665,6 +666,18 @@ object ConfigTransforms {
         .replace(config.NonNegativeFiniteDuration(maxDeduplicationDuration))
     )
 
+  def updateTargetTimestampForwardTolerance(
+      targetTimestampForwardTolerance: scala.concurrent.duration.FiniteDuration
+  ): ConfigTransform = updateTargetTimestampForwardTolerance(targetTimestampForwardTolerance.toJava)
+
+  def updateTargetTimestampForwardTolerance(
+      targetTimestampForwardTolerance: java.time.Duration
+  ): ConfigTransform =
+    ConfigTransforms.updateAllParticipantConfigs_(
+      _.focus(_.parameters.reassignmentsConfig.targetTimestampForwardTolerance)
+        .replace(config.NonNegativeFiniteDuration(targetTimestampForwardTolerance))
+    )
+
   /** Flag the provided participants as being replicated. Keep in mind to actually work they need to
     * be configured to share the same database (see
     * [[com.digitalasset.canton.integration.plugins.UseSharedStorage]]).
@@ -847,6 +860,14 @@ object ConfigTransforms {
 
   def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
     _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
+
+  def zeroReassignmentTimeProofFreshnessProportion: ConfigTransform =
+    ConfigTransforms.updateAllParticipantConfigs_(
+      // Always send time proofs for reassignments to avoid using outdated topology snapshots.
+      // We don't want to change the default to avoid potential time proof flooding in production.
+      _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
+        .replace(NonNegativeInt.zero)
+    )
 
   def disableConnectionPool: ConfigTransform = setConnectionPool(false)
 

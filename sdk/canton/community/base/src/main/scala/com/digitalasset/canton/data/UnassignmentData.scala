@@ -29,7 +29,7 @@ final case class UnassignmentData(
     reassigningParticipants: Set[ParticipantId],
     sourcePSId: Source[PhysicalSynchronizerId],
     targetPSId: Target[PhysicalSynchronizerId],
-    targetTimestamp: CantonTimestamp,
+    targetTimestamp: Target[CantonTimestamp],
     // Data unknown by the submitter
     unassignmentTs: CantonTimestamp,
 ) extends HasProtocolVersionedWrapper[UnassignmentData] {
@@ -59,7 +59,7 @@ final case class UnassignmentData(
     reassigningParticipantUids = reassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
     sourcePhysicalSynchronizerId = sourcePSId.unwrap.toProtoPrimitive,
     targetPhysicalSynchronizerId = targetPSId.unwrap.toProtoPrimitive,
-    targetTimestamp = targetTimestamp.toProtoTimestamp.some,
+    targetTimestamp = targetTimestamp.unwrap.toProtoTimestamp.some,
     unassignmentTs = unassignmentTs.toProtoTimestamp.some,
   )
 }
@@ -87,7 +87,7 @@ object UnassignmentData
     sourcePSId = unassignmentRequest.sourceSynchronizer,
     targetPSId = unassignmentRequest.targetSynchronizer,
     unassignmentTs = unassignmentTs,
-    targetTimestamp = unassignmentRequest.targetTimeProof.timestamp,
+    targetTimestamp = unassignmentRequest.targetTimestamp,
   )
 
   private def fromProtoV30(proto: v30.UnassignmentData): ParsingResult[UnassignmentData] = for {
@@ -130,11 +130,13 @@ object UnassignmentData
       )
       .map(Target(_))
 
-    targetTimestamp <- ProtoConverter.parseRequired(
-      CantonTimestamp.fromProtoTimestamp,
-      "target_timestamp",
-      proto.targetTimestamp,
-    )
+    targetTimestamp <- ProtoConverter
+      .parseRequired(
+        CantonTimestamp.fromProtoTimestamp,
+        "target_timestamp",
+        proto.targetTimestamp,
+      )
+      .map(Target(_))
 
     unassignmentTs <- ProtoConverter.parseRequired(
       CantonTimestamp.fromProtoTimestamp,

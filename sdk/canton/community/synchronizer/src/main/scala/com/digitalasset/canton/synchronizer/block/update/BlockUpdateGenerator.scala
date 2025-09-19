@@ -25,9 +25,10 @@ import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValid
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.synchronizer.sequencer.{InFlightAggregations, SubmissionOutcome}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import io.opentelemetry.api.trace.Tracer
 
 import scala.collection.immutable
 import scala.concurrent.ExecutionContext
@@ -99,9 +100,10 @@ class BlockUpdateGeneratorImpl(
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     memberValidator: SequencerMemberValidator,
-)(implicit val closeContext: CloseContext)
+)(implicit val closeContext: CloseContext, tracer: Tracer)
     extends BlockUpdateGenerator
-    with NamedLogging {
+    with NamedLogging
+    with Spanning {
   import BlockUpdateGenerator.*
   import BlockUpdateGeneratorImpl.*
 
@@ -128,31 +130,32 @@ class BlockUpdateGeneratorImpl(
 
   override def extractBlockEvents(block: RawLedgerBlock): BlockEvents = {
     val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
-      implicit val traceContext: TraceContext = tracedEvent.traceContext
-      logger.trace("Extracting event from raw block")
-      // TODO(i26169) Prevent zip bombing when decompressing the request
-      LedgerBlockEvent.fromRawBlockEvent(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)(
-        tracedEvent.value
-      ) match {
-        case Left(error) =>
-          InvalidLedgerEvent.Error(block.blockHeight, error).discard
-          None
+      withSpan("BlockUpdateGenerator.extractBlockEvents") { implicit traceContext => _ =>
+        logger.trace("Extracting event from raw block")
+        // TODO(i26169) Prevent zip bombing when decompressing the request
+        LedgerBlockEvent.fromRawBlockEvent(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)(
+          tracedEvent.value
+        ) match {
+          case Left(error) =>
+            InvalidLedgerEvent.Error(block.blockHeight, error).discard
+            None
 
-        case Right(event) =>
-          sequencingTimeLowerBoundExclusive match {
-            case Some(boundExclusive)
-                if !LogicalUpgradeTime.canProcessKnowingPastUpgrade(
-                  upgradeTime = Some(boundExclusive),
-                  sequencingTime = event.timestamp,
-                ) =>
-              SequencedBeforeOrAtLowerBound
-                .Error(event.timestamp, boundExclusive, event.toString)
-                .log()
-              None
+          case Right(event) =>
+            sequencingTimeLowerBoundExclusive match {
+              case Some(boundExclusive)
+                  if !LogicalUpgradeTime.canProcessKnowingPastUpgrade(
+                    upgradeTime = Some(boundExclusive),
+                    sequencingTime = event.timestamp,
+                  ) =>
+                SequencedBeforeOrAtLowerBound
+                  .Error(event.timestamp, boundExclusive, event.toString)
+                  .log()
+                None
 
-            case _ => Some(Traced(event))
-          }
-      }
+              case _ => Some(Traced(event))
+            }
+        }
+      }(tracedEvent.traceContext, tracer)
     }
 
     BlockEvents(

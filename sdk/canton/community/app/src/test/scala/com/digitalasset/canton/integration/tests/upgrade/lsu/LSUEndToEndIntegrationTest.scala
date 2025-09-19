@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -135,6 +136,8 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
   }
 }
 
+// TODO(#27960) flaky test
+@UnstableTest
 final class LSUEndToEndReferenceIntegrationTest extends LSUEndToEndIntegrationTest {
   registerPlugin(
     new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
@@ -144,6 +147,8 @@ final class LSUEndToEndReferenceIntegrationTest extends LSUEndToEndIntegrationTe
   )
 }
 
+// TODO(#27960) flaky test
+@UnstableTest
 final class LSUEndToEndBftOrderingIntegrationTest extends LSUEndToEndIntegrationTest {
   registerPlugin(
     new UseBftSequencer(

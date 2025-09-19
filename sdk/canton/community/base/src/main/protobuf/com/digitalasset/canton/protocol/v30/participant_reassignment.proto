@@ -8,7 +8,6 @@ package com.digitalasset.canton.protocol.v30;
 import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
-import "com/digitalasset/canton/time/v30/time_proof.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
@@ -88,7 +87,7 @@ message UnassignmentView {
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string target_physical_synchronizer_id = 2;
-  com.digitalasset.canton.time.v30.TimeProof target_time_proof = 3;
+  int64 target_timestamp = 3;
   repeated ActiveContract contracts = 4;
 }
 

@@ -16,8 +16,7 @@ import com.digitalasset.canton.data.MerkleTree.VersionedMerkleTree
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
-import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{GeneratorsTopology, ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.collection.SeqUtil
@@ -600,20 +599,6 @@ final class GeneratorsData(
       .value
   )
 
-  private val timeProofArb: Arbitrary[TimeProof] = Arbitrary(
-    for {
-      timestamp <- Arbitrary.arbitrary[CantonTimestamp]
-      previousEventTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
-      counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
-    } yield TimeProofTestUtil.mkTimeProof(
-      timestamp,
-      previousEventTimestamp,
-      counter,
-      targetSynchronizerId,
-    )
-  )
-
   implicit val unassignmentViewArb: Arbitrary[UnassignmentView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
@@ -623,7 +608,7 @@ final class GeneratorsData(
       targetSynchronizerId <- Arbitrary
         .arbitrary[Target[PhysicalSynchronizerId]]
         .map(_.map(_.copy(protocolVersion = protocolVersion)))
-      timeProof <- timeProofArb.arbitrary
+      targetTimestamp <- Arbitrary.arbitrary[Target[CantonTimestamp]]
 
       hashOps = TestHash // Not used for serialization
 
@@ -632,7 +617,7 @@ final class GeneratorsData(
         salt,
         contracts,
         targetSynchronizerId,
-        timeProof,
+        targetTimestamp,
         sourceProtocolVersion,
       )
   )
@@ -670,7 +655,7 @@ final class GeneratorsData(
       reassigningParticipants <- boundedSetGen[ParticipantId]
       sourceSynchronizer <- Arbitrary.arbitrary[PhysicalSynchronizerId].map(Source(_))
       targetSynchronizer <- Arbitrary.arbitrary[PhysicalSynchronizerId].map(Target(_))
-      targetTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
+      targetTimestamp <- Arbitrary.arbitrary[Target[CantonTimestamp]]
       unassignmentTs <- Arbitrary.arbitrary[CantonTimestamp]
     } yield UnassignmentData(
       submitterMetadata,
