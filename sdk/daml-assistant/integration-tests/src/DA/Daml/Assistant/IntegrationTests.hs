@@ -6,15 +6,15 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 
 import Control.Concurrent
 import Control.Concurrent.STM
--- import Control.Lens
+import Control.Lens
 import Control.Monad
 import qualified Data.Aeson as Aeson
--- import Data.Aeson.Lens
+import Data.Aeson.Lens
 import Data.List.Extra
-import Data.Maybe (maybeToList, isJust)
+import Data.Maybe (maybeToList, isJust, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
--- import qualified Data.Vector as Vector
+import qualified Data.Vector as Vector
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket.Extended
@@ -451,6 +451,47 @@ damlStartTests getDamlStart =
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             callCommandSilentIn projDir $ unwords
                 ["daml", "ledger", "allocate-party", "--port", show sandboxPort, "Bob"]
+        subtest "Run init-script" $ do
+            DamlStartResource {jsonApiPort, aliceHeaders, packageRef} <- getDamlStart
+            ledgerEndRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/state/ledger-end"
+            manager <- newManager defaultManagerSettings
+            queryResponse <- httpLbs ledgerEndRequest manager
+            statusCode (responseStatus queryResponse) @?= 200
+            let (offset :: Int) = fromJust $ preview (key "offset" . _Integral) (responseBody queryResponse)
+
+            secondRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/state/active-contracts"
+            let queryRequest = secondRequest
+                    { method = "POST"
+                    , requestHeaders = aliceHeaders
+                    , requestBody =
+                        RequestBodyLBS $
+                        Aeson.encode $
+                        Aeson.object [
+                        "verbose"        Aeson..= False,
+                        "eventFormat"    Aeson..= Aeson.Null,
+                        "activeAtOffset" Aeson..= offset,
+                        "filter" Aeson..= Aeson.object [
+                          "filtersByParty" Aeson..= Aeson.object [],
+                          "filtersForAnyParty" Aeson..= Aeson.object [
+                            "cumulative" Aeson..= [
+                              Aeson.object [
+                                "identifierFilter" Aeson..= Aeson.object [
+                                  "TemplateFilter" Aeson..= Aeson.object [
+                                    "value" Aeson..= Aeson.object [
+                                      "templateId" Aeson..= (packageRef ++ ":Main:T")
+                                    ]
+                                  ]
+                                ]
+                              ]
+                            ]
+                          ]
+                        ]
+                      ]
+                    }
+
+            queryResponse <- httpLbs queryRequest manager
+            statusCode (responseStatus queryResponse) @?= 200
+            preview (_Array . to Vector.length) (responseBody queryResponse) @?= Just 2
         subtest "Daml Script --input-file and --output-file" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             let dar = projDir </> ".daml" </> "dist" </> "assistant-integration-tests-1.0.dar"
