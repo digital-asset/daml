@@ -5,7 +5,6 @@
 -- SPDX-License-Identifier: Apache-2.
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 module DA.Daml.LF.Proto3.DecodeV2 (
   module DA.Daml.LF.Proto3.DecodeV2
@@ -52,13 +51,6 @@ data DecodeEnv = DecodeEnv
     , imports             :: !(Either NoPkgImportsReasons (V.Vector PackageId))
     }
 
-makeLensesFor [ ("internedKinds", "internedKindsLens")
-              , ("internedTypes", "internedTypesLens")
-              , ("internedExprs", "internedExprsLens")
-              , ("version", "versionLens")
-              , ("imports", "importsLens")
-              ] ''DecodeEnv
-
 newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
     deriving (Functor, Applicative, Monad, MonadError Error, MonadReader DecodeEnv)
 
@@ -67,12 +59,12 @@ runDecode env act = runExcept $ runReaderT (unDecode act) env
 
 singletonIfLfFlat :: Foldable t => t a -> Decode ()
 singletonIfLfFlat xs =
-  when (length xs /= 1) $ assertSupportsNot versionLens featureFlatArchive $ \v ->
+  when (length xs /= 1) $ assertSupportsNot (to version) featureFlatArchive $ \v ->
     throwError $ ParseError $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
 
 nullIfLfFlat :: Foldable t => t a -> Decode ()
 nullIfLfFlat xs =
-  when (not $ null xs) $ assertSupportsNot versionLens featureFlatArchive $ \v ->
+  when (not $ null xs) $ assertSupportsNot (to version) featureFlatArchive $ \v ->
     throwError $ ParseError $ printf "argument(s) disallowed since lf %s supports flat archives" $ show v
 
 lookupInterned :: Integral b => V.Vector a -> (b -> Error) -> b -> Decode a
@@ -170,7 +162,7 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
     assertStableIfPkgImports id = do
       when (id `notElem` stableIds) $
         assertSupportsNot
-               versionLens
+               (to version)
                featurePackageImports
                (throwError . ParseError . printf "damlc: got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
 
