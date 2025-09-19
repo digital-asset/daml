@@ -6,7 +6,7 @@ package speedy
 
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.crypto.Hash.{HashingMethod, hashContractInstance}
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
@@ -1508,6 +1508,7 @@ private[lf] object SBuiltinFun {
     *  - typechecks and converts to an SValue the argument of the source contract according to the preferred template
     *  - computes the metadata of the contract according to the preferred template (including the ensure clause),
     *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - authenticates the contract against its contract ID if the contract ID uses the TypedNormalForm hashing method
     *  - returns the converted argument wrapped in an SAny
     */
   private[this] def fetchInterface(
@@ -1521,6 +1522,7 @@ private[lf] object SBuiltinFun {
         srcTmplId: TypeConId,
         srcMetadata: ContractMetadata,
         srcArg: V,
+        mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
     ): Control[Question.Update] = {
       resolvePackageName(machine, srcPackageName) { pkgId =>
         val dstTmplId = srcTmplId.copy(pkg = pkgId)
@@ -1538,6 +1540,7 @@ private[lf] object SBuiltinFun {
                 srcMetadata,
                 dstTmplId,
                 dstSArg,
+                mbTypedNormalFormAuthenticator,
               ) { case (dstTmplId, dstArg, _) =>
                 k(SAny(Ast.TTyCon(dstTmplId), dstArg))
               }
@@ -1561,10 +1564,11 @@ private[lf] object SBuiltinFun {
             srcSArg,
           ) { srcContracInfo =>
             processSrcContract(
-              srcContracInfo.packageName,
-              srcTmplId,
-              srcContracInfo.metadata,
-              srcContracInfo.arg,
+              srcPackageName = srcContracInfo.packageName,
+              srcTmplId = srcTmplId,
+              srcMetadata = srcContracInfo.metadata,
+              srcArg = srcContracInfo.arg,
+              mbTypedNormalFormAuthenticator = None,
             )
           }
         }
@@ -1574,14 +1578,18 @@ private[lf] object SBuiltinFun {
           authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
             ensureContractActive(machine, coid, coinst.templateId) {
               processSrcContract(
-                coinst.packageName,
-                coinst.templateId,
-                ContractMetadata(
+                srcPackageName = coinst.packageName,
+                srcTmplId = coinst.templateId,
+                srcMetadata = ContractMetadata(
                   coinst.signatories,
                   coinst.nonSignatoryStakeholders,
                   coinst.contractKeyWithMaintainers,
                 ),
-                coinst.createArg,
+                srcArg = coinst.createArg,
+                mbTypedNormalFormAuthenticator = hashingMethod match {
+                  case HashingMethod.TypedNormalForm => Some(authenticator)
+                  case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
+                },
               )
             }
           }
@@ -2634,6 +2642,7 @@ private[lf] object SBuiltinFun {
     *  - typechecks and converts to an SValue the argument of the source contract according to the target template
     *  - computes the metadata of the contract according to the target template (including the ensure clause),
     *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - authenticates the contract against its contract ID if the contract ID uses the TypedNormalForm hashing method
     *  - returns the converted argument
     */
   private def fetchTemplate(
@@ -2646,6 +2655,7 @@ private[lf] object SBuiltinFun {
         srcTmplId: TypeConId,
         srcMetadata: ContractMetadata,
         srcArg: V,
+        mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
     ): Control[Question.Update] = {
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
         Control.Error(
@@ -2665,6 +2675,7 @@ private[lf] object SBuiltinFun {
               srcMetadata,
               dstTmplId,
               dstSArg,
+              mbTypedNormalFormAuthenticator,
             )({ case (_, _, dstContract) =>
               k(dstContract.value)
             })
@@ -2690,7 +2701,12 @@ private[lf] object SBuiltinFun {
               srcTmplId,
               srcSArg,
             ) { srcContracInfo =>
-              processSrcContract(srcTmplId, srcContracInfo.metadata, srcContracInfo.arg)
+              processSrcContract(
+                srcTmplId = srcTmplId,
+                srcMetadata = srcContracInfo.metadata,
+                srcArg = srcContracInfo.arg,
+                mbTypedNormalFormAuthenticator = None,
+              )
             }
           }
         }
@@ -2700,13 +2716,17 @@ private[lf] object SBuiltinFun {
           authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
             ensureContractActive(machine, coid, coinst.templateId) {
               processSrcContract(
-                coinst.templateId,
-                ContractMetadata(
+                srcTmplId = coinst.templateId,
+                srcMetadata = ContractMetadata(
                   coinst.signatories,
                   coinst.nonSignatoryStakeholders,
                   coinst.contractKeyWithMaintainers,
                 ),
-                coinst.createArg,
+                srcArg = coinst.createArg,
+                mbTypedNormalFormAuthenticator = hashingMethod match {
+                  case HashingMethod.TypedNormalForm => Some(authenticator)
+                  case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
+                },
               )
             }
           }
@@ -2714,6 +2734,14 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** A method called after fetching and upgrading a contract, which:
+    * - computes the metadata of the contract according to the target template (including the ensure clause),
+    *   caches the result, and verifies that it matches the metadata of the source contract
+    * - enforces limits on input contracts, signatories, and observers
+    * - if [mbTypedNormalFormAuthenticator] is defined, authenticates the contract info using SValueHash
+    *
+    * Assumes that the package of [dstTmplId] is already loaded.
+    */
   private def fetchValidateDstContract(
       machine: UpdateMachine,
       coid: V.ContractId,
@@ -2721,6 +2749,7 @@ private[lf] object SBuiltinFun {
       srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
+      mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
   )(k: (TypeConId, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
     getContractInfo(
       machine,
@@ -2738,7 +2767,13 @@ private[lf] object SBuiltinFun {
           srcContractMetadata,
           dstContract.metadata,
         ) { () =>
-          k(dstTmplId, dstTmplArg, dstContract)
+          mbTypedNormalFormAuthenticator match {
+            case Some(authenticator) =>
+              authenticateContractInfo(authenticator, coid, dstContract) { () =>
+                k(dstTmplId, dstTmplArg, dstContract)
+              }
+            case None => k(dstTmplId, dstTmplArg, dstContract)
+          }
         }
       }
     }
@@ -2802,6 +2837,34 @@ private[lf] object SBuiltinFun {
       case None => k()
     }
   }
+
+  /** Authenticates the provided contractInfo using the */
+  private def authenticateContractInfo(
+      authenticator: Hash => Boolean,
+      coid: V.ContractId,
+      contractInfo: ContractInfo,
+  )(k: () => Control[Question.Update]) = if (
+    authenticator(
+      SValueHash.assertHashContractInstance(
+        contractInfo.packageName,
+        contractInfo.templateId.qualifiedName,
+        contractInfo.value,
+      )
+    )
+  )
+    k()
+  else
+    Control.Error(
+      IE.Dev(
+        NameOf.qualifiedNameOfCurrentFunc,
+        IE.Dev
+          .AuthenticationError(
+            coid,
+            contractInfo.value.toNormalizedValue,
+            s"failed to authenticate contract",
+          ),
+      )
+    )
 
   /** Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not. */
   private def checkContractUpgradable(
