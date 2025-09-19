@@ -30,6 +30,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ContractAuthenticator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -124,6 +125,12 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       validation.isSuccessful.futureValueUS shouldBe true
     }
 
+    "report non-validatable when cannot fetch target topology" in {
+      val validation = performValidation(targetTopology = None).futureValueUS.value
+
+      validation.reassigningParticipantValidationResult.isTargetTsValidatable shouldBe false
+    }
+
     "fail when wrong metadata is given" in {
 
       def testBadMetadata(badMetadata: ContractMetadata): Unit =
@@ -204,7 +211,8 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
         validateUnassignmentTree(
           FullUnassignmentTree(
             UnassignmentViewTree(commonData, view, Source(testedProtocolVersion), pureCrypto)
-          )
+          ),
+          Some(Target(identityFactory.topologySnapshot())),
         ).futureValueUS.value.commonValidationResult.contractAuthenticationResultF.futureValueUS
       }
 
@@ -333,7 +341,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
   private def validateUnassignmentTree(
       fullUnassignmentTree: FullUnassignmentTree,
-      identityFactory: TestingIdentityFactory = identityFactory,
+      targetTopology: Option[Target[TopologySnapshot]],
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val recipients = Recipients.cc(
       reassigningParticipants.toSeq.head,
@@ -347,14 +355,23 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
     val contractAuthenticator = ContractAuthenticator(new SymbolicPureCrypto())
 
-    val unassignmentValidation =
-      new UnassignmentValidation(confirmingParticipant, contractAuthenticator)
+    val getTopologyAtTs = new GetTopologyAtTimestamp {
+      import com.digitalasset.canton.tracing.TraceContext
+      override def maybeAwaitTopologySnapshot(
+          targetPSId: Target[PhysicalSynchronizerId],
+          requestedTimestamp: Target[CantonTimestamp],
+      )(implicit tc: TraceContext) = EitherT.rightT(targetTopology)
+    }
 
-    unassignmentValidation.perform(
-      targetTopology = Some(Target(identityFactory.topologySnapshot())),
+    val unassignmentValidation = UnassignmentValidation(
+      isReassigningParticipant = true,
+      participantId = confirmingParticipant,
+      contractAuthenticator = contractAuthenticator,
       activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
-    )(parsedRequest = parsed)
+      getTopologyAtTs = getTopologyAtTs,
+    )
 
+    unassignmentValidation.perform(parsedRequest = parsed)
   }
 
   private def performValidation(
@@ -362,6 +379,9 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       reassigningParticipantsOverride: Set[ParticipantId] = reassigningParticipants,
       submitter: LfPartyId = signatory,
       identityFactory: TestingIdentityFactory = identityFactory,
+      targetTopology: Option[Target[TopologySnapshot]] = Some(
+        Target(identityFactory.topologySnapshot())
+      ),
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val unassignmentRequest =
       ReassignmentDataHelpers(contract, sourceSynchronizer, targetSynchronizer, identityFactory)
@@ -381,7 +401,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
     validateUnassignmentTree(
       fullUnassignmentTree,
-      identityFactory,
+      targetTopology,
     )
   }
 }

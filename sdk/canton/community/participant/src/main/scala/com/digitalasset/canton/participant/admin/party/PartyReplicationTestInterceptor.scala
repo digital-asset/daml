@@ -23,7 +23,7 @@ trait PartyReplicationTestInterceptor {
     */
   def onSourceParticipantProgress(store: SourceParticipantStore)(implicit
       traceContext: TraceContext
-  ): ProceedOrWait
+  ): ProceedOrWait = Proceed
 
   /** Specifies whether the TP proceeds or waits depending on the contents of the store.
     * @return
@@ -31,7 +31,7 @@ trait PartyReplicationTestInterceptor {
     */
   def onTargetParticipantProgress(store: TargetParticipantStore)(implicit
       traceContext: TraceContext
-  ): ProceedOrWait
+  ): ProceedOrWait = Proceed
 }
 
 object PartyReplicationTestInterceptor {
@@ -42,12 +42,5 @@ object PartyReplicationTestInterceptor {
   /** In production, always proceed as any type of disruptive or stalling behavior is to be used in
     * integration tests only.
     */
-  object AlwaysProceed extends PartyReplicationTestInterceptor {
-    override def onSourceParticipantProgress(store: SourceParticipantStore)(implicit
-        traceContext: TraceContext
-    ): ProceedOrWait = Proceed
-    override def onTargetParticipantProgress(store: TargetParticipantStore)(implicit
-        traceContext: TraceContext
-    ): ProceedOrWait = Proceed
-  }
+  object AlwaysProceed extends PartyReplicationTestInterceptor
 }

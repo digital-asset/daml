@@ -5,9 +5,7 @@ package com.digitalasset.canton.http
 
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.digitalasset.canton.http.json.v1.{CommandService, ContractsService, V1Routes}
 import com.digitalasset.canton.http.json.v2.V2Routes
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import org.apache.pekko.http.scaladsl.model.*
@@ -15,8 +13,7 @@ import org.apache.pekko.http.scaladsl.server
 import org.apache.pekko.http.scaladsl.server.Directives.{extractClientIP, *}
 import org.apache.pekko.http.scaladsl.server.RouteResult.*
 import org.apache.pekko.http.scaladsl.server.{Directive, Directive0, PathMatcher, Route}
-import scalaz.syntax.std.option.*
-import scalaz.{-\/, EitherT, \/-}
+import scalaz.EitherT
 import spray.json.*
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,7 +26,6 @@ import util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 class Endpoints(
     healthService: HealthService,
     v2Routes: V2Routes,
-    v1Routes: V1Routes,
     shouldLogHttpBodies: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -163,8 +159,7 @@ class Endpoints(
     logRequestAndResultFn(lc)
 
   def all(implicit
-      lc0: LoggingContextOf[InstanceUUID],
-      metrics: HttpApiMetrics,
+      lc0: LoggingContextOf[InstanceUUID]
   ): Route = extractRequest apply { _ =>
     implicit val lc: LoggingContextOf[InstanceUUID with RequestID] =
       extendWithRequestIdLogCtx(identity)(lc0)
@@ -180,7 +175,6 @@ class Endpoints(
     def path[L](pm: PathMatcher[L]) =
       server.Directives.path(pm) & markThroughputAndLogProcessingTime & logRequestAndResult
     concat(
-      v1Routes.v1Routes,
       path("livez") apply responseToRoute(Future.successful(HttpResponse(status = StatusCodes.OK))),
       path("readyz") apply responseToRoute(healthService.ready().map(_.toHttpResponse)),
       v2Routes.v2Routes,
@@ -191,34 +185,4 @@ class Endpoints(
 
 object Endpoints {
   type ET[A] = EitherT[Future, Error, A]
-
-  final class IntoEndpointsError[-A](val run: A => Error) extends AnyVal
-  object IntoEndpointsError {
-    import com.digitalasset.canton.http.json.v1.LedgerClientJwt.Grpc.Category
-
-    implicit val id: IntoEndpointsError[Error] = new IntoEndpointsError(identity)
-
-    implicit val fromCommands: IntoEndpointsError[CommandService.Error] = new IntoEndpointsError({
-      case CommandService.InternalError(id, reason) =>
-        ServerError(
-          new Exception(
-            s"command service error, ${id.cata(sym => s"${sym.name}: ", "")}${reason.getMessage}",
-            reason,
-          )
-        )
-      case CommandService.GrpcError(status) =>
-        ParticipantServerError(status)
-      case CommandService.ClientError(-\/(Category.PermissionDenied), message) =>
-        Unauthorized(message)
-      case CommandService.ClientError(\/-(Category.InvalidArgument), message) =>
-        InvalidUserInput(message)
-    })
-
-    implicit val fromContracts: IntoEndpointsError[ContractsService.Error] =
-      new IntoEndpointsError({ case ContractsService.InternalError(id, msg) =>
-        ServerError.fromMsg(s"contracts service error, ${id.name}: $msg")
-      })
-  }
-
-  private final case class MkHttpResponse[-T](run: T => Future[HttpResponse])
 }

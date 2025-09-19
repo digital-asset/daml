@@ -4,7 +4,6 @@
 package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.JwtDecoder
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
@@ -16,7 +15,6 @@ import com.digitalasset.canton.config.{
   TlsClientConfig,
   TlsServerConfig,
 }
-import com.digitalasset.canton.http.json.v1.V1Routes
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.*
@@ -95,15 +93,6 @@ class HttpService(
       val ledgerClient: DamlLedgerClient =
         DamlLedgerClient.withoutToken(channel, clientConfig, loggerFactory)
 
-      val resolveUser: EndpointsCompanion.ResolveUser =
-        if (startSettings.userManagementWithoutAuthorization)
-          HttpService.resolveUserWithIdp(
-            ledgerClient.userManagementClient,
-            ledgerClient.identityProviderConfigClient,
-          )
-        else
-          HttpService.resolveUser(ledgerClient.userManagementClient)
-
       import org.apache.pekko.http.scaladsl.server.Directives.*
       val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] =
         for {
@@ -126,21 +115,9 @@ class HttpService(
             loggerFactory,
           )
 
-          v1Routes = V1Routes(
-            ledgerClient,
-            httpsConfiguration.isEmpty,
-            HttpService.decodeJwt,
-            debugLoggingOfHttpBodies,
-            resolveUser,
-            ledgerClient.userManagementClient,
-            loggerFactory,
-            websocketConfig,
-          )
-
           jsonEndpoints = new Endpoints(
             healthService,
             v2Routes,
-            v1Routes,
             debugLoggingOfHttpBodies,
             loggerFactory,
           )
@@ -234,15 +211,6 @@ object HttpService extends NoTracing {
       } yield userRight.flatten
 
     }
-  // TODO(#13303) Check that this is intended to be used as ValidateJwt in prod code
-  //              and inline.
-  // Decode JWT without any validation
-  private val decodeJwt: EndpointsCompanion.ValidateJwt =
-    jwt =>
-      \/.fromEither(
-        JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.prettyPrint))
-      )
-
   private[http] def createPortFile(
       file: Path,
       binding: org.apache.pekko.http.scaladsl.Http.ServerBinding,

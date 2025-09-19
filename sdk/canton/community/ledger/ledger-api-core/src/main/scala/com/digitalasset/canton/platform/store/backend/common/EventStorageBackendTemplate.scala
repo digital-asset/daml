@@ -481,7 +481,7 @@ object EventStorageBackendTemplate {
       offset("event_offset") ~
       str("update_id") ~
       int("party_id") ~
-      str("participant_id") ~
+      int("participant_id") ~
       authorizationEventParser("participant_permission", "participant_authorization_event") ~
       int("synchronizer_id") ~
       timestampFromMicros("record_time") ~
@@ -504,7 +504,7 @@ object EventStorageBackendTemplate {
           offset = eventOffset,
           updateId = updateId,
           partyId = stringInterning.party.unsafe.externalize(partyId),
-          participantId = participantId,
+          participantId = stringInterning.participantId.unsafe.externalize(participantId),
           authorizationEvent = authorizationEvent,
           recordTime = recordTime,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(synchronizerId),
@@ -1494,6 +1494,7 @@ abstract class EventStorageBackendTemplate(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
     )(connection)
 
   override def fetchUnassignEventIdsForStakeholder(
@@ -1511,6 +1512,7 @@ abstract class EventStorageBackendTemplate(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
     )(connection)
 
   override def lookupAssignSequentialIdByOffset(
@@ -1796,6 +1798,7 @@ abstract class EventStorageBackendTemplate(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = false,
     )(connection)
 
   override def topologyPartyEventBatch(

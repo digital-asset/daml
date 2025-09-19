@@ -63,6 +63,7 @@ class UpdateStreamingQueries(
         endInclusive = endInclusive,
         limit = limit,
         stringInterning = stringInterning,
+        hasFirstPerSequentialId = true,
       )(connection)
     case EventIdSource.CreateStakeholder =>
       fetchIdsOfCreateEventsForStakeholder(
@@ -83,6 +84,7 @@ class UpdateStreamingQueries(
         endInclusive = endInclusive,
         limit = limit,
         stringInterning = stringInterning,
+        hasFirstPerSequentialId = true,
       )(connection)
     case EventIdSource.NonConsumingInformee =>
       UpdateStreamingQueries.fetchEventIds(
@@ -93,6 +95,7 @@ class UpdateStreamingQueries(
         endInclusive = endInclusive,
         limit = limit,
         stringInterning = stringInterning,
+        hasFirstPerSequentialId = true,
       )(connection)
   }
 
@@ -111,6 +114,7 @@ class UpdateStreamingQueries(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
     )(connection)
 
   private def fetchIdsOfConsumingEventsForStakeholder(
@@ -128,6 +132,7 @@ class UpdateStreamingQueries(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
     )(connection)
 
 }
@@ -136,12 +141,25 @@ object UpdateStreamingQueries {
 
   // TODO(i22416): Rename the arguments of this function, as witnessO and templateIdO are inadequate for party topology events.
   /** @param tableName
-    *   one of filter tables for create, consuming or non-consuming events
+    *   one of the filter tables for create, consuming or non-consuming events
     * @param witnessO
     *   the party for which to fetch the event ids, if None the event ids for all the parties should
     *   be fetched
     * @param templateIdO
-    *   NOTE: this parameter is not applicable for tree tx stream only oriented filters
+    *   the template for which to fetch the event ids, if None the event ids for all the parties
+    *   should be fetched
+    * @param startExclusive
+    *   the lower bound (exclusive) of the event ids range
+    * @param endInclusive
+    *   the upper bound (inclusive) of the event ids range
+    * @param limit
+    *   the maximum number of event ids to fetch
+    * @param stringInterning
+    *   the string interning instance to use for internalizing the party and template id
+    * @param hasFirstPerSequentialId
+    *   true if the table has the first_per_sequential_id column, false otherwise. If true and
+    *   witnessO is None, only a single row per event_sequential_id will be fetched and thus only
+    *   unique event ids will be returned
     */
   def fetchEventIds(
       tableName: String,
@@ -151,6 +169,7 @@ object UpdateStreamingQueries {
       endInclusive: Long,
       limit: Int,
       stringInterning: StringInterning,
+      hasFirstPerSequentialId: Boolean,
   )(connection: Connection): Vector[Long] = {
     val partyIdFilterO = witnessO match {
       case Some(witness) =>
@@ -180,6 +199,13 @@ object UpdateStreamingQueries {
         }
     }
 
+    // if we do not filter by party and the table has first_per_sequential_id column, we only fetch a single row per event_sequential_id
+    val firstPerSequentialIdClause = witnessO match {
+      case None if hasFirstPerSequentialId =>
+        cSQL"AND filters.first_per_sequential_id = true"
+      case _ => cSQL""
+    }
+
     (partyIdFilterO, templateIdFilterO) match {
       case (
             Some((partyIdFilterClause, partyIdOrderingClause)),
@@ -194,6 +220,7 @@ object UpdateStreamingQueries {
            AND event_sequential_id <= $endInclusive
            $partyIdFilterClause
            $templateIdFilterClause
+           $firstPerSequentialIdClause
          ORDER BY
            $partyIdOrderingClause
            $templateIdOrderingClause

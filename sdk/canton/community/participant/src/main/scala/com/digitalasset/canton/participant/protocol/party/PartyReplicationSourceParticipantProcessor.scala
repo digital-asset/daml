@@ -80,6 +80,8 @@ final class PartyReplicationSourceParticipantProcessor private (
 )(implicit override val executionContext: ExecutionContext)
     extends PartyReplicationProcessor {
   protected val processorStore: SourceParticipantStore = InMemoryProcessorStore.sourceParticipant()
+
+  // TODO(#22251): Make this configurable.
   private val contractsPerBatch = PositiveInt.two
 
   override def replicatedContractsCount: NonNegativeInt = processorStore.sentContractsCount
@@ -91,8 +93,7 @@ final class PartyReplicationSourceParticipantProcessor private (
   override def onConnected()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = execute("handle connect to TP") {
-    processorStore.clearInitialContractOrdinalInclusive()
-    EitherTUtil.unitUS
+    super.onConnected().map(_ => processorStore.clearInitialContractOrdinalInclusive())
   }
 
   /** Handle instructions from the target participant
@@ -208,16 +209,6 @@ final class PartyReplicationSourceParticipantProcessor private (
           )
         }
       } yield ()
-    }
-
-  private def notifyCounterParticipantAndPartyReplicatorOnError(
-      code: => EitherT[FutureUnlessShutdown, String, Unit]
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    code.leftSemiflatMap { error =>
-      // Let the PartyReplicator know there has been an error.
-      onError(error)
-      // Let the target participant know there has been an error.
-      sendError(error).value.map(_ => error)
     }
 
   /** Reads contract batches from the ACS in a brute-force fashion via AcsInspection until

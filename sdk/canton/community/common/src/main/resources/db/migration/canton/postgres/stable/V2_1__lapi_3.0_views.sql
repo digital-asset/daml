@@ -365,49 +365,56 @@ create or replace view debug.lapi_pe_assign_id_filter_stakeholder as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_assign_id_filter_stakeholder;
 
 create or replace view debug.lapi_pe_consuming_id_filter_non_stakeholder_informee as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_consuming_id_filter_non_stakeholder_informee;
 
 create or replace view debug.lapi_pe_consuming_id_filter_stakeholder as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_consuming_id_filter_stakeholder;
 
 create or replace view debug.lapi_pe_create_id_filter_non_stakeholder_informee as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_create_id_filter_non_stakeholder_informee;
 
 create or replace view debug.lapi_pe_create_id_filter_stakeholder as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_create_id_filter_stakeholder;
 
 create or replace view debug.lapi_pe_non_consuming_id_filter_informee as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_non_consuming_id_filter_informee;
 
 create or replace view debug.lapi_pe_reassignment_id_filter_stakeholder as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
-    debug.resolve_lapi_interned_string(party_id) as party_id
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
   from lapi_pe_reassignment_id_filter_stakeholder;
 
 create or replace view debug.lapi_string_interning as

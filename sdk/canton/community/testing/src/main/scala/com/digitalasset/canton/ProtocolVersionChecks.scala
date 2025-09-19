@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalactic.source
 import org.scalatest.compatible.Assertion
@@ -162,6 +163,14 @@ trait ProtocolVersionChecksFixtureAsyncWordSpec {
   ) {
     def in(testFun: FixtureParam => Future[Assertion])(implicit pos: source.Position): Unit =
       if (condition) verb.in(testFun) else verb.ignore(testFun)
+
+    def inUS(
+        testFun: FixtureParam => FutureUnlessShutdown[Assertion]
+    )(implicit pos: source.Position): Unit = {
+      def testFunHandleShutdown: FixtureParam => Future[Assertion] =
+        testFun(_).onShutdown(fail(s"Unexpected shutdown in OnlyRunWhenWordSpecStringWrapper.inUS"))
+      if (condition) verb.in(testFunHandleShutdown) else verb.ignore(testFunHandleShutdown)
+    }
 
     def when(testFun: => Unit)(implicit pos: source.Position): Unit =
       if (condition) verb.when(testFun)

@@ -593,7 +593,7 @@ trait ProcessingSteps[
 object ProcessingSteps {
   def getAssignmentExclusivity(
       topologySnapshot: Target[TopologySnapshot],
-      ts: CantonTimestamp,
+      ts: Target[CantonTimestamp],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -602,7 +602,9 @@ object ProcessingSteps {
       synchronizerParameters <- EitherT(topologySnapshot.unwrap.findDynamicSynchronizerParameters())
 
       assignmentExclusivity <- EitherT
-        .fromEither[FutureUnlessShutdown](synchronizerParameters.assignmentExclusivityLimitFor(ts))
+        .fromEither[FutureUnlessShutdown](
+          synchronizerParameters.assignmentExclusivityLimitFor(ts.unwrap)
+        )
     } yield Target(assignmentExclusivity)
 
   def getDecisionTime(

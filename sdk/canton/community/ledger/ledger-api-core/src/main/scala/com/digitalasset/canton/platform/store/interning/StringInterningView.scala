@@ -7,7 +7,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, ParticipantId, UserId}
 
 import scala.concurrent.{Future, blocking}
 
@@ -16,6 +16,8 @@ class DomainStringIterators(
     val templateIds: Iterator[String],
     val synchronizerIds: Iterator[String],
     val packageIds: Iterator[String],
+    val userIds: Iterator[String],
+    val participantIds: Iterator[String],
 )
 
 trait InternizingStringInterningView {
@@ -98,6 +100,8 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
   private val PartyPrefix = "p|"
   private val SynchronizerIdPrefix = "d|"
   private val PackageIdPrefix = "i|"
+  private val UserIdPrefix = "u|"
+  private val ParticipantIdPrefix = "n|"
 
   override val templateId: StringInterningDomain[NameTypeConRef] =
     StringInterningDomain.prefixing(
@@ -131,13 +135,31 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = identity,
     )
 
+  override val userId: StringInterningDomain[UserId] =
+    StringInterningDomain.prefixing(
+      prefix = UserIdPrefix,
+      prefixedAccessor = rawAccessor,
+      to = UserId.assertFromString,
+      from = identity,
+    )
+
+  override def participantId: StringInterningDomain[ParticipantId] =
+    StringInterningDomain.prefixing(
+      prefix = ParticipantIdPrefix,
+      prefixedAccessor = rawAccessor,
+      to = ParticipantId.assertFromString,
+      from = identity,
+    )
+
   override def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)] =
     blocking(synchronized {
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
           domainStringIterators.synchronizerIds.map(SynchronizerIdPrefix + _) ++
-          domainStringIterators.packageIds.map(PackageIdPrefix + _)
+          domainStringIterators.packageIds.map(PackageIdPrefix + _) ++
+          domainStringIterators.userIds.map(UserIdPrefix + _) ++
+          domainStringIterators.participantIds.map(ParticipantIdPrefix + _)
 
       val newEntries = RawStringInterning.newEntries(
         strings = allPrefixedStrings,

@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
@@ -164,14 +165,16 @@ class DbEpochStore(
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
     createFuture(completeEpochActionName(epochNumber), orderingStage = functionFullName) {
+      // asynchronously delete all in-progress messages after an epoch ends
+      storage
+        .update_(
+          sqlu"""delete * from ord_pbft_messages_in_progress where epoch_number <= $epochNumber""",
+          functionFullName,
+        )
+        .discard
+      // synchronously update the completed epoch to no longer be in progress
       storage.update_(
-        for {
-          // delete all in-progress messages after an epoch ends and before we start adding new messages in the new epoch
-          _ <- sqlu"truncate table ord_pbft_messages_in_progress"
-          _ <- sqlu"""update ord_epochs set in_progress = false
-                      where epoch_number = $epochNumber
-                      """
-        } yield (),
+        sqlu"""update ord_epochs set in_progress = false where epoch_number = $epochNumber""",
         functionFullName,
       )
     }

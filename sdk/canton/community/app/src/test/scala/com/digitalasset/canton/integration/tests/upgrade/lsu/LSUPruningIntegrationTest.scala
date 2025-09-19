@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
@@ -154,6 +155,8 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
   }
 }
 
+// TODO(#27960) flaky test
+@UnstableTest
 final class LSUPruningReferenceIntegrationTest extends LSUPruningIntegrationTest {
   registerPlugin(
     new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
@@ -163,6 +166,8 @@ final class LSUPruningReferenceIntegrationTest extends LSUPruningIntegrationTest
   )
 }
 
+// TODO(#27960) flaky test
+@UnstableTest
 final class LSUPruningBftOrderingIntegrationTest extends LSUPruningIntegrationTest {
   registerPlugin(
     new UseBftSequencer(

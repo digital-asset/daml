@@ -56,7 +56,6 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -143,13 +142,13 @@ private[reassignment] class UnassignmentProcessingSteps(
 
       targetStaticSynchronizerParameters <- reassignmentCoordination
         .getStaticSynchronizerParameter(targetSynchronizer)
-      timeProofAndSnapshot <- reassignmentCoordination
-        .getTimeProofAndSnapshot(
+      targetTopology <- reassignmentCoordination
+        .getRecentTopologySnapshot(
           targetSynchronizer,
           targetStaticSynchronizerParameters,
         )
-      (timeProof, targetCrypto) = timeProofAndSnapshot
-      _ = logger.debug(withDetails(s"Picked time proof ${timeProof.timestamp}"))
+      targetTimestamp = targetTopology.map(_.timestamp)
+      _ = logger.debug(withDetails(s"Picked target timestamp $targetTimestamp"))
 
       contractStates <- EitherT(
         ephemeralState.tracker
@@ -196,14 +195,13 @@ private[reassignment] class UnassignmentProcessingSteps(
       validated <- UnassignmentRequest
         .validated(
           participantId,
-          timeProof,
           contracts,
           submitterMetadata,
           synchronizerId,
           mediator,
           targetSynchronizer,
           Source(sourceRecentSnapshot.ipsSnapshot),
-          targetCrypto.map(_.ipsSnapshot),
+          targetTopology,
         )
         .leftMap(_.toSubmissionValidationError)
 
@@ -381,48 +379,6 @@ private[reassignment] class UnassignmentProcessingSteps(
         hostedStakeholders.nonEmpty && hostedStakeholders.values.forall(_.onboarding)
       )
 
-  /** Wait until the participant has received and processed all topology transactions on the target
-    * synchronizer up to the target-synchronizer time proof timestamp.
-    *
-    * As we're not processing messages in parallel, delayed message processing on one synchronizer
-    * can block message processing on another synchronizer and thus breaks isolation across
-    * synchronizers. Even with parallel processing, the cursors in the request journal would not
-    * move forward, so event emission to the event log blocks, too.
-    *
-    * No deadlocks can arise under normal behaviour though. For a deadlock, we would need cyclic
-    * waiting, i.e., an unassignment request on one synchronizer D1 references a time proof on
-    * another synchronizer D2 and an earlier unassignment request on D2 references a time proof on
-    * D3 and so on to synchronizer Dn and an earlier unassignment request on Dn references a later
-    * time proof on D1. This, however, violates temporal causality of events.
-    *
-    * This argument breaks down for malicious participants because the participant cannot verify
-    * that the time proof is authentic without having processed all topology updates up to the
-    * declared timestamp as the sequencer's signing key might change. So a malicious participant
-    * could fake a time proof and set a timestamp in the future, which breaks causality. With
-    * unbounded parallel processing of messages, deadlocks cannot occur as this waiting runs in
-    * parallel with the request tracker, so time progresses on the target synchronizer and
-    * eventually reaches the timestamp.
-    */
-  // TODO(i26479): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
-  private def getTopologySnapshotAtTimestamp(
-      synchronizerId: Target[PhysicalSynchronizerId],
-      timestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Target[TopologySnapshot]] =
-    for {
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(synchronizerId)
-
-      snapshot <- reassignmentCoordination
-        .awaitTimestampAndGetTaggedCryptoSnapshot(
-          synchronizerId,
-          targetStaticSynchronizerParameters,
-          timestamp,
-        )
-    } yield snapshot.map(_.ipsSnapshot)
-
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
       reassignmentLookup: ReassignmentLookup,
@@ -440,8 +396,6 @@ private[reassignment] class UnassignmentProcessingSteps(
     val requestCounter = parsedRequest.rc
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
-    val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
-
     if (isReassigningParticipant) {
       reassignmentCoordination.addPendingUnassignment(
         parsedRequest.reassignmentId,
@@ -449,28 +403,42 @@ private[reassignment] class UnassignmentProcessingSteps(
       )
     }
 
+    val unassignmentValidation = UnassignmentValidation(
+      isReassigningParticipant,
+      participantId,
+      contractAuthenticator,
+      activenessF,
+      reassignmentCoordination,
+    )
+
     for {
-      targetTopologyO <-
-        if (isReassigningParticipant)
-          getTopologySnapshotAtTimestamp(
-            fullTree.targetSynchronizer,
-            fullTree.targetTimeProof.timestamp,
-          ).map(Option(_))
-        else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](None)
-
-      unassignmentValidationResult <- unassignmentValidation.perform(
-        targetTopologyO,
-        activenessF,
-      )(parsedRequest)
-
+      unassignmentValidationResult <- unassignmentValidation.perform(parsedRequest)
     } yield {
+      val confirmationResponseF =
+        if (
+          unassignmentValidationResult.reassigningParticipantValidationResult.isTargetTsValidatable
+        ) {
+          createConfirmationResponses(
+            parsedRequest.requestId,
+            parsedRequest.malformedPayloads,
+            protocolVersion.unwrap,
+            unassignmentValidationResult,
+          )
+        } else {
+          logger.info(
+            s"Sending an abstain verdict for ${unassignmentValidationResult.hostedConfirmingReassigningParties} because target timestamp is not validatable"
+          )
+          FutureUnlessShutdown.pure(
+            createAbstainResponse(
+              parsedRequest.requestId,
+              unassignmentValidationResult.rootHash,
+              s"Non-validatable target timestamp when processing unassignment ${parsedRequest.reassignmentId}",
+              unassignmentValidationResult.hostedConfirmingReassigningParties,
+            )
+          )
+        }
       val responseF =
-        createConfirmationResponses(
-          parsedRequest.requestId,
-          parsedRequest.malformedPayloads,
-          protocolVersion.unwrap,
-          unassignmentValidationResult,
-        ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
+        confirmationResponseF.map(_.map((_, Recipients.cc(parsedRequest.mediator))))
 
       // We consider that we rejected if at least one of the responses is a "reject"
       val locallyRejectedF = responseF.map(

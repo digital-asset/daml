@@ -61,6 +61,7 @@ import org.slf4j.event.Level
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.jdk.CollectionConverters.*
 
@@ -97,6 +98,7 @@ trait AcsCommitmentToolingIntegrationTest
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
+        ConfigTransforms.updateTargetTimestampForwardTolerance(24.hours),
       )
       .updateTestingConfig(
         _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))

@@ -57,6 +57,7 @@ import com.digitalasset.canton.{
 import org.scalatest.Assertion
 
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 
 sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
     extends CommunityIntegrationTest
@@ -70,6 +71,7 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(ConfigTransforms.useStaticTime)
+      .addConfigTransforms(ConfigTransforms.updateTargetTimestampForwardTolerance(60.seconds))
       .withSetup { implicit env =>
         import env.*
 

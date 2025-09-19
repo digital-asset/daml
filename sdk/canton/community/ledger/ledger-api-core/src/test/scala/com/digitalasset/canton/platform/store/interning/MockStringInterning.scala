@@ -99,6 +99,36 @@ class MockStringInterning extends StringInterning {
         rawStringInterning.tryExternalize(id).map(SynchronizerId.tryFromString)
     }
 
+  override val userId: StringInterningDomain[Ref.UserId] =
+    new StringInterningDomain[Ref.UserId] {
+      override val unsafe: StringInterningAccessor[String] = rawStringInterning
+
+      override def internalize(t: Ref.UserId): Int = tryInternalize(t).get
+
+      override def tryInternalize(t: Ref.UserId): Option[Int] =
+        rawStringInterning.tryInternalize(t.toString)
+
+      override def externalize(id: Int): Ref.UserId = tryExternalize(id).get
+
+      override def tryExternalize(id: Int): Option[Ref.UserId] =
+        rawStringInterning.tryExternalize(id).map(Ref.UserId.assertFromString)
+    }
+
+  override val participantId: StringInterningDomain[Ref.ParticipantId] =
+    new StringInterningDomain[Ref.ParticipantId] {
+      override val unsafe: StringInterningAccessor[String] = rawStringInterning
+
+      override def internalize(t: Ref.ParticipantId): Int = tryInternalize(t).get
+
+      override def tryInternalize(t: Ref.ParticipantId): Option[Int] =
+        rawStringInterning.tryInternalize(t.toString)
+
+      override def externalize(id: Int): Ref.ParticipantId = tryExternalize(id).get
+
+      override def tryExternalize(id: Int): Option[Ref.ParticipantId] =
+        rawStringInterning.tryExternalize(id).map(Ref.ParticipantId.assertFromString)
+    }
+
   private[store] def reset(): Unit = blocking(synchronized {
     idToString = Map.empty
     stringToId = Map.empty

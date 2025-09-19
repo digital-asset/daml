@@ -11,8 +11,7 @@ trait NeedsNewLfContractIds {
 
   val hasher: () => LfHash = LfHash.secureRandom(LfHash.hashPrivateKey(loggerFactory.name))
 
-  def newLfContractId(): LfContractId = LfContractId.V1(hasher(), hasher().bytes)
+  def newLfContractId(): LfContractId.V1 = LfContractId.V1(hasher(), hasher().bytes)
 
-  def newLfContractIdUnsuffixed(): LfContractId = LfContractId.V1(hasher())
-
+  def newLfContractIdUnsuffixed(): LfContractId.V1 = LfContractId.V1(hasher())
 }
