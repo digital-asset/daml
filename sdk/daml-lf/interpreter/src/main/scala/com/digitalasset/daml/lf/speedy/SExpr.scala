@@ -112,10 +112,11 @@ private[lf] object SExpr {
 
   /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic]) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Q] = {
-      val vfun = fun.lookupValue(machine)
-      machine.enterApplication(vfun, args)
-    }
+    override def execute[Q](machine: Machine[Q]): Control[Q] =
+      fun.lookupValue(machine) match {
+        case vfun: SPAP => machine.enterApplication(vfun, args)
+        case other => throw SError.SErrorCrash("SEAppAtomicGeneral", s"except SPAP, but got $other")
+      }
   }
 
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
