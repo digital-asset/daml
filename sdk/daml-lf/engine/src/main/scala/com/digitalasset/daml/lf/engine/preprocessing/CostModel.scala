@@ -179,7 +179,6 @@ private[lf] object CostModel {
 
     implicit def costOfUnit(value: Unit): Cost = 0
 
-    // FIXME: make stack safe?
     implicit def costOfValue(value: Value): Cost = value match {
       case Value.ValueBool(_) =>
         1 + 1
@@ -233,13 +232,16 @@ private[lf] object CostModel {
         authData,
       ) = value
 
-      1 + costOfLanguageVersion(version) + costOfContractId(contractId) + costOfString(
-        pkgName
-      ) + costOfTypeConId(templateId) + costOfValue(createArg) + costOfTreeSet(
-        signatories
-      ) + costOfTreeSet(stakeholders) + costOfOption(contractKey) + costOfCreationTime(
-        createdAt
-      ) + costOfBytes(authData)
+      1 + costOfLanguageVersion(version)
+        + costOfContractId(contractId)
+        + costOfString(pkgName)
+        + costOfTypeConId(templateId)
+        + costOfValue(createArg)
+        + costOfTreeSet(signatories)
+        + costOfTreeSet(stakeholders)
+        + costOfOption(contractKey)
+        + costOfCreationTime(createdAt)
+        + costOfBytes(authData)
     }
 
     implicit def costOfApiCommand(value: command.ApiCommand): Cost = value match {
@@ -247,19 +249,22 @@ private[lf] object CostModel {
         1 + costOfTypeConRef(templateRef) + costOfValue(arg)
 
       case command.ApiCommand.Exercise(typeRef, contractId, choiceId, arg) =>
-        1 + costOfTypeConRef(typeRef) + costOfContractId(contractId) + costOfString(
-          choiceId
-        ) + costOfValue(arg)
+        1 + costOfTypeConRef(typeRef)
+          + costOfContractId(contractId)
+          + costOfString(choiceId)
+          + costOfValue(arg)
 
       case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, arg) =>
-        1 + costOfTypeConRef(templateRef) + costOfValue(contractKey) + costOfString(
-          choiceId
-        ) + costOfValue(arg)
+        1 + costOfTypeConRef(templateRef)
+          + costOfValue(contractKey)
+          + costOfString(choiceId)
+          + costOfValue(arg)
 
       case command.ApiCommand.CreateAndExercise(templateRef, createArg, choiceId, choiceArg) =>
-        1 + costOfTypeConRef(templateRef) + costOfValue(createArg) + costOfString(
-          choiceId
-        ) + costOfValue(choiceArg)
+        1 + costOfTypeConRef(templateRef)
+          + costOfValue(createArg)
+          + costOfString(choiceId)
+          + costOfValue(choiceArg)
     }
 
     implicit def costOfApiContractKey(value: ApiContractKey): Cost = {
@@ -275,9 +280,10 @@ private[lf] object CostModel {
     implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost = {
       val GlobalKeyWithMaintainers(key, maintainers) = value
       val costOfGlobalKey =
-        1 + costOfTypeConId(key.templateId) + costOfString(key.packageName) + costOfValue(
-          key.key
-        ) + costOfHash(key.hash)
+        1 + costOfTypeConId(key.templateId)
+          + costOfString(key.packageName)
+          + costOfValue(key.key)
+          + costOfHash(key.hash)
 
       1 + costOfGlobalKey + costOfSet(maintainers)
     }

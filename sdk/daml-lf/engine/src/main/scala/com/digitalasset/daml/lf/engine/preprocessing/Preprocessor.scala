@@ -326,13 +326,17 @@ private[engine] final class Preprocessor(
     }
   }
 
-  // TODO: do we need to calculate pre-processor sizes for pre-fetching?
   private[engine] def prefetchContractIdsAndKeys(
       commands: ImmArray[speedy.ApiCommand],
       prefetchKeys: Seq[GlobalKey],
       disclosedContractIds: Set[Value.ContractId],
       disclosedKeyHashes: Set[Hash],
-  ): Result[Unit] =
+  ): Result[Unit] = {
+    updateInputCost(commands)
+    updateInputCost(prefetchKeys)
+    updateInputCost(disclosedContractIds)
+    updateInputCost(disclosedKeyHashes)
+    
     safelyRun(
       ResultError(
         Error.Preprocessing.Internal(
@@ -350,6 +354,7 @@ private[engine] final class Preprocessor(
         ResultPrefetch(contractIdsToPrefetch.toSeq, keysToPrefetch, () => ResultDone.Unit)
       else ResultDone.Unit
     }
+  }
 
   private def unsafePrefetchContractIds(
       commands: ImmArray[speedy.ApiCommand],
