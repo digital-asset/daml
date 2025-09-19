@@ -392,32 +392,32 @@ instance Pretty VersionReq where
 
 -- The extended implementation
 ifVersionWith :: MonadReader r m
-              => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
-              -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
+              => Getting Version r Version -- ^ A lens for the 'Version' in the environment
+              -> (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
               -> (Version -> m a)          -- ^ The action to run if the predicate is True
               -> (Version -> m a)          -- ^ The action to run if the predicate is False
               -> m a
-ifVersionWith p l b1 b2 = do
+ifVersionWith l p b1 b2 = do
     v <- view l
     if p v
       then b1 v
       else b2 v
 
 ifVersion :: MonadReader r m
-          => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
-          -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
+          => Getting Version r Version -- ^ A lens for the 'Version' in the environment
+          -> (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
           -> m a                       -- ^ The action to run if the predicate is True
           -> m a                       -- ^ The action to run if the predicate is False
           -> m a
-ifVersion p l b1 b2 = ifVersionWith p l (const b1) (const b2)
+ifVersion l p b1 b2 = ifVersionWith l p (const b1) (const b2)
 
-ifSupports :: MonadReader r m => Feature -> Getting Version r Version -> m a -> m a -> m a
-ifSupports f = ifVersion (`supports` f)
+ifSupports :: MonadReader r m => Getting Version r Version -> Feature -> m a -> m a -> m a
+ifSupports l f = ifVersion l (`supports` f)
 
-assertSupports :: MonadReader r m => Feature -> Getting Version r Version -> (Version -> m ()) -> m ()
-assertSupports f l b = do
-  ifVersionWith (`supports` f) l (const $ return ()) b
+assertSupports :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
+assertSupports l f b = do
+  ifVersionWith l (`supports` f) (const $ return ()) b
 
-assertSupportsNot :: MonadReader r m => Feature -> Getting Version r Version -> (Version -> m ()) -> m ()
-assertSupportsNot f l b = do
-  ifVersionWith (`supports` f) l b (const $ return ())
+assertSupportsNot :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
+assertSupportsNot l f b = do
+  ifVersionWith l (`supports` f) b (const $ return ())

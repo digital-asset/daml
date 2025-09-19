@@ -66,12 +66,12 @@ runDecode env act = runExcept $ runReaderT (unDecode act) env
 
 singletonIfLfFlat :: Foldable t => t a -> Decode ()
 singletonIfLfFlat xs =
-  when (length xs /= 1) $ assertSupportsNot featureFlatArchive versionLens $ \v ->
+  when (length xs /= 1) $ assertSupportsNot versionLens featureFlatArchive $ \v ->
     throwError $ ParseError $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
 
 nullIfLfFlat :: Foldable t => t a -> Decode ()
 nullIfLfFlat xs =
-  when (not $ null xs) $ assertSupportsNot featureFlatArchive versionLens $ \v ->
+  when (not $ null xs) $ assertSupportsNot versionLens featureFlatArchive $ \v ->
     throwError $ ParseError $ printf "argument(s) disallowed since lf %s supports flat archives" $ show v
 
 lookupInterned :: Integral b => V.Vector a -> (b -> Error) -> b -> Decode a
@@ -164,13 +164,13 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
         assertStableIfPkgImports str
         return $ ImportedPackageId str
       LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
-        ImportedPackageId . (V.! fromIntegral strId) <$> view (importsLens . _Right)
+        ImportedPackageId . (V.! fromIntegral strId) <$> view (to imports . _Right)
   where
     assertStableIfPkgImports id = do
       when (id `notElem` stableIds) $
         assertSupportsNot
-               featurePackageImports
                versionLens
+               featurePackageImports
                (throwError . ParseError . printf "damlc: got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
 
 

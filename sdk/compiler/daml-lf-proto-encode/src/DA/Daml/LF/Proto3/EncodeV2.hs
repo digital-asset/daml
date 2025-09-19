@@ -75,14 +75,14 @@ makeLenses ''EncodeConfig
 type Encode a = ReaderT EncodeConfig (StateT EncodeState Identity) a
 
 ifSupportsFlattening :: Encode a -> Encode a -> Encode a
-ifSupportsFlattening = ifSupports featureFlatArchive version
+ifSupportsFlattening = ifSupports version featureFlatArchive
 
 ifSupportsFlattening_ :: a -> a -> Encode a
-ifSupportsFlattening_ b1 b2 = ifSupports featureFlatArchive version (return b1) (return b2)
+ifSupportsFlattening_ b1 b2 = ifSupports version featureFlatArchive (return b1) (return b2)
 
 assertSupportsFlattening :: Encode ()
 assertSupportsFlattening =
-  assertSupports featureFlatArchive version $ \v ->
+  assertSupports version featureFlatArchive $ \v ->
     error $ printf "assertion failiure: lf version %s does not support flattening" (show v)
 
 initEncodeState :: EncodeState
@@ -209,7 +209,7 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) -> do
         (eMap :: Either NoPkgImportsReason ImportMap) <- asks (view importMap)
-        ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
+        ifVersion version (\v -> p `notElem` stableIds && v `supports` featureFlatArchive)
           {-then-}
              (case eMap of
                Left r ->
