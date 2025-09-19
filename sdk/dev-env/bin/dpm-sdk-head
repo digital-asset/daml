@@ -18,6 +18,7 @@ NUKE=0
 REFRESH_EXTERNAL=0
 PROFILING=0
 REMOVE_NON_HEAD=0
+VERBOSE=0
 # 0 = no message, 1 = add path instructions, 2 = reload shell
 LOG_PATH_INSTRUCTIONS=0
 for opt in "$@"; do
@@ -62,6 +63,9 @@ for opt in "$@"; do
     "--remove-non-head")
       REMOVE_NON_HEAD=1
       ;;
+    "--verbose")
+      VERBOSE=1
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
@@ -78,6 +82,7 @@ for opt in "$@"; do
       echo "  --nuke Remove DPM from your system entirely (does not build anything)"
       echo "  --refresh-external Remove DPM and reinstall from latest public before building components"
       echo "  --remove-non-head After installing head, remove all other installed versions (assemblies only, components remain, this will not save disk space)"
+      echo "  --verbose Print bazel build logs as they build live"
 
       exit 1
   esac
@@ -180,17 +185,21 @@ fi
 
 # Imitate `chronic` from coreutils
 chronic() {
-  # Store stdout and stderr to a tmp file
-  tmp=$(mktemp) || return
-  # Don't die just yet!
-  set +e
-  "$@" > "$tmp" 2>&1
-  ret=$?
-  set -e
-  [ "$ret" -eq 0 ] || cat "$tmp"
-  rm -f "$tmp"
-  # Now you can die
-  return "$ret"
+  if [ "$VERBOSE" -ne 0 ]; then
+    "$@"
+  else
+    # Store stdout and stderr to a tmp file
+    tmp=$(mktemp) || return
+    # Don't die just yet!
+    set +e
+    "$@" > "$tmp" 2>&1
+    ret=$?
+    set -e
+    [ "$ret" -eq 0 ] || cat "$tmp"
+    rm -f "$tmp"
+    # Now you can die
+    return "$ret"
+  fi
 }
 
 update_component() {
