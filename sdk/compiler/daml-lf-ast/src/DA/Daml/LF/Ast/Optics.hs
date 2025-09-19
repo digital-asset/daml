@@ -210,8 +210,12 @@ instance MonoTraversable ModuleRef InterfaceInstanceMethod
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
 instance MonoTraversable ModuleRef PackageMetadata where monoTraverse _ = pure
+instance MonoTraversable ModuleRef NoPkgImportsReason
+instance MonoTraversable ModuleRef NoPkgImportsReasons where monoTraverse _ = pure
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
+
+instance (MonoTraversable ModuleRef a, MonoTraversable ModuleRef b) => MonoTraversable ModuleRef (Either a b)
 
 instance (NM.Named a, MonoTraversable ModuleRef a) => MonoTraversable ModuleRef (NM.NameMap a) where
   monoTraverse = NM.traverse . monoTraverse

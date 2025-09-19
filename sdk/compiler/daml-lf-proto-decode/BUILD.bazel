@@ -26,7 +26,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto-decode:daml-lf-proto-decode-internal",
+        "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-list",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
@@ -35,7 +35,7 @@ da_haskell_library(
 )
 
 da_haskell_library(
-    name = "daml-lf-proto-decode-internal",
+    name = "internal",
     srcs = [
         "src/DA/Daml/LF/Proto3/DecodeV2.hs",
     ],
@@ -64,7 +64,7 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "daml-lf-proto-decode-test",
+    name = "test",
     srcs = [
         "test/DA/Daml/LF/Proto3/DecodeTest.hs",
     ],
@@ -79,7 +79,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-proto-decode:daml-lf-proto-decode-internal",
+        "//compiler/daml-lf-proto-decode:internal",
         "//compiler/daml-lf-proto-util",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",

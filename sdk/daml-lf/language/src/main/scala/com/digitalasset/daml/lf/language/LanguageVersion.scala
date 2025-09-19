@@ -108,6 +108,8 @@ object LanguageVersion {
     val kindInterning = flatArchive
     val exprInterning = flatArchive
 
+    val explicitPkgImports = v2_dev
+
     val complexAnyType = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.

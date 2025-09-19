@@ -2,6 +2,7 @@
 -- All rights reserved.
 
 -- @ SINCE-LF 2.1
+-- @ UNTIL-LF 2.1
 -- @QUERY-LF ([$pkg | .modules[] | .values[] | .expr | lf::norm_interned($pkg) | .val.module.package_id | select(has("imported_package_id_interned_str"))] | length) as $actual | if $actual == 2 then true else {"expected": 2, "actual": $actual} end
 
 -- @QUERY-LF $pkg | .interned_strings | length >= 2
