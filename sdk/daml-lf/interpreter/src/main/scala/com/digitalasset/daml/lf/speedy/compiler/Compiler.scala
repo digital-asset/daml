@@ -134,8 +134,8 @@ private[lf] final class Compiler(
 
   @throws[PackageNotFound]
   @throws[CompilationError]
-  def unsafeCompile(cmds: ImmArray[Command], disclosures: ImmArray[DisclosedContract]): t.SExpr =
-    compileCommands(cmds, disclosures)
+  def unsafeCompile(cmds: ImmArray[Command]): t.SExpr =
+    compileCommands(cmds)
 
   @throws[PackageNotFound]
   @throws[CompilationError]
@@ -339,16 +339,8 @@ private[lf] final class Compiler(
   private[this] def compileExp(expr: Expr): t.SExpr =
     pipeline(translateExp(Env.Empty, expr))
 
-  private[this] def compileCommands(
-      cmds: ImmArray[Command],
-      disclosures: ImmArray[DisclosedContract],
-  ): t.SExpr =
-    pipeline(
-      let(
-        Env.Empty,
-        translateContractDisclosures(Env.Empty, disclosures),
-      )((_, env) => translateCommands(env, cmds))
-    )
+  private def compileCommands(cmds: ImmArray[Command]) =
+    pipeline(translateCommands(Env.Empty, cmds))
 
   private[this] def compileCommandForReinterpretation(cmd: Command): t.SExpr =
     pipeline(translateCommandForReinterpretation(cmd))
@@ -1094,36 +1086,4 @@ private[lf] final class Compiler(
           }
         }
     }
-
-  private[this] def translateContractDisclosures(
-      env0: Env,
-      disclosures: ImmArray[DisclosedContract],
-  ): s.SExpr = {
-    // The next free environment variable will be the bound variable in the contract disclosure lambda
-    var env = env0
-
-    s.SELet(
-      disclosures.toList.flatMap { case DisclosedContract(contract, argument) =>
-        // Let bounded variables occur after the contract disclosure bound variable - hence baseIndex+1
-        // For each disclosed contract, we add 2 members to our let bounded list - hence 2*offset
-
-        val expr1 =
-          s.SEApp(
-            s.SEVal(t.ToContractInfoDefRef(contract.templateId)),
-            List(s.SEValue(argument)),
-          )
-        val contractPos = env.nextPosition
-        env = env.pushVar
-        val expr2 =
-          app(
-            s.SEBuiltin(SBImportInputContract(contract, contract.templateId)),
-            env.toSEVar(contractPos),
-          )
-        env = env.pushVar
-
-        List(expr1, expr2)
-      },
-      s.SEValue.Unit,
-    )
-  }
 }

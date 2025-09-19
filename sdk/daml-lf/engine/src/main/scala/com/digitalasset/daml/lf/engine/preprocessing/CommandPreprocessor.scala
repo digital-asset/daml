@@ -11,9 +11,8 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.command.ApiContractKey
-import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey}
+import com.digitalasset.daml.lf.transaction.GlobalKey
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -33,27 +32,6 @@ private[lf] final class CommandPreprocessor(
       value: Value,
       extendLocalIdForbiddanceToRelativeV2: Boolean,
   ): SValue = valueTranslator.unsafeTranslateValue(ty, value, extendLocalIdForbiddanceToRelativeV2)
-
-  @throws[Error.Preprocessing.Error]
-  def unsafePreprocessDisclosedContract(
-      disc: FatContractInstance
-  ): speedy.DisclosedContract = {
-    val extendLocalIdForbiddanceToRelativeV2 = true
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    //  for now we need the package of the disclosed contract
-    val arg = unsafeTranslateValue(
-      Ast.TTyCon(disc.templateId),
-      disc.createArg,
-      extendLocalIdForbiddanceToRelativeV2,
-    )
-    discard(
-      valueTranslator.unsafeTranslateCid(disc.contractId, extendLocalIdForbiddanceToRelativeV2)
-    )
-    speedy.DisclosedContract(
-      disc,
-      argument = arg,
-    )
-  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessCreate(
@@ -337,25 +315,6 @@ private[lf] final class CommandPreprocessor(
       cmds: ImmArray[command.ApiCommand],
   ): ImmArray[speedy.ApiCommand] =
     cmds.map(unsafePreprocessApiCommand(pkgResolution, _))
-
-  @throws[Error.Preprocessing.Error]
-  def unsafePreprocessDisclosedContracts(
-      discs: ImmArray[FatContractInstance]
-  ): (ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash]) = {
-    var contractIds: Set[Value.ContractId] = Set.empty
-    val contractKeyHashes = Set.newBuilder[Hash]
-
-    val preprocessedDiscs = discs.map { disclosedContract =>
-      if (contractIds.contains(disclosedContract.contractId))
-        throw Error.Preprocessing.DuplicateDisclosedContractId(disclosedContract.contractId)
-      contractIds += disclosedContract.contractId
-      disclosedContract.contractKeyWithMaintainers.foreach { keyWithMaintainers =>
-        contractKeyHashes += keyWithMaintainers.globalKey.hash
-      }
-      unsafePreprocessDisclosedContract(disclosedContract)
-    }
-    (preprocessedDiscs, contractIds, contractKeyHashes.result())
-  }
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessInterfaceView(

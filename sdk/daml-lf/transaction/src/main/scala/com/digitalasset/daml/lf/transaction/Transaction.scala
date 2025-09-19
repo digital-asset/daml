@@ -678,13 +678,12 @@ object Transaction {
     * @param disclosedEvents  Disclosed create events that have been used in this transaction.
     */
   final case class Metadata(
-      submissionSeed: Option[crypto.Hash],
+      submissionSeed: Option[Any],
       preparationTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       timeBoundaries: Time.Range,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
-      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[Node.Create],
+      globalKeyMapping: Map[GlobalKey, Option[ContractId]],
   ) {
     def dependsOnTime: Boolean =
       timeBoundaries != Time.Range.unconstrained

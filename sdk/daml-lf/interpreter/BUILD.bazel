@@ -54,10 +54,6 @@ da_scala_library(
 da_scala_library(
     name = "interpreter-test-lib",
     srcs = glob(["src/test/**/*Lib.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
     scalacopts = lf_scalacopts_stricter,
     deps = [
         ":interpreter",
@@ -66,7 +62,6 @@ da_scala_library(
         "//daml-lf/parser",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",

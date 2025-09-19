@@ -66,7 +66,6 @@ class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
         cmds = ApiCommands(ImmArray(cmd), Time.Timestamp.now(), "replay-snapshot-test"),
         participantId = participantId,
         submissionSeed = submissionSeed,
-        prefetchKeys = Seq.empty,
       )
 
       Files.exists(snapshotFile) should be(true)

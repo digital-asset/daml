@@ -9,12 +9,7 @@ import com.digitalasset.daml.lf.command.{ApiContractKey, ReplayCommand}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  Node,
-  SubmittedTransaction,
-}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, Node, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.crypto.Hash
@@ -226,13 +221,6 @@ private[engine] final class Preprocessor(
   ): Result[ImmArray[speedy.ApiCommand]] =
     safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
-    }
-
-  def preprocessDisclosedContracts(
-      discs: data.ImmArray[FatContractInstance]
-  ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] =
-    safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
-      commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
     }
 
   private[engine] def preprocessReplayCommand(

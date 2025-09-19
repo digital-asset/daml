@@ -389,7 +389,7 @@ private[lf] object IdeLedgerRunner {
           Interruption(continue)
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
-            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
+            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _)) =>
               val suffix = Bytes.fromByteArray(Array(0, 0))
               val committedTx = CommittedTransaction(
                 enrich(data.assertRight(tx.suffixCid(_ => suffix, _ => suffix)))

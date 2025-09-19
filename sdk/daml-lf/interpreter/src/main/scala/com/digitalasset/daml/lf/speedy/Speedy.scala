@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
-  CreationTime,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
@@ -366,35 +365,15 @@ private[lf] object Speedy {
         case Some(res) =>
           f.tupled(res)
         case None =>
-          // TODO(https://github.com/digital-asset/daml/issues/21667): do not treat disclosed contracts separately
-          disclosedContracts.get(coid) match {
-            case Some(contractInfo) =>
-              markDisclosedcontractAsUsed(coid)
-              f(
-                FatContractInstance.fromCreateNode(
-                  create = contractInfo.toCreateNode(coid),
-                  // These two fields aren't used by the engine so it is safe to use dummy values here. We will
-                  // eventually receive disclosures via needContract so this hack is temporary.
-                  createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue),
-                  authenticationData = Bytes.Empty,
-                ),
-                Hash.HashingMethod.TypedNormalForm,
-                _ =>
-                  throw new NotImplementedError(
-                    "The authentication of disclosed contracts is not implemented yet"
-                  ),
-              )
-            case None =>
-              needContract(
-                NameOf.qualifiedNameOfCurrentFunc,
-                coid,
-                (coinst, hashingMethod, idValidator) => {
-                  contractLookupCache =
-                    contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
-                  f(coinst, hashingMethod, idValidator)
-                },
-              )
-          }
+          needContract(
+            NameOf.qualifiedNameOfCurrentFunc,
+            coid,
+            (coinst, hashingMethod, idValidator) => {
+              contractLookupCache =
+                contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
+              f(coinst, hashingMethod, idValidator)
+            },
+          )
       }
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -467,25 +446,6 @@ private[lf] object Speedy {
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
-
-    private[this] var disclosedContracts_ = Map.empty[V.ContractId, ContractInfo]
-    private[speedy] def disclosedContracts: Map[V.ContractId, ContractInfo] = disclosedContracts_
-
-    private[this] var disclosedContractKeys_ = Map.empty[GlobalKey, V.ContractId]
-    private[speedy] def disclosedContractKeys: Map[GlobalKey, V.ContractId] = disclosedContractKeys_
-
-    private[speedy] def addDisclosedContracts(
-        contractId: V.ContractId,
-        contract: ContractInfo,
-    ): Unit = {
-      disclosedContracts_ = disclosedContracts.updated(contractId, contract)
-      contract.keyOpt.foreach(key =>
-        disclosedContractKeys_ = disclosedContractKeys.updated(key.globalKey, contractId)
-      )
-    }
-
-    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
-      disclosedContracts.isDefinedAt(contractId)
 
     def getTimeBoundaries: Time.Range =
       timeBoundaries
@@ -638,22 +598,6 @@ private[lf] object Speedy {
         IError.Dev.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
       )
 
-    // Track which disclosed contracts are used, so we can report events to the ledger
-    private[this] var usedDiclosedContracts: Set[V.ContractId] = Set.empty
-    private[this] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
-      usedDiclosedContracts = usedDiclosedContracts + coid
-    }
-
-    // The set of create events for the disclosed contracts that are used by the generated transaction.
-    def disclosedCreateEvents: ImmArray[Node.Create] = {
-      disclosedContracts.iterator
-        .collect {
-          case (coid, contract) if usedDiclosedContracts.contains(coid) =>
-            contract.toCreateNode(coid)
-        }
-        .to(ImmArray)
-    }
-
     @throws[IllegalArgumentException]
     def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
       val n1 = xs.length
@@ -670,7 +614,6 @@ private[lf] object Speedy {
         ptx.locationInfo(),
         zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        disclosedCreateEvents,
       )
     }
 
@@ -787,7 +730,6 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedCreateEvent: ImmArray[Node.Create],
     )
   }
 

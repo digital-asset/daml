@@ -240,52 +240,6 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "preprocessDisclosedContracts" should {
-
-      "reject duplicate disclosed contract IDs" in {
-        val preprocessor = preprocessing.Preprocessor.forTesting(compilerConfig)
-        val contract1 = buildDisclosedContract(contractId)
-        val contract2 =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, key = Some(helpers.key))
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) {
-          case Left(
-                Error.Preprocessing(Error.Preprocessing.DuplicateDisclosedContractId(`contractId`))
-              ) =>
-            succeed
-        }
-      }
-
-      "return the sets of disclosed contract IDs and disclosed contract key hashes" in {
-        val preprocessor = preprocessing.Preprocessor.forTesting(compilerConfig)
-        val contract1 =
-          buildDisclosedContract(contractId, templateId = withKeyTmplId, key = Some(helpers.key))
-        val contractId2 =
-          Value.ContractId.V1.assertBuild(
-            crypto.Hash.hashPrivateKey("another-contract-id"),
-            Bytes.assertFromString("cafe"),
-          )
-
-        val contract2 =
-          buildDisclosedContract(
-            contractId2,
-            templateId = withKeyTmplId,
-            key = Some(keyBob),
-          )
-        val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
-          .consume(pkgs = pkgs)
-
-        inside(finalResult) { case Right((_, contractIds, keyHashes)) =>
-          contractIds shouldBe Set(contract1.contractId, contract2.contractId)
-          keyHashes shouldBe Set(keyHash, keyBobHash)
-        }
-      }
-    }
-
     "prefetchContractIdsAndKeys" should {
       val priority = Map(pkgName -> defaultPackageId)
       val bob: Party = Ref.Party.assertFromString("Bob")
