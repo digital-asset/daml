@@ -19,6 +19,7 @@ import           Control.Lens hiding (MethodName)
 import           Data.Coerce
 import           Data.Int
 import           Data.List
+import qualified Data.List.NonEmpty   as NE
 import qualified Data.NameMap         as NM
 import qualified Data.Set             as S
 import qualified Data.Text            as T
@@ -48,7 +49,7 @@ data DecodeEnv = DecodeEnv
     , internedKinds       :: !(V.Vector Kind)
     , selfPackageRef      :: SelfOrImportedPackageId
     , version             :: LF.Version
-    , imports             :: !(Either NoPkgImportsReason (V.Vector PackageId))
+    , imports             :: !(Either NoPkgImportsReasons (V.Vector PackageId))
     }
 
 makeLensesFor [ ("internedKinds", "internedKindsLens")
@@ -177,9 +178,9 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
-decodeImports :: LF2.PackageImportsSum -> Either NoPkgImportsReason (V.Vector PackageId)
+decodeImports :: LF2.PackageImportsSum -> Either NoPkgImportsReasons (V.Vector PackageId)
 decodeImports = \case
-  LF2.PackageImportsSumNoImportedPackagesReason txt -> Left $ read $ TL.unpack txt
+  LF2.PackageImportsSumNoImportedPackagesReason txt -> (Left . NoPkgImportsReasons . NE.fromList . read . TL.unpack) txt
   LF2.PackageImportsSumPackageImports imports -> Right $ decodePackageImports imports
   where
     decodePackageImports :: LF2.PackageImports -> V.Vector PackageId
@@ -211,7 +212,7 @@ decodePackage version selfPackageRef (LF2.Package
       let internedTypes = V.empty
       let internedKinds = V.empty
       --assuming here that nothing means it is a stable package
-      let imports = maybe (Left StablePackage) decodeImports  importedPackagesP
+      let imports = maybe (Left noPkgImportsReasonStablePackage) decodeImports  importedPackagesP
       let env0 = DecodeEnv{..}
       internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
       let env1 = env0{internedDottedNames}

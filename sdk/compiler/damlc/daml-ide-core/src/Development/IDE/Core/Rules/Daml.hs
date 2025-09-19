@@ -444,7 +444,7 @@ generateSerializedDalfRule options =
                                                     (packageMetadataFromOptions options)
                                                     lfVersion
                                                     dalfDeps
-                                                    (Left $ LF.Trace "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule")
+                                                    (Left $ LF.noPkgImportsReasonTrace "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule")
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -863,7 +863,7 @@ generatePackageImports =
         deps <- depPkgDeps <$> use_ GetDependencyInformation file
         return $ Right $ depsToIds pkgMap deps
       else
-        return $ Left LF.LfDoesNotSupportPkgImports
+        return $ Left LF.noPkgImportsReasonLfDoesNotSupportPkgImports
     let hash :: BS.ByteString
         hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList $ fromRight mempty imports)
     return (Just hash, ([], Just imports))

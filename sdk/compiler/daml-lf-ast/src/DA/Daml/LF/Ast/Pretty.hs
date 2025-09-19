@@ -21,6 +21,7 @@ import qualified Data.Text as T
 import qualified Data.Time.Clock.POSIX      as Clock.Posix
 import qualified Data.Time.Format           as Time.Format
 import           Data.Foldable (toList)
+import qualified Data.List.NonEmpty         as NE
 
 import           DA.Daml.LF.Ast.Base hiding (dataCons)
 import           DA.Daml.LF.Ast.TypeLevelNat
@@ -93,6 +94,10 @@ instance Pretty ExprValName where
 
 instance Pretty NoPkgImportsReason where
     pPrint = text . T.pack . show
+
+instance Pretty NoPkgImportsReasons where
+    pPrint = pPrint . NE.toList . unNoPkgImportsReasons
+    --reuse list instance since notempty in image anyways
 
 pPrintModuleRef :: PrettyLevel -> (SelfOrImportedPackageId, ModuleName) -> Doc ann
 pPrintModuleRef lvl (pkgRef, modName) = docPkgRef <> pPrint modName

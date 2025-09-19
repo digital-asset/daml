@@ -86,15 +86,9 @@ isUtilityPackage pkg =
 mergeImportedPackages :: ImportedPackages -> ImportedPackages -> ImportedPackages
 mergeImportedPackages r l = case (r, l) of
     (Right s1, Right s2) -> Right $ s1 <> s2
-    (Left  r1, Left  r2) -> Left $ combineReasons r1 r2
+    (Left  r1, Left  r2) -> Left $ r1 <>r2
     (Right s1, Left  _ ) -> Right s1
     (Left  _ , Right s2) -> Right s2
-    where
-      combineReasons StablePackage StablePackage = StablePackage
-      combineReasons (Combined xs) (Combined ys) = Combined (xs ++ ys)
-      combineReasons (Combined xs) y             = Combined (xs ++ [y])
-      combineReasons x             (Combined ys) = Combined (x:ys)
-      combineReasons x             y             = Combined [x, y]
 
 data Arg
   = TmArg Expr
@@ -537,7 +531,7 @@ mkOneModulePackageForTest m = Package{..}
   where
     packageLfVersion = Version V2 PointDev
     packageModules = NM.fromList [m]
-    importedPackages = Left $ Trace "DA.Daml.LF.Ast.Util:mkOneModulePackage" --since used for testing
+    importedPackages = Left $ noPkgImportsReasonTrace "DA.Daml.LF.Ast.Util:mkOneModulePackage" --since used for testing
     packageMetadata = PackageMetadata{..}
       where
         packageName :: PackageName

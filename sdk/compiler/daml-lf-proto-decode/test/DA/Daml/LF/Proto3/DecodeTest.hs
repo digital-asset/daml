@@ -37,7 +37,7 @@ decTests = testGroup "decoding tests"
   ]
 
 emptyDecodeEnv :: DecodeEnv
-emptyDecodeEnv = DecodeEnv empty empty empty empty empty SelfPackageId testVersion (Left $ Testing "DA.Daml.LF.Proto3.DecodeTest:emptyDecodeEnv ")
+emptyDecodeEnv = DecodeEnv empty empty empty empty empty SelfPackageId testVersion (Left $ noPkgImportsReasonTesting "DA.Daml.LF.Proto3.DecodeTest:emptyDecodeEnv ")
 
 decodeKindAssert :: P.Kind -> Kind -> Assertion
 decodeKindAssert pk k =

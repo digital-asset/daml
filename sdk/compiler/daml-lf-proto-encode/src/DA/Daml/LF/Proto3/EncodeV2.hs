@@ -18,6 +18,7 @@ import           Control.Monad.Reader
 import           Data.Coerce
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import           Data.Maybe (fromMaybe, fromJust)
 import qualified Data.NameMap as NM
@@ -68,7 +69,7 @@ makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
 type ImportMap = M.Map PackageId Int32
 data EncodeConfig = EncodeConfig
     { _version :: !Version
-    , _importMap :: Either NoPkgImportsReason ImportMap
+    , _importMap :: Either NoPkgImportsReasons ImportMap
     }
 makeLenses ''EncodeConfig
 
@@ -99,7 +100,7 @@ initEncodeState =
     }
 
 initTestEncodeConfig :: Version -> EncodeConfig
-initTestEncodeConfig = flip EncodeConfig $ Left $ Testing "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeConfig"
+initTestEncodeConfig = flip EncodeConfig $ Left $ noPkgImportsReasonTesting "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeConfig"
 
 runEncode :: EncodeConfig           -- The read-only config.
           -> EncodeState            -- The initial state.
@@ -208,7 +209,7 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
       SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) -> do
-        (eMap :: Either NoPkgImportsReason ImportMap) <- asks (view importMap)
+        (eMap :: Either NoPkgImportsReasons ImportMap) <- asks (view importMap)
         ifVersion version (\v -> p `notElem` stableIds && v `supports` featureFlatArchive)
           {-then-}
              (case eMap of
@@ -1077,10 +1078,11 @@ encodeImports = P.PackageImportsSumPackageImports . P.PackageImports . V.fromLis
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
 
-encodeReasons :: NoPkgImportsReason -> Maybe P.PackageImportsSum
-encodeReasons = \case
-  StablePackage -> Nothing
-  rsns -> Just $ P.PackageImportsSumNoImportedPackagesReason $ TL.pack $ show rsns
+encodeReasons :: NoPkgImportsReasons -> Maybe P.PackageImportsSum
+encodeReasons rsns =
+  case NE.toList $ unNoPkgImportsReasons rsns of
+    [StablePackage] -> Nothing
+    lursns -> Just $ P.PackageImportsSumNoImportedPackagesReason $ TL.pack $ show lursns
 
 mkImportMap :: [PackageId] -> ImportMap
 mkImportMap = M.fromList . flip zip [0..]
@@ -1090,7 +1092,7 @@ encodePackage (Package version mods metadata imports) =
 -- Whenever we fix the order of the set of package imports, we always sort. This
 -- way, every list in the encode/decode chain (... -> set -> list -> set -> list
 -- -> ...) will always be in the same order
-    let importList :: Either NoPkgImportsReason [PackageId]
+    let importList :: Either NoPkgImportsReasons [PackageId]
         importList = L.sort . S.toList <$> imports
         st = initEncodeState
         conf = EncodeConfig version $ mkImportMap <$> importList
