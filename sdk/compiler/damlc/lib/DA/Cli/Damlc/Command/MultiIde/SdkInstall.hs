@@ -25,9 +25,10 @@ import Data.Aeson (fromJSON, toJSON)
 import qualified Data.Yaml as Y
 import qualified Data.ByteString.Char8 as BSC
 import Data.Either.Extra (eitherToMaybe, fromRight)
+import Data.Foldable (traverse_)
 import Data.List.Extra (nubOrd, find)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, listToMaybe, maybeToList)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
@@ -282,7 +283,10 @@ addOrphanResolution miState home = do
 -- Updates the resolution data and reports packages that have been changed or removed
 -- Takes the package home of the currently updated daml.yaml, if there is one
 updateResolutionFileForChanged :: MultiIdeState -> Maybe PackageHome -> IO [PackageHome]
-updateResolutionFileForChanged miState mHome = withIDEs miState $ \ides -> do
+updateResolutionFileForChanged miState = updateResolutionFileForManyChanged miState . Set.fromList . maybeToList
+
+updateResolutionFileForManyChanged :: MultiIdeState -> Set.Set PackageHome -> IO [PackageHome]
+updateResolutionFileForManyChanged miState homes = withIDEs miState $ \ides -> do
   mResolutionData <- tryReadMVar (misResolutionData miState)
   case mResolutionData of
     -- No resolution file means we're using legacy assistant, nothing to do here
@@ -305,17 +309,17 @@ updateResolutionFileForChanged miState mHome = withIDEs miState $ \ides -> do
           recoveredPackages <- reportResolutionError miState Nothing
 
           -- For package changes outside the multi-package scope, update that specific package and report failures on the package, rather than as a global error
+          let orphanPackages = Set.filter (`Map.notMember` newMainPackages) homes
           updatedIdes <-
-            case mHome of
-              Just home | Map.notMember home newMainPackages -> do
-                res <- addOrphanResolution miState home
-                case res of
-                  Left err -> do
-                    let ideData' = (lookupSubIde home ides) {ideDataDisabled = IdeDataDisabled LSP.DsError err}
-                    atomically $ sendPackageDiagnostic miState ideData'
-                    pure $ Map.insert home ideData' ides
-                  _ -> pure ides
-              _ -> pure ides
+            foldM (\ides' home -> do
+              res <- addOrphanResolution miState home
+              case res of
+                Left err -> do
+                  let ideData' = (lookupSubIde home ides') {ideDataDisabled = IdeDataDisabled LSP.DsError err}
+                  atomically $ sendPackageDiagnostic miState ideData'
+                  pure $ Map.insert home ideData' ides'
+                _ -> pure ides'
+            ) ides orphanPackages
 
           pure (updatedIdes, nubOrd $ changedPackages <> newPackages <> removedPackages <> recoveredPackages)
         Left err -> do
@@ -375,12 +379,14 @@ onSdkInstallerFinished miState ver outputLogVar mError = do
     Nothing -> do
       let homes = sidPendingHomes installData
           installDatas' = Map.delete ver installDatas
-          disableIde :: SubIdes -> PackageHome -> IO SubIdes
-          disableIde ides home =
+          enableIde :: SubIdes -> PackageHome -> IO SubIdes
+          enableIde ides home =
             let ides' = Map.insert home ((lookupSubIde home ides) {ideDataDisabled = IdeDataNotDisabled}) ides
              in misUnsafeAddNewSubIdeAndSend miState ides' home Nothing
       atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
-      withIDEs_ miState $ \ides -> foldM disableIde ides homes
+      updatedHomes <- updateResolutionFileForManyChanged miState homes
+      traverse_ (misRebootIdeByHome miState) $ Set.fromList updatedHomes Set.\\ homes
+      withIDEs_ miState $ \ides -> foldM enableIde ides homes
     Just err -> do
       outputLog <- takeMVar outputLogVar
       let errText = failedInstallIdeDiagnosticMessage ver outputLog (Just err)

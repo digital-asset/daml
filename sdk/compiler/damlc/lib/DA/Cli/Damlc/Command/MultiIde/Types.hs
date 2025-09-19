@@ -230,6 +230,9 @@ type SubIdeMessageHandler = IO () -> SubIdeInstance -> B.ByteString -> IO ()
 -- Used to extract the unsafeAddNewSubIdeAndSend function to resolve dependency cycles
 type UnsafeAddNewSubIdeAndSend = SubIdes -> PackageHome -> Maybe LSP.FromClientMessage -> IO SubIdes
 
+-- Used to extract the rebootIdeByHome function to resolve dependency cycles
+type RebootIdeByHome = PackageHome -> IO ()
+
 type GlobalErrorsVar = MVar GlobalErrors
 
 -- Handles errors that prevent environments from starting
@@ -373,6 +376,7 @@ data MultiIdeState = MultiIdeState
   , misSubIdeArgs :: [String]
   , misSubIdeMessageHandler :: SubIdeMessageHandler
   , misUnsafeAddNewSubIdeAndSend :: UnsafeAddNewSubIdeAndSend
+  , misRebootIdeByHome :: RebootIdeByHome
   , misSdkInstallDatasVar :: SdkInstallDatasVar
   , misIdentifier :: Maybe T.Text
   , misResolutionData :: MultiIdeResolutionDataVar
@@ -399,8 +403,9 @@ newMultiIdeState
   -> [String]
   -> (MultiIdeState -> SubIdeMessageHandler)
   -> (MultiIdeState -> UnsafeAddNewSubIdeAndSend)
+  -> (MultiIdeState -> RebootIdeByHome)
   -> IO MultiIdeState
-newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdentifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend = do
+newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdentifier misSubIdeArgs subIdeMessageHandler unsafeAddNewSubIdeAndSend rebootIdeByHome = do
   (misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient) <- newTVarIO IM.emptyIxMap
   (misFromServerMethodTrackerVar :: MethodTrackerVar 'LSP.FromServer) <- newTVarIO IM.emptyIxMap
   misSubIdesVar <- newTMVarIO @SubIdes mempty
@@ -418,6 +423,7 @@ newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdent
         MultiIdeState 
           { misSubIdeMessageHandler = subIdeMessageHandler miState
           , misUnsafeAddNewSubIdeAndSend = unsafeAddNewSubIdeAndSend miState
+          , misRebootIdeByHome = rebootIdeByHome miState
           , ..
           }
   pure miState

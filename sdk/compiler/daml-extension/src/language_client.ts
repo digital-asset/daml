@@ -219,7 +219,7 @@ export class DamlLanguageClient {
     projectPath: string | undefined,
   ): Promise<boolean> {
     const { stdout } = await util.promisify(child_process.exec)(
-      damlPath + " multi-ide --help",
+      damlPath + " damlc multi-ide --help",
       { cwd: projectPath },
     );
     return stdout.includes("--ide-identifier");
