@@ -60,7 +60,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
-import com.digitalasset.canton.resource.{CommunityStorageFactory, DbStorage, MemoryStorage}
+import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, StorageSingleFactory}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as InternalTrafficControlParameters
 import com.digitalasset.canton.synchronizer.block.data.db.DbSequencerBlockStore
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -157,7 +157,7 @@ abstract class BaseSynchronizerRestartTest
   )(implicit env: TestConsoleEnvironment, closeContext: CloseContext): DbStorage = {
     import env.*
     val storage =
-      new CommunityStorageFactory(external.storageConfig(sequencerReference.name))
+      new StorageSingleFactory(external.storageConfig(sequencerReference.name))
         .create(
           connectionPoolForParticipant = false,
           None,

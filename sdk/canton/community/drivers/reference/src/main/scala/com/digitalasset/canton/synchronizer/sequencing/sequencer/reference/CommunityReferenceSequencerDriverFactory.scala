@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.{CommunityStorageSetup, Storage}
+import com.digitalasset.canton.resource.{Storage, StorageSingleSetup}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import monocle.macros.syntax.lens.*
@@ -29,7 +29,7 @@ final class CommunityReferenceSequencerDriverFactory extends BaseReferenceSequen
       closeContext: CloseContext,
       metricsContext: MetricsContext,
   ): Storage =
-    CommunityStorageSetup.tryCreateAndMigrateStorage(
+    StorageSingleSetup.tryCreateAndMigrateStorage(
       config.storage,
       config.logQueryCost,
       clock,

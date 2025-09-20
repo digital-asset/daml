@@ -23,19 +23,6 @@ object JsonProtocol extends JsonProtocolLow {
   implicit val PartyFormat: JsonFormat[http.Party] =
     taggedJsonFormat
 
-  implicit def NonEmptyListFormat[A: JsonReader: JsonWriter]: JsonFormat[NonEmptyList[A]] =
-    jsonFormatFromReaderWriter(NonEmptyListReader, NonEmptyListWriter)
-
-  // Do not design your own open typeclasses like JsonFormat was designed.
-  private[this] def jsonFormatFromReaderWriter[A](implicit
-      R: JsonReader[_ <: A],
-      W: JsonWriter[_ >: A],
-  ): JsonFormat[A] =
-    new JsonFormat[A] {
-      override def read(json: JsValue) = R read json
-      override def write(obj: A) = W write obj
-    }
-
   /** This intuitively pointless extra type is here to give it specificity so this instance will
     * beat CollectionFormats#listFormat. You would normally achieve the conflict resolution by
     * putting this instance in a parent of
@@ -84,66 +71,8 @@ object JsonProtocol extends JsonProtocolLow {
       }
     }
 
-  implicit def TemplateIdRequiredPkgIdFormat[CtId[T] <: http.ContractTypeId[T]](implicit
-      CtId: http.ContractTypeId.Like[CtId]
-  ): RootJsonFormat[CtId[Ref.PackageId]] = new TemplateIdFormat(CtId, Ref.PackageId.fromString)
-
-  implicit def TemplateIdRequiredPkgFormat[CtId[T] <: http.ContractTypeId[T]](implicit
-      CtId: http.ContractTypeId.Like[CtId]
-  ): RootJsonFormat[CtId[Ref.PackageRef]] = new TemplateIdFormat(CtId, Ref.PackageRef.fromString)
-
-  class TemplateIdFormat[P, CtId[T] <: http.ContractTypeId[T]](
-      CtId: http.ContractTypeId.Like[CtId],
-      readPkg: (String => Either[String, P]),
-  ) extends RootJsonFormat[CtId[P]] {
-    override def write(a: CtId[P]) =
-      JsString(s"${a.packageId.toString: String}:${a.moduleName: String}:${a.entityName: String}")
-
-    override def read(json: JsValue) = json match {
-      case JsString(str) =>
-        str.split(':') match {
-          case Array(p, m, e) =>
-            readPkg(p) match {
-              case Left(reason) => error(json, reason)
-              case Right(pkgRef) => CtId(pkgRef, m, e)
-            }
-          case _ => error(json, "did not have two ':' chars")
-        }
-      case _ => error(json, "not JsString")
-    }
-
-    private def error(json: JsValue, reason: String): Nothing =
-      deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json. $reason")
-  }
-
   implicit val hexStringFormat: JsonFormat[Ref.HexString] =
     xemapStringJsonFormat(Ref.HexString.fromString)(identity)
-
-  implicit val deduplicationPeriodOffset: JsonFormat[DeduplicationPeriod.Offset] = jsonFormat1(
-    DeduplicationPeriod.Offset.apply
-  )
-  implicit val deduplicationPeriodDuration: JsonFormat[DeduplicationPeriod.Duration] = jsonFormat1(
-    DeduplicationPeriod.Duration.apply
-  )
-
-  implicit val DeduplicationPeriodFormat: JsonFormat[DeduplicationPeriod] = {
-    val deduplicationPeriodOffsetTypeName =
-      classOf[DeduplicationPeriod.Offset].getSimpleName
-    val deduplicationPeriodDurationTypeName =
-      classOf[DeduplicationPeriod.Duration].getSimpleName
-
-    jsonFormatFromADT(
-      {
-        case `deduplicationPeriodOffsetTypeName` => deduplicationPeriodOffset.read(_)
-        case `deduplicationPeriodDurationTypeName` => deduplicationPeriodDuration.read(_)
-        case typeName => deserializationError(s"Unknown deduplication period type: $typeName")
-      },
-      {
-        case obj: DeduplicationPeriod.Offset => deduplicationPeriodOffset.write(obj)
-        case obj: DeduplicationPeriod.Duration => deduplicationPeriodDuration.write(obj)
-      },
-    )
-  }
 
   implicit val StatusCodeFormat: RootJsonFormat[StatusCode] =
     new RootJsonFormat[StatusCode] {
@@ -154,33 +83,6 @@ object JsonProtocol extends JsonProtocolLow {
 
       override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
     }
-
-  implicit val ServiceWarningFormat: RootJsonFormat[http.ServiceWarning] =
-    new RootJsonFormat[http.ServiceWarning] {
-      override def read(json: JsValue): http.ServiceWarning = json match {
-        case JsObject(fields) if fields.contains("unknownTemplateIds") =>
-          UnknownTemplateIdsFormat.read(json)
-        case JsObject(fields) if fields.contains("unknownParties") =>
-          UnknownPartiesFormat.read(json)
-        case _ =>
-          deserializationError(
-            s"Expected JsObject(unknownTemplateIds | unknownParties -> JsArray(...)), got: $json"
-          )
-      }
-
-      override def write(obj: http.ServiceWarning): JsValue = obj match {
-        case x: http.UnknownTemplateIds => UnknownTemplateIdsFormat.write(x)
-        case x: http.UnknownParties => UnknownPartiesFormat.write(x)
-      }
-    }
-
-  implicit val UnknownTemplateIdsFormat: RootJsonFormat[http.UnknownTemplateIds] = jsonFormat1(
-    http.UnknownTemplateIds.apply
-  )
-
-  implicit val UnknownPartiesFormat: RootJsonFormat[http.UnknownParties] = jsonFormat1(
-    http.UnknownParties.apply
-  )
 
   implicit val ResourceInfoDetailFormat: RootJsonFormat[http.ResourceInfoDetail] = jsonFormat2(
     http.ResourceInfoDetail.apply
@@ -237,7 +139,7 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat3(http.LedgerApiError.apply)
 
   implicit val ErrorResponseFormat: RootJsonFormat[http.ErrorResponse] =
-    jsonFormat4(http.ErrorResponse.apply)
+    jsonFormat3(http.ErrorResponse.apply)
 
   implicit val StructFormat: RootJsonFormat[Struct] = StructJsonFormat
 

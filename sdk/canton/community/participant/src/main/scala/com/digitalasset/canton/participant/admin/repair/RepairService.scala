@@ -133,7 +133,12 @@ final class RepairService(
           ContractInstance.create(repairContract.contract)
         )
       } yield Option(
-        ContractToAdd(contractInstance, repairContract.reassignmentCounter, reassigningFrom)
+        ContractToAdd(
+          contract = contractInstance,
+          reassignmentCounter = repairContract.reassignmentCounter,
+          reassigningFrom = reassigningFrom,
+          representativePackageId = repairContract.representativePackageId,
+        )
       )
 
     acsState match {
@@ -989,8 +994,8 @@ final class RepairService(
       ),
       updateId = repair.transactionId.tryAsLedgerTransactionId,
       contractAuthenticationData = Map.empty,
-      // TODO(#27872): Populate with the representative package IDs computed during ACS import
-      representativePackageIds = RepresentativePackageIds.SameAsContractPackageId,
+      // No create nodes so no representative package IDs
+      representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
@@ -1009,6 +1014,9 @@ final class RepairService(
     val contractAuthenticationData = contractsAdded.view.map { c =>
       c.contract.contractId -> c.authenticationData
     }.toMap
+    val representativePackageIds = contractsAdded.view
+      .map(c => c.contract.contractId -> c.representativePackageId)
+      .toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
     Update.RepairTransactionAccepted(
@@ -1030,8 +1038,7 @@ final class RepairService(
       ),
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       contractAuthenticationData = contractAuthenticationData,
-      // TODO(#27872): Populate with the representative package IDs computed during ACS import
-      representativePackageIds = RepresentativePackageIds.SameAsContractPackageId,
+      representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repairCounter,
       recordTime = repair.timestamp,
@@ -1273,6 +1280,7 @@ object RepairService {
       contract: ContractInstance,
       reassignmentCounter: ReassignmentCounter,
       reassigningFrom: Option[Source[SynchronizerId]],
+      representativePackageId: LfPackageId,
   ) {
     def cid: LfContractId = contract.contractId
 

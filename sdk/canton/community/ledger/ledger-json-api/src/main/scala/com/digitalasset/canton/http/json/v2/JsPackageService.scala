@@ -4,10 +4,11 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.package_management_service
-import com.daml.ledger.api.v2.package_service
+import com.daml.ledger.api.v2.{package_reference, package_service}
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
+import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
   stringDecoderForEnum,
@@ -19,6 +20,7 @@ import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
+import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.{Codec, Decoder, Encoder}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
@@ -26,7 +28,7 @@ import org.apache.pekko.util
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, streamBinaryBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, streamBinaryBody}
 
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
@@ -43,8 +45,6 @@ class JsPackageService(
     materializer: Materializer,
     val authInterceptor: AuthInterceptor,
 ) extends Endpoints {
-  import JsPackageService.*
-
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() =
     List(
@@ -57,12 +57,20 @@ class JsPackageService(
         getPackage,
       ),
       withServerLogic(
-        uploadDar,
+        JsPackageService.uploadDar,
         upload,
       ),
       withServerLogic(
         JsPackageService.packageStatusEndpoint,
         status,
+      ),
+      withServerLogic(
+        JsPackageService.listVettedPackagesEndpoint,
+        listVettedPackages,
+      ),
+      withServerLogic(
+        JsPackageService.updateVettedPackagesEndpoint,
+        updateVettedPackages,
       ),
     )
   private def list(
@@ -78,18 +86,37 @@ class JsPackageService(
     Either[JsCantonError, package_service.GetPackageStatusResponse]
   ] = req => packageClient.getPackageStatus(req.in, caller.token())(req.traceContext).resultToRight
 
+  private def listVettedPackages(
+      @unused caller: CallerContext
+  ): TracedInput[package_service.ListVettedPackagesRequest] => Future[
+    Either[JsCantonError, package_service.ListVettedPackagesResponse]
+  ] = req =>
+    packageClient.listVettedPackages(req.in, caller.token())(req.traceContext).resultToRight
+
+  private def updateVettedPackages(
+      @unused caller: CallerContext
+  ): TracedInput[package_management_service.UpdateVettedPackagesRequest] => Future[
+    Either[JsCantonError, package_management_service.UpdateVettedPackagesResponse]
+  ] = req =>
+    packageManagementClient
+      .updateVettedPackages(req.in, caller.token())(req.traceContext)
+      .resultToRight
+
   private def upload(caller: CallerContext) = {
-    (tracedInput: TracedInput[Source[util.ByteString, Any]]) =>
+    (tracedInput: TracedInput[(Source[util.ByteString, Any], Option[Boolean])]) =>
       implicit val traceContext: TraceContext = tracedInput.traceContext
-      val inputStream = tracedInput.in.runWith(StreamConverters.asInputStream())(materializer)
+      val inputStream = tracedInput.in._1.runWith(StreamConverters.asInputStream())(materializer)
       val bs = protobuf.ByteString.readFrom(inputStream)
       packageManagementClient
-        .uploadDarFile(bs, caller.token())
+        .uploadDarFile(
+          darFile = bs,
+          token = caller.token(),
+          vetAllPackages = tracedInput.in._2.getOrElse(true),
+        )
         .map { _ =>
           package_management_service.UploadDarFileResponse()
         }
         .resultToRight
-
   }
 
   private def getPackage(caller: CallerContext) = { (tracedInput: TracedInput[String]) =>
@@ -114,11 +141,13 @@ class JsPackageService(
 object JsPackageService extends DocumentationEndpoints {
   import Endpoints.*
   lazy val packages = v2Endpoint.in(sttp.tapir.stringToPath("packages"))
+  lazy val packageVetting = v2Endpoint.in(sttp.tapir.stringToPath("package-vetting"))
   private val packageIdPath = "package-id"
 
   val uploadDar =
     packages.post
       .in(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()).toEndpointIO)
+      .in(query[Option[Boolean]]("vetAllPackages"))
       .out(jsonBody[package_management_service.UploadDarFileResponse])
       .description("Upload a DAR to the participant node")
 
@@ -143,8 +172,27 @@ object JsPackageService extends DocumentationEndpoints {
       .out(jsonBody[package_service.GetPackageStatusResponse])
       .description("Get package status")
 
+  val listVettedPackagesEndpoint =
+    packageVetting.get
+      .in(jsonBody[package_service.ListVettedPackagesRequest])
+      .out(jsonBody[package_service.ListVettedPackagesResponse])
+      .description("List vetted packages")
+
+  val updateVettedPackagesEndpoint =
+    packageVetting.post
+      .in(jsonBody[package_management_service.UpdateVettedPackagesRequest])
+      .out(jsonBody[package_management_service.UpdateVettedPackagesResponse])
+      .description("Update vetted packages")
+
   override def documentation: Seq[AnyEndpoint] =
-    Seq(uploadDar, listPackagesEndpoint, downloadPackageEndpoint, packageStatusEndpoint)
+    Seq(
+      uploadDar,
+      listPackagesEndpoint,
+      downloadPackageEndpoint,
+      packageStatusEndpoint,
+      listVettedPackagesEndpoint,
+      updateVettedPackagesEndpoint,
+    )
 
 }
 
@@ -154,6 +202,47 @@ object JsPackageCodecs {
   implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] =
     deriveRelaxedCodec
   implicit val getPackageStatusResponse: Codec[package_service.GetPackageStatusResponse] =
+    deriveRelaxedCodec
+  implicit val vettedPackages: Codec[package_reference.VettedPackages] =
+    deriveRelaxedCodec
+  implicit val vettedPackage: Codec[package_reference.VettedPackage] =
+    deriveRelaxedCodec
+  implicit val updateVettedPackagesResponse
+      : Codec[package_management_service.UpdateVettedPackagesResponse] =
+    deriveRelaxedCodec
+  implicit val vettedPackagesChangeRef: Codec[package_management_service.VettedPackagesRef] =
+    deriveRelaxedCodec
+  implicit val vettedPackagesChangeUnvet
+      : Codec[package_management_service.VettedPackagesChange.Unvet] =
+    deriveRelaxedCodec
+  implicit val vettedPackagesChangeVet: Codec[package_management_service.VettedPackagesChange.Vet] =
+    deriveRelaxedCodec
+  implicit val vettedPackagesChangeOperation
+      : Codec[package_management_service.VettedPackagesChange.Operation] =
+    deriveConfiguredCodec
+  implicit val vettedPackagesChangeOperationSchema
+      : Schema[package_management_service.VettedPackagesChange.Operation] =
+    Schema.oneOfWrapped
+
+  implicit val vettedPackagesChange: Codec[package_management_service.VettedPackagesChange] =
+    deriveRelaxedCodec
+  implicit val updateVettedPackagesRequest
+      : Codec[package_management_service.UpdateVettedPackagesRequest] =
+    deriveRelaxedCodec
+  implicit val packageMetadataFilter: Codec[package_service.PackageMetadataFilter] =
+    deriveRelaxedCodec
+  implicit val topologyStateFilter: Codec[package_service.TopologyStateFilter] =
+    deriveRelaxedCodec
+  implicit val listVettedPackagesRequest: Codec[package_service.ListVettedPackagesRequest] =
+    deriveRelaxedCodec
+  implicit val listVettedPackagesResponse: Codec[package_service.ListVettedPackagesResponse] =
+    deriveRelaxedCodec
+
+  implicit val vettedPackagesChangeUnvetOneOf
+      : Codec[package_management_service.VettedPackagesChange.Operation.Unvet] =
+    deriveRelaxedCodec
+  implicit val vettedPackagesChangeVetOneOf
+      : Codec[package_management_service.VettedPackagesChange.Operation.Vet] =
     deriveRelaxedCodec
 
   implicit val uploadDarFileResponseRW: Codec[package_management_service.UploadDarFileResponse] =

@@ -89,6 +89,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing.BftSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.{
+  AsyncWriterConfig,
   RemoteSequencerConfig,
   SequencerNodeConfig,
   SequencerNodeParameterConfig,
@@ -503,6 +504,7 @@ final case class CantonConfig(
         protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeConfig.parameters),
         maxConfirmationRequestsBurstFactor =
           sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
+        asyncWriter = sequencerNodeConfig.parameters.asyncWriter.toParameters,
         unsafeEnableOnlinePartyReplication =
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
         sequencerApiLimits = sequencerNodeConfig.parameters.sequencerApiLimits,
@@ -1079,8 +1081,10 @@ object CantonConfig {
       }
 
     lazy implicit final val sequencerNodeParametersConfigReader
-        : ConfigReader[SequencerNodeParameterConfig] =
+        : ConfigReader[SequencerNodeParameterConfig] = {
+      implicit val asyncWriterConfigReader = deriveReader[AsyncWriterConfig]
       deriveReader[SequencerNodeParameterConfig]
+    }
     lazy implicit final val SequencerHealthConfigReader: ConfigReader[SequencerHealthConfig] =
       deriveReader[SequencerHealthConfig]
 
@@ -1752,8 +1756,11 @@ object CantonConfig {
     }
 
     lazy implicit final val sequencerNodeParameterConfigWriter
-        : ConfigWriter[SequencerNodeParameterConfig] =
+        : ConfigWriter[SequencerNodeParameterConfig] = {
+      implicit val asyncWriterConfigWriter: ConfigWriter[AsyncWriterConfig] =
+        deriveWriter[AsyncWriterConfig]
       deriveWriter[SequencerNodeParameterConfig]
+    }
     lazy implicit final val SequencerHealthConfigWriter: ConfigWriter[SequencerHealthConfig] =
       deriveWriter[SequencerHealthConfig]
     lazy implicit final val remoteSequencerConfigWriter: ConfigWriter[RemoteSequencerConfig] =

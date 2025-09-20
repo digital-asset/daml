@@ -31,6 +31,11 @@ final class PackageServiceAuthorization(
   ): Future[GetPackageStatusResponse] =
     authorizer.rpc(service.getPackageStatus)(RequiredClaim.Public())(request)
 
+  override def listVettedPackages(
+      request: ListVettedPackagesRequest
+  ): Future[ListVettedPackagesResponse] =
+    authorizer.rpc(service.listVettedPackages)(RequiredClaim.Public())(request)
+
   override def bindService(): ServerServiceDefinition =
     PackageServiceGrpc.bindService(this, executionContext)
 }

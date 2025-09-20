@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
+import com.daml.ledger.api.v2.package_reference.VettedPackages
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v2.package_service.{
   GetPackageRequest,
@@ -12,15 +13,18 @@ import com.daml.ledger.api.v2.package_service.{
   HashFunction as APIHashFunction,
   ListPackagesRequest,
   ListPackagesResponse,
+  ListVettedPackagesRequest,
+  ListVettedPackagesResponse,
   PackageServiceGrpc,
   PackageStatus,
 }
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.ledger.api.ValidationLogger
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.grpc.Logging.traceId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
+import com.digitalasset.canton.ledger.api.{ListVettedPackagesOpts, ValidationLogger}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
@@ -35,6 +39,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.archive.DamlLf.{Archive, HashFunction}
 import com.digitalasset.daml.lf.data.Ref
@@ -115,6 +120,32 @@ private[apiserver] final class ApiPackageService(
         }
           .thereafter(logger.logErrorsOnCall[GetPackageStatusResponse])
       }
+    }
+
+  override def listVettedPackages(
+      request: ListVettedPackagesRequest
+  ): Future[ListVettedPackagesResponse] =
+    withEnrichedLoggingContext(telemetry)(
+      traceId(telemetry.traceIdFromGrpcContext)
+    ) { implicit loggingContext =>
+      for {
+        opts <- ListVettedPackagesOpts
+          .fromProto(request)
+          .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
+        result <- packageSyncService.listVettedPackages(opts)
+      } yield ListVettedPackagesResponse(
+        vettedPackages = result.toList.map { case (packages, serial) =>
+          VettedPackages(
+            packages = packages.map(_.toProtoLAPI),
+            // TODO(#27750) Populate these fields and assert over them when
+            // updates and queries can specify target synchronizers
+            participantId = "",
+            synchronizerId = "",
+            topologySerial = serial.value,
+          )
+        },
+        nextPageToken = None,
+      )
     }
 
   private def withValidatedPackageId[T, R](packageId: String, request: R)(

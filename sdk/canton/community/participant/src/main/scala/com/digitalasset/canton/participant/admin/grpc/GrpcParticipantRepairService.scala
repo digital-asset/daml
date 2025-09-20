@@ -18,7 +18,11 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld.loadFromByteString
-import com.digitalasset.canton.participant.admin.data.{ContractIdImportMode, RepairContract}
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepairContract,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairService.{
   ValidExportAcsOldRequest,
   ValidExportAcsRequest,
@@ -246,8 +250,8 @@ final class GrpcParticipantRepairService(
     importAcsContractsOld(
       loadFromByteString(data).map(contracts => contracts.map(_.toRepairContract)),
       workflowIdPrefix,
-      if (allowContractIdSuffixRecomputation) ContractIdImportMode.Recomputation
-      else ContractIdImportMode.Validation,
+      if (allowContractIdSuffixRecomputation) ContractImportMode.Recomputation
+      else ContractImportMode.Validation,
     )
 
   override def exportAcs(
@@ -360,8 +364,8 @@ final class GrpcParticipantRepairService(
     // TODO(#23818): This buffer will contain the whole ACS snapshot.
     val outputStream = new ByteArrayOutputStream()
 
-    // (workflowIdPrefix, ContractIdImportMode, excludedStakeholders)
-    type ImportArgs = (String, ContractIdImportMode, Set[PartyId])
+    // (workflowIdPrefix, ContractImportMode, excludedStakeholders, representativePackageIdOverride)
+    type ImportArgs = (String, ContractImportMode, Set[PartyId], RepresentativePackageIdOverride)
 
     val args = new AtomicReference[Option[ImportArgs]](None)
 
@@ -372,26 +376,36 @@ final class GrpcParticipantRepairService(
 
     def setOrCheck(
         workflowIdPrefix: String,
-        contractIdImportMode: ContractIdImportMode,
+        contractImportMode: ContractImportMode,
         excludeStakeholders: Set[PartyId],
+        representativePackageIdOverride: RepresentativePackageIdOverride,
     ): Either[String, Unit] = {
-      val newOrMatchingValue = Some((workflowIdPrefix, contractIdImportMode, excludeStakeholders))
+      val newOrMatchingValue = Some(
+        (workflowIdPrefix, contractImportMode, excludeStakeholders, representativePackageIdOverride)
+      )
       if (args.compareAndSet(None, newOrMatchingValue)) {
         Right(()) // This was the first message, success, set.
       } else {
         recordedArgs.flatMap {
-          case (oldWorkflowIdPrefix, _, _) if oldWorkflowIdPrefix != workflowIdPrefix =>
+          case (oldWorkflowIdPrefix, _, _, _) if oldWorkflowIdPrefix != workflowIdPrefix =>
             Left(
               s"Workflow ID prefix cannot be changed from $oldWorkflowIdPrefix to $workflowIdPrefix"
             )
-          case (_, oldContractIdImportMode, _) if oldContractIdImportMode != contractIdImportMode =>
+          case (_, oldContractImportMode, _, _) if oldContractImportMode != contractImportMode =>
             Left(
-              s"Contract ID import mode cannot be changed from $oldContractIdImportMode to $contractIdImportMode"
+              s"Contract ID import mode cannot be changed from $oldContractImportMode to $contractImportMode"
             )
-          case (_, _, oldExcludedStakeholders) if oldExcludedStakeholders != excludeStakeholders =>
+          case (_, _, oldExcludedStakeholders, _)
+              if oldExcludedStakeholders != excludeStakeholders =>
             Left(
               s"Exclude parties cannot be changed from $oldExcludedStakeholders to $excludeStakeholders"
             )
+          case (_, _, _, oldRepresentativePackageIdOverride)
+              if oldRepresentativePackageIdOverride != representativePackageIdOverride =>
+            Left(
+              s"Representative package ID override cannot be changed from $oldRepresentativePackageIdOverride to $representativePackageIdOverride"
+            )
+
           case _ => Right(()) // All arguments matched successfully
         }
       }
@@ -400,12 +414,9 @@ final class GrpcParticipantRepairService(
     new StreamObserver[ImportAcsRequest] {
 
       override def onNext(request: ImportAcsRequest): Unit = {
-
         val processRequest: Either[String, Unit] = for {
-          contractIdRecomputationMode <- ContractIdImportMode
-            .fromProtoV30(
-              request.contractIdSuffixRecomputationMode
-            )
+          contractImportMode <- ContractImportMode
+            .fromProtoV30(request.contractImportMode)
             .leftMap(_.message)
           excludedStakeholders <- request.excludedStakeholderIds
             .traverse(party =>
@@ -414,10 +425,14 @@ final class GrpcParticipantRepairService(
                 .map(PartyId(_))
             )
             .leftMap(_.message)
+          representativePackageIdOverrideO <- request.representativePackageIdOverride
+            .traverse(RepresentativePackageIdOverride.fromProtoV30)
+            .leftMap(_.message)
           _ <- setOrCheck(
             request.workflowIdPrefix,
-            contractIdRecomputationMode,
+            contractImportMode,
             excludedStakeholders.toSet,
+            representativePackageIdOverrideO.getOrElse(RepresentativePackageIdOverride.NoOverride),
           )
         } yield ()
 
@@ -444,7 +459,12 @@ final class GrpcParticipantRepairService(
           argsTuple <- EitherT.fromEither[Future](
             recordedArgs.leftMap(new IllegalStateException(_))
           )
-          (workflowIdPrefix, contractIdImportMode, excludedStakeholders) = argsTuple
+          (
+            workflowIdPrefix,
+            contractImportMode,
+            excludedStakeholders,
+            representativePackageIdOverride,
+          ) = argsTuple
 
           acsSnapshot <- EitherT.fromEither[Future](
             Try(ByteString.copyFrom(outputStream.toByteArray)).toEither
@@ -454,11 +474,12 @@ final class GrpcParticipantRepairService(
             ParticipantCommon.importAcsNewSnapshot(
               acsSnapshot = acsSnapshot,
               workflowIdPrefix = workflowIdPrefix,
-              contractIdImportMode = contractIdImportMode,
+              contractImportMode = contractImportMode,
               excludedStakeholders = excludedStakeholders,
-              sync,
-              batching,
-              loggerFactory,
+              representativePackageIdOverride = representativePackageIdOverride,
+              sync = sync,
+              batching = batching,
+              loggerFactory = loggerFactory,
             )
           )
         } yield contractIdRemapping
@@ -489,7 +510,7 @@ final class GrpcParticipantRepairService(
   private def importAcsContractsOld(
       contracts: Either[String, List[RepairContract]],
       workflowIdPrefix: String,
-      contractIdImportMode: ContractIdImportMode,
+      contractImportMode: ContractImportMode,
   )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
     val resultET = for {
       repairContracts <- EitherT
@@ -505,7 +526,7 @@ final class GrpcParticipantRepairService(
           loggerFactory,
           sync.syncPersistentStateManager,
           sync.pureCryptoApi,
-          contractIdImportMode,
+          contractImportMode,
         )(repairContracts)
       (activeContractsWithValidContractIds, contractIdRemapping) =
         activeContractsWithRemapping

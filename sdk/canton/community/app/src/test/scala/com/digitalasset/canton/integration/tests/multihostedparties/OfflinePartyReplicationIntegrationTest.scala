@@ -26,7 +26,7 @@ import com.digitalasset.canton.integration.{
   TestEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.ContractImportMode
 import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError.InvalidTimestamp
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
@@ -188,7 +188,7 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
 
       target.repair.import_acs(
         acsSnapshotPath,
-        contractIdImportMode = ContractIdImportMode.Accept,
+        contractImportMode = ContractImportMode.Accept,
       )
 
       target.synchronizers.reconnect(daName)
@@ -264,7 +264,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       target.repair.import_acs(
         acsSnapshotPath,
-        contractIdImportMode = ContractIdImportMode.Accept,
+        contractImportMode = ContractImportMode.Accept,
       )
 
       target.synchronizers.reconnect(daName)

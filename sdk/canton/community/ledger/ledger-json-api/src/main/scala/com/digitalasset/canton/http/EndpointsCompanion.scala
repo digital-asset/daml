@@ -3,13 +3,6 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.jwt.{
-  AuthServiceJWTCodec,
-  AuthServiceJWTPayload,
-  DecodedJwt,
-  Jwt,
-  StandardJWTPayload,
-}
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.base.error.utils.ErrorDetails.ErrorDetail
@@ -19,32 +12,23 @@ import com.digitalasset.canton.http.util.Logging.{
   RequestID,
   extendWithRequestIdLogCtx,
 }
-import com.digitalasset.canton.http.{JwtPayload, JwtWritePayload, LedgerApiError}
-import com.digitalasset.canton.ledger.api.UserRight
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
-import com.digitalasset.daml.lf.data.Ref.UserId
 import com.google.rpc.{Code as GrpcCode, Status}
 import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
 import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
 import org.apache.pekko.util.ByteString
-import scalaz.syntax.std.either.*
-import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
+import scalaz.Show
 import spray.json.JsValue
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
 
 import util.GrpcHttpErrorCodes.*
-import UserRight.{CanActAs, CanReadAs}
 
 object EndpointsCompanion extends NoTracing {
-
-  type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
-  type ResolveUser = Jwt => UserId => Future[Seq[UserRight]]
 
   sealed abstract class Error extends Product with Serializable
 
@@ -71,11 +55,6 @@ object EndpointsCompanion extends NoTracing {
 
   final case class NotFound(message: String) extends Error
 
-  object ServerError {
-    // We want stack traces also in the case of simple error messages.
-    def fromMsg(message: String): ServerError = ServerError(new Exception(message))
-  }
-
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
@@ -90,90 +69,6 @@ object EndpointsCompanion extends NoTracing {
       case StatusEnvelope(status) => ParticipantServerError(status)
       case NonFatal(t) => ServerError(t)
     }
-  }
-
-  trait CreateFromUserToken[A] {
-    def apply(
-        jwt: StandardJWTPayload,
-        listUserRights: UserId => Future[Seq[UserRight]],
-    ): EitherT[Future, Unauthorized, A]
-  }
-
-  object CreateFromUserToken {
-
-    import com.digitalasset.canton.http.util.FutureUtil.either
-
-    trait FromUser[A, B] {
-      def apply(userId: String, actAs: List[String], readAs: List[String]): A \/ B
-    }
-
-    def userIdFromToken(
-        jwt: StandardJWTPayload
-    ): Unauthorized \/ UserId =
-      UserId
-        .fromString(jwt.userId)
-        .disjunction
-        .leftMap(Unauthorized.apply)
-
-    private def transformUserTokenTo[B](
-        jwt: StandardJWTPayload,
-        listUserRights: UserId => Future[Seq[UserRight]],
-    )(
-        fromUser: FromUser[Unauthorized, B]
-    )(implicit
-        mf: Monad[Future]
-    ): EitherT[Future, Unauthorized, B] =
-      for {
-        userId <- either(userIdFromToken(jwt))
-        rights <- EitherT.rightT(listUserRights(userId))
-
-        actAs = rights.collect { case CanActAs(party) =>
-          party
-        }
-        readAs = rights.collect { case CanReadAs(party) =>
-          party
-        }
-        res <- either(fromUser(userId, actAs.toList, readAs.toList))
-      } yield res
-
-    @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
-    implicit def jwtWritePayloadFromUserToken(implicit
-        mf: Monad[Future]
-    ): CreateFromUserToken[JwtWritePayload] =
-      (
-          jwt,
-          listUserRights,
-      ) =>
-        transformUserTokenTo(jwt, listUserRights)((userId, actAs, readAs) =>
-          for {
-            actAsNonEmpty <-
-              if (actAs.isEmpty)
-                -\/ apply Unauthorized(
-                  "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
-                )
-              else \/-(NonEmptyList(actAs.head: String, actAs.tail*))
-          } yield JwtWritePayload(
-            lar.UserId(userId),
-            lar.Party.subst(actAsNonEmpty),
-            lar.Party.subst(readAs),
-          )
-        )
-
-    implicit def jwtPayloadFromUserToken(implicit
-        mf: Monad[Future]
-    ): CreateFromUserToken[JwtPayload] =
-      (
-          jwt,
-          listUserRights,
-      ) =>
-        transformUserTokenTo(jwt, listUserRights)((userId, actAs, readAs) =>
-          \/ fromEither JwtPayload(
-            lar.UserId(userId),
-            actAs = lar.Party.subst(actAs),
-            readAs = lar.Party.subst(readAs),
-          ).toRight(Unauthorized("Unable to convert user token into a set of claims"))
-        )
-
   }
 
   def notFound(
@@ -207,7 +102,6 @@ object EndpointsCompanion extends NoTracing {
     ) =
       ErrorResponse(
         errors = List(error),
-        warnings = None,
         status = status,
         ledgerApiError = ledgerApiError,
       )
@@ -240,36 +134,4 @@ object EndpointsCompanion extends NoTracing {
     )
 
   def format(a: JsValue): ByteString = ByteString(a.compactPrint)
-
-  def decodeAndParseJwt(
-      jwt: Jwt,
-      decodeJwt: ValidateJwt,
-  ): Error \/ AuthServiceJWTPayload =
-    decodeJwt(jwt)
-      .flatMap(a =>
-        AuthServiceJWTCodec
-          .readFromString(a.payload)
-          .toEither
-          .disjunction
-          .leftMap(Error.fromThrowable)
-      )
-
-  def decodeAndParsePayload[A](
-      jwt: Jwt,
-      decodeJwt: ValidateJwt,
-      resolveUser: ResolveUser,
-  )(implicit
-      createFromUserToken: CreateFromUserToken[A],
-      fm: Monad[Future],
-  ): EitherT[Future, Error, (Jwt, A)] =
-    for {
-      token <- EitherT.either(decodeAndParseJwt(jwt, decodeJwt))
-      p <- token match {
-        case standardToken: StandardJWTPayload =>
-          createFromUserToken(
-            standardToken,
-            resolveUser(jwt),
-          ).leftMap(identity[Error])
-      }
-    } yield (jwt, p: A)
 }

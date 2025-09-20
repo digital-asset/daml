@@ -77,9 +77,13 @@ services:
     # Disabling it does not have effect on the Postgres dashboard.
     command: --no-collector.database
     environment:
+      # Change the config depending on the postgres instance
       DATA_SOURCE_USER: "postgres"
       DATA_SOURCE_PASS: "postgres"
       DATA_SOURCE_URI: "postgres:5432/postgres?sslmode=disable"
+      # Use this URI if you are running Postgres on the host system
+      # DATA_SOURCE_URI: "host.docker.internal:5432/postgres?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
     volumes:
       # PostgreSQL Server Exporter configuration
       - ./postgres/postgres_exporter.yml:/postgres_exporter.yml

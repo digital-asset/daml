@@ -198,7 +198,7 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
         LogEntryOptionality.Required -> (_.errorMessage should include(
           "INVALID_ARGUMENT/MALFORMED_REQUEST"
         )),
-        LogEntryOptionality.OptionalMany -> (_.errorMessage should include(
+        LogEntryOptionality.OptionalMany -> (_.warningMessage should include(
           "Could not send a time-advancing message"
         )),
       )

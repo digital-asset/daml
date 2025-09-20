@@ -6,11 +6,14 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.ledger.api.SinglePackageTargetVetting
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.topology.{PackageOps, ParticipantTopologyManagerError}
 import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -47,4 +50,25 @@ class PackageOpsForTesting(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     EitherT.rightT(())
+
+  override def getVettedPackages()(implicit
+      tc: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    Option[(Seq[VettedPackage], PositiveInt)],
+  ] =
+    EitherT.rightT(None)
+
+  override def updateVettedPackages(
+      targetStates: Seq[SinglePackageTargetVetting[PackageId]],
+      dryRun: Boolean,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    (Seq[VettedPackage], Seq[VettedPackage]),
+  ] =
+    EitherT.rightT((Seq(), Seq()))
 }
