@@ -55,6 +55,11 @@ message FeaturesDescriptor {
 
   // It contains the timeouts related to the periodic offset checkpoint emission
   OffsetCheckpointFeature offset_checkpoint = 4;
+
+  // If set, then the Ledger API server supports package listing
+  // configurability. It is recommended that clients query this field to
+  // gracefully adjust their behavior to maximum package listing page size.
+  PackageFeature package_feature = 5;
 }
 
 message UserManagementFeature {
@@ -75,6 +80,12 @@ message UserManagementFeature {
 message PartyManagementFeature {
   // The maximum number of parties the server can return in a single response (page).
   int32 max_parties_page_size = 1;
+}
+
+message PackageFeature {
+  // The maximum number of vetted packages the server can return in a single
+  // response (page) when listing them.
+  int32 max_vetted_packages_page_size = 1;
 }
 
 message OffsetCheckpointFeature {

@@ -8,7 +8,7 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.NodeFactoryArguments
-import com.digitalasset.canton.resource.CommunityStorageFactory
+import com.digitalasset.canton.resource.StorageSingleFactory
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import org.apache.pekko.actor.ActorSystem
 
@@ -42,7 +42,7 @@ object CommunityMediatorNodeBootstrapFactory extends MediatorNodeBootstrapFactor
   ): Either[String, MediatorNodeBootstrap] =
     arguments
       .toCantonNodeBootstrapCommonArguments(
-        new CommunityStorageFactory(arguments.config.storage),
+        new StorageSingleFactory(arguments.config.storage),
         new CommunityCryptoPrivateStoreFactory(
           arguments.config.crypto.provider,
           arguments.config.crypto.kms,

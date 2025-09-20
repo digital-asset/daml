@@ -217,7 +217,12 @@ class ActiveContractsIntegrationTest
     val suffixedFci = LfFatContractInst
       .fromCreateNode(suffixedCreateNode, ledgerCreateTime, authenticationData.toLfBytes)
     val absolutizedFci = contractIdAbsolutizer.absolutizeFci(suffixedFci).value
-    val repairContract = RepairContract(psid, absolutizedFci, ReassignmentCounter(0))
+    val repairContract = RepairContract(
+      psid,
+      absolutizedFci,
+      ReassignmentCounter(0),
+      absolutizedFci.templateId.packageId,
+    )
 
     val startOffset = participant1.ledger_api.state.end()
     participant1.synchronizers.disconnect_all()

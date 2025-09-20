@@ -60,15 +60,15 @@ class InMemorySequencerBlockStore(
     }
   }
 
-  override def partialBlockUpdate(
+  override def storeInflightAggregations(
       inFlightAggregationUpdates: InFlightAggregationUpdates
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     sequencerStore.addInFlightAggregationUpdates(inFlightAggregationUpdates)
 
-  override def finalizeBlockUpdate(block: BlockInfo)(implicit
+  override def finalizeBlockUpdates(blocks: Seq[BlockInfo])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    updateBlockHeight(block)
+    blocks.foreach(updateBlockHeight)
     FutureUnlessShutdown.unit
   }
 

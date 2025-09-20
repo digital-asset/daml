@@ -66,6 +66,7 @@ object JsVersionServiceCodecs {
   implicit val umf: Codec[version_service.UserManagementFeature] = deriveRelaxedCodec
   implicit val pmf: Codec[version_service.PartyManagementFeature] = deriveRelaxedCodec
   implicit val ocf: Codec[version_service.OffsetCheckpointFeature] = deriveRelaxedCodec
+  implicit val pf: Codec[version_service.PackageFeature] = deriveRelaxedCodec
   implicit val fd: Codec[version_service.FeaturesDescriptor] = deriveRelaxedCodec
   implicit val glavr: Codec[version_service.GetLedgerApiVersionResponse] = deriveRelaxedCodec
 }

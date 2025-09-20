@@ -66,7 +66,7 @@ trait SchemaProcessors {
   def exerciseResultFromJsonToProto(
       template: v2.value.Identifier,
       choiceName: Ref.IdString.Name,
-      value: ujson.Value,
+      jvalue: ujson.Value,
   )(implicit
       traceContext: TraceContext
   ): Future[scala.Option[v2.value.Value]]

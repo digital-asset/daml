@@ -78,6 +78,11 @@ private[apiserver] final class ApiVersionService(
         )
       ),
       offsetCheckpoint = Some(ledgerFeatures.offsetCheckpointFeature),
+      packageFeature = Some(
+        PackageFeature.of(
+          maxVettedPackagesPageSize = 100
+        )
+      ),
     )
 
   override def getLedgerApiVersion(

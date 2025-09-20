@@ -34,7 +34,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.ContractImportMode
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
@@ -350,7 +350,7 @@ protected abstract class DumpTestSet extends LargeAcsExportAndImportTestBase {
 
 protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBase {
 
-  protected def testContractIdImportMode: ContractIdImportMode
+  protected def testContractIdImportMode: ContractImportMode
 
   private def restoreDump(node: LocalInstanceReference)(implicit
       env: TestConsoleEnvironment
@@ -488,7 +488,7 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
       clue("Import Alice ACS on P3")(
         participant3.repair.import_acs(
           acsExportFile.canonicalPath,
-          contractIdImportMode = testContractIdImportMode,
+          contractImportMode = testContractIdImportMode,
         )
       )
       val importDurationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startImport)
@@ -522,6 +522,6 @@ protected abstract class EstablishTestSet extends LargeAcsExportAndImportTestBas
 final class LargeAcsExportAndImportTest extends EstablishTestSet {
   override protected def testSet: TestSet = TestSet(1000)
 
-  override protected def testContractIdImportMode: ContractIdImportMode =
-    ContractIdImportMode.Validation
+  override protected def testContractIdImportMode: ContractImportMode =
+    ContractImportMode.Validation
 }

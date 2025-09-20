@@ -18,7 +18,10 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErrNewEUS
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.{
   PartyManagementServiceError,
@@ -401,8 +404,10 @@ class GrpcPartyManagementService(
             ParticipantCommon.importAcsNewSnapshot(
               acsSnapshot = ByteString.copyFrom(outputStream.toByteArray),
               workflowIdPrefix = s"import-party-acs-${UUID.randomUUID}",
-              contractIdImportMode = ContractIdImportMode.Validation,
+              contractImportMode = ContractImportMode.Validation,
               excludedStakeholders = Set.empty,
+              // TODO(#27872): Consider allowing package-id overrides for party imports
+              representativePackageIdOverride = RepresentativePackageIdOverride.NoOverride,
               sync,
               batching,
               loggerFactory,

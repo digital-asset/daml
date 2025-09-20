@@ -9,7 +9,6 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
@@ -19,6 +18,7 @@ import com.digitalasset.canton.synchronizer.block.data.SequencerBlockStore
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.TestingInterceptor
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitManager,
   SequencerTrafficConfig,
@@ -50,7 +50,7 @@ abstract class BlockSequencerFactory(
     storage: Storage,
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
-    nodeParameters: CantonNodeParameters,
+    nodeParameters: SequencerNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
     metrics: SequencerMetrics,
@@ -238,8 +238,10 @@ abstract class BlockSequencerFactory(
           synchronizerSyncCryptoApi.psid,
           store,
           trafficConsumedStore,
+          nodeParameters.asyncWriter,
           nodeParameters.enableAdditionalConsistencyChecks,
           nodeParameters.processingTimeouts,
+          futureSupervisor,
           synchronizerLoggerFactory,
           blockSequencerConfig.streamInstrumentation,
           metrics.block,

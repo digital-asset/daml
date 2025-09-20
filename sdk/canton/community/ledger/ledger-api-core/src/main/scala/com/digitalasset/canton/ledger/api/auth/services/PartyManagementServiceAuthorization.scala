@@ -26,7 +26,7 @@ final class PartyManagementServiceAuthorization(
   override def getParticipantId(
       request: GetParticipantIdRequest
   ): Future[GetParticipantIdResponse] =
-    authorizer.rpc(service.getParticipantId)(RequiredClaim.Admin())(request)
+    authorizer.rpc(service.getParticipantId)(RequiredClaim.Public())(request)
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
     authorizer.rpc(service.getParties)(

@@ -103,7 +103,7 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
 }
 
 object TopologyMapping {
-  private[transaction] def participantIdFromProtoPrimitive(
+  def participantIdFromProtoPrimitive(
       proto: String,
       fieldName: String,
   ): ParsingResult[ParticipantId] = {
@@ -1273,6 +1273,7 @@ final case class VettedPackage(
     validFromInclusive = validFromInclusive.map(_.toProtoTimestamp),
     validUntilExclusive = validUntilExclusive.map(_.toProtoTimestamp),
   )
+
   override protected def pretty: Pretty[VettedPackage.this.type] = prettyOfClass(
     param("packageId", _.packageId),
     paramIfDefined("validFromInclusive", _.validFromInclusive),

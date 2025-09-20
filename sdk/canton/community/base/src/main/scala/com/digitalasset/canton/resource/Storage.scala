@@ -30,10 +30,8 @@ import com.digitalasset.canton.metrics.{DbQueueMetrics, DbStorageMetrics}
 import com.digitalasset.canton.protocol.{LfContractId, LfGlobalKey, LfHash}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
-import com.digitalasset.canton.resource.StorageFactory.StorageCreationException
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializationException}
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -79,87 +77,6 @@ sealed trait Storage extends CloseableHealthComponent with AtomicHealthComponent
   /** Indicates if the storage instance is active and ready to perform updates/writes. */
   def isActive: Boolean
 
-}
-
-trait StorageFactory {
-  def config: StorageConfig
-
-  /** Throws an exception in case of errors or shutdown during storage creation. */
-  def tryCreate(
-      connectionPoolForParticipant: Boolean,
-      logQueryCost: Option[QueryCostMonitoringConfig],
-      clock: Clock,
-      scheduler: Option[ScheduledExecutorService],
-      metrics: DbStorageMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): Storage =
-    create(
-      connectionPoolForParticipant,
-      logQueryCost,
-      clock,
-      scheduler,
-      metrics,
-      timeouts,
-      loggerFactory,
-    )
-      .valueOr(err => throw new StorageCreationException(err))
-      .onShutdown(throw new StorageCreationException("Shutdown during storage creation"))
-
-  def create(
-      connectionPoolForParticipant: Boolean,
-      logQueryCost: Option[QueryCostMonitoringConfig],
-      clock: Clock,
-      scheduler: Option[ScheduledExecutorService],
-      metrics: DbStorageMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): EitherT[UnlessShutdown, String, Storage]
-}
-
-object StorageFactory {
-  class StorageCreationException(message: String) extends RuntimeException(message)
-}
-
-class CommunityStorageFactory(val config: StorageConfig) extends StorageFactory {
-  override def create(
-      connectionPoolForParticipant: Boolean,
-      logQueryCost: Option[QueryCostMonitoringConfig],
-      clock: Clock,
-      scheduler: Option[ScheduledExecutorService],
-      metrics: DbStorageMetrics,
-      timeouts: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): EitherT[UnlessShutdown, String, Storage] =
-    config match {
-      case StorageConfig.Memory(_, _) =>
-        EitherT.rightT(new MemoryStorage(loggerFactory, timeouts))
-      case db: DbConfig =>
-        DbStorageSingle
-          .create(
-            db,
-            connectionPoolForParticipant,
-            logQueryCost,
-            clock,
-            scheduler,
-            metrics,
-            timeouts,
-            loggerFactory,
-          )
-          .widen[Storage]
-    }
 }
 
 final class MemoryStorage(

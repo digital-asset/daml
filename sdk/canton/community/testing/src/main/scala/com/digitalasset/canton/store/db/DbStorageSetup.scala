@@ -17,12 +17,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
-import com.digitalasset.canton.resource.{
-  CommunityDbMigrationsFactory,
-  DbMigrationsFactory,
-  DbStorage,
-  DbStorageSingle,
-}
+import com.digitalasset.canton.resource.{DbMigrations, DbStorage, DbStorageSingle}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -54,8 +49,6 @@ trait DbStorageSetup extends FlagCloseable with HasCloseContext with NamedLoggin
   protected lazy val dbStartupTimeout: NonNegativeDuration = NonNegativeDuration.ofMinutes(10)
 
   protected def prepareDatabase(): Unit
-
-  protected def migrationsFactory: DbMigrationsFactory
 
   def migrationMode: MigrationMode
 
@@ -97,7 +90,9 @@ trait DbStorageSetup extends FlagCloseable with HasCloseContext with NamedLoggin
 
   final def migrateDb(): Unit = {
     val migrationResult =
-      migrationsFactory.create(config, migrationMode == MigrationMode.DevVersion).migrateDatabase()
+      DbMigrations
+        .create(config, migrationMode == MigrationMode.DevVersion, timeouts, loggerFactory)
+        .migrateDatabase()
     // throw so the first part of the test that attempts to use storage will fail with an exception
     migrationResult
       .valueOr(err => fail(s"Failed to migrate database: $err"))
@@ -133,8 +128,6 @@ abstract class PostgresDbStorageSetup(
 
   override lazy val retryConfig: RetryConfig = RetryConfig.failFast
 
-  override protected lazy val migrationsFactory: DbMigrationsFactory =
-    new CommunityDbMigrationsFactory(loggerFactory)
 }
 
 /** Assumes Postgres is available on a already running and that connections details are provided
@@ -291,9 +284,6 @@ class H2DbStorageSetup(
   override lazy val basicConfig: DbBasicConfig = DbBasicConfig("", "", loggerFactory.name, "", 0)
 
   override lazy val retryConfig: RetryConfig = RetryConfig.failFast
-
-  override lazy val migrationsFactory: DbMigrationsFactory =
-    new CommunityDbMigrationsFactory(loggerFactory)
 
   override protected def prepareDatabase(): Unit = ()
 

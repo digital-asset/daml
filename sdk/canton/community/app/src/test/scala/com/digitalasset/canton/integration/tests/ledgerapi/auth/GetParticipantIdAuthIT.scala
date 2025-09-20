@@ -10,7 +10,7 @@ import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSeq
 
 import scala.concurrent.Future
 
-final class GetParticipantIdAuthIT extends AdminServiceCallAuthTests {
+final class GetParticipantIdAuthIT extends PublicServiceCallAuthTests {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "PartyManagementService#GetParticipantId"

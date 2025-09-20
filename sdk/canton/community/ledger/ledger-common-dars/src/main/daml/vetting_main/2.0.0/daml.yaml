@@ -1,0 +1,9 @@
+sdk-version: 3.4.0-snapshot.20250918.14208.0.v2b46d47f
+name: vetting-main
+data-dependencies:
+- ../../../../../scala-2.13/resource_managed/main/vetting-dep-1.0.0.dar
+source: .
+version: 2.0.0
+dependencies:
+- daml-prim
+- daml-stdlib

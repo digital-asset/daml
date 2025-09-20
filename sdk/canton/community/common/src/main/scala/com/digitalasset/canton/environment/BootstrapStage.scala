@@ -101,7 +101,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
               (for {
                 result <- attempt()
                   .leftMap { err =>
-                    logger.error(s"Startup of $description failed with $err")
+                    logger.error(s"Attempting to run $description failed with $err")
                     bootstrap.abortThisNodeOnStartupFailure()
                     err
                   }

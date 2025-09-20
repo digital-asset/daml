@@ -13,11 +13,15 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.admin.data.{
   ActiveContract as ActiveContractValueClass,
-  ContractIdImportMode,
+  ContractImportMode,
   RepairContract,
+  RepresentativePackageIdOverride,
 }
-import com.digitalasset.canton.participant.admin.repair.ContractIdsImportProcessor
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
+import com.digitalasset.canton.participant.admin.repair.{
+  AssignRepresentativePackageIds,
+  ContractIdsImportProcessor,
+}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -118,8 +122,9 @@ private[admin] object ParticipantCommon {
   private[grpc] def importAcsNewSnapshot(
       acsSnapshot: ByteString,
       workflowIdPrefix: String,
-      contractIdImportMode: ContractIdImportMode,
+      contractImportMode: ContractImportMode,
       excludedStakeholders: Set[PartyId],
+      representativePackageIdOverride: RepresentativePackageIdOverride,
       sync: CantonSyncService,
       batching: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
@@ -134,7 +139,8 @@ private[admin] object ParticipantCommon {
       batching,
       loggerFactory,
       workflowIdPrefix,
-      contractIdImportMode,
+      contractImportMode,
+      representativePackageIdOverride,
     )
 
     importer.runImport(acsSnapshot, excludedStakeholders)
@@ -145,7 +151,8 @@ private[admin] object ParticipantCommon {
       batching: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
       workflowIdPrefix: String,
-      contractIdImportMode: ContractIdImportMode,
+      contractImportMode: ContractImportMode,
+      representativePackageIdOverride: RepresentativePackageIdOverride,
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
@@ -183,13 +190,18 @@ private[admin] object ParticipantCommon {
             "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
           )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
 
+        // TODO(#27872): Consider extracting to class field if we want stable references inside
+        contractsWithOverriddenRpId = new AssignRepresentativePackageIds(
+          representativePackageIdOverride
+        )(repairContracts)
+
         activeContractsWithRemapping <-
           ContractIdsImportProcessor(
             loggerFactory,
             sync.syncPersistentStateManager,
             sync.pureCryptoApi,
-            contractIdImportMode,
-          )(repairContracts)
+            contractImportMode,
+          )(contractsWithOverriddenRpId)
         (activeContractsWithValidContractIds, contractIdRemapping) =
           activeContractsWithRemapping
 

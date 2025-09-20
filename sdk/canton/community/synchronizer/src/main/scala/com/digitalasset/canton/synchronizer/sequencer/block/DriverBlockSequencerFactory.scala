@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
@@ -17,6 +16,7 @@ import com.digitalasset.canton.synchronizer.block.{
 }
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.TestingInterceptor
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.synchronizer.sequencer.{
   AuthenticationServices,
@@ -47,7 +47,7 @@ class DriverBlockSequencerFactory[C](
     storage: Storage,
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
-    nodeParameters: CantonNodeParameters,
+    nodeParameters: SequencerNodeParameters,
     metrics: SequencerMetrics,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
@@ -142,7 +142,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       storage: Storage,
       protocolVersion: ProtocolVersion,
       sequencerId: SequencerId,
-      nodeParameters: CantonNodeParameters,
+      nodeParameters: SequencerNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
       testingInterceptor: Option[TestingInterceptor],
@@ -183,7 +183,7 @@ object DriverBlockSequencerFactory extends LazyLogging {
       storage: Storage,
       protocolVersion: ProtocolVersion,
       sequencerId: SequencerId,
-      nodeParameters: CantonNodeParameters,
+      nodeParameters: SequencerNodeParameters,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DriverBlockSequencerFactory[C] =

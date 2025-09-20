@@ -33,7 +33,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.ContractImportMode
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
@@ -278,7 +278,7 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       exportFilePath = acsSnapshotAtOffset,
     )
 
-    participant2.repair.import_acs(acsSnapshotAtOffset, "", ContractIdImportMode.Accept)
+    participant2.repair.import_acs(acsSnapshotAtOffset, "", ContractImportMode.Accept)
 
     participant2.synchronizers.reconnect(daName)
 

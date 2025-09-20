@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import cats.syntax.either.*
+import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
@@ -38,7 +39,6 @@ import com.digitalasset.canton.{
   SynchronizerAlias,
   config,
 }
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value
@@ -246,31 +246,38 @@ sealed trait RepairServiceIntegrationTestStableLf
 
       "contract doesn't exist yet (remote version)" in { implicit env =>
         import env.*
-        def queryCids(): Seq[String] =
+        def queryContracts(): Seq[CreatedEvent] =
           participant1.ledger_api.state.acs.of_all().collect {
-            case entry if entry.synchronizerId.contains(daId.logical) => entry.contractId
-          }
-
-        def queryCreateLETs(): Seq[Timestamp] =
-          participant1.ledger_api.state.acs.of_all().collect {
-            case entry if entry.synchronizerId.contains(daId.logical) =>
-              CantonTimestamp.fromProtoTimestamp(entry.event.createdAt.value).value.underlying
+            case entry if entry.synchronizerId.contains(daId.logical) => entry.event
           }
 
         withParticipantsInitialized { (alice, bob) =>
           val c1 = createContractInstance(participant2, acmeName, acmeId, alice, bob)
+            .copy(representativePackageId = "should-not-be-used")
           val c2 = createContractInstance(participant2, acmeName, acmeId, alice, bob)
-          val cids = Set(c1, c2).map(_.contract.contractId.coid)
-          val createLETs = Set(c1, c2).map(_.contract.createdAt.time)
 
-          queryCids() should contain noElementsOf cids
-
+          val acsBeforeRepair = queryContracts().toSet
           participant1_.repair.add(daId, testedProtocolVersion, Seq(c1, c2))
 
           withSynchronizerConnected(daName) {
             eventually() {
-              queryCids() should contain allElementsOf cids
-              queryCreateLETs() should contain allElementsOf createLETs
+              val acsAfterRepair = queryContracts()
+              val newContracts = acsAfterRepair.filterNot(acsBeforeRepair)
+
+              newContracts should have size 2
+
+              newContracts.zip(Seq(c1, c2)).foreach {
+                case (queriedCreatedEvent, expectedRepairContract) =>
+                  queriedCreatedEvent.contractId shouldBe expectedRepairContract.contractId.coid
+                  CantonTimestamp
+                    .fromProtoTimestamp(queriedCreatedEvent.createdAt.value)
+                    .value
+                    .underlying shouldBe expectedRepairContract.contract.createdAt.time
+
+                  // Limitation: ImportAcsOld assigns the representative package ID as the original contract package ID
+                  // TODO(#24610): Adapt to assert that the representative package ID of the repair contract is used
+                  queriedCreatedEvent.representativePackageId shouldBe expectedRepairContract.contract.templateId.packageId
+              }
             }
           }
         }
@@ -840,7 +847,12 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
                 daId,
                 testedProtocolVersion,
                 Seq(
-                  RepairContract(daId, absolutizedContractInstance, ReassignmentCounter.Genesis)
+                  RepairContract(
+                    daId,
+                    absolutizedContractInstance,
+                    ReassignmentCounter.Genesis,
+                    absolutizedContractInstance.templateId.packageId,
+                  )
                 ),
               ),
               _.commandFailureMessage should (

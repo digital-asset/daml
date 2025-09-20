@@ -35,4 +35,9 @@ final class PackageManagementServiceAuthorization(
     PackageManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
+  override def updateVettedPackages(
+      request: UpdateVettedPackagesRequest
+  ): Future[UpdateVettedPackagesResponse] =
+    authorizer.rpc(service.updateVettedPackages)(RequiredClaim.Admin())(request)
 }

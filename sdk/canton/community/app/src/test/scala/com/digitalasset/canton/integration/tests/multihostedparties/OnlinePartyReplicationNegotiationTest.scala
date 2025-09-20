@@ -148,9 +148,10 @@ sealed trait OnlinePartyReplicationNegotiationTest
           val sequencerConnections = SequencerConnections.tryMany(
             sequencers
               .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
-            // A threshold of 2 ensures that each participant connects to all the three sequencers in the connectivity map
+            // A threshold of 3 ensures that each participant connects to all the three sequencers in the connectivity map
+            // and stays connected.
             // TODO(#19911) Make this properly configurable
-            sequencerTrustThreshold = PositiveInt.two,
+            sequencerTrustThreshold = PositiveInt.three,
             sequencerLivenessMargin = NonNegativeInt.zero,
             submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
           )

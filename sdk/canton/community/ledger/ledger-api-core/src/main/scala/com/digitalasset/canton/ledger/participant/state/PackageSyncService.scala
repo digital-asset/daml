@@ -3,6 +3,13 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.ledger.api.{
+  EnrichedVettedPackage,
+  ListVettedPackagesOpts,
+  UpdateVettedPackagesOpts,
+  UploadDarVettingChange,
+}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
@@ -32,6 +39,7 @@ trait PackageSyncService {
   def uploadDar(
       dars: Seq[ByteString],
       submissionId: Ref.SubmissionId,
+      vettingChange: UploadDarVettingChange,
   )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult]
@@ -59,4 +67,15 @@ trait PackageSyncService {
   ): Future[SubmissionResult] =
     throw new UnsupportedOperationException()
 
+  def updateVettedPackages(
+      opts: UpdateVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])]
+
+  def listVettedPackages(
+      opts: ListVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[(Seq[EnrichedVettedPackage], PositiveInt)]]
 }

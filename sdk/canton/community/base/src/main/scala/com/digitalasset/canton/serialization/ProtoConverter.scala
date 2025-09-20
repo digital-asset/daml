@@ -186,6 +186,9 @@ object ProtoConverter {
   def parsePackageId(id: String): ParsingResult[Ref.PackageId] =
     parseString(id, field = None)(Ref.PackageId.fromString)
 
+  def parsePackageName(name: String): ParsingResult[Ref.PackageName] =
+    parseString(name, field = None)(Ref.PackageName.fromString)
+
   private def parseString[T](from: String, field: Option[String])(
       to: String => Either[String, T]
   ): ParsingResult[T] =

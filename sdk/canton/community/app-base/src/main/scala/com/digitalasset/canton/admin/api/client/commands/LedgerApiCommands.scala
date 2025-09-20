@@ -367,7 +367,11 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, UploadDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield UploadDarFileRequest(bytes, submissionId = "")
+        } yield UploadDarFileRequest(
+          bytes,
+          submissionId = "",
+          vettingChange = UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+        )
       override protected def submitRequest(
           service: PackageManagementServiceStub,
           request: UploadDarFileRequest,

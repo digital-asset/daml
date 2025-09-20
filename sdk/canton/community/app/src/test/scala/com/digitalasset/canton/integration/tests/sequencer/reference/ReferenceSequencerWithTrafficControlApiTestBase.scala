@@ -39,6 +39,7 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficReceipt,
 }
 import com.digitalasset.canton.store.db.DbTest
+import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
 import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.{
@@ -287,6 +288,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
         dontWarnOnDeprecatedPV = false,
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
+      asyncWriter = AsyncWriterParameters(),
     )
     // Important to create the histograms before the factory, because creating the factory will
     // register them once and for all and we can't add more afterwards

@@ -59,39 +59,38 @@ class PackageUpgradeValidatorSpec
   )
 
   "validate empty lineage" in {
-    val res = packageUpgradeValidator.validateUpgrade(List.empty)
+    val res = validateUpgrade(List.empty, List.empty)
     res shouldBe Right(())
   }
 
   "validate compatible lineage" in {
-    packageUpgradeValidator.validateUpgrade(List(v1)) shouldBe Right(())
-    packageUpgradeValidator.validateUpgrade(List(v1, v2Compatible)) shouldBe Right(())
+    validateUpgrade(List(v1), List.empty) shouldBe Right(())
+    validateUpgrade(List(v2Compatible), List(v1)) shouldBe Right(())
+    validateUpgrade(List(v1, v2Compatible), List.empty) shouldBe Right(())
   }
 
   "fail validation of incompatible lineage" in {
-    inside(packageUpgradeValidator.validateUpgrade(List(v1, v2Compatible, v3Incompatible))) {
+    inside(validateUpgrade(List(v3Incompatible), List(v1, v2Compatible))) {
       case Left(error: Upgradeability.Error) =>
         error.newPackage shouldBe Util.PkgIdWithNameAndVersion(v3Incompatible)
         error.oldPackage shouldBe Util.PkgIdWithNameAndVersion(v2Compatible)
     }
 
-    // it does not depend on the order of input packages
-    inside(packageUpgradeValidator.validateUpgrade(List(v1, v3Incompatible, v2Compatible))) {
+    // it does not depend on the vetting order
+    inside(validateUpgrade(List(v2Compatible), List(v1, v3Incompatible))) {
       case Left(error: Upgradeability.Error) =>
         error.newPackage shouldBe Util.PkgIdWithNameAndVersion(v3Incompatible)
         error.oldPackage shouldBe Util.PkgIdWithNameAndVersion(v2Compatible)
     }
 
-    inside(packageUpgradeValidator.validateUpgrade(List(v1, v11Incompatible, v2Compatible))) {
+    inside(validateUpgrade(List(v2Compatible), List(v1, v11Incompatible))) {
       case Left(error: Upgradeability.Error) =>
         error.newPackage shouldBe Util.PkgIdWithNameAndVersion(v11Incompatible)
         error.oldPackage shouldBe Util.PkgIdWithNameAndVersion(v1)
     }
 
     inside(
-      packageUpgradeValidator.validateUpgrade(
-        List(v1, v2Compatible, v3Incompatible, v11Incompatible)
-      )
+      validateUpgrade(List(v11Incompatible), List(v1, v2Compatible, v3Incompatible))
     ) { case Left(error: Upgradeability.Error) =>
       error.newPackage shouldBe Util.PkgIdWithNameAndVersion(v11Incompatible)
       error.oldPackage shouldBe Util.PkgIdWithNameAndVersion(v1)
@@ -99,7 +98,7 @@ class PackageUpgradeValidatorSpec
   }
 
   "fail validation because of packages with same name and version" in {
-    inside(packageUpgradeValidator.validateUpgrade(List(v1, v3Incompatible, v3Compatible))) {
+    inside(validateUpgrade(List(v3Incompatible), List(v1, v3Compatible))) {
       case Left(error: UpgradeVersion.Error) =>
         Set(error.firstPackage, error.secondPackage) shouldBe Set(
           Util.PkgIdWithNameAndVersion(v3Incompatible),
@@ -107,6 +106,16 @@ class PackageUpgradeValidatorSpec
         )
     }
   }
+
+  private def validateUpgrade(
+      newPackages: List[(Ref.PackageId, Ast.PackageSignature)],
+      existingPackages: List[(Ref.PackageId, Ast.PackageSignature)],
+  ) =
+    packageUpgradeValidator.validateUpgrade(
+      newPackages.map(_._1).toSet,
+      (newPackages ++ existingPackages).map(_._1).toSet,
+      (newPackages ++ existingPackages).toMap,
+    )
 
   private def samplePackageSig(
       packageId: String,

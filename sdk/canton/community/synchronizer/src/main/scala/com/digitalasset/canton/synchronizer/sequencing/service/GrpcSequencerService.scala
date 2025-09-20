@@ -474,7 +474,7 @@ class GrpcSequencerService(
       val createSubscriptionP =
         PromiseUnlessShutdown.unsupervised[Either[Status, GrpcManagedSubscription[?]]]()
       observer.setOnCancelHandler { () =>
-        logger.debug(s"Subscription cancelled by client ${request.member}.")
+        logger.info(s"Subscription cancelled by client ${request.member}.")
         // Instead upon cancellation, we close the subscription once/if it has been successfully created.
         createSubscriptionP.future.onComplete {
           case Success(Outcome(Right(subscription))) =>

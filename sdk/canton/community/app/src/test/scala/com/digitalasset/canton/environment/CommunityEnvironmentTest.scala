@@ -24,7 +24,6 @@ import com.digitalasset.canton.participant.{
   ParticipantNodeBootstrapFactory,
   ParticipantNodeParameters,
 }
-import com.digitalasset.canton.resource.CommunityDbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeBootstrap,
   MediatorNodeBootstrapFactory,
@@ -185,7 +184,6 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         ): Either[String, MediatorNodeBootstrap] =
           Right(createMediatorMock(arguments.name, arguments.config))
       },
-      new CommunityDbMigrationsMetaFactory(loggerFactory),
       loggerFactory,
     )
 

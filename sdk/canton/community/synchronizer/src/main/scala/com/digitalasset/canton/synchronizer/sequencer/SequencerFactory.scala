@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing.BftSequencerFactory
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.time.Clock
@@ -168,7 +169,7 @@ trait MkSequencerFactory {
       metrics: SequencerMetrics,
       storage: Storage,
       sequencerId: SequencerId,
-      nodeParameters: CantonNodeParameters,
+      nodeParameters: SequencerNodeParameters,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
@@ -186,7 +187,7 @@ object CommunitySequencerFactory extends MkSequencerFactory {
       metrics: SequencerMetrics,
       storage: Storage,
       sequencerId: SequencerId,
-      nodeParameters: CantonNodeParameters,
+      nodeParameters: SequencerNodeParameters,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(sequencerConfig: SequencerConfig)(implicit

@@ -26,8 +26,11 @@ private[channel] final class SequencerChannelClientState(
     transportsMap: NonEmpty[Map[SequencerId, SequencerChannelClientTransport]],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging
+)(implicit traceContext: TraceContext)
+    extends NamedLogging
     with FlagCloseable {
+  logger.info(s"Channel sequencers ${transportsMap.keys.mkString(", ")}")
+
   private val transports: NonEmpty[Map[SequencerId, SequencerChannelState]] =
     transportsMap.map { case (sequencerId, transport) =>
       sequencerId -> new SequencerChannelState(transport, loggerFactory)

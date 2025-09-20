@@ -124,7 +124,7 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
             case _: NodeStatus.Failure => false
             case _: NodeStatus.Success[?] =>
               logger.warn(
-                "Since node is already initialized, it will never be ready to have its if set"
+                "Since node is already initialized, it will never be ready to have its id set"
               )(TraceContext.empty)
               false
             case NodeStatus.NotInitialized(_active, waitingFor) =>

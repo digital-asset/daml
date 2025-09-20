@@ -376,6 +376,7 @@ class PartyReplicationAdminWorkflow(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    logger.info(s"Marking agreement done for ${ap.requestId} on target participant")
     val commandId = s"agreement-done-${ap.requestId}"
     val agreementCid =
       new M.partyreplication.PartyReplicationAgreement.ContractId(damlAgreementCid.coid)

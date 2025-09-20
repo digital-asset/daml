@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.ParticipantSettingsStore
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.resource.CommunityStorageFactory
+import com.digitalasset.canton.resource.StorageSingleFactory
 import com.digitalasset.canton.time.TestingTimeService
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.ServerServiceDefinition
@@ -126,7 +126,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
   ): Either[String, ParticipantNodeBootstrap] =
     arguments
       .toCantonNodeBootstrapCommonArguments(
-        new CommunityStorageFactory(arguments.config.storage),
+        new StorageSingleFactory(arguments.config.storage),
         new CommunityCryptoPrivateStoreFactory(
           arguments.config.crypto.provider,
           arguments.config.crypto.kms,
