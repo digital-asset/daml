@@ -1272,11 +1272,9 @@ class DecodeV2Spec
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
             packageId = Ref.PackageId.assertFromString("noPkgId"),
-internedStrings = ImmArraySeq("arg"),
-internedExprs = ImmArraySeq(unitExpr, tyapp),
+            internedStrings = ImmArraySeq("arg"),
+            internedExprs = ImmArraySeq(unitExpr, tyapp),
             optModuleName = Some(dummyModuleName),
-            onlySerializableDataDefs = false,
-            None,
           )
           inside(Try(env.decodeExprForTest(internedOne, ""))) {
             case Failure(Error.Parsing(message)) =>
