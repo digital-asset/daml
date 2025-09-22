@@ -1799,7 +1799,7 @@ genrule(
         ":ledger-api-protos-fg",
         "//daml-lf/ledger-api-value:ledger-api-value-protos-fg",
     ],
-    outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs"],
+    outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs", "Com/Daml/Ledger/Api/V2/PackageReference.hs"],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
@@ -1842,6 +1842,7 @@ genrule(
         "@com_google_protobuf//:well_known_type_protos",
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
+        ":ledger-api-protos-fg",
     ],
     outs = ["Com/Daml/Ledger/Api/V2/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
