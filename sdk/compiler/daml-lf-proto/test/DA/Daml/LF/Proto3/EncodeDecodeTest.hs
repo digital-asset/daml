@@ -39,6 +39,23 @@ entry = defaultMain $ testGroup "Round-trip tests"
     , darTests
     ]
 
+------------------------------------------------------------------------
+-- Util
+------------------------------------------------------------------------
+mkOneModulePackageForTest :: Module -> Package
+mkOneModulePackageForTest m = Package{..}
+  where
+    packageLfVersion = Version V2 PointDev
+    packageModules = NM.fromList [m]
+    importedPackages = Left $ noPkgImportsReasonTrace "DA.Daml.LF.Ast.Util:mkOneModulePackage" --since used for testing
+    packageMetadata = PackageMetadata{..}
+      where
+        packageName :: PackageName
+        packageName = PackageName "test"
+        packageVersion :: PackageVersion
+        packageVersion = PackageVersion "0.0"
+        upgradedPackageId :: Maybe UpgradedPackageId
+        upgradedPackageId = Nothing
 
 ------------------------------------------------------------------------
 -- Round-trip

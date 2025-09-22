@@ -524,23 +524,6 @@ mkEmptyModule = Module{..}
 
 -- Packages
 
--- NOTE: this is to be used for TESTING only, NOT for merging with other
--- packages.
-mkOneModulePackageForTest :: Module -> Package
-mkOneModulePackageForTest m = Package{..}
-  where
-    packageLfVersion = Version V2 PointDev
-    packageModules = NM.fromList [m]
-    importedPackages = Left $ noPkgImportsReasonTrace "DA.Daml.LF.Ast.Util:mkOneModulePackage" --since used for testing
-    packageMetadata = PackageMetadata{..}
-      where
-        packageName :: PackageName
-        packageName = PackageName "test"
-        packageVersion :: PackageVersion
-        packageVersion = PackageVersion "0.0"
-        upgradedPackageId :: Maybe UpgradedPackageId
-        upgradedPackageId = Nothing
-
 {-
 We put a list of stablepackages here, to be used by the proto encoder. These
 cannot get the genereated list by DA.Daml.StablePackages because that would
