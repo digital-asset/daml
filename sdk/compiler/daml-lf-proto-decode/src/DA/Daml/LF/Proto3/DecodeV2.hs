@@ -153,9 +153,9 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
   mayDecode "packageRefSum" pref $ \case
       LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
       LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> do
-        str <- PackageId . fst <$> lookupString strId
-        assertStableIfPkgImports str
-        return $ ImportedPackageId str
+        pkgId <- PackageId . fst <$> lookupString strId
+        assertStableIfPkgImports pkgId
+        return $ ImportedPackageId pkgId
       LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
         ImportedPackageId . (V.! fromIntegral strId) <$> view (to imports . _Right)
   where
