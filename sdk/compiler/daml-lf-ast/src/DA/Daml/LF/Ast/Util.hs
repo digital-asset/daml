@@ -28,7 +28,6 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
-import DA.Daml.LF.Ast.Version
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
