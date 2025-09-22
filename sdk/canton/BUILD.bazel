@@ -850,7 +850,6 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":base_daml-jwt",
         ":base_daml-tls",
         ":base_errors",
         ":base_util-external",
