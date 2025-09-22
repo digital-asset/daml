@@ -34,7 +34,6 @@ import com.digitalasset.canton.integration.util.TestSubmissionService.{
 }
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
-  ValidateDisclosedContracts,
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.ledger.participant.state.*
@@ -565,8 +564,7 @@ object TestSubmissionService {
 
     def apiCommands()(implicit errorLogger: ErrorLoggingContext): ApiCommands = {
       val apiCommands = new CommandsValidator(
-        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
-        validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,
+        validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
       )
         .validateInnerCommands(commands)
         .valueOr(throw _)

@@ -97,7 +97,6 @@ private[backend] object AppendOnlySchema {
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "user_id" -> fieldStrategy.stringOptional(_ => _.user_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
@@ -108,6 +107,9 @@ private[backend] object AppendOnlySchema {
         ),
         "package_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.packageId.unsafe.internalize(dbDto.package_id)
+        ),
+        "representative_package_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.packageId.unsafe.internalize(dbDto.representative_package_id)
         ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
@@ -152,11 +154,9 @@ private[backend] object AppendOnlySchema {
         "node_id" -> fieldStrategy.int(_ => _.node_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
-        "user_id" -> fieldStrategy.stringOptional(_ => _.user_id),
         "submitters" -> fieldStrategy.intArrayOptional(stringInterning =>
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
-        "create_key_value" -> fieldStrategy.byteaOptional(_ => _.create_key_value),
         "exercise_choice" -> fieldStrategy.string(_ => _.exercise_choice),
         "exercise_argument" -> fieldStrategy.bytea(_ => _.exercise_argument),
         "exercise_result" -> fieldStrategy.byteaOptional(_ => _.exercise_result),
@@ -176,9 +176,6 @@ private[backend] object AppendOnlySchema {
           _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
-        "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
-          _.create_key_value_compression
-        ),
         "exercise_argument_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_argument_compression
         ),
@@ -315,8 +312,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
-        // TODO(i21859) Implement interning for participant ids
-        "participant_id" -> fieldStrategy.string(_ => _.participant_id),
+        "participant_id" -> fieldStrategy.int(stringInterning =>
+          dto => stringInterning.participantId.unsafe.internalize(dto.participant_id)
+        ),
         "participant_permission" -> fieldStrategy.int(_ => _.participant_permission),
         "participant_authorization_event" -> fieldStrategy.int(_ =>
           _.participant_authorization_event
@@ -333,7 +331,9 @@ private[backend] object AppendOnlySchema {
         "completion_offset" -> fieldStrategy.bigint(_ => _.completion_offset),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
-        "user_id" -> fieldStrategy.string(_ => _.user_id),
+        "user_id" -> fieldStrategy.int(stringInterning =>
+          dbDto => stringInterning.userId.unsafe.internalize(dbDto.user_id)
+        ),
         "submitters" -> fieldStrategy.intArray(stringInterning =>
           _.submitters.map(stringInterning.party.unsafe.internalize)
         ),
@@ -373,6 +373,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterCreateNonStakeholderInformeeTable
@@ -385,6 +388,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterConsumingStakeholderTable: Table[DbDto.IdFilterConsumingStakeholder] =
@@ -395,6 +401,9 @@ private[backend] object AppendOnlySchema {
         ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
         ),
       )
 
@@ -408,6 +417,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterNonConsumingInformeeTable: Table[DbDto.IdFilterNonConsumingInformee] =
@@ -418,6 +430,9 @@ private[backend] object AppendOnlySchema {
         ),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
+        ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
         ),
       )
 
@@ -430,6 +445,9 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val idFilterAssignStakeholderTable: Table[DbDto.IdFilterAssignStakeholder] =
@@ -441,10 +459,13 @@ private[backend] object AppendOnlySchema {
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
+        "first_per_sequential_id" -> fieldStrategy.booleanOptional(_ =>
+          dto => Option.when(dto.first_per_sequential_id)(true)
+        ),
       )
 
     val transactionMeta: Table[DbDto.TransactionMeta] =
-      fieldStrategy.insert("lapi_transaction_meta")(
+      fieldStrategy.insert("lapi_update_meta")(
         "update_id" -> fieldStrategy.string(_ => _.update_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),

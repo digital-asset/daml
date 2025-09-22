@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.time
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -22,16 +22,16 @@ final case class ParticipantNodeParameters(
     adminWorkflow: AdminWorkflowConfig,
     maxUnzippedDarSize: Int,
     stores: ParticipantStoreConfig,
-    reassignmentTimeProofFreshnessProportion: NonNegativeInt,
     protocolConfig: ParticipantProtocolConfig,
     ledgerApiServerParameters: LedgerApiServerParametersConfig,
     engine: CantonEngineConfig,
-    journalGarbageCollectionDelay: NonNegativeFiniteDuration,
+    journalGarbageCollectionDelay: time.NonNegativeFiniteDuration,
     disableUpgradeValidation: Boolean,
     enableStrictDarValidation: Boolean,
     commandProgressTracking: CommandProgressTrackerConfig,
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean,
+    reassignmentsConfig: ReassignmentsConfig,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -44,7 +44,7 @@ object ParticipantNodeParameters {
   def forTestingOnly(testedProtocolVersion: ProtocolVersion) = ParticipantNodeParameters(
     general = CantonNodeParameters.General.Impl(
       tracing = TracingConfig(TracingConfig.Propagation.Disabled),
-      delayLoggingThreshold = NonNegativeFiniteDuration.tryOfMillis(5000),
+      delayLoggingThreshold = time.NonNegativeFiniteDuration.tryOfMillis(5000),
       enableAdditionalConsistencyChecks = true,
       loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
       processingTimeouts = DefaultProcessingTimeouts.testing,
@@ -68,7 +68,6 @@ object ParticipantNodeParameters {
     ),
     maxUnzippedDarSize = 10,
     stores = ParticipantStoreConfig(),
-    reassignmentTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
       // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
@@ -78,11 +77,14 @@ object ParticipantNodeParameters {
     ),
     ledgerApiServerParameters = LedgerApiServerParametersConfig(),
     engine = CantonEngineConfig(),
-    journalGarbageCollectionDelay = NonNegativeFiniteDuration.Zero,
+    journalGarbageCollectionDelay = time.NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = false,
     enableStrictDarValidation = false,
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication = None,
     automaticallyPerformLogicalSynchronizerUpgrade = true,
+    reassignmentsConfig = ReassignmentsConfig(
+      targetTimestampForwardTolerance = NonNegativeFiniteDuration.ofSeconds(30)
+    ),
   )
 }

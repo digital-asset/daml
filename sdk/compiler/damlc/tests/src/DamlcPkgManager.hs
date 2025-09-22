@@ -10,6 +10,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.Dar.Reader
 import DA.Daml.Helper.Ledger (downloadAllReachablePackages)
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Sandbox
 import qualified Data.HashMap.Strict as HMS
 import Data.List
@@ -74,7 +75,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "template T with p : Party where"
                             , "  signatory p"
                             ]
-                    setEnv "DAML_PROJECT" projDir True
+                    setEnv packagePathEnvVar projDir True
                     (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               , testCase "package name:version data-dependency" $
@@ -103,7 +104,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "template T with p : Party where"
                             , "  signatory p"
                             ]
-                    setEnv "DAML_PROJECT" projDir True
+                    setEnv packagePathEnvVar projDir True
                     (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
                   -- check that a lock file is written
@@ -197,7 +198,7 @@ testsForRemoteDataDependencies damlc dar =
                             , "template T with p : Party where"
                             , "  signatory p"
                             ]
-                    setEnv "DAML_PROJECT" projDir True
+                    setEnv packagePathEnvVar projDir True
                     (exitCode, _stdout, _stderr) <- readProcessWithExitCode damlc ["build"] ""
                     exitCode @?= ExitSuccess
               ]

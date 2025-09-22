@@ -428,6 +428,7 @@ object EventStorageBackend {
       nodeId: Int,
       contractId: ContractId,
       templateId: FullIdentifier,
+      representativePackageId: String,
       witnessParties: Set[String],
       flatEventWitnesses: Set[String],
       signatories: Set[String],

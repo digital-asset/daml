@@ -465,8 +465,6 @@ final case class CantonConfig(
         adminWorkflow = participantParameters.adminWorkflow,
         maxUnzippedDarSize = participantParameters.maxUnzippedDarSize,
         stores = participantParameters.stores,
-        reassignmentTimeProofFreshnessProportion =
-          participantParameters.reassignmentTimeProofFreshnessProportion,
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
           alphaVersionSupport = participantParameters.alphaVersionSupport,
@@ -483,6 +481,7 @@ final case class CantonConfig(
         unsafeOnlinePartyReplication = participantParameters.unsafeOnlinePartyReplication,
         automaticallyPerformLogicalSynchronizerUpgrade =
           participantParameters.automaticallyPerformLogicalSynchronizerUpgrade,
+        reassignmentsConfig = participantParameters.reassignmentsConfig,
       )
     }
 
@@ -1196,6 +1195,8 @@ object CantonConfig {
         deriveReader[SessionEncryptionKeyCacheConfig]
       implicit val cacheConfigReader: ConfigReader[CacheConfig] =
         deriveReader[CacheConfig]
+      implicit val cacheConfigWithSizeOnlyReader: ConfigReader[CacheConfigWithSizeOnly] =
+        deriveReader[CacheConfigWithSizeOnly]
       deriveReader[CachingConfigs]
     }
 
@@ -1252,6 +1253,8 @@ object CantonConfig {
       implicit val unsafeOnlinePartyReplicationConfig
           : ConfigReader[UnsafeOnlinePartyReplicationConfig] =
         deriveReader[UnsafeOnlinePartyReplicationConfig]
+      implicit val reassignmentsReader: ConfigReader[ReassignmentsConfig] =
+        deriveReader[ReassignmentsConfig]
       deriveReader[ParticipantNodeParameterConfig]
     }
     lazy implicit final val timeTrackerConfigReader: ConfigReader[SynchronizerTimeTrackerConfig] = {
@@ -1857,6 +1860,8 @@ object CantonConfig {
       implicit val sessionEncryptionKeyCacheConfigWriter
           : ConfigWriter[SessionEncryptionKeyCacheConfig] =
         deriveWriter[SessionEncryptionKeyCacheConfig]
+      implicit val cacheConfigWithSizeOnlyWriter: ConfigWriter[CacheConfigWithSizeOnly] =
+        deriveWriter[CacheConfigWithSizeOnly]
       deriveWriter[CachingConfigs]
     }
 
@@ -1893,6 +1898,8 @@ object CantonConfig {
       implicit val unsafeOnlinePartyReplicationConfigWriter
           : ConfigWriter[UnsafeOnlinePartyReplicationConfig] =
         deriveWriter[UnsafeOnlinePartyReplicationConfig]
+      implicit val reassignmentsConfigWriter: ConfigWriter[ReassignmentsConfig] =
+        deriveWriter[ReassignmentsConfig]
       deriveWriter[ParticipantNodeParameterConfig]
     }
     lazy implicit final val timeTrackerConfigWriter: ConfigWriter[SynchronizerTimeTrackerConfig] = {

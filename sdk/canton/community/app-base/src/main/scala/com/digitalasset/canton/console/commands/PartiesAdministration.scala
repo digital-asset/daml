@@ -9,8 +9,8 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
   TopologyTransactionWrapper,
   UpdateWrapper,
@@ -46,9 +46,11 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.{TopologyTransaction, *}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias, checked, config}
+import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias, config}
 import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.ByteString
 import io.grpc.Context
 
 import java.time.Instant
@@ -217,6 +219,7 @@ class ParticipantPartiesAdministrationGroup(
         synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
         synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
         // External party specifics
+        confirmationThreshold: PositiveInt = PositiveInt.one,
         keysCount: PositiveInt = PositiveInt.one,
         keysThreshold: PositiveInt = PositiveInt.one,
     ): ExternalParty = {
@@ -229,6 +232,7 @@ class ParticipantPartiesAdministrationGroup(
         onboardingData <- onboarding_transactions(
           name,
           synchronizer,
+          confirmationThreshold = confirmationThreshold,
           keysCount = keysCount,
           keysThreshold = keysThreshold,
         )
@@ -278,11 +282,18 @@ class ParticipantPartiesAdministrationGroup(
       *   Name of the party to be enabled
       * @param synchronizer
       *   Synchronizer
+      * @param confirming
+      *   Other confirming participants
+      * @param observing
+      *   Observing participants
       */
     @VisibleForTesting // Ensures external parties are created only in tests
     def onboarding_transactions(
         name: String,
         synchronizer: Option[SynchronizerAlias] = None,
+        confirming: Seq[ParticipantId] = Seq.empty,
+        observing: Seq[ParticipantId] = Seq.empty,
+        confirmationThreshold: PositiveInt = PositiveInt.one,
         keysCount: PositiveInt = PositiveInt.one,
         keysThreshold: PositiveInt = PositiveInt.one,
     ): EitherT[FutureUnlessShutdown, String, (OnboardingTransactions, ExternalParty)] =
@@ -309,18 +320,8 @@ class ParticipantPartiesAdministrationGroup(
           protocolVersion,
         )
 
-        protocolSigningKeys <- Seq
-          .fill(keysCount.unwrap)(
-            consoleEnvironment.tryGlobalCrypto
-              .generateSigningKey(usage = SigningKeyUsage.ProtocolOnly)
-              .leftMap(_.toString)
-          )
-          .parSequence
-
-        protocolSigningKeysNE = NonEmptyUtil.fromUnsafe(
-          // keysCount is positive
-          checked(protocolSigningKeys)
-        )
+        protocolSigningKeys = consoleEnvironment.global_secret.keys.secret
+          .generate_keys(keysCount, usage = SigningKeyUsage.ProtocolOnly)
 
         partyToKeyTx = TopologyTransaction(
           TopologyChangeOp.Replace,
@@ -328,9 +329,32 @@ class ParticipantPartiesAdministrationGroup(
           PartyToKeyMapping.tryCreate(
             partyId = partyId,
             threshold = keysThreshold,
-            signingKeys = protocolSigningKeysNE,
+            signingKeys = protocolSigningKeys,
           ),
           protocolVersion,
+        )
+
+        hybridParticipants = confirming.intersect(observing)
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          NonEmpty
+            .from(hybridParticipants)
+            .toLeft(())
+            .leftMap(hybridParticipants =>
+              s"The following participants are indicated as observing and confirming: $hybridParticipants"
+            )
+        )
+
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          !observing.contains(reference.id),
+          "reference participant should not be observing",
+        )
+
+        hostingConfirming = (reference.id +: confirming).map(
+          HostingParticipant(_, ParticipantPermission.Confirmation)
+        )
+
+        hostingObserving = observing.map(
+          HostingParticipant(_, ParticipantPermission.Observation)
         )
 
         partyToParticipantTx = TopologyTransaction(
@@ -338,8 +362,8 @@ class ParticipantPartiesAdministrationGroup(
           serial = PositiveInt.one,
           PartyToParticipant.tryCreate(
             partyId = partyId,
-            threshold = PositiveInt.one,
-            participants = Seq(HostingParticipant(reference.id, ParticipantPermission.Confirmation)),
+            threshold = confirmationThreshold,
+            participants = hostingConfirming ++ hostingObserving,
           ),
           protocolVersion,
         )
@@ -356,16 +380,14 @@ class ParticipantPartiesAdministrationGroup(
         )
 
         // Sign the multi hash with the namespace key, as it is needed to authorize all transactions
-        namespaceSignature <- consoleEnvironment.tryGlobalCrypto.privateCrypto
-          .sign(
-            combinedMultiTxHash,
-            namespaceKey.fingerprint,
-            NonEmpty.mk(Set, SigningKeyUsage.Namespace),
-          )
-          .leftMap(_.toString)
+        namespaceSignature = consoleEnvironment.global_secret.sign(
+          combinedMultiTxHash.getCryptographicEvidence,
+          namespaceKey.fingerprint,
+          NonEmpty.mk(Set, SigningKeyUsage.Namespace: SigningKeyUsage),
+        )
 
         // The protocol key signature is only needed on the party to key mapping, so we can sign only that
-        protocolSignatures <- protocolSigningKeysNE.toNEF
+        protocolSignatures <- protocolSigningKeys.toNEF
           .parTraverse { protocolSigningKey =>
             consoleEnvironment.tryGlobalCrypto.privateCrypto
               .sign(
@@ -424,7 +446,7 @@ class ParticipantPartiesAdministrationGroup(
             signedPartyToParticipant,
             signedPartyToKey,
           ),
-          ExternalParty(partyId, protocolSigningKeysNE.map(_.fingerprint)),
+          ExternalParty(partyId, protocolSigningKeys.map(_.fingerprint)),
         )
       }
   }
@@ -761,8 +783,8 @@ class ParticipantPartiesAdministrationGroup(
       |target participant.
       |
       |Upon successful completion, the command writes a GZIP-compressed ACS
-      |snapshot file. This file can then be imported into the target participant's
-      |ACS using the `import_acs` repair command.
+      |snapshot file. This file should then be imported into the target participant's
+      |ACS using the `import_party_acs` command.
       |
       |The arguments are:
       |- party: The party being replicated, it must already be active on the target participant.
@@ -810,6 +832,30 @@ class ParticipantPartiesAdministrationGroup(
         timeout,
         request = "exporting party acs",
         cleanupOnError = () => file.delete(),
+      )
+    }
+
+  @Help.Summary(
+    "Import active contracts from a snapshot file to replicate a party."
+  )
+  @Help.Description(
+    """This command imports contracts from an Active Contract Set (ACS) snapshot
+      |file into the participant's ACS. It expects the given ACS snapshot file to
+      |be the result of a previous `export_party_acs` command invocation.
+      |
+      |The argument is:
+      |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
+      |                  Defaults to "canton-acs-export.gz" when undefined.
+      """
+  )
+  def import_party_acs(
+      importFilePath: String = "canton-acs-export.gz"
+  ): Unit =
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.ImportPartyAcs(
+          ByteString.copyFrom(File(importFilePath).loadBytes)
+        )
       )
     }
 

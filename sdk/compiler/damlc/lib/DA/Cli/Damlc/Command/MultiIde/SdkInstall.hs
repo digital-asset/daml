@@ -42,6 +42,7 @@ import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util (tryConfig)
 import DA.Daml.Assistant.Version
 import DA.Daml.Project.Config
+import DA.Daml.Project.Consts (projectPathEnvVar, packagePathEnvVar)
 import DA.Daml.Resolution.Config
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
@@ -198,9 +199,9 @@ releaseVersionFromLspId _ = Nothing
 data DpmResolveMode = DpmResolveMultiPackage | DpmResolveSinglePackage PackageHome
   deriving Show
 
-dpmResolveModeEnvVar :: MultiIdeState -> DpmResolveMode -> (String, String)
-dpmResolveModeEnvVar miState DpmResolveMultiPackage = ("DPM_MULTI_PACKAGE", misMultiPackageHome miState)
-dpmResolveModeEnvVar _ (DpmResolveSinglePackage home) = ("DAML_PROJECT", unPackageHome home)
+dpmResolveModeEnvVar :: MultiIdeState -> DpmResolveMode -> [(String, String)]
+dpmResolveModeEnvVar miState DpmResolveMultiPackage = [("DPM_MULTI_PACKAGE", misMultiPackageHome miState)]
+dpmResolveModeEnvVar _ (DpmResolveSinglePackage home) = [(projectPathEnvVar, unPackageHome home), (packagePathEnvVar, unPackageHome home)]
 
 callDpmResolve :: MultiIdeState -> DpmResolveMode -> IO (Either String (Map.Map PackageHome PackageResolutionData))
 callDpmResolve miState dpmResolveMode = do
@@ -210,7 +211,7 @@ callDpmResolve miState dpmResolveMode = do
   (exit, resolutionStr, err) <-
     readCreateProcessWithExitCode ((proc dpmBinary ["resolve"])
       { cwd = Just $ takeDirectory $ unPackageHome $ misDefaultPackagePath miState
-      , env = Just $ dpmResolveModeEnvVar miState dpmResolveMode : currentEnv
+      , env = Just $ dpmResolveModeEnvVar miState dpmResolveMode ++ currentEnv
       }) ""
   case exit of
     ExitSuccess -> do
@@ -372,7 +373,7 @@ installSdk unresolvedVersion outputLogVar report = do
         , useCache = useCache
         , missingAssistant = False
         , installingFromOutside = False
-        , projectPathM = Nothing
+        , mPackagePath = Nothing
         , artifactoryApiKeyM = queryArtifactoryApiKey =<< eitherToMaybe damlConfigE
         , output = \str -> modifyMVar_ outputLogVar $ pure . (<> T.pack str)
         , downloadProgressObserver = Just report

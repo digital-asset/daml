@@ -50,7 +50,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
 
   "SMap" should {
 
-    "fail on creation with unordered indexed sequences" in {
+    "fail on creation with non-strictly ordered indexed sequences" in {
       val testCases = Table[Boolean, IndexedSeqView[(SValue, SValue)]](
         ("isTextMap", "entries"),
         (
@@ -58,8 +58,16 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
           ImmArray(SText("1") -> SValue.SValue.True, SText("0") -> SValue.SValue.False).toSeq.view,
         ),
         (
+          true,
+          ImmArray(SText("1") -> SValue.SValue.True, SText("1") -> SValue.SValue.True).toSeq.view,
+        ),
+        (
           false,
           ImmArray(SText("1") -> SValue.SValue.True, SText("0") -> SValue.SValue.False).toSeq.view,
+        ),
+        (
+          false,
+          ImmArray(SText("1") -> SValue.SValue.True, SText("1") -> SValue.SValue.True).toSeq.view,
         ),
         (
           true,
@@ -72,10 +80,10 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forAll(testCases) { (isTextMap, entries) =>
-        val result = Try(SMap.fromOrderedEntries(isTextMap, entries))
+        val result = Try(SMap.fromStrictlyOrderedEntries(isTextMap, entries))
 
         inside(result) { case Failure(error: IllegalArgumentException) =>
-          error.getMessage shouldBe "the entries are not ordered"
+          error.getMessage shouldBe "the entries are not strictly ordered"
         }
       }
     }
@@ -106,7 +114,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forAll(testCases) { (isTextMap, entries, result) =>
-        SMap.fromOrderedEntries(isTextMap, entries) shouldBe result
+        SMap.fromStrictlyOrderedEntries(isTextMap, entries) shouldBe result
       }
     }
 
@@ -134,7 +142,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       )
 
       forEvery(testCases) { entries =>
-        Try(SMap.fromOrderedEntries(true, entries)) shouldBe nonComparableFailure
+        Try(SMap.fromStrictlyOrderedEntries(true, entries)) shouldBe nonComparableFailure
         Try(SMap(false, entries)) shouldBe nonComparableFailure
         Try(SMap(true, entries: _*)) shouldBe nonComparableFailure
       }

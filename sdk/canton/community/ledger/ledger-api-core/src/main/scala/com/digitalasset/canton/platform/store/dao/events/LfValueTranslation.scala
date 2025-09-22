@@ -426,6 +426,7 @@ final class LfValueTranslation(
       createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
       packageName = rawCreatedEvent.templateId.pkgName,
       acsDelta = rawCreatedEvent.flatEventWitnesses.nonEmpty,
+      representativePackageId = rawCreatedEvent.representativePackageId,
     )
   }
 

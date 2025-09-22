@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   TopologyEvent,
 }
+import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted.RepresentativePackageIds
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
@@ -344,6 +345,17 @@ object UpdateToDbDto {
     val treeWitnesses =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
     val treeWitnessesWithoutFlatWitnesses = treeWitnesses.diff(flatWitnesses)
+    val representativePackageId = transactionAccepted.representativePackageIds match {
+      case RepresentativePackageIds.SameAsContractPackageId =>
+        create.templateId.packageId
+      case RepresentativePackageIds.DedicatedRepresentativePackageIds(representativePackageIds) =>
+        representativePackageIds.getOrElse(
+          create.coid,
+          throw new IllegalStateException(
+            s"Missing representative package id for contract $create.coid"
+          ),
+        )
+    }
     Iterator(
       DbDto.EventCreate(
         event_offset = offset.unwrap,
@@ -357,6 +369,7 @@ object UpdateToDbDto {
         contract_id = create.coid.toBytes.toByteArray,
         template_id = templateId,
         package_id = create.templateId.packageId.toString,
+        representative_package_id = representativePackageId.toString,
         flat_event_witnesses = flatWitnesses,
         tree_event_witnesses = treeWitnesses,
         create_argument = compressionStrategy.createArgumentCompression.compress(createArgument),
@@ -384,18 +397,24 @@ object UpdateToDbDto {
         external_transaction_hash =
           transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
       )
-    ) ++ flatWitnesses.iterator.map(stakeholder =>
-      DbDto.IdFilterCreateStakeholder(
-        event_sequential_id = 0, // this is filled later
-        template_id = templateId,
-        party_id = stakeholder,
-      )
-    ) ++ treeWitnessesWithoutFlatWitnesses.iterator.map(stakeholder =>
-      DbDto.IdFilterCreateNonStakeholderInformee(
-        event_sequential_id = 0, // this is filled later
-        template_id = templateId,
-        party_id = stakeholder,
-      )
+    ) ++ withFirstMarked(
+      flatWitnesses,
+      (party, first) =>
+        DbDto.IdFilterCreateStakeholder(
+          event_sequential_id = 0, // this is filled later
+          template_id = templateId,
+          party_id = party,
+          first_per_sequential_id = first,
+        ),
+    ) ++ withFirstMarked(
+      treeWitnessesWithoutFlatWitnesses,
+      (party, first) =>
+        DbDto.IdFilterCreateNonStakeholderInformee(
+          event_sequential_id = 0, // this is filled later
+          template_id = templateId,
+          party_id = party,
+          first_per_sequential_id = first,
+        ),
     )
   }
 
@@ -437,8 +456,6 @@ object UpdateToDbDto {
         package_id = exercise.templateId.packageId.toString,
         flat_event_witnesses = flatWitnesses,
         tree_event_witnesses = treeWitnesses,
-        create_key_value = createKeyValue
-          .map(compressionStrategy.createKeyValueCompression.compress),
         exercise_choice = exercise.qualifiedChoiceName.toString,
         exercise_argument =
           compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
@@ -446,7 +463,6 @@ object UpdateToDbDto {
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
-        create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
         event_sequential_id = 0, // this is filled later
@@ -458,26 +474,35 @@ object UpdateToDbDto {
       )
     ) ++ {
       if (exercise.consuming) {
-        flatWitnesses.iterator.map(stakeholder =>
-          DbDto.IdFilterConsumingStakeholder(
-            event_sequential_id = 0, // this is filled later
-            template_id = templateId,
-            party_id = stakeholder,
-          )
-        ) ++ treeWitnessesWithoutFlatWitnesses.iterator.map(stakeholder =>
-          DbDto.IdFilterConsumingNonStakeholderInformee(
-            event_sequential_id = 0, // this is filled later
-            template_id = templateId,
-            party_id = stakeholder,
-          )
+        withFirstMarked(
+          flatWitnesses,
+          (party, first) =>
+            DbDto.IdFilterConsumingStakeholder(
+              event_sequential_id = 0, // this is filled later
+              template_id = templateId,
+              party_id = party,
+              first_per_sequential_id = first,
+            ),
+        ) ++ withFirstMarked(
+          treeWitnessesWithoutFlatWitnesses,
+          (party, first) =>
+            DbDto.IdFilterConsumingNonStakeholderInformee(
+              event_sequential_id = 0, // this is filled later
+              template_id = templateId,
+              party_id = party,
+              first_per_sequential_id = first,
+            ),
         )
       } else {
-        treeWitnesses.iterator.map(informee =>
-          DbDto.IdFilterNonConsumingInformee(
-            event_sequential_id = 0, // this is filled later
-            template_id = templateId,
-            party_id = informee,
-          )
+        withFirstMarked(
+          treeWitnesses,
+          (informee, first) =>
+            DbDto.IdFilterNonConsumingInformee(
+              event_sequential_id = 0, // this is filled later
+              template_id = templateId,
+              party_id = informee,
+              first_per_sequential_id = first,
+            ),
         )
       }
     }
@@ -584,12 +609,15 @@ object UpdateToDbDto {
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
       )
-    ) ++ flatEventWitnesses.map(party =>
-      DbDto.IdFilterUnassignStakeholder(
-        0L, // this is filled later
-        templateIdWithPackageName(unassign),
-        party,
-      )
+    ) ++ withFirstMarked(
+      flatEventWitnesses,
+      (party, first) =>
+        DbDto.IdFilterUnassignStakeholder(
+          0L, // this is filled later
+          templateIdWithPackageName(unassign),
+          party,
+          first_per_sequential_id = first,
+        ),
     )
   }
 
@@ -640,12 +668,15 @@ object UpdateToDbDto {
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
       )
-    ) ++ flatEventWitnesses.map(
-      DbDto.IdFilterAssignStakeholder(
-        0L, // this is filled later
-        templateId,
-        _,
-      )
+    ) ++ withFirstMarked(
+      flatEventWitnesses,
+      (party, first) =>
+        DbDto.IdFilterAssignStakeholder(
+          0L, // this is filled later
+          templateId,
+          party,
+          first_per_sequential_id = first,
+        ),
     )
   }
 
@@ -708,4 +739,12 @@ object UpdateToDbDto {
       trace_context = serializedTraceContext,
     )
   }
+
+  private def withFirstMarked(
+      parties: Set[String],
+      create: (String, Boolean) => DbDto,
+  ): Seq[DbDto] =
+    parties.iterator.zipWithIndex.map { case (party, idx) =>
+      create(party, idx == 0)
+    }.toSeq
 }

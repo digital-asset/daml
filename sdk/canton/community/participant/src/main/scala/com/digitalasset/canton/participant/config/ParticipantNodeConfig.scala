@@ -314,12 +314,6 @@ object TestingTimeServiceConfig {
   *
   * The following specialized participant node performance tuning parameters may be grouped once a
   * more final set of configs emerges.
-  * @param reassignmentTimeProofFreshnessProportion
-  *   Proportion of the target synchronizer exclusivity timeout that is used as a freshness bound
-  *   when requesting a time proof. Setting to 3 means we'll take a 1/3 of the target synchronizer
-  *   exclusivity timeout and potentially we reuse a recent timeout if one exists within that bound,
-  *   otherwise a new time proof will be requested. Setting to zero will disable reusing recent time
-  *   proofs and will instead always fetch a new proof.
   * @param minimumProtocolVersion
   *   The minimum protocol version that this participant will speak when connecting to a
   *   synchronizer
@@ -357,7 +351,6 @@ final case class ParticipantNodeParameterConfig(
     batching: BatchingConfig = BatchingConfig(),
     caching: CachingConfigs = CachingConfigs(),
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
-    reassignmentTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
       ParticipantProtocolVersion(ProtocolVersion.v34)
     ),
@@ -384,15 +377,14 @@ final case class ParticipantNodeParameterConfig(
     // TODO(#25344): check whether this should be removed
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean = true,
     activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
+    reassignmentsConfig: ReassignmentsConfig = ReassignmentsConfig(),
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 
 object ParticipantNodeParameterConfig {
   implicit val participantNodeParameterConfigCantonConfigValidator
-      : CantonConfigValidator[ParticipantNodeParameterConfig] = {
-    import CantonConfigValidatorInstances.*
+      : CantonConfigValidator[ParticipantNodeParameterConfig] =
     CantonConfigValidatorDerivation[ParticipantNodeParameterConfig]
-  }
 }
 
 /** Parameters for the participant node's stores

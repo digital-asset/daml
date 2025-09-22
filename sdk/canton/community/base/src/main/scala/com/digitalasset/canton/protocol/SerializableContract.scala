@@ -223,7 +223,7 @@ object SerializableContract
     for {
       contractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(inst.contractId)
-        .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
+        .leftMap(err => s"Invalid disclosed contract id: $err")
       authenticationData <- contractAuthenticationData(contractIdVersion, inst)
       metadata <- ContractMetadata.create(
         signatories = inst.signatories,

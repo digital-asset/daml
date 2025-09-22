@@ -5,12 +5,16 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
 import cats.syntax.functor.*
-import cats.syntax.traverse.*
-import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef, UnassignmentData}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  FullUnassignmentTree,
+  ReassignmentRef,
+  UnassignmentData,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
+import com.digitalasset.canton.participant.protocol.reassignment.GetTopologyAtTimestamp
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationResult.ReassigningParticipantValidationResult
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
@@ -22,79 +26,20 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.ExecutionContext
 
-private[reassignment] class UnassignmentValidation(
-    participantId: ParticipantId,
-    contractAuthenticator: ContractAuthenticator,
-)(implicit val ec: ExecutionContext)
-    extends ReassignmentValidation[
-      FullUnassignmentTree,
-      UnassignmentValidationResult.CommonValidationResult,
-      UnassignmentValidationResult.ReassigningParticipantValidationResult,
-    ] {
+sealed trait UnassignmentValidation {
 
-  /** @param targetTopology
-    *   Defined if and only if the participant is reassigning
-    */
-  def perform(
-      targetTopology: Option[Target[TopologySnapshot]],
-      activenessF: FutureUnlessShutdown[ActivenessResult],
-  )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
+  def perform(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
-    val fullTree = parsedRequest.fullViewTree
-    val sourceTopology = Source(parsedRequest.snapshot.ipsSnapshot)
-    val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult]
 
-    for {
-      commonValidationResult <- EitherT.right(
-        performCommonValidations(
-          parsedRequest,
-          activenessF,
-        )
-      )
-
-      // `targetTopology` is defined only for reassigning participants
-      reassigningParticipantValidationResult <- targetTopology match {
-        case Some(targetTopology) =>
-          performValidationForReassigningParticipants(parsedRequest, targetTopology)
-        case None =>
-          EitherT.right(FutureUnlessShutdown.pure(ReassigningParticipantValidationResult(Nil)))
-      }
-
-      hostedConfirmingReassigningParties <- EitherT.right(
-        if (isReassigningParticipant)
-          sourceTopology.unwrap.canConfirm(
-            participantId,
-            parsedRequest.fullViewTree.confirmingParties,
-          )
-        else
-          FutureUnlessShutdown.pure(Set.empty[LfPartyId])
-      )
-
-      assignmentExclusivity <- targetTopology.traverse { targetTopology =>
-        ProcessingSteps
-          .getAssignmentExclusivity(targetTopology, fullTree.targetTimeProof.timestamp)
-          .leftMap[ReassignmentProcessorError](
-            ReassignmentParametersError(fullTree.targetSynchronizer.unwrap, _)
-          )
-      }
-
-    } yield UnassignmentValidationResult(
-      unassignmentData = UnassignmentData(fullTree, parsedRequest.requestTimestamp),
-      rootHash = parsedRequest.rootHash,
-      hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
-      assignmentExclusivity = assignmentExclusivity,
-      commonValidationResult = commonValidationResult,
-      reassigningParticipantValidationResult = reassigningParticipantValidationResult,
-    )
-  }
-
-  override def performCommonValidations(
+  protected def performCommonValidations(
       parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
+      contractAuthenticator: ContractAuthenticator,
       activenessF: FutureUnlessShutdown[ActivenessResult],
   )(implicit
-      traceContext: TraceContext
+      ec: ExecutionContext,
+      traceContext: TraceContext,
   ): FutureUnlessShutdown[UnassignmentValidationResult.CommonValidationResult] = {
     val fullTree = parsedRequest.fullViewTree
     val sourceTopologySnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
@@ -127,12 +72,133 @@ private[reassignment] class UnassignmentValidation(
       submitterCheckResult = submitterCheckResult,
     )
   }
-  override type ReassigningParticipantValidationData = Target[TopologySnapshot]
+}
 
-  override def performValidationForReassigningParticipants(
+object UnassignmentValidation {
+
+  def apply(
+      isReassigningParticipant: Boolean,
+      participantId: ParticipantId,
+      contractAuthenticator: ContractAuthenticator,
+      activenessF: FutureUnlessShutdown[ActivenessResult],
+      getTopologyAtTs: GetTopologyAtTimestamp,
+  ): UnassignmentValidation =
+    if (isReassigningParticipant)
+      ReassigningParticipantUnassignmentValidator(
+        participantId,
+        contractAuthenticator,
+        activenessF,
+        getTopologyAtTs,
+      )
+    else NonReassigningParticipantUnassignmentValidator(contractAuthenticator, activenessF)
+}
+
+private final case class NonReassigningParticipantUnassignmentValidator(
+    contractAuthenticator: ContractAuthenticator,
+    activenessF: FutureUnlessShutdown[ActivenessResult],
+) extends UnassignmentValidation {
+  def perform(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] =
+    EitherT.right(
+      performCommonValidations(parsedRequest, contractAuthenticator, activenessF)
+        .map { commonValidationResult =>
+          UnassignmentValidationResult(
+            unassignmentData =
+              UnassignmentData(parsedRequest.fullViewTree, parsedRequest.requestTimestamp),
+            rootHash = parsedRequest.rootHash,
+            commonValidationResult = commonValidationResult,
+            // The below fields all pertain to reassigning participants.
+            reassigningParticipantValidationResult = ReassigningParticipantValidationResult(Nil),
+            assignmentExclusivity = None,
+            hostedConfirmingReassigningParties = Set.empty,
+          )
+        }
+    )
+}
+
+private final case class ReassigningParticipantUnassignmentValidator(
+    participantId: ParticipantId,
+    contractAuthenticator: ContractAuthenticator,
+    activenessF: FutureUnlessShutdown[ActivenessResult],
+    getTopologyAtTs: GetTopologyAtTimestamp,
+) extends UnassignmentValidation {
+
+  def perform(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
+    val fullTree = parsedRequest.fullViewTree
+    val sourceTopology = Source(parsedRequest.snapshot.ipsSnapshot)
+
+    for {
+      commonValidationResult <- EitherT.right(
+        performCommonValidations(
+          parsedRequest,
+          contractAuthenticator,
+          activenessF,
+        )
+      )
+      targetTopologyO <- getTopologyAtTs.maybeAwaitTopologySnapshot(
+        fullTree.targetSynchronizer,
+        fullTree.targetTimestamp,
+      )
+      resultsWithTargetTopology <- targetTopologyO match {
+        case Some(targetTopology) =>
+          performValidationWithTargetTopology(parsedRequest, targetTopology)
+        case None =>
+          val results = (ReassigningParticipantValidationResult.TargetTimestampTooFarInFuture, None)
+          EitherT.right(FutureUnlessShutdown.pure(results))
+      }
+      (reassigningParticipantValidationResult, assignmentExclusivity) = resultsWithTargetTopology
+      hostedConfirmingReassigningParties <- EitherT.right(
+        sourceTopology.unwrap
+          .canConfirm(participantId, parsedRequest.fullViewTree.confirmingParties)
+      )
+
+    } yield UnassignmentValidationResult(
+      unassignmentData =
+        UnassignmentData(parsedRequest.fullViewTree, parsedRequest.requestTimestamp),
+      rootHash = parsedRequest.rootHash,
+      commonValidationResult = commonValidationResult,
+      // The below fields all pertain to reassigning participants.
+      reassigningParticipantValidationResult = reassigningParticipantValidationResult,
+      assignmentExclusivity = assignmentExclusivity,
+      hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
+    )
+  }
+
+  private def performValidationWithTargetTopology(
       parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
       targetTopology: Target[TopologySnapshot],
-  )(implicit traceContext: TraceContext): EitherT[
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[
+    FutureUnlessShutdown,
+    ReassignmentProcessorError,
+    (ReassigningParticipantValidationResult, Option[Target[CantonTimestamp]]),
+  ] = for {
+    reassigningParticipantValidationResult <- performValidationForReassigningParticipants(
+      parsedRequest,
+      targetTopology,
+    )
+    fullTree = parsedRequest.fullViewTree
+    assignmentExclusivity <- ProcessingSteps
+      .getAssignmentExclusivity(targetTopology, fullTree.targetTimestamp)
+      .leftMap[ReassignmentProcessorError](
+        ReassignmentParametersError(fullTree.targetSynchronizer.unwrap, _)
+      )
+  } yield (reassigningParticipantValidationResult, Some(assignmentExclusivity))
+
+  private def performValidationForReassigningParticipants(
+      parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
+      targetTopology: Target[TopologySnapshot],
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[
     FutureUnlessShutdown,
     ReassignmentProcessorError,
     ReassigningParticipantValidationResult,

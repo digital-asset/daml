@@ -139,7 +139,7 @@ commandParser = subparser $ fold
         <*> (flag' UCTParticipant (long "participant") <|> flag' UCTCompiler (long "compiler") <|> flag' UCTBoth (long "both"))
 
     newCmd =
-        let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
+        let templateHelpStr = "Name of the template used to create the package (default: " <> defaultProjectTemplate <> ")"
             appTemplateFlag = asum
               [ AppTemplateViaOption
                   <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
@@ -147,9 +147,9 @@ commandParser = subparser $ fold
               , pure AppTemplateDefault
               ]
         in asum
-        [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
+        [ ListTemplates <$ flag' () (long "list" <> help "List the available package templates.")
         , New
-            <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
+            <$> argument str (metavar "TARGET_PATH" <> help "Path where the new package should be located")
             <*> appTemplateFlag
         ]
 
@@ -180,9 +180,9 @@ commandParser = subparser $ fold
 
     deployCmdInfo = mconcat
         [ progDesc $ concat
-              [ "Deploy the current Daml project to a remote Daml ledger. "
-              , "This will allocate the project's parties on the ledger "
-              , "(if missing) and upload the project's built DAR file. You "
+              [ "Deploy the current Daml package to a remote Daml ledger. "
+              , "This will allocate the package's parties on the ledger "
+              , "(if missing) and upload the package's built DAR file. You "
               , "can specify the ledger in daml.yaml with the ledger.host and "
               , "ledger.port options, or you can pass the --host and --port "
               , "flags to this command instead. "
@@ -295,7 +295,7 @@ commandParser = subparser $ fold
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
         <$> ledgerFlags
-        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger if they don't exist (defaults to project parties if empty)"))
+        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger if they don't exist (defaults to package parties if empty)"))
 
     -- same as allocate-parties but requires a single party.
     ledgerAllocatePartyCmd = LedgerAllocateParties
@@ -306,7 +306,7 @@ commandParser = subparser $ fold
         LedgerUploadDar
             <$> ledgerFlags
             <*> (DryRun <$> switch (long "dry-run" <> help "Only check the DAR's validity according to the ledger, do not actually upload it."))
-            <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
+            <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to package DAR)"))
     
     ledgerFetchDarCmd = LedgerFetchDar
         <$> ledgerFlags

@@ -23,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   AuthenticationInitialState,
   P2PEndpoint,
   completeGrpcStreamObserver,
+  failGrpcStreamObserver,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.{
   AddEndpointHeaderClientInterceptor,
@@ -30,6 +31,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   ServerAuthenticatingServerInterceptor,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PConnectionManagementConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PConnectionState.Error
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PMetrics.emitIdentityEquivocation
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   ModuleRef,
@@ -100,20 +103,21 @@ private[bftordering] final class P2PGrpcConnectionManager(
       p2pAddress: P2PAddress
   )(implicit traceContext: TraceContext): Option[StreamObserver[BftOrderingMessage]] =
     if (!isClosing) {
-      p2pGrpcConnectionState.associateP2PEndpointIdToBftNodeId(p2pAddress)
-      val maybeP2PEndpoint = p2pAddress.maybeP2PEndpoint
-      p2pGrpcConnectionState.getSender(p2pAddress.id) match {
-        case found @ Some(_) =>
-          // A sender may be present due to an incoming connection, so we need to stop trying to connect
-          logger.debug(s"Found existing sender for $p2pAddress")
-          maybeP2PEndpoint.map(_.id).foreach(signalConnectWorkerToStop)
-          found
-        case _ =>
-          logger.debug(
-            s"Requested a send but no sender found for $p2pAddress, ensuring connection worker is running"
-          )
-          maybeP2PEndpoint.foreach(ensureConnectWorker)
-          None
+      p2pGrpcConnectionState.associateP2PEndpointIdToBftNodeId(p2pAddress).toOption.flatMap { _ =>
+        val maybeP2PEndpoint = p2pAddress.maybeP2PEndpoint
+        p2pGrpcConnectionState.getSender(p2pAddress.id) match {
+          case found @ Some(_) =>
+            // A sender may be present due to an incoming connection, so we need to stop trying to connect
+            logger.debug(s"Found existing sender for $p2pAddress")
+            maybeP2PEndpoint.map(_.id).foreach(signalConnectWorkerToStop)
+            found
+          case _ =>
+            logger.debug(
+              s"Requested a send but no sender found for $p2pAddress, ensuring connection worker is running"
+            )
+            maybeP2PEndpoint.foreach(ensureConnectWorker)
+            None
+        }
       }
     } else {
       logger.debug(
@@ -159,7 +163,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
         closeNetworkRefs,
       )
       .foreach { peerSender =>
-        completeGrpcStreamObserver(peerSender)
+        completeGrpcStreamObserver(peerSender, logger)
         maybeP2PEndpointId.foreach(notifyEndpointDisconnection)
       }
   }
@@ -191,7 +195,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
   private def cleanupPeerSender(
       peerSender: StreamObserver[BftOrderingMessage]
   )(implicit traceContext: TraceContext): Unit = {
-    completeGrpcStreamObserver(peerSender)
+    completeGrpcStreamObserver(peerSender, logger)
     p2pGrpcConnectionState
       .unassociateSenderAndReturnEndpointIds(peerSender)
       .foreach(notifyEndpointDisconnection)
@@ -322,7 +326,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
               logger.info(
                 s"P2P endpoint $p2pEndpointId successfully connected and authenticated as ${sequencerId.toProtoPrimitive}"
               )
-              addPeerEndpoint(
+              tryAddPeerEndpoint(
                 sequencerId,
                 peerSender,
                 Some(p2pEndpoint),
@@ -342,7 +346,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
       }
   }
 
-  private def addPeerEndpoint(
+  private def tryAddPeerEndpoint(
       sequencerId: SequencerId,
       peerSender: StreamObserver[BftOrderingMessage],
       // It may be None if the peer is connecting to us and did not communicate its endpoint
@@ -353,16 +357,31 @@ private[bftordering] final class P2PGrpcConnectionManager(
     logger.info(
       s"Adding peer endpoint $maybeP2PEndpointId for $bftNodeId with sender $peerSender"
     )
-    maybeP2PEndpointId.foreach(
+    maybeP2PEndpointId.map(
       p2pGrpcConnectionState.associateP2PEndpointIdToBftNodeId(_, bftNodeId)
-    )
-    if (p2pGrpcConnectionState.addSenderIfMissing(bftNodeId, peerSender)) {
-      p2pConnectionEventListener.onSequencerId(bftNodeId, maybeP2PEndpoint)
-    } else {
-      logger.info(
-        s"Completing peer sender $peerSender for $bftNodeId <-> $maybeP2PEndpointId because one already exists"
-      )
-      completeGrpcStreamObserver(peerSender)
+    ) match {
+      case None | Some(Right(())) =>
+        if (p2pGrpcConnectionState.addSenderIfMissing(bftNodeId, peerSender)) {
+          p2pConnectionEventListener.onSequencerId(bftNodeId, maybeP2PEndpoint)
+        } else {
+          logger.info(
+            s"Completing peer sender $peerSender for $bftNodeId <-> $maybeP2PEndpointId because one already exists"
+          )
+          completeGrpcStreamObserver(peerSender, logger)
+        }
+      case Some(Left(error)) =>
+        error match {
+          case Error.CannotAssociateP2PEndpointIdsToSelf(p2pEndpointId, thisBftNodeId) =>
+            emitIdentityEquivocation(metrics, p2pEndpointId, thisBftNodeId)
+          case Error.P2PEndpointIdAlreadyAssociated(
+                p2pEndpointId,
+                _,
+                newBftNodeId,
+              ) =>
+            emitIdentityEquivocation(metrics, p2pEndpointId, newBftNodeId)
+        }
+
+        throw new RuntimeException(error.toString)
     }
   }
 
@@ -618,7 +637,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                 case Failure(exception) =>
                   // Close the connection by failing the sender; no need to close the receiver as it will be
                   //  uninstalled by closing the connection and no state has been updated yet.
-                  peerSender.onError(exception)
+                  failGrpcStreamObserver(peerSender, exception, logger)
                   retry(
                     failedOperationName = s"open endpoint $p2pEndpointId",
                     exception,
@@ -649,7 +668,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                         )
                         // Close the connection by failing the sender; no need to close the receiver as it will be
                         //  uninstalled by closing the connection and no state has been updated yet.
-                        peerSender.onError(exception)
+                        failGrpcStreamObserver(peerSender, exception, logger)
                         retry(
                           s"create a stream to $p2pEndpointId",
                           exception,
@@ -733,7 +752,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
             exception,
           )
           // Close the sender and fail accepting the connection
-          peerSender.onError(exception)
+          failGrpcStreamObserver(peerSender, exception, logger)
           throw exception
 
         case Success(_) =>
@@ -763,7 +782,20 @@ private[bftordering] final class P2PGrpcConnectionManager(
           logger.info(s"Peer endpoint communicated via the server context: $maybeEndpoint")
           // Add the connection to the state asynchronously as soon as a sequencer ID is available
           sequencerIdPromiseUS.futureUS
-            .map(addPeerEndpoint(_, peerSender, maybeEndpoint))
+            .map(tryAddPeerEndpoint(_, peerSender, maybeEndpoint))
+            .transform(
+              identity,
+              { exception =>
+                logger.info(
+                  s"Failed authenticating incoming connection with sender $peerSender, closing the sender",
+                  exception,
+                )
+                // Close the connection by failing the sender; no need to close the receiver as it will be
+                //  uninstalled by closing the connection and no state has been updated yet.
+                failGrpcStreamObserver(peerSender, exception, logger)
+                exception
+              },
+            )
             .discard
           peerReceiver
       }

@@ -1,0 +1,17 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.protocol.v31;
+
+message ContractAuthenticationData {
+  bytes contract_salt = 1;
+
+  // Empty for relative contract IDs, required for absolute contract IDs
+  optional bytes creating_transaction_id = 2;
+
+  // Contains the absolutization pre-images of all relative contract ID suffixes of the contract argument.
+  // Empty for relative contract IDs. Must be lexicographically sorted.
+  repeated bytes relative_argument_suffixes = 3;
+}

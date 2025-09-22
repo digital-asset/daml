@@ -229,6 +229,7 @@ da_scala_library(
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:canton-community-magnolify-addon:__VERSION__"],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     deps = [
         "//libs-scala/nonempty",
         "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
@@ -869,7 +870,6 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
@@ -882,13 +882,10 @@ scala_library(
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/struct-json/struct-spray-json",
-        "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
         "@maven//:com_chuusai_shapeless_2_13",
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_google_protobuf_protobuf_java_util",
         "@maven//:com_lihaoyi_geny_2_13",
@@ -1095,26 +1092,26 @@ proto_gen(
 
 daml_compile(
     name = "community_participant_admin-workflows",
-    srcs = glob(["community/participant/src/main/daml/AdminWorkflows/**/*.daml"]),
+    srcs = glob(["community/participant/src/main/daml/canton-builtin-admin-workflow-ping/**/*.daml"]),
     project_name = "AdminWorkflows",
 )
 
 daml_compile(
     name = "community_participant_party-replication",
-    srcs = glob(["community/participant/src/main/daml/PartyReplication/**/*.daml"]),
+    srcs = glob(["community/participant/src/main/daml/canton-builtin-admin-workflow-party-replication-alpha/**/*.daml"]),
     project_name = "PartyReplication",
 )
 
 copy_file(
     name = "community_participant_admin-workflows_dar",
     src = ":community_participant_admin-workflows.dar",
-    out = "community_participant_resources/AdminWorkflows.dar",
+    out = "community_participant_resources/canton-builtin-admin-workflow-ping.dar",
 )
 
 copy_file(
     name = "community_participant_party-replication_dar",
     src = ":community_participant_party-replication.dar",
-    out = "community_participant_resources/PartyReplication.dar",
+    out = "community_participant_resources/canton-builtin-admin-workflow-party-replication-alpha.dar",
 )
 
 dar_to_java(

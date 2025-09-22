@@ -265,6 +265,12 @@ private[lf] object SBuiltinFun {
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 
+  final protected def getSPAP(values: ArraySeq[SValue], i: Int): SPAP =
+    values(i) match {
+      case pap: SPAP => pap
+      case otherwise => unexpectedType(i, "SPAP", otherwise)
+    }
+
   final protected def checkToken(args: ArraySeq[SValue], i: Int): Unit =
     args(i) match {
       case SToken => ()
@@ -460,7 +466,7 @@ private[lf] object SBuiltinFun {
         case v => crash(s"type mismatch implodeText: expected SText, got $v")
       }
 
-      machine.updateGasBudget(_.BImplodeText.cost)
+      machine.updateGasBudget(_.BImplodeText.cost(xs))
 
       SText(Utf8.implode(ts.toImmArray))
     }
@@ -844,7 +850,7 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control.Value = {
-      val func = args(0)
+      val func = getSPAP(args, 0)
       val init = args(1)
       val list = getSList(args, 2)
       machine.pushKont(KFoldl(machine, func, list))
@@ -857,7 +863,7 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val func = args(0).asInstanceOf[SPAP]
+      val func = getSPAP(args, 0)
       val init = args(1)
       val list = getSList(args, 2)
       val array = list.toImmArray
@@ -991,11 +997,11 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SInt64 = {
-      val date = getSDate(args, 0).days.toLong
+      val date = getSDate(args, 0)
 
       machine.updateGasBudget(_.BDateToUnixDays.cost(date))
 
-      SInt64(date)
+      SInt64(date.days.toLong)
     }
   }
 
@@ -1011,11 +1017,11 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SInt64 = {
-      val arg0 = getSTimestamp(args, 0).micros
+      val arg0 = getSTimestamp(args, 0)
 
       machine.updateGasBudget(_.BTimestampToUnixMicroseconds.cost(arg0))
 
-      SInt64(arg0)
+      SInt64(arg0.micros)
     }
   }
 
@@ -1060,8 +1066,6 @@ private[lf] object SBuiltinFun {
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
-      // No cost model update as no new data is created
-
       SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
     }
   }
@@ -1071,9 +1075,6 @@ private[lf] object SBuiltinFun {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
       val headSValue = args(0)
       val tailSList = getSList(args, 1)
-
-      // No cost model update as no new data is created
-
       SList(headSValue +: tailSList)
     }
   }
@@ -1084,8 +1085,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SOptional = {
-      // No cost model update as no new data is created
-
       SOptional(Some(args(0)))
     }
   }
@@ -1097,8 +1096,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SValue = {
-      // No cost model update as no new data is created
-
       SRecord(id, fields, args)
     }
   }
@@ -1110,9 +1107,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SValue = {
       val record = getSRecord(args, 0)
-
-      // No cost model update as no new data is created
-
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
@@ -1128,9 +1122,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SValue = {
       val record = getSRecord(args, 0)
-
-      // No cost model update as no new data is created
-
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
@@ -1148,8 +1139,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SValue = {
-      // No cost model update as no new data is created
-
       getSRecord(args, 0).values(field)
     }
   }
@@ -1186,9 +1175,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SValue = {
       val struct = getSStruct(args, 0)
-
-      // No cost model update as no new data is created
-
       if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
       struct.values(fieldIndex)
     }
@@ -1339,7 +1325,7 @@ private[lf] object SBuiltinFun {
                 contractKey.lfValue,
               )
             )
-          case _ => {
+          case _ =>
             machine.ptx
               .insertCreate(
                 preparationTime = machine.preparationTime,
@@ -1347,20 +1333,18 @@ private[lf] object SBuiltinFun {
                 optLocation = machine.getLastLocation,
                 contractIdVersion = machine.contractIdVersion,
               ) match {
-              case Right((coid, newPtx)) => {
+              case Right((coid, newPtx)) =>
                 machine.enforceLimitSignatoriesAndObservers(coid, contract)
                 machine.storeLocalContract(coid, templateId, templateArg)
                 machine.ptx = newPtx
                 machine.insertContractInfoCache(coid, contract)
                 machine.metrics.incrTransactionNodeCount()
                 Control.Value(SContractId(coid))
-              }
-              case Left((newPtx, err)) => {
+
+              case Left((newPtx, err)) =>
                 machine.ptx = newPtx // Seems wrong. But one test in ScriptService requires this.
                 Control.Error(convTxError(err))
-              }
             }
-          }
         }
       }
     }
@@ -1396,7 +1380,6 @@ private[lf] object SBuiltinFun {
         coid,
         templateId,
         templateArg,
-        allowCatchingContractInfoErrors = false,
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
         val pkgName = machine.tmplId2PackageName(templateId)
@@ -1516,51 +1499,94 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  /** Fetches the requested contract ID, upgrades it to the preferred template version for the same package name,
-    * and compares the computed views according to the old and the new versions. If the two views agree then caches
-    * the upgraded contract and returns it (via the continuation) as an SAny.
+  /** Fetches the requested contract ID and:
+    *  - authenticates the contract against its contract ID if the contract ID uses a legacy hashing method
+    *  - ensures that the contract is still active according to the contract state machine
+    *  - pulls the preferred template with the same package name and qualified ID as that of the contract
+    *  - loads the package of the preferred template
+    *  - verifies that the preferred template implements the requested interface
+    *  - typechecks and converts to an SValue the argument of the source contract according to the preferred template
+    *  - computes the metadata of the contract according to the preferred template (including the ensure clause),
+    *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - returns the converted argument wrapped in an SAny
     */
   private[this] def fetchInterface(
       machine: UpdateMachine,
       coid: V.ContractId,
       interfaceId: TypeConId,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    fetchSourceContractId(machine, coid)({ case (_, srcContract) =>
-      ensureContractActive(machine, coid, srcContract.templateId) {
-        machine.checkContractVisibility(coid, srcContract)
-        machine.enforceLimitAddInputContract()
-        machine.enforceLimitSignatoriesAndObservers(coid, srcContract)
-        val srcTmplId = srcContract.templateId
-        val pkgName = srcContract.packageName
-        val srcArg = srcContract.value.asInstanceOf[SRecord]
-        resolvePackageName(machine, pkgName) { pkgId =>
-          val dstTmplId = srcTmplId.copy(pkg = pkgId)
-          machine.ensurePackageIsLoaded(
-            NameOf.qualifiedNameOfCurrentFunc,
-            dstTmplId.packageId,
-            language.Reference.Template(dstTmplId.toRef),
-          ) { () =>
-            ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-              fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
-                case None =>
-                  Control.Error(IE.WronglyTypedContract(coid, dstTmplId, srcTmplId))
-                case Some(dstArg) =>
-                  fetchValidateDstContract(
-                    machine,
-                    coid,
-                    srcTmplId,
-                    srcContract,
-                    dstTmplId,
-                    dstArg,
-                  )({ case (dstTmplId, dstArg, _) =>
-                    k(SAny(Ast.TTyCon(dstTmplId), dstArg))
-                  })
+
+    def processSrcContract(
+        srcPackageName: Ref.PackageName,
+        srcTmplId: TypeConId,
+        srcMetadata: ContractMetadata,
+        srcArg: V,
+    ): Control[Question.Update] = {
+      resolvePackageName(machine, srcPackageName) { pkgId =>
+        val dstTmplId = srcTmplId.copy(pkg = pkgId)
+        machine.ensurePackageIsLoaded(
+          NameOf.qualifiedNameOfCurrentFunc,
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId.toRef),
+        ) { () =>
+          ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
+            importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+              fetchValidateDstContract(
+                machine,
+                coid,
+                srcTmplId,
+                srcMetadata,
+                dstTmplId,
+                dstSArg,
+              ) { case (dstTmplId, dstArg, _) =>
+                k(SAny(Ast.TTyCon(dstTmplId), dstArg))
               }
             }
           }
         }
       }
-    })
+    }
+
+    machine.getIfLocalContract(coid) match {
+      case Some((srcTmplId, srcSArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
+          // its metadata.
+          // We do not need to load the package of srcTmplId because if the contract was created locally, then the
+          // package is already loaded.
+          getContractInfo(
+            machine,
+            coid,
+            srcTmplId,
+            srcSArg,
+          ) { srcContracInfo =>
+            processSrcContract(
+              srcContracInfo.packageName,
+              srcTmplId,
+              srcContracInfo.metadata,
+              srcContracInfo.arg,
+            )
+          }
+        }
+      case None =>
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            ensureContractActive(machine, coid, coinst.templateId) {
+              processSrcContract(
+                coinst.packageName,
+                coinst.templateId,
+                ContractMetadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
+              )
+            }
+          }
+        )
+    }
   }
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
@@ -1704,8 +1730,6 @@ private[lf] object SBuiltinFun {
   // the record's templateId.
   final case class SBToAnyContract(tplId: TypeConId) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SAny = {
-      // No cost model update as no new data is created
-
       SAnyContract(tplId, getSRecord(args, 0))
     }
   }
@@ -1721,9 +1745,7 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Q] = {
       val (srcTplId, srcArg) = getSAnyContract(args, 0)
-      fromInterface(machine, srcTplId, srcArg, dstTplId) { dstArg =>
-        Control.Value(SOptional(dstArg))
-      }
+      fromInterface(machine, srcTplId, srcArg, dstTplId)
     }
   }
 
@@ -1732,9 +1754,9 @@ private[lf] object SBuiltinFun {
       srcTplId: TypeConId,
       srcArg: SRecord,
       dstTplId: TypeConId,
-  )(k: Option[SValue] => Control[Q]): Control[Q] = {
+  ): Control[Q] = {
     if (dstTplId == srcTplId) {
-      k(Some(srcArg))
+      Control.Value(SOptional(Some(srcArg)))
     } else if (dstTplId.qualifiedName == srcTplId.qualifiedName) {
       val srcPkgName = machine.tmplId2PackageName(dstTplId)
       val dstPkgName = machine.tmplId2PackageName(srcTplId)
@@ -1743,13 +1765,13 @@ private[lf] object SBuiltinFun {
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
         importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
-          k(Some(templateArg))
+          Control.Value(SOptional(Some(templateArg)))
         }
       } else {
-        k(None)
+        Control.Value(SValue.SValue.None)
       }
     } else {
-      k(None)
+      Control.Value(SValue.SValue.None)
     }
   }
 
@@ -1850,23 +1872,15 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Nothing] = {
       val (templateId, record) = getSAnyContract(args, 0)
-      viewInterface(machine, ifaceId, templateId, record)(Control.Expression)
-    }
-  }
 
-  private[this] def viewInterface[Q](
-      machine: Machine[_],
-      ifaceId: TypeConId,
-      templateId: TypeConId,
-      record: SValue,
-  )(k: SExpr => Control[Q]): Control[Q] = {
-    val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
-      crash(
-        s"Attempted to call view for interface ${ifaceId} on a wrapped " +
-          s"template of type ${ifaceId}, but there's no matching interface instance."
-      )
-    )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-    k(SEApp(SEVal(ref), ArraySeq(record)))
+      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+        crash(
+          s"Attempted to call view for interface ${ifaceId} on a wrapped " +
+            s"template of type ${ifaceId}, but there's no matching interface instance."
+        )
+      )(iiRef => InterfaceInstanceViewDefRef(iiRef))
+      Control.Expression(SEApp(SEVal(ref), ArraySeq(record)))
+    }
   }
 
   /** $insertFetch[tid]
@@ -1891,7 +1905,6 @@ private[lf] object SBuiltinFun {
           coid,
           templateId,
           templateArg,
-          allowCatchingContractInfoErrors = false,
         ) { contract =>
           val version = machine.tmplId2TxVersion(templateId)
           machine.ptx.insertFetch(
@@ -2030,7 +2043,6 @@ private[lf] object SBuiltinFun {
                     coid,
                     templateId,
                     templateArg,
-                    allowCatchingContractInfoErrors = false,
                   )(_ => operation.handleKeyFound(coid))
                 }
 
@@ -2051,7 +2063,6 @@ private[lf] object SBuiltinFun {
                         coid,
                         templateId,
                         templateArg,
-                        allowCatchingContractInfoErrors = false,
                       )(_ => operation.handleKeyFound(coid))
                     }
                   (c, true)
@@ -2219,7 +2230,10 @@ private[lf] object SBuiltinFun {
         case None =>
           machine.handleException(excep) // re-throw
         case Some(handler) =>
-          machine.enterApplication(handler, ArraySeq(SEValue(SToken)))
+          handler match {
+            case handler: SPAP => machine.enterApplication(handler, ArraySeq(SEValue(SToken)))
+            case _ => crash(s"Expected SPAP, got $handler")
+          }
       }
     }
   }
@@ -2247,8 +2261,6 @@ private[lf] object SBuiltinFun {
     */
   final case class SBToAny(ty: Ast.Type) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SAny = {
-      // No cost model update as no new data is created
-
       SAny(ty, args(0))
     }
   }
@@ -2263,9 +2275,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SOptional = {
       val any = getSAny(args, 0)
-
-      // No cost model update as no new data is created
-
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
   }
@@ -2280,9 +2289,6 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): STypeRep = {
       val (tyCon, _) = getSAnyContract(args, 0)
-
-      // No cost model update as no new data is created
-
       STypeRep(Ast.TTyCon(tyCon))
     }
   }
@@ -2296,8 +2302,6 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[_],
     ): SOptional = {
-      // No cost model update as no new data is created
-
       getSTypeRep(args, 0) match {
         case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
         case _ => SOptional(None)
@@ -2363,7 +2367,7 @@ private[lf] object SBuiltinFun {
         ),
       )
 
-    private val closure: SValue = {
+    private val closure: SPAP = {
       val frame = ArraySeq.empty[SValue]
       val arity = 3
       SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArraySeq.empty, arity)
@@ -2622,41 +2626,91 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** Fetches the requested contract ID and:
+    *  - authenticates the contract against its contract ID if the contract ID uses a legacy hashing method
+    *  - ensures that the contract is still active according to the contract state machine
+    *  - verifies that the source template's qualified name matches that of the target template
+    *  - loads the package of the target template
+    *  - typechecks and converts to an SValue the argument of the source contract according to the target template
+    *  - computes the metadata of the contract according to the target template (including the ensure clause),
+    *    caches the result, and verifies that it matches the metadata of the source contract
+    *  - returns the converted argument
+    */
   private def fetchTemplate(
       machine: UpdateMachine,
       dstTmplId: TypeConId,
       coid: V.ContractId,
-  )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
-    fetchSourceContractId(machine, coid) { case (localTemplateArg, srcContract) =>
-      val srcTmplId = srcContract.templateId
-      localTemplateArg match {
-        // If the local contract has the same package ID as the target template ID, then we don't need to
-        // import its value and validate its contract info again.
-        case Some(localTemplateArg) if (srcTmplId == dstTmplId) =>
-          f(localTemplateArg)
-        case _ =>
-          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
-            Control.Error(
-              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
-            )
-          else
-            machine.ensurePackageIsLoaded(
-              NameOf.qualifiedNameOfCurrentFunc,
-              dstTmplId.packageId,
-              language.Reference.Template(dstTmplId.toRef),
-            ) { () =>
-              importValue(
-                machine,
-                Ast.TTyCon(dstTmplId),
-                srcContract.arg,
-              )(dstArg =>
-                fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
-                  case (_, _, dstContract) =>
-                    f(dstContract.value)
-                })
+  )(k: SValue => Control[Question.Update]): Control[Question.Update] = {
+
+    def processSrcContract(
+        srcTmplId: TypeConId,
+        srcMetadata: ContractMetadata,
+        srcArg: V,
+    ): Control[Question.Update] = {
+      if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
+        Control.Error(
+          IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+        )
+      else
+        machine.ensurePackageIsLoaded(
+          NameOf.qualifiedNameOfCurrentFunc,
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId.toRef),
+        )(() => {
+          importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+            fetchValidateDstContract(
+              machine,
+              coid,
+              srcTmplId,
+              srcMetadata,
+              dstTmplId,
+              dstSArg,
+            )({ case (_, _, dstContract) =>
+              k(dstContract.value)
+            })
+          }
+        })
+    }
+
+    machine.getIfLocalContract(coid) match {
+      case Some((srcTmplId, srcSArg)) =>
+        ensureContractActive(machine, coid, srcTmplId) {
+          // If the local contract has the same package ID as the target template ID, then we don't need to
+          // import its value and validate its contract info again.
+          if (srcTmplId == dstTmplId)
+            k(srcSArg)
+          else {
+            // We retrieve (or compute for the first time) the contract info of the local contract in order to extract
+            // its metadata.
+            // We do not need to load the package of srcTmplId because if the contract was created locally, then the
+            // package is already loaded.
+            getContractInfo(
+              machine,
+              coid,
+              srcTmplId,
+              srcSArg,
+            ) { srcContracInfo =>
+              processSrcContract(srcTmplId, srcContracInfo.metadata, srcContracInfo.arg)
+            }
+          }
+        }
+      case None =>
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            ensureContractActive(machine, coid, coinst.templateId) {
+              processSrcContract(
+                coinst.templateId,
+                ContractMetadata(
+                  coinst.signatories,
+                  coinst.nonSignatoryStakeholders,
+                  coinst.contractKeyWithMaintainers,
+                ),
+                coinst.createArg,
               )
             }
-      }
+          }
+        )
     }
   }
 
@@ -2664,7 +2718,7 @@ private[lf] object SBuiltinFun {
       machine: UpdateMachine,
       coid: V.ContractId,
       srcTmplId: TypeConId,
-      srcContract: ContractInfo,
+      srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
   )(k: (TypeConId, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
@@ -2673,56 +2727,21 @@ private[lf] object SBuiltinFun {
       coid,
       dstTmplId,
       dstTmplArg,
-      allowCatchingContractInfoErrors = false,
     ) { dstContract =>
       ensureContractActive(machine, coid, dstContract.templateId) {
-        machine.checkContractVisibility(coid, dstContract)
         machine.enforceLimitAddInputContract()
         machine.enforceLimitSignatoriesAndObservers(coid, dstContract)
-        // In Validation mode, we always call validateContractInfo
-        // In Submission mode, we only call validateContractInfo when src != dest
-        val needValidationCall: Boolean =
-          machine.validating || srcTmplId.packageId != dstTmplId.packageId
-        if (needValidationCall) {
-          checkContractUpgradable(coid, srcContract, dstContract) { () =>
-            k(dstTmplId, dstTmplArg, dstContract)
-          }
-        } else {
+        checkContractUpgradable(
+          coid,
+          srcTmplId,
+          dstTmplId,
+          srcContractMetadata,
+          dstContract.metadata,
+        ) { () =>
           k(dstTmplId, dstTmplArg, dstContract)
         }
       }
     }
-
-  private def fetchSourceContractId(
-      machine: UpdateMachine,
-      coid: V.ContractId,
-  )(f: (Option[SValue], ContractInfo) => Control[Question.Update]): Control[Question.Update] = {
-    machine.getIfLocalContract(coid) match {
-      case Some((srcTmplId, templateArg)) =>
-        ensureContractActive(machine, coid, srcTmplId) {
-          getContractInfo(
-            machine,
-            coid,
-            srcTmplId,
-            templateArg,
-            allowCatchingContractInfoErrors = false,
-          )(f(Some(templateArg), _))
-        }
-      case None =>
-        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
-          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
-          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
-            machine.ensurePackageIsLoaded(
-              NameOf.qualifiedNameOfCurrentFunc,
-              coinst.templateId.packageId,
-              language.Reference.Template(coinst.templateId.toRef),
-            ) { () =>
-              importContractInfo(machine, coinst)(f(None, _))
-            }
-          }
-        )
-    }
-  }
 
   /** Authenticates the provided FatContractInstance using [hashingMethod] if [hashingMethod] is
     * one of [[HashingMethod.Legacy]] or [[HashingMethod.UpgradeFriendly]]. Does nothing if the
@@ -2784,83 +2803,25 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def importContractInfo[Q](machine: Machine[Q], coinst: FatContractInstance)(
-      f: ContractInfo => Control[Q]
-  ): Control[Q] =
-    importValue(machine, Ast.TTyCon(coinst.templateId), coinst.createArg) { createArgSValue =>
-      def cont(mbCachedKey: Option[CachedKey]): Control[Q] = {
-        f(
-          ContractInfo(
-            version = coinst.version,
-            packageName = coinst.packageName,
-            templateId = coinst.templateId,
-            value = createArgSValue,
-            signatories = coinst.signatories,
-            observers = coinst.nonSignatoryStakeholders,
-            keyOpt = mbCachedKey,
-          )
-        )
-      }
-      coinst.contractKeyWithMaintainers match {
-        case None => cont(None)
-        case Some(key) =>
-          importKey(machine, key)(cachedKey => cont(Some(cachedKey)))
-      }
-    }
-
-  private def importKey[Q](machine: Machine[Q], key: GlobalKeyWithMaintainers)(
-      f: CachedKey => Control[Q]
-  ): Control[Q] = {
-    // TODO(https://github.com/digital-asset/daml/issues/21667): once the engine is defensive about contract imports,
-    //     we can no longer assume that key.globalKey.templateId resolves to a template, or that this template defines
-    //     a key. For now, we assume that all fat contract instances coming from ResultNeedContract are well-typed and
-    //     thus it is ok to crash when that isn't the case.
-    val keyType =
-      machine.compiledPackages
-        .signatures(key.globalKey.templateId.packageId)
-        .modules(key.globalKey.qualifiedName.module)
-        .templates(key.globalKey.qualifiedName.name)
-        .key
-        .getOrElse(
-          throw SErrorCrash(
-            NameOf.qualifiedNameOfCurrentFunc,
-            s"template ${key.globalKey.templateId} does not define a key",
-          )
-        )
-        .typ
-    importValue(machine, keyType, key.globalKey.key) { keySValue =>
-      f(
-        CachedKey(
-          packageName = key.globalKey.packageName,
-          // The IDE ledger does not normalize keys in fat contract instances, which breaks the upgrade check when
-          // comparing them against the recomputed ones. So we normalize them on import for now.
-          globalKeyWithMaintainers = key.copy(globalKey =
-            GlobalKey
-              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue)
-          ),
-          key = keySValue,
-        )
-      )
-    }
-  }
-
   /** Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not. */
   private def checkContractUpgradable(
       coid: V.ContractId,
-      original: ContractInfo,
-      recomputed: ContractInfo,
+      srcTemplateId: TypeConId,
+      recomputedTemplateId: TypeConId,
+      original: ContractMetadata,
+      recomputed: ContractMetadata,
   )(
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
 
-    def check[T](getter: ContractInfo => T, desc: String): Option[String] =
+    def check[T](getter: ContractMetadata => T, desc: String): Option[String] =
       Option.when(getter(recomputed) != getter(original))(
         s"$desc mismatch: $original vs $recomputed"
       )
 
     List(
       check(_.signatories, "signatories"),
-      // This definition of observers allows observers to lose parties that are signatories
+      // Comparing stakeholders allows observers to lose parties that are signatories
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
@@ -2872,11 +2833,11 @@ private[lf] object SBuiltinFun {
             // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
-              srcTemplateId = original.templateId,
-              dstTemplateId = recomputed.templateId,
+              srcTemplateId = srcTemplateId,
+              dstTemplateId = recomputedTemplateId,
               signatories = recomputed.signatories,
               observers = recomputed.observers,
-              keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
+              keyOpt = recomputed.keyOpt,
               msg = errors.mkString("['", "', '", "']"),
             )
           )
@@ -2887,8 +2848,10 @@ private[lf] object SBuiltinFun {
   private def importValue[Q](machine: Machine[Q], typ: Ast.Type, value: V)(
       f: SValue => Control[Q]
   ): Control[Q] = {
-    val e = SEImportValue(typ, value)
-    executeExpression(machine, e)(f)
+    machine.importValue(typ, value) match {
+      case Right(value) => f(value)
+      case Left(error) => Control.Error(error)
+    }
   }
 
   // Get the contract info for a contract, computing if not in our cache
@@ -2897,7 +2860,6 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       templateId: Identifier,
       templateArg: SValue,
-      allowCatchingContractInfoErrors: Boolean,
   )(f: ContractInfo => Control[Question.Update]): Control[Question.Update] = {
     machine.contractInfoCache.get((coid, templateId.packageId)) match {
       case Some(contract) =>
@@ -2909,7 +2871,7 @@ private[lf] object SBuiltinFun {
           machine,
           templateId,
           templateArg,
-          allowCatchingContractInfoErrors,
+          allowCatchingContractInfoErrors = false,
         ) { contract =>
           machine.insertContractInfoCache(coid, contract)
           f(contract)

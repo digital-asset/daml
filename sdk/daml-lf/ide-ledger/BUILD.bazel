@@ -20,7 +20,10 @@ da_scala_library(
     name = "ide-ledger",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.daml.lf.speedy.Main",
-    scala_deps = ["@maven//:org_typelevel_paiges_core"],
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_paiges_core",
+    ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-ide-ledger:__VERSION__"],
     visibility = [

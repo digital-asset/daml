@@ -7,8 +7,9 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
-import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.concurrent.{FutureSupervisor, Threading}
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -33,7 +34,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.{
   BftOrderingSequencerAdminService,
   GrpcBftOrderingSequencerPruningAdminService,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.{
+  CantonOrderingTopologyProvider,
+  SequencerNodeId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerInterceptor
@@ -58,7 +62,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   P2PConnectionManagementConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PekkoBlockSubscription
@@ -114,10 +117,9 @@ import scala.util.Random
 final class BftBlockOrderer(
     config: BftBlockOrdererConfig,
     sharedLocalStorage: Storage,
-    psId: PhysicalSynchronizerId,
+    cryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     clock: Clock,
-    orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
     authenticationServicesO: Option[
       AuthenticationServices
     ], // Owned and managed by the sequencer runtime, absent in some tests
@@ -129,7 +131,8 @@ final class BftBlockOrderer(
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
-    queryCostMonitoring: Option[QueryCostMonitoringConfig] = None,
+    queryCostMonitoring: Option[QueryCostMonitoringConfig],
+    futureSupervisor: FutureSupervisor,
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends BlockOrderer
     with NamedLogging
@@ -142,6 +145,8 @@ final class BftBlockOrderer(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
     s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
   )
+
+  private val psId: PhysicalSynchronizerId = cryptoApi.psid
 
   private implicit val protocolVersion: ProtocolVersion = psId.protocolVersion
 
@@ -355,7 +360,7 @@ final class BftBlockOrderer(
       // TODO(#19289) support dynamically configurable epoch length
       EpochLength(config.epochLength),
       stores,
-      orderingTopologyProvider,
+      new CantonOrderingTopologyProvider(cryptoApi, loggerFactory, metrics),
       blockSubscription,
       sequencerSnapshotAdditionalInfo,
       bootstrapMembership =>
@@ -537,6 +542,17 @@ final class BftBlockOrderer(
   override def subscribe(
   )(implicit traceContext: TraceContext): Source[RawLedgerBlock, KillSwitch] =
     blockSubscription.subscription().map(BlockFormat.blockOrdererBlockToRawLedgerBlock(logger))
+
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
+    val maybeTimePromise =
+      mkPromise[Option[CantonTimestamp]]("get-current-bft-time", futureSupervisor)
+    outputModuleRef.asyncSend(Output.GetCurrentBftTime { maybeTime =>
+      maybeTimePromise.outcome_(maybeTime)
+    })
+    maybeTimePromise.futureUS
+  }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     logger.debug("Beginning async BFT block orderer shutdown")(TraceContext.empty)

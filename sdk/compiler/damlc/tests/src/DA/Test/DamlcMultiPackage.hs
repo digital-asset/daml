@@ -761,7 +761,7 @@ diamondProject =
   ]
 
 -- Package-b depends on package-a, package-a depends on lib-b, lib-b depends on lib-a
--- Straight line dependency tree crossing a "project" border
+-- Straight line dependency tree crossing a "package" border
 multiProject :: [ProjectStructure]
 multiProject =
   [ Dir "libs"

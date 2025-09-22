@@ -33,7 +33,6 @@ class EventQueryServiceClient(
       .getEventsByContractId(
         GetEventsByContractIdRequest(
           contractId = contractId,
-          requestingParties = Seq.empty,
           eventFormat = Some(eventFormat),
         )
       )

@@ -30,15 +30,18 @@ import com.digitalasset.canton.sequencing.client.{
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnectionValidation,
+  SequencerConnectionXPool,
+  SequencerConnectionXPoolFactory,
   SequencerConnections,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
-import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc, TracingConfig}
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
-import com.digitalasset.canton.util.{EitherTUtil, retry}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import io.grpc.{Status, StatusException}
 import monocle.Lens
+import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
@@ -206,7 +209,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
               sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
                 SequencerTransports.from(
                   sequencerTransportsMapO,
-                  Option.when(!useNewConnectionPool)(newEndpointsInfo.expectedSequencers),
+                  newEndpointsInfo.expectedSequencersO,
                   newEndpointsInfo.sequencerConnections.sequencerTrustThreshold,
                   newEndpointsInfo.sequencerConnections.sequencerLivenessMargin,
                   newEndpointsInfo.sequencerConnections.submissionRequestAmplification,
@@ -283,4 +286,79 @@ object GrpcSequencerConnectionService extends HasLoggerName {
     )
   }
 
+  def waitUntilSequencerConnectionIsValidWithPool(
+      connectionPoolFactory: SequencerConnectionXPoolFactory,
+      tracingConfig: TracingConfig,
+      flagCloseable: FlagCloseable,
+      loadConfig: => FutureUnlessShutdown[Option[SequencerConnections]],
+  )(implicit
+      namedLoggingContext: NamedLoggingContext,
+      executionContext: ExecutionContextExecutor,
+      executionSequencerFactory: ExecutionSequencerFactory,
+      actorSystem: ActorSystem,
+  ): EitherT[FutureUnlessShutdown, String, (SequencerConnectionXPool, SequencerAggregatedInfo)] = {
+    implicit val traceContext: TraceContext = namedLoggingContext.traceContext
+
+    def tryNewConfig: EitherT[
+      FutureUnlessShutdown,
+      String,
+      (SequencerConnectionXPool, SequencerAggregatedInfo),
+    ] =
+      for {
+        sequencerConnections <- OptionT(loadConfig).toRight("No sequencer connection config")
+        connectionPool <- EitherT.fromEither[FutureUnlessShutdown](
+          connectionPoolFactory
+            .createFromOldConfig(
+              sequencerConnections,
+              expectedPSIdO = None,
+              tracingConfig = tracingConfig,
+            )
+            .leftMap(_.toString)
+        )
+        _ <- connectionPool.start().leftMap { error =>
+          namedLoggingContext.warn(s"Waiting for valid sequencer connection: $error")
+          error.toString
+        }
+      } yield {
+        val psid = connectionPool.physicalSynchronizerIdO.getOrElse(
+          ErrorUtil.invalidState(
+            "a successfully started connection pool must have the synchronizer ID defined"
+          )
+        )
+        val staticParameters = connectionPool.staticSynchronizerParametersO.getOrElse(
+          ErrorUtil.invalidState(
+            "a successfully started connection pool must have the static parameters defined"
+          )
+        )
+
+        // `sequencerConnections.aliasToConnections` built with the transport mechanism depends on the validation mode
+        // (all, active only, etc.), whereas with the connection pool we provide the original configuration.
+        // It seems this parameter is however only used later on for building the transports, so it does not matter
+        // when using the connection pool.
+        val info = SequencerAggregatedInfo(
+          psid = psid,
+          staticSynchronizerParameters = staticParameters,
+          expectedSequencersO = None,
+          sequencerConnections = sequencerConnections,
+        )
+
+        (connectionPool, info)
+      }
+
+    import scala.concurrent.duration.*
+    EitherT(
+      retry
+        .Pause(
+          namedLoggingContext.tracedLogger,
+          flagCloseable,
+          maxRetries = retry.Forever,
+          delay = 50.millis,
+          operationName = "wait-for-valid-sequencer-connection",
+        )
+        .unlessShutdown(
+          tryNewConfig.value,
+          NoExceptionRetryPolicy,
+        )
+    )
+  }
 }

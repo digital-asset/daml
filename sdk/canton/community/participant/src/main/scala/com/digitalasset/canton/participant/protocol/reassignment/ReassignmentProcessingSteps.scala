@@ -405,6 +405,37 @@ private[reassignment] trait ReassignmentProcessingSteps[
       )
     }
 
+  protected def createAbstainResponse(
+      requestId: RequestId,
+      rootHash: RootHash,
+      msg: String,
+      hostedConfirmingReassigningParties: Set[LfPartyId],
+  ): Option[ConfirmationResponses] =
+    NonEmpty
+      .from(hostedConfirmingReassigningParties)
+      .map { parties =>
+        checked(
+          ConfirmationResponses.tryCreate(
+            requestId,
+            rootHash,
+            synchronizerId.unwrap,
+            participantId,
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse
+                .tryCreate(
+                  Some(ViewPosition.root),
+                  LocalAbstainError.CannotPerformAllValidations
+                    .Abstain(msg)
+                    .toLocalAbstain(protocolVersion.unwrap),
+                  parties,
+                ),
+            ),
+            protocolVersion.unwrap,
+          )
+        )
+      }
+
   private def responsesForWellformedPayloads(
       requestId: RequestId,
       protocolVersion: ProtocolVersion,

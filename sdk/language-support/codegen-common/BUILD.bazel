@@ -19,7 +19,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:codegen-jvm-common:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-assistant/scala-daml-project-config",
+        "//daml-assistant/scala-daml-package-config",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//libs-scala/build-info",
@@ -40,7 +40,7 @@ da_scala_test(
     ],
     deps = [
         ":codegen-common",
-        "//daml-assistant/scala-daml-project-config",
+        "//daml-assistant/scala-daml-package-config",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction-test-lib",

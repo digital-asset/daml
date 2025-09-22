@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
 import com.digitalasset.canton.protocol.ReassignmentId
-import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -24,9 +24,8 @@ import scala.concurrent.ExecutionContext
   *
   * @param reassigningParticipants
   *   The list of reassigning participants
-  * @param targetTimeProof
-  *   a sequenced event that the submitter has recently observed on the target synchronizer.
-  *   Determines the timestamp of the topology at the target synchronizer.
+  * @param targetTimestamp
+  *   The timestamp of the topology at the target synchronizer to be used for validation.
   */
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
@@ -35,7 +34,7 @@ final case class UnassignmentRequest(
     sourceSynchronizer: Source[PhysicalSynchronizerId],
     sourceMediator: MediatorGroupRecipient,
     targetSynchronizer: Target[PhysicalSynchronizerId],
-    targetTimeProof: TimeProof,
+    targetTimestamp: Target[CantonTimestamp],
 ) {
   private val sourceProtocolVersion = sourceSynchronizer.map(_.protocolVersion)
 
@@ -72,7 +71,7 @@ final case class UnassignmentRequest(
         viewSalt,
         contracts,
         targetSynchronizer,
-        targetTimeProof,
+        targetTimestamp,
         sourceProtocolVersion,
       )
 
@@ -84,7 +83,6 @@ object UnassignmentRequest {
 
   def validated(
       participantId: ParticipantId,
-      timeProof: TimeProof,
       contracts: ContractsReassignmentBatch,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourcePSId: Source[PhysicalSynchronizerId],
@@ -146,7 +144,7 @@ object UnassignmentRequest {
         sourcePSId,
         sourceMediator,
         targetPSId,
-        timeProof,
+        targetTopology.map(_.timestamp),
       )
 
       UnassignmentRequestValidated(

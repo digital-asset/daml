@@ -53,6 +53,8 @@ private[store] object StorageBackendTestValues {
   val somePackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkg")
   val someTemplateId: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template")
   val someTemplateIdFull: Ref.FullIdentifier = someTemplateId.toFullIdentifier(somePackageId)
+  val someRepresentativePackageId: Ref.PackageId =
+    Ref.PackageId.assertFromString("representative-pkg")
   val someTemplateId2: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template2")
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someParticipantId)
@@ -113,6 +115,7 @@ private[store] object StorageBackendTestValues {
       recordTime: Timestamp = someTime,
       externalTransactionHash: Option[Array[Byte]] = None,
       emptyFlatEventWitnesses: Boolean = false,
+      representativePackageId: Ref.PackageId = somePackageId,
   ): DbDto.EventCreate = {
     val updateId = updateIdFromOffset(offset)
     val stakeholders = Set(signatory, observer)
@@ -145,6 +148,7 @@ private[store] object StorageBackendTestValues {
       trace_context = traceContext,
       record_time = recordTime.micros,
       external_transaction_hash = externalTransactionHash,
+      representative_package_id = representativePackageId,
     )
   }
 
@@ -186,13 +190,11 @@ private[store] object StorageBackendTestValues {
       flat_event_witnesses =
         if (consuming && !emptyFlatEventWitnesses) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
-      create_key_value = None,
       exercise_choice = "exercise_choice",
       exercise_argument = someSerializedDamlLfValue,
       exercise_result = Some(someSerializedDamlLfValue),
       exercise_actors = Set(actor),
       exercise_last_descendant_node_id = 0,
-      create_key_value_compression = None,
       exercise_argument_compression = None,
       exercise_result_compression = None,
       event_sequential_id = eventSequentialId,
@@ -370,8 +372,14 @@ private[store] object StorageBackendTestValues {
       event_sequential_id: Long,
       template_id: NameTypeConRef,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ): DbDto.IdFilterCreateStakeholder =
-    DbDto.IdFilterCreateStakeholder(event_sequential_id, template_id.toString, party_id)
+    DbDto.IdFilterCreateStakeholder(
+      event_sequential_id,
+      template_id.toString,
+      party_id,
+      first_per_sequential_id,
+    )
 
   def dtoInterning(
       internal: Int,

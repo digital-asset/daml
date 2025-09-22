@@ -365,14 +365,19 @@ class DAMLe(
             .flatMap(optCid => EitherT(handleResultInternal(contracts, resume(optCid))))
             .value
         case ResultNeedContract(acoid, resume) =>
-          // TODO(#23971) - Add support for V2 contract IDs
-          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
-            case Right(v1Version) =>
+          (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
+            case Right(version) =>
+              val hashingMethod = version match {
+                case v1: CantonContractIdV1Version => v1.contractHashingMethod
+                case _: CantonContractIdV2Version =>
+                  // TODO(#23971) - Add support for transforming the contract argument prior to hashing and switch to TypedNormalForm
+                  LfHash.HashingMethod.UpgradeFriendly
+              }
               contracts.lookupFatContract(acoid).value.map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    v1Version.contractHashingMethod,
+                    hashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound

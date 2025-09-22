@@ -24,7 +24,7 @@ class EventQueryServiceRequestValidatorTest
 
     val someProtoEventFormat = com.daml.ledger.api.v2.transaction_filter.EventFormat(
       filtersByParty = Map(
-        party.toString -> Filters(
+        party -> Filters(
           Seq(
             com.daml.ledger.api.v2.transaction_filter.CumulativeFilter(
               IdentifierFilter.WildcardFilter(WildcardFilter(true))
@@ -35,70 +35,6 @@ class EventQueryServiceRequestValidatorTest
       filtersForAnyParty = None,
       verbose = false,
     )
-
-    // TODO(i23504): remove
-    "validating legacy event by contract id requests" should {
-
-      val expected = event.GetEventsByContractIdRequest(
-        contractId = contractId,
-        eventFormat = EventFormat(
-          filtersByParty = Map(
-            party -> CumulativeFilter(
-              templateFilters = Set.empty,
-              interfaceFilters = Set.empty,
-              templateWildcardFilter = Some(TemplateWildcardFilter(includeCreatedEventBlob = false)),
-            )
-          ),
-          filtersForAnyParty = None,
-          verbose = true,
-        ),
-      )
-
-      val req = event_query_service.GetEventsByContractIdRequest(
-        contractId.coid,
-        Seq(party),
-        None,
-      )
-
-      "pass on valid input" in {
-        EventQueryServiceRequestValidator.validateEventsByContractId(req) shouldBe Right(expected)
-      }
-
-      "fail on empty contractId" in {
-        requestMustFailWith(
-          request =
-            EventQueryServiceRequestValidator.validateEventsByContractId(req.withContractId("")),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: contract_id",
-          metadata = Map.empty,
-        )
-      }
-
-      "fail on empty requesting parties" in {
-        requestMustFailWith(
-          request = EventQueryServiceRequestValidator.validateEventsByContractId(
-            req.withRequestingParties(Nil)
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either event_format or requesting_parties needs to be defined.",
-          metadata = Map.empty,
-        )
-      }
-
-      "fail if event format is also defined" in {
-        requestMustFailWith(
-          request = EventQueryServiceRequestValidator.validateEventsByContractId(
-            req.withEventFormat(someProtoEventFormat)
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either event_format or requesting_parties needs to be defined, but not both.",
-          metadata = Map.empty,
-        )
-      }
-    }
 
     "validating event by contract id requests" should {
 
@@ -119,7 +55,6 @@ class EventQueryServiceRequestValidatorTest
 
       val req = event_query_service.GetEventsByContractIdRequest(
         contractId.coid,
-        Nil,
         Some(someProtoEventFormat),
       )
 
@@ -145,7 +80,7 @@ class EventQueryServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either event_format or requesting_parties needs to be defined.",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: event_format",
           metadata = Map.empty,
         )
       }

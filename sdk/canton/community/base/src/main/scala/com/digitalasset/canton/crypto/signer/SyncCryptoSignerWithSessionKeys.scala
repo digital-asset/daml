@@ -17,6 +17,7 @@ import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys.{
   PendingUsableSessionKeysAndMetadata,
   SessionKeyAndDelegation,
 }
+import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
@@ -37,6 +38,7 @@ import com.github.benmanes.caffeine.cache.Scheduler
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -60,6 +62,7 @@ class SyncCryptoSignerWithSessionKeys(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     member: Member,
     signPrivateApiWithLongTermKeys: SigningPrivateOps,
+    override protected val cryptoPrivateStore: CryptoPrivateStore,
     sessionSigningKeysConfig: SessionSigningKeysConfig,
     publicKeyConversionCacheConfig: CacheConfig,
     futureSupervisor: FutureSupervisor,
@@ -382,31 +385,28 @@ class SyncCryptoSignerWithSessionKeys(
           s"Session signing keys are not supposed to be used for non-protocol messages. Requested usage: $usage"
         ),
       )
-      allKeys <- EitherT.right(
-        topologySnapshot
-          .signingKeys(member, SigningKeyUsage.ProtocolOnly)
-      )
-      activeLongTermKey <- EitherT.fromEither[FutureUnlessShutdown](
-        NonEmpty
-          .from(allKeys)
-          .toRight(
-            SyncCryptoError
-              .KeyNotAvailable(
-                member,
-                KeyPurpose.Signing,
-                topologySnapshot.timestamp,
-                allKeys.map(_.fingerprint),
-              )
-          )
-          .map(PublicKey.getLatestKey)
-      )
-      sessionKeyAndDelegation <- getSessionKey(topologySnapshot, activeLongTermKey)
-      SessionKeyAndDelegation(sessionKey, delegation) = sessionKeyAndDelegation
-      signature <- signPublicApiSoftwareBased
-        .sign(hash, sessionKey, usage)
-        .toEitherT[FutureUnlessShutdown]
-        .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
-    } yield signature.addSignatureDelegation(delegation)
+      activeLongTermKey <- findSigningKey(member, topologySnapshot, usage)
+      // The only exception where we cannot use a session signing key is for the sequencer initialization request,
+      // where the timestamp has not yet been assigned and is set with `CantonTimestamp.MinValue` as the reference time
+      // (e.g. 0001-01-01T00:00:00.000002Z).
+      // If a session signing key was used, its validity would be measured around this reference time,
+      // but the verification of that message would be performed using the present time as reference (i.e. now()).
+      veryOldTimestampThreshold = CantonTimestamp.MinValue.add(Duration.ofDays(365))
+      signature <-
+        if (topologySnapshot.timestamp <= veryOldTimestampThreshold)
+          signPrivateApiWithLongTermKeys
+            .sign(hash, activeLongTermKey.id, usage)
+            .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
+        else
+          for {
+            sessionKeyAndDelegation <- getSessionKey(topologySnapshot, activeLongTermKey)
+            SessionKeyAndDelegation(sessionKey, delegation) = sessionKeyAndDelegation
+            signature <- signPublicApiSoftwareBased
+              .sign(hash, sessionKey, usage)
+              .toEitherT[FutureUnlessShutdown]
+              .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
+          } yield signature.addSignatureDelegation(delegation)
+    } yield signature
 
 }
 

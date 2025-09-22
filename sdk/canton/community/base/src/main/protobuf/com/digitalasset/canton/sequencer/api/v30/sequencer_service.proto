@@ -97,6 +97,11 @@ service SequencerService {
 
   // Return the currently known traffic state for a member. Callers must be authorized to request the traffic state.
   rpc GetTrafficStateForMember(GetTrafficStateForMemberRequest) returns (GetTrafficStateForMemberResponse);
+
+  // Return a "current" sequencing time such that, when a `SendAsync` operation is
+  // subsequently called, if sequenced, the sequencing time of the resulting event is guaranteed to
+  // be later than the sequencing time previously returned by the `GetTime` call.
+  rpc GetTime(GetTimeRequest) returns (GetTimeResponse);
 }
 
 message SendAsyncRequest {
@@ -195,4 +200,15 @@ message GetTrafficStateForMemberResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.protocol.v30.TrafficState traffic_state = 1;
+}
+
+message GetTimeRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+}
+
+message GetTimeResponse {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  //  The result can be empty if the sequencer is still initializing.
+  optional uint64 sequencing_time = 1;
 }

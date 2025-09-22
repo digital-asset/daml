@@ -476,6 +476,36 @@ class ProtocolConverters(
     }
   }
 
+  object TransactionTreeEventLegacy
+      extends ProtocolConverter[LegacyDTOs.TreeEvent.Kind, JsTreeEvent.TreeEvent] {
+
+    override def fromJson(
+        jsObj: JsTreeEvent.TreeEvent
+    )(implicit traceContext: TraceContext): Future[LegacyDTOs.TreeEvent.Kind] =
+      jsObj match {
+        case JsTreeEvent.CreatedTreeEvent(created) =>
+          CreatedEvent
+            .fromJson(created)
+            .map(ev => LegacyDTOs.TreeEvent.Kind.Created(ev))
+
+        case JsTreeEvent.ExercisedTreeEvent(exercised) =>
+          ExercisedEvent
+            .fromJson(exercised)
+            .map(ev => LegacyDTOs.TreeEvent.Kind.Exercised(ev))
+      }
+
+    override def toJson(lapiObj: LegacyDTOs.TreeEvent.Kind)(implicit
+        traceContext: TraceContext
+    ): Future[JsTreeEvent.TreeEvent] = lapiObj match {
+      case LegacyDTOs.TreeEvent.Kind.Empty =>
+        illegalValue(LegacyDTOs.TreeEvent.Kind.Empty.toString())
+      case LegacyDTOs.TreeEvent.Kind.Created(created) =>
+        CreatedEvent.toJson(created).map(JsTreeEvent.CreatedTreeEvent(_))
+      case LegacyDTOs.TreeEvent.Kind.Exercised(exercised) =>
+        ExercisedEvent.toJson(exercised).map(JsTreeEvent.ExercisedTreeEvent(_))
+    }
+  }
+
   // TODO(#23504) remove when TransactionTree is removed
   @nowarn("cat=deprecation")
   object TransactionTree
@@ -510,6 +540,40 @@ class ProtocolConverters(
         .transform
   }
 
+  object TransactionTreeLegacy
+      extends ProtocolConverter[LegacyDTOs.TransactionTree, JsTransactionTree] {
+    def toJson(
+        transactionTree: LegacyDTOs.TransactionTree
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsTransactionTree] =
+      for {
+        eventsById <- transactionTree.eventsById.toSeq.map { case (k, v) =>
+          TransactionTreeEventLegacy.toJson(v.kind).map(newVal => (k, newVal))
+        }.sequence
+
+      } yield transactionTree
+        .into[JsTransactionTree]
+        .withFieldConst(_.eventsById, eventsById.toMap)
+        .transform
+
+    def fromJson(
+        jsTransactionTree: JsTransactionTree
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.TransactionTree] =
+      for {
+        eventsById <- jsTransactionTree.eventsById.toSeq.map { case (k, v) =>
+          TransactionTreeEventLegacy
+            .fromJson(v)
+            .map(newVal => (k, LegacyDTOs.TreeEvent(newVal)))
+        }.sequence
+      } yield jsTransactionTree
+        .into[LegacyDTOs.TransactionTree]
+        .withFieldConst(_.eventsById, eventsById.toMap)
+        .transform
+  }
+
   // TODO(#23504) remove when SubmitAndWaitForTransactionTreeResponse is removed
   @nowarn("cat=deprecation")
   object SubmitAndWaitTransactionTreeResponse
@@ -540,6 +604,39 @@ class ProtocolConverters(
         .fromJson(response.transactionTree)
         .map(tree =>
           lapi.command_service.SubmitAndWaitForTransactionTreeResponse(
+            transaction = Some(tree)
+          )
+        )
+  }
+
+  object SubmitAndWaitTransactionTreeResponseLegacy
+      extends ProtocolConverter[
+        LegacyDTOs.SubmitAndWaitForTransactionTreeResponse,
+        JsSubmitAndWaitForTransactionTreeResponse,
+      ] {
+
+    def toJson(
+        response: LegacyDTOs.SubmitAndWaitForTransactionTreeResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsSubmitAndWaitForTransactionTreeResponse] =
+      TransactionTreeLegacy
+        .toJson(response.transaction.getOrElse(invalidArgument("empty", "non-empty transaction")))
+        .map(tree =>
+          JsSubmitAndWaitForTransactionTreeResponse(
+            transactionTree = tree
+          )
+        )
+
+    def fromJson(
+        response: JsSubmitAndWaitForTransactionTreeResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.SubmitAndWaitForTransactionTreeResponse] =
+      TransactionTreeLegacy
+        .fromJson(response.transactionTree)
+        .map(tree =>
+          LegacyDTOs.SubmitAndWaitForTransactionTreeResponse(
             transaction = Some(tree)
           )
         )
@@ -1152,6 +1249,48 @@ class ProtocolConverters(
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
   }
 
+  object GetUpdateTreesResponseLegacy
+      extends ProtocolConverter[
+        LegacyDTOs.GetUpdateTreesResponse,
+        JsGetUpdateTreesResponse,
+      ] {
+    def toJson(
+        value: LegacyDTOs.GetUpdateTreesResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsGetUpdateTreesResponse] =
+      ((value.update match {
+        case LegacyDTOs.GetUpdateTreesResponse.Update.Empty =>
+          illegalValue(LegacyDTOs.GetUpdateTreesResponse.Update.Empty.toString())
+        case LegacyDTOs.GetUpdateTreesResponse.Update.OffsetCheckpoint(value) =>
+          Future(JsUpdateTree.OffsetCheckpoint(value))
+        case LegacyDTOs.GetUpdateTreesResponse.Update.TransactionTree(value) =>
+          TransactionTreeLegacy.toJson(value).map(JsUpdateTree.TransactionTree.apply)
+        case LegacyDTOs.GetUpdateTreesResponse.Update.Reassignment(value) =>
+          Reassignment.toJson(value).map(JsUpdateTree.Reassignment.apply)
+      }): Future[JsUpdateTree.Update]).map(update => JsGetUpdateTreesResponse(update))
+
+    def fromJson(
+        jsObj: JsGetUpdateTreesResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.GetUpdateTreesResponse] =
+      (jsObj.update match {
+        case JsUpdateTree.OffsetCheckpoint(value) =>
+          Future.successful(
+            LegacyDTOs.GetUpdateTreesResponse.Update.OffsetCheckpoint(value)
+          )
+        case JsUpdateTree.Reassignment(value) =>
+          Reassignment
+            .fromJson(value)
+            .map(LegacyDTOs.GetUpdateTreesResponse.Update.Reassignment.apply)
+        case JsUpdateTree.TransactionTree(value) =>
+          TransactionTreeLegacy
+            .fromJson(value)
+            .map(LegacyDTOs.GetUpdateTreesResponse.Update.TransactionTree.apply)
+      }).map((u: LegacyDTOs.GetUpdateTreesResponse.Update) => LegacyDTOs.GetUpdateTreesResponse(u))
+  }
+
   // TODO(#23504) remove when GetTransactionTreeResponse is removed
   @nowarn("cat=deprecation")
   object GetTransactionTreeResponse
@@ -1175,6 +1314,29 @@ class ProtocolConverters(
 
   }
 
+  object GetTransactionTreeResponseLegacy
+      extends ProtocolConverter[
+        LegacyDTOs.GetTransactionTreeResponse,
+        JsGetTransactionTreeResponse,
+      ] {
+    def toJson(
+        obj: LegacyDTOs.GetTransactionTreeResponse
+    )(implicit
+        traceContext: TraceContext
+    ): Future[JsGetTransactionTreeResponse] =
+      TransactionTreeLegacy
+        .toJson(obj.transaction.getOrElse(invalidArgument("empty", "non-empty transaction")))
+        .map(JsGetTransactionTreeResponse.apply)
+
+    def fromJson(treeResponse: JsGetTransactionTreeResponse)(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.GetTransactionTreeResponse] =
+      TransactionTreeLegacy
+        .fromJson(treeResponse.transaction)
+        .map(tree => LegacyDTOs.GetTransactionTreeResponse(Some(tree)))
+
+  }
+
   // TODO(#23504) remove when GetTransactionResponse is removed
   @nowarn("cat=deprecation")
   object GetTransactionResponse
@@ -1193,6 +1355,26 @@ class ProtocolConverters(
       Transaction
         .fromJson(obj.transaction)
         .map(tr => lapi.update_service.GetTransactionResponse(Some(tr)))
+  }
+
+  object GetTransactionResponseLegacy
+      extends ProtocolConverter[
+        LegacyDTOs.GetTransactionResponse,
+        JsGetTransactionResponse,
+      ] {
+    def toJson(obj: LegacyDTOs.GetTransactionResponse)(implicit
+        traceContext: TraceContext
+    ): Future[JsGetTransactionResponse] =
+      Transaction
+        .toJson(obj.transaction.getOrElse(invalidArgument("empty", "non-empty transaction")))
+        .map(JsGetTransactionResponse.apply)
+
+    def fromJson(obj: JsGetTransactionResponse)(implicit
+        traceContext: TraceContext
+    ): Future[LegacyDTOs.GetTransactionResponse] =
+      Transaction
+        .fromJson(obj.transaction)
+        .map(tr => LegacyDTOs.GetTransactionResponse(Some(tr)))
   }
 
   object PrepareSubmissionRequest

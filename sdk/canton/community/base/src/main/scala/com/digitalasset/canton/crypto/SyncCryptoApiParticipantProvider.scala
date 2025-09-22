@@ -218,7 +218,7 @@ object SyncCryptoClient {
         loggingContext.debug(
           s"Getting topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
-        client.snapshot(timestamp)(traceContext)
+        client.hypotheticalSnapshot(timestamp, desiredTimestamp)(traceContext)
       } else {
         loggingContext.debug(
           s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
@@ -303,10 +303,23 @@ class SynchronizerCryptoClient private (
   ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.snapshot(timestamp).map(create)
 
+  override def hypotheticalSnapshot(timestamp: CantonTimestamp, desiredTimestamp: CantonTimestamp)(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
+    ips.hypotheticalSnapshot(timestamp, desiredTimestamp).map(create)
+
   override def trySnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): SynchronizerSnapshotSyncCryptoApi =
     create(ips.trySnapshot(timestamp))
+
+  override def tryHypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): SynchronizerSnapshotSyncCryptoApi =
+    create(ips.tryHypotheticalSnapshot(timestamp, desiredTimestamp))
 
   override def headSnapshot(implicit
       traceContext: TraceContext

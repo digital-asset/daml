@@ -680,7 +680,6 @@ private[lf] object Pretty {
         case SEDelayedCrash(location, reason) =>
           text("delayed_crash") + char('(') + text(location) + text(",") + text(reason) + text(")")
 
-        case x: SEImportValue => str(x)
         case x: SELabelClosure => str(x)
       }
   }

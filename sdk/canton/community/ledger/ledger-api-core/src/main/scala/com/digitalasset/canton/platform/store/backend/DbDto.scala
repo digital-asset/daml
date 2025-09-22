@@ -24,6 +24,7 @@ object DbDto {
       contract_id: Array[Byte],
       template_id: String,
       package_id: String,
+      representative_package_id: String,
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_argument: Array[Byte],
@@ -59,13 +60,11 @@ object DbDto {
         String
       ], // only for consuming, for non-consuming exercise this field is omitted
       tree_event_witnesses: Set[String],
-      create_key_value: Option[Array[Byte]],
       exercise_choice: String,
       exercise_argument: Array[Byte],
       exercise_result: Option[Array[Byte]],
       exercise_actors: Set[String],
       exercise_last_descendant_node_id: Int,
-      create_key_value_compression: Option[Int],
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       event_sequential_id: Long,
@@ -184,42 +183,49 @@ object DbDto {
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterCreateNonStakeholderInformee(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterConsumingStakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterConsumingNonStakeholderInformee(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterNonConsumingInformee(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterUnassignStakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class IdFilterAssignStakeholder(
       event_sequential_id: Long,
       template_id: String,
       party_id: String,
+      first_per_sequential_id: Boolean,
   ) extends DbDto
 
   final case class TransactionMeta(

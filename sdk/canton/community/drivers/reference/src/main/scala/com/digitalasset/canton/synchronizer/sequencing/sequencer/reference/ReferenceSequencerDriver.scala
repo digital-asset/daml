@@ -115,6 +115,9 @@ class ReferenceSequencerDriver(
         blockOrdererBlockToRawLedgerBlock(logger)(block)
       }
 
+  override def sequencingTime(implicit traceContext: TraceContext): Future[Option[Long]] =
+    Future.successful(Some(timeProvider.nowInMicrosecondsSinceEpoch))
+
   override def send(request: ByteString, submissionId: String, senderId: String)(implicit
       traceContext: TraceContext
   ): Future[Unit] =

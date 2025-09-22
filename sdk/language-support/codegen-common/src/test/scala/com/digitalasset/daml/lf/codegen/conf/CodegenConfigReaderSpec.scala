@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.codegen.conf
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
-import com.daml.assistant.config.{ProjectConfig, ConfigParseError, ConfigMissing}
+import com.daml.assistant.config.{PackageConfig, ConfigParseError, ConfigMissing}
 import com.digitalasset.daml.lf.codegen.conf.{CodegenConfigReader => CCR}
 import CCR.{Java, Result, CodegenDest}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
@@ -53,8 +53,8 @@ class CodegenConfigReaderSpec extends AnyFlatSpec with Matchers with ScalaCheckP
 
   private def codegenConf(sdkConfig: String, mode: CodegenDest): Result[Conf] =
     for {
-      projectConfig <- ProjectConfig.loadFromString(projectRoot, sdkConfig)
-      codegenConfig <- CodegenConfigReader.codegenConf(projectConfig, mode)
+      PackageConfig <- PackageConfig.loadFromString(projectRoot, sdkConfig)
+      codegenConfig <- CodegenConfigReader.codegenConf(PackageConfig, mode)
     } yield codegenConfig
 
   private val fullConfig = """|

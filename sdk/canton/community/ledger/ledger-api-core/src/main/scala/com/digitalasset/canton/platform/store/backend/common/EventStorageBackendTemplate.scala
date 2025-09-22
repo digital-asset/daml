@@ -64,6 +64,7 @@ object EventStorageBackendTemplate {
       "contract_id",
       "template_id",
       "package_id",
+      "representative_package_id",
       "create_argument",
       "create_argument_compression",
       "create_signatories",
@@ -92,13 +93,14 @@ object EventStorageBackendTemplate {
       "contract_id",
       "template_id",
       "package_id",
+      "NULL as representative_package_id",
       "NULL as create_argument",
       "NULL as create_argument_compression",
       "NULL as create_signatories",
       "NULL as create_observers",
-      "create_key_value",
+      "NULL as create_key_value",
       "NULL as create_key_hash",
-      "create_key_value_compression",
+      "NULL as create_key_value_compression",
       "NULL as create_key_maintainers",
       "submitters",
       "NULL as authentication_data",
@@ -141,7 +143,7 @@ object EventStorageBackendTemplate {
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~
       Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~
-      Array[Byte] ~ Array[Int]
+      Array[Byte] ~ Array[Int] ~ Int
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -154,7 +156,8 @@ object EventStorageBackendTemplate {
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
       byteArray("authentication_data") ~
-      array[Int]("flat_event_witnesses")
+      array[Int]("flat_event_witnesses") ~
+      int("representative_package_id")
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -193,7 +196,6 @@ object EventStorageBackendTemplate {
           packageId ~
           commandId ~
           workflowId ~
-
           eventWitnesses ~
           submitters ~
           internedSynchronizerId ~
@@ -209,7 +211,8 @@ object EventStorageBackendTemplate {
           createKeyValueCompression ~
           createKeyMaintainers ~
           authenticationData ~
-          flatEventWitnesses =>
+          flatEventWitnesses ~
+          representativePackageId =>
         Entry(
           offset = offset,
           updateId = updateId,
@@ -225,6 +228,8 @@ object EventStorageBackendTemplate {
             templateId = stringInterning.templateId
               .externalize(templateId)
               .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
+            representativePackageId =
+              stringInterning.packageId.externalize(representativePackageId),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               eventWitnesses,
@@ -403,6 +408,7 @@ object EventStorageBackendTemplate {
     "ledger_effective_time",
     "template_id",
     "package_id",
+    "representative_package_id",
     "workflow_id",
     "create_argument",
     "create_argument_compression",
@@ -438,14 +444,15 @@ object EventStorageBackendTemplate {
       "ledger_effective_time",
       "template_id",
       "package_id",
+      "NULL as representative_package_id",
       "workflow_id",
       "NULL as create_argument",
       "NULL as create_argument_compression",
       "NULL as create_signatories",
       "NULL as create_observers",
-      "create_key_value",
+      "NULL as create_key_value",
       "NULL as create_key_hash",
-      "create_key_value_compression",
+      "NULL as create_key_value_compression",
       "NULL as create_key_maintainers",
       "exercise_choice",
       "exercise_argument",
@@ -474,7 +481,7 @@ object EventStorageBackendTemplate {
       offset("event_offset") ~
       str("update_id") ~
       int("party_id") ~
-      str("participant_id") ~
+      int("participant_id") ~
       authorizationEventParser("participant_permission", "participant_authorization_event") ~
       int("synchronizer_id") ~
       timestampFromMicros("record_time") ~
@@ -497,7 +504,7 @@ object EventStorageBackendTemplate {
           offset = eventOffset,
           updateId = updateId,
           partyId = stringInterning.party.unsafe.externalize(partyId),
-          participantId = participantId,
+          participantId = stringInterning.participantId.unsafe.externalize(participantId),
           authorizationEvent = authorizationEvent,
           recordTime = recordTime,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(synchronizerId),
@@ -598,6 +605,8 @@ object EventStorageBackendTemplate {
               templateId = stringInterning.templateId
                 .externalize(templateId)
                 .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
+              // TODO(#27872): Use the assignment representative package ID when available
+              representativePackageId = stringInterning.packageId.externalize(packageId),
               witnessParties = witnessParties,
               flatEventWitnesses = witnessParties,
               signatories =
@@ -774,6 +783,8 @@ object EventStorageBackendTemplate {
             templateId = stringInterning.templateId
               .externalize(templateId)
               .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
+            // TODO(#27872): Use the assignment representative package ID when available
+            representativePackageId = stringInterning.packageId.externalize(packageId),
             witnessParties = witnessParties,
             flatEventWitnesses = witnessParties,
             signatories =
@@ -802,6 +813,7 @@ object EventStorageBackendTemplate {
       contractId("contract_id") ~
       int("template_id") ~
       int("package_id") ~
+      int("representative_package_id") ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -828,6 +840,7 @@ object EventStorageBackendTemplate {
           contractId ~
           templateId ~
           packageId ~
+          representativePackageId ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -858,6 +871,8 @@ object EventStorageBackendTemplate {
             templateId = stringInterning.templateId
               .externalize(templateId)
               .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
+            representativePackageId =
+              stringInterning.packageId.externalize(representativePackageId),
             witnessParties = witnessParties,
             flatEventWitnesses = witnessParties,
             signatories =
@@ -1053,10 +1068,10 @@ abstract class EventStorageBackendTemplate(
             delete_events.event_offset <= $pruneUpToInclusive"""
     }
 
-    pruneWithLogging(queryDescription = "Transaction Meta pruning") {
+    pruneWithLogging(queryDescription = "Update Meta pruning") {
       SQL"""
            DELETE FROM
-              lapi_transaction_meta m
+              lapi_update_meta m
            WHERE
             m.event_offset <= $pruneUpToInclusive
          """
@@ -1324,7 +1339,7 @@ abstract class EventStorageBackendTemplate(
      SELECT
         event_sequential_id_first
      FROM
-        lapi_transaction_meta
+        lapi_update_meta
      WHERE
         ${QueryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
         AND ${QueryStrategy.offsetIsLessOrEqual("event_offset", ledgerEnd.map(_.lastOffset))}
@@ -1479,6 +1494,7 @@ abstract class EventStorageBackendTemplate(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
     )(connection)
 
   override def fetchUnassignEventIdsForStakeholder(
@@ -1496,6 +1512,7 @@ abstract class EventStorageBackendTemplate(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
     )(connection)
 
   override def lookupAssignSequentialIdByOffset(
@@ -1577,7 +1594,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
             record_time >= ${afterOrAtRecordTimeInclusive.micros}
@@ -1623,7 +1640,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             $synchronizerIdFilter
             ${QueryStrategy.offsetIsLessOrEqual("event_offset", safeBeforeOrAtOffset)}
@@ -1655,7 +1672,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
             record_time <= ${beforeOrAtRecordTimeInclusive.micros} AND
@@ -1681,7 +1698,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             event_offset = $offset
           """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
@@ -1704,7 +1721,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
           ORDER BY publication_time ASC, event_offset ASC
@@ -1737,7 +1754,7 @@ abstract class EventStorageBackendTemplate(
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
           SELECT event_offset, record_time, publication_time, synchronizer_id
-          FROM lapi_transaction_meta
+          FROM lapi_update_meta
           WHERE
             publication_time <= ${safePublicationTime.micros}
           ORDER BY publication_time DESC, event_offset DESC
@@ -1781,6 +1798,7 @@ abstract class EventStorageBackendTemplate(
       endInclusive = endInclusive,
       limit = limit,
       stringInterning = stringInterning,
+      hasFirstPerSequentialId = false,
     )(connection)
 
   override def topologyPartyEventBatch(

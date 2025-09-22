@@ -63,6 +63,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "s2",
       "95",
       "96",
+      "97",
     ).sorted
     iterators.synchronizerIds.toList.sorted shouldBe List(
       "synchronizer2",
@@ -73,12 +74,20 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       "synchronizer7",
       "synchronizer8",
       "synchronizer9",
+      "synchronizer10",
     ).sorted
     iterators.packageIds.toList.sorted shouldBe List(
       "25.1",
+      "25.2",
       "50.1",
       "87.1",
       "94.1",
+    ).sorted
+    iterators.userIds.toList.sorted shouldBe List(
+      "65"
+    ).sorted
+    iterators.participantIds.toList.sorted shouldBe List(
+      "participant1"
     ).sorted
   }
 
@@ -117,6 +126,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       contract_id = Array(24),
       template_id = "25",
       package_id = "25.1",
+      representative_package_id = "25.2",
       flat_event_witnesses = Set("26", "27", "28"),
       tree_event_witnesses = Set("29", "30", "31"),
       create_argument = Array.empty,
@@ -151,9 +161,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       tree_event_witnesses = Set("54", "55", "56"),
       exercise_argument = Array.empty,
       exercise_actors = Set("57", "58", "59"),
-      create_key_value = None,
       exercise_argument_compression = Some(1),
-      create_key_value_compression = Some(1),
       event_sequential_id = 1,
       exercise_choice = "60",
       exercise_result = None,
@@ -234,6 +242,18 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       record_time = 0,
     ),
     DbDto.SequencerIndexMoved("synchronizer9"),
+    DbDto.EventPartyToParticipant(
+      event_sequential_id = 0,
+      event_offset = 1,
+      update_id = "",
+      party_id = "97",
+      participant_id = "participant1",
+      participant_permission = 1,
+      participant_authorization_event = 2,
+      synchronizer_id = "synchronizer10",
+      record_time = 0,
+      trace_context = Array.empty,
+    ),
   )
 
 }

@@ -45,7 +45,7 @@ package_app(
 )
 
 package_oci_component(
-    name = "daml2js-oci",
+    name = "codegen-js-oci",
     component_manifest = ":component.yaml",
     resources = [
         ":daml2js-dist",

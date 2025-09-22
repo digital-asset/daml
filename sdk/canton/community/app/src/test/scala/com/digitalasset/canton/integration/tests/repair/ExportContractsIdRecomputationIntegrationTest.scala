@@ -299,7 +299,7 @@ object ExportContractsIdRecomputationIntegrationTest {
             whileDisconnected(participant2, daName) {
               loggerFactory.assertThrowsAndLogs[CommandFailure](
                 participant2.repair.import_acs(brokenExportFile.canonicalPath),
-                _.errorMessage should include("malformed contract id"),
+                _.errorMessage should include("Malformed contract ID"),
               )
             }
             participant2.ledger_api.state.acs.of_party(alice) should have size 0

@@ -56,6 +56,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContextExecutor, esf: ExecutionSequencerFactory, materializer: Materializer)
     extends SequencerConnectionXPool {
+
   import SequencerConnectionXPoolImpl.*
 
   /** Reference to the currently active configuration */
@@ -108,8 +109,11 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     }
   }
 
-  override def physicalSynchronizerId: Option[PhysicalSynchronizerId] =
+  override def physicalSynchronizerIdO: Option[PhysicalSynchronizerId] =
     bootstrapCell.get.map(_.synchronizerId)
+
+  override def staticSynchronizerParametersO: Option[StaticSynchronizerParameters] =
+    bootstrapCell.get.map(_.staticParameters)
 
   override def start()(implicit
       traceContext: TraceContext

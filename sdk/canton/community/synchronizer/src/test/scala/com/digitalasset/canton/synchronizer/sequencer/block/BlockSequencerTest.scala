@@ -249,6 +249,10 @@ class BlockSequencerTest
     override def sequencerSnapshotAdditionalInfo(
         timestamp: CantonTimestamp
     ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]] = ???
+
+    override def sequencingTime(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Option[CantonTimestamp]] = ???
   }
 
   class FakeBlockSequencerStateManager extends BlockSequencerStateManagerBase {

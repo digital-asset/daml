@@ -9,12 +9,6 @@ import cats.syntax.functor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ParsedReassignmentRequest,
-  ReassignmentProcessorError,
-}
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationResult.CommonValidationResult
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
@@ -23,39 +17,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, MonadUtil, ReassignmentTag}
 
 import scala.concurrent.ExecutionContext
-
-private[reassignment] trait ReassignmentValidation[
-    View <: FullReassignmentViewTree,
-    CommonResult <: ReassignmentValidationResult.CommonValidationResult,
-    ReassigningParticipantResult
-      <: ReassignmentValidationResult.ReassigningParticipantValidationResult,
-] {
-  type ReassigningParticipantValidationData
-
-  /** The common validations that are performed on all participants (reassigning as well as
-    * non-reassigning)
-    */
-  def performCommonValidations(
-      parsedRequest: ParsedReassignmentRequest[View],
-      activenessF: FutureUnlessShutdown[ActivenessResult],
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[CommonValidationResult]
-
-  /** The validations that are performed only for reassigning participants. We need specific
-    * parameters depending on the type of reassignment request.
-    */
-  def performValidationForReassigningParticipants(
-      parsedRequest: ParsedReassignmentRequest[View],
-      additionalParams: ReassigningParticipantValidationData,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    ReassignmentProcessorError,
-    ReassigningParticipantResult,
-  ]
-}
 
 object ReassignmentValidation {
 

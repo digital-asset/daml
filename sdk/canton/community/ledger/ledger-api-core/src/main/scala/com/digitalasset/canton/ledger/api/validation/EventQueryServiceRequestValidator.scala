@@ -5,11 +5,8 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
 import com.digitalasset.canton.ledger.api.messages.event
-import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
-
-import scala.annotation.nowarn
 
 object EventQueryServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
@@ -17,8 +14,6 @@ object EventQueryServiceRequestValidator {
   import FieldValidator.*
   import ValidationErrors.*
 
-  // TODO(#23504) remove requireParties when `requestingParties` are removed from the API
-  @nowarn("cat=deprecation")
   def validateEventsByContractId(
       req: GetEventsByContractIdRequest
   )(implicit
@@ -26,40 +21,12 @@ object EventQueryServiceRequestValidator {
   ): Result[event.GetEventsByContractIdRequest] =
     for {
       contractId <- requireContractId(req.contractId, "contract_id")
-      parties <- requireParties(req.requestingParties.toSet)
       eventFormat <- req.eventFormat match {
-        case None if parties.isEmpty =>
-          Left(invalidArgument("Either event_format or requesting_parties needs to be defined."))
-
         case None =>
-          Right(
-            EventFormat(
-              filtersByParty = parties.view
-                .map(
-                  _ -> CumulativeFilter(
-                    templateFilters = Set.empty,
-                    interfaceFilters = Set.empty,
-                    templateWildcardFilter =
-                      Some(TemplateWildcardFilter(includeCreatedEventBlob = false)),
-                  )
-                )
-                .toMap,
-              filtersForAnyParty = None,
-              verbose = true,
-            )
-          )
-
-        case Some(_) if parties.nonEmpty =>
-          Left(
-            invalidArgument(
-              "Either event_format or requesting_parties needs to be defined, but not both."
-            )
-          )
-
+          Left(missingField("event_format"))
         case Some(protoEventFormat) =>
           FormatValidator.validate(protoEventFormat)
       }
-
     } yield {
       event.GetEventsByContractIdRequest(contractId, eventFormat)
     }

@@ -649,6 +649,7 @@ class BftOrderingMetrics private[metrics] (
             case object ConsensusRoleEquivocation extends ViolationTypeValue
             case object StateTransferInvalidMessage extends ViolationTypeValue
             case object RetransmissionResponseInvalidMessage extends ViolationTypeValue
+            case object WrongGrpcMessageSentByBftNodeId extends ViolationTypeValue
           }
         }
       }

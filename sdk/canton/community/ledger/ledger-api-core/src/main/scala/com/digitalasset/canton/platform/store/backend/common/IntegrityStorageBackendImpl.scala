@@ -181,7 +181,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     // Verify no duplicate update id
     SQL"""
           SELECT meta1.update_id as uId, meta1.event_offset as offset1, meta2.event_offset as offset2
-          FROM lapi_transaction_meta as meta1, lapi_transaction_meta as meta2
+          FROM lapi_update_meta as meta1, lapi_update_meta as meta2
           WHERE meta1.update_id = meta2.update_id and
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
@@ -211,7 +211,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     // Verify publication time cannot go backwards
     val offsetPublicationTimes =
       SQL"""
-           SELECT event_offset as _offset, publication_time FROM lapi_transaction_meta
+           SELECT event_offset as _offset, publication_time FROM lapi_update_meta
            UNION ALL
            SELECT completion_offset as _offset, publication_time FROM lapi_command_completions
            """
@@ -251,7 +251,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       """
       .asVectorOf(
         offset("completion_offset") ~
-          str("user_id") ~
+          int("user_id") ~
           array[Int]("submitters") ~
           str("command_id") ~
           str("update_id").? ~
@@ -329,7 +329,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       .asSingleOpt(int("internal_id"))(connection)
       .map(internedSynchronizerId => SQL"""
         SELECT COUNT(*) as count
-        FROM lapi_transaction_meta
+        FROM lapi_update_meta
         WHERE synchronizer_id = $internedSynchronizerId
        """.asSingle(int("count"))(connection))
       .getOrElse(0)
@@ -347,7 +347,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   }
 
   private final case class CompletionEntry(
-      userId: String,
+      userId: Int,
       submitters: List[Int],
       commandId: String,
       updateId: Option[String],

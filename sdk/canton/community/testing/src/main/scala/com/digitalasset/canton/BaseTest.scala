@@ -433,7 +433,10 @@ trait BaseTest
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
   lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
   lazy val UpgradeTestsPath: String = BaseTest.UpgradeTestsPath
+  lazy val UpgradeTestsCompatPath: String = BaseTest.UpgradeTestsCompatPath
   lazy val UpgradeTestsIncompatPath: String = BaseTest.UpgradeTestsIncompatPath
+  lazy val VettingDepPath: String = BaseTest.VettingDepPath
+  lazy val VettingMainPath: String = BaseTest.VettingMainPath
 
   implicit class RichSynchronizerId(val id: SynchronizerId) {
     def toPhysical: PhysicalSynchronizerId =
@@ -569,7 +572,10 @@ object BaseTest {
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.4.0.dar")
   lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.4.0.dar")
   lazy val UpgradeTestsPath: String = getResourcePath("UpgradeTests-3.4.0.dar")
-  lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
+  lazy val UpgradeTestsCompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
+  lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-5.0.0.dar")
+  lazy val VettingDepPath: String = getResourcePath("VettingDep-1.0.0.dar")
+  lazy val VettingMainPath: String = getResourcePath("VettingMain-1.0.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import cats.data.EitherT
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.block.{
@@ -69,4 +70,14 @@ class DriverBlockOrderer(
       timestamp: CantonTimestamp
   ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]] =
     EitherT.rightT(None)
+
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    FutureUnlessShutdown.outcomeF(
+      driver.sequencingTime.map(t =>
+        t.map(CantonTimestamp.fromProtoPrimitive)
+          .map(_.fold(e => throw new RuntimeException(e.message), identity))
+      )
+    )
 }

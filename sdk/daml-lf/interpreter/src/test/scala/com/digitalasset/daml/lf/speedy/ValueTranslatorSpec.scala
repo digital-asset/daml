@@ -162,7 +162,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
     val emptyTestCase = Table[Ast.Type, Value, speedy.SValue](
-      ("type", "value", ""),
+      ("type", "value", "svalue"),
       (TList(TText), ValueList(FrontStack.empty), SList(FrontStack.empty)),
       (
         TOptional(TText),
@@ -184,6 +184,28 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     "succeeds on well typed values" in {
       forAll(testCases ++ emptyTestCase) { (typ, value, svalue) =>
         Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue)
+      }
+    }
+
+    "fail on non-strictly ordered maps" in {
+
+      val cases = Table[Ast.Type, Value](
+        ("type", "value"),
+        (
+          TGenMap(TInt64, TText),
+          ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(0) -> ValueText("0"))),
+        ),
+        (
+          TGenMap(TInt64, TText),
+          ValueGenMap(ImmArray(ValueInt64(0) -> ValueText("0"), ValueInt64(0) -> ValueText("0"))),
+        ),
+      )
+
+      forAll(cases) { (typ, value) =>
+        inside(Try(unsafeTranslateValue(typ, value))) {
+          case Failure(error: TranslationError.Error) =>
+            error shouldBe a[TranslationError.InvalidValue]
+        }
       }
     }
 

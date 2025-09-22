@@ -10,18 +10,18 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.BaseTest.getResourcePath
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{CachingConfigs, PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.admin.PackageService.DarMainPackageId
 import com.digitalasset.canton.participant.admin.PackageServiceTest.{
-  AdminWorkflowsPath,
-  readAdminWorkflows,
-  readAdminWorkflowsBytes,
+  PingAdminWorkflowPath,
   readCantonExamples,
   readCantonExamplesBytes,
+  readPingAdminWorkflow,
+  readPingAdminWorkflowBytes,
 }
 import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataViewImpl,
 }
 import com.digitalasset.canton.participant.util.DAMLe
+import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil}
@@ -69,15 +70,17 @@ object PackageServiceTest {
   def readCantonExamplesBytes(): Array[Byte] =
     Files.readAllBytes(Paths.get(BaseTest.CantonExamplesPath))
 
-  private[admin] val AdminWorkflowsPath = getResourcePath("AdminWorkflows.dar")
-  def loadAdminWorkflowsDar(): archive.Dar[Archive] =
-    loadDar(AdminWorkflowsPath)
+  private[admin] val PingAdminWorkflowPath = getResourcePath(
+    AdminWorkflowServices.PingDarResourceFileName
+  )
+  def loadPingAdminWorkflowDar(): archive.Dar[Archive] =
+    loadDar(PingAdminWorkflowPath)
 
-  def readAdminWorkflows(): List[DamlLf.Archive] =
-    loadAdminWorkflowsDar().all
+  def readPingAdminWorkflow(): List[DamlLf.Archive] =
+    loadPingAdminWorkflowDar().all
 
-  def readAdminWorkflowsBytes(): Array[Byte] =
-    Files.readAllBytes(Paths.get(AdminWorkflowsPath))
+  def readPingAdminWorkflowBytes(): Array[Byte] =
+    Files.readAllBytes(Paths.get(PingAdminWorkflowPath))
 
   def badDarPath: String =
     ("community" / "participant" / "src" / "test" / "resources" / "daml" / "illformed.dar").toString
@@ -94,7 +97,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     with HasExecutionContext {
 
   private val examplePackages: List[Archive] = readCantonExamples()
-  private val adminWorkflowPackages: List[Archive] = readAdminWorkflows()
+  private val adminWorkflowPackages: List[Archive] = readPingAdminWorkflow()
   private val bytes = PackageServiceTest.readCantonExamplesBytes()
   private val description = String255.tryCreate("CantonExamples")
   private val participantId = DefaultTestIdentities.participant1
@@ -117,6 +120,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       .createAndInitialize(
         clock,
         packageDependencyResolver.damlPackageStore,
+        new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
         loggerFactory,
         PackageMetadataViewConfig(),
         processingTimeouts,
@@ -244,9 +248,9 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       )
       val test = UploadDarData(
         bytes = BinaryFileUtil
-          .readByteStringFromFile(AdminWorkflowsPath)
-          .valueOrFail("could not load admin workflows"),
-        description = Some("AdminWorkflows"),
+          .readByteStringFromFile(PingAdminWorkflowPath)
+          .valueOrFail("could not load ping admin workflow"),
+        description = Some(AdminWorkflowServices.PingDarResourceName),
         expectedMainPackageId = None,
       )
 
@@ -270,7 +274,9 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
         forAll(
           Seq(
             String255.tryCreate("CantonExamples") -> readCantonExamplesBytes(),
-            String255.tryCreate("AdminWorkflows") -> readAdminWorkflowsBytes(),
+            String255.tryCreate(
+              AdminWorkflowServices.PingDarResourceName
+            ) -> readPingAdminWorkflowBytes(),
           )
         ) { case (name, bytes) =>
           val dar = dars.flatten.find(_.descriptor.name == name).value

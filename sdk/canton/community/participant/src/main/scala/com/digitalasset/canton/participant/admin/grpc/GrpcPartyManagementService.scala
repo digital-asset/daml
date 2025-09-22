@@ -4,12 +4,12 @@
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
-import cats.implicits.toTraverseOps
-import cats.syntax.either.*
+import cats.syntax.all.*
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction as LapiTopologyTransaction
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.admin.participant.v30.*
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{InternalIndexService, SynchronizerIndex}
@@ -17,6 +17,8 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.mapErrNewEUS
+import com.digitalasset.canton.participant.ParticipantNodeParameters
+import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.{
   PartyManagementServiceError,
@@ -32,15 +34,19 @@ import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithIni
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
 
-import java.io.OutputStream
+import java.io.{ByteArrayOutputStream, OutputStream}
+import java.util.UUID
 import java.util.zip.GZIPOutputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
 /** grpc service to allow modifying party hosting on participants
@@ -49,12 +55,15 @@ class GrpcPartyManagementService(
     adminWorkflowO: Option[PartyReplicationAdminWorkflow],
     processingTimeout: ProcessingTimeout,
     sync: CantonSyncService,
+    parameters: ParticipantNodeParameters,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContextExecutor,
     actorSystem: ActorSystem,
 ) extends v30.PartyManagementServiceGrpc.PartyManagementService
     with NamedLogging {
+
+  private val batching: BatchingConfig = parameters.batchingConfig
 
   override def addPartyAsync(
       request: v30.AddPartyAsyncRequest
@@ -360,6 +369,63 @@ class GrpcPartyManagementService(
         .toRight(s"Undefined physical synchronizer ID for given $synchronizerId")
       topoClient <- sync.lookupTopologyClient(psid).toRight("Absent topology client")
     } yield topoClient
+
+  /*
+ Note that `responseObserver` originates from `GrpcStreamingUtils.streamToServer` which is
+ a wrapper that turns the responses into a promise/future. This is not a true bidirectional stream.
+   */
+  override def importPartyAcs(
+      responseObserver: StreamObserver[ImportPartyAcsResponse]
+  ): StreamObserver[ImportPartyAcsRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    // TODO(#23818): This buffer will contain the whole ACS snapshot.
+    val outputStream = new ByteArrayOutputStream()
+
+    new StreamObserver[ImportPartyAcsRequest] {
+
+      override def onNext(request: ImportPartyAcsRequest): Unit =
+        outputStream.write(request.acsSnapshot.toByteArray)
+
+      override def onError(t: Throwable): Unit =
+        try {
+          outputStream.close()
+        } finally {
+          responseObserver.onError(t)
+        }
+
+      override def onCompleted(): Unit = {
+        // Synchronously try to get the snapshot and start the import
+        val importFuture =
+          try {
+            ParticipantCommon.importAcsNewSnapshot(
+              acsSnapshot = ByteString.copyFrom(outputStream.toByteArray),
+              workflowIdPrefix = s"import-party-acs-${UUID.randomUUID}",
+              contractIdImportMode = ContractIdImportMode.Validation,
+              excludedStakeholders = Set.empty,
+              sync,
+              batching,
+              loggerFactory,
+            )
+          } catch {
+            // If toByteArray or importAcsNewSnapshot fails
+            case NonFatal(e) => Future.failed(e)
+          }
+
+        importFuture
+          .thereafter { _ =>
+            outputStream.close()
+          }
+          .onComplete {
+            case Failure(exception) =>
+              responseObserver.onError(exception)
+            case Success(_) =>
+              responseObserver.onNext(ImportPartyAcsResponse())
+              responseObserver.onCompleted()
+          }
+      }
+    }
+  }
 
   override def getHighestOffsetByTimestamp(
       request: v30.GetHighestOffsetByTimestampRequest

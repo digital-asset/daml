@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party, UserId}
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
@@ -273,6 +273,7 @@ object SequentialWriteDaoSpec {
     contract_id = Array(24),
     template_id = "",
     package_id = "2",
+    representative_package_id = "3",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_argument = Array.empty,
@@ -306,13 +307,11 @@ object SequentialWriteDaoSpec {
     package_id = "2",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
-    create_key_value = None,
     exercise_choice = "",
     exercise_argument = Array.empty,
     exercise_result = None,
     exercise_actors = Set.empty,
     exercise_last_descendant_node_id = 3,
-    create_key_value_compression = None,
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
@@ -335,8 +334,8 @@ object SequentialWriteDaoSpec {
     partyAndCreateFixture.get.party -> List(someParty, someEventCreated),
     allEventsFixture.get.party -> List(
       someEventCreated,
-      DbDto.IdFilterCreateStakeholder(0L, "", ""),
-      DbDto.IdFilterCreateStakeholder(0L, "", ""),
+      DbDto.IdFilterCreateStakeholder(0L, "", "", first_per_sequential_id = true),
+      DbDto.IdFilterCreateStakeholder(0L, "", "", first_per_sequential_id = false),
       someEventExercise,
     ),
   )
@@ -355,6 +354,8 @@ object SequentialWriteDaoSpec {
         templateIds = List("1").iterator,
         synchronizerIds = Iterator.empty,
         packageIds = Iterator("2"),
+        userIds = Iterator.empty,
+        participantIds = Iterator.empty,
       )
     case _ =>
       new DomainStringIterators(
@@ -362,6 +363,8 @@ object SequentialWriteDaoSpec {
         templateIds = Iterator.empty,
         synchronizerIds = Iterator.empty,
         packageIds = Iterator.empty,
+        userIds = Iterator.empty,
+        participantIds = Iterator.empty,
       )
   }
 
@@ -376,6 +379,11 @@ object SequentialWriteDaoSpec {
       override def party: StringInterningDomain[Party] = throw new NotImplementedException
 
       override def synchronizerId: StringInterningDomain[SynchronizerId] =
+        throw new NotImplementedException
+
+      override def userId: StringInterningDomain[UserId] = throw new NotImplementedException
+
+      override def participantId: StringInterningDomain[Ref.ParticipantId] =
         throw new NotImplementedException
 
       override def internize(

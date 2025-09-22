@@ -159,6 +159,8 @@ object JsSchema {
     @nowarn("cat=deprecation")
     implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] =
       deriveRelaxedCodec
+    implicit val transactionFilterLegacyRW: Codec[LegacyDTOs.TransactionFilter] =
+      deriveRelaxedCodec
     implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveRelaxedCodec
 
     implicit val transactionShapeEncoder: Encoder[TransactionShape] =
@@ -249,6 +251,7 @@ object JsSchema {
         observers: Seq[String],
         createdAt: protobuf.timestamp.Timestamp,
         packageName: String,
+        representativePackageId: String,
         acsDelta: Boolean,
     ) extends Event
 

@@ -124,6 +124,7 @@ object TransactionLogUpdate {
       contractId: ContractId,
       ledgerEffectiveTime: Timestamp,
       templateId: Identifier,
+      representativePackageId: Ref.PackageId,
       packageName: PackageName,
       packageVersion: Option[Ref.PackageVersion],
       commandId: String,

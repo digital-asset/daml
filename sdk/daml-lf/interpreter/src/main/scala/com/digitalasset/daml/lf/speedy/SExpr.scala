@@ -16,8 +16,6 @@ package speedy
   */
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
@@ -112,10 +110,11 @@ private[lf] object SExpr {
 
   /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic]) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Q] = {
-      val vfun = fun.lookupValue(machine)
-      machine.enterApplication(vfun, args)
-    }
+    override def execute[Q](machine: Machine[Q]): Control[Q] =
+      fun.lookupValue(machine) match {
+        case vfun: SPAP => machine.enterApplication(vfun, args)
+        case other => throw SError.SErrorCrash("SEAppAtomicGeneral", s"except SPAP, but got $other")
+      }
   }
 
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
@@ -266,16 +265,6 @@ private[lf] object SExpr {
       machine.pushKont(KLabelClosure(label))
       Control.Expression(expr)
     }
-  }
-
-  /** The SEImportValue form is never constructed when compiling user LF.
-    * It is only constructed at runtime by certain builtin-ops.
-    * Assumes the packages needed to import value of type `typ` is already
-    * loaded in `machine`.
-    */
-  final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Nothing] =
-      machine.importValue(typ, value)
   }
 
   /** Exception handler */

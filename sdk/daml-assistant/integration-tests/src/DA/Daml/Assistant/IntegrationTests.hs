@@ -11,7 +11,7 @@ import Control.Monad
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Lens
 import Data.List.Extra
-import Data.Maybe (maybeToList, isJust)
+import Data.Maybe (maybeToList, isJust, fromJust)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Vector as Vector
@@ -415,7 +415,7 @@ damlStartTests getDamlStart =
             DamlStartResource {jsonApiPort, alice, aliceHeaders, packageRef} <- getDamlStart
             manager <- newManager defaultManagerSettings
             initialRequest <-
-                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
+                parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/commands/submit-and-wait"
             let createRequest =
                     initialRequest
                         { method = "POST"
@@ -423,10 +423,21 @@ damlStartTests getDamlStart =
                         , requestBody =
                             RequestBodyLBS $
                             Aeson.encode $
-                            Aeson.object
-                                [ "templateId" Aeson..= (packageRef ++ ":Main:T")
-                                , "payload" Aeson..= [alice]
+                            Aeson.object [
+                              "userId"    Aeson..= ("alice" :: T.Text),
+                              "commandId" Aeson..= ("example-app-create" :: T.Text),
+                              "actAs"     Aeson..= [alice],
+                              "commands"  Aeson..= [
+                                Aeson.object [
+                                  "CreateCommand" Aeson..= Aeson.object [
+                                    "templateId"      Aeson..= (packageRef ++ ":Main:T"),
+                                    "createArguments" Aeson..= Aeson.object [
+                                      "p" Aeson..= alice
+                                    ]
+                                  ]
                                 ]
+                              ]
+                            ]
                         }
             createResponse <- httpLbs createRequest manager
             statusCode (responseStatus createResponse) @?= 200
@@ -442,19 +453,45 @@ damlStartTests getDamlStart =
                 ["daml", "ledger", "allocate-party", "--port", show sandboxPort, "Bob"]
         subtest "Run init-script" $ do
             DamlStartResource {jsonApiPort, aliceHeaders, packageRef} <- getDamlStart
-            initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
-            let queryRequest = initialRequest
+            ledgerEndRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/state/ledger-end"
+            manager <- newManager defaultManagerSettings
+            queryResponse <- httpLbs ledgerEndRequest manager
+            statusCode (responseStatus queryResponse) @?= 200
+            let (offset :: Int) = fromJust $ preview (key "offset" . _Integral) (responseBody queryResponse)
+
+            secondRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v2/state/active-contracts"
+            let queryRequest = secondRequest
                     { method = "POST"
                     , requestHeaders = aliceHeaders
                     , requestBody =
                         RequestBodyLBS $
                         Aeson.encode $
-                        Aeson.object ["templateIds" Aeson..= [packageRef ++ ":Main:T"]]
+                        Aeson.object [
+                        "verbose"        Aeson..= False,
+                        "eventFormat"    Aeson..= Aeson.Null,
+                        "activeAtOffset" Aeson..= offset,
+                        "filter" Aeson..= Aeson.object [
+                          "filtersByParty" Aeson..= Aeson.object [],
+                          "filtersForAnyParty" Aeson..= Aeson.object [
+                            "cumulative" Aeson..= [
+                              Aeson.object [
+                                "identifierFilter" Aeson..= Aeson.object [
+                                  "TemplateFilter" Aeson..= Aeson.object [
+                                    "value" Aeson..= Aeson.object [
+                                      "templateId" Aeson..= (packageRef ++ ":Main:T")
+                                    ]
+                                  ]
+                                ]
+                              ]
+                            ]
+                          ]
+                        ]
+                      ]
                     }
-            manager <- newManager defaultManagerSettings
+
             queryResponse <- httpLbs queryRequest manager
             statusCode (responseStatus queryResponse) @?= 200
-            preview (key "result" . _Array . to Vector.length) (responseBody queryResponse) @?= Just 2
+            preview (_Array . to Vector.length) (responseBody queryResponse) @?= Just 2
         subtest "Daml Script --input-file and --output-file" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             let dar = projDir </> ".daml" </> "dist" </> "assistant-integration-tests-1.0.dar"
@@ -467,7 +504,7 @@ damlStartTests getDamlStart =
                 ]
             contents <- readFileUTF8 (projDir </> "output.json")
             lines contents @?= ["{", "  \"_1\": 0,", "  \"_2\": 1", "}"]
-        subtest "run a daml deploy without project parties" $ do
+        subtest "run a daml deploy without package parties" $ do
             DamlStartResource {projDir, sandboxPort} <- getDamlStart
             copyFile (projDir </> "daml.yaml") (projDir </> "daml.yaml.back")
             writeFileUTF8 (projDir </> "daml.yaml") $ unlines
@@ -579,9 +616,9 @@ codegenTests codegenDir = testGroup "daml codegen" (
 cantonTests :: TestTree
 cantonTests = testGroup "daml sandbox"
     [ testCaseSteps "Can start Canton sandbox and run script" $ \step -> withTempDir $ \dir -> do
-        step "Creating project"
+        step "Creating package"
         callCommandSilentIn dir $ unwords ["daml new", "skeleton", "--template=skeleton"]
-        step "Building project"
+        step "Building package"
         -- TODO(#14706): remove explicit target once the default major version is 2
         callCommandSilentIn (dir </> "skeleton") "daml build --target=2.1"
         step "Finding free ports"

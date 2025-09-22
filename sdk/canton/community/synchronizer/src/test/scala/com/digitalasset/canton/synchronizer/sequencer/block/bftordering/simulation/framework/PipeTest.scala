@@ -142,7 +142,7 @@ object PipeTest {
       val consensusAdminModuleRef =
         system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
       val outputModuleRef =
-        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
+        system.newModuleRef[Output.Message[E]](ModuleName("outputModule"))()
       val pruningModuleRef =
         system.newModuleRef[Pruning.Message](ModuleName("pruningModule"))()
       inputModuleRef.asyncSendNoTrace("init")

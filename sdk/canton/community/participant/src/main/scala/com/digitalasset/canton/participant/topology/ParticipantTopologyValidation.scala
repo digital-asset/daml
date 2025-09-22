@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData
+import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{AcsInspection, ReassignmentStore}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
@@ -30,7 +31,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.Ast
 
 import scala.concurrent.ExecutionContext
 
@@ -38,7 +39,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
   def validatePackageVetting(
       currentlyVettedPackages: Set[LfPackageId],
       nextPackageIds: Set[LfPackageId],
-      packageMetadata: Option[PackageMetadata],
+      packageMetadataView: Option[PackageMetadataView],
       packageDependencyResolver: PackageDependencyResolver,
       acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
@@ -52,7 +53,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
     val toBeKept = currentlyVettedPackages.intersect(nextPackageIds)
     for {
       _ <- checkPackageDependencies(
-        currentlyVettedPackages,
+        toBeKept,
         toBeAdded,
         packageDependencyResolver,
         forceFlags,
@@ -60,15 +61,31 @@ trait ParticipantTopologyValidation extends NamedLogging {
       _ <- toBeDeleted.toList.parTraverse_(packageId =>
         isPackageInUse(packageId, acsInspections, forceFlags)
       )
-      // packageMetadata can be empty if the vetting happens before the package service is created
-      _ <- packageMetadata match {
-        case Some(packageMetadata) if !disableUpgradeValidation =>
-          checkUpgrades(toBeAdded, toBeKept, packageMetadata)
-        case _ =>
+      _ <- EitherT.fromEither[FutureUnlessShutdown] {
+        if (
+          disableUpgradeValidation || forceFlags.permits(ForceFlag.AllowVetIncompatibleUpgrades)
+        ) {
           logger.info(
-            show"Skipping upgrade checks on ${toBeAdded.size} packages because package metadata is not available: $toBeAdded"
+            show"Skipping upgrade validation for newly-added packages $toBeAdded because force flag ${ForceFlag.AllowVetIncompatibleUpgrades.toString} is set"
           )
-          EitherT.pure[FutureUnlessShutdown, TopologyManagerError](())
+          Right(())
+        } else {
+          // packageMetadata can be empty if the vetting happens before the package service is created
+          packageMetadataView match {
+            case Some(packageMetadataView) =>
+              checkUpgrades(
+                nextPackageIds,
+                toBeAdded,
+                packageMetadataView.getSnapshot,
+                packageMetadataView.packageUpgradeValidator,
+              )
+            case None =>
+              logger.info(
+                show"Skipping upgrade checks on newly-added packages because package metadata is not available: $toBeAdded"
+              )
+              Right(())
+          }
+        }
       }
     } yield ()
   }
@@ -247,7 +264,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
     for {
       dependencies <- packageDependencyResolver
         .packageDependencies(toBeAdded.toList)
-        .leftFlatMap[Set[PackageId], TopologyManagerError] { missing =>
+        .leftFlatMap[Set[LfPackageId], TopologyManagerError] { missing =>
           if (forceFlags.permits(ForceFlag.AllowUnknownPackage))
             EitherT.rightT(Set.empty)
           else
@@ -269,7 +286,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
     } yield ()
 
   private def isPackageInUse(
-      packageId: PackageId,
+      packageId: LfPackageId,
       acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
   )(implicit
@@ -299,32 +316,38 @@ trait ParticipantTopologyValidation extends NamedLogging {
       }
 
   private def checkUpgrades(
-      newVettedPackages: Set[LfPackageId],
-      existingVettedPackages: Set[LfPackageId],
+      nextPackageIds: Set[LfPackageId],
+      toBeAdded: Set[LfPackageId],
       packageMetadata: PackageMetadata,
-  )(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val packageUpgradeValidator = new PackageUpgradeValidator(loggerFactory)
-    val newPackages = newVettedPackages.map { packageId =>
-      val pkg = packageMetadata.packages.getOrElse(packageId, throwMissingPackageId(packageId))
-      packageId -> pkg
-    }.toList
-    val upgradablePackages = existingVettedPackages
-      .filter { packageId =>
-        packageMetadata.packageUpgradabilityMap
-          .getOrElse(packageId, throwMissingPackageId(packageId))
-      }
-      .map { packageId =>
-        val pkg = packageMetadata.packages.getOrElse(packageId, throwMissingPackageId(packageId))
-        packageId -> pkg
-      }
-      .toMap
-    packageUpgradeValidator
-      .validateUpgrade(newPackages, upgradablePackages)(LoggingContextWithTrace(loggerFactory))
-  }
+      packageUpgradeValidator: PackageUpgradeValidator,
+  )(implicit traceContext: TraceContext): Either[TopologyManagerError, Unit] = {
+    def getPackageSignature(packageId: LfPackageId): Ast.PackageSignature =
+      packageMetadata.packages.getOrElse(
+        packageId,
+        throw new IllegalStateException(
+          s"Missing package-id $packageId in the package metadata view"
+        ),
+      )
 
-  private def throwMissingPackageId(packageId: LfPackageId): Nothing =
-    throw new IllegalStateException(s"Missing package-id $packageId in metadata snapshot")
+    def isUpgradeable(packageId: LfPackageId): Boolean =
+      packageMetadata.packageUpgradabilityMap
+        .getOrElse(
+          packageId,
+          throw new IllegalStateException(
+            s"Missing package-id $packageId in the package upgradability map"
+          ),
+        )
+
+    // We need to check the entire lineage of newly added packages.
+    // Removing a package can not lead to incompatible upgrade relationships between the remaining
+    // packages in the lineage.
+    val affectedPackageNames = toBeAdded.map(getPackageSignature(_).metadata.name)
+    val packagesToCheck = nextPackageIds.toList
+      .map(packageId => packageId -> getPackageSignature(packageId))
+      .filter { case (packageId, pkg) =>
+        affectedPackageNames.contains(pkg.metadata.name) && isUpgradeable(packageId)
+      }
+    packageUpgradeValidator
+      .validateUpgrade(packagesToCheck)(LoggingContextWithTrace(loggerFactory))
+  }
 }

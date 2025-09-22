@@ -68,6 +68,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockDataFetched,
   BlockDataStored,
   BlockOrdered,
+  GetCurrentBftTime,
   Message,
   MetadataStoredForNewEpoch,
   NoTopologyAvailable,
@@ -331,6 +332,9 @@ class OutputModule[E <: Env[E]](
       case _ =>
         ifInitCompleted(message) {
           case Start =>
+
+          case GetCurrentBftTime(callback) =>
+            callback(previousStoredBlock.getBlockNumberAndBftTime.map(_._2))
 
           // From local consensus
           case BlockOrdered(
@@ -946,5 +950,16 @@ object OutputModule {
           )(traceContext)
           false
       }
+  }
+
+  class FixedResultRequestInspector(result: Boolean) extends RequestInspector {
+
+    override def isRequestToAllMembersOfSynchronizer(
+        request: OrderingRequest,
+        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        logger: TracedLogger,
+        traceContext: TraceContext,
+    )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
+      result
   }
 }

@@ -765,7 +765,7 @@ final case class OwnerToKeyMapping private (
 
 object OwnerToKeyMapping extends TopologyMappingCompanion {
 
-  val MaxKeys = 20
+  val MaxKeys: Int = 20
 
   @VisibleForTesting
   val keysUnsafe: Lens[OwnerToKeyMapping, NonEmpty[Seq[PublicKey]]] =
@@ -784,13 +784,12 @@ object OwnerToKeyMapping extends TopologyMappingCompanion {
         (),
         s"All keys must be unique. Duplicate keys: $duplicateKeys",
       )
-      keysNE <- NonEmpty.from(keys).toRight("At least 1 key must be provided")
       _ <- Either.cond(
-        keysNE.sizeIs <= MaxKeys,
+        keys.sizeIs <= MaxKeys,
         (),
         s"At most $MaxKeys can be specified.",
       )
-    } yield OwnerToKeyMapping(member, keysNE)
+    } yield OwnerToKeyMapping(member, keys)
   }
 
   @VisibleForTesting
@@ -838,6 +837,18 @@ final case class PartyToKeyMapping private (
       )
     )
 
+  @VisibleForTesting
+  def tryCopy(
+      party: PartyId = party,
+      threshold: PositiveInt = threshold,
+      signingKeys: NonEmpty[Seq[SigningPublicKey]] = signingKeys,
+  ): PartyToKeyMapping =
+    PartyToKeyMapping.tryCreate(
+      party,
+      threshold,
+      signingKeys,
+    )
+
   override def namespace: Namespace = party.namespace
 
   override def maybeUid: Option[UniqueIdentifier] = Some(party.uid)
@@ -871,7 +882,7 @@ final case class PartyToKeyMapping private (
 
 object PartyToKeyMapping extends TopologyMappingCompanion {
 
-  val MaxKeys = OwnerToKeyMapping.MaxKeys
+  val MaxKeys: Int = OwnerToKeyMapping.MaxKeys
 
   @VisibleForTesting
   val signingKeysUnsafe: Lens[PartyToKeyMapping, NonEmpty[Seq[SigningPublicKey]]] =
@@ -1476,25 +1487,37 @@ final case class PartyToParticipant private (
           val removedParticipants = prevParticipantIds -- currentParticipantIds
           val addedParticipants = currentParticipantIds -- prevParticipantIds
 
-          val contentHasChanged = prevThreshold != current.threshold
+          val thresholdChanged = prevThreshold != current.threshold
+          val noThresholdChange = false
 
-          // check whether a participant can unilaterally unhost a party
-          if (
-            // no change in threshold
-            !contentHasChanged
-            // no participant added
-            && addedParticipants.isEmpty
-            // only 1 participant removed
-            && removedParticipants.sizeCompare(1) == 0
-          ) {
-            // This scenario can either be authorized by the party or the single participant removed from the mapping
-            RequiredNamespaces(Set(partyId.namespace)).or(
-              RequiredNamespaces(removedParticipants.map(_.namespace))
-            )
-          } else {
-            // all other cases requires the party's and the new (possibly) new participants' signature
+          // party's and the (possibly) new participants' signature are required
+          val defaultAuth =
             RequiredNamespaces(Set(partyId.namespace) ++ addedParticipants.map(_.namespace))
+
+          (thresholdChanged, addedParticipants.toSeq, removedParticipants.toSeq) match {
+
+            // check whether a participant can unilaterally unhost a party
+            case (`noThresholdChange`, Seq(), Seq(removedId)) =>
+              RequiredNamespaces(Set(partyId.namespace)).or(
+                RequiredNamespaces(Set(removedId.namespace))
+              )
+
+            // check whether an onboarding participant can unilaterally clear the onboarding flag
+            case (`noThresholdChange`, Seq(), Seq()) =>
+              val changedOrAddedHosting = participants.diff(prevParticipants)
+              val changedOrRemovedHosting = prevParticipants.diff(participants)
+              (changedOrAddedHosting, changedOrRemovedHosting) match {
+                case (Seq(currentHosting), Seq(previousHosting))
+                    if currentHosting.participantId == previousHosting.participantId &&
+                      currentHosting.permission == previousHosting.permission &&
+                      !currentHosting.onboarding && previousHosting.onboarding =>
+                  RequiredNamespaces(Set(currentHosting.participantId.uid.namespace))
+                case _ => defaultAuth
+              }
+
+            case _ => defaultAuth
           }
+
       }
       .getOrElse(
         RequiredNamespaces(Set(partyId.namespace) ++ participants.map(_.participantId.namespace))

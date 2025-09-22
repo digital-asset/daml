@@ -29,8 +29,8 @@ contents: |
 main : TestTree
 main = tests
   [ brokenOnIDELedger ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesVettedPackages)
-  , brokenOnIDELedger ("Fails when exercising an interface choice on a contract whose creation package is missing", exercisingInterfaceWithMissingInstanceFails)
-  , brokenOnIDELedger ("Fails when trying to fetch a contract by interface whose creation package is missing", fetchingInterfaceWithMissingImplementationFails)
+  , ("Fails when exercising an interface choice on a contract for which there is no vetted instance", exercisingInterfaceWithMissingInstanceFails)
+  , ("Fails when trying to fetch a contract by interface for which there is no vetted instance", fetchingInterfaceWithMissingImplementationFails)
   ]
 
 packageSelectionChoosesVettedPackages : Test

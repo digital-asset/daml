@@ -119,8 +119,9 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * As we future date topology transactions, the head snapshot is our latest knowledge of the
     * topology state, but as it can be still future dated, we need to be careful when actually using
     * it: the state might not yet be active, as the topology transactions are future dated.
-    * Therefore, do not act towards the sequencer using this snapshot, but use the
-    * currentSnapshotApproximation instead.
+    * Therefore, do not prepare regular transactions using this snapshot, but use the
+    * currentSnapshotApproximation instead. A head snapshot can be useful, however, for producing
+    * new topology changes, e.g., for picking the correct serial.
     */
   def headSnapshot(implicit traceContext: TraceContext): T = checked(
     trySnapshot(topologyKnownUntilTimestamp)
@@ -159,6 +160,17 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[T]
 
+  /** Returns the topology information at the `timestamp` point in time, but using
+    * `desiredTimestamp` as the actual "forwarded" timestamp.
+    *
+    * The snapshot returned by this method should ONLY BE USED when computing the timestamp for
+    * signature validation (i.e.
+    * [[com.digitalasset.canton.crypto.SyncCryptoClient.getSnapshotForTimestamp]]).
+    */
+  def hypotheticalSnapshot(timestamp: CantonTimestamp, desiredTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[T]
+
   /** Waits until a snapshot is available
     *
     * The snapshot returned by this method should be used for validating transaction and
@@ -188,6 +200,20 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * topology snapshot.
     */
   def trySnapshot(timestamp: CantonTimestamp)(implicit traceContext: TraceContext): T
+
+  /** Returns the topology information at the `timestamp` point in time, but using
+    * `desiredTimestamp` as the actual "forwarded" timestamp.
+    *
+    * Fails with an exception if the state is not yet known.
+    *
+    * The snapshot returned by this method should ONLY BE USED when computing the timestamp for
+    * signature validation (i.e.
+    * [[com.digitalasset.canton.crypto.SyncCryptoClient.getSnapshotForTimestamp]]).
+    */
+  def tryHypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit traceContext: TraceContext): T
 
   /** Returns an optional future which will complete when the effective timestamp has been observed
     *
@@ -702,20 +728,27 @@ trait SynchronizerTopologyClientWithInit
   /** Overloaded recent snapshot returning derived type */
   override def currentSnapshotApproximation(implicit
       traceContext: TraceContext
-  ): TopologySnapshotLoader = trySnapshot(approximateTimestamp)
+  ): TopologySnapshotLoader =
+    trySnapshot(approximateTimestamp)
 
   override def trySnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): TopologySnapshotLoader
 
-  /** Overloaded snapshot returning derived type */
-  override def snapshot(
+  override def tryHypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): TopologySnapshotLoader
+
+  private def waitForTimestampWithLogging(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // Keep current value, in case we need it in the log entry below
     val topoKnownUntilTs = topologyKnownUntilTimestamp
 
-    val syncF = this.awaitTimestamp(timestamp) match {
+    this.awaitTimestamp(timestamp) match {
       case None => FutureUnlessShutdown.unit
       // No need to log a warning if the future we get is due to a shutdown in progress
       case Some(fut) =>
@@ -730,8 +763,22 @@ trait SynchronizerTopologyClientWithInit
         }
         fut
     }
-    syncF.map(_ => trySnapshot(timestamp))
   }
+
+  /** Overloaded snapshot returning derived type */
+  override def snapshot(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
+    waitForTimestampWithLogging(timestamp).map(_ => trySnapshot(timestamp))
+
+  /** Overloaded hypotheticalSnapshot returning derived type */
+  override def hypotheticalSnapshot(
+      timestamp: CantonTimestamp,
+      desiredTimestamp: CantonTimestamp,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshotLoader] =
+    waitForTimestampWithLogging(timestamp).map(_ =>
+      tryHypotheticalSnapshot(timestamp, desiredTimestamp)
+    )
 
   override def awaitSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

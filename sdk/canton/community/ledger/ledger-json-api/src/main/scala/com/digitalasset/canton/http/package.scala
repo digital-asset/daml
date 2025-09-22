@@ -15,11 +15,10 @@ import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list.*
 import scalaz.std.option.*
-import scalaz.syntax.apply.{^, ^^}
-import scalaz.syntax.show.*
+import scalaz.syntax.apply.^
 import scalaz.syntax.tag.*
 import scalaz.syntax.traverse.*
-import scalaz.{-\/, Applicative, Bitraverse, Functor, NonEmptyList, Traverse, \/, \/-}
+import scalaz.{-\/, Applicative, Functor, NonEmptyList, Traverse, \/, \/-}
 
 import scala.annotation.tailrec
 
@@ -83,9 +82,8 @@ package object http {
 package http {
 
   import com.daml.ledger.api.v2.commands.Commands
-  import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
+  import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId}
   import com.digitalasset.canton.fetchcontracts.`fc ErrorOps`
-  import com.digitalasset.canton.http.json.v1.PackageService
   import com.digitalasset.canton.topology.SynchronizerId
 
   import scala.annotation.nowarn
@@ -95,9 +93,8 @@ package http {
   sealed trait CompletionOffsetTag
 
   sealed trait Base64Tag
-  sealed trait Base16Tag
 
-  trait JwtPayloadTag
+  sealed trait Base16Tag
 
   trait JwtPayloadG {
     val userId: UserId
@@ -119,8 +116,8 @@ package http {
       submitter.toSet1 ++ readAs
   }
 
-// As with JwtWritePayload, but supports empty `actAs`.  At least one of
-// `actAs` or `readAs` must be non-empty.
+  // As with JwtWritePayload, but supports empty `actAs`.  At least one of
+  // `actAs` or `readAs` must be non-empty.
   sealed abstract case class JwtPayload private (
       userId: UserId,
       readAs: List[Party],
@@ -194,13 +191,23 @@ package http {
 
   // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed abstract class UserRight extends Product with Serializable
+
   final case object ParticipantAdmin extends UserRight
+
   final case object IdentityProviderAdmin extends UserRight
+
   final case class CanActAs(party: Party) extends UserRight
+
   final case class CanReadAs(party: Party) extends UserRight
+
+  final case class CanExecuteAs(party: Party) extends UserRight
+
   final case object CanReadAsAnyParty extends UserRight
 
+  final case object CanExecuteAsAnyParty extends UserRight
+
   object UserRights {
+
     import com.digitalasset.daml.lf.data.Ref
     import com.digitalasset.canton.ledger.api.UserRight as LedgerUserRight
     import scalaz.syntax.std.either.*
@@ -215,6 +222,9 @@ package http {
         case CanReadAs(party) =>
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs.apply).disjunction
         case CanReadAsAnyParty => \/.right(LedgerUserRight.CanReadAsAnyParty)
+        case CanExecuteAs(party) =>
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanExecuteAs.apply).disjunction
+        case CanExecuteAsAnyParty => \/.right(LedgerUserRight.CanExecuteAsAnyParty)
       }
 
     def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
@@ -222,10 +232,13 @@ package http {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
         case LedgerUserRight.IdentityProviderAdmin => IdentityProviderAdmin
         case LedgerUserRight.CanReadAsAnyParty => CanReadAsAnyParty
+        case LedgerUserRight.CanExecuteAsAnyParty => CanExecuteAsAnyParty
         case LedgerUserRight.CanActAs(party) =>
           CanActAs(Party(party: String))
         case LedgerUserRight.CanReadAs(party) =>
           CanReadAs(Party(party: String))
+        case LedgerUserRight.CanExecuteAs(party) =>
+          CanExecuteAs(Party(party: String))
       }
       .toList
   }
@@ -280,6 +293,7 @@ package http {
 
   object DeduplicationPeriod {
     final case class Duration(durationInMillis: Long) extends http.DeduplicationPeriod
+
     final case class Offset(offset: HexString) extends http.DeduplicationPeriod
   }
 
@@ -339,17 +353,6 @@ package http {
           .traverse(_.traverse(_.traverse(f)))
           .map(dc => fab.copy(disclosedContracts = dc))
     }
-  }
-
-  final case class CreateCommand[+LfV, +TmplId](
-      templateId: TmplId,
-      payload: LfV,
-      meta: Option[CommandMeta.NoDisclosed],
-  ) {
-    def traversePayload[G[_]: Applicative, LfVB, TmplId0 >: TmplId](
-        f: LfV => G[LfVB]
-    ): G[CreateCommand[LfVB, TmplId0]] =
-      Bitraverse[CreateCommand].leftTraverse[TmplId0].traverse(this)(f)
   }
 
   final case class ExerciseCommand[+PkgId, +LfV, +Ref](
@@ -461,33 +464,6 @@ package http {
     }
   }
 
-  object ActiveContractExtras {
-    // only used in integration tests
-    implicit val `AcC hasTemplateId`: HasTemplateId.Compat[ActiveContract.ResolvedCtTyId] =
-      new HasTemplateId[ActiveContract.ResolvedCtTyId] {
-        override def templateId(fa: ActiveContract.ResolvedCtTyId[_]): ContractTypeId.RequiredPkg =
-          fa.templateId.map(PackageRef.Id(_))
-
-        type TypeFromCtId = LfType
-
-        override def lfType(
-            fa: ActiveContract.ResolvedCtTyId[_],
-            templateId: ContractTypeId.ResolvedPkgId,
-            f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceArgType,
-            h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
-          templateId match {
-            case tid @ ContractTypeId.Template(_, _, _) =>
-              f(tid: ContractTypeId.Template.ResolvedPkgId)
-                .leftMap(e => Error(Symbol("ActiveContract_hasTemplateId_lfType"), e.shows))
-            case other =>
-              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
-              -\/(Error(Symbol("ActiveContract_hasTemplateId_lfType"), errorMsg))
-          }
-      }
-  }
-
   object ArchivedContract {
     def fromLedgerApi(
         resolvedQuery: http.ResolvedQuery,
@@ -555,227 +531,6 @@ package http {
           case EnrichedContractKey(tid, key) => -\/((tid, key))
         }
       }
-  }
-
-  object EnrichedContractKey {
-    implicit val covariant: Traverse[EnrichedContractKey] = new Traverse[EnrichedContractKey] {
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: EnrichedContractKey[A]
-      )(f: A => G[B]): G[EnrichedContractKey[B]] =
-        f(fa.key).map(b => EnrichedContractKey(fa.templateId, b))
-    }
-
-    implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
-      new HasTemplateId[EnrichedContractKey] {
-
-        override def templateId(fa: EnrichedContractKey[_]): ContractTypeId.RequiredPkg =
-          fa.templateId
-
-        type TypeFromCtId = LfType
-
-        override def lfType(
-            fa: EnrichedContractKey[_],
-            templateId: ContractTypeId.ResolvedPkgId,
-            f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceArgType,
-            h: PackageService.ResolveKeyType,
-        ): Error \/ LfType =
-          templateId match {
-            case tid @ ContractTypeId.Template(_, _, _) =>
-              h(tid: ContractTypeId.Template.ResolvedPkgId)
-                .leftMap(e => Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), e.shows))
-            case other =>
-              val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
-              -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
-          }
-      }
-  }
-
-  object ContractKeyStreamRequest {
-    implicit def covariantR[Off]: Traverse[ContractKeyStreamRequest[Off, *]] = {
-      type F[A] = ContractKeyStreamRequest[Off, A]
-      new Traverse[F] {
-        override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
-          fa.ekey traverse f map (ekey => fa.copy(ekey = ekey))
-      }
-    }
-
-    implicit def hasTemplateId[Off]: HasTemplateId.Compat[ContractKeyStreamRequest[Off, *]] =
-      HasTemplateId.by[ContractKeyStreamRequest[Off, *]](_.ekey)
-  }
-
-  trait HasTemplateId[-F[_]] {
-    protected[this] type FHuh = F[_] // how to pronounce "F[?]" or "F huh?"
-
-    def templateId(fa: F[_]): ContractTypeId.RequiredPkg
-
-    type TypeFromCtId
-
-    def lfType(
-        fa: F[_],
-        templateId: ContractTypeId.ResolvedPkgId,
-        f: PackageService.ResolveTemplateRecordType,
-        g: PackageService.ResolveChoiceArgType,
-        h: PackageService.ResolveKeyType,
-    ): Error \/ TypeFromCtId
-  }
-
-  object HasTemplateId {
-    type Compat[-F[_]] = Aux[F, LfType]
-    type Aux[-F[_], TFC0] = HasTemplateId[F] { type TypeFromCtId = TFC0 }
-
-    def by[F[_]]: By[F] = new By[F](0)
-
-    final class By[F[_]](private val ign: Int) extends AnyVal {
-      def apply[G[_]](
-          nt: F[_] => G[_]
-      )(implicit basis: HasTemplateId[G]): Aux[F, basis.TypeFromCtId] =
-        new HasTemplateId[F] {
-          override def templateId(fa: F[_]) = basis templateId nt(fa)
-
-          type TypeFromCtId = basis.TypeFromCtId
-
-          override def lfType(
-              fa: F[_],
-              templateId: ContractTypeId.ResolvedPkgId,
-              f: PackageService.ResolveTemplateRecordType,
-              g: PackageService.ResolveChoiceArgType,
-              h: PackageService.ResolveKeyType,
-          ): Error \/ TypeFromCtId = basis.lfType(nt(fa), templateId, f, g, h)
-        }
-    }
-  }
-
-  object CreateCommand {
-    type RequiredPkg[+LfV] = CreateCommand[LfV, ContractTypeId.Template.RequiredPkg]
-
-    implicit val bitraverseInstance: Bitraverse[CreateCommand] = new Bitraverse[CreateCommand] {
-      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: CreateCommand[A, B]
-      )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] =
-        ^(f(fab.payload), g(fab.templateId))((c, d) => fab.copy(payload = c, templateId = d))
-    }
-  }
-
-  object ExerciseCommand {
-    type RequiredPkg[+LfV, +R] = ExerciseCommand[PackageRef, LfV, R]
-
-    implicit def bitraverseInstance[PkgId]: Bitraverse[ExerciseCommand[PkgId, *, *]] =
-      new Bitraverse[ExerciseCommand[PkgId, *, *]] {
-        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-            fab: ExerciseCommand[PkgId, A, B]
-        )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[PkgId, C, D]] =
-          ^(f(fab.argument), g(fab.reference))((argument, reference) =>
-            fab.copy(
-              argument = argument,
-              reference = reference,
-            )
-          )
-      }
-
-    implicit val leftTraverseInstance: Traverse[RequiredPkg[+*, Nothing]] =
-      bitraverseInstance[PackageRef].leftTraverse
-
-    implicit val hasTemplateId: HasTemplateId.Aux[RequiredPkg[
-      +*,
-      http.ContractLocator[_],
-    ], (Option[http.ContractTypeId.Interface.ResolvedPkgId], LfType)] =
-      new HasTemplateId[RequiredPkg[+*, http.ContractLocator[_]]] {
-        override def templateId(fab: FHuh): ContractTypeId.RequiredPkg =
-          fab.choiceInterfaceId getOrElse (fab.reference match {
-            case EnrichedContractKey(templateId, _) => templateId
-            case EnrichedContractId(Some(templateId), _) => templateId
-            case EnrichedContractId(None, _) =>
-              throw new IllegalArgumentException(
-                "Please specify templateId, optional templateId is not supported yet!"
-              )
-          })
-
-        type TypeFromCtId = (Option[http.ContractTypeId.Interface.ResolvedPkgId], LfType)
-
-        override def lfType(
-            fa: FHuh,
-            templateId: ContractTypeId.ResolvedPkgId,
-            f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceArgType,
-            h: PackageService.ResolveKeyType,
-        ) =
-          g(templateId, fa.choice)
-            .leftMap(e => Error(Symbol("ExerciseCommand_hasTemplateId_lfType"), e.shows))
-      }
-  }
-
-  object CreateAndExerciseCommand {
-    type LAVUnresolved = CreateAndExerciseCommand[
-      lav2.value.Record,
-      lav2.value.Value,
-      http.ContractTypeId.Template.RequiredPkg,
-      http.ContractTypeId.RequiredPkg,
-    ]
-
-    type LAVResolved = CreateAndExerciseCommand[
-      lav2.value.Record,
-      lav2.value.Value,
-      http.ContractTypeId.Template.RequiredPkg,
-      http.ContractTypeId.RequiredPkg,
-    ]
-
-    implicit final class `CAEC traversePayloadArg`[P, Ar, T, I](
-        private val self: CreateAndExerciseCommand[P, Ar, T, I]
-    ) extends AnyVal {
-      def traversePayloadsAndArgument[G[_]: Applicative, P2, Ar2](
-          f: P => G[P2],
-          g: Ar => G[Ar2],
-      ): G[CreateAndExerciseCommand[P2, Ar2, T, I]] =
-        ^(f(self.payload), g(self.argument))((p, a) => self.copy(payload = p, argument = a))
-    }
-
-    implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
-      new Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] {
-        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-            fa: CreateAndExerciseCommand[P, Ar, A, B]
-        )(f: A => G[C], g: B => G[D]): G[CreateAndExerciseCommand[P, Ar, C, D]] =
-          ^^(
-            f(fa.templateId),
-            fa.choiceInterfaceId traverse g,
-            fa.meta traverse (_ traverse f),
-          ) { (tId, ciId, meta) =>
-            fa.copy(templateId = tId, choiceInterfaceId = ciId, meta = meta)
-          }
-      }
-  }
-
-  object ExerciseResponse {
-    implicit val traverseInstance: Traverse[ExerciseResponse] = new Traverse[ExerciseResponse] {
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: ExerciseResponse[A]
-      )(f: A => G[B]): G[ExerciseResponse[B]] = {
-        val gb: G[B] = f(fa.exerciseResult)
-        val gbs: G[List[Contract[B]]] = fa.events.traverse(_.traverse(f))
-        ^(gb, gbs) { (exerciseResult, events) =>
-          fa.copy(
-            exerciseResult = exerciseResult,
-            events = events,
-          )
-        }
-      }
-    }
-  }
-  object CreateCommandResponse {
-    implicit val covariant: Traverse[CreateCommandResponse] = new Traverse[CreateCommandResponse] {
-
-      override def map[A, B](fa: CreateCommandResponse[A])(f: A => B): CreateCommandResponse[B] =
-        fa.copy(key = fa.key map f, payload = f(fa.payload))
-
-      override def traverseImpl[G[_]: Applicative, A, B](
-          fa: CreateCommandResponse[A]
-      )(f: A => G[B]): G[CreateCommandResponse[B]] = {
-        import scalaz.syntax.apply.*
-        val gk: G[Option[B]] = fa.key traverse f
-        val ga: G[B] = f(fa.payload)
-        ^(gk, ga)((k, a) => fa.copy(key = k, payload = a))
-      }
-    }
   }
 
   sealed abstract class SyncResponse[+R] extends Product with Serializable {

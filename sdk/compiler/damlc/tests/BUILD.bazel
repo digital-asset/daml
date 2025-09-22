@@ -57,6 +57,7 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/damlc:damlc-lib",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
@@ -1050,6 +1051,7 @@ da_haskell_test(
     deps = [
         "//compiler/daml-dar-reader",
         "//compiler/daml-lf-ast",
+        "//daml-assistant:daml-project-config",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/canton-test-utils",

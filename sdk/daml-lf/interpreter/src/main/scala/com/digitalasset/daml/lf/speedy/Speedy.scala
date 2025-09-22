@@ -148,6 +148,14 @@ private[lf] object Speedy {
     }
   }
 
+  final case class ContractMetadata(
+      signatories: Set[Party],
+      observers: Set[Party],
+      keyOpt: Option[GlobalKeyWithMaintainers],
+  ) {
+    val stakeholders: Set[Party] = signatories union observers
+  }
+
   final case class ContractInfo(
       version: TxVersion,
       packageName: Ref.PackageName,
@@ -173,6 +181,12 @@ private[lf] object Speedy {
         keyOpt = keyOpt.map(_.globalKeyWithMaintainers),
         version = version,
       )
+
+    lazy val metadata = ContractMetadata(
+      signatories,
+      observers,
+      keyOpt.map(_.globalKeyWithMaintainers),
+    )
   }
 
   private[speedy] def throwLimitError(location: String, error: IError.Dev.Limit.Error): Nothing =
@@ -658,36 +672,6 @@ private[lf] object Speedy {
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         disclosedCreateEvents,
       )
-    }
-
-    def checkContractVisibility(
-        cid: V.ContractId,
-        contract: ContractInfo,
-    ): Unit = {
-      // For disclosed contracts, we do not perform visibility checking
-      if (!isDisclosedContract(cid)) {
-        visibleToStakeholders(contract.stakeholders) match {
-          case SVisibleToStakeholders.Visible =>
-            ()
-
-          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-            val readers = (actAs union readAs).mkString(",")
-            val stakeholders = contract.stakeholders.mkString(",")
-            // TODO: https://github.com/digital-asset/daml/issues/17082
-            //  make this warning an internal error once immutability of meta-data contract is done properly.
-            this.warningLog.add(
-              Warning(
-                commitLocation = commitLocation,
-                message =
-                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
-                     | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
-                     | Use of divulged contracts is deprecated and incompatible with pruning.
-                     | To remedy, add one of the readers [$readers] as an observer to the contract.
-                     |""".stripMargin.replaceAll("\r|\n", ""),
-              )
-            )
-        }
-      }
     }
 
     private[speedy] var lastCommand: Option[Command] = None
@@ -1250,73 +1234,64 @@ private[lf] object Speedy {
       */
     // TODO: share common code with executeApplication
     private[speedy] final def enterApplication(
-        vfun: SValue,
+        vfun: SValue.SPAP,
         newArgs: ArraySeq[SExprAtomic],
     ): Control[Q] = {
-      vfun match {
-        case SValue.SPAP(prim, actualsSoFar, arity) =>
-          val missing = arity - actualsSoFar.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-          val othersLength = newArgs.length - missing
+      val missing = vfun.arity - vfun.actuals.size
+      val newArgsLimit = Math.min(missing, newArgs.length)
+      val othersLength = newArgs.length - missing
 
-          val actuals: ArraySeq[SValue] = {
-            val array = Array.ofDim[SValue](actualsSoFar.size + newArgsLimit)
-            discard[Int](actualsSoFar.copyToArray(array))
-            // Evaluate the arguments
-            var i = 0
-            var j = actualsSoFar.size
-            while (i < newArgsLimit) {
-              array(j) = newArgs(i).lookupValue(this)
-              i += 1
-              j += 1
+      val actuals: ArraySeq[SValue] = {
+        val array = Array.ofDim[SValue](vfun.actuals.size + newArgsLimit)
+        discard[Int](vfun.actuals.copyToArray(array))
+        // Evaluate the arguments
+        var i = 0
+        var j = vfun.actuals.size
+        while (i < newArgsLimit) {
+          array(j) = newArgs(i).lookupValue(this)
+          i += 1
+          j += 1
+        }
+        ArraySeq.unsafeWrapArray(array)
+      }
+      // Not enough arguments. Return a PAP.
+      if (othersLength < 0) {
+        Control.Value(vfun.copy(actuals = actuals))
+      } else {
+        // Too many arguments: Push a continuation to re-apply the over-applied args.
+        if (othersLength > 0) {
+          this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
+        }
+        // Now the correct number of arguments is ensured. What kind of prim do we have?
+        vfun.prim match {
+          case closure: SValue.PClosure =>
+            this.frame = closure.frame
+            this.actuals = actuals
+            // Maybe push a continuation for the profiler
+            val label = closure.label
+            if (label != null) {
+              this.profile.addOpenEvent(label)
+              this.pushKont(KLeaveClosure(this, label))
             }
-            ArraySeq.unsafeWrapArray(array)
-          }
-          // Not enough arguments. Return a PAP.
-          if (othersLength < 0) {
-            Control.Value(SValue.SPAP(prim, actuals, arity))
-          } else {
-            // Too many arguments: Push a continuation to re-apply the over-applied args.
-            if (othersLength > 0) {
-              this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
-            }
-            // Now the correct number of arguments is ensured. What kind of prim do we have?
-            prim match {
-              case closure: SValue.PClosure =>
-                this.frame = closure.frame
-                this.actuals = actuals
-                // Maybe push a continuation for the profiler
-                val label = closure.label
-                if (label != null) {
-                  this.profile.addOpenEvent(label)
-                  this.pushKont(KLeaveClosure(this, label))
-                }
-                // Start evaluating the body of the closure.
-                popTempStackToBase()
-                Control.Expression(closure.expr)
+            // Start evaluating the body of the closure.
+            popTempStackToBase()
+            Control.Expression(closure.expr)
 
-              case SValue.PBuiltin(builtin) =>
-                this.actuals = actuals
-                builtin.execute(actuals, this)
-            }
-          }
-
-        case _ =>
-          throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, s"Applying non-PAP: $vfun")
+          case SValue.PBuiltin(builtin) =>
+            this.actuals = actuals
+            builtin.execute(actuals, this)
+        }
       }
     }
 
     // This translates and type-checks an LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
-    private[speedy] final def importValue(typ: Type, value: V): Control[Nothing] =
+    private[speedy] final def importValue(typ: Type, value: V): Either[IError.Dev, SValue] =
       new ValueTranslator(compiledPackages.pkgInterface, forbidLocalContractIds = true)
         .translateValue(typ, value)
-        .fold(
-          error =>
-            Control.Error(
-              IError.Dev(NameOf.qualifiedNameOfCurrentFunc, IError.Dev.TranslationError(error))
-            ),
-          svalue => Control.Value(svalue),
+        .left
+        .map(error =>
+          IError.Dev(NameOf.qualifiedNameOfCurrentFunc, IError.Dev.TranslationError(error))
         )
 
     final def updateGasBudget(cost: CostModel => CostModel.Cost): Unit =
@@ -1517,7 +1492,12 @@ private[lf] object Speedy {
       newArgs: ArraySeq[SExprAtomic],
   ) extends Kont[Q]
       with NoCopy {
-    override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], value: SValue): Control[Q] = {
+
+      val vfun = value match {
+        case vfun: SValue.SPAP => vfun
+        case _ => throw SErrorCrash("KOverApp", s"Expected SPAP, got $value")
+      }
 
       machine.updateGasBudget(_.KOverApp.cost)
 
@@ -1662,7 +1642,7 @@ private[lf] object Speedy {
   private[speedy] final case class KFoldl[Q] private (
       frame: Frame,
       actuals: Actuals,
-      func: SValue,
+      func: SValue.SPAP,
       var list: FrontStack[SValue],
   ) extends Kont[Q]
       with NoCopy {
@@ -1685,14 +1665,14 @@ private[lf] object Speedy {
   }
 
   object KFoldl {
-    def apply[Q](machine: Machine[Q], func: SValue, list: FrontStack[SValue]): KFoldl[Q] =
+    def apply[Q](machine: Machine[Q], func: SValue.SPAP, list: FrontStack[SValue]): KFoldl[Q] =
       KFoldl(machine.currentFrame, machine.currentActuals, func, list)
   }
 
   private[speedy] final case class KFoldr[Q] private (
       frame: Frame,
       actuals: Actuals,
-      func: SValue,
+      func: SValue.SPAP,
       list: ImmArray[SValue],
       var lastIndex: Int,
   ) extends Kont[Q]
@@ -1717,7 +1697,7 @@ private[lf] object Speedy {
   object KFoldr {
     def apply[Q](
         machine: Machine[Q],
-        func: SValue,
+        func: SValue.SPAP,
         list: ImmArray[SValue],
         lastIndex: Int,
     ): KFoldr[Q] =

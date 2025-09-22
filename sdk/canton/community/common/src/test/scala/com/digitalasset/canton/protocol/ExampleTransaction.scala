@@ -94,6 +94,8 @@ trait ExampleTransaction {
   def wellFormedSuffixedTransaction: WellFormedTransaction[WithSuffixes] =
     WellFormedTransaction.checkOrThrow(versionedSuffixedTransaction, metadata, WithSuffixes)
 
+  def usedAndCreated: UsedAndCreatedContracts
+
   /** Yields brief description of this example, which must be suitable for naming test cases.as part
     * of usable to identify
     *

@@ -3,13 +3,13 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
-import cats.data.EitherT
-import com.daml.logging.entries.LoggingValue.OfString
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import cats.syntax.traverse.*
+import com.digitalasset.canton.config.CacheConfigWithSizeOnly
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.TopologyManagerError
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError.*
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.PackageSignature
 import com.digitalasset.daml.lf.language.Util.{
@@ -20,193 +20,133 @@ import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 
 import scala.concurrent.ExecutionContext
 
-class PackageUpgradeValidator(val loggerFactory: NamedLoggerFactory)(implicit
-    executionContext: ExecutionContext
-) extends NamedLogging {
+class PackageUpgradeValidator(
+    cacheConfig: CacheConfigWithSizeOnly,
+    val loggerFactory: NamedLoggerFactory,
+)(implicit ec: ExecutionContext)
+    extends NamedLogging {
 
-  def validateUpgrade(
-      upgradingPackages: List[(PackageId, PackageSignature)],
-      upgradablePackages: Map[PackageId, PackageSignature],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val upgradingPackagesMap = upgradingPackages.toMap
-    // We sort the upgrading packages in topological order in order to get a deterministic order
-    // of the upgrading errors, on the dependencies first. We then need to filter out the
-    // dependencies that are already vetted, as they don't need to be upgrade-checked anymore.
-    val packagesInTopologicalOrder =
-      dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
-        .filter(upgradingPackagesMap.contains)
-    def go(
-        packageMap: Map[PackageId, PackageSignature],
-        deps: List[PackageId],
-    ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = deps match {
-      case Nil => EitherT.pure[FutureUnlessShutdown, TopologyManagerError](())
-      case pkgId :: rest =>
-        val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades = pkg.supportsUpgrades(pkgId)
-        for {
-          _ <- EitherTUtil.ifThenET(supportsUpgrades)(
-            // This check will look for the closest neighbors of pkgId for the package versioning ordering and
-            // will load them from the DB and decode them. If one were to vet many packages that upgrade each
-            // other, we will end up decoding the same package many times. Some of these cases could be sped up
-            // by a cache depending on the order in which the packages are vetted.
-            validatePackageUpgrade((pkgId, pkg), packageMap)
-          )
-          res <- go(packageMap + (pkgId -> pkg), rest)
-        } yield ()
-    }
-    go(upgradablePackages, packagesInTopologicalOrder).map(_ => ())
-  }
-
-  private def validatePackageUpgrade(
-      toVetPackage: (PackageId, PackageSignature),
-      packageMap: Map[PackageId, PackageSignature],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val (toVetPackageId, toVetPackageAst) = toVetPackage
-    val optUpgradingDar = Some(toVetPackage)
-    val toVetPackageIdWithMeta = PkgIdWithNameAndVersion(toVetPackage)
-    logger.info(
-      s"Vetting package $toVetPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
+  private case class PackageIdAndSignature(packageId: PackageId, signature: PackageSignature) {
+    def version: Ref.PackageVersion = signature.metadata.version
+    def name: Ref.PackageName = signature.metadata.name
+    def pkgIdWithNameAndVersion: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(
+      (packageId, signature)
     )
-    if (toVetPackageAst.isInvalidDamlPrimOrStdlib(toVetPackageId)) {
-      EitherT.leftT[FutureUnlessShutdown, Unit](
-        TopologyManagerError.ParticipantTopologyManagerError.UpgradeDamlPrimIsNotAUtilityPackage
-          .Error(packageToBeVetted = toVetPackageIdWithMeta): TopologyManagerError
-      )
-    } else {
-      existingVersionedPackageId(toVetPackageAst, packageMap) match {
-        case Some(existingPackageId) =>
-          if (existingPackageId == toVetPackageId) {
-            logger.info(
-              s"Bypassing upgrade check of package $toVetPackageIdWithMeta as it has been previously vetted"
-            )
-            EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
-          } else {
-            EitherT.leftT[FutureUnlessShutdown, Unit](
-              TopologyManagerError.ParticipantTopologyManagerError.UpgradeVersion
-                .Error(
-                  newPackage = toVetPackageIdWithMeta,
-                  existingPackage = existingPackageId,
-                  packageVersion = toVetPackageAst.metadata.version,
-                ): TopologyManagerError
-            )
-          }
-
-        case None =>
-          val optMaximalDar = maximalVersionedDar(toVetPackageAst, packageMap)
-          val optMinimalDar = minimalVersionedDar(toVetPackageAst, packageMap)
-          for {
-            _ <- typecheckUpgrades(
-              TypecheckUpgrades.MaximalDarCheck,
-              packageMap,
-              optUpgradingDar,
-              optMaximalDar,
-            )
-            _ <- typecheckUpgrades(
-              TypecheckUpgrades.MinimalDarCheck,
-              packageMap,
-              optMinimalDar,
-              optUpgradingDar,
-            )
-            _ = logger.info(s"Typechecking upgrades for $toVetPackageIdWithMeta succeeded.")
-          } yield ()
-      }
-    }
+    override def toString: String = s"$packageId ($name v$version)"
   }
 
-  private def existingVersionedPackageId(
-      toVetPkg: PackageSignature,
-      packageMap: Map[PackageId, PackageSignature],
-  ): Option[PackageId] =
-    packageMap.collectFirst {
-      case (pkgId, pkg)
-          if pkg.metadata.name == toVetPkg.metadata.name && pkg.metadata.version == toVetPkg.metadata.version =>
-        pkgId
-    }
+  private val upgradeCompatCache =
+    cacheConfig.buildScaffeine().build[(PackageId, PackageId), Either[TopologyManagerError, Unit]]()
 
-  private def minimalVersionedDar(
-      toVetPkg: PackageSignature,
-      packageMap: Map[PackageId, PackageSignature],
-  ): Option[(PackageId, PackageSignature)] =
-    packageMap
-      .collect {
-        case (pkgId, pkg)
-            if pkg.metadata.name == toVetPkg.metadata.name && pkg.metadata.version > toVetPkg.metadata.version =>
-          (pkgId, pkg)
-      }
-      .minByOption { case (_, pkg) => pkg.metadata.version }
+  def validateUpgrade(allPackages: List[(PackageId, PackageSignature)])(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Either[TopologyManagerError, Unit] = {
+    val packageMap = allPackages.toMap
+    // Group packages by name and sort by version, to create the lineage of each package name
+    val packageNameToLineage: Map[Ref.PackageName, List[PackageIdAndSignature]] = allPackages
+      .map { case (id, sig) => PackageIdAndSignature(id, sig) }
+      .groupBy(_.name)
+      .view
+      .mapValues(_.sortBy(_.version))
+      .toMap
 
-  private def maximalVersionedDar(
-      toVetPkg: PackageSignature,
+    // Sort the packages in topological order to get the dependencies first. This is useful to get
+    // the upgrade errors in a deterministic way. We then filter on the packageMap to only keep the
+    // packages to vet and not their dependencies which are already vetted.
+    val packageNamesInTopologicalOrder: Seq[Ref.PackageName] =
+      dependenciesInTopologicalOrder(allPackages.map(_._1), packageMap)
+        .flatMap(packageMap.get)
+        .map(_.metadata.name)
+        .distinct
+
+    // validate the upgradeability of each lineage
+    packageNamesInTopologicalOrder
+      .traverse(name => validatePackageLineage(name, packageNameToLineage(name), packageMap))
+      .map(_ => ())
+  }
+
+  private def validatePackageLineage(
+      name: Ref.PackageName,
+      lineage: List[PackageIdAndSignature],
       packageMap: Map[PackageId, PackageSignature],
-  ): Option[(PackageId, PackageSignature)] =
-    packageMap
-      .collect {
-        case (pkgId, pkg)
-            if pkg.metadata.name == toVetPkg.metadata.name && pkg.metadata.version < toVetPkg.metadata.version =>
-          (pkgId, pkg)
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Either[TopologyManagerError, Unit] = {
+    logger.info(
+      s"Typechecking upgrades for lineage of package-name $name."
+    )
+    val upgradingPairs: List[(PackageIdAndSignature, PackageIdAndSignature)] =
+      lineage.sliding(2).collect { case fst :: snd :: Nil => (fst, snd) }.toList
+    for {
+      _ <- lineage.traverse(validateDamlPrimOrStdLib)
+      _ <- upgradingPairs.traverse { case (fst, snd) => validateVersion(fst, snd) }
+      _ <- upgradingPairs.traverse { case (fst, snd) =>
+        cachedTypecheckUpgrades(fst, snd, packageMap)
       }
-      .maxByOption { case (_, pkg) => pkg.metadata.version }
+      _ = logger.info(s"Typechecking upgrades for lineage of package-name $name succeeded.")
+    } yield ()
+  }
+
+  private def validateDamlPrimOrStdLib(
+      pkg: PackageIdAndSignature
+  )(implicit loggingContext: LoggingContextWithTrace): Either[TopologyManagerError, Unit] =
+    Either.cond(
+      !pkg.signature.isInvalidDamlPrimOrStdlib(pkg.packageId),
+      (),
+      UpgradeDamlPrimIsNotAUtilityPackage.Error(pkg.pkgIdWithNameAndVersion),
+    )
+
+  private def validateVersion(
+      fst: PackageIdAndSignature,
+      snd: PackageIdAndSignature,
+  )(implicit loggingContext: LoggingContextWithTrace): Either[TopologyManagerError, Unit] =
+    Either.cond(
+      fst.version != snd.version,
+      (),
+      UpgradeVersion.Error(fst.pkgIdWithNameAndVersion, snd.pkgIdWithNameAndVersion),
+    )
+
+  private def cachedTypecheckUpgrades(
+      oldPackage: PackageIdAndSignature,
+      newPackage: PackageIdAndSignature,
+      packageMap: Map[PackageId, PackageSignature],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Either[TopologyManagerError, Unit] =
+    upgradeCompatCache.get(
+      (oldPackage.packageId, newPackage.packageId),
+      _ => strictTypecheckUpgrades(oldPackage, newPackage, packageMap),
+    )
 
   private def strictTypecheckUpgrades(
-      phase: TypecheckUpgrades.UploadPhaseCheck,
+      oldPackage: PackageIdAndSignature,
+      newPackage: PackageIdAndSignature,
       packageMap: Map[PackageId, PackageSignature],
-      newDar1: (PackageId, PackageSignature),
-      oldDar2: (PackageId, PackageSignature),
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-    LoggingContextWithTrace
-      .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
-        implicit loggingContext =>
-          val (newPkgId1, newPkg1) = newDar1
-          val newPkgId1WithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(newDar1)
-          val (oldPkgId2, oldPkg2) = oldDar2
-          val oldPkgId2WithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(oldDar2)
-          logger.info(s"Package $newPkgId1WithMeta claims to upgrade package id $oldPkgId2WithMeta")
-          EitherT(
-            FutureUnlessShutdown.pure(
-              TypecheckUpgrades
-                .typecheckUpgrades(packageMap, (newPkgId1, newPkg1), oldPkgId2, Some(oldPkg2))
-                .toEither
-            )
-          ).leftMap[TopologyManagerError] {
-            case err: UpgradeError =>
-              TopologyManagerError.ParticipantTopologyManagerError.Upgradeability.Error(
-                newPackage = newPkgId1WithMeta,
-                oldPackage = oldPkgId2WithMeta,
-                upgradeError = err.prettyInternal,
-                isUpgradeCheck = phase == TypecheckUpgrades.MaximalDarCheck,
-              )
-            case unhandledErr =>
-              TopologyManagerError.InternalError.Unhandled(
-                s"Typechecking upgrades for $oldPkgId2WithMeta failed",
-                unhandledErr,
-              )
-          }
+  ): Either[TopologyManagerError, Unit] = {
+    logger.info(s"Package $newPackage claims to upgrade package $oldPackage")
+    TypecheckUpgrades
+      .typecheckUpgrades(
+        packageMap,
+        (newPackage.packageId, newPackage.signature),
+        oldPackage.packageId,
+        Some(oldPackage.signature),
+      )
+      .toEither
+      .left
+      .map {
+        case err: UpgradeError =>
+          Upgradeability.Error(
+            newPackage = newPackage.pkgIdWithNameAndVersion,
+            oldPackage = oldPackage.pkgIdWithNameAndVersion,
+            upgradeError = err.prettyInternal,
+          )
+        case unhandledErr =>
+          TopologyManagerError.InternalError.Unhandled(
+            s"Typechecking upgrades from $oldPackage to $newPackage failed",
+            unhandledErr,
+          )
       }
-
-  private def typecheckUpgrades(
-      typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
-      packageMap: Map[PackageId, PackageSignature],
-      optNewDar1: Option[(PackageId, PackageSignature)],
-      optOldDar2: Option[(PackageId, PackageSignature)],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
-    (optNewDar1, optOldDar2) match {
-      case (None, _) | (_, None) =>
-        EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
-
-      case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
-        strictTypecheckUpgrades(
-          typecheckPhase,
-          packageMap,
-          (newPkgId1, newPkg1),
-          (oldPkgId2, oldPkg2),
-        )
-    }
+  }
 }

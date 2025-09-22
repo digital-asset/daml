@@ -15,13 +15,13 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
   api,
   lf,
   lfContractId,
-  validateDisclosedContracts,
+  underTest,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
   ContractAuthenticationDataV1,
+  ExampleContractFactory,
   LfFatContractInst,
   LfTransactionVersion,
   Unicum,
@@ -47,7 +47,7 @@ class ValidateDisclosedContractsTest
   behavior of classOf[ValidateDisclosedContracts].getSimpleName
 
   it should "validate the disclosed contracts when enabled" in {
-    validateDisclosedContracts.apply(api.protoCommands) shouldBe Right(
+    underTest.validateCommands(api.protoCommands) shouldBe Right(
       lf.expectedDisclosedContracts
     )
   }
@@ -63,7 +63,7 @@ class ValidateDisclosedContractsTest
       )
 
     requestMustFailWith(
-      request = validateDisclosedContracts(withMissingBlob),
+      request = underTest.validateCommands(withMissingBlob),
       code = Status.Code.INVALID_ARGUMENT,
       description =
         "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.createdEventBlob",
@@ -71,22 +71,9 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "fail validation if contract fails authentication" in {
-
-    val underTest = new ValidateDisclosedContracts((_, _) => Left("Auth failure!"))
-
-    requestMustFailWith(
-      request = underTest(api.protoCommands),
-      code = Status.Code.INVALID_ARGUMENT,
-      description =
-        s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Contract authentication failed for attached disclosed contract with id (${api.contractId}): Auth failure!",
-      metadata = Map.empty,
-    )
-  }
-
   it should "fail validation on absent contract_id" in {
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -107,7 +94,7 @@ class ValidateDisclosedContractsTest
 
   it should "fail validation on absent template_id" in {
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -125,7 +112,7 @@ class ValidateDisclosedContractsTest
   it should "fail validation on invalid contract_id" in {
     val invalidContractId = "invalidContractId"
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -147,7 +134,7 @@ class ValidateDisclosedContractsTest
   it should "fail validation on invalid template_id" in {
     val invalidTemplateId = ProtoIdentifier("pkgId", "", "entity")
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -169,7 +156,7 @@ class ValidateDisclosedContractsTest
   it should "fail validation when provided contract_id mismatches the one decoded from the created_event_blob" in {
     val otherContractId = "00" + "00" * 31 + "ff"
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -191,7 +178,7 @@ class ValidateDisclosedContractsTest
   it should "fail validation when provided template_id mismatches the one decoded from the created_event_blob" in {
     val otherTemplateId = ProtoIdentifier("otherPkgId", "otherModule", "otherEntity")
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -212,7 +199,7 @@ class ValidateDisclosedContractsTest
 
   it should "fail validation if decoding the created_event_blob fails" in {
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -231,7 +218,7 @@ class ValidateDisclosedContractsTest
 
   it should "fail validation on invalid synchronizer_id" in {
     requestMustFailWith(
-      request = validateDisclosedContracts(
+      request = underTest.validateCommands(
         ProtoCommands.defaultInstance.copy(disclosedContracts =
           scala.Seq(api.protoDisclosedContract.copy(synchronizerId = "cantBe!"))
         )
@@ -242,14 +229,46 @@ class ValidateDisclosedContractsTest
       metadata = Map.empty,
     )
   }
+
+  it should "fail validation on duplicate contract ids" in {
+    val commandsWithDuplicateDisclosedContracts =
+      ProtoCommands.defaultInstance.copy(disclosedContracts =
+        scala.Seq(
+          api.protoDisclosedContract,
+          api.protoDisclosedContract,
+        )
+      )
+    requestMustFailWith(
+      request = underTest.validateCommands(commandsWithDuplicateDisclosedContracts),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Disclosed contracts contain duplicate contract id (${api.contractId})",
+      metadata = Map.empty,
+    )
+  }
+
+  it should "fail validation on duplicate contract keys" in {
+    val commandsWithDuplicateDisclosedContracts =
+      ProtoCommands.defaultInstance.copy(disclosedContracts =
+        scala.Seq(
+          api.protoDisclosedContract,
+          api.dupKeyProtoDisclosedContract,
+        )
+      )
+    requestMustFailWith(
+      request = underTest.validateCommands(commandsWithDuplicateDisclosedContracts),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Disclosed contracts contain duplicate contract key (${lf.keyWithMaintainers})",
+      metadata = Map.empty,
+    )
+  }
+
 }
 
 object ValidateDisclosedContractsTest {
 
-  private val dummyContractIdAuthenticator: ContractAuthenticatorFn = (_, _) => Right(())
-
-  private val validateDisclosedContracts =
-    new ValidateDisclosedContracts(dummyContractIdAuthenticator)
+  private val underTest = ValidateDisclosedContracts
 
   val lfContractId: ContractId.V1 = AuthenticatedContractIdVersionV11.fromDiscriminator(
     DefaultDamlValues.lfhash(3),
@@ -281,6 +300,17 @@ object ValidateDisclosedContractsTest {
       synchronizerId = "",
     )
 
+    val dupKeyProtoDisclosedContract: ProtoDisclosedContract = protoDisclosedContract.copy(
+      contractId = lf.dupKeyFatContractInstance.contractId.coid,
+      createdEventBlob = TransactionCoder
+        .encodeFatContractInstance(lf.dupKeyFatContractInstance)
+        .fold(
+          err =>
+            throw new RuntimeException(s"Cannot serialize createdEventBlob: ${err.errorMessage}"),
+          identity,
+        ),
+    )
+
     val protoCommands: ProtoCommands =
       ProtoCommands.defaultInstance.copy(disclosedContracts = scala.Seq(api.protoDisclosedContract))
   }
@@ -302,7 +332,7 @@ object ValidateDisclosedContractsTest {
     private val authenticationDataBytes: Bytes =
       ContractAuthenticationDataV1(salt)(AuthenticatedContractIdVersionV11).toLfBytes
 
-    private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
+    val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
       LfValue.ValueRecord(
         None,
@@ -326,11 +356,19 @@ object ValidateDisclosedContractsTest {
       version = LfTransactionVersion.StableVersions.max,
     )
 
-    val fatContractInstance: LfFatContractInst = FatContractInstance.fromCreateNode(
+    private val dupKeyCreateNode = createNode.copy(ExampleContractFactory.buildContractId())
+
+    def fatContractInstance: LfFatContractInst = FatContractInstance.fromCreateNode(
       create = createNode,
       createTime =
         CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
       authenticationData = lf.authenticationDataBytes,
+    )
+
+    def dupKeyFatContractInstance: LfFatContractInst = FatContractInstance.fromCreateNode(
+      create = dupKeyCreateNode,
+      createTime = fatContractInstance.createdAt,
+      authenticationData = fatContractInstance.authenticationData,
     )
 
     val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(

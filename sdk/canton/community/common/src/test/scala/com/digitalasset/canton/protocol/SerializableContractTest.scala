@@ -30,43 +30,42 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
 
   "SerializableContractInstance" should {
 
-    forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
-      contractIdVersion =>
-        s"deserialize $contractIdVersion correctly" in {
-          val someContractSalt = TestSalt.generateSalt(0)
+    forEvery(CantonContractIdVersion.all) { contractIdVersion =>
+      s"deserialize $contractIdVersion correctly" in {
+        val someContractSalt = TestSalt.generateSalt(0)
 
-          val contractId = ExampleTransactionFactory.suffixedId(0, 0, contractIdVersion)
+        val contractId = ExampleTransactionFactory.suffixedId(0, 0, contractIdVersion)
 
-          val metadata = ContractMetadata.tryCreate(
-            signatories = Set(alice),
-            stakeholders = Set(alice, bob),
-            maybeKeyWithMaintainersVersioned = Some(
-              ExampleTransactionFactory.globalKeyWithMaintainers(
-                LfGlobalKey
-                  .build(
-                    templateId,
-                    Value.ValueUnit,
-                    LfPackageName.assertFromString("package-name"),
-                  )
-                  .value,
-                Set(alice),
-              )
-            ),
-          )
+        val metadata = ContractMetadata.tryCreate(
+          signatories = Set(alice),
+          stakeholders = Set(alice, bob),
+          maybeKeyWithMaintainersVersioned = Some(
+            ExampleTransactionFactory.globalKeyWithMaintainers(
+              LfGlobalKey
+                .build(
+                  templateId,
+                  Value.ValueUnit,
+                  LfPackageName.assertFromString("package-name"),
+                )
+                .value,
+              Set(alice),
+            )
+          ),
+        )
 
-          val ci = ExampleTransactionFactory.asContractInstance(
-            contractId,
-            ExampleTransactionFactory.contractInstance(Seq(contractId)),
-            metadata,
-            CreationTime.CreatedAt(CantonTimestamp.now().toLf),
-          )(
-            ContractAuthenticationDataV1(someContractSalt)(AuthenticatedContractIdVersionV11)
-          )
-          val sci = SerializableContract.fromLfFatContractInst(ci.inst).value
-          SerializableContract.fromProtoVersioned(
-            sci.toProtoVersioned(testedProtocolVersion)
-          ) shouldEqual Right(sci)
-        }
+        val ci = ExampleTransactionFactory.asContractInstance(
+          contractId,
+          ExampleTransactionFactory.contractInstance(Seq(contractId)),
+          metadata,
+          CreationTime.CreatedAt(CantonTimestamp.now().toLf),
+        )(
+          ContractAuthenticationDataV1(someContractSalt)(AuthenticatedContractIdVersionV11)
+        )
+        val sci = SerializableContract.fromLfFatContractInst(ci.inst).value
+        SerializableContract.fromProtoVersioned(
+          sci.toProtoVersioned(testedProtocolVersion)
+        ) shouldEqual Right(sci)
+      }
     }
   }
 
@@ -140,7 +139,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             CreationTime.CreatedAt(createdAt),
             authenticationData.toLfBytes,
           )
-        ).left.value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 is not a supported contract-id prefix"
+        ).left.value shouldBe s"Invalid disclosed contract id: Malformed contract ID: Suffix '00' is not a supported contract-id V1 prefix"
       }
     }
 

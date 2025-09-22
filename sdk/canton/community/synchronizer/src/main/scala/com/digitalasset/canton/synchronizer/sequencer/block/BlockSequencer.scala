@@ -89,7 +89,7 @@ class BlockSequencer(
     loggerFactory: NamedLoggerFactory,
     exitOnFatalFailures: Boolean,
     runtimeReady: FutureUnlessShutdown[Unit],
-)(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
+)(implicit executionContext: ExecutionContext, materializer: Materializer, val tracer: Tracer)
     extends DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
       dbSequencerStore,
@@ -172,7 +172,7 @@ class BlockSequencer(
       metrics,
       loggerFactory,
       memberValidator = memberValidator,
-    )(CloseContext(cryptoApi))
+    )(CloseContext(cryptoApi), tracer)
 
     implicit val traceContext: TraceContext = TraceContext.empty
 
@@ -758,4 +758,9 @@ class BlockSequencer(
       timestamp,
       stateManager.getHeadState.block.latestSequencerEventTimestamp,
     )
+
+  override def sequencingTime(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    blockOrderer.sequencingTime
 }

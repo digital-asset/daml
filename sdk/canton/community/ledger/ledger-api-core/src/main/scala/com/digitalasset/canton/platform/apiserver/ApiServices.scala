@@ -306,7 +306,6 @@ object ApiServices {
           getPackageMetadataSnapshot = syncService.getPackageMetadataSnapshot(_)
         )
       val commandsValidator = new CommandsValidator(
-        validateDisclosedContracts = new ValidateDisclosedContracts(contractAuthenticator),
         validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
         topologyAwarePackageSelectionEnabled = ledgerFeatures.topologyAwarePackageSelection,
       )

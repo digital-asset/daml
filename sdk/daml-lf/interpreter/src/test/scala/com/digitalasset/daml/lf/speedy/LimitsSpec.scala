@@ -554,6 +554,8 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
           None -> Value.ValueList(observers.view.map(Value.ValueParty).to(FrontStack)),
         ),
       ),
+      signatories = signatories,
+      observers = observers,
     )
   }
 }

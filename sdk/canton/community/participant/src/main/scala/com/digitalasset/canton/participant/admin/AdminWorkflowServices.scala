@@ -20,7 +20,12 @@ import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.Adm
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as A
 import com.digitalasset.canton.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.canton.ledger.client.{LedgerClient, ResilientLedgerSubscription}
-import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+  *,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
@@ -38,13 +43,13 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ResourceUtil.withResource
-import com.digitalasset.canton.util.{DamlPackageLoader, EitherTUtil}
+import com.digitalasset.canton.util.{DamlPackageLoader, EitherTUtil, FutureUtil}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Flow, Sink}
+import org.apache.pekko.stream.scaladsl.Flow
 
 import java.io.InputStream
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -72,14 +77,26 @@ class AdminWorkflowServices(
     with NamedLogging
     with Spanning {
 
+  private[this] val adminWorkflowsLoaded: PromiseUnlessShutdown[Unit] =
+    PromiseUnlessShutdown.unsupervised()
+
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  if (syncService.isActive() && parameters.adminWorkflow.autoLoadDar) {
-    withNewTraceContext("load_admin_workflows_dar") { implicit traceContext =>
+  withNewTraceContext("load_admin_workflows_dar") { implicit traceContext =>
+    if (syncService.isActive() && parameters.adminWorkflow.autoLoadDar) {
       logger.debug("Loading admin workflows DAR")
       // load the admin workflows daml archive before moving forward
       // We use the pre-packaged dar from the resources/dar folder instead of the compiled one.
       loadDamlArchiveUnlessRegistered()
+    } else {
+      // Check that admin workflow dars are loaded as we may be transitioning from a passive to an active participant
+      adminWorkflowsAreLoaded() match {
+        case UnlessShutdown.Outcome(true) =>
+          adminWorkflowsLoaded.success(UnlessShutdown.unit)
+        case UnlessShutdown.Outcome(false) =>
+          logger.warn("Admin workflow services not started as DARs have not been loaded")
+        case _ =>
+      }
     }
   }
 
@@ -109,8 +126,9 @@ class AdminWorkflowServices(
     )
   }
 
-  val partyManagementO
-      : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationAdminWorkflow)] =
+  val partyManagementO: Option[
+    (FutureUnlessShutdown[ResilientLedgerSubscription[?, ?]], PartyReplicationAdminWorkflow)
+  ] =
     parameters.unsafeOnlinePartyReplication.map(config =>
       createService(
         "party-management",
@@ -136,15 +154,21 @@ class AdminWorkflowServices(
     import TraceContext.Implicits.Empty.*
     def adminServiceCloseables(
         name: String,
-        subscription: Future[ResilientLedgerSubscription[?, ?]],
+        subscription: FutureUnlessShutdown[ResilientLedgerSubscription[?, ?]],
         service: AdminWorkflowService,
     ) =
       Seq[AsyncOrSyncCloseable](
         AsyncCloseable(
           s"$name-subscription",
-          subscription.map(sub => LifeCycle.close(sub)(logger)).recover { err =>
-            logger.warn(s"Skipping closing of defunct $name subscription due to ${err.getMessage}")
-          },
+          subscription
+            .map(sub => LifeCycle.close(sub)(logger))
+            .recover { err =>
+              logger.warn(
+                s"Skipping closing of defunct $name subscription due to ${err.getMessage}"
+              )
+              UnlessShutdown.unit
+            }
+            .unwrap,
           timeouts.unbounded,
         ),
         SyncCloseable(s"$name-service", LifeCycle.close(service)(logger)),
@@ -165,7 +189,7 @@ class AdminWorkflowServices(
       pkgRes <- pkgs.keys.toList.parTraverse(lc.packageService.getPackageStatus(_))
     } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isPackageStatusRegistered)
 
-  private def handleDamlErrorDuringPackageLoading(
+  private def handleDamlErrorDuringPackageLoading(adminWorkflow: String)(
       res: EitherT[FutureUnlessShutdown, RpcError, Unit]
   )(implicit
       traceContext: TraceContext
@@ -178,11 +202,34 @@ class AdminWorkflowServices(
               )
             ) =>
           // Log error by creating error object, but continue processing.
-          AdminWorkflowServices.CanNotAutomaticallyVetAdminWorkflowPackage.Error().discard
+          AdminWorkflowServices.CanNotAutomaticallyVetAdminWorkflowPackage
+            .Error(adminWorkflow)
+            .discard
           Either.unit
         case err =>
           Left(new IllegalStateException(CantonError.stringFromContext(err)))
       }
+
+  private def adminWorkflowsAreLoaded()(implicit
+      traceContext: TraceContext
+  ): UnlessShutdown[Boolean] =
+    withResource(createLedgerClient("admin-checkLoadStatus")) { conn =>
+      parameters.processingTimeouts.unbounded.awaitUS("Check Daml packages loaded") {
+        def isLoaded(darName: String): FutureUnlessShutdown[Boolean] = {
+          val packages = AdminWorkflowServices.getDarPackages(darName)
+          FutureUnlessShutdown
+            .outcomeF(checkPackagesStatus(packages, conn))
+        }
+
+        for {
+          adminWorkflowLoaded <- isLoaded(AdminWorkflowServices.PingDarResourceFileName)
+          partReplicationWorkflowLoaded <-
+            if (config.parameters.unsafeOnlinePartyReplication.isDefined)
+              isLoaded(AdminWorkflowServices.PartyReplicationDarResourceFileName)
+            else FutureUnlessShutdown.pure(true)
+        } yield adminWorkflowLoaded && partReplicationWorkflowLoaded
+      }
+    }
 
   /** Parses dar and checks if all contained packages are already loaded and recorded in the
     * indexer. If not, loads the dar.
@@ -191,7 +238,7 @@ class AdminWorkflowServices(
     */
   private def loadDamlArchiveUnlessRegistered()(implicit traceContext: TraceContext): Unit =
     withResource(createLedgerClient("admin-checkStatus")) { conn =>
-      parameters.processingTimeouts.unbounded.awaitUS_(s"Load Daml packages") {
+      parameters.processingTimeouts.unbounded.awaitUS_("Load Daml packages") {
         def load(darName: String): FutureUnlessShutdown[Unit] = {
           logger.debug(s"Loading dar `$darName` if not already loaded")
           val packages = AdminWorkflowServices.getDarPackages(darName)
@@ -204,7 +251,7 @@ class AdminWorkflowServices(
                 logger.debug("Admin workflow packages are already present. Skipping loading.")
                 // vet any packages that have not yet been vetted
                 EitherTUtil.toFutureUnlessShutdown(
-                  handleDamlErrorDuringPackageLoading(
+                  handleDamlErrorDuringPackageLoading(darName)(
                     packageService
                       .vetPackages(
                         packages.keys.toSeq,
@@ -216,13 +263,24 @@ class AdminWorkflowServices(
             }
         }
 
-        for {
-          _ <- load(AdminWorkflowServices.AdminWorkflowDarResourceName)
+        val resultUS = for {
+          _ <- load(AdminWorkflowServices.PingDarResourceFileName)
           _ <-
             if (config.parameters.unsafeOnlinePartyReplication.isDefined)
-              load(AdminWorkflowServices.PartyReplicationDarResourceName)
+              load(AdminWorkflowServices.PartyReplicationDarResourceFileName)
             else FutureUnlessShutdown.pure(())
         } yield ()
+
+        resultUS.transform[Unit](
+          (value: UnlessShutdown[Unit]) => {
+            adminWorkflowsLoaded.success(value)
+            value
+          },
+          (error: Throwable) => {
+            adminWorkflowsLoaded.failure(error)
+            error
+          },
+        )
       }
     }
 
@@ -239,7 +297,7 @@ class AdminWorkflowServices(
   ): EitherT[FutureUnlessShutdown, IllegalStateException, Unit] = {
     val bytes =
       withResource(AdminWorkflowServices.getDarInputStream(darName))(ByteString.readFrom)
-    handleDamlErrorDuringPackageLoading(
+    handleDamlErrorDuringPackageLoading(darName)(
       packageService
         .upload(
           darBytes = bytes,
@@ -271,62 +329,76 @@ class AdminWorkflowServices(
   private def createService[S <: AdminWorkflowService](
       userId: String,
       resubscribeIfPruned: Boolean,
-  )(createService: LedgerClient => S): (Future[ResilientLedgerSubscription[?, ?]], S) = {
+  )(
+      createService: LedgerClient => S
+  ): (FutureUnlessShutdown[ResilientLedgerSubscription[?, ?]], S) = {
     import TraceContext.Implicits.Empty.*
 
     val client = createLedgerClient(userId)
     val service = createService(client)
 
-    val startupF =
-      client.stateService.getLedgerEndOffset().flatMap { offset =>
-        client.stateService
-          .getActiveContractsSource(
-            eventFormat = service.eventFormat,
-            validAtOffset = offset,
-            token = None,
-          )
-          .map(_.contractEntry)
-          .collect { case ContractEntry.ActiveContract(contract) =>
-            service.processAcs(Seq(contract))
+    val startupUS =
+      adminWorkflowsLoaded.futureUS.flatMap { _ =>
+        FutureUnlessShutdown.outcomeF {
+          client.stateService.getLedgerEndOffset().flatMap { offset =>
+            client.stateService
+              .getActiveContractsSource(
+                eventFormat = service.eventFormat,
+                validAtOffset = offset,
+                token = None,
+              )
+              .map(_.contractEntry)
+              .collect { case ContractEntry.ActiveContract(contract) =>
+                contract
+              }
+              .runFoldAsync(()) { case (_, contract) =>
+                Future(service.processAcs(Seq(contract)))
+              }
+              .map { _ =>
+                new ResilientLedgerSubscription(
+                  makeSource = subscribeOffset =>
+                    client.updateService.getUpdatesSource(
+                      begin = subscribeOffset,
+                      eventFormat = service.eventFormat,
+                    ),
+                  consumingFlow = Flow[GetUpdatesResponse]
+                    .map(_.update)
+                    .map {
+                      case GetUpdatesResponse.Update.Transaction(tx) =>
+                        service.processTransaction(tx)
+                      case GetUpdatesResponse.Update.Reassignment(reassignment) =>
+                        service.processReassignment(reassignment)
+                      case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
+                      case GetUpdatesResponse.Update.TopologyTransaction(_) =>
+                        ()
+                      case GetUpdatesResponse.Update.Empty => ()
+                    },
+                  subscriptionName = service.getClass.getSimpleName,
+                  startOffset = offset,
+                  extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
+                  timeouts = timeouts,
+                  loggerFactory = loggerFactory,
+                  resubscribeIfPruned = resubscribeIfPruned,
+                )
+              }
           }
-          .runWith(Sink.lastOption)
-          .map { _ =>
-            new ResilientLedgerSubscription(
-              makeSource = subscribeOffset =>
-                client.updateService.getUpdatesSource(
-                  begin = subscribeOffset,
-                  eventFormat = service.eventFormat,
-                ),
-              consumingFlow = Flow[GetUpdatesResponse]
-                .map(_.update)
-                .map {
-                  case GetUpdatesResponse.Update.Transaction(tx) =>
-                    service.processTransaction(tx)
-                  case GetUpdatesResponse.Update.Reassignment(reassignment) =>
-                    service.processReassignment(reassignment)
-                  case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
-                  case GetUpdatesResponse.Update.TopologyTransaction(_) =>
-                    ()
-                  case GetUpdatesResponse.Update.Empty => ()
-                },
-              subscriptionName = service.getClass.getSimpleName,
-              startOffset = offset,
-              extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
-              timeouts = timeouts,
-              loggerFactory = loggerFactory,
-              resubscribeIfPruned = resubscribeIfPruned,
-            )
-          }
+        }
       }
-    (startupF, service)
+
+    (FutureUtil.logOnFailureUS(startupUS, s"Failed to start $service"), service)
   }
 
 }
 
 object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
 
-  private val AdminWorkflowDarResourceName: String = "AdminWorkflows.dar"
-  private val PartyReplicationDarResourceName: String = "PartyReplication.dar"
+  val PingDarResourceName: String = "canton-builtin-admin-workflow-ping"
+  val PingDarResourceFileName: String = s"$PingDarResourceName.dar"
+  private val PartyReplicationDarResourceName: String =
+    "canton-builtin-admin-workflow-party-replication-alpha"
+  private val PartyReplicationDarResourceFileName: String =
+    s"$PartyReplicationDarResourceName.dar"
+  val AdminWorkflowNames: Set[String] = Set(PingDarResourceName, PartyReplicationDarResourceName)
 
   private def getDarInputStream(resourceName: String): InputStream =
     Option(
@@ -347,7 +419,7 @@ object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
       )
 
   lazy val AdminWorkflowPackages: Map[PackageId, Ast.Package] =
-    getDarPackages(AdminWorkflowDarResourceName) ++ getDarPackages(PartyReplicationDarResourceName)
+    getDarPackages(PingDarResourceFileName) ++ getDarPackages(PartyReplicationDarResourceFileName)
 
   @Explanation(
     """This error indicates that the admin workflow package could not be vetted. The admin workflows is
@@ -369,10 +441,10 @@ object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
         id = "CAN_NOT_AUTOMATICALLY_VET_ADMIN_WORKFLOW_PACKAGE",
         ErrorCategory.BackgroundProcessDegradationWarning,
       ) {
-    final case class Error()(implicit val loggingContext: ErrorLoggingContext)
+    final case class Error(adminWorkflow: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
           cause =
-            "Unable to vet `AdminWorkflows` automatically. Please ensure you vet this package before using one of the admin workflows."
+            s"Unable to vet `$adminWorkflow` automatically. Please ensure you vet this package before using one of the admin workflows."
         )
 
   }

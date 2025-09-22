@@ -21,6 +21,7 @@ import qualified Data.Text as T
 
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
 import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
+import DA.Daml.Project.Consts (packagePathEnvVar)
 import DA.Test.Process (callProcessSilent)
 import DA.Test.Sandbox (mbSharedSecret, withCantonSandbox, defaultSandboxConf, makeSignedAdminJwt)
 import DA.Test.Util
@@ -82,7 +83,7 @@ authenticationTests Tools{..} =
           port <- getSandboxPort
           withTempDir $ \deployDir -> do
             withCurrentDirectory deployDir $ do
-              writeMinimalProject
+              writeMinimalPackage
               let tokenFile = deployDir </> "secretToken.jwt"
               -- The trailing newline is not required but we want to test that it is supported.
               writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
@@ -91,12 +92,12 @@ authenticationTests Tools{..} =
                 , "  access-token-file: " <> tokenFile
                 ]
               writeFileUTF8 tokenFile (makeSignedAdminJwt sharedSecret <> "\n")
-              setEnv "DAML_PROJECT" deployDir True
+              setEnv packagePathEnvVar deployDir True
               callProcessSilent damlHelper
                 [ "ledger", "list-parties"
                 , "--host", "localhost", "--port", show port
                 ]
-              unsetEnv "DAML_PROJECT"
+              unsetEnv packagePathEnvVar
 
     ]
   where
@@ -135,7 +136,7 @@ fetchTest Tools{..} getSandboxPort = do
     port <- getSandboxPort
     withTempDir $ \fetchDir -> do
       withCurrentDirectory fetchDir $ do
-        writeMinimalProject
+        writeMinimalPackage
         let origDar = ".daml/dist/proj1-0.0.1.dar"
         step "build/upload"
         callProcessSilent damlc ["build"]
@@ -166,8 +167,8 @@ getMainPidOfDar fp = do
   return $ T.unpack $ LF.unPackageId pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalProject :: SdkVersioned => IO ()
-writeMinimalProject = do
+writeMinimalPackage :: SdkVersioned => IO ()
+writeMinimalPackage = do
   writeFileUTF8 "daml.yaml" $ unlines
       [ "sdk-version: " <> sdkVersion
       , "name: proj1"
