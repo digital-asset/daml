@@ -14,6 +14,7 @@ object DamlLfVersionToProtocolVersions {
   val damlLfVersionToMinimumProtocolVersions: SortedMap[LfLanguageVersion, ProtocolVersion] =
     SortedMap(
       LfLanguageVersion.v2_1 -> ProtocolVersion.v34,
+      LfLanguageVersion.v2_2 -> ProtocolVersion.v34,
       LfLanguageVersion.v2_dev -> ProtocolVersion.dev,
     )
 

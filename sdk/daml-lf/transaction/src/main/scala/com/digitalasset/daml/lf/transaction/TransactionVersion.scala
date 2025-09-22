@@ -15,6 +15,7 @@ object TransactionVersion {
 
   private[this] val fromStringMapping = Map(
     "2.1" -> LanguageVersion.v2_1,
+    "2.2" -> LanguageVersion.v2_2,
     "dev" -> LanguageVersion.v2_dev,
   )
 

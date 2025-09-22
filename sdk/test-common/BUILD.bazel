@@ -26,6 +26,7 @@ load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
 
 canonical_lf_versions = [
     "2.1",
+    "2.2",
     "2.dev",
 ]
 
