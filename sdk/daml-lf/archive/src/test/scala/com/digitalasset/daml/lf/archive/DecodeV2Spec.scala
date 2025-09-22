@@ -1272,12 +1272,8 @@ class DecodeV2Spec
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
             packageId = Ref.PackageId.assertFromString("noPkgId"),
-            ImmArraySeq("arg"),
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            ImmArraySeq(unitExpr, tyapp),
-            None,
+internedStrings = ImmArraySeq("arg"),
+internedExprs = ImmArraySeq(unitExpr, tyapp),
             optModuleName = Some(dummyModuleName),
             onlySerializableDataDefs = false,
             None,

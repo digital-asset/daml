@@ -1380,7 +1380,7 @@ message Package {
   repeated Expr interned_exprs = 7; // *Available in versions >= 2.dev*
 
   oneof ImportsSum {
-    string no_imported_packages_reason = 8;
-    PackageImports package_imports = 9;
+    string no_imported_packages_reason = 8;  // *Available in versions >= 2.dev*
+    PackageImports package_imports = 9; // *Available in versions >= 2.dev*
   }
 }

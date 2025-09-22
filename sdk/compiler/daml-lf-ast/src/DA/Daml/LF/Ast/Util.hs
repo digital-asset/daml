@@ -546,7 +546,7 @@ We put a list of stablepackages here, to be used by the proto encoder. These
 cannot get the genereated list by DA.Daml.StablePackages because that would
 introduce a circular dependency (DA.Daml.StablePackages depends on the encoder).
 If changes occur to the stablepackages, we can bootstrap this list: compile with
-current list of stable packages, observe hash, add has to list below. Since new
+current list of stable packages, observe hash, add hash to list below. Since new
 stable packages will only depend on existing stable packages, adding its hash to
 this list won't change the hash.
 -}
