@@ -81,9 +81,9 @@ ifSupportsFlattening = ifSupports version featureFlatArchive
 ifSupportsFlattening_ :: a -> a -> Encode a
 ifSupportsFlattening_ b1 b2 = ifSupports version featureFlatArchive (return b1) (return b2)
 
-assertSupportsFlattening :: Encode ()
-assertSupportsFlattening =
-  assertSupports version featureFlatArchive $ \v ->
+whenSupportsFlattening :: Encode ()
+whenSupportsFlattening =
+  whenSupports version featureFlatArchive $ \v ->
     error $ printf "assertion failiure: lf version %s does not support flattening" (show v)
 
 initEncodeState :: EncodeState
@@ -393,7 +393,7 @@ encodeType' typ = do
 
     (TApp lhs rhs, args) -> do
       unless (null args) $ error "Arguments set on TApp"
-      assertSupportsFlattening
+      whenSupportsFlattening
       type_TAppLhs <- encodeType lhs
       type_TAppRhs <- encodeType rhs
       pure $ P.TypeSumTapp P.Type_TApp{..}

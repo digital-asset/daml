@@ -414,10 +414,10 @@ ifVersion l p b1 b2 = ifVersionWith l p (const b1) (const b2)
 ifSupports :: MonadReader r m => Getting Version r Version -> Feature -> m a -> m a -> m a
 ifSupports l f = ifVersion l (`supports` f)
 
-assertSupports :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
-assertSupports l f b = do
+whenSupports :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
+whenSupports l f b = do
   ifVersionWith l (`supports` f) (const $ return ()) b
 
-assertSupportsNot :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
-assertSupportsNot l f b = do
+whenSupportsNot :: MonadReader r m => Getting Version r Version -> Feature -> (Version -> m ()) -> m ()
+whenSupportsNot l f b = do
   ifVersionWith l (`supports` f) b (const $ return ())
