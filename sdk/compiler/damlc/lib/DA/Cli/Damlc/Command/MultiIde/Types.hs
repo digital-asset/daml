@@ -261,6 +261,7 @@ data SdkVersionData = SdkVersionData
   }
   deriving (Ord, Eq, Show)
 
+-- Shows SDK version with the number of overrides, rather than overrides themselves, to reduce clutter
 renderSdkVersionData :: SdkVersionData -> T.Text
 renderSdkVersionData (SdkVersionData ver overrides) | Map.null overrides = T.pack $ unresolvedReleaseVersionToString ver
 renderSdkVersionData (SdkVersionData ver overrides) = T.pack $ unresolvedReleaseVersionToString ver <> " (with " <> show (Map.size overrides) <> " override(s))"

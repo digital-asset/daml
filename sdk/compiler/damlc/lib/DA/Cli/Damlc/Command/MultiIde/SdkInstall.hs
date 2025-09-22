@@ -70,16 +70,20 @@ ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
 
   let handleResolution :: PackageResolutionData -> IO (Either (LSP.DiagnosticSeverity, T.Text) (ValidPackageResolution, FilePath))
       handleResolution = \case
+        -- If error is NOT_INSTALLED, request installation
         ErrorPackageResolutionData [err] | code err == "SDK_NOT_INSTALLED" -> do
           Left <$> tryAskForSdkInstall miState missingSdkIdeDiagnosticMessageDpm (psSdkVersionData packageSummary) home
         ErrorPackageResolutionData errs ->
+          -- For all other errors, display to user
           pure $ Left (LSP.DsError, "Failed to obtain version information from DPM:\n" <> T.pack (unlines $ show <$> errs))
         ValidPackageResolutionData packageResolution -> do
+          -- If successful, find the damlc-binary. If this fails, forward this to user
           let mDamlcPath = Map.lookup "damlc-binary" (imports packageResolution) >>= listToMaybe
           case mDamlcPath of
             Nothing -> pure $ Left (LSP.DsError, "Couldn't extract damlc-binary from DPM, your installation may be broken.")
             Just damlcPath -> pure $ Right (packageResolution, damlcPath)
 
+  -- First check for global errors, if any present, do not try to lookup information for this package.
   diagOrResolution <-
     case globalErrorStatus of
       HasGlobalError ->
@@ -116,6 +120,7 @@ ensureIdeSdkInstalledDamlAssistant miState ver home ideData = do
 
   globalErrorStatus <- getGlobalErrorStatusWithPackageRestart miState home
 
+  -- First check for global errors, if any present, do not try to ask for install
   mDisableDiagnostic <- case (versionIsInstalled, globalErrorStatus) of
     (True, _) -> pure Nothing
     (False, HasGlobalError) -> pure $ Just (LSP.DsError, "Failed to load information from multi-package.yaml, check this file for diagnostics")
@@ -129,7 +134,9 @@ ensureIdeSdkInstalledDamlAssistant miState ver home ideData = do
         atomically $ sendPackageDiagnostic miState ideDataWithError
       pure ideDataWithError
 
--- Returns a maybe error, Nothing signifies success
+-- Attempts to ask a user to install a package.
+-- No-op if the user has already been asked, or the previous attempt failed
+-- Returns the severity and error text for the diagnostic to show on the relevant package while installing/if failed to install
 tryAskForSdkInstall :: MultiIdeState -> (SdkVersionData -> T.Text) -> SdkVersionData -> PackageHome -> IO (LSP.DiagnosticSeverity, T.Text)
 tryAskForSdkInstall miState makeMissingSdkIdeDiagnosticMessage ver home = do
   installDatas <- atomically $ takeTMVar $ misSdkInstallDatasVar miState
@@ -207,6 +214,9 @@ updateSdkInstallStatus miState installDatas ver severity message newStatus = do
     ides' <- foldM disableIde ides homes
     pure (ides', Map.insert ver (installData {sidStatus = newStatus}) installDatas)
 
+-- LSPIds for version installation messages must be unique for given overrides
+-- we use the version and a hash of the overrides to ensure this
+-- of the form `${version}-with-overrides-${overrides-hash}`
 sdkVersionDataToVersionIdentifier :: SdkVersionData -> T.Text
 sdkVersionDataToVersionIdentifier ver =
   let verStr = T.pack $ unresolvedReleaseVersionToString $ svdVersion ver
@@ -280,11 +290,12 @@ addOrphanResolution miState home = do
     Left err ->
       pure $ Left $ "DPM failed to resolve package:\n" <> T.pack err
 
--- Updates the resolution data and reports packages that have been changed or removed
--- Takes the package home of the currently updated daml.yaml, if there is one
+-- Convenience wrapper for updateResolutionFileForManyChanged, which takes only one package
 updateResolutionFileForChanged :: MultiIdeState -> Maybe PackageHome -> IO [PackageHome]
 updateResolutionFileForChanged miState = updateResolutionFileForManyChanged miState . Set.fromList . maybeToList
 
+-- Updates the resolution data and reports packages that have been changed or removed
+-- Takes the package homes of any currently updated daml.yaml(s)
 updateResolutionFileForManyChanged :: MultiIdeState -> Set.Set PackageHome -> IO [PackageHome]
 updateResolutionFileForManyChanged miState homes = withIDEs miState $ \ides -> do
   mResolutionData <- tryReadMVar (misResolutionData miState)
@@ -346,6 +357,7 @@ handleSdkInstallPromptResponse miState lspId res = do
         installThread <- async $ do
           setupSdkInstallReporter miState ver
           outputLogVar <- newMVar ""
+          -- For DPM, install at the first home, since all homes for a given SdkInstallData should install the same thing
           let installSdk = if usingDpm then installSdkDpm (Set.elemAt 0 $ sidPendingHomes installData) else installSdkDamlAssistant ver
           res <- tryForwardAsync $ installSdk outputLogVar $ updateSdkInstallReporter miState ver
           onSdkInstallerFinished miState ver outputLogVar $ either Just (const Nothing) res
