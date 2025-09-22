@@ -1813,11 +1813,11 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       def checkModule(mod: Module) = {
         val pkg =
           Package.build(
-            List(mod),
-            List.empty,
-            defaultLanguageVersion,
-            packageMetadata,
-            Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
+            modules = List(mod),
+            directDeps = List.empty,
+            languageVersion = defaultLanguageVersion,
+            metadata = packageMetadata,
+            imports = Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
           )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
@@ -1847,11 +1847,11 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       def checkModule(mod: Module) = {
         val pkg =
           Package.build(
-            List(mod),
-            List.empty,
-            defaultLanguageVersion,
-            packageMetadata,
-            Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
+            modules = List(mod),
+            directDeps = List.empty,
+            languageVersion = defaultLanguageVersion,
+            metadata = packageMetadata,
+            imports = Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
           )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
@@ -1881,11 +1881,11 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       def checkModule(mod: Module) = {
         val pkg =
           Package.build(
-            List(mod),
-            List.empty,
-            defaultLanguageVersion,
-            packageMetadata,
-            Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
+            modules = List(mod),
+            directDeps = List.empty,
+            languageVersion = defaultLanguageVersion,
+            metadata = packageMetadata,
+            imports = Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
           )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
