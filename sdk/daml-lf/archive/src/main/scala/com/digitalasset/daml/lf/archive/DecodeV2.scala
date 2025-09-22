@@ -197,22 +197,18 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[archive] def decodePackageImports(
       lfPackage: PLF.Package
   ): Either[String, collection.IndexedSeq[String]] = {
-    if (
-      lfPackage.getImportsSumCase != PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET
-      && languageVersion < LV.Features.explicitPkgImports
-    ) {
-      throw Error.Parsing(
-        s"Explicit pkg imports set on unsupported lf version (version ${languageVersion})"
-      )
-    } else {
-      lfPackage.getImportsSumCase match {
-        case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
-          Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
-        case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
-          Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
-        case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
-          Left(lfPackage.getNoImportedPackagesReason)
-      }
+    val imports = lfPackage.getImportsSumCase
+    imports match {
+    case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
+        Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
+    case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS if languageVersion >= LV.Features.explicitPkgImports =>
+        Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
+    case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
+        throw Error.Parsing(s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq.toString()}")
+    case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON if languageVersion >= LV.Features.explicitPkgImports =>
+        Left(lfPackage.getNoImportedPackagesReason)
+    case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
+        throw Error.Parsing(s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${lfPackage.getNoImportedPackagesReason.toString}")
     }
   }
 

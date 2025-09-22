@@ -49,7 +49,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         languageVersion = parameters.languageVersion,
         metadata = metadata,
         // TODO[RB]: delte this commment: blinly added None here since IDK what this is
-        imports = Left("com.digitalasset.daml.lf:ModParser"),
+        imports = Left("package created by com.digitalasset.daml.lf.testing.parser:ModParser"),
       )
     }
 

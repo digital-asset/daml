@@ -99,9 +99,11 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         _.toList.sorted.map(s => eitherToException(PackageId.fromString(s))).zipWithIndex.toMap
       )
 
-      pkg.imports match {
-        case Right(importsSet) => builder.setPackageImports(encodeImports(importsSet))
-        case Left(str) => builder.setNoImportedPackagesReason(str)
+      if (languageVersion >= LV.Features.explicitPkgImports) {
+        pkg.imports match {
+          case Right(importsSet) => builder.setPackageImports(encodeImports(importsSet))
+          case Left(str) => builder.setNoImportedPackagesReason(str)
+        }
       }
 
       builder.build()
