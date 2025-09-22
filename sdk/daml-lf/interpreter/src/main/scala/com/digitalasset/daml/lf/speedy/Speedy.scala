@@ -1499,9 +1499,9 @@ private[lf] object Speedy {
         case _ => throw SErrorCrash("KOverApp", s"Expected SPAP, got $value")
       }
 
-      machine.updateGasBudget(_.KOverApp.cost)
+      machine.updateGasBudget(_.KOverApp.cost(vfun.actuals.size, newArgs.length))
 
-      machine.restoreBase(savedBase);
+      machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
     }
@@ -1618,7 +1618,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
 
-      machine.updateGasBudget(_.KPushTo.cost)
+      machine.updateGasBudget(_.KPushTo.cost(base, machine.env))
 
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
@@ -1648,7 +1648,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KFoldl.cost)
+      machine.updateGasBudget(_.KFoldl.cost(func.actuals.size))
 
       list.pop match {
         case None =>
@@ -1679,7 +1679,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KFoldr.cost)
+      machine.updateGasBudget(_.KFoldr.cost(func.actuals.size))
 
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
@@ -1737,7 +1737,7 @@ private[lf] object Speedy {
         exerciseResult: SValue,
     ): Control[Question.Update] = {
 
-      machine.updateGasBudget(_.KCloseExercise.cost)
+      machine.updateGasBudget(_.KCloseExercise.cost(exerciseResult))
 
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)

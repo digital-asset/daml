@@ -174,7 +174,7 @@ object Ast {
       extends ExprInterface
 
   /** Convert interface back to template payload,
-    * or raise a WronglyTypedContracg error if not possible
+    * or raise a WronglyTypedContract error if not possible
     */
   final case class EUnsafeFromInterface(
       interfaceId: TypeConId,
