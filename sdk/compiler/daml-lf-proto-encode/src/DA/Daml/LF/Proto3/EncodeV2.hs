@@ -13,7 +13,6 @@ import           Control.Lens
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 import           Control.Monad.Reader
--- import           Control.Monad.Extra (ifM)
 
 import           Data.Coerce
 import qualified Data.HashMap.Strict as HMS
@@ -1084,6 +1083,15 @@ encodeReasons rsns =
     [StablePackage] -> Nothing
     lursns -> Just $ P.PackageImportsSumNoImportedPackagesReason $ TL.pack $ show lursns
 
+-- | This may be the casue of (future) round-trip test errors: we discard the
+-- reasons here. If we rtt packages that set a reason for unsupported lf and
+-- there are errors, the fix is to never set the field in the first place.
+encodePkgImports :: Version -> Either NoPkgImportsReasons [PackageId] -> Maybe P.PackageImportsSum
+encodePkgImports version importList =
+  if version `supports` featurePackageImports
+    then either encodeReasons (Just . encodeImports) importList
+    else Nothing
+
 mkImportMap :: [PackageId] -> ImportMap
 mkImportMap = M.fromList . flip zip [0..]
 
@@ -1105,7 +1113,7 @@ encodePackage (Package version mods metadata imports) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportsSum = either encodeReasons (Just . encodeImports) importList
+        packageImportsSum = encodePkgImports version importList
     in
     P.Package{..}
 
