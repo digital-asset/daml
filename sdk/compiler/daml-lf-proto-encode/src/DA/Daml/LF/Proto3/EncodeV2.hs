@@ -214,10 +214,10 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
           {-then-}
              (case eMap of
                Left r ->
-                 error $ printf "Did not find imported package ids (Left), reason: " $ show r
+                 error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: " $ show r
                Right ids ->
                  let (mID :: Maybe Int32) = M.lookup p ids
-                 in  maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) (return . P.SelfOrImportedPackageIdSumPackageImportId) mID)
+                 in  maybe (error $ printf "During encoding, did not find imported package id %s in import map %s" (show p) (show ids)) (return . P.SelfOrImportedPackageIdSumPackageImportId) mID)
           {-else-}
             (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
