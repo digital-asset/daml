@@ -203,7 +203,9 @@ decodePackage version selfPackageRef (LF2.Package
       let internedExprs = V.empty
       let internedTypes = V.empty
       let internedKinds = V.empty
-      --assuming here that nothing means it is a stable package
+      -- assuming here that nothing means it is a stable package. That is, for
+      -- stable packages we set it to Nothing, and for nonstable packages we are
+      -- _supposed_ to set it to Left <reason>.
       let imports = maybe (Left noPkgImportsReasonStablePackage) decodeImports  importedPackagesP
       let env0 = DecodeEnv{..}
       internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
