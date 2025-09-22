@@ -394,6 +394,8 @@ onSdkInstallerFinished miState ver outputLogVar mError = do
       sendClient miState $ showMessage LSP.MtError errText
       atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
 
+-- Installs an SDK for a given package home
+-- Currently does not log or report status, as DPM cannot report this information.
 installSdkDpm :: PackageHome -> MVar Text -> (Int -> IO ()) -> IO ()
 installSdkDpm packageHome _outputLogVar _report = do
   dpmBinary <- getEnv "DPM_BIN_PATH"

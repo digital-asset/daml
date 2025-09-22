@@ -270,10 +270,6 @@ renderSdkVersionData (SdkVersionData ver overrides) = T.pack $ unresolvedRelease
 sdkVersionDataUsingLocalOverrides :: SdkVersionData -> Bool
 sdkVersionDataUsingLocalOverrides (SdkVersionData _ overrides) = any isNothing overrides
 
--- change version to include overrides, something we can check equality on
---   (ordered and all that)
--- for legacy, leave it empty
--- need a way to convert SdkVersionData to lspId, likely hash
 data SdkInstallData = SdkInstallData
   { sidVersionData :: SdkVersionData
   , sidPendingHomes :: Set.Set PackageHome
