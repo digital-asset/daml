@@ -111,7 +111,7 @@ class DecodeV2Spec
       Some(dummyModuleName),
       onlySerializableDataDefs = false,
       None,
-      Left("com.digitalasset.daml.lf.archive.DecodeV2Spec"),
+      Left("package made in com.digitalasset.daml.lf.archive.DecodeV2Spec"),
     )
   }
 
