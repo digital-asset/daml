@@ -380,8 +380,10 @@ sealed trait SequencerChannelProtocolIntegrationTest
       extends SequencerChannelProtocolProcessor {
     override def onConnected()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Unit] =
-      MonadUtil.sequentialTraverse_(initialPayloads)(sendPayload("initial payload", _))
+    ): EitherT[FutureUnlessShutdown, String, Unit] = for {
+      _ <- super.onConnected()
+      _ <- MonadUtil.sequentialTraverse_(initialPayloads)(sendPayload("initial payload", _))
+    } yield ()
 
     override def handlePayload(payload: ByteString)(implicit
         traceContext: TraceContext

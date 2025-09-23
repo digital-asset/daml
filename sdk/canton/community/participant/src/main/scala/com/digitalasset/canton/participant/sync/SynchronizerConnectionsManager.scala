@@ -154,8 +154,7 @@ private[sync] class SynchronizerConnectionsManager(
 
   private val reassignmentCoordination: ReassignmentCoordination =
     ReassignmentCoordination(
-      reassignmentTimeProofFreshnessProportion =
-        parameters.reassignmentTimeProofFreshnessProportion,
+      reassignmentsConfig = parameters.reassignmentsConfig,
       syncPersistentStateManager = syncPersistentStateManager,
       submissionHandles = connectedSynchronizers.get,
       synchronizerId =>

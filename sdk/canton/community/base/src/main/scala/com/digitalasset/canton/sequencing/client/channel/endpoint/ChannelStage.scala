@@ -185,10 +185,8 @@ private[endpoint] class ChannelStageSecurelyConnected(data: InternalData)(implic
     */
   private def processOnChannelReadyForProcessor()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    data.processor.isConnected.set(true)
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     data.processor.onConnected()
-  }
 
   override def handleMessage(response: Response)(implicit
       traceContext: TraceContext

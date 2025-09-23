@@ -3,15 +3,28 @@
 
 package com.digitalasset.canton.ledger.api
 
+import cats.syntax.either.*
+import cats.syntax.traverse.*
+import com.daml.ledger.api.v2.admin.package_management_service
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
   TRANSACTION_SHAPE_ACS_DELTA,
   TRANSACTION_SHAPE_LEDGER_EFFECTS,
 }
+import com.daml.ledger.api.v2.{package_reference, package_service}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.ProtoDeserializationError.{
+  FieldNotSet,
+  InvariantViolation,
+  UnrecognizedEnum,
+  ValueConversionError,
+}
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.LfFatContractInst
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.transaction.VettedPackage
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -20,6 +33,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import scalaz.@@
 import scalaz.syntax.tag.*
 
+import scala.annotation.nowarn
 import scala.collection.immutable
 
 final case class UpdateFormat(
@@ -211,4 +225,369 @@ object PackageReference {
 object Logging {
   implicit def `tagged value to LoggingValue`[T: ToLoggingValue, Tag]: ToLoggingValue[T @@ Tag] =
     value => value.unwrap
+}
+
+final case class ListVettedPackagesOpts(
+    packageFilter: Option[PackageMetadataFilter],
+    topologyStateFilter: Option[TopologyStateFilter],
+) {
+  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = { (pkgId: Ref.PackageId) =>
+    val matchesMetadata =
+      packageFilter
+        .map(_.toPredicate(metadata)(pkgId))
+        .getOrElse(true)
+
+    val matchesTopologyState =
+      topologyStateFilter
+        .map(_.toPredicate(metadata)(pkgId))
+        .getOrElse(true)
+
+    matchesMetadata && matchesTopologyState
+  }
+}
+
+object ListVettedPackagesOpts {
+  def fromProto(
+      req: package_service.ListVettedPackagesRequest
+  ): ParsingResult[ListVettedPackagesOpts] =
+    for {
+      packageMetadataFilter <- req.packageMetadataFilter.traverse(PackageMetadataFilter.fromProto)
+      topologyStateFilter <- req.topologyStateFilter.traverse(TopologyStateFilter.fromProto)
+    } yield ListVettedPackagesOpts(packageMetadataFilter, topologyStateFilter)
+}
+
+final case class PackageMetadataFilter(
+    packageIds: Seq[Ref.PackageId],
+    packageNamePrefixes: Seq[String],
+) {
+  def toProtoLAPI: package_service.PackageMetadataFilter =
+    package_service.PackageMetadataFilter(
+      packageIds.map(_.toString),
+      packageNamePrefixes,
+    )
+
+  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = {
+    lazy val noFilters = packageIds.isEmpty && packageNamePrefixes.isEmpty
+    lazy val allPackageIds = packageIds.toSet
+    lazy val allNames = (for {
+      name <- metadata.packageNameMap.keys
+      if packageNamePrefixes.exists(name.toString.startsWith(_))
+    } yield name).toSet
+
+    { (targetPkgId: Ref.PackageId) =>
+      lazy val matchesPkgId = allPackageIds.contains(targetPkgId)
+      lazy val matchesName = metadata.packageIdVersionMap.get(targetPkgId) match {
+        case Some((name, _)) => allNames.contains(name)
+        case None => false // package ID is not known on this participant
+      }
+      noFilters || matchesPkgId || matchesName
+    }
+  }
+}
+
+object PackageMetadataFilter {
+  def fromProto(
+      filter: package_service.PackageMetadataFilter
+  ): ParsingResult[PackageMetadataFilter] =
+    filter.packageIds
+      .traverse(
+        Ref.PackageId.fromString(_).leftMap(ValueConversionError("package_ids", _))
+      )
+      .map(PackageMetadataFilter(_, filter.packageNamePrefixes))
+}
+
+final case class TopologyStateFilter(
+    participantIds: Seq[ParticipantId],
+    synchronizerIds: Seq[SynchronizerId],
+) {
+  def toProtoLAPI: package_service.TopologyStateFilter =
+    package_service.TopologyStateFilter(
+      participantIds.map(_.toString),
+      synchronizerIds.map(_.toString),
+    )
+
+  // TODO(#27750) Implement filtering by synch/participant
+  @nowarn
+  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean =
+    (_: Ref.PackageId) => true
+}
+
+object TopologyStateFilter {
+  def fromProto(
+      filter: package_service.TopologyStateFilter
+  ): ParsingResult[TopologyStateFilter] =
+    for {
+      synchronizerIds <- filter.synchronizerIds.traverse(
+        SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids")
+      )
+      participantIds <- filter.participantIds.traverse(
+        ParticipantId.fromProtoPrimitive(_, "participant_ids")
+      )
+    } yield TopologyStateFilter(
+      participantIds = participantIds,
+      synchronizerIds = synchronizerIds,
+    )
+}
+
+final case class UpdateVettedPackagesOpts(
+    changes: Seq[VettedPackagesChange],
+    dryRun: Boolean,
+) {
+  def toTargetStates: Seq[SinglePackageTargetVetting[VettedPackagesRef]] =
+    for {
+      change <- changes
+      ref <- change.packages
+    } yield change match {
+      case v: VettedPackagesChange.Vet =>
+        SinglePackageTargetVetting(ref, Some((v.newValidFromInclusive, v.newValidUntilExclusive)))
+      case v: VettedPackagesChange.Unvet => SinglePackageTargetVetting(ref, None)
+    }
+}
+
+object UpdateVettedPackagesOpts {
+  def fromProto(
+      req: package_management_service.UpdateVettedPackagesRequest
+  ): ParsingResult[UpdateVettedPackagesOpts] =
+    req.changes
+      .traverse(VettedPackagesChange.fromProto)
+      .map(UpdateVettedPackagesOpts(_, req.dryRun))
+}
+
+sealed trait VettedPackagesChange {
+  def packages: Seq[VettedPackagesRef]
+}
+
+object VettedPackagesChange {
+  final case class Vet(
+      packages: Seq[VettedPackagesRef],
+      newValidFromInclusive: Option[CantonTimestamp],
+      newValidUntilExclusive: Option[CantonTimestamp],
+  ) extends VettedPackagesChange
+
+  object Vet {
+    def fromProto(change: package_management_service.VettedPackagesChange.Vet): ParsingResult[Vet] =
+      for {
+        packages <- change.packages.traverse(VettedPackagesRef.fromProto)
+        newValidFromInclusive <- change.newValidFromInclusive.traverse(
+          CantonTimestamp.fromProtoTimestamp
+        )
+        newValidUntilExclusive <- change.newValidUntilExclusive.traverse(
+          CantonTimestamp.fromProtoTimestamp
+        )
+      } yield Vet(packages, newValidFromInclusive, newValidUntilExclusive)
+  }
+
+  final case class Unvet(
+      packages: Seq[VettedPackagesRef]
+  ) extends VettedPackagesChange
+
+  object Unvet {
+    def fromProto(
+        change: package_management_service.VettedPackagesChange.Unvet
+    ): ParsingResult[Unvet] =
+      change.packages
+        .traverse(VettedPackagesRef.fromProto)
+        .map(Unvet(_))
+  }
+
+  def fromProto(
+      change: package_management_service.VettedPackagesChange
+  ): ParsingResult[VettedPackagesChange] =
+    change.operation match {
+      case package_management_service.VettedPackagesChange.Operation.Vet(vet) =>
+        Vet.fromProto(vet)
+      case package_management_service.VettedPackagesChange.Operation.Unvet(unvet) =>
+        Unvet.fromProto(unvet)
+      case package_management_service.VettedPackagesChange.Operation.Empty =>
+        Left(FieldNotSet("operation"))
+    }
+}
+
+trait UploadDarVettingChange {
+  def toProto: package_management_service.UploadDarFileRequest.VettingChange
+}
+object VetAllPackages extends UploadDarVettingChange {
+  override def toProto =
+    package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES
+}
+object DontVetAnyPackages extends UploadDarVettingChange {
+  override def toProto =
+    package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_DONT_VET_ANY_PACKAGES
+}
+
+object UploadDarVettingChange {
+  val default: UploadDarVettingChange = VetAllPackages
+
+  def fromProto(
+      fieldName: String,
+      change: Option[package_management_service.UploadDarFileRequest.VettingChange],
+  ): ParsingResult[UploadDarVettingChange] =
+    change.map(fromProto(fieldName, _)).getOrElse(Right(VetAllPackages))
+
+  def fromProto(
+      fieldName: String,
+      change: package_management_service.UploadDarFileRequest.VettingChange,
+  ): ParsingResult[UploadDarVettingChange] =
+    change match {
+      case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_UNSPECIFIED =>
+        Right(default)
+      case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES =>
+        Right(VetAllPackages)
+      case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_DONT_VET_ANY_PACKAGES =>
+        Right(DontVetAnyPackages)
+      case package_management_service.UploadDarFileRequest.VettingChange
+            .Unrecognized(unrecognizedValue) =>
+        Left(UnrecognizedEnum(fieldName, unrecognizedValue))
+    }
+}
+
+sealed trait VettedPackagesRef {
+  def toProtoLAPI: package_management_service.VettedPackagesRef
+  def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId]
+}
+
+object VettedPackagesRef {
+  final case class Id(
+      id: Ref.PackageId
+  ) extends VettedPackagesRef {
+    def toProtoLAPI: package_management_service.VettedPackagesRef =
+      package_management_service.VettedPackagesRef(id.toString, "", "")
+
+    // TODO(#27753): Check that the package ID exists on the participant
+    def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId] =
+      Seq(id)
+  }
+
+  final case class NameAndVersion(
+      name: Ref.PackageName,
+      version: Ref.PackageVersion,
+  ) extends VettedPackagesRef {
+    def toProtoLAPI: package_management_service.VettedPackagesRef =
+      package_management_service.VettedPackagesRef(
+        "",
+        name.toString,
+        version.toString,
+      )
+
+    // TODO(#27753): Check that the package name and version resolves to at least one package ID
+    // TODO(#27499): Stop relying on `(name, version) -> id` injection
+    def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId] =
+      for {
+        packageResolution <- metadata.packageNameMap.get(name).toList
+        matchingId <- packageResolution.allPackageIdsForName.iterator
+        matchingVersion <- metadata.packageIdVersionMap.get(matchingId).map(_._2).toList
+        if version == matchingVersion
+      } yield matchingId
+  }
+
+  final case class All(
+      id: Ref.PackageId,
+      name: Ref.PackageName,
+      version: Ref.PackageVersion,
+  ) extends VettedPackagesRef {
+    def toProtoLAPI: package_management_service.VettedPackagesRef =
+      package_management_service.VettedPackagesRef(
+        id.toString,
+        name.toString,
+        version.toString,
+      )
+
+    // TODO(#27753): Check that the package name and version resolves to at least one package ID
+    def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId] =
+      for {
+        (matchingName, matchingVersion) <- metadata.packageIdVersionMap.get(id).toList
+        if name == matchingName
+        if version == matchingVersion
+      } yield id
+  }
+
+  final case class Name(
+      name: Ref.PackageName
+  ) extends VettedPackagesRef {
+    def toProtoLAPI: package_management_service.VettedPackagesRef =
+      package_management_service.VettedPackagesRef("", name.toString, "")
+
+    // TODO(#27753): Check that the package name resolves to at least one package ID
+    def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId] =
+      for {
+        packageResolution <- metadata.packageNameMap.get(name).toList
+        matchingId <- packageResolution.allPackageIdsForName.toList
+      } yield matchingId
+  }
+
+  private def parseWith[A](
+      name: String,
+      value: String,
+      f: String => Either[String, A],
+  ): ParsingResult[Option[A]] =
+    if (value == "") {
+      Right(None)
+    } else {
+      f(value).map(Some(_)).leftMap(ValueConversionError(name, _))
+    }
+
+  private def process(
+      mbPackageId: Option[Ref.PackageId],
+      mbPackageName: Option[Ref.PackageName],
+      mbPackageVersion: Option[Ref.PackageVersion],
+  ): ParsingResult[VettedPackagesRef] =
+    (mbPackageId, mbPackageName, mbPackageVersion) match {
+      case (Some(id), Some(name), Some(version)) => Right(All(id, name, version))
+      case (None, Some(name), Some(version)) => Right(NameAndVersion(name, version))
+      case (Some(id), None, None) => Right(Id(id))
+      case (None, Some(name), None) => Right(Name(name))
+      case _ =>
+        Left(
+          InvariantViolation(
+            "package_name",
+            "Either package_id must be set, or package_name and package_version must be set, or all three must be set.",
+          )
+        )
+    }
+
+  def fromProto(
+      raw: package_management_service.VettedPackagesRef
+  ): ParsingResult[VettedPackagesRef] =
+    for {
+      mbPackageId <- parseWith("package_id", raw.packageId, Ref.PackageId.fromString)
+      mbPackageName <- parseWith("package_name", raw.packageName, Ref.PackageName.fromString)
+      mbPackageVersion <- parseWith(
+        "package_version",
+        raw.packageVersion,
+        Ref.PackageVersion.fromString,
+      )
+      result <- process(mbPackageId, mbPackageName, mbPackageVersion)
+    } yield result
+}
+
+final case class SinglePackageTargetVetting[R](
+    ref: R,
+    bounds: Option[(Option[CantonTimestamp], Option[CantonTimestamp])],
+)
+
+object SinglePackageTargetVetting {
+  implicit class SinglePackageTargetVettingResolver(
+      target: SinglePackageTargetVetting[VettedPackagesRef]
+  ) {
+    def findMatchingPackages(
+        snapshot: PackageMetadata
+    ): Seq[SinglePackageTargetVetting[Ref.PackageId]] =
+      target.ref
+        .findMatchingPackages(snapshot)
+        .map((pkgId: Ref.PackageId) => target.copy(ref = pkgId))
+  }
+}
+
+final case class EnrichedVettedPackage(
+    vetted: VettedPackage,
+    name: Option[Ref.PackageName],
+    version: Option[Ref.PackageVersion],
+) {
+  def toProtoLAPI: package_reference.VettedPackage = package_reference.VettedPackage(
+    vetted.packageId,
+    validFromInclusive = vetted.validFromInclusive.map(_.toProtoTimestamp),
+    validUntilExclusive = vetted.validUntilExclusive.map(_.toProtoTimestamp),
+    packageName = name.map(_.toString).getOrElse(""),
+    packageVersion = version.map(_.toString).getOrElse(""),
+  )
 }

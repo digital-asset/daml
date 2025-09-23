@@ -16,7 +16,7 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
-import com.digitalasset.canton.resource.{Storage, StorageSetup}
+import com.digitalasset.canton.resource.{Storage, StorageSingleSetup}
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc
 import com.digitalasset.canton.sequencing.protocol.*
@@ -38,17 +38,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   CantonOrderingTopologyProvider,
   SequencerNodeId,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerInterceptor
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.{
-  P2PGrpcBftOrderingService,
-  P2PGrpcConnectionManager,
-  P2PGrpcConnectionState,
-  P2PGrpcNetworking,
-  P2PGrpcServerManager,
-  P2PGrpcStreamingReceiver,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
   PekkoEnv,
   PekkoFutureUnlessShutdown,
@@ -130,7 +123,6 @@ final class BftBlockOrderer(
     exitOnFatalFailures: Boolean,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-    dedicatedStorageSetup: StorageSetup,
     queryCostMonitoring: Option[QueryCostMonitoringConfig],
     futureSupervisor: FutureSupervisor,
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
@@ -227,7 +219,7 @@ final class BftBlockOrderer(
     config.storage match {
       case Some(storageConfig) =>
         logger.info("Using a dedicated storage configuration for BFT ordering tables")
-        dedicatedStorageSetup.tryCreateAndMigrateStorage(
+        StorageSingleSetup.tryCreateAndMigrateStorage(
           storageConfig,
           queryCostMonitoring,
           clock,

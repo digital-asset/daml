@@ -11,7 +11,6 @@ import qualified Data.ByteString.Lazy as BSL
 import           Data.Either
 import           Data.Map             (Map)
 import qualified Data.Map             as M
-import           Data.Maybe           (fromJust)
 import           Data.Set             hiding (map)
 import           Text.Printf
 
@@ -82,7 +81,7 @@ verifyImports darname = testCase darname $ do
   let p :: (PackageId, Package)
       p = (fromRight (error "decoding error") . Archive.decodeArchive Archive.DecodeAsMain) bs
   let p' :: (PackageId, PackageIds)
-      p' = fmap (fromJust . importedPackages) p
+      p' = fmap (fromRight (error "decoding error") . importedPackages) p
 
   let deps = edDalfs dar
   let bss :: [BS.ByteString]
@@ -90,7 +89,7 @@ verifyImports darname = testCase darname $ do
   let ps :: [(PackageId, Package)]
       ps = map (fromRight (error "decoding error") . Archive.decodeArchive Archive.DecodeAsMain) bss
   let ps' :: [(PackageId, PackageIds)]
-      ps' = map (fmap $ fromJust . importedPackages) ps
+      ps' = map (fmap $ fromRight (error "decoding error") . importedPackages) ps
 
   let mentioned = transitiveClosure (M.fromList ps') (fst p')
   let included = (fromList $ map fst ps') `difference` stablePkgs

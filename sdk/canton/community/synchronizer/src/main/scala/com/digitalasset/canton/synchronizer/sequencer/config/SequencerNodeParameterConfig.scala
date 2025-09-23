@@ -3,10 +3,47 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.config
 
+import cats.data.Chain
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
+import io.scalaland.chimney.dsl.*
+
+/** Async block sequencer writer control parameters
+  *
+  * @param enabled
+  *   if true (default) then the async writer is enabled
+  * @param trafficBatchSize
+  *   the maximum number of traffic events to batch in a single write
+  * @param aggregationBatchSize
+  *   the maximum number of inflight aggregations to batch in a single write
+  * @param blockInfoBatchSize
+  *   the maximum number of block info updates to batch in a single write
+  */
+final case class AsyncWriterConfig(
+    enabled: Boolean = true,
+    trafficBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
+    aggregationBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
+    blockInfoBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
+) {
+
+  def toParameters: AsyncWriterParameters = this.transformInto[AsyncWriterParameters]
+
+}
+
+object AsyncWriterConfig {
+
+  implicit val asyncWriterConfigCantonConfigValidator: CantonConfigValidator[AsyncWriterConfig] =
+    new CantonConfigValidator[AsyncWriterConfig] {
+      override def validate(
+          edition: CantonEdition,
+          config: AsyncWriterConfig,
+      ): Chain[CantonConfigValidationError] = Chain.empty
+    }
+
+}
 
 /** Various parameters for non-standard sequencer settings
   *
@@ -27,6 +64,8 @@ import com.digitalasset.canton.data.CantonTimestamp
   * @param warnOnUndefinedLimits
   *   if true, then this sequencer will emit a warning once if there is no limit configured for a
   *   particular stream
+  * @param asyncWriter
+  *   controls the async writer
   */
 final case class SequencerNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
@@ -42,11 +81,13 @@ final case class SequencerNodeParameterConfig(
       SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
     sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
     warnOnUndefinedLimits: Boolean = true,
+    asyncWriter: AsyncWriterConfig = AsyncWriterConfig(),
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
     with UniformCantonConfigValidation
 
 object SequencerNodeParameterConfig {
+
   implicit val sequencerNodeParameterConfigCantonConfigValidator
       : CantonConfigValidator[SequencerNodeParameterConfig] = {
     import CantonConfigValidatorInstances.*

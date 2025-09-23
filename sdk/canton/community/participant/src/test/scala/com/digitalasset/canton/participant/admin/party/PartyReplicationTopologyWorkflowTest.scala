@@ -51,6 +51,7 @@ class PartyReplicationTopologyWorkflowTest
   private val tp = ParticipantId("target-participant")
   private val serial = PositiveInt.tryCreate(17)
   private val serialBefore = PositiveInt.tryCreate(serial.unwrap - 1)
+  private val serialBefore2 = PositiveInt.tryCreate(serial.unwrap - 2)
   private val participantPermission = ParticipantPermission.Confirmation
   private val params = PartyReplicationStatus.ReplicationParams(
     requestId,
@@ -62,6 +63,7 @@ class PartyReplicationTopologyWorkflowTest
     participantPermission,
   )
 
+  private val tsSerialMinusTwo = CantonTimestamp.ofEpochSecond(-1L)
   private val tsSerialMinusOne = CantonTimestamp.Epoch
   private val tsSerial = CantonTimestamp.ofEpochSecond(1L)
 
@@ -147,125 +149,178 @@ class PartyReplicationTopologyWorkflowTest
       .map(_ => signedTx)
   }
 
-  "PartyReplicationTopologyWorkflow" should {
-    "complete authorization when prerequisites are met" in {
-      val tw = topologyWorkflow()
-      val topologyManager = mockTopologyManager()
-      val topologyStore = newTopologyStore()
+  "PartyReplicationTopologyWorkflow" when {
+    "onboarding" should {
+      "complete authorization when prerequisites are met" in {
+        val tw = topologyWorkflow()
+        val topologyManager = mockTopologyManager()
+        val topologyStore = newTopologyStore()
 
-      when(
-        topologyManager.proposeAndAuthorize(
-          op = TopologyChangeOp.Replace,
-          mapping = ptpProposal,
-          serial = Some(serial),
-          signingKeys = Seq.empty,
-          protocolVersion = testedProtocolVersion,
-          expectFullAuthorization = false,
-          forceChanges = ForceFlags.none,
-          waitToBecomeEffective = None,
-        )
-      ).thenReturn(
-        EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
-          topologyStoreTestData.makeSignedTx(ptpProposal, serial = serial, isProposal = true)(
-            topologyStoreTestData.p1Key
+        when(
+          topologyManager.proposeAndAuthorize(
+            op = TopologyChangeOp.Replace,
+            mapping = ptpProposal,
+            serial = Some(serial),
+            signingKeys = Seq.empty,
+            protocolVersion = testedProtocolVersion,
+            expectFullAuthorization = false,
+            forceChanges = ForceFlags.none,
+            waitToBecomeEffective = None,
+          )
+        ).thenReturn(
+          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
+            topologyStoreTestData.makeSignedTx(ptpProposal, serial = serial, isProposal = true)(
+              topologyStoreTestData.p1Key
+            )
           )
         )
-      )
 
-      for {
-        _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
-        effectiveTsBeforeO <- tw
-          .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-          .valueOrFail("expect authorization to succeed")
-        _ <- add(topologyStore)(tsSerial, serial, ptpProposal).map(tx =>
-          Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
-        )
-        effectiveTsAfterO <- tw
-          .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-          .valueOrFail("expect authorization to succeed")
-      } yield {
-        effectiveTsBeforeO shouldBe None
-        effectiveTsAfterO shouldBe Some(tsSerial)
-      }
-    }.failOnShutdown
+        for {
+          _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
+          effectiveTsBeforeO <- tw
+            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .valueOrFail("expect authorization to succeed")
+          _ <- add(topologyStore)(tsSerial, serial, ptpProposal).map(tx =>
+            Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
+          )
+          effectiveTsAfterO <- tw
+            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .valueOrFail("expect authorization to succeed")
+        } yield {
+          effectiveTsBeforeO shouldBe None
+          effectiveTsAfterO shouldBe Some(tsSerial)
+        }
+      }.failOnShutdown
 
-    "back off and wait when existing proposal already signed by TP" in {
-      val tw = topologyWorkflow()
-      val topologyManager = mockTopologyManager()
-      val topologyStore = newTopologyStore()
+      "back off and wait when existing proposal already signed by TP" in {
+        val tw = topologyWorkflow()
+        val topologyManager = mockTopologyManager()
+        val topologyStore = newTopologyStore()
 
-      when(
-        topologyManager.extendSignature(
-          any[SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant]],
-          signingKeys = eqTo(Seq.empty),
-          eqTo(ForceFlags.none),
-        )(anyTraceContext)
-      ).thenReturn(
-        EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
-          topologyStoreTestData.makeSignedTx(ptpProposal, serial = serial, isProposal = true)(
-            // returning the same transaction and number of keys indicates that that TP has already signed
-            // because signing again does not add a new signature
-            topologyStoreTestData.p1Key
+        when(
+          topologyManager.extendSignature(
+            any[SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant]],
+            signingKeys = eqTo(Seq.empty),
+            eqTo(ForceFlags.none),
+          )(anyTraceContext)
+        ).thenReturn(
+          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
+            topologyStoreTestData.makeSignedTx(ptpProposal, serial = serial, isProposal = true)(
+              // returning the same transaction and number of keys indicates that that TP has already signed
+              // because signing again does not add a new signature
+              topologyStoreTestData.p1Key
+            )
           )
         )
-      )
 
-      for {
-        _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
-        _ <- add(topologyStore)(tsSerial, serial, ptpProposal, proposal = true)
-        effectiveTsBeforeO <- tw
+        for {
+          _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
+          _ <- add(topologyStore)(tsSerial, serial, ptpProposal, proposal = true)
+          effectiveTsBeforeO <- tw
+            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .valueOrFail("expect authorization to succeed")
+          _ <- add(topologyStore)(tsSerial, serial, ptpProposal).map(tx =>
+            Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
+          )
+          effectiveTsAfterO <- tw
+            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .valueOrFail("expect authorization to succeed")
+        } yield {
+          effectiveTsBeforeO shouldBe None
+          effectiveTsAfterO shouldBe Some(tsSerial)
+        }
+      }.failOnShutdown
+
+      "detect party not hosted on synchronizer" in {
+        val tw = topologyWorkflow()
+        val topologyManager = mockTopologyManager()
+        val topologyStore = newTopologyStore()
+        tw
           .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-          .valueOrFail("expect authorization to succeed")
-        _ <- add(topologyStore)(tsSerial, serial, ptpProposal).map(tx =>
-          Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
+          .leftOrFail("expect failure")
+          .map(_ should include regex "Party .* not hosted by source participant")
+      }.failOnShutdown
+
+      "detect party not hosted on source participant" in {
+        val tw = topologyWorkflow()
+        val topologyManager = mockTopologyManager()
+        val topologyStore = newTopologyStore()
+
+        for {
+          _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpPartyMissingFromSP)
+          err <- tw
+            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .leftOrFail("expect failure")
+        } yield {
+          err should include regex "Party .* not hosted by source participant"
+        }
+      }.failOnShutdown
+
+      "detect party not hosted on target participant as onboarding after authorization at serial" in {
+        val tw = topologyWorkflow()
+        val topologyManager = mockTopologyManager()
+        val topologyStore = newTopologyStore()
+
+        for {
+          _ <- add(topologyStore)(tsSerial, serial, ptpProposalMissingOnboardingFlag)
+          err <- tw
+            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .leftOrFail("expect failure")
+        } yield {
+          err should include regex "Target participant .* not authorized to onboard party .* even though just added"
+        }
+      }.failOnShutdown
+    }
+
+    "onboarded" should {
+      "complete authorization only when prerequisites are met" in {
+        val tw = topologyWorkflow()
+        val topologyManager = mockTopologyManager()
+        val topologyStore = newTopologyStore()
+
+        when(
+          topologyManager.proposeAndAuthorize(
+            op = TopologyChangeOp.Replace,
+            mapping = ptpProposalMissingOnboardingFlag,
+            serial = Some(serial),
+            signingKeys = Seq.empty,
+            protocolVersion = testedProtocolVersion,
+            expectFullAuthorization = true,
+            forceChanges = ForceFlags.none,
+            waitToBecomeEffective = None,
+          )
+        ).thenReturn(
+          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
+            topologyStoreTestData.makeSignedTx(
+              ptpProposalMissingOnboardingFlag,
+              serial = serial,
+            )(
+              topologyStoreTestData.p2Key
+            )
+          )
         )
-        effectiveTsAfterO <- tw
-          .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-          .valueOrFail("expect authorization to succeed")
-      } yield {
-        effectiveTsBeforeO shouldBe None
-        effectiveTsAfterO shouldBe Some(tsSerial)
-      }
-    }.failOnShutdown
 
-    "detect party not hosted on synchronizer" in {
-      val tw = topologyWorkflow()
-      val topologyManager = mockTopologyManager()
-      val topologyStore = newTopologyStore()
-      tw
-        .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-        .leftOrFail("expect failure")
-        .map(_ should include regex "Party .* not hosted by source participant")
-    }.failOnShutdown
-
-    "detect party not hosted on source participant" in {
-      val tw = topologyWorkflow()
-      val topologyManager = mockTopologyManager()
-      val topologyStore = newTopologyStore()
-
-      for {
-        _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpPartyMissingFromSP)
-        err <- tw
-          .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-          .leftOrFail("expect failure")
-      } yield {
-        err should include regex "Party .* not hosted by source participant"
-      }
-    }.failOnShutdown
-
-    "detect party not hosted on target participant as onboarding after authorization at serial" in {
-      val tw = topologyWorkflow()
-      val topologyManager = mockTopologyManager()
-      val topologyStore = newTopologyStore()
-
-      for {
-        _ <- add(topologyStore)(tsSerial, serial, ptpProposalMissingOnboardingFlag)
-        err <- tw
-          .authorizeOnboardingTopology(params, topologyManager, topologyStore)
-          .leftOrFail("expect failure")
-      } yield {
-        err should include regex "Target participant .* not authorized to onboard party .* even though just added"
-      }
-    }.failOnShutdown
+        for {
+          _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore2, ptpBefore)
+          errTooEarly <- tw
+            .authorizeOnboardedTopology(params, topologyManager, topologyStore)
+            .leftOrFail("expect premature authorization to fail")
+          _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpProposal)
+          isOnboardedAfterFirstCall <- tw
+            .authorizeOnboardedTopology(params, topologyManager, topologyStore)
+            .valueOrFail("expect authorization to succeed")
+          _ <- add(topologyStore)(tsSerial, serial, ptpProposalMissingOnboardingFlag).map(tx =>
+            Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
+          )
+          isOnboardedAfterSecondCall <- tw
+            .authorizeOnboardedTopology(params, topologyManager, topologyStore)
+            .valueOrFail("expect second call observe party onboarded")
+        } yield {
+          errTooEarly should include regex "Party .* is not hosted by target participant"
+          isOnboardedAfterFirstCall shouldBe false
+          isOnboardedAfterSecondCall shouldBe true
+        }
+      }.failOnShutdown
+    }
   }
 }

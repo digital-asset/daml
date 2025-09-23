@@ -348,19 +348,27 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory1",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterCreateStakeholder(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory2",
+                 first_per_sequential_id = false,
                ),
                DbDto.IdFilterCreateStakeholder(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory3",
+                 first_per_sequential_id = false,
                ),
                DbDto
-                 .IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+                 .IdFilterCreateStakeholder(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "observer",
+                   first_per_sequential_id = false,
+                 ),
              )
            else
              Set(
@@ -368,21 +376,25 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory1",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterCreateNonStakeholderInformee(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory2",
+                 first_per_sequential_id = false,
                ),
                DbDto.IdFilterCreateNonStakeholderInformee(
                  0L,
                  templateIdWithPackageName(createNode),
                  "signatory3",
+                 first_per_sequential_id = false,
                ),
                DbDto.IdFilterCreateNonStakeholderInformee(
                  0L,
                  templateIdWithPackageName(createNode),
                  "observer",
+                 first_per_sequential_id = false,
                ),
              ))
 
@@ -506,11 +518,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "signatory",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterConsumingStakeholder(
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "observer",
+                 first_per_sequential_id = false,
                ),
              )
            else
@@ -519,11 +533,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "signatory",
+                 first_per_sequential_id = true,
                ),
                DbDto.IdFilterConsumingNonStakeholderInformee(
                  event_sequential_id = 0,
                  template_id = templateIdWithPackageName(exerciseNode),
                  party_id = "observer",
+                 first_per_sequential_id = false,
                ),
              ))
 
@@ -607,6 +623,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -750,6 +767,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeA),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -783,6 +801,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeB),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -816,6 +835,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeC),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.EventExercise(
           consuming = false,
@@ -849,6 +869,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNodeD),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -1036,16 +1057,19 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
+          first_per_sequential_id = true,
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "observer",
+          first_per_sequential_id = false,
         ),
         DbDto.IdFilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
           template_id = templateIdWithPackageName(exerciseNode),
           party_id = "divulgee",
+          first_per_sequential_id = true,
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -1152,8 +1176,18 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         representative_package_id = createNode.templateId.packageId,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer",
+          first_per_sequential_id = false,
+        ),
       )
       dtos(3) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1187,16 +1221,19 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         template_id = templateIdWithPackageName(exerciseNode),
         party_id = "signatory",
+        first_per_sequential_id = true,
       )
       dtos(5) shouldEqual DbDto.IdFilterConsumingStakeholder(
         event_sequential_id = 0,
         template_id = templateIdWithPackageName(exerciseNode),
         party_id = "observer",
+        first_per_sequential_id = false,
       )
       dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
         template_id = templateIdWithPackageName(exerciseNode),
         party_id = "divulgee",
+        first_per_sequential_id = true,
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.unwrap,
@@ -1366,8 +1403,18 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         representative_package_id = createNode.templateId.packageId,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterCreateStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer",
+          first_per_sequential_id = false,
+        ),
       )
       dtos.size shouldEqual 4
     }
@@ -1504,8 +1551,18 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             representative_package_id = createNode.templateId.packageId,
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-            DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+            DbDto.IdFilterCreateStakeholder(
+              0L,
+              templateIdWithPackageName(createNode),
+              "signatory",
+              first_per_sequential_id = true,
+            ),
+            DbDto.IdFilterCreateStakeholder(
+              0L,
+              templateIdWithPackageName(createNode),
+              "observer",
+              first_per_sequential_id = false,
+            ),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.unwrap,
@@ -1640,9 +1697,24 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
-        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
-        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "observer2"),
+        DbDto.IdFilterAssignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterAssignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer",
+          first_per_sequential_id = false,
+        ),
+        DbDto.IdFilterAssignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer2",
+          first_per_sequential_id = false,
+        ),
       )
       dtos.size shouldEqual 6
     }
@@ -1741,9 +1813,24 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "signatory12"),
-        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "observer23"),
-        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "asdasdasd"),
+        DbDto.IdFilterUnassignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "signatory12",
+          first_per_sequential_id = true,
+        ),
+        DbDto.IdFilterUnassignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "observer23",
+          first_per_sequential_id = false,
+        ),
+        DbDto.IdFilterUnassignStakeholder(
+          0L,
+          templateIdWithPackageName(createNode),
+          "asdasdasd",
+          first_per_sequential_id = false,
+        ),
       )
       dtos.size shouldEqual 6
     }

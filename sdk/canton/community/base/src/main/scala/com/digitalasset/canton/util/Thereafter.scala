@@ -29,6 +29,7 @@ import scala.util.{Failure, Success, Try}
   *
   * myAsyncComputation.thereafter(result => ...) // synchronous body
   * myAsyncComputation.thereafterF(result => ...) // asynchronous body
+  * (myTry : Try[...]).thereafter(result => ...)
   * }}}
   *
   * It is preferred to similar functions such as [[scala.concurrent.Future.andThen]] because it

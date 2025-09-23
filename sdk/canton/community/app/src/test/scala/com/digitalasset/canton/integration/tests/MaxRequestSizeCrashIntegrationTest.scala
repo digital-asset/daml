@@ -21,6 +21,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.MalformedRequest
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import monocle.macros.syntax.lens.*
@@ -104,31 +105,6 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
   "Canton" should {
     "recover from failure due to too small request size " in { implicit env =>
       import env.*
-      participant1.dars.upload(CantonTestsPath)
-
-      // verify the ping is successful
-      participant1.health.ping(participant1)
-
-      // change maxRequestSize
-      synchronizerOwners1.foreach(
-        _.topology.synchronizer_parameters
-          .propose_update(
-            synchronizerId = daId,
-            _.update(maxRequestSize = lowMaxRequestSize.unwrap),
-          )
-      )
-
-      eventually() {
-        forAll(nodes.all) {
-          _.topology.synchronizer_parameters
-            .latest(daId)
-            .maxRequestSize
-            .value shouldBe lowMaxRequestSize.unwrap
-        }
-      }
-
-      val matchError =
-        s"MaxViewSizeExceeded\\(view size = .*, max request size configured = .*\\)."
 
       def submitCommand(p: ParticipantReference) = {
         val commandId = s"submit-async-dummy-${UUID.randomUUID().toString}"
@@ -144,8 +120,34 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
         (commandId, commandF)
       }
 
-      loggerFactory.assertLogs(
+      participant1.dars.upload(CantonTestsPath)
+
+      // verify the ping is successful
+      participant1.health.ping(participant1)
+
+      loggerFactory.assertLogsUnorderedOptional(
         {
+          // change maxRequestSize
+          synchronizerOwners1.foreach(
+            _.topology.synchronizer_parameters
+              .propose_update(
+                synchronizerId = daId,
+                _.update(maxRequestSize = lowMaxRequestSize.unwrap),
+              )
+          )
+
+          eventually() {
+            forAll(nodes.all) {
+              _.topology.synchronizer_parameters
+                .latest(daId)
+                .maxRequestSize
+                .value shouldBe lowMaxRequestSize.unwrap
+            }
+          }
+
+          val matchError =
+            s"MaxViewSizeExceeded\\(view size = .*, max request size configured = .*\\)."
+
           val (commandId, _) = submitCommand(env.participant1)
 
           eventually() {
@@ -164,39 +166,42 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
             deserializedError.code.id shouldBe MalformedRequest.id
             reason should include regex matchError
           }
-        },
-        _.errorMessage should include("INVALID_ARGUMENT/MALFORMED_REQUEST"),
-      )
 
-      /*
-       restart Canton with overrideMaxRequestSize, so that max request size can be increased
-       */
-      setOverrideMaxRequestSizeWithNewEnv(env, overrideMaxRequestSize) { implicit newEnv =>
-        import newEnv.*
-        // we verify that the dynamic parameter is still set to the low value
+          // restart Canton with overrideMaxRequestSize, so that max request size can be increased
+          setOverrideMaxRequestSizeWithNewEnv(env, overrideMaxRequestSize) { implicit newEnv =>
+            import newEnv.*
+            // we verify that the dynamic parameter is still set to the low value
 
-        forAll(nodes.all)(
-          _.topology.synchronizer_parameters.latest(daId).maxRequestSize == lowMaxRequestSize
-        )
+            forAll(nodes.all)(
+              _.topology.synchronizer_parameters.latest(daId).maxRequestSize == lowMaxRequestSize
+            )
 
-        val newMaxRequestSize = NonNegativeInt.tryCreate(60_000)
-        newMaxRequestSize should not be lowMaxRequestSize
+            val newMaxRequestSize = NonNegativeInt.tryCreate(60_000)
+            newMaxRequestSize should not be lowMaxRequestSize
 
-        synchronizerOwners1.foreach(
-          _.topology.synchronizer_parameters
-            .propose_update(synchronizerId = daId, _.update(maxRequestSize = newMaxRequestSize))
-        )
+            synchronizerOwners1.foreach(
+              _.topology.synchronizer_parameters
+                .propose_update(synchronizerId = daId, _.update(maxRequestSize = newMaxRequestSize))
+            )
 
-        eventually() {
-          forAll(nodes.all) { member =>
-            member.topology.synchronizer_parameters
-              .latest(daId)
-              .maxRequestSize shouldBe newMaxRequestSize
+            eventually() {
+              forAll(nodes.all) { member =>
+                member.topology.synchronizer_parameters
+                  .latest(daId)
+                  .maxRequestSize shouldBe newMaxRequestSize
+              }
+            }
+
+            stop(newEnv)
           }
-        }
-
-        stop(newEnv)
-      }
+        },
+        LogEntryOptionality.Required -> (_.errorMessage should include(
+          "INVALID_ARGUMENT/MALFORMED_REQUEST"
+        )),
+        LogEntryOptionality.OptionalMany -> (_.warningMessage should include(
+          "Could not send a time-advancing message"
+        )),
+      )
 
       restart
 

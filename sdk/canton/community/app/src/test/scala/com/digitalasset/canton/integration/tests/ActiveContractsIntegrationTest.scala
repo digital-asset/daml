@@ -41,6 +41,7 @@ import com.digitalasset.canton.integration.util.{
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
   TestConsoleEnvironment,
@@ -61,6 +62,7 @@ import org.scalatest.Assertion
 
 import java.util.UUID
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
 class ActiveContractsIntegrationTest
@@ -87,6 +89,10 @@ class ActiveContractsIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1_S1M1
+      .addConfigTransforms(
+        // Ensure reassignments are not tripped up by some participants being a little behind.
+        ConfigTransforms.updateTargetTimestampForwardTolerance(30.seconds)
+      )
       .withSetup { implicit env =>
         import env.*
 
@@ -211,7 +217,12 @@ class ActiveContractsIntegrationTest
     val suffixedFci = LfFatContractInst
       .fromCreateNode(suffixedCreateNode, ledgerCreateTime, authenticationData.toLfBytes)
     val absolutizedFci = contractIdAbsolutizer.absolutizeFci(suffixedFci).value
-    val repairContract = RepairContract(psid, absolutizedFci, ReassignmentCounter(0))
+    val repairContract = RepairContract(
+      psid,
+      absolutizedFci,
+      ReassignmentCounter(0),
+      absolutizedFci.templateId.packageId,
+    )
 
     val startOffset = participant1.ledger_api.state.end()
     participant1.synchronizers.disconnect_all()

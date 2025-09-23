@@ -850,7 +850,6 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":base_daml-jwt",
         ":base_daml-tls",
         ":base_errors",
         ":base_util-external",
@@ -870,7 +869,6 @@ scala_library(
         "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
-        "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
@@ -883,13 +881,10 @@ scala_library(
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//libs-scala/struct-json/struct-spray-json",
-        "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/pekko-http-metrics",
         "@maven//:com_chuusai_shapeless_2_13",
-        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_google_protobuf_protobuf_java_util",
         "@maven//:com_lihaoyi_geny_2_13",
@@ -1052,6 +1047,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_actor_typed_2_13",
@@ -1803,7 +1799,10 @@ genrule(
         ":ledger-api-protos-fg",
         "//daml-lf/ledger-api-value:ledger-api-value-protos-fg",
     ],
-    outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs"],
+    outs = [
+        "Com/Daml/Ledger/Api/V2/PackageService.hs",
+        "Com/Daml/Ledger/Api/V2/PackageReference.hs",
+    ],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
@@ -1846,6 +1845,7 @@ genrule(
         "@com_google_protobuf//:well_known_type_protos",
         "@go_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
+        ":ledger-api-protos-fg",
     ],
     outs = ["Com/Daml/Ledger/Api/V2/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """

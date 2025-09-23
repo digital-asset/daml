@@ -174,7 +174,7 @@ object Ast {
       extends ExprInterface
 
   /** Convert interface back to template payload,
-    * or raise a WronglyTypedContracg error if not possible
+    * or raise a WronglyTypedContract error if not possible
     */
   final case class EUnsafeFromInterface(
       interfaceId: TypeConId,
@@ -1227,6 +1227,7 @@ object Ast {
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
+      imports: Either[String, Set[PackageId]],
       // Packages that do not define any serializable types are referred to as utility packages
       // in the context of upgrades. They will not be considered for upgrade checks.
       private val isUtilityPackage: Boolean,
@@ -1265,6 +1266,7 @@ object Ast {
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
+        imports: Either[String, Set[PackageId]],
         // Packages that do not define any serializable types are referred to as utility packages
         // in the context of upgrades. They will not be considered for upgrade checks.
     ): GenPackage[E] =
@@ -1276,12 +1278,14 @@ object Ast {
         directDeps = directDeps.toSet,
         languageVersion = languageVersion,
         metadata = metadata,
+        imports = imports,
       )
     def apply(
         modules: Map[ModuleName, GenModule[E]],
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
+        imports: Either[String, Set[PackageId]],
     ): GenPackage[E] = {
       val isUtilityPackage =
         modules.values.forall(mod =>
@@ -1298,6 +1302,7 @@ object Ast {
         languageVersion = languageVersion,
         metadata = metadata,
         isUtilityPackage = isUtilityPackage,
+        imports = imports,
       )
     }
 

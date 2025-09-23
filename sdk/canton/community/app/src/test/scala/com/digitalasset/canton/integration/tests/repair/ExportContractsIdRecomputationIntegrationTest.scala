@@ -26,7 +26,7 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressionRule.{Level, forLogger}
-import com.digitalasset.canton.participant.admin.data.{ActiveContract, ContractIdImportMode}
+import com.digitalasset.canton.participant.admin.data.{ActiveContract, ContractImportMode}
 import com.digitalasset.canton.participant.admin.repair.ContractIdsImportProcessor
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, LfThinContractInst}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
@@ -312,7 +312,7 @@ object ExportContractsIdRecomputationIntegrationTest {
               val remapping =
                 participant2.repair.import_acs(
                   brokenExportFile.canonicalPath,
-                  contractIdImportMode = ContractIdImportMode.Recomputation,
+                  contractImportMode = ContractImportMode.Recomputation,
                 )
               remapping should have size exportSize
               forAll(remapping) { case (oldCid, newCid) =>
@@ -333,7 +333,7 @@ object ExportContractsIdRecomputationIntegrationTest {
               val remapping =
                 participant2.repair.import_acs(
                   exportFile.canonicalPath,
-                  contractIdImportMode = ContractIdImportMode.Recomputation,
+                  contractImportMode = ContractImportMode.Recomputation,
                 )
               remapping shouldBe empty
             }
@@ -445,7 +445,7 @@ class ExportContractsIdRecomputationArchivedDependencyIntegrationTest
             loggerFactory.assertLogs(forLogger[ContractIdsImportProcessor] && Level(WARN))(
               participant2.repair.import_acs(
                 brokenExportFile.canonicalPath,
-                contractIdImportMode = ContractIdImportMode.Recomputation,
+                contractImportMode = ContractImportMode.Recomputation,
               ),
               _.message should include regex "Missing dependency with contract ID '.+'. The contract might have been archived. Its contract ID cannot be recomputed.",
             )
@@ -490,7 +490,7 @@ class ExportContractsIdRecomputationDuplicateDiscriminatorIntegrationTest
           loggerFactory.assertThrowsAndLogs[CommandFailure](
             participant2.repair.import_acs(
               brokenExportFile.canonicalPath,
-              contractIdImportMode = ContractIdImportMode.Recomputation,
+              contractImportMode = ContractImportMode.Recomputation,
             ),
             _.errorMessage should include regex "Duplicate discriminator '0+' is used by 2 contract IDs, including",
           )

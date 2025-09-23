@@ -804,19 +804,30 @@ final class PartyReplicator(
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     ensureParticipantStateAndSynchronizerConnected[
       PartyReplicationStatus.FullyReplicatedAcs
-    ](requestId) { case (status, _, _) =>
-      EitherT.right[String](
-        markOnPRAgreementDone(
-          PartyReplicationAgreementParams.fromAgreedReplicationStatus(status),
-          status.damlAgreementCid,
-          traceContext,
-        ).map(isAgreementArchived =>
-          if (isAgreementArchived) {
-            logger.info(s"Party replication $requestId has completed")
-            partyReplications.put(requestId, PartyReplicationStatus.Completed(status)).discard
-          }
+    ](requestId) { case (status, connectedSynchronizer, _) =>
+      for {
+        isAgreementArchived <- EitherT.right[String](
+          markOnPRAgreementDone(
+            PartyReplicationAgreementParams.fromAgreedReplicationStatus(status),
+            status.damlAgreementCid,
+            traceContext,
+          )
         )
-      )
+        isPartyOnboarded <- topologyWorkflow.authorizeOnboardedTopology(
+          status.params,
+          connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
+          connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
+        )
+      } yield {
+        if (isAgreementArchived && isPartyOnboarded) {
+          logger.info(s"Party replication $requestId has completed")
+          partyReplications.put(requestId, PartyReplicationStatus.Completed(status)).discard
+        } else {
+          logger.debug(
+            s"Party replication $requestId not yet completed. AgreementArchived $isAgreementArchived, PartyOnboarded $isPartyOnboarded."
+          )
+        }
+      }
     }
 
   private def recordError(requestId: AddPartyRequestId, tc: TraceContext)(error: String): Unit = {

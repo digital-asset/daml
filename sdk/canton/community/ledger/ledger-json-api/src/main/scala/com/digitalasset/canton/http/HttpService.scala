@@ -4,7 +4,6 @@
 package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.JwtDecoder
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
@@ -16,7 +15,6 @@ import com.digitalasset.canton.config.{
   TlsClientConfig,
   TlsServerConfig,
 }
-import com.digitalasset.canton.http.json.v1.V1Routes
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.*
@@ -26,10 +24,6 @@ import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-}
-import com.digitalasset.canton.ledger.client.services.admin.{
-  IdentityProviderConfigClient,
-  UserManagementClient,
 }
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -51,11 +45,11 @@ import java.io.InputStream
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Using
 
 class HttpService(
-    startSettings: StartSettings,
+    startSettings: JsonApiConfig,
     httpsConfiguration: Option[TlsServerConfig],
     channel: Channel,
     packageSyncService: PackageSyncService,
@@ -95,15 +89,6 @@ class HttpService(
       val ledgerClient: DamlLedgerClient =
         DamlLedgerClient.withoutToken(channel, clientConfig, loggerFactory)
 
-      val resolveUser: EndpointsCompanion.ResolveUser =
-        if (startSettings.userManagementWithoutAuthorization)
-          HttpService.resolveUserWithIdp(
-            ledgerClient.userManagementClient,
-            ledgerClient.identityProviderConfigClient,
-          )
-        else
-          HttpService.resolveUser(ledgerClient.userManagementClient)
-
       import org.apache.pekko.http.scaladsl.server.Directives.*
       val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] =
         for {
@@ -126,21 +111,9 @@ class HttpService(
             loggerFactory,
           )
 
-          v1Routes = V1Routes(
-            ledgerClient,
-            httpsConfiguration.isEmpty,
-            HttpService.decodeJwt,
-            debugLoggingOfHttpBodies,
-            resolveUser,
-            ledgerClient.userManagementClient,
-            loggerFactory,
-            websocketConfig,
-          )
-
           jsonEndpoints = new Endpoints(
             healthService,
             v2Routes,
-            v1Routes,
             debugLoggingOfHttpBodies,
             loggerFactory,
           )
@@ -197,51 +170,6 @@ object HttpService extends NoTracing {
   // but we still want to setup some protocols
   private val allowedProtocols =
     Set[TlsVersion.TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3).map(_.version)
-
-  def resolveUser(userManagementClient: UserManagementClient): EndpointsCompanion.ResolveUser =
-    jwt => userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value))
-
-  def resolveUserWithIdp(
-      userManagementClient: UserManagementClient,
-      idpClient: IdentityProviderConfigClient,
-  )(implicit ec: ExecutionContext): EndpointsCompanion.ResolveUser = jwt =>
-    userId => {
-      for {
-        idps <- idpClient
-          .listIdentityProviderConfigs(token = Some(jwt.value))
-          .map(_.map(_.identityProviderId.value))
-        userWithIdp <- Future
-          .traverse("" +: idps)(idp =>
-            userManagementClient
-              .listUsers(
-                token = Some(jwt.value),
-                identityProviderId = idp,
-                pageToken = "",
-                // Hardcoded limit for users within any idp. This is enough for the limited usage
-                // of this functionality in the transition phase from json-api v1 to v2.
-                pageSize = 1000,
-              )
-              .map(_._1)
-          )
-          .map(_.flatten.filter(_.id == userId))
-        userRight <- Future.traverse(userWithIdp)(user =>
-          userManagementClient.listUserRights(
-            token = Some(jwt.value),
-            userId = userId,
-            identityProviderId = user.identityProviderId.toRequestString,
-          )
-        )
-      } yield userRight.flatten
-
-    }
-  // TODO(#13303) Check that this is intended to be used as ValidateJwt in prod code
-  //              and inline.
-  // Decode JWT without any validation
-  private val decodeJwt: EndpointsCompanion.ValidateJwt =
-    jwt =>
-      \/.fromEither(
-        JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.prettyPrint))
-      )
 
   private[http] def createPortFile(
       file: Path,

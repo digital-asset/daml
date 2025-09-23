@@ -3,6 +3,10 @@
 
 module DA.Test.IncrementalBuilds (main) where
 
+{- HLINT ignore "Avoid restricted flags" -}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+{-# OPTIONS_GHC -Wno-unused-matches #-}
+
 {- HLINT ignore "locateRunfiles/package_app" -}
 
 import Control.Monad.Extra
@@ -29,6 +33,7 @@ main = withSdkVersions $ do
       pure TestArgs{..}
     let testTrees = [tests v2TestArgs]
     defaultMain (testGroup "Incremental builds" testTrees)
+    return ()
 
 data TestArgs = TestArgs
   { damlc :: FilePath

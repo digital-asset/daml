@@ -11,6 +11,8 @@ import com.daml.ledger.api.v2.package_service.{
   GetPackageStatusResponse,
   ListPackagesRequest,
   ListPackagesResponse,
+  ListVettedPackagesRequest,
+  ListVettedPackagesResponse,
 }
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
@@ -46,4 +48,12 @@ final class PackageClient(
       .getPackageStatus(
         GetPackageStatusRequest(packageId = packageId)
       )
+
+  def listVettedPackages(
+      request: ListVettedPackagesRequest,
+      token: Option[String] = None,
+  )(implicit traceContext: TraceContext): Future[ListVettedPackagesResponse] =
+    LedgerClient
+      .stubWithTracing(service, token)
+      .listVettedPackages(request)
 }

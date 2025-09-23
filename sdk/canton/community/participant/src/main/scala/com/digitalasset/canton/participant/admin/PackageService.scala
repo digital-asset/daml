@@ -12,6 +12,12 @@ import cats.syntax.parallel.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.ledger.api.{
+  EnrichedVettedPackage,
+  ListVettedPackagesOpts,
+  UpdateVettedPackagesOpts,
+}
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -35,6 +41,7 @@ import com.digitalasset.canton.participant.store.memory.{
 import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId, ProtoDeserializationError}
@@ -180,6 +187,60 @@ class PackageService(
       val mainPkg = readPackageId(lfArchive.main)
       revokeVettingForDar(mainPkg, packages, descriptor)
     }(ifNotExistsOperationFailed = "DAR archive unvetting")
+
+  def updateVettedPackages(
+      opts: UpdateVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    RpcError,
+    (Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage]),
+  ] = {
+    val snapshot = getPackageMetadataView.getSnapshot
+    val targetStates = opts.toTargetStates
+    val resolvedTargetStates = targetStates.flatMap(_.findMatchingPackages(snapshot))
+    packageOps
+      // TODO(#27750): all requests are of the authorized store instead of a synchronizer
+      .updateVettedPackages(resolvedTargetStates, opts.dryRun)
+      .leftWiden[RpcError]
+      .map { case (pre, post) =>
+        val enrichedPre = pre.map(enrichVettedPackage)
+        val enrichedPost = post.map(enrichVettedPackage)
+        (enrichedPre, enrichedPost)
+      }
+  }
+
+  def listVettedPackages(
+      opts: ListVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, RpcError, Option[(Seq[EnrichedVettedPackage], PositiveInt)]] = {
+    val snapshot = getPackageMetadataView.getSnapshot
+    val filterPredicates = opts.toPredicate(snapshot)
+    // TODO(#27750): all requests are of the authorized store instead of a synchronizer
+    packageOps
+      .getVettedPackages()
+      .leftWiden[RpcError]
+      .map(_.map { case (allVettedPackages, serial) =>
+        val matching = allVettedPackages.filter((v: VettedPackage) => filterPredicates(v.packageId))
+        val enriched = matching.map(enrichVettedPackage)
+        (enriched, serial)
+      })
+  }
+
+  private def enrichVettedPackage(vetted: VettedPackage)(implicit
+      traceContext: TraceContext
+  ): EnrichedVettedPackage =
+    getPackageMetadataView.getSnapshot.packageIdVersionMap
+      .get(vetted.packageId)
+      .fold(EnrichedVettedPackage(vetted, None, None)) { case (name, version) =>
+        EnrichedVettedPackage(
+          vetted,
+          Some(name),
+          Some(version),
+        )
+      }
 
   private def ifDarExists(mainPackageId: DarMainPackageId)(
       action: (

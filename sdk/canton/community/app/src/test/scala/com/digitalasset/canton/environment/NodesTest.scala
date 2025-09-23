@@ -38,11 +38,7 @@ import com.digitalasset.canton.metrics.{
   OnDemandMetricsReader,
 }
 import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
-import com.digitalasset.canton.resource.{
-  CommunityDbMigrationsFactory,
-  CommunityStorageFactory,
-  Storage,
-}
+import com.digitalasset.canton.resource.{Storage, StorageSingleFactory}
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
@@ -152,7 +148,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
-      storageFactory = new CommunityStorageFactory(StorageConfig.Memory()),
+      storageFactory = new StorageSingleFactory(StorageConfig.Memory()),
       cryptoPrivateStoreFactory =
         CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       kmsFactory = CommunityKmsFactory,
@@ -231,7 +227,6 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   class TestNodes(factory: TestNodeFactory, configs: Map[String, TestNodeConfig])
       extends ManagedNodes[TestNode, TestNodeConfig, CantonNodeParameters, TestNodeBootstrap](
         (_, _) => factory.create(),
-        new CommunityDbMigrationsFactory(loggerFactory),
         timeouts,
         configs,
         _ => MockedNodeParameters.cantonNodeParameters(),

@@ -36,9 +36,24 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
   it should "return the correct event ids for assign event stakeholder" in {
     val dbDtos = Vector(
-      DbDto.IdFilterAssignStakeholder(1, someTemplateId.toString, someParty),
-      DbDto.IdFilterAssignStakeholder(1, someTemplateId.toString, someParty2),
-      DbDto.IdFilterAssignStakeholder(2, someTemplateId2.toString, someParty),
+      DbDto.IdFilterAssignStakeholder(
+        1,
+        someTemplateId.toString,
+        someParty,
+        first_per_sequential_id = true,
+      ),
+      DbDto.IdFilterAssignStakeholder(
+        1,
+        someTemplateId.toString,
+        someParty2,
+        first_per_sequential_id = false,
+      ),
+      DbDto.IdFilterAssignStakeholder(
+        2,
+        someTemplateId2.toString,
+        someParty,
+        first_per_sequential_id = true,
+      ),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -73,7 +88,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         endInclusive = 2,
         limit = 10,
       )
-    ) shouldBe Vector(1, 1, 2)
+    ) shouldBe Vector(1, 2)
 
     executeSql(
       backend.event.fetchAssignEventIdsForStakeholder(
@@ -123,7 +138,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         endInclusive = 1,
         limit = 10,
       )
-    ) shouldBe Vector(1, 1)
+    ) shouldBe Vector(1)
 
     executeSql(
       backend.event.fetchAssignEventIdsForStakeholder(
@@ -139,9 +154,24 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
   it should "return the correct event ids for unassign event stakeholder" in {
     val dbDtos = Vector(
-      DbDto.IdFilterUnassignStakeholder(1, someTemplateId.toString, someParty),
-      DbDto.IdFilterUnassignStakeholder(1, someTemplateId.toString, someParty2),
-      DbDto.IdFilterUnassignStakeholder(2, someTemplateId2.toString, someParty),
+      DbDto.IdFilterUnassignStakeholder(
+        1,
+        someTemplateId.toString,
+        someParty,
+        first_per_sequential_id = true,
+      ),
+      DbDto.IdFilterUnassignStakeholder(
+        1,
+        someTemplateId.toString,
+        someParty2,
+        first_per_sequential_id = false,
+      ),
+      DbDto.IdFilterUnassignStakeholder(
+        2,
+        someTemplateId2.toString,
+        someParty,
+        first_per_sequential_id = true,
+      ),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -176,7 +206,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         endInclusive = 2,
         limit = 10,
       )
-    ) shouldBe Vector(1, 1, 2)
+    ) shouldBe Vector(1, 2)
 
     executeSql(
       backend.event.fetchUnassignEventIdsForStakeholder(
@@ -246,7 +276,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         endInclusive = 1,
         limit = 10,
       )
-    ) shouldBe Vector(1, 1)
+    ) shouldBe Vector(1)
 
     executeSql(
       backend.event.fetchUnassignEventIdsForStakeholder(

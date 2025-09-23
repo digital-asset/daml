@@ -251,7 +251,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       """
       .asVectorOf(
         offset("completion_offset") ~
-          str("user_id") ~
+          int("user_id") ~
           array[Int]("submitters") ~
           str("command_id") ~
           str("update_id").? ~
@@ -347,7 +347,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   }
 
   private final case class CompletionEntry(
-      userId: String,
+      userId: Int,
       submitters: List[Int],
       commandId: String,
       updateId: Option[String],

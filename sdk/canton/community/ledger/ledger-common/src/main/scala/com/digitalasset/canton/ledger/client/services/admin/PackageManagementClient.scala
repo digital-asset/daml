@@ -7,6 +7,8 @@ import com.daml.ledger.api.v2.admin.package_management_service.PackageManagement
 import com.daml.ledger.api.v2.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
+  UpdateVettedPackagesRequest,
+  UpdateVettedPackagesResponse,
   UploadDarFileRequest,
   ValidateDarFileRequest,
 }
@@ -40,6 +42,7 @@ final class PackageManagementClient(
   def uploadDarFile(
       darFile: ByteString,
       token: Option[String] = None,
+      vetAllPackages: Boolean = true,
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
       .stubWithTracing(service, token.orElse(getDefaultToken()))
@@ -47,6 +50,11 @@ final class PackageManagementClient(
         UploadDarFileRequest(
           darFile = darFile,
           submissionId = "",
+          vettingChange =
+            if (vetAllPackages)
+              UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES
+            else
+              UploadDarFileRequest.VettingChange.VETTING_CHANGE_DONT_VET_ANY_PACKAGES,
         )
       )
       .map(_ => ())
@@ -64,4 +72,12 @@ final class PackageManagementClient(
         )
       )
       .map(_ => ())
+
+  def updateVettedPackages(
+      request: UpdateVettedPackagesRequest,
+      token: Option[String] = None,
+  )(implicit traceContext: TraceContext): Future[UpdateVettedPackagesResponse] =
+    LedgerClient
+      .stubWithTracing(service, token)
+      .updateVettedPackages(request)
 }

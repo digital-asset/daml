@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.synchronizer.block.data.{
   BlockEphemeralState,
@@ -18,6 +17,7 @@ import com.digitalasset.canton.synchronizer.block.data.{
   SequencerBlockStore,
 }
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
+import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.BlockNotFound
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencer.{
   InFlightAggregationUpdates,
@@ -28,8 +28,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
-
-import SequencerError.BlockNotFound
 
 class DbSequencerBlockStore(
     override protected val storage: DbStorage,
@@ -146,22 +144,21 @@ class DbSequencerBlockStore(
       )
       .map(inFlightAggregations => BlockEphemeralState(block, inFlightAggregations))
 
-  override def partialBlockUpdate(
+  override def storeInflightAggregations(
       inFlightAggregationUpdates: InFlightAggregationUpdates
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     stateManagerStore.addInFlightAggregationUpdates(inFlightAggregationUpdates)
 
-  override def finalizeBlockUpdate(block: BlockInfo)(implicit
+  override def finalizeBlockUpdates(blocks: Seq[BlockInfo])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    storage.queryAndUpdate(updateBlockHeightDBIO(block), functionFullName)
+    storage.queryAndUpdate(updateBlockHeightDBIO(blocks), functionFullName)
 
   override def setInitialState(
       initial: SequencerInitialState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val updateBlockHeight = updateBlockHeightDBIO(BlockInfo.fromSequencerInitialState(initial))
-
+    val updateBlockHeight = updateBlockHeightDBIO(Seq(BlockInfo.fromSequencerInitialState(initial)))
     for {
       _ <- stateManagerStore.addInFlightAggregationUpdates(
         initial.snapshot.inFlightAggregations.fmap(_.asUpdate)
@@ -170,24 +167,17 @@ class DbSequencerBlockStore(
     } yield ()
   }
 
-  private def updateBlockHeightDBIO(block: BlockInfo)(implicit traceContext: TraceContext) =
-    insertVerifyingConflicts(
-      sql"""insert into seq_block_height (height, latest_event_ts, latest_sequencer_event_ts)
-            values (${block.height}, ${block.lastTs}, ${block.latestSequencerEventTimestamp})
-            on conflict do nothing""".asUpdate,
-      sql"select latest_event_ts, latest_sequencer_event_ts from seq_block_height where height = ${block.height}"
-        .as[(CantonTimestamp, Option[CantonTimestamp])]
-        .head,
-    )(
-      { case (lastEventTs, latestSequencerEventTs) =>
-        // Allow updates to `latestSequencerEventTs` if it was not set before.
-        lastEventTs == block.lastTs &&
-        (latestSequencerEventTs.isEmpty || latestSequencerEventTs == block.latestSequencerEventTimestamp)
-      },
-      { case (lastEventTs, latestSequencerEventTs) =>
-        s"Block height row for [${block.height}] had existing timestamp [$lastEventTs] and topology client timestamp [$latestSequencerEventTs], but we are attempting to insert [${block.lastTs}] and [${block.latestSequencerEventTimestamp}]"
-      },
-    )
+  private def updateBlockHeightDBIO(blocks: Seq[BlockInfo])(implicit traceContext: TraceContext) = {
+    val insertSql =
+      """insert into seq_block_height (height, latest_event_ts, latest_sequencer_event_ts)
+            values (?,?,?) on conflict do nothing"""
+    DbStorage.bulkOperation_(insertSql, blocks, storage.profile) { pp => block =>
+      pp >> block.height
+      pp >> block.lastTs
+      pp >> block.latestSequencerEventTimestamp
+    }
+
+  }
 
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

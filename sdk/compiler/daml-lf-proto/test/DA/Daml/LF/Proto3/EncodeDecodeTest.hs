@@ -39,6 +39,23 @@ entry = defaultMain $ testGroup "Round-trip tests"
     , darTests
     ]
 
+------------------------------------------------------------------------
+-- Util
+------------------------------------------------------------------------
+mkOneModulePackageForTest :: Module -> Package
+mkOneModulePackageForTest m = Package{..}
+  where
+    packageLfVersion = Version V2 PointDev
+    packageModules = NM.fromList [m]
+    importedPackages = Left $ noPkgImportsReasonTrace "DA.Daml.LF.Ast.Util:mkOneModulePackage" --since used for testing
+    packageMetadata = PackageMetadata{..}
+      where
+        packageName :: PackageName
+        packageName = PackageName "test"
+        packageVersion :: PackageVersion
+        packageVersion = PackageVersion "0.0"
+        upgradedPackageId :: Maybe UpgradedPackageId
+        upgradedPackageId = Nothing
 
 ------------------------------------------------------------------------
 -- Round-trip
@@ -52,6 +69,7 @@ roundTripPackage p = (decode . encodePackage) p
       SelfPackageId
 
 
+
 roundTripAssert :: Package -> Assertion
 roundTripAssert p =
   either
@@ -60,16 +78,16 @@ roundTripAssert p =
     (roundTripPackage p)
 
 rttEmpty :: TestTree
-rttEmpty = testCase "empty package" $ roundTripAssert $ mkOneModulePackage mkEmptyModule
+rttEmpty = testCase "empty package" $ roundTripAssert $ mkOneModulePackageForTest mkEmptyModule
 
 rttTyLam :: TestTree
-rttTyLam = testCase "tylam package" $ roundTripAssert $ mkOneModulePackage tyLamModule
+rttTyLam = testCase "tylam package" $ roundTripAssert $ mkOneModulePackageForTest tyLamModule
 
 rttTyLamAndLet :: TestTree
-rttTyLamAndLet = testCase "tylam and let package" $ roundTripAssert $ mkOneModulePackage tyLamAndLetModule
+rttTyLamAndLet = testCase "tylam and let package" $ roundTripAssert $ mkOneModulePackageForTest tyLamAndLetModule
 
 rttDeepLetWithLoc :: TestTree
-rttDeepLetWithLoc = testCase "deep let with location package" $ roundTripAssert $ mkOneModulePackage mkDeepLetWithLocModule
+rttDeepLetWithLoc = testCase "deep let with location package" $ roundTripAssert $ mkOneModulePackageForTest mkDeepLetWithLocModule
 
 ------------------------------------------------------------------------
 -- .dar tests

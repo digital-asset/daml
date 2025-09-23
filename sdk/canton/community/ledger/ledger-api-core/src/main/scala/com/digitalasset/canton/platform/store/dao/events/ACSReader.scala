@@ -526,7 +526,6 @@ class ACSReader(
           maxBatchSize = config.maxPayloadsPerPayloadsPage,
           maxBatchCount = config.maxParallelPayloadCreateQueries + 1,
         )
-        .async
         .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
         .mapAsync(config.maxParallelPayloadCreateQueries)(fetchActiveCreatePayloads)
         .mapConcat(identity)
@@ -538,7 +537,6 @@ class ACSReader(
           maxBatchSize = config.maxPayloadsPerPayloadsPage,
           maxBatchCount = config.maxParallelPayloadCreateQueries + 1,
         )
-        .async
         .addAttributes(Attributes.inputBuffer(initial = inputBufferSize, max = inputBufferSize))
         .mapAsync(config.maxParallelPayloadCreateQueries)(fetchActiveAssignPayloads)
         .mapConcat(identity)

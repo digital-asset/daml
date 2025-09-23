@@ -42,7 +42,14 @@ final case class ActiveContractOld(
       contract.ledgerCreateTime,
       contract.authenticationData.toLfBytes,
     )
-    RepairContract(synchronizerId, inst, reassignmentCounter)
+    RepairContract(
+      synchronizerId = synchronizerId,
+      contract = inst,
+      reassignmentCounter = reassignmentCounter,
+      // Fine to have the same representative package id as in the original contract since
+      // exports created using ExportAcsOld are not meant to support forgetting the creation package
+      representativePackageId = inst.templateId.packageId,
+    )
   }
 
 }

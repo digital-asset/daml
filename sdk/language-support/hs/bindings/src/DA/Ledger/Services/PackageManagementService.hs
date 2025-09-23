@@ -20,6 +20,7 @@ import qualified Data.Map as Map
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Generated
+import Proto3.Suite.Types (Enumerated(..))
 import qualified Com.Daml.Ledger.Api.V2.Admin.PackageManagementService as LL
 
 data PackageDetails = PackageDetails
@@ -67,6 +68,7 @@ uploadDarFile bytes =
                 LL.UploadDarFileRequest
                     bytes
                     TL.empty -- let server allocate submission id
+                    (Enumerated (Right LL.UploadDarFileRequest_VettingChangeVETTING_CHANGE_UNSPECIFIED))
         rpc (ClientNormalRequest request timeout mdm)
             >>= unwrapWithInvalidArgumentAndMetadata
             <&> bimap collapseUploadError (\LL.UploadDarFileResponse{} -> ())

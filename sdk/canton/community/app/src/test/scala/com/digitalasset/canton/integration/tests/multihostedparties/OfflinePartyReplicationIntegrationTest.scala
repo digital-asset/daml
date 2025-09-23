@@ -12,6 +12,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
+import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -25,7 +26,7 @@ import com.digitalasset.canton.integration.{
   TestEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.ContractImportMode
 import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError.InvalidTimestamp
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
@@ -53,16 +54,18 @@ trait OfflinePartyReplicationIntegrationTestBase
   protected var bob: PartyId = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1.withSetup { implicit env =>
-      import env.*
-      participants.local.synchronizers.connect_local(sequencer1, daName)
-      participants.local.dars.upload(CantonExamplesPath)
-      sequencer1.topology.synchronizer_parameters
-        .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
+    EnvironmentDefinition.P3_S1M1
+      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
+      .withSetup { implicit env =>
+        import env.*
+        participants.local.synchronizers.connect_local(sequencer1, daName)
+        participants.local.dars.upload(CantonExamplesPath)
+        sequencer1.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
 
-      alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
-      bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
-    }
+        alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
+        bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
+      }
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
@@ -185,7 +188,7 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
 
       target.repair.import_acs(
         acsSnapshotPath,
-        contractIdImportMode = ContractIdImportMode.Accept,
+        contractImportMode = ContractImportMode.Accept,
       )
 
       target.synchronizers.reconnect(daName)
@@ -261,7 +264,7 @@ final class OfflinePartyReplicationWithSilentSynchronizerIntegrationTest
 
       target.repair.import_acs(
         acsSnapshotPath,
-        contractIdImportMode = ContractIdImportMode.Accept,
+        contractImportMode = ContractImportMode.Accept,
       )
 
       target.synchronizers.reconnect(daName)

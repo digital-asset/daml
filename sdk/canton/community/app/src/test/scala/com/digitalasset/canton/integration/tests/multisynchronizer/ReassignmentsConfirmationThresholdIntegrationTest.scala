@@ -50,6 +50,7 @@ import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, Promise}
 
 /*
@@ -91,8 +92,9 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
     EnvironmentDefinition.P3_S1M1_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
+        ConfigTransforms.updateTargetTimestampForwardTolerance(10.minutes),
         ConfigTransforms.updateAllParticipantConfigs_(
-          _.focus(_.parameters.reassignmentTimeProofFreshnessProportion)
+          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
             .replace(NonNegativeInt.zero)
         ),
       )

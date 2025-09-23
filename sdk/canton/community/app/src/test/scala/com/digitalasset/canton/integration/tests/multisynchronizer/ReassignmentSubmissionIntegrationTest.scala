@@ -60,7 +60,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
           // Make sure that unassignment picks a recent target synchronizer topology snapshot
           // TODO(#25110): Remove this configuration once the correct snapshot is used in computing
           //               the vetting checks for the target synchronizer
-          _.focus(_.parameters.reassignmentTimeProofFreshnessProportion)
+          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
             .replace(NonNegativeInt.zero)
         )
       )

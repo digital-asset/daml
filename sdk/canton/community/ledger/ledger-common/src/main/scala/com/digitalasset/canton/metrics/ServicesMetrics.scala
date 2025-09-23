@@ -161,6 +161,7 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val readListLfPackages: Item = extend("list_lf_packages", readBaseInfo)
   private[metrics] val readGetLfArchive: Item = extend("get_lf_archive", readBaseInfo)
   private[metrics] val readValidateDar: Item = extend("validate_dar", readBaseInfo)
+  private[metrics] val readListVettedPackages: Item = extend("list_vetted_packages", readBaseInfo)
 
   private[metrics] val writeBaseInfo = MetricInfo(
     indexPrefix :+ "write",
@@ -181,6 +182,9 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val writeAllocateParty: Item = extend("allocate_party", writeBaseInfo)
 
   private[metrics] val writePrune: Item = extend("prune", writeBaseInfo)
+
+  private[metrics] val writeUpdateVettedPackages: Item =
+    extend("update_vetted_packages", writeBaseInfo)
 
 }
 
@@ -331,6 +335,8 @@ final class ServicesMetrics private[metrics] (
     val listLfPackages: Timer = openTelemetryMetricsFactory.timer(inventory.readListLfPackages.info)
     val getLfArchive: Timer = openTelemetryMetricsFactory.timer(inventory.readGetLfArchive.info)
     val validateDar: Timer = openTelemetryMetricsFactory.timer(inventory.readValidateDar.info)
+    val listVettedPackages: Timer =
+      openTelemetryMetricsFactory.timer(inventory.readListVettedPackages.info)
   }
 
   val read: ReadMetrics = new ReadMetrics
@@ -360,6 +366,9 @@ final class ServicesMetrics private[metrics] (
     val allocateParty: Timer = openTelemetryMetricsFactory.timer(inventory.writeAllocateParty.info)
 
     val prune: Timer = openTelemetryMetricsFactory.timer(inventory.writePrune.info)
+
+    val updateVettedPackages: Timer =
+      openTelemetryMetricsFactory.timer(inventory.writeUpdateVettedPackages.info)
   }
 
   val write: WriteMetrics = new WriteMetrics

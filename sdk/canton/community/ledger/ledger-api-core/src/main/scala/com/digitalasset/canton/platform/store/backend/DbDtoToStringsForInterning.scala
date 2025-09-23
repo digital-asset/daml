@@ -13,6 +13,8 @@ object DbDtoToStringsForInterning {
       parties = dbDtos.iterator.flatMap(partiesOf),
       synchronizerIds = dbDtos.iterator.flatMap(synchronizerIdsOf),
       packageIds = dbDtos.iterator.flatMap(packageIdsOf),
+      userIds = dbDtos.iterator.flatMap(userIdsOf),
+      participantIds = dbDtos.iterator.flatMap(participantIdsOf),
     )
 
   private def templateIdsOf(dbDto: DbDto): Iterator[String] =
@@ -96,6 +98,18 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.CommandCompletion => Iterator(dbDto.synchronizer_id)
       case dbDto: DbDto.SequencerIndexMoved => Iterator(dbDto.synchronizerId)
       case dbDto: DbDto.TransactionMeta => Iterator(dbDto.synchronizer_id)
+      case _ => Iterator.empty
+    }
+
+  private def userIdsOf(dbDto: DbDto): Iterator[String] =
+    dbDto match {
+      case dbDto: DbDto.CommandCompletion => Iterator(dbDto.user_id)
+      case _ => Iterator.empty
+    }
+
+  private def participantIdsOf(dbDto: DbDto): Iterator[String] =
+    dbDto match {
+      case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.participant_id)
       case _ => Iterator.empty
     }
 }

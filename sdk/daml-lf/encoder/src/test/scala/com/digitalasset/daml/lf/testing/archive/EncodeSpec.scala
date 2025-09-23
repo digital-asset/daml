@@ -274,13 +274,16 @@ ${onlyIf(languageVersion >= LanguageVersion.Features.choiceFuncs)("""
          }
       """
 
-      validate(pkgId, pkg)
+      // we remove the imports since they will be removed during encoding
+      val pkg1 = pkg.copy(imports = Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET"))
+
+      validate(pkgId, pkg1)
       val archive =
-        Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
+        Encode.encodeArchive(pkgId -> pkg1, defaultParserParameters.languageVersion)
       val (hash, decodedPackage) = Decode.assertDecodeArchive(archive)
 
-      val pkg1 = normalize(decodedPackage, hash, pkgId)
-      pkg shouldBe pkg1
+      val pkg2 = normalize(decodedPackage, hash, pkgId)
+      pkg1 shouldBe pkg2
     }
   }
 

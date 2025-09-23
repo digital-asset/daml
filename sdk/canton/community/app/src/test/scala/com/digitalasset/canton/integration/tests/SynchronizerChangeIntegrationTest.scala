@@ -76,6 +76,8 @@ object SynchronizerChangeIntegrationTest {
   final case class Config(
       simClock: Boolean,
       assignmentExclusivityTimeout: NonNegativeFiniteDuration,
+      targetTimestampForwardTolerance: NonNegativeFiniteDuration =
+        NonNegativeFiniteDuration.tryOfSeconds(30),
   )
 }
 
@@ -108,6 +110,11 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
         simClockTransform, // required such that late message processing warning isn't emitted
         _.focus(_.monitoring.logging.delayLoggingThreshold)
           .replace(NonNegativeFiniteDurationConfig.ofDays(100)),
+      )
+      .addConfigTransform(
+        ConfigTransforms.updateTargetTimestampForwardTolerance(
+          config.targetTimestampForwardTolerance.duration
+        )
       )
       .addConfigTransforms(additionalConfigTransforms*)
       .withSetup(setUp)
@@ -322,13 +329,15 @@ abstract class SynchronizerChangeSimClockIntegrationTest
       SynchronizerChangeIntegrationTest.Config(
         simClock = true,
         assignmentExclusivityTimeout = NonNegativeFiniteDuration.tryOfMinutes(10L),
+        targetTimestampForwardTolerance = NonNegativeFiniteDuration.tryOfSeconds(30),
       )
     )
     with SecurityTestSuite {
 
   override protected def additionalConfigTransforms: Seq[ConfigTransform] = Seq(
     ConfigTransforms.updateAllParticipantConfigs_(
-      _.focus(_.parameters.reassignmentTimeProofFreshnessProportion).replace(NonNegativeInt.zero)
+      _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
+        .replace(NonNegativeInt.zero)
     )
   )
 

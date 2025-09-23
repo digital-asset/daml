@@ -18,6 +18,7 @@ import io.opentelemetry.sdk.trace.export.{SimpleSpanProcessor, SpanExporter}
 import io.opentelemetry.sdk.trace.data.SpanData
 
 import java.util
+import scala.concurrent.blocking
 
 /** Provides tracer for span reporting and takes care of closing resources
   */
@@ -90,7 +91,11 @@ object NoopSpanExporter extends SpanExporter {
 object TracerProvider {
   object Factory {
     def apply(configuredOpenTelemetry: ConfiguredOpenTelemetry, name: String): TracerProvider =
-      new TracerProviderWithBuilder(configuredOpenTelemetry, name)
-
+      blocking(synchronized {
+        // Because nodes of the same type are started in parallel, this could cause some issues with multiple instances
+        // of this code running concurrently, which would result in different nodes of the same type receiving the same
+        // tracer and appearing as the same node in the traces.
+        new TracerProviderWithBuilder(configuredOpenTelemetry, name)
+      })
   }
 }

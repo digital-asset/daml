@@ -44,7 +44,10 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.admin.ResourceLimits
-import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.participant.admin.party.PartyParticipantPermission
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
@@ -828,8 +831,9 @@ object ParticipantAdminCommands {
     final case class ImportAcs(
         acsChunk: ByteString,
         workflowIdPrefix: String,
-        contractIdImportMode: ContractIdImportMode,
+        contractImportMode: ContractImportMode,
         excludedStakeholders: Set[PartyId],
+        representativePackageIdOverride: RepresentativePackageIdOverride,
     ) extends GrpcAdminCommand[
           v30.ImportAcsRequest,
           v30.ImportAcsResponse,
@@ -846,8 +850,9 @@ object ParticipantAdminCommands {
           v30.ImportAcsRequest(
             acsChunk,
             workflowIdPrefix,
-            contractIdImportMode.toProtoV30,
+            contractImportMode.toProtoV30,
             excludedStakeholders.map(_.toProtoPrimitive).toSeq,
+            Some(representativePackageIdOverride.toProtoV30),
           )
         )
 
@@ -861,8 +866,9 @@ object ParticipantAdminCommands {
             v30.ImportAcsRequest(
               ByteString.copyFrom(bytes),
               workflowIdPrefix,
-              contractIdImportMode.toProtoV30,
+              contractImportMode.toProtoV30,
               excludedStakeholders.map(_.toProtoPrimitive).toSeq,
+              Some(representativePackageIdOverride.toProtoV30),
             ),
           request.acsSnapshot,
         )

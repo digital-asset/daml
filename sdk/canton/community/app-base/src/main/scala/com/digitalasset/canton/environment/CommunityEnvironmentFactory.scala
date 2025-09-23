@@ -6,7 +6,6 @@ package com.digitalasset.canton.environment
 import com.digitalasset.canton.config.{CantonConfig, CommunityCantonEdition, TestingConfigInternal}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.CommunityParticipantNodeBootstrapFactory
-import com.digitalasset.canton.resource.CommunityDbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeBootstrapFactory
 import com.digitalasset.canton.synchronizer.sequencer.CommunitySequencerNodeBootstrapFactory
 
@@ -24,7 +23,6 @@ object CommunityEnvironmentFactory extends EnvironmentFactory {
       CommunityParticipantNodeBootstrapFactory,
       CommunitySequencerNodeBootstrapFactory,
       CommunityMediatorNodeBootstrapFactory,
-      new CommunityDbMigrationsMetaFactory(loggerFactory),
       loggerFactory,
     )
 }

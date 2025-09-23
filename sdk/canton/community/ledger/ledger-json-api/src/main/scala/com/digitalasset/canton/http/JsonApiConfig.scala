@@ -15,17 +15,15 @@ import scala.concurrent.duration.*
 final case class JsonApiConfig(
     server: HttpServerConfig,
     websocketConfig: Option[WebsocketConfig] = None,
-    debugLoggingOfHttpBodies: Boolean = false, // v1 only
+    debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
-    userManagementWithoutAuthorization: Boolean = false, // v1 only
-) extends StartSettings
+)
 
 object JsonApiConfig {
   implicit val jsonApiConfigCantonConfigValidator: CantonConfigValidator[JsonApiConfig] =
     CantonConfigValidator.validateAll // Do not recurse as there are no enterprise features on the JSON API
 }
 
-// It is public for Daml Hub
 final case class WebsocketConfig(
     maxDuration: FiniteDuration = WSC.DefaultMaxDuration, // v1 only
     throttleElem: Int = WSC.DefaultThrottleElem, // v1 only
@@ -39,7 +37,7 @@ final case class WebsocketConfig(
 
 object WebsocketConfig {
   implicit val showInstance: Show[WebsocketConfig] = Show.shows(c =>
-    s"WebsocketConfig(maxDuration=${c.maxDuration}, heartBeatPer=${c.heartbeatPeriod})"
+    s"WebsocketConfig(httpListMaxElementsLimit=${c.httpListMaxElementsLimit}, httpListWaitTime=${c.httpListWaitTime})"
   )
 
   val DefaultMaxDuration: FiniteDuration = 120.minutes

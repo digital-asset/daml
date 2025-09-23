@@ -42,8 +42,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver1,
       ),
-      dtoCreateFilter(1L, someTemplateId, partySignatory),
-      dtoCreateFilter(1L, someTemplateId, partyObserver1),
+      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
       dtoCreate(
         offset(2),
         2L,
@@ -51,8 +51,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver2,
       ),
-      dtoCreateFilter(2L, someTemplateId, partySignatory),
-      dtoCreateFilter(2L, someTemplateId, partyObserver2),
+      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -98,7 +98,7 @@ private[backend] trait StorageBackendTestsEvents
     resultSignatory should contain theSameElementsAs Vector(1L, 2L)
     resultObserver1 should contain theSameElementsAs Vector(1L)
     resultObserver2 should contain theSameElementsAs Vector(2L)
-    resultSuperReader should contain theSameElementsAs Vector(1L, 1L, 2L, 2L)
+    resultSuperReader should contain theSameElementsAs Vector(1L, 2L)
   }
 
   it should "find contracts by party and template" in {
@@ -114,8 +114,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver1,
       ),
-      dtoCreateFilter(1L, someTemplateId, partySignatory),
-      dtoCreateFilter(1L, someTemplateId, partyObserver1),
+      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
       dtoCreate(
         offset(2),
         2L,
@@ -123,8 +123,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver2,
       ),
-      dtoCreateFilter(2L, someTemplateId, partySignatory),
-      dtoCreateFilter(2L, someTemplateId, partyObserver2),
+      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -170,7 +170,7 @@ private[backend] trait StorageBackendTestsEvents
     resultSignatory should contain theSameElementsAs Vector(1L, 2L)
     resultObserver1 should contain theSameElementsAs Vector(1L)
     resultObserver2 should contain theSameElementsAs Vector(2L)
-    resultSuperReader should contain theSameElementsAs Vector(1L, 1L, 2L, 2L)
+    resultSuperReader should contain theSameElementsAs Vector(1L, 2L)
   }
 
   it should "not find contracts when the template doesn't match" in {
@@ -187,8 +187,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver1,
       ),
-      dtoCreateFilter(1L, someTemplateId, partySignatory),
-      dtoCreateFilter(1L, someTemplateId, partyObserver1),
+      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
       dtoCreate(
         offset(2),
         2L,
@@ -196,8 +196,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver2,
       ),
-      dtoCreateFilter(2L, someTemplateId, partySignatory),
-      dtoCreateFilter(2L, someTemplateId, partyObserver2),
+      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -260,8 +260,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver,
       ),
-      dtoCreateFilter(1L, someTemplateId, partySignatory),
-      dtoCreateFilter(1L, someTemplateId, partyObserver),
+      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(1L, someTemplateId, partyObserver, first_per_sequential_id = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -323,8 +323,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver1,
       ),
-      dtoCreateFilter(1L, someTemplateId, partySignatory),
-      dtoCreateFilter(1L, someTemplateId, partyObserver1),
+      dtoCreateFilter(1L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(1L, someTemplateId, partyObserver1, first_per_sequential_id = false),
       dtoCreate(
         offset(2),
         2L,
@@ -332,8 +332,8 @@ private[backend] trait StorageBackendTestsEvents
         signatory = partySignatory,
         observer = partyObserver2,
       ),
-      dtoCreateFilter(2L, someTemplateId, partySignatory),
-      dtoCreateFilter(2L, someTemplateId, partyObserver2),
+      dtoCreateFilter(2L, someTemplateId, partySignatory, first_per_sequential_id = true),
+      dtoCreateFilter(2L, someTemplateId, partyObserver2, first_per_sequential_id = false),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))

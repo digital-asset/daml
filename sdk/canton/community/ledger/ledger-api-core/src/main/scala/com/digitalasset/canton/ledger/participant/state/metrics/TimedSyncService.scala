@@ -6,9 +6,16 @@ package com.digitalasset.canton.ledger.participant.state.metrics
 import cats.data.EitherT
 import com.daml.metrics.Timed
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.api.{
+  EnrichedVettedPackage,
+  ListVettedPackagesOpts,
+  UpdateVettedPackagesOpts,
+  UploadDarVettingChange,
+}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerRequest,
@@ -88,12 +95,13 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def uploadDar(
       dar: Seq[ByteString],
       submissionId: Ref.SubmissionId,
+      vettingChange: UploadDarVettingChange,
   )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
     Timed.future(
       metrics.services.write.uploadPackages,
-      delegate.uploadDar(dar, submissionId),
+      delegate.uploadDar(dar, submissionId, vettingChange),
     )
 
   override def allocateParty(
@@ -172,6 +180,26 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     Timed.future(
       metrics.services.read.validateDar,
       delegate.validateDar(dar, darName),
+    )
+
+  override def updateVettedPackages(
+      opts: UpdateVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])] =
+    Timed.future(
+      metrics.services.write.updateVettedPackages,
+      delegate.updateVettedPackages(opts),
+    )
+
+  override def listVettedPackages(
+      opts: ListVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[(Seq[EnrichedVettedPackage], PositiveInt)]] =
+    Timed.future(
+      metrics.services.read.listVettedPackages,
+      delegate.listVettedPackages(opts),
     )
 
   // TODO(#25385): Time the operation

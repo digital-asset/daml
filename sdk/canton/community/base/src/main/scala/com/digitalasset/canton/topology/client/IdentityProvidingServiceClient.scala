@@ -119,8 +119,9 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * As we future date topology transactions, the head snapshot is our latest knowledge of the
     * topology state, but as it can be still future dated, we need to be careful when actually using
     * it: the state might not yet be active, as the topology transactions are future dated.
-    * Therefore, do not act towards the sequencer using this snapshot, but use the
-    * currentSnapshotApproximation instead.
+    * Therefore, do not prepare regular transactions using this snapshot, but use the
+    * currentSnapshotApproximation instead. A head snapshot can be useful, however, for producing
+    * new topology changes, e.g., for picking the correct serial.
     */
   def headSnapshot(implicit traceContext: TraceContext): T = checked(
     trySnapshot(topologyKnownUntilTimestamp)

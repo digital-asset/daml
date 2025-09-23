@@ -27,7 +27,12 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
       dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatory),
+      DbDto.IdFilterCreateStakeholder(
+        event_sequential_id = 1L,
+        template_id = someTemplateId.toString,
+        party_id = signatory,
+        first_per_sequential_id = true,
+      ),
       dtoCompletion(offset(1)),
     )
 
@@ -65,7 +70,12 @@ private[backend] trait StorageBackendTestsContracts
         signatory = signatory,
         emptyFlatEventWitnesses = true,
       ),
-      DbDto.IdFilterCreateNonStakeholderInformee(1L, someTemplateId.toString, signatory),
+      DbDto.IdFilterCreateNonStakeholderInformee(
+        1L,
+        someTemplateId.toString,
+        signatory,
+        first_per_sequential_id = true,
+      ),
       dtoCompletion(offset(1)),
     )
 
@@ -147,7 +157,12 @@ private[backend] trait StorageBackendTestsContracts
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
       dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
-      DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatory),
+      DbDto.IdFilterCreateStakeholder(
+        1L,
+        someTemplateId.toString,
+        signatory,
+        first_per_sequential_id = true,
+      ),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
       dtoExercise(offset(2), 2L, consuming = true, contractId),
@@ -203,7 +218,12 @@ private[backend] trait StorageBackendTestsContracts
         signatory = signatory,
         emptyFlatEventWitnesses = true,
       ),
-      DbDto.IdFilterCreateNonStakeholderInformee(1L, someTemplateId.toString, signatory),
+      DbDto.IdFilterCreateNonStakeholderInformee(
+        1L,
+        someTemplateId.toString,
+        signatory,
+        first_per_sequential_id = true,
+      ),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
       dtoExercise(offset(2), 2L, consuming = true, contractId, emptyFlatEventWitnesses = true),
