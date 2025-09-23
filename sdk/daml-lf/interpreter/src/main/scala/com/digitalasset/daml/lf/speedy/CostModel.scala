@@ -96,8 +96,8 @@ abstract class CostModel {
 
   val EVar: CostConstant
   val EVal: CostConstant
-  // no EBuiltinFun, we model model only the cost og the wrapped builting
-  // no EBuiltinLit, we do not chache for literal
+  // no EBuiltinFun, we model model only the cost of the wrapped builtin
+  // no EBuiltinLit, as we do not charge for literals
   val ERecCon: CostFunction1[Int]
   val ERecProj: CostFunction1[Int]
   val ERecUp: CostFunction1[Int]
@@ -524,7 +524,7 @@ object CostModel {
     )
 
     /** Memory model of an `Frontstack` of length `n` */
-    // Get empirically, not a proper overapproximation because can contain ImmArray
+    // Obtained empirically, so not a proper over approximation as it can contain ImmArray
     val FrontStackSize = LinearPolynomial(48, 120)
 
     /** Memory model of a SUnit object */
@@ -876,8 +876,8 @@ object CostModel {
     override val BImplodeText: CostFunction1[FrontStack[SValue]] = {
       val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b)
       (list: FrontStack[SValue]) =>
-        // be carefull computation of n should use bounded memory
-        val n = list.iterator.map {
+      // take care as computation of n should use bounded memory
+      val n = list.iterator.map {
           case SValue.SText(s) => s.length
           case _ => 0 // should not happen
         }.sum
@@ -925,8 +925,7 @@ object CostModel {
     override val EFromAny: CostConstant = CostConstant(SOptionalSize)
     override val ETypeRep: CostConstant = CostConstant(STYPEREP_SHELL_BYTES)
     override val EToInterface: CostConstant = EToAny
-    override val EFromInterface: CostFunction1[SAnyContract] =
-      CostFunction1.CostAware // should be cost aware
+    override val EFromInterface: CostFunction1[SAnyContract] = CostFunction1.CostAware
     override val EToRequiredInterface: CostConstant = CostConstant.Null // identity at runtime
     override val EFromRequiredInterface: CostConstant = CostConstant(SOptionalSize)
     override val EInterfaceTemplateTypeRep: CostConstant = CostConstant(STYPEREP_SHELL_BYTES)
