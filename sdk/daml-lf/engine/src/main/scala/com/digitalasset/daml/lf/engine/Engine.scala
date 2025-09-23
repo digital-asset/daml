@@ -462,6 +462,7 @@ class Engine(val config: EngineConfig) {
       packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
+      initialGasBudget = config.gasBudget,
     )
     interpretLoop(machine, ledgerTime, submissionInfo)
   }

@@ -112,7 +112,9 @@ private[lf] object SExpr {
   final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic]) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Q] =
       fun.lookupValue(machine) match {
-        case vfun: SPAP => machine.enterApplication(vfun, args)
+        case vfun: SPAP =>
+          machine.updateGasBudget(_.EApp.cost(vfun.actuals.size, args.size))
+          machine.enterApplication(vfun, args)
         case other => throw SError.SErrorCrash("SEAppAtomicGeneral", s"except SPAP, but got $other")
       }
   }
@@ -123,6 +125,7 @@ private[lf] object SExpr {
   final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinFun, args: ArraySeq[SExprAtomic])
       extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
+      machine.updateGasBudget(_.EApp.cost(0, args.length))
       assert(args.length == builtin.arity)
       val actuals = args.map(_.lookupValue(machine))
       builtin.execute(actuals, machine)
@@ -202,6 +205,7 @@ private[lf] object SExpr {
       extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
       assert(args.length == builtin.arity)
+      machine.updateGasBudget(_.EApp.cost(0, args.length))
       val actuals = args.map(_.lookupValue(machine))
       val v = builtin.executePure(actuals, machine)
       machine.pushEnv(v)
@@ -236,7 +240,8 @@ private[lf] object SExpr {
           SELet1Builtin(builtin, args, body)
         case SEAppAtomicSaturatedBuiltin(builtin: SBuiltinArithmetic, args) =>
           SELet1BuiltinArithmetic(builtin, args, body)
-        case _ => SELet1General(rhs, body)
+        case _ =>
+          SELet1General(rhs, body)
       }
     }
   }
