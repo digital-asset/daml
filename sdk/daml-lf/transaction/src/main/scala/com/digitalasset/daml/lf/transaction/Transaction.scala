@@ -678,7 +678,7 @@ object Transaction {
     * @param disclosedEvents  Disclosed create events that have been used in this transaction.
     */
   final case class Metadata(
-      submissionSeed: Option[Any],
+      submissionSeed: Option[crypto.Hash],
       preparationTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       timeBoundaries: Time.Range,
