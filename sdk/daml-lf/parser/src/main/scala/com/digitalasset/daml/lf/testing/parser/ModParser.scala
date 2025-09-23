@@ -48,6 +48,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           .toSet - parameters.defaultPackageId,
         languageVersion = parameters.languageVersion,
         metadata = metadata,
+        imports = Left("package created by com.digitalasset.daml.lf.testing.parser:ModParser"),
       )
     }
 

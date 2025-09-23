@@ -195,6 +195,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
             PackageVersion.assertFromString("0.0.0"),
             None,
           ),
+          Left("package made in com.digitalasset.daml.lf.engine.ReinterpretTest"),
         )
       var queriedPackageIds = Set.empty[Ref.PackageId]
       val trackPackageQueries: PartialFunction[Ref.PackageId, Package] = { pkgId =>

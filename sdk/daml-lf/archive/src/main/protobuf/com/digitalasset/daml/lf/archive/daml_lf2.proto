@@ -37,10 +37,11 @@ message SelfOrImportedPackageId {
     // belongs.
     Unit self_package_id = 1;
 
-    // An index into `interned_package_ids` of the Package containing
-    // this reference.
     // *Must be a valid interned package Id string*
     int32 imported_package_id_interned_str = 3;
+
+    // an index in the package's explicit import table
+    int32 package_import_id = 4;
   }
 }
 
@@ -1361,7 +1362,7 @@ message PackageMetadata {
 }
 
 message PackageImports {
-  repeated string imported_packages = 8;
+  repeated string imported_packages = 1;
 }
 
 message Package {
@@ -1376,6 +1377,8 @@ message Package {
   repeated Kind interned_kinds = 6; // *Available in versions >= 2.dev*
   repeated Expr interned_exprs = 7; // *Available in versions >= 2.dev*
 
-  //indirection to PackageImports to get a Maybe wrapper
-  PackageImports imported_packages = 8;
+  oneof ImportsSum {
+    string no_imported_packages_reason = 8;  // *Available in versions >= 2.dev*
+    PackageImports package_imports = 9; // *Available in versions >= 2.dev*
+  }
 }

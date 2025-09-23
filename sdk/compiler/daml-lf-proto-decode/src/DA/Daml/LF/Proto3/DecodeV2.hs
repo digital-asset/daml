@@ -1,5 +1,8 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
+--------------------------------------------------------------------------------
+-- SPDX-License-Identifier: Apache-2.
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -7,39 +10,45 @@ module DA.Daml.LF.Proto3.DecodeV2 (
   module DA.Daml.LF.Proto3.DecodeV2
 ) where
 
+import           Control.Monad
+import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Control.Lens hiding (MethodName)
+
+import           Data.Coerce
+import           Data.Int
+import           Data.List
+import qualified Data.List.NonEmpty   as NE
+import qualified Data.NameMap         as NM
+import qualified Data.Set             as S
+import qualified Data.Text            as T
+import qualified Data.Text.Lazy       as TL
+import qualified Data.Vector.Extended as V
+
+import           Text.Read
+import           Text.Printf
+
+import qualified Proto3.Suite as Proto
 
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
-import Data.Coerce
-import Control.Monad
-import Control.Monad.Except
-import Control.Monad.Reader
-import Data.Int
-import Text.Read
-import Text.Printf
-import           Data.List
 import           DA.Daml.LF.Mangling
-import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as LF2
-import qualified Data.NameMap as NM
-import qualified Data.Text as T
-import qualified Data.Set as S
-import qualified Data.Text.Lazy as TL
-import qualified Data.Vector.Extended as V
-import qualified Proto3.Suite as Proto
 
+import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as LF2
 
 data DecodeEnv = DecodeEnv
     -- We cache unmangled identifiers here so that we only do the unmangling once
     -- and so that we can share the unmangled identifiers. Since not all strings in the string
     -- interning tables are mangled, we store the potential error from unmangling rather than
     -- erroring out when producing the string interning table.
-    { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
+    { internedStrings     :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
-    , internedExprs :: !(V.Vector Expr)
-    , internedTypes :: !(V.Vector Type)
-    , internedKinds :: !(V.Vector Kind)
-    , selfPackageRef :: SelfOrImportedPackageId
-    , version        :: LF.Version
+    , internedExprs       :: !(V.Vector Expr)
+    , internedTypes       :: !(V.Vector Type)
+    , internedKinds       :: !(V.Vector Kind)
+    , selfPackageRef      :: SelfOrImportedPackageId
+    , version             :: LF.Version
+    , imports             :: !(Either NoPkgImportsReasons (V.Vector PackageId))
     }
 
 newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
@@ -47,6 +56,16 @@ newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
 
 runDecode :: DecodeEnv -> Decode a -> Either Error a
 runDecode env act = runExcept $ runReaderT (unDecode act) env
+
+assertSingletonIfLfFlat :: Foldable t => t a -> Decode ()
+assertSingletonIfLfFlat xs =
+  when (length xs /= 1) $ whenSupportsNot (to version) featureFlatArchive $ \v ->
+    throwError $ ParseError $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
+
+assertNullIfLfFlat :: Foldable t => t a -> Decode ()
+assertNullIfLfFlat xs =
+  when (not $ null xs) $ whenSupportsNot (to version) featureFlatArchive $ \v ->
+    throwError $ ParseError $ printf "argument(s) disallowed since lf %s supports flat archives" $ show v
 
 lookupInterned :: Integral b => V.Vector a -> (b -> Error) -> b -> Decode a
 lookupInterned interned mkError id = do
@@ -131,15 +150,34 @@ decodeValId LF2.ValueId{..} = do
 -- name are interned since Daml-LF 1.6.
 decodePackageId :: LF2.SelfOrImportedPackageId -> Decode SelfOrImportedPackageId
 decodePackageId (LF2.SelfOrImportedPackageId pref) =
-    mayDecode "packageRefSum" pref $ \case
-        LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
-        LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> ImportedPackageId . PackageId . fst <$> lookupString strId
+  mayDecode "packageRefSum" pref $ \case
+      LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
+      LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> do
+        pkgId <- PackageId . fst <$> lookupString strId
+        assertStableIfPkgImports pkgId
+        return $ ImportedPackageId pkgId
+      LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
+        ImportedPackageId . (V.! fromIntegral strId) <$> view (to imports . _Right)
+  where
+    assertStableIfPkgImports id = do
+      when (id `notElem` stableIds) $
+        whenSupportsNot
+               (to version)
+               featurePackageImports
+               (throwError . ParseError . printf "damlc: got explicit non-stable package id on lf version that supports explicit package imports, id: %s, lf version: %s" (show id) . show)
+
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
-decodeImports :: Maybe LF2.PackageImports -> Maybe PackageIds
-decodeImports = fmap (S.fromList . V.toList . V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages)
+decodeImports :: LF2.PackageImportsSum -> Either NoPkgImportsReasons (V.Vector PackageId)
+decodeImports = \case
+  LF2.PackageImportsSumNoImportedPackagesReason txt -> (Left . NoPkgImportsReasons . NE.fromList . read . TL.unpack) txt
+  LF2.PackageImportsSumPackageImports imports -> Right $ decodePackageImports imports
+  where
+    decodePackageImports :: LF2.PackageImports -> V.Vector PackageId
+    decodePackageImports = V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages
+
 
 decodeInternedDottedName :: LF2.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF2.InternedDottedName ids) = do
@@ -165,6 +203,10 @@ decodePackage version selfPackageRef (LF2.Package
       let internedExprs = V.empty
       let internedTypes = V.empty
       let internedKinds = V.empty
+      -- assuming here that nothing means it is a stable package. That is, for
+      -- stable packages we set it to Nothing, and for nonstable packages we are
+      -- _supposed_ to set it to Left <reason>.
+      let imports = maybe (Left noPkgImportsReasonStablePackage) decodeImports  importedPackagesP
       let env0 = DecodeEnv{..}
       internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
       let env1 = env0{internedDottedNames}
@@ -178,7 +220,7 @@ decodePackage version selfPackageRef (LF2.Package
           runDecode env3{internedExprs = prefix} $ decodeExpr (internedExprsV V.! i)
       let env4 = env3{internedExprs}
       runDecode env4 $ do
-        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (decodeImports importedPackagesP)
+        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (S.fromList . V.toList <$> imports)
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
 decodeUpgradedPackageId LF2.UpgradedPackageId {..} =
@@ -494,19 +536,19 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <*> mayDecode "Expr_StructUpdStruct" mbStruct decodeExpr
       <*> mayDecode "Expr_StructUpdUpdate" mbUpdate decodeExpr
   LF2.ExprSumApp (LF2.Expr_App mbFun args) -> do
-    singletonIfLfFlat args
+    assertSingletonIfLfFlat args
     fun <- mayDecode "Expr_AppFun" mbFun decodeExpr
     foldl' ETmApp fun <$> mapM decodeExpr (V.toList args)
   LF2.ExprSumTyApp (LF2.Expr_TyApp mbFun args) -> do
-    singletonIfLfFlat args
+    assertSingletonIfLfFlat args
     fun <- mayDecode "Expr_TyAppFun" mbFun decodeExpr
     foldl' ETyApp fun <$> mapM decodeType (V.toList args)
   LF2.ExprSumAbs (LF2.Expr_Abs params mbBody) -> do
-    singletonIfLfFlat params
+    assertSingletonIfLfFlat params
     body <- mayDecode "Expr_AbsBody" mbBody decodeExpr
     foldr ETmLam body <$> mapM decodeVarWithType (V.toList params)
   LF2.ExprSumTyAbs (LF2.Expr_TyAbs params mbBody) -> do
-    singletonIfLfFlat params
+    assertSingletonIfLfFlat params
     body <- mayDecode "Expr_TyAbsBody" mbBody decodeExpr
     foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
   LF2.ExprSumCase (LF2.Case mbScrut alts) ->
@@ -752,16 +794,6 @@ decodeNumericLit (T.unpack -> str) = case readMaybe str of
     Nothing -> throwError $ ParseError $ "bad Numeric literal: " ++ show str
     Just n -> pure $ BENumeric n
 
-singletonIfLfFlat :: Foldable t => t a -> Decode ()
-singletonIfLfFlat xs = do
-  v <- asks version
-  when (v `supports` featureFlatArchive && length xs /= 1) $ throwError $ ParseError $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
-
-nullIfLfFlat :: Foldable t => t a -> String -> Decode ()
-nullIfLfFlat xs str = do
-  v <- asks version
-  when (v `supports` featureFlatArchive && (not $ null xs)) $
-    throwError $ ParseError $ printf "argument(s) disallowed since lf %s supports flat archives" (show v) str
 
 decodeKind :: LF2.Kind -> Decode Kind
 decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
@@ -770,7 +802,7 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     let prms = V.toList params
-    singletonIfLfFlat params
+    assertSingletonIfLfFlat params
     foldr KArrow result <$> traverse decodeKind prms
   LF2.KindSumInternedKind n -> do
     DecodeEnv{internedKinds, version} <- ask
@@ -813,21 +845,21 @@ decodeTypeLevelNat m =
 decodeType :: LF2.Type -> Decode Type
 decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF2.TypeSumVar (LF2.Type_Var var args) -> do
-    nullIfLfFlat args "Type_Var"
+    assertNullIfLfFlat args
     decodeWithArgs args $ TVar <$> decodeNameId TypeVarName var
   LF2.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
   LF2.TypeSumCon (LF2.Type_Con mbCon args) -> do
-    nullIfLfFlat args "Type_Con"
+    assertNullIfLfFlat args
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConId
   LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) ->
     TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynId <*> traverse decodeType (V.toList args)
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
-    nullIfLfFlat args "Type_Builtin"
+    assertNullIfLfFlat args
     decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Builtin" idx)
   LF2.TypeSumForall (LF2.Type_Forall binders mbBody) -> do
-    singletonIfLfFlat binders
+    assertSingletonIfLfFlat binders
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF2.TypeSumStruct (LF2.Type_Struct flds) ->

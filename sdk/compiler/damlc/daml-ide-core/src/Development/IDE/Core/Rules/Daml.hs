@@ -23,7 +23,6 @@ import HscTypes
 import MkIface
 import Maybes (MaybeErr(..), rightToMaybe)
 import TcRnMonad (initIfaceLoad)
-
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
@@ -32,8 +31,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
-import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
--- import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor), supports, featurePackageImports, version2_dev )
+import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion, supports, featurePackageImports )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
@@ -70,6 +68,7 @@ import Development.IDE.GHC.Util
 import Development.IDE.GHC.Warnings
 import Development.IDE.Types.Location as Base
 import Development.IDE.Types.Logger hiding (Priority)
+
 import Development.Shake hiding (Diagnostic, Env, doesFileExist)
 import "ghc-lib" GHC hiding (Succeeded, typecheckModule)
 import "ghc-lib-parser" Module (DefUnitId(..), UnitId(..), stringToUnitId)
@@ -379,8 +378,11 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
-extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Maybe LF.PackageIds)
-extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
+extractImports :: [LF.ModuleWithImports] -> ([LF.Module], LF.ImportedPackages)
+extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `merge` imps)) ([], Right Set.empty)
+  where
+    merge = LF.mergeImportedPackages
+
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
@@ -442,7 +444,7 @@ generateSerializedDalfRule options =
                                                     (packageMetadataFromOptions options)
                                                     lfVersion
                                                     dalfDeps
-                                                    Nothing
+                                                    (Left $ LF.noPkgImportsReasonTrace "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule")
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -581,7 +583,7 @@ getUpgradedPackageErrs opts file mainPkg
     -- package versions have been checked at this point
     packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
     packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
-     
+
     lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
     lfVersionMinorLt = (<) `on` LF.versionMinor
 
@@ -852,14 +854,19 @@ depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.ele
 
 generatePackageImports :: Rules ()
 generatePackageImports =
-    defineEarlyCutoff $ \GeneratePackageImports file -> do
-      PackageMap pkgMap <- use_ GeneratePackageMap file
-      deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      let imports = depsToIds pkgMap deps
-      let hash :: BS.ByteString
-          hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
-      return (Just hash, ([], Just (Just imports)))
-
+  --TODO[RB]: probably see if we need to guard this on the version
+  defineEarlyCutoff $ \GeneratePackageImports file -> do
+    lfVersion <- getDamlLfVersion
+    imports <- if lfVersion `supports` featurePackageImports
+      then do
+        PackageMap pkgMap <- use_ GeneratePackageMap file
+        deps <- depPkgDeps <$> use_ GetDependencyInformation file
+        return $ Right $ depsToIds pkgMap deps
+      else
+        return $ Left LF.noPkgImportsReasonLfDoesNotSupportPkgImports
+    let hash :: BS.ByteString
+        hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList $ fromRight mempty imports)
+    return (Just hash, ([], Just imports))
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
@@ -1091,10 +1098,9 @@ toDiagnostics lvl world scriptFile scriptRange = \case
         }
 
 encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
-encodeModule lfVersion m =
+encodeModule lfVersion m = do
     case LF.moduleSource m of
-      Just file
-        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath' file
+      Just file -> use_ EncodeModule $ toNormalizedFilePath' file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScriptRootsRule :: Rules ()
@@ -1386,10 +1392,11 @@ encodeModuleRule options =
     define $ \EncodeModule file -> do
         lfVersion <- getDamlLfVersion
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
+        imports <- use_ GeneratePackageImports file
         files <- discardInternalModules (optUnitId options) fs
         encodedDeps <- uses_ EncodeModule files
         m <- moduleForScript file
-        let (hash, bs) = SS.encodeModule lfVersion m
+        let (hash, bs) = SS.encodeModuleWithImports lfVersion (m, imports)
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
 -- dlint

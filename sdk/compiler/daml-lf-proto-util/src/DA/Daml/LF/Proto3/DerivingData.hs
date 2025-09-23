@@ -127,6 +127,7 @@ deriving instance Data P.Module
 deriving instance Data P.InternedDottedName
 deriving instance Data P.UpgradedPackageId
 deriving instance Data P.PackageImports
+deriving instance Data P.PackageImportsSum
 deriving instance Data P.Package
 deriving instance Data P.PackageMetadata
 
