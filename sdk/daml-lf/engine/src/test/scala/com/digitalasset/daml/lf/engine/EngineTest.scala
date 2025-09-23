@@ -1168,6 +1168,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         cmds = ApiCommands(ImmArray(command), let, "test"),
         participantId = participant,
         submissionSeed = submissionSeed,
+        prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
