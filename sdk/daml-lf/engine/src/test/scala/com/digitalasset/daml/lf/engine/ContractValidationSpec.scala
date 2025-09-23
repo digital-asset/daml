@@ -51,14 +51,14 @@ class ContractValidationSpec extends AnyWordSpec with Matchers with EitherValues
 
       val expected = Hash
         .hashContractInstance(
-          templateId = instance.templateId,
-          arg = instance.createArg,
-          packageName = instance.packageName,
+          templateId = create.templateId,
+          arg = create.arg,
+          packageName = create.packageName,
           upgradeFriendly = false,
         )
         .value
 
-      inside(underTest.hash(instance, targetPackageId, hashingMethod = HashingMethod.Legacy)) {
+      inside(underTest.hash(create, hashingMethod = HashingMethod.Legacy)) {
         case ResultDone(actual) => actual shouldBe expected
       }
     }
@@ -67,15 +67,15 @@ class ContractValidationSpec extends AnyWordSpec with Matchers with EitherValues
 
       val expected = Hash
         .hashContractInstance(
-          templateId = instance.templateId,
-          arg = instance.createArg,
-          packageName = instance.packageName,
+          templateId = create.templateId,
+          arg = create.arg,
+          packageName = create.packageName,
           upgradeFriendly = true,
         )
         .value
 
       inside(
-        underTest.hash(instance, targetPackageId, hashingMethod = HashingMethod.UpgradeFriendly)
+        underTest.hash(create, hashingMethod = HashingMethod.UpgradeFriendly)
       ) { case ResultDone(actual) =>
         actual shouldBe expected
       }
@@ -121,7 +121,7 @@ class ContractValidationSpec extends AnyWordSpec with Matchers with EitherValues
           hashingMethod = HashingMethod.UpgradeFriendly,
           idValidator = _ => false,
         )
-      ) { case ResultDone(Left(_)) =>
+      ) { case ResultError(_) =>
         succeed
       }
     }

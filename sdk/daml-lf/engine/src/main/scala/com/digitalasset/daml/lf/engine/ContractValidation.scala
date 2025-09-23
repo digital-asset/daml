@@ -3,12 +3,12 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.daml.scalautil.Statement.discard
+import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.engine.Error.Interpretation
-import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 trait ContractValidation {
@@ -31,7 +31,7 @@ trait ContractValidation {
     * @param idValidator
     *   a function that checks if a given hash is valid
     * @return
-    *   a Result containing an unit either on success and a string error message on failure
+    *   a Result containing a unit on success
     */
   def validate(
       instance: FatContractInstance,
@@ -39,15 +39,13 @@ trait ContractValidation {
       hashingMethod: Hash.HashingMethod,
       contractIdRewriter: ContractId => ContractId = (cid: ContractId) => cid,
       idValidator: Hash => Boolean,
-  ): Result[Either[String, Unit]]
+  ): Result[Either[IError, Unit]]
 
-  /** This method is used to compute the hash of contract instances during transaction
+  /** This method is used to compute the hash of Create nodes during transaction
     * interpretation. This is for cases where a hash is needed for adhoc reasons.
     *
-    * @param instance
-    *   the contract instance for which the hash is computed
-    * @param targetPackageId
-    *   the target package id against which the instance is hashed
+    * @param create
+    *   the Create node for which the hash is computed
     * @param hashingMethod
     *   the hashing method to use
     * @param contractIdRewriter
@@ -56,8 +54,7 @@ trait ContractValidation {
     *   a Result containing the computed hash
     */
   def hash(
-      instance: FatContractInstance,
-      targetPackageId: Ref.PackageId,
+      create: Node.Create,
       hashingMethod: Hash.HashingMethod,
       contractIdRewriter: ContractId => ContractId = (cid: ContractId) => cid,
   ): Result[Hash]
@@ -67,11 +64,10 @@ trait ContractValidation {
 object ContractValidation {
 
   def apply(engine: Engine): ContractValidation = {
-    discard(engine)
-    LegacyContractValidation
+    new ContractValidationImpl(engine)
   }
 
-  private object LegacyContractValidation extends ContractValidation {
+  private class ContractValidationImpl(engine: Engine) extends ContractValidation {
 
     override def validate(
         instance: FatContractInstance,
@@ -79,59 +75,19 @@ object ContractValidation {
         hashingMethod: Hash.HashingMethod,
         contractIdRewriter: ContractId => ContractId = (cid: ContractId) => cid,
         idValidator: Hash => Boolean,
-    ): Result[Either[String, Unit]] = {
-
-      hashInternal(instance, hashingMethod) match {
-        case Right(hash) if idValidator(hash) =>
-          // Missing checks:
-          // - Verification that the ensures clause does not have assertion failures
-          // - Verification that the metadata in the contract is consistent with that produced by the target package
-          ResultDone(Right(()))
-
-        case Right(_) =>
-          ResultDone(Left(s"Contract did not validate"))
-
-        case Left(err) =>
-          ResultDone(Left(err))
-      }
-
+    ): Result[Either[IError, Unit]] = {
+      engine.validateContractInstance(
+        instance,
+        targetPackageId,
+        hashingMethod,
+        idValidator,
+      )(LoggingContext.empty)
     }
 
-    override def hash(
-        instance: FatContractInstance,
-        targetPackageId: PackageId,
+    def hash(
+        create: Node.Create,
         hashingMethod: Hash.HashingMethod,
         contractIdRewriter: ContractId => ContractId = (cid: ContractId) => cid,
-    ): Result[Hash] = {
-      hashInternal(instance, hashingMethod) match {
-        case Right(hash) => ResultDone(hash)
-        case Left(err) => ResultError(Interpretation.Internal("LegacyLfApi.hash", err, None))
-      }
-    }
-
-    private def hashInternal(
-        instance: FatContractInstance,
-        hashingMethod: Hash.HashingMethod,
-    ): Either[String, Hash] = {
-
-      val upgradeFriendlyO = hashingMethod match {
-        case Hash.HashingMethod.Legacy => Some(false)
-        case Hash.HashingMethod.UpgradeFriendly => Some(true)
-        case _ => None
-      }
-
-      upgradeFriendlyO match {
-        case Some(upgradeFriendly) =>
-          Hash.hashContractInstance(
-            instance.templateId,
-            instance.createArg,
-            instance.packageName,
-            upgradeFriendly = upgradeFriendly,
-          )
-
-        case None =>
-          Left(s"Hashing method $hashingMethod not supported")
-      }
-    }
+    ): Result[Hash] = engine.hashCreateNode(create, hashingMethod)
   }
 }

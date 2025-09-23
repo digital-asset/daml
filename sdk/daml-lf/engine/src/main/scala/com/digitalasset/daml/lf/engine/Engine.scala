@@ -7,14 +7,23 @@ package engine
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party, TypeConId}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{InitialSeeding, Question, SError, SResult, SValue, TraceLog}
-import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.digitalasset.daml.lf.speedy.Speedy
+import com.digitalasset.daml.lf.speedy.{
+  InitialSeeding,
+  Question,
+  SError,
+  SResult,
+  SValue,
+  Speedy,
+  TraceLog,
+  ValueTranslator,
+}
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEValue, SExpr}
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   Node,
   SubmittedTransaction,
@@ -29,6 +38,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.daml.lf.language.{
+  Ast,
   LanguageMajorVersion,
   LanguageVersion,
   LookupError,
@@ -41,11 +51,16 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
+import com.digitalasset.daml.lf.speedy.Question.Update
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
+import com.digitalasset.daml.lf.speedy.SValue.SContractId
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -809,6 +824,144 @@ class Engine(val config: EngineConfig) {
     } yield Versioned(version, r.toNormalizedValue)
   }
 
+  /** Computes the hash of a Create node. Used for producing fat contract
+    * instances after absolutizing the contract IDs of a transaction produced by
+    * the engine.
+    *
+    * @param create the Create node for which the hash is computed
+    * @param hashingMethod the hashing method to use
+    * @return a Result containing the computed hash. When [hashingMethod] is
+    *         [[HashingMethod.TypedNormalForm]], returns a [[ResultError]]
+    *         if [[create]] is ill-typed or if its package is unavailable.
+    */
+  def hashCreateNode(
+      create: Node.Create,
+      hashingMethod: Hash.HashingMethod,
+  ): Result[Hash] = {
+    import Engine.Syntax._
+    import Engine.mkDevError
+
+    val location = NameOf.qualifiedNameOfCurrentFunc
+    val templateId = create.templateId
+    val pkgId = templateId.packageId
+    val createArg = create.arg
+    val packageName = create.packageName
+
+    hashingMethod match {
+      case Hash.HashingMethod.Legacy =>
+        Hash
+          .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
+          .left
+          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .toResult
+      case Hash.HashingMethod.UpgradeFriendly =>
+        Hash
+          .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
+          .left
+          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .toResult
+      case Hash.HashingMethod.TypedNormalForm =>
+        for {
+          _ <-
+            if (!compiledPackages.contains(pkgId))
+              loadPackage(pkgId, language.Reference.Template(templateId.toRef))
+            else ResultDone.Unit
+          sValue <- new ValueTranslator(
+            compiledPackages.pkgInterface,
+            forbidLocalContractIds = true,
+          )
+            .translateValue(Ast.TTyCon(templateId), createArg)
+            .left
+            .map(error => mkDevError(location, IError.Dev.TranslationError(error)))
+            .toResult
+          hash <- SValueHash
+            .hashContractInstance(packageName, templateId.qualifiedName, sValue)
+            .left
+            .map(error => mkDevError(location, IError.Dev.HashingError(error.msg)))
+            .toResult
+        } yield hash
+    }
+  }
+
+  /** Validates [instance] against [targetPackageId] by performing the following checks:
+    * - Verifies that the argument type checks against the target package
+    * - Verifies that the ensures clause does not evaluate to false or throw
+    * - Checks that the metadata in the contract is consistent with that produced by the target package
+    * - Hashes the contract instance using the specified hashing method
+    * - Validates this hash using the provided [idValidator]
+    *
+    * @param instance the contract instance to validate
+    * @param targetPackageId the target package id against which the instance is validated
+    * @param hashingMethod the hash type to use for validation
+    * @param idValidator a function that checks whether a given hash is valid
+    * @return a Result containing a [Right(())] on success and a [Left(_)] when validation fails. On other errors
+    *         like missing packages or internal errors, a ResultError is returned.
+    */
+  def validateContractInstance(
+      instance: FatContractInstance,
+      targetPackageId: PackageId,
+      hashingMethod: Hash.HashingMethod,
+      idValidator: Hash => Boolean,
+  )(implicit loggingContext: LoggingContext): Result[Either[IError, Unit]] = {
+    def internalError(msg: String): Result[Either[IError, Unit]] =
+      ResultError(Error.Interpretation.Internal(NameOf.qualifiedNameOfCurrentFunc, msg, None))
+
+    def interpret(
+        machine: UpdateMachine,
+        abort: () => Option[String],
+    ): Result[Either[IError, Unit]] =
+      machine.run() match {
+        case SResult.SResultQuestion(question) =>
+          question match {
+            case Update.NeedContract(contractId, _, callback) =>
+              if (contractId != instance.contractId)
+                internalError(s"expected contract id ${instance.contractId}, got $contractId")
+              else {
+                discard(callback(instance, hashingMethod, idValidator))
+                interpret(machine, abort)
+              }
+            case Update.NeedPackage(pkgId, context, callback) =>
+              Result.needPackage(
+                pkgId,
+                context,
+                { pkg: Package =>
+                  compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                    callback(compiledPackages)
+                    interpret(machine, abort)
+                  }
+                },
+              )
+            case _ => internalError(s"unexpected question from speedy: $question")
+          }
+        case SResult.SResultFinal(_) =>
+          ResultDone(Right(()))
+        case SResult.SResultError(err) =>
+          err match {
+            case SError.SErrorDamlException(error) =>
+              ResultDone(Left(error))
+            case err @ SError.SErrorCrash(where, reason) =>
+              ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
+          }
+        case SResult.SResultInterruption =>
+          ResultInterruption(() => interpret(machine, abort), abort)
+      }
+
+    val machine =
+      Speedy.Machine.fromUpdateSExpr(
+        compiledPackages = compiledPackages,
+        transactionSeed = crypto.Hash.hashPrivateKey("ContractValidationImpl.validate"),
+        updateSE = SEMakeClo(
+          ArraySeq.empty,
+          1,
+          SBFetchTemplate(TypeConId(targetPackageId, instance.templateId.qualifiedName))(
+            SEValue(SContractId(instance.contractId))
+          ),
+        ),
+        committers = Set.empty,
+      )
+
+    interpret(machine, () => { machine.abort(); None })
+  }
 }
 
 object Engine {
@@ -850,4 +1003,13 @@ object Engine {
   def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
     EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
+
+  private def mkDevError(location: String, error: IError.Dev.Error) =
+    Error.Interpretation(Error.Interpretation.DamlException(IError.Dev(location, error)), None)
+
+  private object Syntax {
+    implicit class EitherOps[A](val e: Either[Error, A]) extends AnyVal {
+      def toResult: Result[A] = e.fold(ResultError(_), ResultDone(_))
+    }
+  }
 }

@@ -271,6 +271,9 @@ final class Conversions(
                   // TODO(https://github.com/digital-asset/daml/issues/21667): handle authentication errors properly
                   case Dev.AuthenticationError(coid, value, msg) =>
                     builder.setCrash(s"authentication error: $coid, $value, $msg")
+                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle hashing errors properly
+                  case Dev.HashingError(msg) =>
+                    builder.setCrash(s"hashing error: $msg")
                   case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
                     builder.setCrash(cause)
                 }

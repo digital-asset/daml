@@ -66,7 +66,7 @@ object LfContractValidation {
     ): EitherT[FutureUnlessShutdown, String, Unit] =
       consume(
         delegate.validate(instance, targetPackageId, hashingMethod, idValidator = idValidator)
-      ).subflatMap(identity)
+      ).subflatMap(e => e.left.map(_.toString))
 
     override def hash(
         create: LfNodeCreate,
@@ -75,10 +75,7 @@ object LfContractValidation {
         ec: ExecutionContext,
         traceContext: TraceContext,
     ): EitherT[FutureUnlessShutdown, String, Hash] = {
-
-      // TODO(#23876) - provide method that takes a create node
-      val contract = FatContractInstance.fromCreateNode(create, CreationTime.Now, Bytes.Empty)
-      consume(delegate.hash(contract, create.templateId.packageId, hashingMethod))
+      consume(delegate.hash(create, hashingMethod))
     }
   }
 
