@@ -42,6 +42,7 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.data
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
@@ -114,6 +115,7 @@ class Engine(val config: EngineConfig) {
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
       forbidLocalContractIds = config.forbidLocalContractIds,
+      costModel = data.CostModel.EmptyCostModelImplicits,
     )
 
   def info = new EngineInfo(config)
@@ -168,7 +170,10 @@ class Engine(val config: EngineConfig) {
         processedPrefetchKeys,
         disclosedContractIds,
         disclosedKeyHashes,
+        unprocessedCommands = Some(cmds.commands),
       )
+      // TODO: https://github.com/digital-asset/daml/issues/21933: Preprocessing input size checks should stop submission workflows ASAP
+      _ <- preprocessor.getInputCost
       result <-
         interpretCommands(
           validating = false,
