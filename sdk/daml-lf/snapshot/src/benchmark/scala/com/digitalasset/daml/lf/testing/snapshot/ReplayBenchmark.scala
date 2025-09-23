@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit
 @State(Scope.Benchmark)
 class ReplayBenchmark {
 
+  @Param(Array("true", "false"))
+  var gasOn: Boolean = _
+
   @Param(Array())
   // choiceName of the exercise to benchmark
   // format: "ModuleName:TemplateName:ChoiceName"
@@ -55,10 +58,11 @@ class ReplayBenchmark {
       Ref.Name.assertFromString(name),
     )
     benchmark = TransactionSnapshot.loadBenchmark(
-      Paths.get(entriesFile),
-      choice,
-      choiceIndex,
-      None,
+      dumpFile = Paths.get(entriesFile),
+      choice = choice,
+      index = choiceIndex,
+      profileDir = None,
+      gasBudget = Some(Long.MaxValue).filter(_ => gasOn),
     )
     if (darFile.nonEmpty) {
       val loadedPackages = TransactionSnapshot.loadDar(Paths.get(darFile))

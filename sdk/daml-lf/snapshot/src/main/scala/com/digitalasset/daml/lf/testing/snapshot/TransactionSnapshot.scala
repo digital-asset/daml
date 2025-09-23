@@ -38,12 +38,14 @@ final case class TransactionSnapshot(
     contracts: Map[ContractId, FatContractInstance],
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
     pkgs: Map[Ref.PackageId, Ast.Package],
-    profileDir: Option[Path] = None,
+    profileDir: Option[Path],
+    gasBudget: Option[Long],
 ) {
 
   private[this] implicit def loggingContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] lazy val engine = TransactionSnapshot.compile(pkgs, profileDir)
+  private[this] lazy val engine =
+    TransactionSnapshot.compile(pkgs, profileDir, gasBudget = gasBudget)
 
   def replay(): Either[Error, Speedy.Metrics] =
     engine
@@ -85,6 +87,7 @@ private[snapshot] object TransactionSnapshot {
       pkgs: Map[Ref.PackageId, Ast.Package],
       profileDir: Option[Path] = None,
       snapshotDir: Option[Path] = None,
+      gasBudget: Option[Long] = None,
   ): Engine = {
     require(pkgs.nonEmpty, "expected at least one package, got none")
     println(s"%%% compile ${pkgs.size} packages ...")
@@ -93,6 +96,7 @@ private[snapshot] object TransactionSnapshot {
         allowedLanguageVersions = LanguageVersion.AllVersions(pkgs.head._2.languageVersion.major),
         profileDir = profileDir,
         snapshotDir = snapshotDir,
+        gasBudget = gasBudget,
       )
     )
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>
@@ -166,6 +170,7 @@ private[snapshot] object TransactionSnapshot {
       choice: (Ref.QualifiedName, Ref.Name),
       index: Int,
       profileDir: Option[Path],
+      gasBudget: Option[Long] = None,
   ): TransactionSnapshot = {
     println(s"%%% loading submission entries from $dumpFile...")
     val inputStream = new BufferedInputStream(Files.newInputStream(dumpFile))
@@ -257,6 +262,7 @@ private[snapshot] object TransactionSnapshot {
         contractKeys = contractKeys,
         pkgs = archives.view.map(ArchiveDecoder.assertFromByteString).toMap,
         profileDir = profileDir,
+        gasBudget = gasBudget,
       )
     }
 

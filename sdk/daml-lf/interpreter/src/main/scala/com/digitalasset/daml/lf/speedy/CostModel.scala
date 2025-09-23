@@ -876,8 +876,8 @@ object CostModel {
     override val BImplodeText: CostFunction1[FrontStack[SValue]] = {
       val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b)
       (list: FrontStack[SValue]) =>
-      // take care as computation of n should use bounded memory
-      val n = list.iterator.map {
+        // take care as computation of n should use bounded memory
+        val n = list.iterator.map {
           case SValue.SText(s) => s.length
           case _ => 0 // should not happen
         }.sum
