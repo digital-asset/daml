@@ -162,6 +162,9 @@ object Util {
     ): Graphs.Graph[Ref.PackageId] =
       toProcess0 match {
         case pkgId :: toProcess1 =>
+          // imports + (stablePackages with lf <= current lf)
+          // (make util for this)
+          // stablePackages at the start
           val deps = packages.lift(pkgId).fold(Set.empty[Ref.PackageId])(_.directDeps)
           val newDeps = deps.filterNot(seen0)
           buildGraph(
