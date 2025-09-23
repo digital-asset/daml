@@ -145,7 +145,6 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,

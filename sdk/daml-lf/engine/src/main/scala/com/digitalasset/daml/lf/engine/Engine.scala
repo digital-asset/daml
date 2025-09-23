@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
   GlobalKey,
   Node,
   SubmittedTransaction,
@@ -139,8 +138,6 @@ class Engine(val config: EngineConfig) {
     *                   ("committers" according to the ledger model)
     * @param readAs the parties authorizing the root actions (only read, but no write) of the resulting transaction
     * @param cmds the commands to be interpreted
-    * @param disclosures contracts to be used as input contracts of the transaction;
-    *                    contract data may come from an untrusted source and will therefore be validated during interpretation.
     * @param participantId a unique identifier (of the underlying participant) used to derive node and contractId discriminators
     * @param submissionSeed the master hash used to derive node and contractId discriminators
     */
@@ -150,7 +147,6 @@ class Engine(val config: EngineConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
-      disclosures: ImmArray[FatContractInstance] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
       prefetchKeys: Seq[ApiContractKey],
@@ -163,13 +159,9 @@ class Engine(val config: EngineConfig) {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
-      preprocessedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
-      (processedDiscs, disclosedContractIds, disclosedKeyHashes) = preprocessedDiscsAndKeys
       _ <- preprocessor.prefetchContractIdsAndKeys(
         processedCmds,
         processedPrefetchKeys,
-        disclosedContractIds,
-        disclosedKeyHashes,
         unprocessedCommands = Some(cmds.commands),
       )
       // TODO: https://github.com/digital-asset/daml/issues/21933: Preprocessing input size checks should stop submission workflows ASAP
@@ -180,7 +172,6 @@ class Engine(val config: EngineConfig) {
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
-          disclosures = processedDiscs,
           ledgerTime = cmds.ledgerEffectiveTime,
           preparationTime = preparationTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -276,7 +267,6 @@ class Engine(val config: EngineConfig) {
         submitters = submitters,
         readAs = Set.empty,
         commands = commands,
-        disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -395,7 +385,6 @@ class Engine(val config: EngineConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
-      disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
       preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -408,7 +397,7 @@ class Engine(val config: EngineConfig) {
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompile(commands, disclosures),
+        compiledPackages.compiler.unsafeCompile(commands),
       )
       result <- interpretExpression(
         validating,
@@ -519,7 +508,7 @@ class Engine(val config: EngineConfig) {
     def finish: Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
+              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping)
             ) =>
           deps(tx).flatMap { deps =>
             if (config.paranoid) {
@@ -567,7 +556,6 @@ class Engine(val config: EngineConfig) {
               timeBoundaries = machine.getTimeBoundaries,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              disclosedEvents = disclosedCreateEvents,
             )
 
             config.profileDir.foreach { dir =>

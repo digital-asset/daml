@@ -5,21 +5,25 @@ package com.digitalasset.daml
 package lf
 package speedy
 
-import data.Ref.PackageId
-import data.Time
-import SResult._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
-import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
-import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
-import value.Value
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.stablepackages.StablePackages
-
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.SResult._
+import com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  SubmittedTransaction,
+}
+import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.annotation.tailrec
 
@@ -206,15 +210,6 @@ private[speedy] object SpeedyTestLib {
             activeState = machine.ptx.contractState.activeState.createKey(key, contractId),
           )
         )
-        machine
-      }
-
-      private[speedy] def withDisclosedContractKeys(
-          disclosedContractKeys: (ContractId, ContractInfo)*
-      ): UpdateMachine = {
-        disclosedContractKeys.foreach { case (contractId, contract) =>
-          machine.addDisclosedContracts(contractId, contract)
-        }
         machine
       }
     }

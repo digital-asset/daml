@@ -2071,17 +2071,11 @@ private[lf] object SBuiltinFun {
               }
             }
 
-            machine.disclosedContractKeys.get(gkey) match {
-              case someCid: Some[_] =>
-                continue(someCid)._1
-
-              case None =>
-                machine.needKey(
-                  NameOf.qualifiedNameOfCurrentFunc,
-                  GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
-                  continue,
-                )
-            }
+            machine.needKey(
+              NameOf.qualifiedNameOfCurrentFunc,
+              GlobalKeyWithMaintainers(gkey, cachedKey.maintainers),
+              continue,
+            )
         }
       }
     }
@@ -2433,66 +2427,6 @@ private[lf] object SBuiltinFun {
         SBUserError(compileTime.SEValue(SText(s"experimental $name not supported."))),
       )
 
-  }
-
-  /** $cacheInputContract[T] :: ContractId T -> ContractInfoStruct T -> Unit */
-  private[speedy] final case class SBImportInputContract(
-      contract: FatContractInstance,
-      targetTmplId: Ref.TypeConId,
-  ) extends UpdateBuiltin(1) {
-
-    override protected def executeUpdate(
-        args: ArraySeq[SValue],
-        machine: UpdateMachine,
-    ): Control[Question.Update] = {
-      val contractInfoStruct = args(0)
-      val contractInfo = extractContractInfo(
-        machine.tmplId2TxVersion,
-        machine.tmplId2PackageName,
-        contractInfoStruct,
-      )
-      val recomputed = contractInfo.toCreateNode(contract.contractId)
-      val provided = contract.toCreateNode
-      val mismatchingFields =
-        provided.productElementNames.zipWithIndex.flatMap {
-          // Because [recomputed] was obtained by creating a normal value out of the svalue obtained by translating the
-          // original contract, the following line is basically testing that
-          // translateValue(arg, typ).toNormalizedValue == arg modulo None values.
-          // It would seem as if that's a law that should hold for all args, and thus doesn't need testing. But this is
-          // not the case: if arg contains a numeric value that is not in normal form w.r.t. its scale
-          // (e.g. 1.12 of scale 5), then the renormalized value will be different from the original one.
-          // We want to catch and rejects such cases. The only difference we want to allow is for Nones to be dropped.
-          case ("arg", _) =>
-            Option.when(
-              hashContractInstance(
-                provided.packageName,
-                provided.templateId,
-                provided.arg,
-              ) != hashContractInstance(
-                recomputed.packageName,
-                recomputed.templateId,
-                recomputed.arg,
-              )
-            )("arg")
-          case (field, i) =>
-            Option.when(provided.productElement(i) != recomputed.productElement(i))(field)
-        }
-      if (mismatchingFields.nonEmpty) {
-        Control.Error(
-          IE.Dev(
-            NameOf.qualifiedNameOfCurrentFunc,
-            IE.Dev.Conformance(
-              provided,
-              recomputed,
-              details = s"field(s) ${mismatchingFields.mkString(",")} mismatched",
-            ),
-          )
-        )
-      } else {
-        machine.addDisclosedContracts(contract.contractId, contractInfo)
-        Control.Value(SUnit)
-      }
-    }
   }
 
   final case class SBUSetLastCommand(cmd: Command) extends UpdateBuiltin(1) {

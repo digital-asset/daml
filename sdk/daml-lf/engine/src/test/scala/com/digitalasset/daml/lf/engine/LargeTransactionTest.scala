@@ -298,7 +298,6 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
         submitters = Set(submitter),
         readAs = Set.empty,
         cmds = ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = seed,
         prefetchKeys = Seq.empty,

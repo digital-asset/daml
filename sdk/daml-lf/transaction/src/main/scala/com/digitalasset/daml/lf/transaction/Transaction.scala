@@ -683,8 +683,7 @@ object Transaction {
       usedPackages: Set[PackageId],
       timeBoundaries: Time.Range,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
-      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[Node.Create],
+      globalKeyMapping: Map[GlobalKey, Option[ContractId]],
   ) {
     def dependsOnTime: Boolean =
       timeBoundaries != Time.Range.unconstrained
