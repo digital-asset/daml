@@ -102,6 +102,7 @@ object LanguageVersion {
     val contractKeys = v2_dev
 
     val crypto = v2_1
+    val cryptoAdditions = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate

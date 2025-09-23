@@ -245,6 +245,7 @@ private[validation] object Typing {
       BDateToText -> (TDate ->: TText),
       BContractIdToText -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
       BSHA256Text -> (TText ->: TText),
+      BSHA256Hex -> (TText ->: TText),
       BKECCAK256Text -> (TText ->: TText),
       BDecodeHex -> (TText ->: TText),
       BEncodeHex -> (TText ->: TText),
@@ -279,6 +280,7 @@ private[validation] object Typing {
       BGreater -> tComparison,
       BGreaterEq -> tComparison,
       BSECP256K1Bool -> (TText ->: TText ->: TText ->: TBool),
+      BSECP256K1WithEcdsaBool -> (TText ->: TText ->: TText ->: TBool),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
