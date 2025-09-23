@@ -276,8 +276,6 @@ private[engine] final class Preprocessor(
   private[engine] def prefetchContractIdsAndKeys(
       commands: ImmArray[speedy.ApiCommand],
       prefetchKeys: Seq[GlobalKey],
-      disclosedContractIds: Set[Value.ContractId],
-      disclosedKeyHashes: Set[Hash],
   ): Result[Unit] =
     safelyRun(
       ResultError(
@@ -288,8 +286,8 @@ private[engine] final class Preprocessor(
         )
       )
     ) {
-      val keysToPrefetch = unsafePrefetchKeys(commands, prefetchKeys, disclosedKeyHashes)
-      val contractIdsToPrefetch = unsafePrefetchContractIds(commands, disclosedContractIds)
+      val keysToPrefetch = unsafePrefetchKeys(commands, prefetchKeys)
+      val contractIdsToPrefetch = unsafePrefetchContractIds(commands)
       (keysToPrefetch, contractIdsToPrefetch)
     }.flatMap { case (keysToPrefetch, contractIdsToPrefetch) =>
       if (keysToPrefetch.nonEmpty || contractIdsToPrefetch.nonEmpty)
@@ -298,33 +296,27 @@ private[engine] final class Preprocessor(
     }
 
   private def unsafePrefetchContractIds(
-      commands: ImmArray[speedy.ApiCommand],
-      disclosedContractIds: Set[Value.ContractId],
-  ): Set[Value.ContractId] = {
-    val contractIdsInCommands =
-      commands.iterator.foldLeft(Set.empty[Value.ContractId])((acc, cmd) =>
-        cmd match {
-          case speedy.Command.ExerciseTemplate(_, contractId, _, argument) =>
-            SValue.addContractIds(argument, acc + contractId.value)
-          case speedy.Command.ExerciseInterface(_, contractId, _, argument) =>
-            SValue.addContractIds(argument, acc + contractId.value)
-          case speedy.Command.ExerciseByKey(_, _, _, argument) =>
-            // No need to look at the key because keys cannot contain contract IDs
-            SValue.addContractIds(argument, acc)
-          case speedy.Command.Create(_, argument) =>
-            SValue.addContractIds(argument, acc)
-          case speedy.Command.CreateAndExercise(_, createArgument, _, choiceArgument) =>
-            SValue.addContractIds(choiceArgument, SValue.addContractIds(createArgument, acc))
-        }
-      )
-    val prefetchContractIds = contractIdsInCommands -- disclosedContractIds
-    prefetchContractIds
-  }
+      commands: ImmArray[speedy.ApiCommand]
+  ): Set[Value.ContractId] =
+    commands.iterator.foldLeft(Set.empty[Value.ContractId])((acc, cmd) =>
+      cmd match {
+        case speedy.Command.ExerciseTemplate(_, contractId, _, argument) =>
+          SValue.addContractIds(argument, acc + contractId.value)
+        case speedy.Command.ExerciseInterface(_, contractId, _, argument) =>
+          SValue.addContractIds(argument, acc + contractId.value)
+        case speedy.Command.ExerciseByKey(_, _, _, argument) =>
+          // No need to look at the key because keys cannot contain contract IDs
+          SValue.addContractIds(argument, acc)
+        case speedy.Command.Create(_, argument) =>
+          SValue.addContractIds(argument, acc)
+        case speedy.Command.CreateAndExercise(_, createArgument, _, choiceArgument) =>
+          SValue.addContractIds(choiceArgument, SValue.addContractIds(createArgument, acc))
+      }
+    )
 
   private def unsafePrefetchKeys(
       commands: ImmArray[speedy.Command],
       prefetchKeys: Seq[GlobalKey],
-      disclosedKeyHashes: Set[crypto.Hash],
   ): Seq[GlobalKey] = {
     val exercisedKeys = commands.iterator.collect {
       case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
@@ -334,9 +326,7 @@ private[engine] final class Preprocessor(
             throw Error.Preprocessing.ContractIdInContractKey(contractKey.toUnnormalizedValue)
           )
     }
-    val undisclosedKeys =
-      (exercisedKeys ++ prefetchKeys).filterNot(key => disclosedKeyHashes.contains(key.hash))
-    undisclosedKeys.distinct.toSeq
+    (exercisedKeys ++ prefetchKeys).distinct.toSeq
   }
 }
 

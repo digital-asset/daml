@@ -219,6 +219,7 @@ final class StoreBackedCommandInterpreter(
           cmds = commands.commands,
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = commands.prefetchKeys,
           engineLogger = config.toEngineLogger(loggerFactory.append("phase", "submission")),
         )
       })),

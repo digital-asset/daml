@@ -97,6 +97,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         cmds = ApiCommands(ImmArray(command), let, "test"),
         participantId = participant,
         submissionSeed = submissionSeed,
+        prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -192,6 +193,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(cmd), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -322,6 +324,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       isReplayedBy(tx, rtx) shouldBe Right(())
@@ -439,6 +442,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       inside(submitResult) { case Left(Error.Interpretation(err, _)) =>
@@ -504,6 +508,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1543,6 +1548,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
           participantId = participant,
           submissionSeed = seed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1571,6 +1577,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
           participantId = participant,
           submissionSeed = seed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
       val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
@@ -1609,6 +1616,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
           participantId = participant,
           submissionSeed = seed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1682,6 +1690,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
     }
@@ -1856,6 +1865,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, now, ""),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
 
@@ -1911,6 +1921,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
     }
@@ -2417,6 +2428,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("wrongly-typed contract"),
+          prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
 
@@ -2512,6 +2524,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("ill-formed contract"),
+          prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
 
@@ -2620,6 +2633,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("ill-formed contract"),
+          prefetchKeys = Seq.empty,
         )
         .consume(
           contracts,

@@ -67,7 +67,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "handle propose ETyAbs, ETyApp, and ELoc" in {
-      import language.Util.{EEmptyString, EFalse, TUnit}
+      import language.Util.{EFalse, EEmptyString, TUnit}
       val List(a, x, precond, label) =
         List("a", "x", "precond", "label").map(Ref.Name.assertFromString)
       val l = Ref.Location(

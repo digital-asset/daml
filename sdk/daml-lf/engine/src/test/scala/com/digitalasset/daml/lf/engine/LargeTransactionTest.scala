@@ -300,6 +300,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
         cmds = ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
         participantId = participant,
         submissionSeed = seed,
+        prefetchKeys = Seq.empty,
       )
       .consume(
         ledger.get(submitter, effectiveAt).andThen(_.nonVerbose),

@@ -130,6 +130,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
           cmds = ApiCommands(ImmArray(command), let, "commands-tag"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          prefetchKeys = Seq.empty,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)
 
