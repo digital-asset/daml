@@ -6,10 +6,7 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import monocle.macros.syntax.lens.*
 
 trait SynchronizerConnectivityTlsIntegrationTests
@@ -69,6 +66,6 @@ class SynchronizerConnectivityTlsReferenceIntegrationTestsPostgres
     extends SynchronizerConnectivityTlsIntegrationTests {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 }

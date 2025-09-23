@@ -135,4 +135,18 @@ class InMemoryContractStore(
 
   override def contractCount()(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     FutureUnlessShutdown.pure(contracts.size)
+
+  override def lookupPersistedIfCached(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): Option[Option[PersistedContractInstance]] =
+    Some(
+      contracts.get(id).map(c => PersistedContractInstance(c.inst))
+    )
+
+  override def lookupPersisted(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PersistedContractInstance]] =
+    FutureUnlessShutdown.pure(
+      contracts.get(id).map(c => PersistedContractInstance(c.inst))
+    )
 }

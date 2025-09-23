@@ -71,14 +71,17 @@ create table common_crypto_public_keys (
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
+  internal_contract_id bigint generated always as identity,
   contract_id bytea not null,
   -- The contract is a serialized LfFatContractInst using the LF contract proto serializer.
   instance bytea not null,
   package_id varchar collate "C" not null,
   template_id varchar collate "C" not null,
-  primary key (contract_id)
+  primary key (contract_id) include (internal_contract_id)
 );
 
+-- Index for lookup per internal_contract_id
+create index idx_par_contracts_internal on par_contracts(internal_contract_id);
 -- Index to speedup ContractStore.find
 -- package_id comes before template_id, because queries with package_id and without template_id make more sense than vice versa.
 -- contract_id is left out, because a query with contract_id can be served with the primary key.

@@ -5,13 +5,13 @@ package com.digitalasset.canton.integration.tests.jsonapi
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.http.json.v2.ApiDocsGenerator
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import org.apache.pekko.http.scaladsl.model.{StatusCodes, Uri}
 
 final class OpenApiTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
   private val apiDocsGenerator = new ApiDocsGenerator(loggerFactory)
   private val expectedOpenApiServices = Seq(
     "commands",

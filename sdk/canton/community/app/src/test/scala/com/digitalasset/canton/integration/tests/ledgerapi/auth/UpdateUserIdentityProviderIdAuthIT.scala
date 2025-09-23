@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
 }
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 
 import scala.concurrent.Future
 
@@ -17,7 +17,7 @@ final class UpdateUserIdentityProviderIdAuthIT
     extends AdminServiceCallAuthTests
     with IdentityProviderConfigAuth
     with UserManagementAuth {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "UserManagementService#UpdateUserIdentityProviderId"
 

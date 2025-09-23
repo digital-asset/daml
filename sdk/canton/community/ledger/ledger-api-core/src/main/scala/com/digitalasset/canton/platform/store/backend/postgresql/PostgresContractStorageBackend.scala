@@ -3,11 +3,14 @@
 
 package com.digitalasset.canton.platform.store.backend.postgresql
 
-import anorm.SqlParser.array
 import anorm.{SqlStringInterpolation, ~}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.Key
-import com.digitalasset.canton.platform.store.backend.Conversions.{contractId, hashFromHexString}
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  contractId,
+  hashFromHexString,
+  parties,
+}
 import com.digitalasset.canton.platform.store.backend.common.ContractStorageBackendTemplate
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
@@ -29,10 +32,13 @@ class PostgresContractStorageBackend(
   ): Map[Key, KeyState] = if (keys.isEmpty) Map()
   else {
     val resultParser =
-      (contractId("contract_id") ~ hashFromHexString("create_key_hash") ~ array[Int](
+      (contractId("contract_id") ~ hashFromHexString("create_key_hash") ~ parties(stringInterning)(
         "flat_event_witnesses"
       )).map { case cId ~ hash ~ stakeholders =>
-        hash -> KeyAssigned(cId, stakeholders.view.map(stringInterning.party.externalize).toSet)
+        hash -> KeyAssigned(
+          cId,
+          stakeholders.toSet,
+        )
       }.*
 
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement

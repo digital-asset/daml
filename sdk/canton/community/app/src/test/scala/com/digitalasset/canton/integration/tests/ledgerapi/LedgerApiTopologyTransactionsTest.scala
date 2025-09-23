@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -622,5 +622,5 @@ private object LedgerApiTopologyTransactionsTest {
 }
 
 class LedgerApiTopologyTransactionsTestDefault extends LedgerApiTopologyTransactionsTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

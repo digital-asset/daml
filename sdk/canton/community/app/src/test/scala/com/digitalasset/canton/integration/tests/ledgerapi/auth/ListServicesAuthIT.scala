@@ -6,13 +6,13 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 import com.daml.grpc.test.StreamConsumer
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import io.grpc.reflection.v1.{ServerReflectionGrpc, ServerReflectionResponse}
 
 import scala.concurrent.Future
 
 class ListServicesAuthIT extends UnsecuredServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "ServerReflection#List"
 

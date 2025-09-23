@@ -11,8 +11,8 @@ import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
   UseSharedStorage,
 }
 import com.digitalasset.canton.integration.util.BackgroundWorkloadRunner
@@ -25,7 +25,7 @@ import scala.util.control.NonFatal
 class ScheduledHADatabaseSequencerPruningTestPostgres
     extends ScheduledHADatabaseSequencerPruningTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(
     UseSharedStorage.forSequencers(
       "sequencer1",

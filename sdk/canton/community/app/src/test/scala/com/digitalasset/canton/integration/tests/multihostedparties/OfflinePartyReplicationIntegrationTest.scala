@@ -13,10 +13,7 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
 import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
@@ -69,7 +66,7 @@ trait OfflinePartyReplicationIntegrationTestBase
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 
   private val acsSnapshot =

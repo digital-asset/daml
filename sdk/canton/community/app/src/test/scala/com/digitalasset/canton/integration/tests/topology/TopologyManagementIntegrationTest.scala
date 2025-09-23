@@ -19,8 +19,8 @@ import com.digitalasset.canton.examples.java.cycle as C
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{PartiesAllocator, PartyToParticipantDeclarative}
@@ -1366,7 +1366,7 @@ trait TopologyManagementIntegrationTest
 
 class TopologyManagementReferenceIntegrationTestPostgres extends TopologyManagementIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class TopologyManagementBftOrderingIntegrationTestPostgres

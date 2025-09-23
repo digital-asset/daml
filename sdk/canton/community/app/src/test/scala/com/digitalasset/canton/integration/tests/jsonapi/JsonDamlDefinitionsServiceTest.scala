@@ -10,7 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.json.v2.JsPackageCodecs.*
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.AllTemplatesResponse
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.allTemplatesResponseCodec
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.jsonapi.AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -57,7 +57,7 @@ class JsonDamlDefinitionsServiceTest
       )
     )
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   "Daml definitions service" should {
     // TODO(#21695): Test only used to generate golden files.

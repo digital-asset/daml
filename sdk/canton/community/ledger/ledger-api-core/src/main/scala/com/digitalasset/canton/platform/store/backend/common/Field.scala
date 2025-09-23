@@ -121,15 +121,3 @@ private[backend] final case class StringArray[FROM](
 ) extends Field[FROM, Iterable[String], Array[String]] {
   override def convert: Iterable[String] => Array[String] = _.toArray
 }
-
-private[backend] final case class IntArray[FROM](extract: StringInterning => FROM => Iterable[Int])
-    extends Field[FROM, Iterable[Int], Array[Int]] {
-  override def convert: Iterable[Int] => Array[Int] = _.toArray
-}
-
-private[backend] final case class IntArrayOptional[FROM](
-    extract: StringInterning => FROM => Option[Iterable[Int]]
-) extends Field[FROM, Option[Iterable[Int]], Array[Int]] {
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def convert: Option[Iterable[Int]] => Array[Int] = _.map(_.toArray).orNull
-}

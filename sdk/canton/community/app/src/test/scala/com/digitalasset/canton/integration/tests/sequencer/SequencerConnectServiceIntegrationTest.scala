@@ -19,8 +19,8 @@ import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.networking.Endpoint
@@ -272,7 +272,7 @@ class GrpcSequencerConnectServiceIntegrationTestPostgresReference
     extends GrpcSequencerConnectServiceIntegrationTestPostgres {
 
   override lazy val sequencerPlugin =
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
 
   override protected def localSequencer(implicit
       env: TestConsoleEnvironment

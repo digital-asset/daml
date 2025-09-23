@@ -75,9 +75,15 @@ $$
   returns null on null input;
 
 -- resolve multiple ledger api interned strings
-create or replace function debug.resolve_lapi_interned_strings(integer[]) returns varchar[] as
+create or replace function debug.resolve_lapi_interned_strings(input bytea) returns varchar[] as
 $$
-select array_agg(debug.resolve_lapi_interned_string(s)) from unnest($1) as s;
+select array_agg(debug.resolve_lapi_interned_string(
+        get_byte(input, i)::int << 24 |
+           get_byte(input, i + 1)::int << 16 |
+           get_byte(input, i + 2)::int << 8 |
+           get_byte(input, i + 3)::int
+                 ))
+from generate_series(1, length(input) - 1, 4) as s(i);
 $$
   language sql
   stable

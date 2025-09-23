@@ -13,10 +13,10 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.AcsInspection
 import com.digitalasset.canton.integration.{
@@ -98,7 +98,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
       }
 
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+    new UseReferenceBlockSequencer[DbConfig.H2](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2"))

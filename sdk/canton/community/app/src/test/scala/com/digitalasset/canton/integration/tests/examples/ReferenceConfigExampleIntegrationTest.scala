@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CantonConfig, EnterpriseCantonEdition, TestingConfigInternal}
 import com.digitalasset.canton.console.{LocalInstanceReference, RemoteInstanceReference}
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.referenceConfiguration
 import com.digitalasset.canton.metrics.MetricsFactoryType

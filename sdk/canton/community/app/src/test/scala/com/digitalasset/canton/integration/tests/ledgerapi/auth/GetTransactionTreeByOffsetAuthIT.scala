@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 import com.daml.ledger.api.v2.update_service.{GetTransactionByOffsetRequest, UpdateServiceGrpc}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import io.grpc.Status
 import org.scalatest.Assertion
 
@@ -17,7 +17,7 @@ import scala.util.Random
 // TODO(#23504) remove
 @nowarn("cat=deprecation")
 final class GetTransactionTreeByOffsetAuthIT extends ReadOnlyServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "UpdateService#getTransactionTreeByOffset"
 

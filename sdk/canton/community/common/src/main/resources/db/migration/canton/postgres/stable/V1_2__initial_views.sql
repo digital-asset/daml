@@ -195,6 +195,7 @@ create or replace view debug.common_crypto_public_keys as
 
 create or replace view debug.par_contracts as
   select
+    internal_contract_id,
     lower(encode(contract_id, 'hex')) as contract_id,
     instance,
     package_id,

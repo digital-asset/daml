@@ -13,8 +13,8 @@ import com.digitalasset.canton.error.{CantonBaseError, MediatorError}
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
@@ -194,6 +194,6 @@ abstract class TransactionTimeoutsIntegrationTest
 
 final class TransactionTimeoutsReferenceIntegrationTestPostgres
     extends TransactionTimeoutsIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

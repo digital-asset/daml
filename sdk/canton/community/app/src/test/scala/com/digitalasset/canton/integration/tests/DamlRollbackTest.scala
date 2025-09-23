@@ -9,8 +9,8 @@ import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.DamlRollbackTest.TbContext
 import com.digitalasset.canton.integration.util.EntitySyntax
@@ -1164,7 +1164,7 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
 trait DamlRollbackReferenceSequencerPostgresTest {
   self: SharedEnvironment =>
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
 }
 
 trait DamlRollbackBftSequencerPostgresTest {

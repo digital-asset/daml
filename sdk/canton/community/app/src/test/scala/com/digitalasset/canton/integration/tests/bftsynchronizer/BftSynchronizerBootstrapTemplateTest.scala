@@ -7,7 +7,7 @@ import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -142,7 +142,7 @@ sealed trait BftSynchronizerBootstrapTemplateTest
 
 class BftSynchronizerBootstrapTemplateTestDefault extends BftSynchronizerBootstrapTemplateTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+    new UseReferenceBlockSequencer[DbConfig.H2](
       loggerFactory
     )
   )

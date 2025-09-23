@@ -47,7 +47,7 @@ CREATE TABLE lapi_command_completions (
     record_time bigint not null,
     publication_time bigint not null,
     user_id integer not null,
-    submitters integer[] not null,
+    submitters bytea not null,
     command_id varchar collate "C" not null,
     -- The update ID is `NULL` for rejected transactions/reassignments.
     update_id varchar collate "C",
@@ -106,7 +106,7 @@ CREATE TABLE lapi_events_assign (
     contract_id bytea not null,
     template_id integer not null,
     package_id integer not null,
-    flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
+    flat_event_witnesses bytea not null, -- stakeholders
 
     -- * common reassignment
     source_synchronizer_id integer not null,
@@ -116,8 +116,8 @@ CREATE TABLE lapi_events_assign (
 
     -- * assigned specific
     create_argument bytea not null,
-    create_signatories integer[] default '{}'::integer[] not null,
-    create_observers integer[] default '{}'::integer[] not null,
+    create_signatories bytea not null,
+    create_observers bytea not null,
     create_key_value bytea,
     create_key_hash varchar collate "C",
     create_argument_compression smallint,
@@ -125,7 +125,7 @@ CREATE TABLE lapi_events_assign (
     ledger_effective_time bigint not null,
     authentication_data bytea not null,
 
-    create_key_maintainers integer[],
+    create_key_maintainers bytea,
     trace_context bytea not null,
     record_time bigint not null
 );
@@ -160,20 +160,20 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    submitters integer[],
+    submitters bytea,
 
     -- * shared event information
     contract_id bytea not null,
     template_id integer not null,
     package_id integer not null,
-    flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
-    tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
+    flat_event_witnesses bytea not null, -- stakeholders
+    tree_event_witnesses bytea not null, -- informees
 
     -- * choice data
     exercise_choice varchar collate "C" not null,
     exercise_argument bytea not null,
     exercise_result bytea,
-    exercise_actors integer[] not null,
+    exercise_actors bytea not null,
     exercise_last_descendant_node_id integer not null,
 
     -- * compression flags
@@ -213,20 +213,20 @@ CREATE TABLE lapi_events_create (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    submitters integer[],
+    submitters bytea,
 
     -- * shared event information
     contract_id bytea not null,
     template_id integer not null,
     package_id integer not null,
     representative_package_id integer not null,
-    flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
-    tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
+    flat_event_witnesses bytea not null, -- stakeholders
+    tree_event_witnesses bytea not null, -- informees
 
     -- * contract data
     create_argument bytea not null,
-    create_signatories integer[] not null,
-    create_observers integer[] not null,
+    create_signatories bytea not null,
+    create_observers bytea not null,
     create_key_value bytea,
     create_key_hash varchar collate "C",
 
@@ -235,7 +235,7 @@ CREATE TABLE lapi_events_create (
     create_key_value_compression smallint,
     authentication_data bytea not null,
     synchronizer_id integer not null,
-    create_key_maintainers integer[],
+    create_key_maintainers bytea,
     trace_context bytea not null,
     record_time bigint not null,
     external_transaction_hash bytea
@@ -271,19 +271,19 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id varchar collate "C",
-    submitters integer[],
+    submitters bytea,
 
     -- * shared event information
     contract_id bytea not null,
     template_id integer not null,
     package_id integer not null,
-    tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
+    tree_event_witnesses bytea not null, -- informees
 
     -- * choice data
     exercise_choice varchar collate "C" not null,
     exercise_argument bytea not null,
     exercise_result bytea,
-    exercise_actors integer[] not null,
+    exercise_actors bytea not null,
     exercise_last_descendant_node_id integer not null,
 
     -- * compression flags
@@ -326,7 +326,7 @@ CREATE TABLE lapi_events_unassign (
     contract_id bytea not null,
     template_id integer not null,
     package_id integer not null,
-    flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
+    flat_event_witnesses bytea not null, -- stakeholders
 
     -- * common reassignment
     source_synchronizer_id integer not null,

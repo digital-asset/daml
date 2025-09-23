@@ -11,8 +11,8 @@ import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.util.ShowUtil.*
 
@@ -137,7 +137,7 @@ trait DistributedStatusIntegrationTest
 
 class DistributedStatusReferenceIntegrationTestPostgres extends DistributedStatusIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class DistributedStatusBftOrderingIntegrationTestPostgres extends DistributedStatusIntegrationTest {

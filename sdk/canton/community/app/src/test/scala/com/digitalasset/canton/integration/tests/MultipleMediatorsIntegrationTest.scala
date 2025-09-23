@@ -22,8 +22,8 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkTopologyDescription,
 }
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -181,7 +181,7 @@ class MultipleMediatorsIntegrationTest
     with MultipleMediatorsBaseTest
     with OperabilityTestHelpers {
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
   // we need to register the ProgrammableSequencer after the ReferenceBlockSequencer
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 

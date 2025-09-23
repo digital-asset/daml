@@ -7,8 +7,8 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -168,7 +168,7 @@ trait SynchronizerParametersTimeoutChangesIntegrationTest
 
 class SynchronizerParametersTimeoutChangesReferenceIntegrationTestDefault
     extends SynchronizerParametersTimeoutChangesIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
   // we need to register the ProgrammableSequencer after the ReferenceBlockSequencer
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

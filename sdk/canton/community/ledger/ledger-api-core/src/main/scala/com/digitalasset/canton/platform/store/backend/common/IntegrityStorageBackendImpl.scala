@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{array, int, long, str}
+import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -252,7 +252,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       .asVectorOf(
         offset("completion_offset") ~
           int("user_id") ~
-          array[Int]("submitters") ~
+          byteArray("submitters") ~
           str("command_id") ~
           str("update_id").? ~
           str("submission_id").? ~
@@ -262,7 +262,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             case offset ~ userId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ recordTimeLong ~ synchronizerId =>
               CompletionEntry(
                 userId,
-                submitters.toList,
+                IntArrayDBSerialization.decodeFromByteArray(submitters).toList,
                 commandId,
                 updateId,
                 submissionId,
@@ -302,6 +302,24 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         )
       )
 
+    // Verify no duplicate completion entry
+    val internalContractIds = SQL"""
+          SELECT
+            internal_contract_id
+          FROM par_contracts
+      """
+      .asVectorOf(long("internal_contract_id"))(connection)
+    val firstTenDuplicatedInternalIds = internalContractIds
+      .groupMap(identity)(identity)
+      .iterator
+      .filter(_._2.sizeIs > 1)
+      .take(10)
+      .map(_._1)
+      .toSeq
+    if (firstTenDuplicatedInternalIds.nonEmpty)
+      throw new RuntimeException(
+        s"duplicate internal_contract_id-s found in table par_contracts (first 10 shown) $firstTenDuplicatedInternalIds"
+      )
   } catch {
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage

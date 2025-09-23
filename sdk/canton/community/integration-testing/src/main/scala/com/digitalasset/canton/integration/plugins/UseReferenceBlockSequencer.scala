@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.integration.ConfigTransforms.generateUniqueH2DatabaseName
 import com.digitalasset.canton.integration.EnvironmentSetupPlugin
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.{
   MultiSynchronizer,
   SequencerSynchronizerGroups,
   SingleSynchronizer,
@@ -26,8 +26,8 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SequencerConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
-  BaseReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
+  ReferenceSequencerDriverFactory,
 }
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
@@ -47,16 +47,15 @@ import scala.reflect.ClassTag
   *   in-memory storage is defined, sequencers sharing storage is not supported (each one is a
   *   different synchronizer).
   */
-abstract class UseReferenceBlockSequencerBase[
-    StorageConfigT <: StorageConfig
-](
+class UseReferenceBlockSequencer[StorageConfigT <: StorageConfig](
     override protected val loggerFactory: NamedLoggerFactory,
-    driverSingleWordName: String,
-    driverDescription: String,
     sequencerGroups: SequencerSynchronizerGroups = SingleSynchronizer,
     postgres: Option[UsePostgres] = None,
 )(implicit c: ClassTag[StorageConfigT])
     extends EnvironmentSetupPlugin {
+
+  private val driverSingleWordName: String = "reference"
+  private val driverDescription: String = "Reference Block Sequencer"
 
   private implicit val pluginExecutionContext: ExecutionContext =
     Threading.newExecutionContext(
@@ -67,7 +66,7 @@ abstract class UseReferenceBlockSequencerBase[
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private[canton] var pgPlugin: Option[UsePostgres] = postgres
 
-  protected val driverFactory: BaseReferenceSequencerDriverFactory
+  protected val driverFactory: ReferenceSequencerDriverFactory = new ReferenceSequencerDriverFactory
 
   private final def dbNameForGroup(group: Int): String = s"${driverSingleWordName}_db_$group"
 
@@ -279,7 +278,7 @@ abstract class UseReferenceBlockSequencerBase[
 
 }
 
-object UseReferenceBlockSequencerBase {
+object UseReferenceBlockSequencer {
 
   sealed trait SequencerSynchronizerGroups {
     def numberOfSynchronizers: Int

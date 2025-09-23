@@ -9,8 +9,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.OffboardsSequencerNode
 import com.digitalasset.canton.integration.{
@@ -126,7 +126,7 @@ trait SequencerOffboardingIntegrationTest
 class SequencerOffboardingReferenceIntegrationTestPostgres
     extends SequencerOffboardingIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class SequencerOffboardingBftOrderingIntegrationTestPostgres

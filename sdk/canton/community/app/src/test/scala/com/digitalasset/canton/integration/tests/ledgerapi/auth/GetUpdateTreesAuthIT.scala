@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitAndWaitDummyCommand
 import io.grpc.stub.StreamObserver
 
@@ -21,7 +21,7 @@ import scala.annotation.nowarn
 final class GetUpdateTreesAuthIT
     extends ExpiringStreamServiceCallAuthTestsLegacy[GetUpdateTreesResponse]
     with SubmitAndWaitDummyCommand {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "UpdateService#GetUpdateTrees"
 

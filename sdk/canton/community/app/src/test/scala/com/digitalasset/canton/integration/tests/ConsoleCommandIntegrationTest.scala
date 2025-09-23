@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.topology.PartyId
 import org.scalatest.OptionValues
@@ -259,7 +259,7 @@ trait ConsoleCommandIntegrationTest
 }
 
 class ConsoleCommandIntegrationTestDefault extends ConsoleCommandIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
 //class ConsoleCommandIntegrationTestPostgres extends ConsoleCommandIntegrationTest {

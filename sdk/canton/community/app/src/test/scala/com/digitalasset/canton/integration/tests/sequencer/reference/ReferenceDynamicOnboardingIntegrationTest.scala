@@ -4,11 +4,11 @@
 package com.digitalasset.canton.integration.tests.sequencer.reference
 
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 
 class ReferenceDynamicOnboardingIntegrationTest
     extends ReferenceDynamicOnboardingIntegrationTestBase(DriverName) {
 
-  override protected lazy val plugin: UseCommunityReferenceBlockSequencer[DbConfig.Postgres] =
+  override protected lazy val plugin: UseReferenceBlockSequencer[DbConfig.Postgres] =
     createPlugin[DbConfig.Postgres](loggerFactory)
 }

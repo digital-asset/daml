@@ -7,37 +7,27 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.{DbConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.Storage
+import com.digitalasset.canton.resource.{Storage, StorageSingleSetup}
 import com.digitalasset.canton.synchronizer.block.BlockFormat.DefaultFirstBlockHeight
 import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.BaseReferenceSequencerDriverFactory.createClock
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore
 import com.digitalasset.canton.time.{Clock, TimeProvider, TimeProviderClock}
 import com.digitalasset.canton.tracing.TraceContext
+import monocle.macros.syntax.lens.*
 import org.apache.pekko.stream.Materializer
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.concurrent.ExecutionContext
 
-abstract class BaseReferenceSequencerDriverFactory extends SequencerDriverFactory {
+class ReferenceSequencerDriverFactory extends SequencerDriverFactory {
 
   override final type ConfigType = ReferenceSequencerDriver.Config[StorageConfig]
-
-  protected def createStorage(
-      config: ConfigType,
-      clock: Clock,
-      processingTimeout: ProcessingTimeout,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-      metricsContext: MetricsContext,
-  ): Storage
 
   override final def version: Int = 1
 
   override final def usesTimeProvider: Boolean = true
+
+  override def name: String = "reference"
 
   override def configParser: ConfigReader[ConfigType] = {
     import pureconfig.generic.semiauto.*
@@ -69,6 +59,9 @@ abstract class BaseReferenceSequencerDriverFactory extends SequencerDriverFactor
 
     deriveWriter[ConfigType]
   }
+
+  private def createClock(timeProvider: TimeProvider, loggerFactory: NamedLoggerFactory) =
+    new TimeProviderClock(timeProvider, loggerFactory)
 
   override def create(
       config: ConfigType,
@@ -113,10 +106,35 @@ abstract class BaseReferenceSequencerDriverFactory extends SequencerDriverFactor
       loggerFactory: NamedLoggerFactory,
   ): FlagCloseable =
     FlagCloseable(loggerFactory.getTracedLogger(getClass), processingTimeout)
-}
 
-private[reference] object BaseReferenceSequencerDriverFactory {
+  protected def createStorage(
+      config: ReferenceSequencerDriver.Config[StorageConfig],
+      clock: Clock,
+      processingTimeout: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+      closeContext: CloseContext,
+      metricsContext: MetricsContext,
+  ): Storage =
+    StorageSingleSetup.tryCreateAndMigrateStorage(
+      config.storage,
+      config.logQueryCost,
+      clock,
+      processingTimeout,
+      loggerFactory,
+      setMigrationsPath,
+    )
 
-  final def createClock(timeProvider: TimeProvider, loggerFactory: NamedLoggerFactory) =
-    new TimeProviderClock(timeProvider, loggerFactory)
+  def setMigrationsPath(config: StorageConfig): StorageConfig =
+    config match {
+      case h2: DbConfig.H2 =>
+        h2.focus(_.parameters.migrationsPaths)
+          .replace(Seq("classpath:db/migration/canton/h2/dev/reference/"))
+      case pg: DbConfig.Postgres =>
+        pg.focus(_.parameters.migrationsPaths)
+          .replace(Seq("classpath:db/migration/canton/postgres/dev/reference/"))
+      case x => x
+    }
 }
