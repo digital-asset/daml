@@ -170,6 +170,7 @@ class Engine(val config: EngineConfig) {
         processedPrefetchKeys,
         disclosedContractIds,
         disclosedKeyHashes,
+        unprocessedCommands = Some(cmds.commands),
       )
       // TODO: https://github.com/digital-asset/daml/issues/21933: Preprocessing input size checks should stop submission workflows ASAP
       _ <- preprocessor.getInputCost

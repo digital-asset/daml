@@ -331,8 +331,12 @@ private[engine] final class Preprocessor(
       prefetchKeys: Seq[GlobalKey],
       disclosedContractIds: Set[Value.ContractId],
       disclosedKeyHashes: Set[Hash],
+      unprocessedCommands: Option[ImmArray[command.ApiCommand]] = None,
   ): Result[Unit] = {
-    updateInputCost(commands)
+    // TODO: https://github.com/digital-asset/daml/issues/21953: implement size cost model for speedy.ApiCommand and speedy.SValue
+    unprocessedCommands.foreach { cmds =>
+      updateInputCost(cmds)
+    }
     updateInputCost(prefetchKeys)
     updateInputCost(disclosedContractIds)
     updateInputCost(disclosedKeyHashes)

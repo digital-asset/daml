@@ -9,10 +9,11 @@ import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   FatContractInstanceImpl,
+  GlobalKey,
   GlobalKeyWithMaintainers,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.{command, crypto, language, speedy}
+import com.digitalasset.daml.lf.{command, crypto, language}
 
 import scala.collection.immutable.TreeSet
 import scala.language.implicitConversions
@@ -48,19 +49,17 @@ private[lf] object CostModel {
 
     implicit def costOfValue(value: Value): Cost
 
-    implicit def costOfSpeedyValue(value: speedy.SValue): Cost
-
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost
 
     implicit def costOfApiCommand(value: command.ApiCommand): Cost
-
-    implicit def costOfSpeedyApiCommand(value: speedy.ApiCommand): Cost
 
     implicit def costOfApiContractKey(value: ApiContractKey): Cost
 
     implicit def costOfBytes(value: Bytes): Cost
 
     implicit def costOfHash(value: crypto.Hash): Cost
+
+    implicit def costOfGlobalKey(value: GlobalKey): Cost
 
     implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost
 
@@ -116,19 +115,17 @@ private[lf] object CostModel {
 
     implicit def costOfValue(value: Value): Cost = 0L
 
-    implicit def costOfSpeedyValue(value: speedy.SValue): Cost = 0L
-
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost = 0L
 
     implicit def costOfApiCommand(value: command.ApiCommand): Cost = 0L
-
-    implicit def costOfSpeedyApiCommand(value: speedy.ApiCommand): Cost = 0L
 
     implicit def costOfApiContractKey(value: ApiContractKey): Cost = 0L
 
     implicit def costOfBytes(value: Bytes): Cost = 0L
 
     implicit def costOfHash(value: crypto.Hash): Cost = 0L
+
+    implicit def costOfGlobalKey(value: GlobalKey): Cost = 0L
 
     implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost = 0L
 
@@ -204,7 +201,7 @@ private[lf] object CostModel {
       case Value.ValueList(value) =>
         1 + costOfFrontStack(value)(costOfValue)
       case Value.ValueNumeric(value) =>
-        1 + 42 // FIXME:
+        1 + costOfString(value.toUnscaledString) + costOfInt(value.scale)
       case Value.ValueOptional(opt) =>
         1 + costOfOption(opt)(costOfValue)
       case Value.ValueParty(p) =>
@@ -224,8 +221,6 @@ private[lf] object CostModel {
       case Value.ValueVariant(tycon, variant, value) =>
         1 + costOfOption(tycon) + costOfString(variant) + costOfValue(value)
     }
-
-    implicit def costOfSpeedyValue(value: speedy.SValue): Cost = costOfValue(value.toNormalizedValue)
 
     implicit def costOfFatContractInstance(value: FatContractInstance): Cost = {
       val FatContractInstanceImpl(
@@ -276,32 +271,6 @@ private[lf] object CostModel {
           costOfValue(choiceArg)
     }
 
-    implicit def costOfSpeedyApiCommand(value: speedy.ApiCommand): Cost = value match {
-      case speedy.Command.Create(templateId, arg) =>
-        1 + costOfIdentifier(templateId) +
-          costOfSpeedyValue(arg)
-      case speedy.Command.CreateAndExercise(templateId, createArg, choiceId, choiceArg) =>
-        1 + costOfIdentifier(templateId) +
-          costOfSpeedyValue(createArg) +
-          costOfString(choiceId) +
-          costOfSpeedyValue(choiceArg)
-      case speedy.Command.ExerciseTemplate(templateId, contractId, choiceId, arg) =>
-        1 + costOfIdentifier(templateId) +
-          costOfSpeedyValue(contractId) +
-          costOfString(choiceId) +
-          costOfSpeedyValue(arg)
-      case speedy.Command.ExerciseInterface(interfaceId, contractId, choiceId, arg) =>
-        1 + costOfIdentifier(interfaceId) +
-          costOfSpeedyValue(contractId) +
-          costOfString(choiceId) +
-          costOfSpeedyValue(arg)
-      case speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) =>
-        1 + costOfIdentifier(templateId) +
-          costOfSpeedyValue(key) +
-          costOfString(choiceId) +
-          costOfSpeedyValue(arg)
-    }
-
     implicit def costOfApiContractKey(value: ApiContractKey): Cost = {
       val ApiContractKey(templateRef, contractKey) = value
 
@@ -312,15 +281,17 @@ private[lf] object CostModel {
 
     implicit def costOfHash(value: crypto.Hash): Cost = 1 + value.bytes.length.toLong
 
+    implicit def costOfGlobalKey(value: GlobalKey): Cost = {
+      1 + costOfIdentifier(value.templateId) +
+        costOfString(value.packageName) +
+        costOfValue(value.key) +
+        costOfHash(value.hash)
+    }
+
     implicit def costOfGlobalKeyWithMaintainers(value: GlobalKeyWithMaintainers): Cost = {
       val GlobalKeyWithMaintainers(key, maintainers) = value
-      val costOfGlobalKey =
-        1 + costOfIdentifier(key.templateId) +
-          costOfString(key.packageName) +
-          costOfValue(key.key) +
-          costOfHash(key.hash)
 
-      1 + costOfGlobalKey + costOfSet(maintainers)
+      1 + costOfGlobalKey(key) + costOfSet(maintainers)
     }
 
     implicit def costOfTuple2[A, B](
