@@ -47,15 +47,13 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
       failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
       1
     } else {
-      val packageMap =
-        (for {
-          dar <- dars
-          (pkgId, pkg) <- dar.all.toSeq
-          if pkg.supportsUpgrades(pkgId)
-        } yield {
+      val packageMap = dars
+        .flatMap(_.all)
+        .map { case (pkgId, pkg) =>
           logger.debug(s"Package with ID $pkgId and metadata ${pkg.metadata}")
           pkgId -> Util.toSignature(pkg)
-        }).toMap
+        }
+        .toMap
 
       val validation = validator.validateUpgrade(packageMap.keySet, packageMap.keySet, packageMap)
       validation match {
