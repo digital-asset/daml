@@ -131,7 +131,7 @@ object CantonRunner {
          |        public-api.port = ${sequencerPublicApi.port}
          |        sequencer {
          |          config.storage.type = memory
-         |          type = community-reference
+         |          type = reference
          |        }
          |        storage.type = memory
          |    }
