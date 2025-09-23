@@ -14,7 +14,9 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.api.SinglePackageTargetVetting
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
@@ -24,6 +26,7 @@ import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ContinueAfterFailure, EitherTUtil, SimpleExecutionQueue}
@@ -55,6 +58,25 @@ trait PackageOps extends NamedLogging {
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, Unit]
+
+  def updateVettedPackages(
+      targetStates: Seq[SinglePackageTargetVetting[PackageId]],
+      dryRun: Boolean,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    (Seq[VettedPackage], Seq[VettedPackage]),
+  ]
+
+  def getVettedPackages()(implicit
+      tc: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    Option[(Seq[VettedPackage], PositiveInt)],
+  ]
 }
 
 class PackageOpsImpl(
@@ -70,6 +92,7 @@ class PackageOpsImpl(
 )(implicit val ec: ExecutionContext)
     extends PackageOps
     with FlagCloseable {
+  import PackageOpsImpl.*
 
   private val vettingExecutionQueue = new SimpleExecutionQueue(
     "sequential-vetting-queue",
@@ -173,6 +196,83 @@ class PackageOpsImpl(
       "revoke vetting",
     )
 
+  override def updateVettedPackages(
+      targetStates: Seq[SinglePackageTargetVetting[PackageId]],
+      dryRun: Boolean,
+  )(implicit
+      tc: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    (Seq[VettedPackage], Seq[VettedPackage]),
+  ] = {
+    val targetStatesMap: Map[PackageId, SinglePackageTargetVetting[PackageId]] =
+      targetStates.map((x: SinglePackageTargetVetting[PackageId]) => x.ref -> x).toMap
+
+    def toChange(previousState: VettedPackage): VettedPackageChange =
+      targetStatesMap.get(previousState.packageId) match {
+        case None => VettedPackageChange.Unchanged(previousState)
+        case Some(target) =>
+          VettedPackageChange.Changed(Some(previousState), target.toVettedPackage)
+      }
+
+    for {
+      currentPackagesAndSerial <- getVettedPackages()
+      currentPackages = currentPackagesAndSerial.map(_._1).getOrElse(Seq())
+      currentSerial = currentPackagesAndSerial.map(_._2)
+
+      notInCurrentPackages = targetStatesMap -- currentPackages.map(_.packageId)
+      updateInstructions =
+        currentPackages.map(toChange) ++ notInCurrentPackages.values.map(
+          _.toFreshVettedPackageChange
+        )
+      newAllPackages = updateInstructions.flatMap(_.newState)
+      _ <- EitherTUtil.ifThenET(!dryRun) {
+        // Fails if a new topology change is submitted between getVettedPackages
+        // above and this call to setVettedPackages, since currentSerial will no
+        // longer be valid.
+        setVettedPackages(currentPackages, newAllPackages, currentSerial)
+      }
+    } yield (
+      currentPackages,
+      newAllPackages,
+    )
+  }
+
+  override def getVettedPackages()(implicit
+      tc: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    ParticipantTopologyManagerError,
+    Option[(Seq[VettedPackage], PositiveInt)],
+  ] =
+    EitherT.right(
+      synchronizeWithClosing(functionFullName)(
+        topologyManager.store
+          .findPositiveTransactions(
+            asOf = CantonTimestamp.MaxValue,
+            asOfInclusive = true,
+            isProposal = false,
+            types = Seq(VettedPackages.code),
+            filterUid = Some(NonEmpty(Seq, nodeId)),
+            filterNamespace = None,
+          )
+          .map { result =>
+            result
+              .collectOfMapping[VettedPackages]
+              .result
+              .lastOption
+              .map {
+                (currentMapping: StoredTopologyTransaction[
+                  TopologyChangeOp.Replace,
+                  VettedPackages,
+                ]) =>
+                  (currentMapping.mapping.packages, currentMapping.serial)
+              }
+          }
+      )
+    )
+
   /** Returns true if a new VettedPackages transaction was authorized. modifyVettedPackages should
     * not be called concurrently
     */
@@ -182,30 +282,22 @@ class PackageOpsImpl(
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
     for {
-      currentMapping <- EitherT.right(
-        synchronizeWithClosing(functionFullName)(
-          topologyManager.store
-            .findPositiveTransactions(
-              asOf = CantonTimestamp.MaxValue,
-              asOfInclusive = true,
-              isProposal = false,
-              types = Seq(VettedPackages.code),
-              filterUid = Some(NonEmpty(Seq, nodeId)),
-              filterNamespace = None,
-            )
-            .map { result =>
-              result
-                .collectOfMapping[VettedPackages]
-                .result
-                .lastOption
-            }
-        )
-      )
-      currentPackages = currentMapping
-        .map(_.mapping.packages)
-        .getOrElse(Seq.empty)
-      nextSerial = currentMapping.map(_.serial.increment)
+      currentPackagesAndSerial <- getVettedPackages()
+      currentPackages = currentPackagesAndSerial.map(_._1).getOrElse(Seq())
+      currentSerial = currentPackagesAndSerial.map(_._2)
+
       newVettedPackagesState = action(currentPackages)
+      result <- setVettedPackages(currentPackages, newVettedPackagesState, currentSerial)
+    } yield result
+
+  private def setVettedPackages(
+      currentPackages: Seq[VettedPackage],
+      newVettedPackagesState: Seq[VettedPackage],
+      currentSerial: Option[PositiveInt],
+  )(implicit
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
+    for {
       mapping <- EitherT
         .fromEither[FutureUnlessShutdown](
           VettedPackages.create(
@@ -218,13 +310,14 @@ class PackageOpsImpl(
             TopologyManagerError.InvalidTopologyMapping.Reject(err)
           )
         )
+      newSerial = currentSerial.map(_.increment)
       _ <- EitherTUtil.ifThenET(newVettedPackagesState != currentPackages) {
         synchronizeWithClosing(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
               op = TopologyChangeOp.Replace,
               mapping = mapping,
-              serial = nextSerial,
+              serial = newSerial,
               signingKeys = Seq.empty,
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
@@ -236,4 +329,29 @@ class PackageOpsImpl(
         )
       }
     } yield newVettedPackagesState != currentPackages
+}
+
+object PackageOpsImpl {
+  sealed trait VettedPackageChange {
+    def newState: Option[VettedPackage]
+  }
+
+  object VettedPackageChange {
+    final case class Unchanged(state: VettedPackage) extends VettedPackageChange {
+      override def newState = Some(state)
+    }
+
+    final case class Changed(
+        previousState: Option[VettedPackage],
+        newState: Option[VettedPackage],
+    ) extends VettedPackageChange
+  }
+
+  implicit class TargetVettingToVettedPackage(target: SinglePackageTargetVetting[PackageId]) {
+    def toVettedPackage: Option[VettedPackage] =
+      target.bounds.map { case (lower, upper) => VettedPackage(target.ref, lower, upper) }
+
+    def toFreshVettedPackageChange: VettedPackageChange.Changed =
+      VettedPackageChange.Changed(None, toVettedPackage)
+  }
 }

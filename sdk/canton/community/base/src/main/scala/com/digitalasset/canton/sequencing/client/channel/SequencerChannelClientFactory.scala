@@ -21,7 +21,7 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
-import com.digitalasset.canton.tracing.TracingConfig
+import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ManagedChannel
 
@@ -47,7 +47,8 @@ final class SequencerChannelClientFactory(
       sequencerConnections: SequencerConnections,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
   )(implicit
-      executionContext: ExecutionContextExecutor
+      executionContext: ExecutionContextExecutor,
+      traceContext: TraceContext,
   ): Either[String, SequencerChannelClient] =
     makeChannelTransports(
       sequencerConnections,

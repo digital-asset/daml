@@ -19,6 +19,7 @@ final class OpenApiTests
     "idps",
     "interactive-submission",
     "packages",
+    "package-vetting",
     "parties",
     "state",
     "updates",

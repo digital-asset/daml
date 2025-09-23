@@ -998,16 +998,20 @@ messages:
           for ledger implementation testing purposes only.
 
           Daml applications SHOULD not depend on these in production.
-        user_management: |-
-          If set, then the Ledger API server supports user management.
-          It is recommended that clients query this field to gracefully adjust their behavior for
-          ledgers that do not support user management.
+        package_feature: |-
+          If set, then the Ledger API server supports package listing
+          configurability. It is recommended that clients query this field to
+          gracefully adjust their behavior to maximum package listing page size.
+        offset_checkpoint: It contains the timeouts related to the periodic offset
+          checkpoint emission
         party_management: |-
           If set, then the Ledger API server supports party management configurability.
           It is recommended that clients query this field to gracefully adjust their behavior to
           maximum party page size.
-        offset_checkpoint: It contains the timeouts related to the periodic offset
-          checkpoint emission
+        user_management: |-
+          If set, then the Ledger API server supports user management.
+          It is recommended that clients query this field to gracefully adjust their behavior for
+          ledgers that do not support user management.
   Fetch:
     message:
       comments: Fetch node
@@ -1723,6 +1727,54 @@ messages:
         next_page_token: |-
           Pagination token to retrieve the next page.
           Empty, if there are no further results.
+  ListVettedPackagesRequest:
+    message:
+      comments: null
+      fieldComments:
+        package_metadata_filter: |-
+          The package metadata filter the returned vetted packages set must satisfy.
+          Optional.
+        topology_state_filter: |-
+          The topology filter the returned vetted packages set must satisfy.
+          Optional.
+        page_token: |-
+          Pagination token to determine the specific page to fetch. Using the token
+          guarantees that ``VettedPackages`` on a subsequent page are all greater
+          (``VettedPackages`` are sorted by synchronizer ID then participant ID) than
+          the last ``VettedPackages`` on a previous page.
+
+          The server does not store intermediate results between calls chained by a
+          series of page tokens. As a consequence, if new vetted packages are being
+          added and a page is requested twice using the same token, more packages can
+          be returned on the second call.
+
+          Leave empty to fetch the first page.
+
+          Optional
+        page_size: |-
+          Maximum number of ``VettedPackages`` results to return in a single page.
+
+          If the page_size is unspecified, the server will decide the number of
+          results to be returned.
+
+          If the page_size exceeds the maximum supported by the server, an
+          error will be returned.
+
+          To obtain the server's maximum consult the PackageService descriptor
+          available in the VersionService.
+
+          Optional
+  ListVettedPackagesResponse:
+    message:
+      comments: null
+      fieldComments:
+        vetted_packages: |-
+          All ``VettedPackages`` that contain at least one ``VettedPackage`` matching
+          both a ``PackageMetadataFilter`` and a ``TopologyStateFilter``.
+          Sorted by synchronizer_id then participant_id.
+        next_page_token: |-
+          Pagination token to retrieve the next page.
+          Empty, if there are no further results.
   Metadata:
     message:
       comments: |-
@@ -1848,6 +1900,30 @@ messages:
         known_since: |-
           Indicates since when the package is known to the backing participant.
           Required
+  PackageFeature:
+    message:
+      comments: null
+      fieldComments:
+        max_vetted_packages_page_size: |-
+          The maximum number of vetted packages the server can return in a single
+          response (page) when listing them.
+  PackageMetadataFilter:
+    message:
+      comments: |-
+        Filter the VettedPackages by package metadata.
+
+        A PackageMetadataFilter without package_ids and without package_name_prefixes
+        matches any vetted package.
+
+        Non-empty fields specify candidate values of which at least one must match.
+        If both fields are set, then a candidate is returned if it matches one of the fields.
+      fieldComments:
+        package_ids: |-
+          If this list is non-empty, any vetted package with a package ID in this
+          list will match the filter.
+        package_name_prefixes: |-
+          If this list is non-empty, any vetted package with a name matching at least
+          one prefix in this list will match the filter.
   PackagePreference:
     message:
       comments: null
@@ -2352,6 +2428,28 @@ messages:
         include_participant_authorization_events: |-
           Include participant authorization topology events in streams.
           Optional, if unset no participant authorization topology events are emitted in the stream.
+  TopologyStateFilter:
+    message:
+      comments: |-
+        Filter the vetted packages by the participant and synchronizer that they are
+        hosted on.
+
+        Empty fields are ignored, such that a ``TopologyStateFilter`` without
+        participant_ids and without synchronizer_ids matches a vetted package hosted
+        on any participant and synchronizer.
+
+        Non-empty fields specify candidate values of which at least one must match.
+        If both fields are set then at least one candidate value must match from each
+        field.
+      fieldComments:
+        participant_ids: |-
+          If this list is non-empty, only vetted packages hosted on participants
+          listed in this field match the filter.
+          Query the current Ledger API's participant's ID via the public
+          ``GetParticipantId`` command in ``PartyManagementService``.
+        synchronizer_ids: |-
+          If this list is non-empty, only vetted packages from the topology state of
+          the synchronizers in this list match the filter.
   TopologyTransaction:
     message:
       comments: null
@@ -2740,6 +2838,40 @@ messages:
       comments: null
       fieldComments:
         user: Updated user
+  UpdateVettedPackagesRequest:
+    message:
+      comments: null
+      fieldComments:
+        changes: |-
+          Changes to apply to the current vetting state of the participant on the
+          specified synchronizer. The changes are applied in order.
+          Any package not changed will keep their previous vetting state.
+        dry_run: |-
+          If dry_run is true, then the changes are only prepared, but not applied. If
+          a request would trigger an error when run (e.g. TOPOLOGY_DEPENDENCIES_NOT_VETTED),
+          it will also trigger an error when dry_run.
+
+          Use this flag to preview a change before applying it.
+        synchronizer_id: |-
+          The sychronizer on which the ``VettedPackages`` of this participant node
+          should be changed.
+        expected_topology_serial: |-
+          The serial of the last ``VettedPackages`` topology transaction of this
+          participant and on this synchronizer.
+
+          Execution of the request fails if this is not correct. If the serial is
+          left unspecified, the request always succeeds.
+
+          Use this to guard against concurrent changes.
+  UpdateVettedPackagesResponse:
+    message:
+      comments: null
+      fieldComments:
+        past_vetted_packages: |-
+          All vetted packages on this participant and synchronizer, before the
+          specified changes. Empty if no vetting state existed beforehand.
+        new_vetted_packages: All vetted packages on this participant and synchronizer,
+          after the specified changes.
   UploadDarFileRequest:
     message:
       comments: null
@@ -2752,6 +2884,7 @@ messages:
         submission_id: |-
           Unique submission identifier.
           Optional, defaults to a random identifier.
+        vetting_change: How to vet packages in the DAR being uploaded
   UploadDarFileResponse:
     message:
       comments: A message that is received when the upload operation succeeded.
@@ -2821,6 +2954,65 @@ messages:
     message:
       comments: null
       fieldComments: {}
+  VettedPackage:
+    message:
+      comments: |-
+        A package that is vetting on a given participant and synchronizer,
+        modelled after ``VettedPackage`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_,
+        enriched with the package name and version.
+      fieldComments:
+        valid_until_exclusive: |-
+          The time until which this package is vetted. Empty if vetting time has no
+          upper bound.
+        package_version: |-
+          Version of this package.
+          Only available if the package has been uploaded to the current participant.
+        package_name: |-
+          Name of this package.
+          Only available if the package has been uploaded to the current participant.
+        package_id: Package ID of this package. Always present.
+        valid_from_inclusive: |-
+          The time from which this package is vetted. Empty if vetting time has no
+          lower bound.
+  VettedPackages:
+    message:
+      comments: |-
+        The list of packages vetted on a given participant and synchronizer, modelled
+        after ``VettedPackages`` in `topology.proto <https://github.com/digital-asset/canton/blob/main/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto#L206>`_.
+        The list only contains packages that matched a filter in the query that
+        originated it.
+      fieldComments:
+        packages: |-
+          Sorted by package_name and package_version where known, and package_id as a
+          last resort.
+        participant_id: Participant on which these packages are vetted. Always present.
+        synchronizer_id: Synchronizer on which these packages are vetted. Always present.
+        topology_serial: |-
+          Serial of last ``VettedPackages`` topology transaction of this participant
+          and on this synchronizer.
+  VettedPackagesChange:
+    message:
+      comments: A change to the set of vetted packages.
+      fieldComments:
+        vet: Add packages to or update packages in the set of vetted packages.
+        unvet: Remove packages from the set of vetted packages.
+  VettedPackagesRef:
+    message:
+      comments: |-
+        A reference to identify one or more packages.
+
+        A reference matches a package if its ``package_id`` matches the package's ID,
+        its ``package_name`` matches the package's name, and its ``package_version``
+        matches the package's version. If any attribute is left unspecified in the
+        reference, it is treated as a wildcard. At a minimum, ``package_id`` or the
+        ``package_name`` must be specified.
+
+        If a reference does not match any package, the reference is considered
+        unresolved and the entire update request is rejected.
+      fieldComments:
+        package_id: Package's package id must be the same as this field.
+        package_name: Package's name must be the same as this field.
+        package_version: Package's version must be the same as this field.
   WildcardFilter:
     message:
       comments: This filter matches all templates.
@@ -3103,6 +3295,8 @@ oneOfs:
   ListUserRightsResponse: {}
   ListUsersRequest: {}
   ListUsersResponse: {}
+  ListVettedPackagesRequest: {}
+  ListVettedPackagesResponse: {}
   Metadata: {}
   MinLedgerTime:
     time:
@@ -3137,6 +3331,8 @@ oneOfs:
   OffsetCheckpoint: {}
   OffsetCheckpointFeature: {}
   PackageDetails: {}
+  PackageFeature: {}
+  PackageMetadataFilter: {}
   PackagePreference: {}
   PackageReference: {}
   PackageVettingRequirement: {}
@@ -3213,6 +3409,7 @@ oneOfs:
           participant_authorization_revoked: ''
           participant_authorization_added: ''
   TopologyFormat: {}
+  TopologyStateFilter: {}
   TopologyTransaction: {}
   TraceContext: {}
   Transaction: {}
@@ -3241,10 +3438,22 @@ oneOfs:
   UpdateUserIdentityProviderIdResponse: {}
   UpdateUserRequest: {}
   UpdateUserResponse: {}
+  UpdateVettedPackagesRequest: {}
+  UpdateVettedPackagesResponse: {}
   UploadDarFileRequest: {}
   UploadDarFileResponse: {}
   User: {}
   UserManagementFeature: {}
   ValidateDarFileRequest: {}
   ValidateDarFileResponse: {}
+  VettedPackage: {}
+  VettedPackages: {}
+  VettedPackagesChange:
+    operation:
+      message:
+        comments: null
+        fieldComments:
+          vet: Add packages to or update packages in the set of vetted packages.
+          unvet: Remove packages from the set of vetted packages.
+  VettedPackagesRef: {}
   WildcardFilter: {}

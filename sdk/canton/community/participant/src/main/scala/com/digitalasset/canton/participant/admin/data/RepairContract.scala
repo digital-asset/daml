@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.admin.data
 
 import cats.implicits.*
 import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
-import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.data.Counter
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
+import com.digitalasset.canton.{LfPackageId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
 
@@ -21,6 +21,7 @@ final case class RepairContract(
     synchronizerId: SynchronizerId,
     contract: LfFatContractInst,
     reassignmentCounter: ReassignmentCounter,
+    representativePackageId: LfPackageId,
 ) {
   def contractId: LfContractId = contract.contractId
 
@@ -69,6 +70,13 @@ object RepairContract {
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
+      // TODO(#27872): Require populated representativePackageId starting with 3.4
+      representativePackageId <- Option(event.representativePackageId)
+        .filter(_.nonEmpty)
+        .traverse(LfPackageId.fromString)
+        .leftMap(err => s"Unable to parse representative package id: $err")
+        .map(_.getOrElse(fattyContract.templateId.packageId))
+
       fatContractInstance <- fattyContract.traverseCreateAt {
         case absolute: CreationTime.CreatedAt => Right(absolute)
         case _ => Left("Unable to determine create time.")
@@ -80,9 +88,10 @@ object RepairContract {
           s"Unable to deserialize synchronized id from ${contract.synchronizerId}: $deserializationError"
         )
     } yield RepairContract(
-      synchronizerId,
-      fatContractInstance,
-      Counter(contract.reassignmentCounter),
+      synchronizerId = synchronizerId,
+      contract = fatContractInstance,
+      reassignmentCounter = Counter(contract.reassignmentCounter),
+      representativePackageId = representativePackageId,
     )
 
 }

@@ -23,8 +23,9 @@ import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.{
   ActiveContractOld,
-  ContractIdImportMode,
+  ContractImportMode,
   RepairContract,
+  RepresentativePackageIdOverride,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
@@ -337,10 +338,10 @@ class ParticipantRepairAdministration(
       |The contract IDs of the imported contracts may be checked ahead of starting the process.
       |If any contract ID doesn't match the contract ID scheme associated to the synchronizer
       |where the contract is assigned to, the whole import process fails depending on the value
-      |of `contractIdImportMode`.
+      |of `contractImportMode`.
       |
-      |By default `contractIdImportMode` is set to `ContractIdImportMode.Validation`. If set to
-      |`ContractIdImportMode.Recomputation`, any contract ID that wouldn't pass the check above
+      |By default `contractImportMode` is set to `ContractImportMode.Validation`. If set to
+      |`ContractImportMode.Recomputation`, any contract ID that wouldn't pass the check above
       |will be recomputed. Note that the recomputation of contract IDs fails under the following
       |circumstances:
       | - the contract salt used to compute the contract ID is missing
@@ -355,7 +356,7 @@ class ParticipantRepairAdministration(
       |
       |Expert only: As validation or recomputation on contract IDs may lengthen the import
       |significantly, you have the option to simply accept the contract IDs as they are using
-      |`ContractIdImportMode.Accept`.
+      |`ContractImportMode.Accept`.
       |
       |If the import process succeeds, the mapping from the old contract IDs to the new contract
       |IDs will be returned. An empty map means that all contract IDs were valid, or have been
@@ -365,18 +366,22 @@ class ParticipantRepairAdministration(
       |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
       |                  Defaults to "canton-acs-export.gz" when undefined.
       |- workflowIdPrefix: Prefixes the workflow ID for the import. Defaults to
-      |                  "import-<random_UUID>" when undefined.
-      |- contractIdImportMode: Governs contract ID processing on import. Options include
-      |                        Validation (default), [Accept, Recomputation].
+      |                    "import-<random_UUID>" when undefined.
+      |- contractImportMode: Governs contract ID processing on import. Options include
+      |                      Validation (default), [Accept, Recomputation].
       |- excludedStakeholders: When defined, any contract that has one or more of these
       |                        parties as a stakeholder will be omitted from the import.
+      |- representativePackageIdOverride: Defines override mappings for assigning
+      |                                   representative package IDs to contracts upon ACS import.
       """
   )
   def import_acs(
       importFilePath: String = "canton-acs-export.gz",
       workflowIdPrefix: String = "",
-      contractIdImportMode: ContractIdImportMode = ContractIdImportMode.Validation,
+      contractImportMode: ContractImportMode = ContractImportMode.Validation,
       excludedStakeholders: Set[PartyId] = Set.empty,
+      representativePackageIdOverride: RepresentativePackageIdOverride =
+        RepresentativePackageIdOverride.NoOverride,
   ): Map[LfContractId, LfContractId] =
     check(FeatureFlag.Repair) {
       consoleEnvironment.run {
@@ -384,8 +389,9 @@ class ParticipantRepairAdministration(
           ParticipantAdminCommands.ParticipantRepairManagement.ImportAcs(
             ByteString.copyFrom(File(importFilePath).loadBytes),
             if (workflowIdPrefix.nonEmpty) workflowIdPrefix else s"import-${UUID.randomUUID}",
-            contractIdImportMode = contractIdImportMode,
+            contractImportMode = contractImportMode,
             excludedStakeholders,
+            representativePackageIdOverride,
           )
         )
       }

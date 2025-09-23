@@ -275,18 +275,18 @@ object ContractIdsImportProcessor {
       loggerFactory: NamedLoggerFactory,
       staticParametersGetter: StaticSynchronizerParametersGetter,
       cryptoOps: HashOps & HmacOps,
-      contractIdImportMode: ContractIdImportMode,
+      contractImportMode: ContractImportMode,
   )(contracts: Seq[RepairContract])(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
-    contractIdImportMode match {
+    contractImportMode match {
       // Accept contract IDs as they are.
-      case ContractIdImportMode.Accept => EitherT.rightT((contracts, Map.empty))
-      case ContractIdImportMode.Validation =>
+      case ContractImportMode.Accept => EitherT.rightT((contracts, Map.empty))
+      case ContractImportMode.Validation =>
         new VerifyContractIdSuffixes(staticParametersGetter, loggerFactory)
           .process(contracts)
-      case ContractIdImportMode.Recomputation =>
+      case ContractImportMode.Recomputation =>
         new RecomputeContractIdSuffixes(staticParametersGetter, cryptoOps, loggerFactory)
           .process(contracts)
     }

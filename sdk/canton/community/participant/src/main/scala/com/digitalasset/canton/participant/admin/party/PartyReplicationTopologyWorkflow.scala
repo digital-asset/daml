@@ -322,6 +322,112 @@ class PartyReplicationTopologyWorkflow(
     } yield ()
   }
 
+  /** Attempt to authorize the onboarded topology for the party replication request on the target
+    * participant. Once the onboarded topology is authorized, verify the topology transaction, e.g.
+    * the party has a hosting permission on the target participants without the onboarding flag. Do
+    * so in an idempotent way such that this function can be retried.
+    *
+    * @param params
+    *   party replication parameters
+    * @param topologyManager
+    *   synchronizer topology manager to use for authorizing and TP-signature checking
+    * @param topologyStore
+    *   synchronizer topology store
+    * @return
+    *   whether the onboarded topology has been authorized
+    */
+  private[party] def authorizeOnboardedTopology(
+      params: PartyReplicationStatus.ReplicationParams,
+      topologyManager: SynchronizerTopologyManager,
+      topologyStore: TopologyStore[SynchronizerStore],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Boolean] = {
+    val PartyReplicationStatus
+      .ReplicationParams(
+        requestId,
+        partyId,
+        synchronizerId,
+        _,
+        targetParticipantId,
+        _,
+        _,
+      ) = params
+    require(
+      synchronizerId == topologyManager.psid.logical,
+      s"party replication synchronizer id $synchronizerId does not match topology manager synchronizer id ${topologyManager.psid.logical}",
+    )
+    require(
+      synchronizerId == topologyStore.storeId.psid.logical,
+      s"party replication synchronizer id $synchronizerId does not match topology store synchronizer id ${topologyStore.storeId.psid.logical}",
+    )
+    for {
+      ptpHeadTxn <- EitherT(
+        partyToParticipantTopologyHeadO(partyId, topologyStore).map(txO =>
+          txO
+            .filter(_.mapping.participants.exists(_.participantId == targetParticipantId))
+            .toRight(
+              s"Party $partyId is not hosted by target participant $targetParticipantId as expected by request $requestId"
+            )
+        )
+      )
+      onboardedPtpProposalO = Option.when(
+        ptpHeadTxn.mapping.participants.exists(p =>
+          p.participantId == targetParticipantId && p.onboarding
+        )
+      )(
+        (
+          PartyToParticipant.tryCreate(
+            ptpHeadTxn.mapping.partyId,
+            ptpHeadTxn.mapping.threshold,
+            ptpHeadTxn.mapping.participants.map {
+              case HostingParticipant(`targetParticipantId`, permission, true) =>
+                HostingParticipant(targetParticipantId, permission, onboarding = false)
+              case otherParticipant => otherParticipant
+            },
+          ),
+          ptpHeadTxn.serial.increment,
+        )
+      )
+      partyHasBeenOnboarded = true
+      isPartyVerifiedOnboarded <- onboardedPtpProposalO match {
+        case None => EitherT.rightT[FutureUnlessShutdown, String](partyHasBeenOnboarded)
+        case Some((ptpProposal, serial)) if participantId == targetParticipantId =>
+          logger.info(
+            s"About to mark party $partyId as onboarded on target participant on behalf of request $requestId"
+          )
+          topologyManager
+            .proposeAndAuthorize(
+              op = TopologyChangeOp.Replace,
+              mapping = ptpProposal,
+              serial = Some(serial),
+              signingKeys = Seq.empty, // Rely on topology manager to use the right TP signing keys
+              protocolVersion = topologyManager.managerVersion.serialization,
+              expectFullAuthorization = true, // expect full authorization when onboarding is done
+              forceChanges = ForceFlags.none,
+              waitToBecomeEffective = None,
+            )
+            .map(_ => !partyHasBeenOnboarded)
+            .recover { case err @ NoAppropriateSigningKeyInStore.Failure(_, _) =>
+              // See the note above on the possible race condition between the existingProposal and the topology manager call.
+              logger.info(
+                s"No appropriate key response to proposing topology change for $partyId and $requestId indicates race with proposal authorization: $err"
+              )
+              !partyHasBeenOnboarded
+            }
+            .leftMap { err =>
+              val exception = err.asGrpcError
+              logger.warn(
+                s"Error proposing party to participant topology change on $participantId for $partyId and $requestId",
+                exception,
+              )
+              exception.getMessage
+            }
+        case Some((_, _)) => EitherT.rightT[FutureUnlessShutdown, String](!partyHasBeenOnboarded)
+      }
+    } yield isPartyVerifiedOnboarded
+  }
+
   private def partyToParticipantTopologyHeadO(
       partyId: PartyId,
       topologyStore: TopologyStore[SynchronizerStore],

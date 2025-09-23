@@ -28,7 +28,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
 import com.digitalasset.canton.participant.CommunityParticipantNodeBootstrapFactory
-import com.digitalasset.canton.resource.CommunityDbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeBootstrapFactory
 import com.digitalasset.canton.synchronizer.sequencer.CommunitySequencerNodeBootstrapFactory
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
@@ -324,9 +323,6 @@ class NegativeRemoteDumpIntegrationTest
         CommunityParticipantNodeBootstrapFactory,
         CommunitySequencerNodeBootstrapFactory,
         CommunityMediatorNodeBootstrapFactory,
-        new CommunityDbMigrationsMetaFactory(
-          loggerFactory
-        ),
         loggerFactory,
       ) {
         override def createHealthDumpGenerator(

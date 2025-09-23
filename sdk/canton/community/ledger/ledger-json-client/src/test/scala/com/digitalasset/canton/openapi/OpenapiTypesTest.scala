@@ -784,8 +784,90 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.ExecuteSubmissionAndWaitResponse.fromJson
         ),
+        Mapping[v2.package_reference.VettedPackages, openapi.VettedPackages](
+          openapi.VettedPackages.fromJson
+        ),
+        Mapping[v2.package_reference.VettedPackage, openapi.VettedPackage](
+          openapi.VettedPackage.fromJson
+        ),
+        Mapping[
+          v2.package_service.PackageMetadataFilter,
+          openapi.PackageMetadataFilter,
+        ](
+          openapi.PackageMetadataFilter.fromJson
+        ),
+        Mapping[
+          v2.package_service.TopologyStateFilter,
+          openapi.TopologyStateFilter,
+        ](
+          openapi.TopologyStateFilter.fromJson
+        ),
+        Mapping[
+          v2.package_service.ListVettedPackagesResponse,
+          openapi.ListVettedPackagesResponse,
+        ](
+          openapi.ListVettedPackagesResponse.fromJson
+        ),
+        Mapping[
+          v2.package_service.ListVettedPackagesRequest,
+          openapi.ListVettedPackagesRequest,
+        ](
+          openapi.ListVettedPackagesRequest.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.UpdateVettedPackagesResponse,
+          openapi.UpdateVettedPackagesResponse,
+        ](
+          openapi.UpdateVettedPackagesResponse.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.UpdateVettedPackagesRequest,
+          openapi.UpdateVettedPackagesRequest,
+        ](
+          openapi.UpdateVettedPackagesRequest.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.UpdateVettedPackagesRequest,
+          openapi.UpdateVettedPackagesRequest,
+        ](
+          openapi.UpdateVettedPackagesRequest.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.VettedPackagesRef,
+          openapi.VettedPackagesRef,
+        ](
+          openapi.VettedPackagesRef.fromJson
+        ),
+        Mapping[v2.version_service.PackageFeature, openapi.PackageFeature](
+          openapi.PackageFeature.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.VettedPackagesChange,
+          openapi.VettedPackagesChange,
+        ](
+          openapi.VettedPackagesChange.fromJson
+        ),
+        Mapping[v2.admin.package_management_service.VettedPackagesChange.Vet, openapi.Vet1](
+          openapi.Vet1.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.VettedPackagesChange.Operation.Vet,
+          openapi.Vet,
+        ](
+          openapi.Vet.fromJson
+        ),
+        Mapping[v2.admin.package_management_service.VettedPackagesChange.Unvet, openapi.Unvet1](
+          openapi.Unvet1.fromJson
+        ),
+        Mapping[
+          v2.admin.package_management_service.VettedPackagesChange.Operation.Unvet,
+          openapi.Unvet,
+        ](
+          openapi.Unvet.fromJson
+        ),
       )
     }
+
     object JsMappings1 {
       val value: Seq[Mapping[_, _]] =
         Seq(

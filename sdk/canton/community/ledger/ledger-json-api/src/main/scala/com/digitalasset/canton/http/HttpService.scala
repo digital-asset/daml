@@ -25,10 +25,6 @@ import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
 }
-import com.digitalasset.canton.ledger.client.services.admin.{
-  IdentityProviderConfigClient,
-  UserManagementClient,
-}
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.platform.PackagePreferenceBackend
@@ -49,11 +45,11 @@ import java.io.InputStream
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.Using
 
 class HttpService(
-    startSettings: StartSettings,
+    startSettings: JsonApiConfig,
     httpsConfiguration: Option[TlsServerConfig],
     channel: Channel,
     packageSyncService: PackageSyncService,
@@ -175,42 +171,6 @@ object HttpService extends NoTracing {
   private val allowedProtocols =
     Set[TlsVersion.TlsVersion](TlsVersion.V1_2, TlsVersion.V1_3).map(_.version)
 
-  def resolveUser(userManagementClient: UserManagementClient): EndpointsCompanion.ResolveUser =
-    jwt => userId => userManagementClient.listUserRights(userId = userId, token = Some(jwt.value))
-
-  def resolveUserWithIdp(
-      userManagementClient: UserManagementClient,
-      idpClient: IdentityProviderConfigClient,
-  )(implicit ec: ExecutionContext): EndpointsCompanion.ResolveUser = jwt =>
-    userId => {
-      for {
-        idps <- idpClient
-          .listIdentityProviderConfigs(token = Some(jwt.value))
-          .map(_.map(_.identityProviderId.value))
-        userWithIdp <- Future
-          .traverse("" +: idps)(idp =>
-            userManagementClient
-              .listUsers(
-                token = Some(jwt.value),
-                identityProviderId = idp,
-                pageToken = "",
-                // Hardcoded limit for users within any idp. This is enough for the limited usage
-                // of this functionality in the transition phase from json-api v1 to v2.
-                pageSize = 1000,
-              )
-              .map(_._1)
-          )
-          .map(_.flatten.filter(_.id == userId))
-        userRight <- Future.traverse(userWithIdp)(user =>
-          userManagementClient.listUserRights(
-            token = Some(jwt.value),
-            userId = userId,
-            identityProviderId = user.identityProviderId.toRequestString,
-          )
-        )
-      } yield userRight.flatten
-
-    }
   private[http] def createPortFile(
       file: Path,
       binding: org.apache.pekko.http.scaladsl.Http.ServerBinding,

@@ -14,7 +14,7 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.{
@@ -31,6 +31,13 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
 }
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.api.{
+  EnrichedVettedPackage,
+  ListVettedPackagesOpts,
+  UpdateVettedPackagesOpts,
+  UploadDarVettingChange,
+  VetAllPackages,
+}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
@@ -668,7 +675,11 @@ class CantonSyncService(
       .merge
   }
 
-  override def uploadDar(dars: Seq[ByteString], submissionId: Ref.SubmissionId)(implicit
+  override def uploadDar(
+      dars: Seq[ByteString],
+      submissionId: Ref.SubmissionId,
+      vettingChange: UploadDarVettingChange,
+  )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
     withSpan("CantonSyncService.uploadPackages") { implicit traceContext => span =>
@@ -681,7 +692,7 @@ class CantonSyncService(
           .upload(
             dars = dars.map(UploadDarData(_, Some("uploaded-via-ledger-api"), None)),
             submissionIdO = Some(submissionId),
-            vetAllPackages = true,
+            vetAllPackages = vettingChange == VetAllPackages,
             synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
           )
           .map(_ => SubmissionResult.Acknowledged)
@@ -705,6 +716,30 @@ class CantonSyncService(
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
+
+  override def updateVettedPackages(
+      opts: UpdateVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])] =
+    EitherTUtil.toFuture(
+      packageService
+        .updateVettedPackages(opts)
+        .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+        .leftMap(_.asGrpcError)
+    )
+
+  override def listVettedPackages(
+      opts: ListVettedPackagesOpts
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Option[(Seq[EnrichedVettedPackage], PositiveInt)]] =
+    EitherTUtil.toFuture(
+      packageService
+        .listVettedPackages(opts)
+        .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
+        .leftMap(_.asGrpcError)
+    )
 
   override def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext

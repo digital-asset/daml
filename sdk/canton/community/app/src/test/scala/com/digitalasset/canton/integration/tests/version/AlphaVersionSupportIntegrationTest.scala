@@ -29,7 +29,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasCloseContext}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInconsistentConnectivity
-import com.digitalasset.canton.resource.CommunityStorageFactory
+import com.digitalasset.canton.resource.StorageSingleFactory
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.store.InitializationStore
 import com.digitalasset.canton.tracing.TraceContext
@@ -142,7 +142,7 @@ sealed trait AlphaVersionSupportIntegrationTest
   private def checkIsDev(
       config: StorageConfig
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[Boolean] = {
-    val storageFactory = new CommunityStorageFactory(config)
+    val storageFactory = new StorageSingleFactory(config)
     val storage = storageFactory
       .create(
         connectionPoolForParticipant = false,
