@@ -194,50 +194,6 @@ object CostModelTest {
 
   implicit def genIdentifier: Gen[Ref.Identifier] = ValueGenerators.idGen
 
-//  implicit def genContractIdV1: Gen[Value.ContractId.V1] = for {
-//    discriminator <- genHash
-//    suffixLength <- Gen.choose(0, 0)
-//    suffix <- genByteArrayN(suffixLength)
-//  } yield Value.ContractId.V1(discriminator, Bytes.fromByteArray(suffix))
-
-//  implicit lazy val genSValue: Gen[SValue] =
-//    Gen.oneOf(genSBool, genSBool)
-
-//
-//  implicit val genSRecord: Gen[SValue.SRecord] =
-//    for {
-//      id <- genIdentifier
-//      n <- Gen.choose(0, 10)
-//      fields <- Gen.listOfN(n, genName)
-//      values <- Gen.listOf(genSValue)
-//    } yield SValue.SRecord(id, ImmArray.from(fields), values.to(ArraySeq))
-//
-//  implicit val genSVariant: Gen[SValue.SVariant] =
-//    for {
-//      id <- genIdentifier
-//      n <- Gen.choose(0, 10)
-//      constructor <- genName
-//      values <- genSValue
-//    } yield SValue.SVariant(id, constructor, n, values)
-//
-//  implicit val genSEnum: Gen[SValue.SEnum] =
-//    for {
-//      id <- genIdentifier
-//      n <- Gen.choose(0, 10)
-//      constructor <- genName
-//    } yield SValue.SEnum(id, constructor, n)
-//
-//  implicit val genSList: Gen[SValue.SList] = genFrontStack(genSValue).map(SValue.SList(_))
-//
-//  implicit val genSOptional: Gen[SValue.SOptional] =
-//    Gen.option(genSValue).map(SValue.SOptional(_))
-//
-//  implicit val genSMap: Gen[SValue.SMap] = for {
-//    isTextMap <- Gen.oneOf(true, false)
-//    keyGen = if (isTextMap) genSText else genSValue
-//    tree <- genTreeMap(keyGen, genSValue, SValue.SMap.`SMap Ordering`)
-//  } yield SValue.SMap(isTextMap, tree)
-
   def genSize(n: Int) = Gen.choose(0, 1 << (n << 2))
 
 }
