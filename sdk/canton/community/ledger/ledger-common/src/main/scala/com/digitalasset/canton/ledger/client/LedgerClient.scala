@@ -212,8 +212,8 @@ object LedgerClient {
   /** Extract a trace context from a transaction and represent it as our TraceContext */
   def traceContextFromLedgerApi(traceContext: Option[LedgerApiTraceContext]): TraceContext =
     traceContext match {
-      case Some(LedgerApiTraceContext(Some(parent), state)) =>
-        W3CTraceContext(parent, state).toTraceContext
+      case Some(LedgerApiTraceContext(parent, state)) if parent.nonEmpty=>
+        W3CTraceContext(parent, if (state.isEmpty) None else Some(state)).toTraceContext
       case _ => TraceContext.withNewTraceContext("ledger_api")(identity)
     }
 

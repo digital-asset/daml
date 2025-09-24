@@ -63,6 +63,8 @@ protostuff_version = "3.1.40"
 # group libraries controlled by the same org
 circe_version = "0.14.2"
 
+awssdk_version = "2.29.5"
+
 def install_java_deps():
     maven_install(
         artifacts = version_specific.get(scala_major_version, []) + [
@@ -82,6 +84,9 @@ def install_java_deps():
             "com.github.pureconfig:pureconfig_{}:0.14.0".format(scala_major_version),
             "com.github.scopt:scopt_{}:4.1.0".format(scala_major_version),
             "com.github.tototoshi:scala-csv_{}:1.3.10".format(scala_major_version),
+            "com.google.api:gax:2.55.0",
+            "com.google.api.grpc:proto-google-cloud-kms-v1:0.146.0",
+            "com.google.cloud:google-cloud-kms:2.55.0",
             "com.google.code.findbugs:jsr305:3.0.2",
             "com.google.code.gson:gson:2.10",
             "com.google.crypto.tink:tink:1.12.0",
@@ -272,6 +277,9 @@ def install_java_deps():
             "org.wartremover:wartremover_{}:3.2.5".format(scala_version),
             "dev.optics:monocle-macro_{}:3.2.0".format(scala_major_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
+            "software.amazon.awssdk:auth:{}".format(awssdk_version),
+            "software.amazon.awssdk:aws-core:{}".format(awssdk_version),
+            "software.amazon.awssdk:kms:{}".format(awssdk_version),
             maven.artifact("com.github.pureconfig", "pureconfig-macros_{}".format(scala_major_version), "0.14.0", neverlink = True),
         ],
         fetch_sources = True,
