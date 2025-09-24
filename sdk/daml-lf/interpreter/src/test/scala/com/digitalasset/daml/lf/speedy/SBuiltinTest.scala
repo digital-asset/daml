@@ -1874,7 +1874,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           ) shouldBe Right(
             SBool(true)
           )
-          eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
+          eval(e"""SECP256K1_BOOL "$signatureDigest" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
           )
         }
