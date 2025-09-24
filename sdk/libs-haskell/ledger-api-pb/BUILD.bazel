@@ -1,0 +1,138 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+google_protobuf_src = "external/com_google_protobuf/src"
+
+genrule(
+    name = "google-protobuf-pb-sources",
+    srcs = ["@com_google_protobuf//:well_known_type_protos"],
+    outs = ["Google/Protobuf/" + b for b in [
+        "Any.hs",
+        "Duration.hs",
+        "Empty.hs",
+        "Wrappers.hs",
+        "Struct.hs",
+        "FieldMask.hs",
+    ]],
+    cmd = """
+        for src in \
+            external/com_google_protobuf/src/google/protobuf/any.proto \
+            external/com_google_protobuf/src/google/protobuf/duration.proto \
+            external/com_google_protobuf/src/google/protobuf/empty.proto \
+            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
+            external/com_google_protobuf/src/google/protobuf/struct.proto \
+            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
+        ; do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --proto google/protobuf/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+google_rpc_src = "external/go_googleapis"
+
+filegroup(
+    name = "google-rpc-source-protos",
+    srcs = [
+        "@go_googleapis//google/rpc:error_details.proto",
+        "@go_googleapis//google/rpc:status.proto",
+    ],
+)
+
+genrule(
+    name = "google-rpc-pb-sources",
+    srcs = [
+        ":google-rpc-source-protos",
+        "@com_google_protobuf//:well_known_type_protos",
+    ],
+    outs = [
+        "Google/Rpc/Status.hs",
+        "Google/Rpc/ErrorDetails.hs",
+    ],
+    cmd = """
+        for src in $(locations :google-rpc-source-protos); do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --proto google/rpc/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "ledger-api-protos-fg",
+    srcs = glob(["src/protobuf/**/*.proto"]),
+)
+
+genrule(
+    name = "ledger-api-pb-sources",
+    srcs = [
+        "@com_google_protobuf//:well_known_type_protos",
+        "@go_googleapis//google/rpc:status.proto",
+        "ledger-api-protos-fg",
+    ],
+    outs = [
+        "Com/Daml/Ledger/Api/V2/PackageService.hs",
+        "Com/Daml/Ledger/Api/V2/Admin/PackageManagementService.hs",
+        "Com/Daml/Ledger/Api/V2/Admin/PartyManagementService.hs",
+        "Com/Daml/Ledger/Api/V2/Admin/ObjectMeta.hs",
+        "Com/Daml/Ledger/Api/V2/Admin/UserManagementService.hs",
+    ],
+    cmd = """
+        for src in $(locations :ledger-api-protos-fg); do
+            $(location @proto3-suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --includeDir libs-haskell/ledger-api-pb/src/protobuf \
+                --proto $${src#libs-haskell/ledger-api-pb/src/protobuf/} \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@proto3-suite//:compile-proto-file",
+    ],
+)
+
+filegroup(
+    name = "all-ledger-api-pb-sources",
+    srcs = [
+        ":google-protobuf-pb-sources",
+        ":google-rpc-pb-sources",
+        ":ledger-api-pb-sources",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_library(
+    name = "ledger-api-pb",
+    srcs = [":all-ledger-api-pb-sources"],
+    compiler_flags = [
+        "-O0",
+    ],
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "grpc-haskell",
+        "grpc-haskell-core",
+        "proto3-suite",
+        "proto3-wire",
+        "text",
+        "vector",
+    ],
+    visibility = ["//visibility:public"],
+)
