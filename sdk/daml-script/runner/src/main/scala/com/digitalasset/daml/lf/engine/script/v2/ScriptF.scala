@@ -9,7 +9,7 @@ package v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -1177,7 +1177,7 @@ object ScriptF {
 
   private def parseSecp256k1WithEcdsaSign(v: SValue): Either[String, Secp256k1WithEcdsaSign] =
     v match {
-      case SRecord(_, _, Array(pk, msg)) =>
+      case SRecord(_, _, ArrayList(pk, msg)) =>
         for {
           pk <- toText(pk)
           msg <- toText(msg)
