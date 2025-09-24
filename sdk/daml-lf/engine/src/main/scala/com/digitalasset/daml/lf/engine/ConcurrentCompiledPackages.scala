@@ -69,6 +69,9 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
           }
 
           // Load dependencies of this package and transitively its dependencies.
+          //
+          // imports + (stablePackages with lf <= current lf)
+          // (make util for this)
           for (dependency <- pkg.directDeps) {
             if (!signatures.contains(dependency) && !state.seenDependencies.contains(dependency)) {
               return ResultNeedPackage(
@@ -140,6 +143,9 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
             // Compute the transitive dependencies of the new package. Since we are adding
             // packages in dependency order we can just union the dependencies of the
             // direct dependencies to get the complete transitive dependencies.
+            //
+            // imports + (stablePackages with lf <= current lf)
+            // (make util for this)
             val deps = pkg.directDeps.foldLeft(pkg.directDeps) { case (deps, dependency) =>
               deps union packageDeps(dependency)
             }

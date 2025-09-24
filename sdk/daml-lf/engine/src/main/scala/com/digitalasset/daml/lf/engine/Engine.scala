@@ -699,6 +699,7 @@ class Engine(val config: EngineConfig) {
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
     val darPackages = dar.all.toMap
     val mainPackageId = dar.main._1
+    // just use imports here
     val mainPackageDependencies = dar.main._2.directDeps
 
     sealed abstract class PackageClassification

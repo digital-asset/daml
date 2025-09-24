@@ -87,9 +87,15 @@ private[daml] object DamlLfEncoder extends App {
   ) = {
     val pkg = getAst(source, validation = validation)
     val archive = encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
+    // encoder doesn't support non-stable deps so only include the stable dars
+    // here we expect used stable packages in directDeps only
+    //
+    // if we go imports, include all where their lf <= current lf
+    val imports = pkg.importsFromEither(true)
     val deps = StablePackagesV2.values.collect {
-      case stablePkg if pkg.directDeps(stablePkg.packageId) =>
+      case stablePkg if imports(stablePkg.packageId) =>
         (stablePkg.packageId + ".dalf") -> stablePkg.bytes
+      case stablePkg => throw new RuntimeException(s"did not find ${stablePkg} in ${imports}")
     }.toList
     DarWriter.encode(
       SdkVersion.sdkVersion,
