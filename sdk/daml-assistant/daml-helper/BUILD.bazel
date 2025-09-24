@@ -55,8 +55,8 @@ da_haskell_library(
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
-        "//libs-haskell/ledger-api-pb",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/ledger-api-pb",
         "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
