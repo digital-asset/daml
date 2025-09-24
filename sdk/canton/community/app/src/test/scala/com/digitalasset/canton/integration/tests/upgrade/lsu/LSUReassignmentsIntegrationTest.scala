@@ -4,7 +4,11 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.{
+  DbConfig,
+  NonNegativeFiniteDuration,
+  SynchronizerTimeTrackerConfig,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1_S1M1
@@ -43,7 +47,9 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1S3M3_Config
       .withNetworkBootstrap { implicit env =>
-        NetworkBootstrapper(S1M1_S1M1)
+        NetworkBootstrapper(
+          S1M1_S1M1.map(_.withTopologyChangeDelay(NonNegativeFiniteDuration.Zero))
+        )
       }
       .addConfigTransforms(configTransforms*)
       .withSetup { implicit env =>

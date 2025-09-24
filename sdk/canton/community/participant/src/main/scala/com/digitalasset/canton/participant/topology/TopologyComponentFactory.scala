@@ -115,7 +115,6 @@ class TopologyComponentFactory(
     new InitialTopologySnapshotValidator(
       crypto.pureCrypto,
       topologyStore,
-      timeouts,
       loggerFactory,
     )
 
@@ -128,6 +127,7 @@ class TopologyComponentFactory(
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     CachingSynchronizerTopologyClient.create(
       clock,
+      crypto.staticSynchronizerParameters,
       topologyStore,
       synchronizerPredecessor,
       packageDependencyResolver,

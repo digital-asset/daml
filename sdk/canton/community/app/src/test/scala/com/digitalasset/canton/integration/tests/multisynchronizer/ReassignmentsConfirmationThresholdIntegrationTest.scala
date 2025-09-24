@@ -89,7 +89,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
     mutable.Map()
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_S1M1
+    EnvironmentDefinition.P3_S1M1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateTargetTimestampForwardTolerance(10.minutes),

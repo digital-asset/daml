@@ -65,7 +65,8 @@ trait HttpJsonApiTestBase extends CantonFixture {
   var validSynchronizerId: SynchronizerId = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
+      .addConfigTransform(ConfigTransforms.useStaticTime)
       .addConfigTransforms(
         ConfigTransforms.updateParticipantConfig("participant1")(config =>
           config.copy(httpLedgerApi =
@@ -110,7 +111,6 @@ trait HttpJsonApiTestBase extends CantonFixture {
               .focus(_.ledgerApi.partyManagementService.maxPartiesPageSize)
               .replace(maxPartiesPageSize)
           ),
-        ConfigTransforms.useStaticTime,
       )
       .withSetup { implicit env =>
         import env.*

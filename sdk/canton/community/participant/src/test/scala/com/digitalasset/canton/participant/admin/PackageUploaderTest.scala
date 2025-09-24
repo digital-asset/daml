@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{CachingConfigs, PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -285,7 +284,7 @@ class PackageUploaderTest
         paranoidMode = true,
       ),
       enableStrictDarValidation = enableStrictDarValidation,
-      packageMetadataView = Eval.now(mutablePackageMetadataViewImpl),
+      packageMetadataView = mutablePackageMetadataViewImpl,
       timeouts = ProcessingTimeout(),
       loggerFactory = loggerFactory,
     )

@@ -192,7 +192,8 @@ class LedgerApiServer(
         ContractLoader
           .create(
             contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-              inMemoryState.stringInterningView
+              inMemoryState.stringInterningView,
+              inMemoryState.ledgerEndCache,
             ),
             dbDispatcher = dbSupport.dbDispatcher,
             metrics = grpcApiMetrics,

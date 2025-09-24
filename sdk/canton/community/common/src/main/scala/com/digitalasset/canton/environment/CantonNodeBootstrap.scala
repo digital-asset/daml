@@ -37,7 +37,6 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
-import com.digitalasset.canton.crypto.kms.KmsFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreFactory}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -196,7 +195,6 @@ final case class CantonNodeBootstrapCommonArguments[
     metrics: M,
     storageFactory: StorageFactory,
     cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-    kmsFactory: KmsFactory,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
@@ -472,7 +470,6 @@ abstract class CantonNodeBootstrapImpl[
             arguments.parameterConfig.cachingConfigs.publicKeyConversionCache,
             storage,
             arguments.cryptoPrivateStoreFactory,
-            arguments.kmsFactory,
             ReleaseProtocolVersion.latest,
             arguments.futureSupervisor,
             arguments.clock,
@@ -725,7 +722,6 @@ abstract class CantonNodeBootstrapImpl[
       val snapshotValidator = new InitialTopologySnapshotValidator(
         crypto.pureCrypto,
         temporaryTopologyStore,
-        this.timeouts,
         this.loggerFactory,
       )
 

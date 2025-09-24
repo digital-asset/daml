@@ -383,6 +383,7 @@ class TestingIdentityFactory(
     val ips = new IdentityProvidingServiceClient(loggerFactory)
     synchronizers.foreach(dId =>
       ips.add(new SynchronizerTopologyClient() with HasFutureSupervision with NamedLogging {
+        override def staticSynchronizerParameters: StaticSynchronizerParameters = ???
 
         override protected def loggerFactory: NamedLoggerFactory =
           TestingIdentityFactory.this.loggerFactory
@@ -412,7 +413,7 @@ class TestingIdentityFactory(
         ): TopologySnapshot = {
           require(
             timestamp <= upToInclusive,
-            s"Topology information not yet available for $timestamp",
+            s"Topology information not yet available for $timestamp, known until $upToInclusive",
           )
           topologySnapshot(synchronizerId, timestampForSynchronizerParameters = timestamp)
         }
@@ -612,8 +613,7 @@ class TestingIdentityFactory(
       case dp :: Nil => dp
       case Nil =>
         DynamicSynchronizerParameters.initialValues(
-          NonNegativeFiniteDuration.Zero,
-          BaseTest.testedProtocolVersion,
+          BaseTest.testedProtocolVersion
         )
       case _ =>
         throw new IllegalStateException(s"Multiple synchronizer parameters are valid at $ts")

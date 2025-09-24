@@ -41,7 +41,7 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
   private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S2M1_S2M1
+    EnvironmentDefinition.P3_S2M1_S2M1_TopologyChangeDelay_0
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*

@@ -183,8 +183,12 @@ CREATE TABLE lapi_events_consuming_exercise (
     synchronizer_id integer not null,
     trace_context bytea not null,
     record_time bigint not null,
-    external_transaction_hash bytea
+    external_transaction_hash bytea,
+    deactivated_event_sequential_id bigint
 );
+
+-- lookup by deactivation
+CREATE INDEX lapi_events_consuming_exercise_deactivated_id_idx ON lapi_events_consuming_exercise USING BTREE (deactivated_event_sequential_id) INCLUDE (event_sequential_id) WHERE deactivated_event_sequential_id is not null;
 
 -- lookup by contract id
 CREATE INDEX lapi_events_consuming_exercise_contract_id_idx ON lapi_events_consuming_exercise USING hash (contract_id);
@@ -338,8 +342,12 @@ CREATE TABLE lapi_events_unassign (
     assignment_exclusivity bigint,
 
     trace_context bytea not null,
-    record_time bigint not null
+    record_time bigint not null,
+    deactivated_event_sequential_id bigint
 );
+
+-- deactivations
+CREATE INDEX lapi_events_unassign_deactivated_idx ON lapi_events_unassign USING btree (deactivated_event_sequential_id) INCLUDE (event_sequential_id) WHERE deactivated_event_sequential_id is not null;
 
 -- multi-column index supporting per contract per synchronizer lookup before/after sequential id query
 CREATE INDEX lapi_events_unassign_contract_id_composite_idx ON lapi_events_unassign USING btree (contract_id, source_synchronizer_id, event_sequential_id);

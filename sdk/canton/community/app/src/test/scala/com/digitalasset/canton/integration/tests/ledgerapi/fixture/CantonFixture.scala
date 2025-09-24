@@ -53,7 +53,7 @@ trait CantonFixtureAbstract
     participant.config.ledgerApi.clientConfig
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.updateParticipantConfig("participant1") {
           _.focus(_.ledgerApi.authServices).replace(

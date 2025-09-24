@@ -19,7 +19,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawUnassignEvent,
   SequentialIdBatch,
 }
-import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.dao.events.ReassignmentStreamReader.{
   IdDbQuery,
   PayloadDbQuery,
@@ -77,6 +77,7 @@ class ReassignmentStreamReader(
       new QueueBasedConcurrencyLimiter(maxParallelIdUnassignQueries, executionContext)
 
     def fetchIds(
+        streamName: String,
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         maxOutputBatchCount: Int,
         metric: DatabaseMetrics,
@@ -84,26 +85,24 @@ class ReassignmentStreamReader(
     ): Source[Iterable[Long], NotUsed] =
       decomposedFilters
         .map { filter =>
-          paginatingAsyncStream.streamIdsFromSeekPagination(
+          paginatingAsyncStream.streamIdsFromSeekPaginationWithoutIdFilter(
+            idStreamName = s"Update IDs for $streamName $filter",
             idPageSizing = idPageSizing,
             idPageBufferSize = maxPagesPerIdPagesBuffer,
             initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
+            initialEndInclusive = queryRange.endInclusiveEventSeqId,
           )(
-            fetchPage = (state: IdPaginationState) => {
+            idDbQuery.fetchIds(
+              stakeholder = filter.party,
+              templateIdO = filter.templateId,
+            )
+          )(
+            executeIdQuery = f =>
               maxParallelIdQueriesLimiter.execute {
                 globalIdQueriesLimiter.execute {
-                  dbDispatcher.executeSql(metric) {
-                    idDbQuery.fetchIds(
-                      stakeholder = filter.party,
-                      templateIdO = filter.templateId,
-                      startExclusive = state.fromIdExclusive,
-                      endInclusive = queryRange.endInclusiveEventSeqId,
-                      limit = state.pageSize,
-                    )
-                  }
+                  dbDispatcher.executeSql(metric)(f)
                 }
               }
-            }
           )
         }
         .pipe(EventIdsUtils.sortAndDeduplicateIds)
@@ -158,6 +157,7 @@ class ReassignmentStreamReader(
 
     val idsAssign =
       fetchIds(
+        streamName = "assigned events",
         maxParallelIdQueriesLimiter = assignedEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadAssignQueries + 1,
         metric = dbMetrics.reassignmentStream.fetchEventAssignIdsStakeholder,
@@ -165,6 +165,7 @@ class ReassignmentStreamReader(
       )
     val idsUnassign =
       fetchIds(
+        streamName = "unassigned events",
         maxParallelIdQueriesLimiter = unassignedEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadUnassignQueries + 1,
         metric = dbMetrics.reassignmentStream.fetchEventUnassignIdsStakeholder,
@@ -237,10 +238,7 @@ object ReassignmentStreamReader {
     def fetchIds(
         stakeholder: Option[Party],
         templateIdO: Option[NameTypeConRef],
-        startExclusive: Long,
-        endInclusive: Long,
-        limit: Int,
-    ): Connection => Vector[Long]
+    ): Connection => PaginationInput => Vector[Long]
   }
 
   @FunctionalInterface

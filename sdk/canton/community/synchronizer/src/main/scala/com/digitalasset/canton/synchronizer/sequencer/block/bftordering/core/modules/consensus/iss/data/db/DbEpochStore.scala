@@ -5,11 +5,13 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -54,7 +56,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.ConsensusMessage as ProtoConsensusMessage
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.BatchAggregator
 import com.digitalasset.canton.{ProtoDeserializationError, RichGeneratedMessage}
 import com.google.protobuf.ByteString
 import slick.dbio.DBIOAction
@@ -66,6 +69,7 @@ import scala.util.Try
 import DbEpochStore.*
 
 class DbEpochStore(
+    batchAggregatorConfig: BatchAggregatorConfig,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -99,6 +103,32 @@ class DbEpochStore(
   private implicit val readCommitMessage: GetResult[SignedMessage[Commit]] = GetResult {
     parseSignedMessage(_ => Commit.fromProtoConsensusMessage)
   }
+
+  private val insertInProgressPbftMessagesBatchAggregator =
+    BatchAggregator(
+      new InsertBatchAggregatorProcessor(
+        { (seq, traceContext) =>
+          implicit val tc: TraceContext = traceContext
+          runInsertInProgressPbftMessages(seq)
+        },
+        "In-progress consensus block network message insert",
+        logger,
+      ),
+      batchAggregatorConfig,
+    )
+
+  private val insertFinalPbftMessagesBatchAggregator =
+    BatchAggregator(
+      new InsertBatchAggregatorProcessor(
+        { (seq, traceContext) =>
+          implicit val tc: TraceContext = traceContext
+          runInsertFinalPbftMessages(seq)
+        },
+        "Completed consensus block network message insert",
+        logger,
+      ),
+      batchAggregatorConfig,
+    )
 
   private def createFuture[X](
       actionName: String,
@@ -168,7 +198,7 @@ class DbEpochStore(
       // asynchronously delete all in-progress messages after an epoch ends
       storage
         .update_(
-          sqlu"""delete * from ord_pbft_messages_in_progress where epoch_number <= $epochNumber""",
+          sqlu"""delete from ord_pbft_messages_in_progress where epoch_number <= $epochNumber""",
           functionFullName,
         )
         .discard
@@ -216,14 +246,16 @@ class DbEpochStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addPrePrepareActionName(prePrepare), orderingStage = functionFullName) {
-      runInsertInProgressPbftMessages(Seq(prePrepare), functionFullName)
+      insertInProgressPbftMessagesBatchAggregator.run(prePrepare)
     }
 
   override def addPrepares(
       prepares: Seq[SignedMessage[ConsensusMessage.Prepare]]
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addPreparesActionName, orderingStage = functionFullName) {
-      runInsertInProgressPbftMessages(prepares, functionFullName)
+      FutureUnlessShutdown
+        .sequence(prepares.map(insertInProgressPbftMessagesBatchAggregator.run))
+        .map(_ => ())
     }
 
   override def addViewChangeMessage[M <: PbftViewChangeMessage](
@@ -235,7 +267,7 @@ class DbEpochStore(
       addViewChangeMessageActionName(viewChangeMessage),
       orderingStage = functionFullName,
     ) {
-      runInsertInProgressPbftMessages(Seq(viewChangeMessage), functionFullName)
+      insertInProgressPbftMessagesBatchAggregator.run(viewChangeMessage)
     }
 
   override def addOrderedBlock(
@@ -252,13 +284,14 @@ class DbEpochStore(
     ) {
       val messages: Seq[SignedMessage[PbftNormalCaseMessage]] =
         commitMessages :++ Seq[SignedMessage[PbftNormalCaseMessage]](prePrepare)
-      runInsertFinalPbftMessages(messages, functionFullName)
+      FutureUnlessShutdown
+        .sequence(messages.map(insertFinalPbftMessagesBatchAggregator.run))
+        .map(_ => ())
     }
   }
 
-  private def runInsertInProgressPbftMessages[M <: PbftNetworkMessage](
-      messages: Seq[SignedMessage[M]],
-      functionName: String,
+  private def runInsertInProgressPbftMessages(
+      messages: Seq[SignedMessage[PbftNetworkMessage]]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     profile match {
       case _: Postgres =>
@@ -278,7 +311,7 @@ class DbEpochStore(
                 pp >> getDiscriminator(msg.message)
                 pp >> msg.from
               },
-            functionName,
+            functionFullName,
             maxRetries = 1,
           )
           .map(_ => ())
@@ -307,13 +340,12 @@ class DbEpochStore(
               }
             )
             .transactionally,
-          functionName,
+          functionFullName,
         )
     }
 
   private def runInsertFinalPbftMessages[M <: PbftNetworkMessage](
-      messages: Seq[SignedMessage[M]],
-      functionName: String,
+      messages: Seq[SignedMessage[M]]
   )(implicit
       errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
@@ -335,7 +367,7 @@ class DbEpochStore(
                 pp >> getDiscriminator(msg.message)
                 pp >> msg.from
               },
-            functionName,
+            functionFullName,
             maxRetries = 1,
           )
           .map(_ => ())
@@ -360,7 +392,7 @@ class DbEpochStore(
               """
             })
             .transactionally,
-          functionName,
+          functionFullName,
         )
     }
 
@@ -559,6 +591,7 @@ class DbEpochStore(
 }
 
 object DbEpochStore {
+
   private val PrePrepareMessageDiscriminator = 0
   private val PrepareMessageDiscriminator = 1
   private val CommitMessageDiscriminator = 2
@@ -573,4 +606,32 @@ object DbEpochStore {
       case _: ConsensusMessage.ViewChange => ViewChangeDiscriminator
       case _: ConsensusMessage.NewView => NewViewDiscriminator
     }
+
+  private class InsertBatchAggregatorProcessor(
+      exec: (
+          Seq[SignedMessage[PbftNetworkMessage]],
+          TraceContext,
+      ) => FutureUnlessShutdown[Unit],
+      override val kind: String,
+      override val logger: TracedLogger,
+  )(implicit executionContext: ExecutionContext)
+      extends BatchAggregator.Processor[SignedMessage[PbftNetworkMessage], Unit] {
+
+    override def executeBatch(
+        items: NonEmpty[Seq[Traced[SignedMessage[PbftNetworkMessage]]]]
+    )(implicit
+        traceContext: TraceContext,
+        callerCloseContext: CloseContext,
+    ): FutureUnlessShutdown[Iterable[Unit]] =
+      exec(items.map(_.value), traceContext)
+        .map(_ => Seq.fill(items.size)(()))
+
+    override def prettyItem: Pretty[SignedMessage[PbftNetworkMessage]] = {
+      import com.digitalasset.canton.logging.pretty.PrettyUtil.*
+      prettyOfClass[SignedMessage[PbftNetworkMessage]](
+        param("epoch", _.message.blockMetadata.epochNumber),
+        param("block", _.message.blockMetadata.blockNumber),
+      )
+    }
+  }
 }

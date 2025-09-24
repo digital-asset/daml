@@ -48,7 +48,7 @@ trait AcsCommitmentMismatchInspectionRunbookIntegrationTest
     new AtomicReference[Seq[Iou.Contract]](Seq.empty)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1_S1M1
+    EnvironmentDefinition.P2_S1M1_S1M1_TopolopgyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),

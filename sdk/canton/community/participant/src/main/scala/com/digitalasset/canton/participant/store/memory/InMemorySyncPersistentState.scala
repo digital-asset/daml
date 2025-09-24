@@ -92,10 +92,10 @@ class InMemoryPhysicalSyncPersistentState(
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     exitOnFatalFailures: Boolean,
     disableUpgradeValidation: Boolean,
+    packageMetadataView: PackageMetadataView,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
-    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -142,7 +142,7 @@ class InMemoryPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value),
+        packageMetadataView,
         packageDependencyResolver,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),

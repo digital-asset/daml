@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.bootstrap
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   InstanceReference,
@@ -15,6 +16,7 @@ import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEn
 import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.{SynchronizerAlias, protocol}
+import monocle.syntax.all.*
 
 /** Bootstraps synchronizers given topology descriptions and stores information in
   * [[com.digitalasset.canton.integration.EnvironmentTestHelpers.initializedSynchronizers]].
@@ -87,7 +89,12 @@ final case class NetworkTopologyDescription(
       Map[MediatorReference, (Seq[SequencerReference], PositiveInt, NonNegativeInt)]
     ],
     mediatorThreshold: PositiveInt,
-)
+) {
+  def withTopologyChangeDelay(topologyChangeDelay: NonNegativeFiniteDuration) =
+    this
+      .focus(_.staticSynchronizerParameters.topologyChangeDelay)
+      .replace(topologyChangeDelay)
+}
 
 object NetworkTopologyDescription {
   def apply(

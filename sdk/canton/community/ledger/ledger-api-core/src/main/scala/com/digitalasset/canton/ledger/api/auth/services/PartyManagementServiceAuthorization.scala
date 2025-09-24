@@ -67,6 +67,15 @@ final class PartyManagementServiceAuthorization(
     PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
+  override def allocateExternalParty(
+      request: AllocateExternalPartyRequest
+  ): Future[AllocateExternalPartyResponse] =
+    authorizer.rpc(service.allocateExternalParty)(
+      RequiredClaims.idpAdminClaimsAndMatchingRequestIdpId(
+        Lens.unit[AllocateExternalPartyRequest].identityProviderId
+      )*
+    )(request)
 }
 
 object PartyManagementServiceAuthorization {

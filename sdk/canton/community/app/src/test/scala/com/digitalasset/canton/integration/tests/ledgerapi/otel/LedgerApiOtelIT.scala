@@ -343,16 +343,6 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
         },
         origin = "com.daml.ledger.api.v2.CommandService/SubmitAndWaitForTransaction",
       )
-
-      testCommandService(
-        submit = { party =>
-          commandService
-            .submitAndWaitForTransactionTree(
-              submitAndWaitRequest(party, userId)
-            )
-        },
-        origin = "com.daml.ledger.api.v2.CommandService/SubmitAndWaitForTransactionTree",
-      )
     }
   }
 

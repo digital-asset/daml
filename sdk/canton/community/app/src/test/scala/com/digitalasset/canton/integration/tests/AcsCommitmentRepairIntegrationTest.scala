@@ -50,7 +50,7 @@ trait AcsCommitmentRepairIntegrationTest
   private lazy val maxDedupDuration = java.time.Duration.ofHours(1)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_S1M1
+    EnvironmentDefinition.P3_S1M1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),

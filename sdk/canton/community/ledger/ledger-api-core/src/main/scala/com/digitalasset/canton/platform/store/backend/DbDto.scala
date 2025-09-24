@@ -4,6 +4,8 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.scalautil.NeverEqualsOverride
+import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 sealed trait DbDto
     extends NeverEqualsOverride
@@ -21,7 +23,7 @@ object DbDto {
       user_id: Option[String],
       submitters: Option[Set[String]],
       node_id: Int,
-      contract_id: Array[Byte],
+      contract_id: ContractId,
       template_id: String,
       package_id: String,
       representative_package_id: String,
@@ -37,7 +39,7 @@ object DbDto {
       create_key_value_compression: Option[Int],
       event_sequential_id: Long,
       authentication_data: Array[Byte],
-      synchronizer_id: String,
+      synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
       record_time: Long,
       external_transaction_hash: Option[Array[Byte]],
@@ -53,7 +55,7 @@ object DbDto {
       user_id: Option[String],
       submitters: Option[Set[String]],
       node_id: Int,
-      contract_id: Array[Byte],
+      contract_id: ContractId,
       template_id: String,
       package_id: String,
       flat_event_witnesses: Set[
@@ -68,10 +70,11 @@ object DbDto {
       exercise_argument_compression: Option[Int],
       exercise_result_compression: Option[Int],
       event_sequential_id: Long,
-      synchronizer_id: String,
+      synchronizer_id: SynchronizerId,
       trace_context: Array[Byte],
       record_time: Long,
       external_transaction_hash: Option[Array[Byte]],
+      deactivated_event_sequential_id: Option[Long],
   ) extends DbDto
 
   final case class EventAssign(
@@ -81,7 +84,7 @@ object DbDto {
       workflow_id: Option[String],
       submitter: Option[String],
       node_id: Int,
-      contract_id: Array[Byte],
+      contract_id: ContractId,
       template_id: String,
       package_id: String,
       flat_event_witnesses: Set[String],
@@ -96,8 +99,8 @@ object DbDto {
       event_sequential_id: Long,
       ledger_effective_time: Long,
       authentication_data: Array[Byte],
-      source_synchronizer_id: String,
-      target_synchronizer_id: String,
+      source_synchronizer_id: SynchronizerId,
+      target_synchronizer_id: SynchronizerId,
       reassignment_id: String,
       reassignment_counter: Long,
       trace_context: Array[Byte],
@@ -111,18 +114,19 @@ object DbDto {
       workflow_id: Option[String],
       submitter: Option[String],
       node_id: Int,
-      contract_id: Array[Byte],
+      contract_id: ContractId,
       template_id: String,
       package_id: String,
       flat_event_witnesses: Set[String],
       event_sequential_id: Long,
-      source_synchronizer_id: String,
-      target_synchronizer_id: String,
+      source_synchronizer_id: SynchronizerId,
+      target_synchronizer_id: SynchronizerId,
       reassignment_id: String,
       reassignment_counter: Long,
       assignment_exclusivity: Option[Long],
       trace_context: Array[Byte],
       record_time: Long,
+      deactivated_event_sequential_id: Option[Long],
   ) extends DbDto
 
   final case class EventPartyToParticipant(
@@ -133,7 +137,7 @@ object DbDto {
       participant_id: String,
       participant_permission: Int,
       participant_authorization_event: Int,
-      synchronizer_id: String,
+      synchronizer_id: SynchronizerId,
       record_time: Long,
       trace_context: Array[Byte],
   ) extends DbDto
@@ -163,7 +167,7 @@ object DbDto {
       deduplication_offset: Option[Long],
       deduplication_duration_seconds: Option[Long],
       deduplication_duration_nanos: Option[Int],
-      synchronizer_id: String,
+      synchronizer_id: SynchronizerId,
       message_uuid: Option[String],
       is_transaction: Boolean,
       trace_context: Array[Byte],
@@ -233,10 +237,10 @@ object DbDto {
       event_offset: Long,
       publication_time: Long,
       record_time: Long,
-      synchronizer_id: String,
+      synchronizer_id: SynchronizerId,
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
   ) extends DbDto
 
-  final case class SequencerIndexMoved(synchronizerId: String) extends DbDto
+  final case class SequencerIndexMoved(synchronizerId: SynchronizerId) extends DbDto
 }

@@ -71,7 +71,6 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
     JsMapping(converters.Event),
     JsMapping(converters.Transaction),
     JsMapping(converters.TransactionTree),
-    JsMapping(converters.SubmitAndWaitTransactionTreeResponse),
     JsMapping(converters.SubmitAndWaitTransactionTreeResponseLegacy),
     JsMapping(converters.SubmitAndWaitTransactionResponse),
     JsMapping(converters.SubmitAndWaitForReassignmentResponse),

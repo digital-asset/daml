@@ -23,7 +23,7 @@ trait ACSPruningIntegrationTest
   private val acsPruningInterval = NonNegativeFiniteDuration.tryOfSeconds(60)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { env =>
         import env.*

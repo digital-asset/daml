@@ -29,14 +29,13 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
         reduceSequencerClientAcknowledgementInterval,
         increaseParticipant3AcknowledgementInterval,
         reduceSequencerAcknowledgementConflateWindow,
-        ConfigTransforms.useStaticTime,
       ),
       loggerFactory,
     )
   )
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1
+    EnvironmentDefinition.P3_S1M1_TopologyChangeDelay_0
       .addConfigTransform(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*

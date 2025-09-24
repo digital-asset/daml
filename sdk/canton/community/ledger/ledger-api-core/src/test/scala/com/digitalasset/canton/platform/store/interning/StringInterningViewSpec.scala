@@ -38,7 +38,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2", "22::same:name").iterator,
         templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator,
+        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator
+          .map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1", "pkg-2").iterator,
         userIds = List("usr1", "usr2").iterator,
         participantIds = List("pn-1", "pn-2").iterator,
@@ -99,7 +100,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2", "22::same:name").iterator,
         templateIds = List("#22:t:a").iterator,
-        synchronizerIds = List("x::synchronizer1", "x::synchronizer2").iterator,
+        synchronizerIds =
+          List("x::synchronizer1", "x::synchronizer2").iterator.map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1").iterator,
         userIds = List("usr1").iterator,
         participantIds = List("pn-1", "pn-2").iterator,
@@ -136,7 +138,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2").iterator,
         templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer3").iterator,
+        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer3").iterator
+          .map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1", "pkg-2").iterator,
         userIds = List("usr1", "usr2").iterator,
         participantIds = List("pn-1", "pn-2", "pn-3").iterator,
@@ -226,7 +229,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2").iterator,
         templateIds = List().iterator,
-        synchronizerIds = List("x::synchronizer1").iterator,
+        synchronizerIds = List("x::synchronizer1").iterator.map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1").iterator,
         userIds = List().iterator,
         participantIds = List().iterator,
@@ -275,7 +278,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2", "22::same:name").iterator,
         templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator,
+        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator
+          .map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1").iterator,
         userIds = List().iterator,
         participantIds = List().iterator,

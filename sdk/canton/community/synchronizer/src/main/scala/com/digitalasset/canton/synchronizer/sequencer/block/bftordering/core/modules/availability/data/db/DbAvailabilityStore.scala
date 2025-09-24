@@ -4,10 +4,12 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.db
 
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String68
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
+import com.digitalasset.canton.logging.pretty.Pretty
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -21,12 +23,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.BatchAggregator
+import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.concurrent.ExecutionContext
 
 class DbAvailabilityStore(
+    batchAggregatorConfig: BatchAggregatorConfig,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -37,6 +42,34 @@ class DbAvailabilityStore(
   import storage.api.*
   private val profile = storage.profile
   private val converters = storage.converters
+
+  private val addBatchBatchAggregator = {
+    val processor =
+      new BatchAggregator.Processor[(BatchId, OrderingRequestBatch), Unit] {
+
+        override val kind: String = "Add availability batches"
+
+        override val logger: TracedLogger = DbAvailabilityStore.this.logger
+
+        override def executeBatch(
+            items: NonEmpty[Seq[Traced[(BatchId, OrderingRequestBatch)]]]
+        )(implicit
+            traceContext: TraceContext,
+            callerCloseContext: CloseContext,
+        ): FutureUnlessShutdown[Iterable[Unit]] =
+          runAddBatches(items.map(_.value))
+            .map(_ => Seq.fill(items.size)(()))
+
+        override def prettyItem: Pretty[(BatchId, OrderingRequestBatch)] = {
+          import com.digitalasset.canton.logging.pretty.PrettyUtil.*
+          prettyOfClass[(BatchId, OrderingRequestBatch)](
+            param("batchId", _._1.hash)
+          )
+        }
+      }
+
+    BatchAggregator(processor, batchAggregatorConfig)
+  }
 
   implicit object SetSeqBatchId extends SetParameter[Seq[BatchId]] {
     override def apply(v1: Seq[BatchId], pp: PositionedParameters): Unit =
@@ -83,28 +116,54 @@ class DbAvailabilityStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
     val name = addBatchActionName(batchId)
-    val future = () =>
-      storage.synchronizeWithClosing(name) {
+    PekkoFutureUnlessShutdown(
+      name,
+      () => addBatchBatchAggregator.run((batchId, batch)),
+      orderingStage = Some(functionFullName),
+    )
+  }
 
-        storage.update_(
-          profile match {
-            case _: Postgres =>
-              sqlu"""insert into ord_availability_batch
-                 values ($batchId, $batch, ${batch.epochNumber})
+  private def runAddBatches(
+      batches: Seq[(BatchId, OrderingRequestBatch)]
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[Unit] =
+    storage.synchronizeWithClosing("add-batches") {
+      profile match {
+        case _: Postgres =>
+          val insertSql =
+            """insert into ord_availability_batch
+                 values (?, ?, ?)
                  on conflict (id) do nothing"""
-            case _: H2 =>
-              sqlu"""merge into ord_availability_batch using dual
+          storage
+            .runWrite(
+              DbStorage
+                .bulkOperation_(insertSql, batches, storage.profile) { pp => msg =>
+                  pp >> msg._1
+                  pp >> msg._2
+                  pp >> msg._2.epochNumber
+                },
+              functionFullName,
+              maxRetries = 1,
+            )
+            .map(_ => ())
+        case _: H2 =>
+          storage.update_(
+            DBIOAction
+              .sequence(batches.map { case (batchId, batch) =>
+                sqlu"""merge into ord_availability_batch using dual
                      on (id = $batchId)
                      when not matched then
                        insert (id, batch, epoch_number)
                        values ($batchId, $batch, ${batch.epochNumber})
                   """
-          },
-          functionFullName,
-        )
+              })
+              .transactionally,
+            functionFullName,
+          )
       }
-    PekkoFutureUnlessShutdown(name, future, orderingStage = Some(functionFullName))
-  }
+    }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   override def fetchBatches(batches: Seq[BatchId])(implicit

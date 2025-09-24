@@ -37,6 +37,7 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
 }
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -1374,24 +1375,6 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_assign assign_evs
         WHERE
           assign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-          AND NOT EXISTS (  -- check not archived as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_consuming_exercise consuming_evs
-                WHERE
-                  assign_evs.contract_id = consuming_evs.contract_id
-                  AND assign_evs.target_synchronizer_id = consuming_evs.synchronizer_id
-                  AND consuming_evs.event_sequential_id <= $endInclusive
-              )
-          AND NOT EXISTS (  -- check not unassigned after as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_unassign unassign_evs
-                WHERE
-                  assign_evs.contract_id = unassign_evs.contract_id
-                  AND assign_evs.target_synchronizer_id = unassign_evs.source_synchronizer_id
-                  AND unassign_evs.event_sequential_id > assign_evs.event_sequential_id
-                  AND unassign_evs.event_sequential_id <= $endInclusive
-                ${QueryStrategy.limitClause(Some(1))}
-              )
         ORDER BY assign_evs.event_sequential_id -- deliver in index order
         """
       .withFetchSize(Some(eventSequentialIds.size))
@@ -1407,23 +1390,6 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_create create_evs
         WHERE
           create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-          AND NOT EXISTS (  -- check not archived as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_consuming_exercise consuming_evs
-                WHERE
-                  create_evs.contract_id = consuming_evs.contract_id
-                  AND create_evs.synchronizer_id = consuming_evs.synchronizer_id
-                  AND consuming_evs.event_sequential_id <= $endInclusive
-              )
-          AND NOT EXISTS (  -- check not unassigned as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_unassign unassign_evs
-                WHERE
-                  create_evs.contract_id = unassign_evs.contract_id
-                  AND create_evs.synchronizer_id = unassign_evs.source_synchronizer_id
-                  AND unassign_evs.event_sequential_id <= $endInclusive
-                ${QueryStrategy.limitClause(Some(1))}
-              )
         ORDER BY create_evs.event_sequential_id -- deliver in index order
         """
       .withFetchSize(Some(eventSequentialIds.size))
@@ -1432,17 +1398,12 @@ abstract class EventStorageBackendTemplate(
   override def fetchAssignEventIdsForStakeholder(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] =
+  )(connection: Connection): PaginationInput => Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_assign_id_filter_stakeholder",
       witnessO = stakeholderO,
       templateIdO = templateId,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
+      idFilter = None,
       stringInterning = stringInterning,
       hasFirstPerSequentialId = true,
     )(connection)
@@ -1450,17 +1411,12 @@ abstract class EventStorageBackendTemplate(
   override def fetchUnassignEventIdsForStakeholder(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] =
+  )(connection: Connection): PaginationInput => Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_reassignment_id_filter_stakeholder",
       witnessO = stakeholderO,
       templateIdO = templateId,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
+      idFilter = None,
       stringInterning = stringInterning,
       hasFirstPerSequentialId = true,
     )(connection)
@@ -1735,18 +1691,13 @@ abstract class EventStorageBackendTemplate(
       .toSet
   }
   override def fetchTopologyPartyEventIds(
-      party: Option[Party],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] =
+      party: Option[Party]
+  )(connection: Connection): PaginationInput => Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_events_party_to_participant",
       witnessO = party,
       templateIdO = None,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
+      idFilter = None,
       stringInterning = stringInterning,
       hasFirstPerSequentialId = false,
     )(connection)

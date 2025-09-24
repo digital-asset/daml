@@ -1496,18 +1496,6 @@ object Generators {
       .setReassignment(reassignment)
       .build()
   }
-  // TODO(#23504) remove as SubmitAndWaitForTransactionTreeResponse is deprecated
-  @nowarn("cat=deprecation")
-  def submitAndWaitForTransactionTreeResponseGen
-      : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse] = {
-    import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse as Response
-    for {
-      transaction <- transactionTreeGen
-    } yield Response
-      .newBuilder()
-      .setTransaction(transaction)
-      .build()
-  }
 
   val prefetchContractKeyGen: Gen[CommandsOuterClass.PrefetchContractKey] =
     for {

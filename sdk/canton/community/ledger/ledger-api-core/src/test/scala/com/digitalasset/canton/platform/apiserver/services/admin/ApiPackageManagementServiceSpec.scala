@@ -39,9 +39,14 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.protocol.{LfContractId, LfFatContractInst, LfSubmittedTransaction}
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ExternalPartyOnboardingDetails,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfKeyResolver, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Party, SubmissionId, UserId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -217,6 +222,7 @@ object ApiPackageManagementServiceSpec {
         hint: Party,
         submissionId: SubmissionId,
         synchronizerIdO: Option[SynchronizerId],
+        externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] =
       throw new UnsupportedOperationException()
 
@@ -279,6 +285,11 @@ object ApiPackageManagementServiceSpec {
     )(implicit
         traceContext: TraceContext
     ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])] =
+      throw new UnsupportedOperationException()
+
+    override def protocolVersionForSynchronizerId(
+        synchronizerId: SynchronizerId
+    ): Option[ProtocolVersion] =
       throw new UnsupportedOperationException()
   }
 }

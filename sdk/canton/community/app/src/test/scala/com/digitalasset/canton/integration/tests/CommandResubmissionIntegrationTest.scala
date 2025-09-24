@@ -30,7 +30,7 @@ trait CommandResubmissionIntegrationTest
   private val threeSeconds = config.NonNegativeFiniteDuration.ofSeconds(3)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
       .addConfigTransform(ConfigTransforms.useStaticTime)
       .withSetup { env =>
         import env.*

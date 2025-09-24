@@ -21,7 +21,7 @@ import scala.jdk.CollectionConverters.*
 
 trait StaticTimeIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateAllParticipantConfigs_(ConfigTransforms.useTestingTimeService),

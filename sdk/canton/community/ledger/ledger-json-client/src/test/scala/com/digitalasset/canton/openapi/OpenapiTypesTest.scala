@@ -865,6 +865,24 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.Unvet.fromJson
         ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyRequest.SignedTransaction,
+          openapi.SignedTransaction,
+        ](
+          openapi.SignedTransaction.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyRequest,
+          openapi.AllocateExternalPartyRequest,
+        ](
+          openapi.AllocateExternalPartyRequest.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyResponse,
+          openapi.AllocateExternalPartyResponse,
+        ](
+          openapi.AllocateExternalPartyResponse.fromJson
+        ),
       )
     }
 

@@ -14,7 +14,7 @@ import scala.concurrent.{Future, blocking}
 class DomainStringIterators(
     val parties: Iterator[String],
     val templateIds: Iterator[String],
-    val synchronizerIds: Iterator[String],
+    val synchronizerIds: Iterator[SynchronizerId],
     val packageIds: Iterator[String],
     val userIds: Iterator[String],
     val participantIds: Iterator[String],
@@ -156,7 +156,9 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
-          domainStringIterators.synchronizerIds.map(SynchronizerIdPrefix + _) ++
+          domainStringIterators.synchronizerIds
+            .map(_.toProtoPrimitive)
+            .map(SynchronizerIdPrefix + _) ++
           domainStringIterators.packageIds.map(PackageIdPrefix + _) ++
           domainStringIterators.userIds.map(UserIdPrefix + _) ++
           domainStringIterators.participantIds.map(ParticipantIdPrefix + _)

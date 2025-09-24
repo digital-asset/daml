@@ -331,7 +331,7 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
 
 trait SequencerNodePruningIntegrationTest extends SequencerPruningIntegrationTest {
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1
+    EnvironmentDefinition.P3_S1M1_TopologyChangeDelay_0
       .addConfigTransform(reduceSequencerClientAcknowledgementInterval)
       .addConfigTransform(reduceSequencerAcknowledgementConflateWindow)
       .addConfigTransform(increaseParticipant3AcknowledgementInterval)

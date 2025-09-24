@@ -18,7 +18,7 @@ import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
-import com.digitalasset.canton.time.WallClock
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
@@ -543,23 +543,24 @@ object BaseTest {
     defaultStaticSynchronizerParametersWith()
 
   def defaultStaticSynchronizerParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
-  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
-    requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
-    requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
-    requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
-    requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
-    requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
-    requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
-    enableTransparencyChecks = false,
-    protocolVersion = protocolVersion,
-    serial = NonNegativeInt.zero,
-  )
+      topologyChangeDelay: NonNegativeFiniteDuration =
+        StaticSynchronizerParameters.defaultTopologyChangeDelay,
+      protocolVersion: ProtocolVersion = testedProtocolVersion,
+  ): StaticSynchronizerParameters =
+    StaticSynchronizerParameters(
+      requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
+      requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
+      requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
+      requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
+      requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
+      requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
+      topologyChangeDelay = topologyChangeDelay,
+      enableTransparencyChecks = false,
+      protocolVersion = protocolVersion,
+      serial = NonNegativeInt.zero,
+    )
 
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer
-
-  lazy val testedStaticSynchronizerParameters: StaticSynchronizerParameters =
-    defaultStaticSynchronizerParametersWith(testedProtocolVersion)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)

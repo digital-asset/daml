@@ -25,6 +25,7 @@ import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
   DynamicSynchronizerParameters,
   DynamicSynchronizerParametersWithValidity,
+  StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -99,6 +100,8 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   /** The synchronizer this client applies to */
   def psid: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
+
+  def staticSynchronizerParameters: StaticSynchronizerParameters
 
   def protocolVersion: ProtocolVersion = psid.protocolVersion
 
@@ -629,8 +632,7 @@ trait SynchronizerGovernanceSnapshotClient {
           // we must use zero as default change delay parameter, as otherwise static time tests will not work
           // however, once the synchronizer has published the initial set of synchronizer parameters, the zero time will be
           // adjusted.
-          topologyChangeDelay = DynamicSynchronizerParameters.topologyChangeDelayIfAbsent,
-          protocolVersion = protocolVersion,
+          protocolVersion = protocolVersion
         )
     }
 

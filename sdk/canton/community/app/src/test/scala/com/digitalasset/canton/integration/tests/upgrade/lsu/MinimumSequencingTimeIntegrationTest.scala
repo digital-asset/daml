@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
@@ -42,8 +43,9 @@ abstract class MinimumSequencingTimeIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1S1M1_Config
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withNetworkBootstrap { implicit env =>
-        new NetworkBootstrapper(S1M1)
+        new NetworkBootstrapper(S1M1.withTopologyChangeDelay(NonNegativeFiniteDuration.Zero))
       }
       .addConfigTransforms(
         ConfigTransforms
@@ -52,7 +54,6 @@ abstract class MinimumSequencingTimeIntegrationTest
               .replace(Some(sequencingTimeLowerBoundExclusive))
           )
       )
-      .addConfigTransforms(ConfigTransforms.useStaticTime)
 
   "Logical synchronizer upgrade" should {
     "initialize the nodes for the upgraded synchronizer" in { implicit env =>

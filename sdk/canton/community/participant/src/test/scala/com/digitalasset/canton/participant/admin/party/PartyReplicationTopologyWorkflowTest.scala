@@ -6,9 +6,12 @@ package com.digitalasset.canton.participant.admin.party
 import cats.data.EitherT
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash}
+import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.TestSynchronizerParameters
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock, SynchronizerTimeTracker}
+import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -23,7 +26,9 @@ import com.digitalasset.canton.topology.transaction.{
   ParticipantPermission,
   PartyToParticipant,
   SignedTopologyTransaction,
+  SynchronizerParametersState,
   TopologyChangeOp,
+  TopologyMapping,
 }
 import com.digitalasset.canton.topology.{
   ForceFlags,
@@ -34,7 +39,8 @@ import com.digitalasset.canton.topology.{
   TopologyManager,
   TopologyManagerError,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.chaining.scalaUtilChainingOps
@@ -129,20 +135,28 @@ class PartyReplicationTopologyWorkflowTest
       DefaultProcessingTimeouts.testing,
     )
 
+  private def mockSynchronizerTimeTracker(tsToReturnO: Option[CantonTimestamp]) =
+    mock[SynchronizerTimeTracker].tap { timeTracker =>
+      when(timeTracker.requestTick(any[CantonTimestamp], any[Boolean])(anyTraceContext))
+        .thenReturn(SynchronizerTimeTracker.DummyTickRequest)
+      when(timeTracker.latestTime).thenReturn(tsToReturnO)
+    }
+
   private def add(topologyStore: TopologyStore[SynchronizerStore])(
       ts: CantonTimestamp,
       serial: PositiveInt,
-      ptp: PartyToParticipant,
+      mapping: TopologyMapping,
       proposal: Boolean = false,
   ) = {
-    val signedTx = topologyStoreTestData.makeSignedTx(ptp, serial = serial, isProposal = proposal)(
-      topologyStoreTestData.p1Key
-    )
+    val signedTx =
+      topologyStoreTestData.makeSignedTx(mapping, serial = serial, isProposal = proposal)(
+        topologyStoreTestData.p1Key
+      )
     topologyStore
       .update(
         SequencedTime(ts),
         EffectiveTime(ts),
-        removeMapping = if (proposal) Map.empty else Map(ptp.uniqueKey -> serial),
+        removeMapping = if (proposal) Map.empty else Map(mapping.uniqueKey -> serial),
         removeTxs = Set.empty,
         additions = Seq(ValidatedTopologyTransaction(signedTx)),
       )
@@ -277,6 +291,21 @@ class PartyReplicationTopologyWorkflowTest
         val tw = topologyWorkflow()
         val topologyManager = mockTopologyManager()
         val topologyStore = newTopologyStore()
+        val clock = new SimClock(loggerFactory = loggerFactory)
+        clock.advanceTo(tsSerial)
+        val topologyClient = new StoreBasedSynchronizerTopologyClient(
+          clock,
+          store = topologyStore,
+          packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          timeouts = timeouts,
+          futureSupervisor = futureSupervisor,
+          loggerFactory = loggerFactory,
+          staticSynchronizerParameters = defaultStaticSynchronizerParameters,
+        )
+        val onboardingTs = tsSerialMinusOne
+        // unsafe time means less than the default one minute decision time
+        val synchronizerLatestTimeObservedUnsafe = Some(CantonTimestamp.ofEpochSecond(20L))
+        val synchronizerLatestTimeObservedSafe = Some(CantonTimestamp.ofEpochSecond(3600L))
 
         when(
           topologyManager.proposeAndAuthorize(
@@ -289,36 +318,78 @@ class PartyReplicationTopologyWorkflowTest
             forceChanges = ForceFlags.none,
             waitToBecomeEffective = None,
           )
-        ).thenReturn(
-          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](
-            topologyStoreTestData.makeSignedTx(
-              ptpProposalMissingOnboardingFlag,
-              serial = serial,
-            )(
-              topologyStoreTestData.p2Key
+        ).thenAnswer[TopologyChangeOp, TopologyMapping, Option[PositiveInt], Seq[
+          Fingerprint
+        ], ProtocolVersion, Boolean, ForceFlags, Option[NonNegativeFiniteDuration]] {
+          case (_, mapping, _, _, _, _, _, _) =>
+            // Have the topology manager mock store the transaction in test topology store.
+            EitherT.right[TopologyManagerError](
+              add(topologyStore)(tsSerial, serial, mapping)
             )
-          )
-        )
+        }
 
         for {
-          _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore2, ptpBefore)
-          errTooEarly <- tw
-            .authorizeOnboardedTopology(params, topologyManager, topologyStore)
-            .leftOrFail("expect premature authorization to fail")
-          _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpProposal)
-          isOnboardedAfterFirstCall <- tw
-            .authorizeOnboardedTopology(params, topologyManager, topologyStore)
-            .valueOrFail("expect authorization to succeed")
-          _ <- add(topologyStore)(tsSerial, serial, ptpProposalMissingOnboardingFlag).map(tx =>
-            Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
+          _ <- topologyClient.observed(
+            SequencedTime(tsSerial),
+            EffectiveTime(tsSerial),
+            SequencerCounter.Genesis,
+            Seq.empty,
           )
-          isOnboardedAfterSecondCall <- tw
-            .authorizeOnboardedTopology(params, topologyManager, topologyStore)
+          _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore2, ptpBefore)
+          _ <- add(topologyStore)(
+            tsSerialMinusTwo,
+            serialBefore2,
+            SynchronizerParametersState(
+              synchronizerId,
+              TestSynchronizerParameters.defaultDynamic,
+            ),
+          )
+          errTooEarly <- tw
+            .authorizeOnboardedTopology(
+              params,
+              tsSerialMinusTwo,
+              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
+              topologyManager,
+              topologyStore,
+              topologyClient,
+            )
+            .leftOrFail("expect premature authorization to fail")
+          _ <- add(topologyStore)(onboardingTs, serialBefore, ptpProposal)
+          isOnboardedAfterUnsafeCall <- tw
+            .authorizeOnboardedTopology(
+              params,
+              onboardingTs,
+              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedUnsafe),
+              topologyManager,
+              topologyStore,
+              topologyClient,
+            )
+            .valueOrFail("expect authorization to not happen due to unsafe time")
+          isOnboardedAfterFirstSafeCall <- tw
+            .authorizeOnboardedTopology(
+              params,
+              onboardingTs,
+              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
+              topologyManager,
+              topologyStore,
+              topologyClient,
+            )
+            .valueOrFail("expect authorization to succeed")
+          isOnboardedAfterSecondSafeCall <- tw
+            .authorizeOnboardedTopology(
+              params,
+              onboardingTs,
+              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
+              topologyManager,
+              topologyStore,
+              topologyClient,
+            )
             .valueOrFail("expect second call observe party onboarded")
         } yield {
           errTooEarly should include regex "Party .* is not hosted by target participant"
-          isOnboardedAfterFirstCall shouldBe false
-          isOnboardedAfterSecondCall shouldBe true
+          isOnboardedAfterUnsafeCall shouldBe false
+          isOnboardedAfterFirstSafeCall shouldBe false
+          isOnboardedAfterSecondSafeCall shouldBe true
         }
       }.failOnShutdown
     }

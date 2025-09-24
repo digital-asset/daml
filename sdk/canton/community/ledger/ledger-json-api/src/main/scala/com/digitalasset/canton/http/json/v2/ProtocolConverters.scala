@@ -574,41 +574,6 @@ class ProtocolConverters(
         .transform
   }
 
-  // TODO(#23504) remove when SubmitAndWaitForTransactionTreeResponse is removed
-  @nowarn("cat=deprecation")
-  object SubmitAndWaitTransactionTreeResponse
-      extends ProtocolConverter[
-        lapi.command_service.SubmitAndWaitForTransactionTreeResponse,
-        JsSubmitAndWaitForTransactionTreeResponse,
-      ] {
-
-    def toJson(
-        response: lapi.command_service.SubmitAndWaitForTransactionTreeResponse
-    )(implicit
-        traceContext: TraceContext
-    ): Future[JsSubmitAndWaitForTransactionTreeResponse] =
-      TransactionTree
-        .toJson(response.getTransaction)
-        .map(tree =>
-          JsSubmitAndWaitForTransactionTreeResponse(
-            transactionTree = tree
-          )
-        )
-
-    def fromJson(
-        response: JsSubmitAndWaitForTransactionTreeResponse
-    )(implicit
-        traceContext: TraceContext
-    ): Future[lapi.command_service.SubmitAndWaitForTransactionTreeResponse] =
-      TransactionTree
-        .fromJson(response.transactionTree)
-        .map(tree =>
-          lapi.command_service.SubmitAndWaitForTransactionTreeResponse(
-            transaction = Some(tree)
-          )
-        )
-  }
-
   object SubmitAndWaitTransactionTreeResponseLegacy
       extends ProtocolConverter[
         LegacyDTOs.SubmitAndWaitForTransactionTreeResponse,

@@ -144,7 +144,7 @@ private[apiserver] final class ApiPackageService(
             topologySerial = serial.value,
           )
         },
-        nextPageToken = "",
+        nextPageToken = None,
       )
     }
 

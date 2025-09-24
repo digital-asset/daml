@@ -8,6 +8,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   DbConfig,
+  NonNegativeFiniteDuration,
   PositiveDurationSeconds,
   SynchronizerTimeTrackerConfig,
 }
@@ -55,7 +56,7 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S2M2_Config
       .withNetworkBootstrap { implicit env =>
-        new NetworkBootstrapper(S1M1)
+        new NetworkBootstrapper(S1M1.withTopologyChangeDelay(NonNegativeFiniteDuration.Zero))
       }
       .addConfigTransforms(configTransforms*)
       .updateTestingConfig(

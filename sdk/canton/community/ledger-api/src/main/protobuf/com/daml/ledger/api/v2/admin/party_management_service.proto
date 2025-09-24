@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2.admin;
 
 import "com/daml/ledger/api/v2/admin/object_meta.proto";
+import "com/daml/ledger/api/v2/interactive/interactive_submission_service.proto";
 import "google/protobuf/field_mask.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
@@ -67,6 +68,16 @@ service PartyManagementService {
   // The party identifier suggestion must be a valid party name. Party names are required to be non-empty US-ASCII strings built from letters, digits, space,
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty(AllocatePartyRequest) returns (AllocatePartyResponse);
+
+  // Alpha 3.3: Endpoint to allocate a new external party on a synchronizer
+  //
+  // Expected to be stable in 3.5
+  //
+  // The external party must be hosted (at least) on this node with either confirmation or observation permissions
+  // It can optionally be hosted on other nodes (then called a multi-hosted party).
+  // If hosted on additional nodes, explicit authorization of the hosting relationship must be performed on those nodes
+  // before the party can be used.
+  rpc AllocateExternalParty(AllocateExternalPartyRequest) returns (AllocateExternalPartyResponse);
 
   // Update selected modifiable participant-local attributes of a party details resource.
   // Can update the participant's local information for local parties.
@@ -168,6 +179,36 @@ message AllocatePartyRequest {
 
 message AllocatePartyResponse {
   PartyDetails party_details = 1;
+}
+
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message AllocateExternalPartyRequest {
+  message SignedTransaction {
+    // The serialized TopologyTransaction
+    bytes transaction = 1;
+    // Additional signatures for this transaction specifically
+    // Use for transactions that require additional signatures beyond the namespace key signatures
+    // e.g: PartyToKeyMapping must be signed by all registered keys
+    repeated interactive.Signature signatures = 2;
+  }
+
+  // Synchronizer ID on which to onboard the party
+  // Required
+  string synchronizer_id = 1;
+  // TopologyTransactions to onboard the external party
+  // Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+  // Required
+  repeated SignedTransaction onboarding_transactions = 2;
+  // Signatures of the combined hash of all onboarding_transactions
+  repeated interactive.Signature multi_hash_signatures = 3;
+  // The id of the ``Identity Provider``
+  // If not set, assume the party is managed by the default identity provider.
+  // Optional
+  string identity_provider_id = 4;
+}
+
+message AllocateExternalPartyResponse {
+  string party_id = 1;
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(party_details.identity_provider_id)``

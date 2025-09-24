@@ -26,6 +26,8 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.*
+import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1_S1M1
+import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
@@ -105,7 +107,15 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
     config.assignmentExclusivityTimeout
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P5_S1M1_S1M1
+    EnvironmentDefinition.P5_S1M1_S1M1_Config
+      .withNetworkBootstrap { implicit env =>
+        NetworkBootstrapper(
+          S1M1_S1M1.map(desc =>
+            if (config.simClock) desc.withTopologyChangeDelay(NonNegativeFiniteDurationConfig.Zero)
+            else desc
+          )
+        )
+      }
       .addConfigTransforms(
         simClockTransform, // required such that late message processing warning isn't emitted
         _.focus(_.monitoring.logging.delayLoggingThreshold)
@@ -376,24 +386,25 @@ abstract class SynchronizerChangeSimClockIntegrationTest
             s"An assignment for $reassignmentId is triggered automatically after the exclusivity timeout"
           )
 
+          // Get reassignment from the store
+          val unassignedEvent = getIncompleteUnassignedContracts(participants, painter)
+          val exclusivityDeadline = CantonTimestamp
+            .fromProtoTimestamp(unassignedEvent.assignmentExclusivity.value)
+            .value
+
           val margin = NonNegativeFiniteDuration.tryOfSeconds(1)
 
           // Advance clock just before the exclusivity timeout
-          clock.advance(exclusivityTimeout.unwrap.minus(margin.unwrap))
+          clock.advanceTo(exclusivityDeadline.minus(margin.unwrap))
           participants.foreach(_.testing.fetch_synchronizer_times())
           checkIncompleteUnassignedContracts(
             participants,
             painter,
           ) // assignment did not happen yet
 
-          // Get reassignment from the store
-          val unassignedEvent = getIncompleteUnassignedContracts(participants, painter)
-
-          val targetTimestamp = CantonTimestamp
-            .fromProtoTimestamp(unassignedEvent.assignmentExclusivity.value)
-            .value + exclusivityTimeout
           // Advance clock to the exclusivity timeout so that the automatic assignment can be triggered
-          clock.advanceTo(targetTimestamp)
+          clock.advanceTo(exclusivityDeadline)
+
           participants.foreach(_.testing.fetch_synchronizer_times())
 
           // The reassignment store should be empty once the automatic assignment has completed

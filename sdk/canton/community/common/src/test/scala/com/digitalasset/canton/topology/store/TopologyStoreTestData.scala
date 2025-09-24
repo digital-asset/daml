@@ -150,7 +150,6 @@ class TopologyStoreTestData(
       synchronizer1_p1p2_synchronizerId,
       DynamicSynchronizerParameters
         .initialValues(
-          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
           protocolVersion = testedProtocolVersion,
           mediatorReactionTimeout = NonNegativeFiniteDuration.Zero,
         ),
@@ -163,8 +162,7 @@ class TopologyStoreTestData(
       synchronizer1_p1p2_synchronizerId,
       DynamicSynchronizerParameters
         .initialValues(
-          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
-          protocolVersion = testedProtocolVersion,
+          protocolVersion = testedProtocolVersion
         ),
     )
   )(dnd_p1p2_keys*)

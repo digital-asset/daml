@@ -119,6 +119,7 @@ class BlockSequencerTest
 
     private val topologyClient = new StoreBasedSynchronizerTopologyClient(
       mock[Clock],
+      defaultStaticSynchronizerParameters,
       topologyStore,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       DefaultProcessingTimeouts.testing,

@@ -124,9 +124,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
-            indexerConfig.ingestionParallelism.unwrap
-          ),
+          dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(indexerConfig),
           highAvailability = HaConfig(),
           indexSericeDbDispatcher = Some(dbSupport.dbDispatcher),
           clock = clock,
@@ -143,7 +141,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         }
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-            inMemoryState.stringInterningView
+            inMemoryState.stringInterningView,
+            inMemoryState.ledgerEndCache,
           ),
           dbDispatcher = dbSupport.dbDispatcher,
           metrics = LedgerApiServerMetrics.ForTesting,

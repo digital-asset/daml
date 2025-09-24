@@ -73,7 +73,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, IndexedSynchronizer}
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker, WallClock}
+import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -207,8 +207,7 @@ class ProtocolProcessorTest
   private val resultSc = SequencerCounter(1)
   private val rc = RequestCounter(0)
   private val parameters = DynamicSynchronizerParametersWithValidity(
-    DynamicSynchronizerParameters
-      .initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
+    DynamicSynchronizerParameters.initialValues(testedProtocolVersion),
     CantonTimestamp.MinValue,
     None,
   )
@@ -292,10 +291,10 @@ class ProtocolProcessorTest
         defaultStaticSynchronizerParameters,
         exitOnFatalFailures = true,
         disableUpgradeValidation = false,
+        mock[PackageMetadataView],
         packageDependencyResolver,
         Eval.now(nodePersistentState.ledgerApiStore),
         logical,
-        Eval.now(mock[PackageMetadataView]),
         loggerFactory,
         timeouts,
         futureSupervisor,

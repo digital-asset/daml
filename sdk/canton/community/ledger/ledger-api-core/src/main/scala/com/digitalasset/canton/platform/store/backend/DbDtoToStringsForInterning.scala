@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.interning.DomainStringIterators
+import com.digitalasset.canton.topology.SynchronizerId
 
 object DbDtoToStringsForInterning {
 
@@ -86,7 +87,7 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
-  private def synchronizerIdsOf(dbDto: DbDto): Iterator[String] =
+  private def synchronizerIdsOf(dbDto: DbDto): Iterator[SynchronizerId] =
     dbDto match {
       case dbDto: DbDto.EventExercise => Iterator(dbDto.synchronizer_id)
       case dbDto: DbDto.EventCreate => Iterator(dbDto.synchronizer_id)

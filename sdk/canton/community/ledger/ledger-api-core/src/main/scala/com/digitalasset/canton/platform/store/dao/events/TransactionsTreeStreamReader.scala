@@ -23,7 +23,6 @@ import com.digitalasset.canton.platform.store.backend.common.{
   EventIdSource,
   EventPayloadSourceForUpdatesLedgerEffects,
 }
-import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.ReassignmentStreamReader.ReassignmentStreamQueryParams
 import com.digitalasset.canton.platform.store.dao.{
@@ -161,28 +160,26 @@ class TransactionsTreeStreamReader(
         maxParallelIdQueriesLimiter: QueueBasedConcurrencyLimiter,
         metric: DatabaseMetrics,
     ): Source[Long, NotUsed] =
-      paginatingAsyncStream.streamIdsFromSeekPagination(
+      paginatingAsyncStream.streamIdsFromSeekPaginationWithoutIdFilter(
+        idStreamName = s"Update IDs for $target filterParty:$filterParty",
         idPageSizing = idPageSizing,
         idPageBufferSize = maxPagesPerIdPagesBuffer,
         initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
+        initialEndInclusive = queryRange.endInclusiveEventSeqId,
       )(
-        fetchPage = (state: IdPaginationState) => {
+        eventStorageBackend.updateStreamingQueries.fetchEventIds(
+          target = target
+        )(
+          stakeholderO = filterParty,
+          templateIdO = None,
+        )
+      )(
+        executeIdQuery = f =>
           maxParallelIdQueriesLimiter.execute {
             globalIdQueriesLimiter.execute {
-              dbDispatcher.executeSql(metric) { connection =>
-                eventStorageBackend.updateStreamingQueries.fetchEventIds(
-                  target = target
-                )(
-                  stakeholderO = filterParty,
-                  templateIdO = None,
-                  startExclusive = state.fromIdExclusive,
-                  endInclusive = queryRange.endInclusiveEventSeqId,
-                  limit = state.pageSize,
-                )(connection)
-              }
+              dbDispatcher.executeSql(metric)(f)
             }
           }
-        }
       )
 
     def fetchPayloads(

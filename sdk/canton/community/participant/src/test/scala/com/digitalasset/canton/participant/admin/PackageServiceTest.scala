@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin
 
 import better.files.*
-import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.BaseTest.getResourcePath
@@ -129,11 +128,11 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     val sut: PackageService = PackageService(
       clock = clock,
       engine = engine,
+      mutablePackageMetadataView = mutablePackageMetadataView,
       packageDependencyResolver = packageDependencyResolver,
       enableStrictDarValidation = enableStrictDarValidation,
       loggerFactory = loggerFactory,
       metrics = ParticipantTestMetrics,
-      mutablePackageMetadataView = Eval.now(mutablePackageMetadataView),
       packageOps = new PackageOpsForTesting(participantId, loggerFactory),
       timeouts = processingTimeouts,
     )

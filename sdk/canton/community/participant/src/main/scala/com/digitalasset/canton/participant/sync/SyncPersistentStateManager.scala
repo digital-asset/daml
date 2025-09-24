@@ -123,10 +123,10 @@ class SyncPersistentStateManager(
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
+    packageMetadataView: PackageMetadataView,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
     val contractStore: Eval[ContractStore],
-    packageMetadataView: Eval[PackageMetadataView],
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -420,10 +420,10 @@ class SyncPersistentStateManager(
         clock,
         synchronizerCryptoFactory(staticSynchronizerParameters),
         parameters,
+        packageMetadataView,
         packageDependencyResolver,
         ledgerApiStore,
         logicalSyncPersistentState,
-        packageMetadataView,
         psidLoggerFactory(physicalSynchronizerIdx.synchronizerId),
         futureSupervisor,
       )

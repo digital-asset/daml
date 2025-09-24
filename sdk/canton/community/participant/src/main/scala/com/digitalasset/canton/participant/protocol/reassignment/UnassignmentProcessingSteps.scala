@@ -140,8 +140,10 @@ private[reassignment] class UnassignmentProcessingSteps(
         TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractIds),
       )
 
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetSynchronizer)
+      targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentCoordination
+          .getStaticSynchronizerParameter(targetSynchronizer)
+      )
       targetTopology <- reassignmentCoordination
         .getRecentTopologySnapshot(
           targetSynchronizer,
@@ -639,8 +641,10 @@ private[reassignment] class UnassignmentProcessingSteps(
     val t0 = pendingRequestData.unassignmentValidationResult.targetTimestamp
 
     for {
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetSynchronizer)
+      targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentCoordination
+          .getStaticSynchronizerParameter(targetSynchronizer)
+      )
 
       automaticAssignment <- AutomaticAssignment
         .perform(

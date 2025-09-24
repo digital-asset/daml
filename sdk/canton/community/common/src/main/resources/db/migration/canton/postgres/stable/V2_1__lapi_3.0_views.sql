@@ -193,7 +193,8 @@ create or replace view debug.lapi_events_consuming_exercise as
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     lower(encode(trace_context, 'hex')) as trace_context,
     debug.canton_timestamp(record_time) as record_time,
-    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash
+    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash,
+   deactivated_event_sequential_id
   from lapi_events_consuming_exercise;
 
 create or replace view debug.lapi_events_create as
@@ -274,7 +275,8 @@ create or replace view debug.lapi_events_unassign as
     reassignment_counter,
     assignment_exclusivity,
     lower(encode(trace_context, 'hex')) as trace_context,
-    debug.canton_timestamp(record_time) as record_time
+    debug.canton_timestamp(record_time) as record_time,
+    deactivated_event_sequential_id
   from lapi_events_unassign;
 
 create or replace view debug.lapi_events_party_to_participant as

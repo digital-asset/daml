@@ -36,7 +36,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
   def validatePackageVetting(
       currentlyVettedPackages: Set[LfPackageId],
       nextPackageIds: Set[LfPackageId],
-      packageMetadataView: Option[PackageMetadataView],
+      packageMetadataView: PackageMetadataView,
       packageDependencyResolver: PackageDependencyResolver,
       acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
@@ -66,22 +66,12 @@ trait ParticipantTopologyValidation extends NamedLogging {
             show"Skipping upgrade validation for newly-added packages $toBeAdded because force flag ${ForceFlag.AllowVetIncompatibleUpgrades.toString} is set"
           )
           Right(())
-        } else {
-          // packageMetadata can be empty if the vetting happens before the package service is created
-          packageMetadataView match {
-            case Some(packageMetadataView) =>
-              packageMetadataView.packageUpgradeValidator.validateUpgrade(
-                toBeAdded,
-                nextPackageIds,
-                packageMetadataView.getSnapshot.packages,
-              )(LoggingContextWithTrace(loggerFactory))
-            case None =>
-              logger.info(
-                show"Skipping upgrade checks on newly-added packages because package metadata is not available: $toBeAdded"
-              )
-              Right(())
-          }
-        }
+        } else
+          packageMetadataView.packageUpgradeValidator.validateUpgrade(
+            toBeAdded,
+            nextPackageIds,
+            packageMetadataView.getSnapshot.packages,
+          )(LoggingContextWithTrace(loggerFactory))
       }
     } yield ()
   }
