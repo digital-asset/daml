@@ -1697,7 +1697,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               ${testCases.map(_.v1TemplateDefinition).mkString("\n")}
             }
         """,
-      // Set.empty,
       Set("da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd"),
     )
 
@@ -1714,7 +1713,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               ${testCases.map(_.v2TemplateDefinition).mkString("\n")}
             }
         """,
-      // Set.empty,
       Set("da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd"),
     )
 
@@ -1736,7 +1734,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
                 }
             """
       },
-      // Set.empty,
       Set(
         "2e3534afaed2be79a2981ca0996aa1941de42be74da40f96692faa05d18365e3",
         "533a8cda2a0f0449396a8c69e346d2d30a82d60b14860868c0b46816526a4adc",
@@ -1762,7 +1759,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
                 }
             """
       },
-      // Set.empty,
       Set(
         "533a8cda2a0f0449396a8c69e346d2d30a82d60b14860868c0b46816526a4adc",
         "da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd",
