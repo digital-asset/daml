@@ -143,7 +143,7 @@ message ListVettedPackagesRequest {
   // Leave empty to fetch the first page.
   //
   // Optional
-  optional string page_token = 3;
+  string page_token = 3;
 
   // Maximum number of ``VettedPackages`` results to return in a single page.
   //
@@ -157,7 +157,7 @@ message ListVettedPackagesRequest {
   // available in the VersionService.
   //
   // Optional
-  optional uint32 page_size = 4;
+  uint32 page_size = 4;
 }
 
 message ListVettedPackagesResponse {
@@ -168,5 +168,5 @@ message ListVettedPackagesResponse {
 
   // Pagination token to retrieve the next page.
   // Empty, if there are no further results.
-  optional string next_page_token = 2;
+  string next_page_token = 2;
 }
