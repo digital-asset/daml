@@ -2,33 +2,50 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
+package engine
 
-import com.digitalasset.daml.lf.crypto.Hash.HashingMethod
+import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.{Compiler, SValue}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{Node, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  FatContractInstance,
+  Node,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.{Value => V}
-import org.scalatest.EitherValues
+import org.scalatest.{EitherValues, Inside}
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
 
-class HashCreateNodeSpecV2 extends HashCreateNodeSpec(LanguageMajorVersion.V2)
+class ValidateContractInstanceSpecV2 extends ValidateContractInstanceSpec(LanguageMajorVersion.V2)
 
-class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
+/** Tests for [[Engine.validateContractInstance]]. This method is a proxy for [fetchTemplate] which is
+  * already thoroughly tested in [[EngineTest]] and [[com.digitalasset.daml.lf.speedy.ValueTranslatorSpec]] so we only
+  * test here that things are properly wired. For instance, we don't test every single way a contract can be ill-typed.
+  */
+class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with EitherValues
-    with Matchers {
+    with Matchers
+    with TableDrivenPropertyChecks
+    with Inside {
+
+  implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   val pkgId1 = Ref.PackageId.assertFromString("-packageId1-")
   val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
+  val pkgId3 = Ref.PackageId.assertFromString("-packageId3-")
+  val pkgId4 = Ref.PackageId.assertFromString("-packageId4-")
 
   val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
@@ -49,13 +66,14 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
+  // A valid upgrade of pkg1
   val pkg2 = {
     implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(
       defaultPackageId = pkgId2
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p: Party, extra: Option  };
+          record @serializable T = { p: Party, extra: Option Int64 };
           template (this : T) = {
             precondition True;
             signatories Cons @Party [M:T {p} this] (Nil @Party);
@@ -65,10 +83,42 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
+  // An invalid upgrade of pkg1: the type of T is not compatible with that of v1
+  val pkg3 = {
+    implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(
+      defaultPackageId = pkgId3
+    )
+    p""" metadata ( 'test-pkg' : '2.0.0' )
+        module M {
+          record @serializable T = { p: Party, extra: Int64 };
+          template (this : T) = {
+            precondition True;
+            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            observers Nil @Party;
+          };
+        }
+    """
+  }
+
+  // An invalid upgrade of pkg1: the precondition is false
+  val pkg4 = {
+    implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(
+      defaultPackageId = pkgId4
+    )
+    p""" metadata ( 'test-pkg' : '2.0.0' )
+        module M {
+          record @serializable T = { p: Party };
+          template (this : T) = {
+            precondition False;
+            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            observers Nil @Party;
+          };
+        }
+    """
+  }
+
   val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
   val compiledPkgs = PureCompiledPackages.build(Map(pkgId1 -> pkg1, pkgId2 -> pkg2), compilerConfig)
-
-  // private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def newEngine = new Engine(
     EngineConfig(LanguageVersion.StableVersions(majorLanguageVersion))
@@ -88,44 +138,174 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
     keyOpt = None,
     version = TransactionVersion.minVersion,
   )
+  val contractInstance = FatContractInstance.fromCreateNode(
+    createNode,
+    CreationTime.CreatedAt(Time.Timestamp.now()),
+    Bytes.Empty,
+  )
 
-  "hash create node" should {
-    "compute the expected hash for HashingMethod.Legacy" in {
-      val expectedHash = Hash
-        .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
-        .value
+  val expectedLegacyHash = Hash
+    .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
+    .value
+  val expectedUpgradeFriendlyHash = Hash
+    .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
+    .value
+  val expectedTypedNormalFormHash = SValueHash
+    .hashContractInstance(
+      packageName,
+      templateId.qualifiedName,
+      SValue.SRecord(
+        templateId,
+        ImmArray(Ref.Name.assertFromString("p")),
+        ArraySeq(SValue.SParty(alice)),
+      ),
+    )
+    .value
 
-      newEngine.hashCreateNode(createNode, HashingMethod.Legacy).consume() shouldBe Right(
-        expectedHash
+  "validateContractInstance" should {
+
+    "succeed on valid upgrades" in {
+
+      val hashes = Table(
+        ("hashingMethod", "expectedHash"),
+        (Hash.HashingMethod.Legacy, expectedLegacyHash),
+        (Hash.HashingMethod.UpgradeFriendly, expectedUpgradeFriendlyHash),
+        // TODO(https://github.com/digital-asset/daml/issues/21667): enable once TypedNormalForm is supported
+        // (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
       )
+
+      val targetPackageIds = Table(
+        ("targetPackageId", "targetPackage"),
+        (pkgId1, pkg1),
+        (pkgId2, pkg2),
+      )
+
+      forEvery(hashes) { (hashingMethod, expectedHash) =>
+        forEvery(targetPackageIds) { (targetPackageId, targetPackage) =>
+          var idValidatorCalledWithExpectedHash = false
+          val result = newEngine
+            .validateContractInstance(
+              contractInstance,
+              targetPackageId,
+              hashingMethod,
+              idValidator = { h =>
+                idValidatorCalledWithExpectedHash = (h == expectedHash)
+                idValidatorCalledWithExpectedHash
+              },
+            )
+            .consume(pkgs = Map(targetPackageId -> targetPackage))
+
+          idValidatorCalledWithExpectedHash shouldBe true
+          result shouldBe Right(Right(()))
+        }
+      }
     }
 
-    "compute the expected hash for HashingMethod.UpgradeFriendly" in {
-      val expectedHash = Hash
-        .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
-        .value
+    "return a ResultDone(Left(_)) when authentication fails" in {
 
-      newEngine.hashCreateNode(createNode, HashingMethod.UpgradeFriendly).consume() shouldBe Right(
-        expectedHash
+      val hashes = Table(
+        "hashingMethod",
+        Hash.HashingMethod.Legacy,
+        Hash.HashingMethod.UpgradeFriendly,
+        // TODO(https://github.com/digital-asset/daml/issues/21667): enable once TypedNormalForm is supported
+        // Hash.HashingMethod.TypedNormalForm,
       )
+
+      val targetPackageIds = Table(
+        ("targetPackageId", "targetPackage"),
+        (pkgId1, pkg1),
+        (pkgId2, pkg2),
+      )
+
+      forEvery(hashes) { hashingMethod =>
+        forEvery(targetPackageIds) { (targetPackageId, targetPackage) =>
+          val result = newEngine
+            .validateContractInstance(
+              contractInstance,
+              targetPackageId,
+              hashingMethod,
+              idValidator = _ => false, // We pretend that the authentication always fails
+            )
+            .consume(pkgs = Map(targetPackageId -> targetPackage))
+
+          inside(result) { case Right(res) =>
+            res shouldBe a[Left[_, _]]
+          }
+        }
+      }
     }
 
-    "compute the expected hash for HashingMethod.TypedNormalForm" in {
-      val expectedHash = SValueHash
-        .hashContractInstance(
-          packageName,
-          templateId.qualifiedName,
-          SValue.SRecord(
-            templateId,
-            ImmArray(Ref.Name.assertFromString("p")),
-            ArraySeq(SValue.SParty(alice)),
-          ),
-        )
-        .value
+    "return a ResultDone(Left(_)) when type-checking fails" in {
 
-      newEngine
-        .hashCreateNode(createNode, HashingMethod.TypedNormalForm)
-        .consume(pkgs = Map(pkgId1 -> pkg1)) shouldBe Right(expectedHash)
+      val hashes = Table(
+        "hashingMethod",
+        Hash.HashingMethod.Legacy,
+        Hash.HashingMethod.UpgradeFriendly,
+        Hash.HashingMethod.TypedNormalForm,
+      )
+
+      forEvery(hashes) { hashingMethod =>
+        val result = newEngine
+          .validateContractInstance(
+            contractInstance,
+            pkgId3, // This package cannot type-check contractInstance
+            hashingMethod,
+            idValidator = _ => true,
+          )
+          .consume(pkgs = Map(pkgId3 -> pkg3))
+
+        inside(result) { case Right(res) =>
+          res shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
+    "return a ResultDone(Left(_)) when metadata check fails" in {
+
+      val hashes = Table(
+        "hashingMethod",
+        Hash.HashingMethod.Legacy,
+        Hash.HashingMethod.UpgradeFriendly,
+        Hash.HashingMethod.TypedNormalForm,
+      )
+
+      forEvery(hashes) { hashingMethod =>
+        val result = newEngine
+          .validateContractInstance(
+            contractInstance,
+            pkgId4, // The precondition of template T evaluates to false in pkg4
+            hashingMethod,
+            idValidator = _ => true,
+          )
+          .consume(pkgs = Map(pkgId4 -> pkg4))
+
+        inside(result) { case Right(res) =>
+          res shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
+    "missing package is reported as a SResultError" in {
+
+      val hashes = Table(
+        "hashingMethod",
+        Hash.HashingMethod.Legacy,
+        Hash.HashingMethod.UpgradeFriendly,
+        Hash.HashingMethod.TypedNormalForm,
+      )
+
+      forEvery(hashes) { hashingMethod =>
+        val result = newEngine
+          .validateContractInstance(
+            contractInstance,
+            pkgId1,
+            hashingMethod,
+            idValidator = _ => true,
+          )
+          .consume(pkgs = Map.empty) // We reply with "not found" to any NeedPackage question
+
+        result shouldBe a[Left[_, _]] // consume reports ResultError as a Left
+      }
     }
   }
 }
