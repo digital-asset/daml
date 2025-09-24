@@ -5,14 +5,14 @@ package com.digitalasset.canton.integration.tests.ledgerapi.auth
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitDummyReassignment
 import org.scalatest.Assertion
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class SubmitReassignmentAuthIT extends SyncServiceCallAuthTests with SubmitDummyReassignment {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def successfulBehavior(f: Future[Any])(implicit ec: ExecutionContext): Assertion =
     expectInvalidArgument(f)

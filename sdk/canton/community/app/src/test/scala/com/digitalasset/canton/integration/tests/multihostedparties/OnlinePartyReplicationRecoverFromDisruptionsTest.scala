@@ -5,10 +5,7 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -38,7 +35,7 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
     with OnlinePartyReplicationTestHelpers
     with SharedEnvironment {
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private var alice: PartyId = _
   private var carol: PartyId = _

@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.jwt.JwksUrl
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -156,5 +156,5 @@ trait IdentityProviderConfigIntegrationTest
 
 class IdentityProviderConfigReferenceIntegrationTestPostgres
     extends IdentityProviderConfigIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

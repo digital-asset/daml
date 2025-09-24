@@ -22,7 +22,7 @@ import com.daml.ledger.javaapi.data.Transaction
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.java.divulgence.DivulgeIouByExercise
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.ValueConversions.*
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.{CantonFixture, CreatesParties}
 import com.digitalasset.canton.integration.tests.ledgerapi.services.TestCommands
@@ -243,5 +243,5 @@ sealed trait SuperReaderUserIT extends CantonFixture with CreatesParties with Te
 }
 
 class SuperReaderUserITDefault extends SuperReaderUserIT {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

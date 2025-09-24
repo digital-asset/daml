@@ -9,7 +9,7 @@ import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.http.json.v2.JsPartyManagementCodecs.*
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.UseTls
 import org.apache.pekko.http.scaladsl.model.Uri
 
@@ -17,7 +17,7 @@ import org.apache.pekko.http.scaladsl.model.Uri
 class TlsTest
     extends AbstractHttpServiceIntegrationTestFuns
     with AbstractHttpServiceIntegrationTestFunsUserToken {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   val authenticationSecurity: SecurityTest =
     SecurityTest(property = Authenticity, asset = "HTTP JSON API Service")

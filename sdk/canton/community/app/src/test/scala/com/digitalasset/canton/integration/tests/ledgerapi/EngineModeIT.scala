@@ -15,7 +15,7 @@ import com.digitalasset.canton.integration.ConfigTransforms.{
   enableAlphaVersionSupport,
   setBetaSupport,
 }
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixtureIsolated
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentSetupPlugin}
 import com.digitalasset.canton.ledger.api.grpc.GrpcClientResource
@@ -43,7 +43,7 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
     with ProtocolVersionChecksFixtureAnyWordSpec {
 
   registerPlugin(EngineModePlugin(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private[this] val userId = UserId("EngineModeIT")
 

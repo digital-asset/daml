@@ -12,7 +12,7 @@ import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.examples.java.iou.Amount
-import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
+import com.digitalasset.canton.integration.plugins.{UseH2, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -268,5 +268,5 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
 
 final class DumpIntegrationTestH2 extends DumpIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

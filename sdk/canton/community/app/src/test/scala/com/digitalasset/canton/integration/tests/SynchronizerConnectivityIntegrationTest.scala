@@ -10,9 +10,8 @@ import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
-  UseReferenceBlockSequencerBase,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -463,9 +462,9 @@ class SynchronizerConnectivityReferenceIntegrationTestPostgres
     extends SynchronizerConnectivityIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
-      sequencerGroups = UseReferenceBlockSequencerBase.MultiSynchronizer(
+      sequencerGroups = UseReferenceBlockSequencer.MultiSynchronizer(
         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
       ),
     )
@@ -478,7 +477,7 @@ class SynchronizerConnectivityBftOrderingIntegrationTestPostgres
   registerPlugin(
     new UseBftSequencer(
       loggerFactory,
-      sequencerGroups = UseReferenceBlockSequencerBase.MultiSynchronizer(
+      sequencerGroups = UseReferenceBlockSequencer.MultiSynchronizer(
         Seq(Set(InstanceName.tryCreate("sequencer1")), Set(InstanceName.tryCreate("sequencer2")))
       ),
     )

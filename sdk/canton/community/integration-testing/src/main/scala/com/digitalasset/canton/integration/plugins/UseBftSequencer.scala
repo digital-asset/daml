@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.StorageConfig.Memory
 import com.digitalasset.canton.config.{CantonConfig, TlsClientConfig}
 import com.digitalasset.canton.integration.EnvironmentSetupPlugin
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.{
   MultiSynchronizer,
   SequencerSynchronizerGroups,
   SingleSynchronizer,

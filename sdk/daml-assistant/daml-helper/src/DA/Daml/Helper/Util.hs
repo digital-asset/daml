@@ -378,7 +378,7 @@ cantonConfig CantonOptions{..} =
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
-                        , "type" Aeson..= ("community-reference" :: T.Text)
+                        , "type" Aeson..= ("reference" :: T.Text)
                         ]
                     , storage
                     , "public-api" Aeson..= port cantonSequencerPublicApi

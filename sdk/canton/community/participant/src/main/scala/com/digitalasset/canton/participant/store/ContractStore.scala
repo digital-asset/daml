@@ -15,13 +15,27 @@ import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.Purgeable
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.transaction.CreationTime
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 
 import scala.concurrent.ExecutionContext
 
 trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
+
+  def lookupPersistedIfCached(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): Option[Option[PersistedContractInstance]]
+
+  def lookupPersisted(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PersistedContractInstance]]
+
+// TODO(#27996): this query supposed to be used for LAPI streaming to leverage the contract cache. As getting internal contract ID is not possible ATM, this optimization will be implemented later
+//  def lookupPersistedIfCached(internalContractId: Long)(implicit
+//                                       traceContext: TraceContext
+//  ): Option[Option[PersistedContractInstance]]
 
   override type ContractsCreatedAtTime = CreationTime.CreatedAt
 
@@ -126,12 +140,22 @@ object ContractStore {
         new DbContractStore(
           dbStorage,
           cacheConfig = parameters.cachingConfigs.contractStore,
-          dbQueryBatcherConfig = parameters.batchingConfig.aggregator,
+          dbQueryBatcherConfig = parameters.batchingConfig.contractStoreAggregator,
           insertBatchAggregatorConfig = parameters.batchingConfig.aggregator,
           parameters.processingTimeouts,
           loggerFactory,
         )
     }
+}
+
+final case class PersistedContractInstance(
+    // internalContractId: Long, TODO(#27996): getting the internal contract ID with DbBulkUpdateProcessor is not possible without major rewrite there
+    inst: FatContractInstance { type CreatedAtTime <: CreationTime.CreatedAt }
+) {
+  def asContractInstance: ContractInstance = ContractInstance.create(inst) match {
+    case Right(contract) => contract
+    case Left(e) => throw new DbDeserializationException(s"Invalid contract instance: $e")
+  }
 }
 
 sealed trait ContractStoreError extends Product with Serializable with PrettyPrinting

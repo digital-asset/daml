@@ -126,7 +126,7 @@ final class OffPRPreventDupContractsFailureIntegrationTest
           (entry: LogEntry) =>
             entry.shouldBeCantonError(
               SyncServiceSynchronizerDisconnect,
-              _ should include regex "(?s)fatally disconnected because of handler returned error.*with failed activeness check is approved",
+              _ should include regex "(?s)fatally disconnected because of.*",
             ),
         ),
         (

@@ -17,10 +17,7 @@ import com.digitalasset.canton.HasTempDirectory
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.ContractNotFound
@@ -192,5 +189,5 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
 final class OfflinePartyReplicationExplicitDisclosureIntegrationTestPostgres
     extends OfflinePartyReplicationExplicitDisclosureIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

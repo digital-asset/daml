@@ -11,8 +11,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Dummy
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -215,7 +215,7 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
 class MaxRequestSizeCrashReferenceIntegrationIntegrationTestPostgres
     extends MaxRequestSizeCrashIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class MaxRequestSizeCrashBftOrderingIntegrationIntegrationTestPostgres

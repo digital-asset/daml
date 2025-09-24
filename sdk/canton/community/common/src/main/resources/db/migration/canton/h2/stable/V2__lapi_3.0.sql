@@ -69,7 +69,7 @@ CREATE TABLE lapi_command_completions (
     record_time BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     user_id INTEGER NOT NULL,
-    submitters INTEGER ARRAY NOT NULL,
+    submitters BINARY LARGE OBJECT NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The update ID is `NULL` for rejected transactions/reassignments.
     update_id VARCHAR,
@@ -121,23 +121,23 @@ CREATE TABLE lapi_events_create (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    submitters INTEGER ARRAY,
+    submitters BINARY LARGE OBJECT,
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
     representative_package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
+    tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * contract data
     create_argument BINARY LARGE OBJECT NOT NULL,
-    create_signatories INTEGER ARRAY NOT NULL,
-    create_observers INTEGER ARRAY NOT NULL,
+    create_signatories BINARY LARGE OBJECT NOT NULL,
+    create_observers BINARY LARGE OBJECT NOT NULL,
     create_key_value BINARY LARGE OBJECT,
     create_key_hash VARCHAR,
-    create_key_maintainers INTEGER ARRAY,
+    create_key_maintainers BINARY LARGE OBJECT,
 
     -- * compression flags
     create_argument_compression SMALLINT,
@@ -182,20 +182,20 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    submitters INTEGER ARRAY,
+    submitters BINARY LARGE OBJECT,
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
+    tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
-    exercise_actors INTEGER ARRAY NOT NULL,
+    exercise_actors BINARY LARGE OBJECT NOT NULL,
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
@@ -235,19 +235,19 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    submitters INTEGER ARRAY,
+    submitters BINARY LARGE OBJECT,
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * choice data
     exercise_choice VARCHAR NOT NULL,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
-    exercise_actors INTEGER ARRAY NOT NULL,
+    exercise_actors BINARY LARGE OBJECT NOT NULL,
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
@@ -295,7 +295,7 @@ CREATE TABLE lapi_events_unassign (
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
 
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
@@ -343,7 +343,7 @@ CREATE TABLE lapi_events_assign (
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
 
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
@@ -353,11 +353,11 @@ CREATE TABLE lapi_events_assign (
 
     -- * assigned specific
     create_argument BINARY LARGE OBJECT NOT NULL,
-    create_signatories INTEGER ARRAY NOT NULL,
-    create_observers INTEGER ARRAY NOT NULL,
+    create_signatories BINARY LARGE OBJECT NOT NULL,
+    create_observers BINARY LARGE OBJECT NOT NULL,
     create_key_value BINARY LARGE OBJECT,
     create_key_hash VARCHAR,
-    create_key_maintainers INTEGER ARRAY,
+    create_key_maintainers BINARY LARGE OBJECT,
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT,
     ledger_effective_time BIGINT NOT NULL,

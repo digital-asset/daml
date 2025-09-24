@@ -20,16 +20,6 @@ private[postgresql] object PGSchema {
     ): Field[FROM, Iterable[String], _] =
       PGStringArray(extractor)
 
-    override def intArray[FROM](
-        extractor: StringInterning => FROM => Iterable[Int]
-    ): Field[FROM, Iterable[Int], _] =
-      PGIntArray(extractor)
-
-    override def intArrayOptional[FROM](
-        extractor: StringInterning => FROM => Option[Iterable[Int]]
-    ): Field[FROM, Option[Iterable[Int]], _] =
-      PGIntArrayOptional(extractor)
-
     override def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =

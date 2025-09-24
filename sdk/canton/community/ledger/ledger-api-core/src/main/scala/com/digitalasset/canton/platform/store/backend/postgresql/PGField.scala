@@ -25,28 +25,6 @@ private[postgresql] final case class PGStringArray[FROM](
   override def convert: Iterable[String] => String = convertBase
 }
 
-private[postgresql] trait PGIntArrayBase[FROM, TO] extends Field[FROM, TO, String] {
-  override def selectFieldExpression(inputFieldName: String): String =
-    s"string_to_array($inputFieldName, '|')::integer[]"
-
-  protected def convertBase: Iterable[Int] => String = { in =>
-    in.mkString("|")
-  }
-}
-
-private[postgresql] final case class PGIntArray[FROM](
-    extract: StringInterning => FROM => Iterable[Int]
-) extends PGIntArrayBase[FROM, Iterable[Int]] {
-  override def convert: Iterable[Int] => String = convertBase
-}
-
-private[postgresql] final case class PGIntArrayOptional[FROM](
-    extract: StringInterning => FROM => Option[Iterable[Int]]
-) extends PGIntArrayBase[FROM, Option[Iterable[Int]]] {
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  override def convert: Option[Iterable[Int]] => String = _.map(convertBase).orNull
-}
-
 private[postgresql] final case class PGSmallintOptional[FROM](
     extract: StringInterning => FROM => Option[Int]
 ) extends Field[FROM, Option[Int], java.lang.Integer] {

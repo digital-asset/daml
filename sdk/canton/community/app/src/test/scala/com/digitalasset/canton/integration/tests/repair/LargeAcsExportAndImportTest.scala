@@ -22,8 +22,8 @@ import com.digitalasset.canton.integration.bootstrap.{
 }
 import com.digitalasset.canton.integration.plugins.{
   PostgresDumpRestore,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
@@ -200,7 +200,7 @@ protected abstract class LargeAcsExportAndImportTestBase
   override protected def environmentDefinition: EnvironmentDefinition = baseEnvironmentDefinition
 
   // Need the persistence for dumping and restoring large ACS
-  protected val referenceSequencer = new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+  protected val referenceSequencer = new UseReferenceBlockSequencer[DbConfig.Postgres](
     loggerFactory
   )
   registerPlugin(

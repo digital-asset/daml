@@ -10,7 +10,7 @@ import com.daml.timer.Delayed
 import com.digitalasset.canton.auth.AuthorizationChecksErrors.AccessTokenExpired
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.services.SubmitAndWaitDummyCommand
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
@@ -22,7 +22,7 @@ import scala.concurrent.{Future, Promise}
 trait ExpiringStreamServiceCallAuthTests[T]
     extends ReadOnlyServiceCallAuthTests
     with SubmitAndWaitDummyCommand {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   protected def stream(
       context: ServiceCallContext,
@@ -104,7 +104,7 @@ trait ExpiringStreamServiceCallAuthTests[T]
 trait ExpiringStreamServiceCallAuthTestsLegacy[T]
     extends ReadOnlyServiceCallAuthTests
     with SubmitAndWaitDummyCommand {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   protected def stream(
       context: ServiceCallContext,

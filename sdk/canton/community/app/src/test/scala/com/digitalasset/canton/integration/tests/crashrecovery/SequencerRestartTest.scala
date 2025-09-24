@@ -46,9 +46,9 @@ import com.digitalasset.canton.integration.bootstrap.{
 import com.digitalasset.canton.integration.plugins.UseExternalProcess.ShutdownPhase
 import com.digitalasset.canton.integration.plugins.{
   PostgresDumpRestore,
-  UseCommunityReferenceBlockSequencer,
   UseExternalProcess,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -148,7 +148,7 @@ abstract class BaseSynchronizerRestartTest
         sys.error(s"logging was used but shouldn't be")
     }
   )
-  val sequencerPlugin = new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+  val sequencerPlugin = new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   registerPlugin(sequencerPlugin)
   registerPlugin(external)
 

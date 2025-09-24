@@ -16,10 +16,7 @@ import com.digitalasset.canton.config.DbConfig.Postgres
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
 import com.digitalasset.canton.examples.java.{cycle as C, iou}
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -424,7 +421,7 @@ abstract class RehydrationIntegrationTest
 
 class ReferenceRehydrationIntegrationTestPostgres extends RehydrationIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[Postgres](loggerFactory))
 }
 
 // TODO(#16823): Re-enable test. This test requires that the second sequencer reads old blocks from genesis,

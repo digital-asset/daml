@@ -23,7 +23,6 @@ final case class PackageMetadata(
     packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
     // TODO(#21695): Use [[com.digitalasset.daml.lf.language.PackageInterface]] once public
     packages: Map[Ref.PackageId, Ast.PackageSignature] = Map.empty,
-    packageUpgradabilityMap: Map[Ref.PackageId, Boolean] = Map.empty,
 ) {
 
   /** Resolve all template or interface ids for (package-name, qualified-name).
@@ -97,7 +96,6 @@ object PackageMetadata {
     )
 
     val packageInfo = new PackageInfo(Map(packageId -> packageAst))
-    val isPackageUpgradable = packageAst.supportsUpgrades(packageId)
     PackageMetadata(
       packageNameMap = packageNameMap,
       interfaces = packageInfo.definedInterfaces,
@@ -108,7 +106,6 @@ object PackageMetadata {
       //               Consider unifying with the other package caches in the participant
       //               (e.g. [[com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader]])
       packages = Map(packageId -> LfUtil.toSignature(packageAst)),
-      packageUpgradabilityMap = Map(packageId -> isPackageUpgradable),
     )
   }
 
@@ -136,7 +133,6 @@ object PackageMetadata {
               }
             },
           packages = x.packages ++ y.packages,
-          packageUpgradabilityMap = x.packageUpgradabilityMap ++ y.packageUpgradabilityMap,
         )
       }
 

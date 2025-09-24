@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2.admin.user_management_service as ums
 import com.daml.ledger.api.v2.admin.user_management_service.GrantUserRightsRequest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.ApiUserManagementServiceSuppressionRule
 
 import java.util.UUID
@@ -17,7 +17,7 @@ final class GrantUserRightsAuthIT
     extends AdminOrIDPAdminServiceCallAuthTests
     with UserManagementAuth
     with GrantPermissionTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "UserManagementService#GrantUserRights"
 

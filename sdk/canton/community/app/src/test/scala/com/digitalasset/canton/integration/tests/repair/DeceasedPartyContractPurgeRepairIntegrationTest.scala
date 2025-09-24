@@ -9,8 +9,8 @@ import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -136,7 +136,7 @@ trait DeceasedPartyContractPurgeRepairIntegrationTest
 class DeceasedPartyContractPurgeRepairIntegrationTestPostgres
     extends DeceasedPartyContractPurgeRepairIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class DeceasedPartyContractPurgeRepairBftOrderingIntegrationTestPostgres

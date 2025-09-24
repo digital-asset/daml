@@ -13,9 +13,9 @@ import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.ledger.participant.state.SequencerIndex
@@ -435,7 +435,7 @@ class RepairSynchronizerRecoveryIntegrationTestPostgres
     extends RepairSynchronizerRecoveryIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
+    new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

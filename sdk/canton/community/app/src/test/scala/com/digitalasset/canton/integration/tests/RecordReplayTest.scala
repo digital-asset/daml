@@ -9,8 +9,8 @@ import com.digitalasset.canton.HasTempDirectory
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.plugins.{
   PostgresDumpRestore,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -37,7 +37,7 @@ final class RecordReplayIntegrationTest
 
   private val postgresPlugin = new UsePostgres(loggerFactory)
   registerPlugin(postgresPlugin)
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private val postgresDumpRestore = PostgresDumpRestore(postgresPlugin, forceLocal = false)
 

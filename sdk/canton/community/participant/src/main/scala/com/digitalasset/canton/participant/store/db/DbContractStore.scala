@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
-import cats.implicits.toTraverseOps
+import cats.implicits.{toBifunctorOps, toTraverseOps}
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -29,6 +29,7 @@ import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil, TryUtil}
 import com.digitalasset.canton.{LfPartyId, checked}
+import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
@@ -55,20 +56,38 @@ class DbContractStore(
 
   override protected[store] def logger: TracedLogger = super.logger
 
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  // TODO(#27996): optimize: evict proto deserialization from the DB threads (suggested: using a proper pekko-stream with deser stage over the batches, or do deser on client thread -but then it might be redundant-)
   implicit def contractGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
-  ): GetResult[ContractInstance] = GetResult { r =>
-    ContractInstance.decodeWithCreatedAt(ByteString.copyFrom(r.<<[Array[Byte]])) match {
-      case Right(contract) => contract
-      case Left(e) => throw new DbDeserializationException(s"Invalid contract instance: $e")
-    }
+  ): GetResult[PersistedContractInstance] = GetResult { r =>
+    val _ = r.nextLong()
+    PersistedContractInstance(
+      // internalContractId = r.nextLong(), TODO(#27996): not supported just yet
+      inst = TransactionCoder
+        .decodeFatContractInstance(ByteString.copyFrom(r.<<[Array[Byte]]))
+        .leftMap(e => s"Failed to decode contract instance: $e")
+        .flatMap { decoded =>
+          decoded.traverseCreateAt {
+            case createdAt: CreationTime.CreatedAt =>
+              Right(createdAt: CreationTime.CreatedAt)
+            case _ =>
+              Left(
+                s"Creation time must be CreatedAt for contract instances with id ${decoded.contractId}"
+              )
+          }
+        }
+        .fold(
+          error => throw new DbDeserializationException(s"Invalid contract instance: $error"),
+          identity,
+        )
+    )
   }
 
   implicit def contractSetParameter: SetParameter[ContractInstance] = (c, pp) => pp >> c.encoded
 
-  private val cache: ScaffeineCache.TunnelledAsyncCache[LfContractId, Option[ContractInstance]] =
-    ScaffeineCache.buildMappedAsync[LfContractId, Option[ContractInstance]](
+  private val cache
+      : ScaffeineCache.TunnelledAsyncCache[LfContractId, Option[PersistedContractInstance]] =
+    ScaffeineCache.buildMappedAsync[LfContractId, Option[PersistedContractInstance]](
       cacheConfig.buildScaffeine()
     )(logger, "DbContractStore.cache")
 
@@ -80,17 +99,21 @@ class DbContractStore(
   // aggregator will limit the number of parallel queries to the db and "batch them"
   // together. so if there is high load with a lot of interpretation happening in parallel
   // batching will kick in.
-  private val batchAggregatorLookup = {
-    val processor: BatchAggregator.Processor[LfContractId, Option[ContractInstance]] =
-      new BatchAggregator.Processor[LfContractId, Option[ContractInstance]] {
+  private val batchAggregatorLookup
+      : BatchAggregator[LfContractId, Option[PersistedContractInstance]] = {
+    val processor: BatchAggregator.Processor[LfContractId, Option[PersistedContractInstance]] =
+      new BatchAggregator.Processor[LfContractId, Option[PersistedContractInstance]] {
         override val kind: String = "serializable contract"
         override def logger: TracedLogger = DbContractStore.this.logger
 
         override def executeBatch(ids: NonEmpty[Seq[Traced[LfContractId]]])(implicit
             traceContext: TraceContext,
             callerCloseContext: CloseContext,
-        ): FutureUnlessShutdown[Iterable[Option[ContractInstance]]] =
-          lookupManyUncachedInternal(ids.map(_.value))
+        ): FutureUnlessShutdown[Iterable[Option[PersistedContractInstance]]] =
+          storage.query(lookupQuery(ids.map(_.value)), functionFullName)(
+            traceContext,
+            callerCloseContext,
+          )
 
         override def prettyItem: Pretty[LfContractId] = implicitly
       }
@@ -101,19 +124,20 @@ class DbContractStore(
   }
 
   private val contractsBaseQuery =
-    sql"""select instance from par_contracts"""
+    sql"""select internal_contract_id, instance from par_contracts"""
 
   private def lookupQuery(
       ids: NonEmpty[Seq[LfContractId]]
-  ): DbAction.ReadOnly[Seq[Option[ContractInstance]]] = {
+  ): DbAction.ReadOnly[Seq[Option[PersistedContractInstance]]] = {
     import DbStorage.Implicits.BuilderChain.*
 
+    // TODO(#27996): optimize: pass-as-array the parameters instead of variable sized list of params
     val inClause = DbStorage.toInClause("contract_id", ids)
     (contractsBaseQuery ++ sql" where " ++ inClause)
-      .as[ContractInstance]
+      .as[PersistedContractInstance]
       .map { contracts =>
         val foundContracts = contracts
-          .map(contract => (contract.contractId, contract))
+          .map(contract => (contract.asContractInstance.contractId, contract))
           .toMap
         ids.map(foundContracts.get)
       }
@@ -121,18 +145,24 @@ class DbContractStore(
 
   private def bulkLookupQuery(
       ids: NonEmpty[Seq[LfContractId]]
-  ): DbAction.ReadOnly[immutable.Iterable[ContractInstance]] = {
-    val inClause = DbStorage.toInClause("contract_id", ids)
-    import DbStorage.Implicits.BuilderChain.*
-    val query =
-      contractsBaseQuery ++ sql" where " ++ inClause
-    query.as[ContractInstance]
-  }
+  ): DbAction.ReadOnly[immutable.Iterable[PersistedContractInstance]] =
+    // TODO(#27996): optimize: pass-as-array the parameters instead of variable sized list of params
+    lookupQuery(ids).map(_.flatten)
 
-  def lookup(
+  override def lookup(
       id: LfContractId
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, ContractInstance] =
-    OptionT(cache.getFuture(id, _ => batchAggregatorLookup.run(id)))
+    OptionT(lookupPersisted(id).map(_.map(_.asContractInstance)))
+
+  override def lookupPersistedIfCached(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): Option[Option[PersistedContractInstance]] =
+    cache.getIfPresentSync(id)
+
+  override def lookupPersisted(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PersistedContractInstance]] =
+    cache.getFuture(id, _ => batchAggregatorLookup.run(id))
 
   override def lookupManyExistingUncached(
       ids: Seq[LfContractId]
@@ -144,14 +174,17 @@ class DbContractStore(
       .map(ids =>
         EitherT(lookupManyUncachedInternal(ids).map(ids.toList.zip(_).traverse {
           case (id, contract) =>
-            contract.toRight(id)
+            contract.toRight(id).map(_.asContractInstance)
         }))
       )
       .getOrElse(EitherT.rightT(List.empty))
 
+  // TODO(#27996): optimize: pass-as-array the parameters instead of variable sized list of params - this is not needed in that case anymore
   private def lookupManyUncachedInternal(
       ids: NonEmpty[Seq[LfContractId]]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[Option[ContractInstance]]] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[Option[PersistedContractInstance]]] =
     MonadUtil
       .batchedSequentialTraverseNE(
         parallelism = BatchingConfig().parallelism,
@@ -205,8 +238,8 @@ class DbContractStore(
     val contractsQuery = contractsBaseQuery ++ whereClause ++ limitFilter
 
     storage
-      .query(contractsQuery.as[ContractInstance], functionFullName)
-      .map(_.toList)
+      .query(contractsQuery.as[PersistedContractInstance], functionFullName)
+      .map(_.map(_.asContractInstance).toList)
   }
 
   override def findWithPayload(
@@ -219,7 +252,7 @@ class DbContractStore(
         bulkLookupQuery(contractIds),
         functionFullName,
       )
-      .map(_.map(c => c.contractId -> c).toMap)
+      .map(_.map(c => c.inst.contractId -> c.asContractInstance).toMap)
 
   override def storeContracts(contracts: Seq[ContractInstance])(implicit
       traceContext: TraceContext
@@ -232,7 +265,8 @@ class DbContractStore(
   ): FutureUnlessShutdown[Unit] =
     batchAggregatorInsert.run(contract).flatMap(FutureUnlessShutdown.fromTry)
 
-  private val batchAggregatorInsert = {
+  // TODO(#27996): DbBulkUpdateProcessor is not suitable in this form to get back the auto generated internal_contract_id-s. This need to be normal processor with a custom approach.
+  private val batchAggregatorInsert: BatchAggregator[ContractInstance, Try[Unit]] = {
     val processor = new DbBulkUpdateProcessor[ContractInstance, Unit] {
       override protected implicit def executionContext: ExecutionContext =
         DbContractStore.this.ec
@@ -260,8 +294,6 @@ class DbContractStore(
           pp >> contract
         }
 
-        // As we assume that the contract data has previously been authenticated against the contract id,
-        // we only update those fields that are not covered by the authentication.
         val query =
           profile match {
             case _: DbStorage.Profile.Postgres =>
@@ -281,14 +313,15 @@ class DbContractStore(
                   insert (contract_id, instance, package_id, template_id)
                   values (input.contract_id, input.instance, input.package_id, input.template_id)"""
           }
+        // TODO(#27996): optimize: transposed-arrays with unset instead of JDBC batching for PG
         DbStorage.bulkOperation(query, items.map(_.value), profile)(setParams)
 
       }
 
       override protected def onSuccessItemUpdate(item: Traced[ContractInstance]): Try[Unit] =
         Try {
-          val contract = item.value
-          cache.put(contract.contractId, Option(contract))
+          val contract: ContractInstance = item.value
+          cache.put(contract.contractId, Option(PersistedContractInstance(contract.inst)))
         }
 
       private def failWith(message: String)(implicit
@@ -305,7 +338,7 @@ class DbContractStore(
       override protected def checkQuery(itemsToCheck: NonEmpty[Seq[ItemIdentifier]])(implicit
           batchTraceContext: TraceContext
       ): DbAction.ReadOnly[immutable.Iterable[CheckData]] =
-        bulkLookupQuery(itemsToCheck)
+        bulkLookupQuery(itemsToCheck).map(_.map(_.asContractInstance))(ec)
 
       override protected def analyzeFoundData(
           item: ContractInstance,
@@ -320,7 +353,7 @@ class DbContractStore(
             failWith(s"Failed to insert contract ${item.contractId}")
           case Some(data) =>
             if (data == item) {
-              cache.put(item.contractId, Some(item))
+              cache.put(item.contractId, Some(PersistedContractInstance(item.inst)))
               TryUtil.unit
             } else {
               invalidateCache(data.contractId)

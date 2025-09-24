@@ -99,14 +99,8 @@ class UpdatePointwiseQueries(
       witnessesColumn: String,
       tables: List[SelectTable],
       requestingParties: Option[Set[Party]],
-      filteringRowParser: Option[Set[Int]] => RowParser[Entry[T]],
+      filteringRowParser: Option[Set[Party]] => RowParser[Entry[T]],
   )(connection: Connection): Vector[Entry[T]] = {
-    val allInternedParties: Option[Set[Int]] = requestingParties.map(
-      _.iterator
-        .map(stringInterning.party.tryInternalize)
-        .flatMap(_.iterator)
-        .toSet
-    )
     // Improvement idea: Add support for `fetchSizeHint` and `limit`.
     def selectFrom(tableName: String, selectColumns: String) = cSQL"""
         (
@@ -148,7 +142,7 @@ class UpdatePointwiseQueries(
         $unionQuery
         ORDER BY event_sequential_id"""
       .asVectorOf(
-        parser = filteringRowParser(allInternedParties)
+        parser = filteringRowParser(requestingParties)
       )(connection)
     parsedRows
   }

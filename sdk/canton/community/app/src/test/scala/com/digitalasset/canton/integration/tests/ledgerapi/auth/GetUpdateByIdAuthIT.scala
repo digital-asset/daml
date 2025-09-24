@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2.transaction_filter.UpdateFormat
 import com.daml.ledger.api.v2.update_service.{GetUpdateByIdRequest, UpdateServiceGrpc}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import io.grpc.Status
 import org.scalatest.Assertion
 
@@ -15,7 +15,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 final class GetUpdateByIdAuthIT extends ReadOnlyServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "UpdateService#GetUpdateById"
 

@@ -25,8 +25,8 @@ import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
-  CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
+  ReferenceSequencerDriverFactory,
 }
 import com.digitalasset.canton.time.Clock
 import pureconfig.ConfigCursor
@@ -91,7 +91,7 @@ object SequencerConfig {
   }
 
   def default: SequencerConfig = {
-    val driverFactory = new CommunityReferenceSequencerDriverFactory
+    val driverFactory = new ReferenceSequencerDriverFactory
     External(
       driverFactory.name,
       BlockSequencerConfig(),

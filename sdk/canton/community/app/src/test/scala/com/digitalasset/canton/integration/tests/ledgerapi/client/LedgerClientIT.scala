@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.ledgerapi.client
 
 import com.daml.jwt.JwksUrl
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.NoAuthPlugin
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
@@ -21,7 +21,7 @@ import scalaz.OneAnd
 
 final class LedgerClientIT extends CantonFixture {
   registerPlugin(NoAuthPlugin(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private val ClientConfiguration = LedgerClientConfiguration(
     userId = classOf[LedgerClientIT].getSimpleName,

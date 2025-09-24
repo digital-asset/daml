@@ -7,7 +7,7 @@ import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.admin.party_management_service.*
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.SuppressionRules.AuthServiceJWTSuppressionRule
 import com.google.protobuf.field_mask.FieldMask
 import org.scalatest.Assertion
@@ -16,7 +16,7 @@ import java.util.UUID
 import scala.concurrent.Future
 
 class ImpliedIdpPartyManagementServiceTest extends ServiceCallAuthTests with ImpliedIdpFixture {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "<N/A>"
 
