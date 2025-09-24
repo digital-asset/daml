@@ -1778,6 +1778,7 @@ filegroup(
     srcs = glob(
         [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive/interactive_submission_service.proto",
         ],
         exclude = [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_completion_service.proto",
@@ -1814,17 +1815,26 @@ genrule(
         "//daml-lf/ledger-api-value:ledger-api-value-protos-fg",
     ],
     outs = [
-        "Com/Daml/Ledger/Api/V2/PackageService.hs",
+        "Com/Daml/Ledger/Api/V2/Commands.hs",
+        "Com/Daml/Ledger/Api/V2/Event.hs",
+        "Com/Daml/Ledger/Api/V2/Interactive/InteractiveSubmissionCommonData.hs",
+        "Com/Daml/Ledger/Api/V2/Interactive/InteractiveSubmissionService.hs",
+        "Com/Daml/Ledger/Api/V2/Interactive/Transaction/V1/InteractiveSubmissionData.hs",
         "Com/Daml/Ledger/Api/V2/PackageReference.hs",
+        "Com/Daml/Ledger/Api/V2/PackageService.hs",
+        "Com/Daml/Ledger/Api/V2/TraceContext.hs",
+        "Com/Daml/Ledger/Api/V2/TransactionFilter.hs",
+        "Com/Daml/Ledger/Api/V2/Transaction.hs",
+        "Com/Daml/Ledger/Api/V2/Value.hs",
     ],
     cmd = """
-        for src in $(locations :ledger-api-protos-fg); do
+        for src in $(locations :ledger-api-protos-fg-interactive) $(locations //daml-lf/ledger-api-value:ledger-api-value-protos-fg) $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v2/$$(basename $$src) \
+                --proto com/daml/ledger/api/v2/$${src#*v2/} \
                 --out $(@D)
             cp -ruv $(@D)/Com/Daml/Ledger/Api/V2/* $(@D)
         done
