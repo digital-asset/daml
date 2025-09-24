@@ -393,37 +393,6 @@ def daml_deps():
             executable = True,
         )
 
-    if "daml-cheat-sheet" not in native.existing_rules():
-        http_archive(
-            name = "daml-cheat-sheet",
-            strip_prefix = "daml-cheat-sheet-{}".format(daml_cheat_sheet_version),
-            urls = ["https://github.com/digital-asset/daml-cheat-sheet/archive/{}.tar.gz".format(daml_cheat_sheet_version)],
-            sha256 = daml_cheat_sheet_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-genrule(
-  name = "site",
-  srcs = ["_config.yml"] + glob(["**/*"],
-          exclude = ["_config.yml", "LICENSE", "WORKSPACE", "BUILD.bazel", "README.md"]),
-  outs = ["cheat-sheet.tar.gz"],
-  tools = ["@jekyll_nix//:bin/jekyll"],
-  cmd = '''
-    DIR=$$(dirname $(execpath _config.yml))
-    $(execpath @jekyll_nix//:bin/jekyll) build -s $$DIR
-    tar hc _site \\\\
-        --owner=1000 \\\\
-        --group=1000 \\\\
-        --mtime=2000-01-01\\\\ 00:00Z \\\\
-        --no-acls \\\\
-        --no-xattrs \\\\
-        --no-selinux \\\\
-        --sort=name \\\\
-        | gzip -n > $(OUTS)
-  ''',
-)
-            """,
-        )
-
     if "freefont" not in native.existing_rules():
         http_archive(
             name = "freefont",
