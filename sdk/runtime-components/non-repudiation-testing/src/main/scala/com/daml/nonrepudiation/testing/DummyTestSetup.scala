@@ -12,9 +12,9 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.{ManagedChannelBuilder, ServerBuilder}
 
 import scala.concurrent.ExecutionContext
+import scala.annotation.nowarn
 
 object DummyTestSetup {
-
   final class Builders(
       val participantServer: ServerBuilder[_ <: ServerBuilder[_]],
       val participantChannel: ManagedChannelBuilder[_ <: ManagedChannelBuilder[_]],
@@ -23,7 +23,7 @@ object DummyTestSetup {
   )
 
   object Builders {
-
+    @nowarn("cat=deprecation")
     private def withRequiredServices[Builder <: ServerBuilder[Builder]](
         builder: Builder,
         executionContext: ExecutionContext,

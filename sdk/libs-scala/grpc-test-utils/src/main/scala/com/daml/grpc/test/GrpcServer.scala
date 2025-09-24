@@ -22,6 +22,7 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future, Promise}
 import scala.jdk.CollectionConverters._
+import scala.annotation.nowarn
 
 trait GrpcServer { this: AsyncFlatSpec =>
 
@@ -55,7 +56,7 @@ trait GrpcServer { this: AsyncFlatSpec =>
       }
 
       val Name: String = ServerReflectionGrpc.SERVICE_NAME
-
+      @nowarn("cat=deprecation")
       def newInstance: BindableService = ProtoReflectionService.newInstance()
 
       def listServices(channel: Channel, interceptors: ClientInterceptor*): Iterable[String] = {
