@@ -42,7 +42,7 @@ class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
 class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
 class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
 class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 5)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
