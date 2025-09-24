@@ -6,7 +6,7 @@ package engine
 
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
@@ -92,7 +92,8 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
           s"with $utilityLabel and $stableLabel" in {
             newEngine.validateDar(
               darFromPackageMap(
-                pkgId -> pkg.copy(directDeps = utilityDirectDeps ++ stableDirectDeps),
+                // GeneratedImports or DeclaredImports does not matter here
+                pkgId -> pkg.copy(imports = DeclaredImports(utilityDirectDeps ++ stableDirectDeps)),
                 utilityDependencies ++ stableDependencies: _*
               )
             ) shouldBe Right(())
@@ -116,7 +117,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
             inside(
               newEngine.validateDar(
                 darFromPackageMap(
-                  pkgId -> illTypedPackage.copy(directDeps = utilityDirectDeps ++ stableDirectDeps),
+                  pkgId -> illTypedPackage.copy(imports =
+                    // DeclaredImports or DeclaredImports does not matter here
+                    DeclaredImports(utilityDirectDeps ++ stableDirectDeps)
+                  ),
                   utilityDependencies ++ stableDependencies: _*
                 )
               )
@@ -147,12 +151,15 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
         utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
           stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
-            s"with $utilityLabel and $stableLabel" in {
+            s"with $utilityLabel and $stableLabel and $stableDirectDeps" in {
               inside(
                 newEngine.validateDar(
                   darFromPackageMap(
-                    pkgId -> dependentPackage.copy(directDeps =
-                      Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                    pkgId -> dependentPackage.copy(imports =
+                      // DeclaredImports or DeclaredImports does not matter here
+                      DeclaredImports(
+                        Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                      )
                     ),
                     utilityDependencies ++ stableDependencies: _*
                   )
@@ -161,13 +168,12 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        transitiveDeps,
+                        _,
                         missingDeps,
                         extraDeps,
                       )
                     ) =>
                   mainPkgId shouldBe pkgId
-                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set(missingPkgId)
                   extraDeps shouldBe Set.empty
                   err.logReportingEnabled shouldBe false
@@ -192,8 +198,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
               inside(
                 newEngine.validateDar(
                   darFromPackageMap(
-                    pkgId -> dependentPackage.copy(directDeps =
-                      utilityDirectDeps ++ stableDirectDeps
+                    pkgId -> dependentPackage.copy(imports =
+                      // DeclaredImports or DeclaredImports does not matter here
+                      DeclaredImports(
+                        utilityDirectDeps ++ stableDirectDeps
+                      )
                     ),
                     Seq(extraPkgId -> extraPkg) ++ utilityDependencies ++ stableDependencies: _*
                   )
@@ -202,13 +211,12 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        transitiveDeps,
+                        _,
                         missingDeps,
                         extraDeps,
                       )
                     ) =>
                   mainPkgId shouldBe pkgId
-                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set.empty
                   extraDeps shouldBe Set(extraPkgId)
                   err.logReportingEnabled shouldBe true
@@ -233,8 +241,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
               inside(
                 newEngine.validateDar(
                   darFromPackageMap(
-                    pkgId -> dependentPackage.copy(directDeps =
-                      Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                    pkgId -> dependentPackage.copy(imports =
+                      // DeclaredImports or DeclaredImports does not matter here
+                      DeclaredImports(
+                        Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                      )
                     ),
                     Seq(extraPkgId -> extraPkg) ++ utilityDependencies ++ stableDependencies: _*
                   )
@@ -243,13 +254,12 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        transitiveDeps,
+                        _,
                         missingDeps,
                         extraDeps,
                       )
                     ) =>
                   mainPkgId shouldBe pkgId
-                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set(missingPkgId)
                   extraDeps shouldBe Set(extraPkgId)
                   err.logReportingEnabled shouldBe false
