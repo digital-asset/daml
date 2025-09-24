@@ -74,7 +74,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     val importsSet = imports match {
       case Right(xs) => Right(xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
-      case Left(str) => Left((str, dependencyTracker.getDependencies))
+      case Left(str) => Left((str, dependencyTracker.getDependencies.diff(Set.from(stableIds))))
     }
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
