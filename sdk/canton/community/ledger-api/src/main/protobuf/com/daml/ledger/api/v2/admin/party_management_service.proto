@@ -189,7 +189,7 @@ message AllocateExternalPartyRequest {
     // Additional signatures for this transaction specifically
     // Use for transactions that require additional signatures beyond the namespace key signatures
     // e.g: PartyToKeyMapping must be signed by all registered keys
-    repeated interactive.Signature signatures = 2;
+    repeated com.daml.ledger.api.v2.interactive.Signature signatures = 2;
   }
 
   // Synchronizer ID on which to onboard the party
@@ -200,7 +200,7 @@ message AllocateExternalPartyRequest {
   // Required
   repeated SignedTransaction onboarding_transactions = 2;
   // Signatures of the combined hash of all onboarding_transactions
-  repeated interactive.Signature multi_hash_signatures = 3;
+  repeated com.daml.ledger.api.v2.interactive.Signature multi_hash_signatures = 3;
   // The id of the ``Identity Provider``
   // If not set, assume the party is managed by the default identity provider.
   // Optional

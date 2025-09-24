@@ -1765,18 +1765,21 @@ genrule(
 filegroup(
     name = "ledger-api-protos-fg",
     srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto"],
+        [
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto",
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive/**/*.proto",
+            ],
         exclude = [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_completion_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/completion.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_data.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_service.proto",
+#            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/reassignment.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/state_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/topology_transaction.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/trace_context.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/transaction.proto",
+#            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/transaction.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/update_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/topology_transaction.proto",
         ],
@@ -1827,6 +1830,7 @@ filegroup(
         exclude = [
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/participant_pruning_service.proto",  # TODO: haskell grpc client for participant pruning
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/command_inspection_service.proto",
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/party.proto",
         ],
     ),
     visibility = ["//visibility:private"],
