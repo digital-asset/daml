@@ -102,7 +102,7 @@ object LanguageVersion {
     val contractKeys = v2_dev
 
     val crypto = v2_1
-    val cryptoAdditions = v2_dev
+    val cryptoAdditions = v2_1
 
     val flatArchive = v2_dev
     val kindInterning = flatArchive

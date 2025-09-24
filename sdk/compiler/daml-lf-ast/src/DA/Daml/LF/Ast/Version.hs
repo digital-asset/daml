@@ -187,7 +187,8 @@ featureContractKeys = Feature
 featureCryptoAdditions :: Feature
 featureCryptoAdditions = Feature
     { featureName = "Daml Crypto additions"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq \case
+          V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_CRYPTO_ADDITIONS"
     }
 
