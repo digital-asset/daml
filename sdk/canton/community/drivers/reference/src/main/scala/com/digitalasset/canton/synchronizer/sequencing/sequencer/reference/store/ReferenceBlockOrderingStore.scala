@@ -36,7 +36,7 @@ trait ReferenceBlockOrderingStore extends AutoCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[Long]]
 
-  def queryBlocks(initialHeight: Long)(implicit
+  def queryBlocks(initialHeight: Long, maxQueryBlockCount: Int)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TimestampedBlock]]
 }
@@ -113,20 +113,25 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
   /** Query available blocks starting with the specified initial height. The blocks need to be
     * returned in consecutive block-height order i.e. contain no "gaps".
     */
-  override def queryBlocks(initialHeight: Long)(implicit
+  override def queryBlocks(initialHeight: Long, maxQueryBlockCount: Int)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[TimestampedBlock]] =
-    FutureUnlessShutdown.pure(queryBlocksInternal(initialHeight))
+    FutureUnlessShutdown.pure(queryBlocksInternal(initialHeight, maxQueryBlockCount))
 
-  private[sequencer] def queryBlocksInternal(initialHeight: Long): Seq[TimestampedBlock] =
+  private[sequencer] def queryBlocksInternal(
+      initialHeight: Long,
+      maxQueryBlockCount: Int,
+  ): Seq[TimestampedBlock] =
     if (initialHeight >= 0)
       blocking(
         deque.synchronized {
           // Get the last elements up until initial height
           val iterator = deque.descendingIterator()
           val initial = math.max(initialHeight, 0)
+          val limit = math.min(initial + maxQueryBlockCount.toLong, deque.size().toLong)
+
           val requestsWithTimestampsAndLastTopologyTimestamps =
-            (initial until deque.size().toLong)
+            (initial until limit)
               .map(_ => iterator.next())
               .reverse
               .map { request =>

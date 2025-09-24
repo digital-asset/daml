@@ -29,11 +29,7 @@ import com.digitalasset.canton.util.ErrorUtil
 
 import scala.concurrent.ExecutionContext
 
-import SubmissionRequestValidator.{
-  SequencedEventValidationF,
-  SubmissionRequestValidationResult,
-  TrafficConsumption,
-}
+import SubmissionRequestValidator.{SubmissionRequestValidationResult, TrafficConsumption}
 
 /** This class contains utility methods to validate, enforce and record metrics over traffic control
   * logic applied after events have been ordered and are read by the sequencer. Largely it applies
@@ -48,7 +44,8 @@ private[update] class TrafficControlValidator(
     extends NamedLogging {
 
   def applyTrafficControl(
-      submissionValidation: SequencedEventValidationF[SubmissionRequestValidationResult],
+      trafficConsumption: TrafficConsumption,
+      submissionValidation: FutureUnlessShutdown[SubmissionRequestValidationResult],
       signedOrderingRequest: SignedOrderingRequest,
       sequencingTimestamp: CantonTimestamp,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
@@ -58,19 +55,18 @@ private[update] class TrafficControlValidator(
   ): FutureUnlessShutdown[SubmissionRequestValidationResult] = {
     lazy val metricsContext = SequencerMetrics
       .submissionTypeMetricsContext(
-        signedOrderingRequest.submissionRequest.batch.allRecipients,
         signedOrderingRequest.submissionRequest.sender,
+        signedOrderingRequest.submissionRequest.requestType,
         logger,
         warnOnUnexpected = false,
       )
       .withExtraLabels(
         "sequencer" -> signedOrderingRequest.content.sequencerId.member.toProtoPrimitive
       )
-
-    submissionValidation.run
+    submissionValidation
       .flatMap {
         // Now we're ready to perform rate limiting if the flag is true and the result should consume traffic
-        case (TrafficConsumption(true), result) if result.shouldTryToConsumeTraffic =>
+        case result if result.shouldTryToConsumeTraffic && trafficConsumption.consume =>
           enforceTrafficControl(
             signedOrderingRequest,
             sequencingTimestamp,
@@ -125,7 +121,7 @@ private[update] class TrafficControlValidator(
               updated
             }
             .merge
-        case (_, result) =>
+        case result =>
           FutureUnlessShutdown.pure(result)
       }
   }

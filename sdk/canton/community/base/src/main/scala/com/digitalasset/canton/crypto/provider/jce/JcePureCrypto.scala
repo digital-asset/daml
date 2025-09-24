@@ -5,7 +5,6 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CryptoProvider.Jce
 import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
@@ -117,40 +116,29 @@ class JcePureCrypto(
     val jceInternalName: String = "RSA/NONE/OAEPWithSHA256AndMGF1Padding"
   }
 
-  /** Parses and converts a public key to a java public key. We store the deserialization result in
-    * a cache.
+  /** Converts a public key to a java public key. We store the deserialization result in a cache.
     *
     * @return
     *   Either an error or the converted java private key
     */
-  private def parseAndGetPublicKey[E](
+  private def toJavaPublicKey[E, T <: JPublicKey](
       publicKey: PublicKey,
+      typeMatcher: PartialFunction[JPublicKey, Either[E, T]],
       errFn: String => E,
-  ): Either[E, JPublicKey] = {
-    val keyFormat = publicKey.format
-
-    def convertToFormatAndGenerateJavaPublicKey: Either[KeyParseAndValidateError, JPublicKey] =
-      for {
-        // convert key to java key
-        jPublicKey <- JceJavaKeyConverter
-          .toJava(publicKey)
-          .leftMap(err =>
-            KeyParseAndValidateError(s"Failed to convert public key to java key: $err")
-          )
-      } yield jPublicKey
-
-    def getFromCacheOrDeserializeKey: Either[E, JPublicKey] =
-      javaPublicKeyCache
+  ): Either[E, T] =
+    for {
+      publicKey <- javaPublicKeyCache
         .getOrElseUpdate(
           publicKey.id,
-          convertToFormatAndGenerateJavaPublicKey,
+          JceJavaKeyConverter
+            .toJava(publicKey)
+            .leftMap(err =>
+              KeyParseAndValidateError(s"Failed to convert public key to java key: $err")
+            ),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
-
-    if (Jce.supportedCryptoKeyFormats.contains(keyFormat))
-      getFromCacheOrDeserializeKey
-    else Left(errFn(s"$keyFormat key format not supported"))
-  }
+      checkedPublicKey <- typeMatcher(publicKey)
+    } yield checkedPublicKey
 
   /** Parses and converts an asymmetric private key to a java private key. We store the
     * deserialization result in a cache.
@@ -285,13 +273,11 @@ class JcePureCrypto(
       hashType: HashType,
   )(implicit traceContext: TraceContext): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError.apply)
-      ecPublicKey <- javaPublicKey match {
-        case k: ECPublicKey => Right(k)
-        case _ =>
-          Left(SignatureCheckError.InvalidKeyError(s"Signing public key is not an EC public key"))
-      }
-
+      ecPublicKey <- toJavaPublicKey(
+        publicKey,
+        { case k: ECPublicKey => Right(k) },
+        SignatureCheckError.InvalidKeyError.apply,
+      )
       verifier <- {
         publicKey.keySpec match {
           case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
@@ -363,17 +349,26 @@ class JcePureCrypto(
       publicKey: SigningPublicKey
   ): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(
+      ed25519PublicKey <- toJavaPublicKey(
         publicKey,
+        { case k: BCEdDSAPublicKey => Right(k) },
         SignatureCheckError.InvalidKeyError.apply,
       )
-      ed25519PublicKey <- javaPublicKey match {
-        case k: BCEdDSAPublicKey =>
-          Right(k.getPointEncoding)
-        case _ => Left(SignatureCheckError.InvalidKeyError("Not an Ed25519 public key"))
-      }
       verifier <- Either
-        .catchOnly[GeneralSecurityException](new Ed25519Verify(ed25519PublicKey))
+        .catchOnly[GeneralSecurityException] {
+          new PublicKeyVerify {
+            override def verify(signature: Array[Byte], data: Array[Byte]): Unit = {
+              val verifier = JSignature.getInstance(
+                "Ed25519",
+                JceSecurityProvider.bouncyCastleProvider,
+              )
+              verifier.initVerify(ed25519PublicKey)
+              verifier.update(data)
+              val verified = verifier.verify(signature)
+              if (!verified) throw new GeneralSecurityException("Invalid signature")
+            }
+          }
+        }
         .leftMap(err =>
           SignatureCheckError.InvalidKeyError(show"Failed to get verifier for Ed25519: $err")
         )
@@ -592,16 +587,11 @@ class JcePureCrypto(
       publicKey: EncryptionPublicKey,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
+        { case k: ECPublicKey => Right(k) },
         EncryptionError.InvalidEncryptionKey.apply,
       )
-      ecPublicKey <- javaPublicKey match {
-        case k: ECPublicKey =>
-          checkEcKeyInCurve(k, publicKey.id)
-            .leftMap(err => EncryptionError.InvalidEncryptionKey(err))
-        case _ => Left(EncryptionError.InvalidEncryptionKey("Not an EC public key"))
-      }
       encrypter <- Either
         .catchOnly[GeneralSecurityException](
           new EciesAeadHkdfHybridEncrypt(
@@ -635,14 +625,11 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey.apply)
-      ecPublicKey <- javaPublicKey match {
-        case k: ECPublicKey =>
-          checkEcKeyInCurve(k, publicKey.id).leftMap(err =>
-            EncryptionError.InvalidEncryptionKey(err)
-          )
-        case _ => Left(EncryptionError.InvalidEncryptionKey("Not an EC public key"))
-      }
+      ecPublicKey <- toJavaPublicKey(
+        publicKey,
+        { case k: ECPublicKey => Right(k) },
+        EncryptionError.InvalidEncryptionKey.apply,
+      )
       /* this encryption scheme makes use of AES-128-CBC as a DEM (Data Encapsulation Method)
        * and therefore we need to generate a IV/nonce of 16bytes as the IV for CBC mode.
        */
@@ -685,9 +672,9 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey.apply)
-      rsaPublicKey <- javaPublicKey match {
-        case k: RSAPublicKey =>
+      rsaPublicKey <- toJavaPublicKey(
+        publicKey,
+        { case k: RSAPublicKey =>
           for {
             size <- publicKey.keySpec match {
               case EncryptionKeySpec.Rsa2048 => Right(EncryptionKeySpec.Rsa2048.keySizeInBits)
@@ -702,8 +689,9 @@ class JcePureCrypto(
               EncryptionError.InvalidEncryptionKey(err)
             )
           } yield key
-        case _ => Left(EncryptionError.InvalidEncryptionKey("Not a RSA public key"))
-      }
+        },
+        EncryptionError.InvalidEncryptionKey.apply,
+      )
       encrypter <- Either
         .catchOnly[GeneralSecurityException] {
           val cipher = Cipher
@@ -875,6 +863,7 @@ class JcePureCrypto(
             for {
               ecPrivateKey <- parseAndGetPrivateKey(
                 privateKey,
+                // TODO(#26423): Remove once private key validation is implemented
                 { case k: ECPrivateKey =>
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
@@ -908,6 +897,7 @@ class JcePureCrypto(
             for {
               ecPrivateKey <- parseAndGetPrivateKey(
                 privateKey,
+                // TODO(#26423): Remove once private key validation is implemented
                 { case k: ECPrivateKey =>
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))

@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.topology.DefaultTestIdentities
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{BaseTest, SequencerCounter, config}
 import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
@@ -211,7 +211,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
             CantonTimestamp.MaxValue,
             CantonTimestamp.MaxValue.minusSeconds(2),
             CantonTimestamp.MaxValue.minusSeconds(1),
-          )
+          ).map(Traced(_))
         ),
         _.warningMessage should (include(
           s"Ignoring request for 3 ticks from ${CantonTimestamp.MaxValue.minusSeconds(2)} to ${CantonTimestamp.MaxValue} as they are too large"
@@ -238,13 +238,34 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
             CantonTimestamp.MaxValue
               .minus(synchronizerTimeTrackerConfig.observationLatency.asJava)
               .immediatePredecessor,
-          )
+          ).map(Traced(_))
         ),
         _.warningMessage should (include("Ignoring request for 1 ticks") and include(
           "as they are too large"
         )),
       )
       timeTracker.earliestExpectedObservationTime().isDefined shouldBe true
+    }
+
+    "do not request time proof if tick is in the past" in { env =>
+      import env.*
+
+      timeTracker.subscriptionResumesAfter(ts(1))
+      for {
+        _ <- observeTimestamp(2)
+        _ = timeTracker.requestTick(ts(1))
+        _ <- advanceToAndFlush(1 + observationLatencySecs + 1)
+      } yield requestSubmitter.hasRequestedTime shouldBe false
+    }
+
+    "ignore immediate tick requests in the past" in { env =>
+      import env.*
+
+      timeTracker.subscriptionResumesAfter(ts(1))
+      for {
+        _ <- observeTimestamp(2)
+        _ = timeTracker.requestTick(ts(1), immediately = true)
+      } yield requestSubmitter.hasRequestedTime shouldBe false
     }
   }
 
@@ -345,8 +366,8 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         _ <- observeTimeProof(2)
         _ = awaitF.isCompleted shouldBe false
         _ <- observeTimeProof(3)
-        awaitedTs <- awaitF
-      } yield awaitedTs shouldBe ts(3)
+        _ <- awaitF
+      } yield succeed
     }
 
     "return None if we've already witnessed an equal or greater timestamp from the synchronizer" in {

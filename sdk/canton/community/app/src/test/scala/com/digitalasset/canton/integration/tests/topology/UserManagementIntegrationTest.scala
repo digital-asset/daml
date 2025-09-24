@@ -40,6 +40,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
   private var alice: PartyId = _
   private var bob: PartyId = _
+  private var charlie: PartyId = _
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
@@ -54,6 +55,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
         alice = participant1.parties.enable("alice")
         bob = participant1.parties.enable("bob")
+        charlie = participant1.parties.enable("charlie")
       }
 
   "managing users" should {
@@ -70,7 +72,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.ledger_api.users.rights.list(extraAdmin) shouldBe UserRights(
         actAs = Set.empty,
         readAs = Set.empty,
+        executeAs = Set.empty,
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = true,
         identityProviderAdmin = false,
       )
@@ -84,6 +88,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         actAs = Set(alice),
         primaryParty = Some(alice),
         readAs = Set(bob),
+        executeAs = Set(charlie),
         participantAdmin = true,
         isDeactivated = true,
         annotations = Map("k" -> "v"),
@@ -99,7 +104,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
         actAs = Set(alice),
         readAs = Set(bob),
+        executeAs = Set(charlie),
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = true,
         identityProviderAdmin = false,
       )
@@ -238,7 +245,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       lapi_users.rights.list(id = userId, identityProviderId = idpId) shouldBe UserRights(
         actAs = Set(bob),
         readAs = Set.empty,
+        executeAs = Set.empty,
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = false,
         identityProviderAdmin = false,
       )
@@ -310,7 +319,9 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.ledger_api.users.rights.list("super-reader-user") shouldBe UserRights(
         actAs = Set(),
         readAs = Set(),
+        executeAs = Set(),
         readAsAnyParty = true,
+        executeAsAnyParty = false,
         participantAdmin = false,
         identityProviderAdmin = false,
       )
@@ -324,6 +335,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
       val david = participant1.parties.enable("david")
       val erwin = participant1.parties.enable("erwin")
+      val fiona = participant1.parties.enable("fiona")
 
       noException should be thrownBy participant1.ledger_api.users.create(
         id = "admin1",
@@ -332,35 +344,58 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         readAs = Set(),
       )
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
+      val expectedBase = UserRights(
         actAs = Set(david),
         readAs = Set(),
+        executeAs = Set(),
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = false,
         identityProviderAdmin = false,
       )
 
-      participant1.ledger_api.users.rights
-        .grant("admin1", actAs = Set(), readAs = Set(erwin), participantAdmin = true)
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedBase
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
+      val expectedWithReadAs = expectedBase.copy(
         readAs = Set(erwin),
-        readAsAnyParty = false,
         participantAdmin = true,
-        identityProviderAdmin = false,
       )
 
       participant1.ledger_api.users.rights
-        .grant("admin1", actAs = Set(), readAs = Set(), identityProviderAdmin = true)
+        .grant(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(erwin),
+          participantAdmin = true,
+        )
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
-        readAs = Set(erwin),
-        readAsAnyParty = false,
-        participantAdmin = true,
-        identityProviderAdmin = true,
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithReadAs
+
+      val expectedWithIdp = expectedWithReadAs.copy(
+        identityProviderAdmin = true
       )
+
+      participant1.ledger_api.users.rights
+        .grant(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(),
+          identityProviderAdmin = true,
+        )
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithIdp
+
+      val expectedWithExecuteAs = expectedWithIdp.copy(
+        executeAs = Set(fiona)
+      )
+
+      participant1.ledger_api.users.rights
+        .grant(
+          "admin1",
+          executeAs = Set(fiona),
+        )
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithExecuteAs
     }
 
     "support removing rights" in { implicit env =>
@@ -375,36 +410,60 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
       val erwin = findParty("erwin")
       val david = findParty("david")
+      val fiona = findParty("fiona")
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
+      val expectedBase = UserRights(
         actAs = Set(david),
         readAs = Set(erwin),
+        executeAs = Set(fiona),
         readAsAnyParty = false,
+        executeAsAnyParty = false,
         participantAdmin = true,
         identityProviderAdmin = true,
       )
 
-      participant1.ledger_api.users.rights
-        .revoke("admin1", actAs = Set(), readAs = Set(erwin), participantAdmin = true)
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedBase
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
-        readAs = Set(),
-        readAsAnyParty = false,
+      val expectedWithoutReadAs = expectedBase.copy(
+        readAs = Set.empty,
         participantAdmin = false,
-        identityProviderAdmin = true,
       )
 
       participant1.ledger_api.users.rights
-        .revoke("admin1", actAs = Set(), readAs = Set(), identityProviderAdmin = true)
+        .revoke(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(erwin),
+          participantAdmin = true,
+        )
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
-        readAs = Set(),
-        readAsAnyParty = false,
-        participantAdmin = false,
-        identityProviderAdmin = false,
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutReadAs
+
+      val expectedWithoutIdp = expectedWithoutReadAs.copy(
+        identityProviderAdmin = false
       )
+
+      participant1.ledger_api.users.rights
+        .revoke(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(),
+          identityProviderAdmin = true,
+        )
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutIdp
+
+      val expectedWithoutExecuteAs = expectedWithoutIdp.copy(
+        executeAs = Set()
+      )
+
+      participant1.ledger_api.users.rights
+        .revoke(
+          "admin1",
+          executeAs = Set(fiona),
+        )
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutExecuteAs
     }
   }
 }

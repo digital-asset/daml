@@ -158,7 +158,7 @@ private[mediator] class DefaultVerdictSender(
       // completed.
       // we use decision-time for max-sequencing-time as recipients will simply ignore the message if received after
       // that point.
-      sequencerSend.sendAsync(
+      sequencerSend.send(
         batch,
         Some(requestId.unwrap),
         callback = callback,

@@ -3,6 +3,10 @@
 
 module Iou where
 
+import DA.TextMap
+import DA.Date
+import DA.Time
+
 type IouCid = ContractId Iou
 
 template Iou
@@ -57,7 +61,28 @@ template Iou
     choice Iou_RemoveObserver : IouCid
       with oldObserver : Party
       controller owner
-      do create this with observers = filter (/= oldObserver) observers
+      do create this with observers = Prelude.filter (/= oldObserver) observers
+
+    nonconsuming choice DateCheckAddDays : Date
+       with
+         payload: Date
+       controller owner
+       do
+         return $ addDays payload 31
+
+    nonconsuming choice TimestampCheckAddHours : Time
+       with
+         payload: Time
+       controller owner
+       do
+         return $ addRelTime payload $ hours 2
+
+    nonconsuming choice TextMapCheck : TextMap Int
+       with
+         payload: TextMap Int
+       controller owner
+       do
+         return $ insert "b" 42 payload
 
     interface instance IIou for Iou where
       view = AmountAndCurrency currency amount

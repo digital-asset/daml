@@ -21,6 +21,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope}
 import com.digitalasset.canton.synchronizer.block.UninitializedBlockHeight
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -48,6 +49,7 @@ class InMemorySequencerStore(
     override val sequencerMember: Member,
     override val blockSequencerMode: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
+    override protected val sequencerMetrics: SequencerMetrics,
 )(implicit
     protected val executionContext: ExecutionContext
 ) extends SequencerStore {
@@ -182,15 +184,6 @@ class InMemorySequencerStore(
       now
     }
 
-  override def readEvents(
-      memberId: SequencerMemberId,
-      member: Member,
-      fromExclusiveO: Option[CantonTimestamp] = None,
-      limit: Int = 100,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
-
   override protected def readEventsInternal(
       memberId: SequencerMemberId,
       fromExclusiveO: Option[CantonTimestamp] = None,
@@ -237,7 +230,6 @@ class InMemorySequencerStore(
             .toList
         case payload: BytesPayload =>
           List(payload.id -> payload.decodeBatchAndTrim(protocolVersion, member))
-        case batch: FilteredBatch => List(batch.id -> Batch.trimForMember(batch.batch, member))
       }.toMap
     )
 

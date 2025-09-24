@@ -104,7 +104,7 @@ participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.t
 // Painter reassigns the paint offer to the IOU synchronizer
 participant3.ledger_api.commands.submit_reassign(
   Painter,                   // Initiator of the reassignment
-  paintOffer.id.toLf,        // Contract to be reassigned
+  Seq(paintOffer.id.toLf),   // Contract to be reassigned
   paintId,                   // Source synchronizer
   iouId                      // Target synchronizer
 )
@@ -125,7 +125,7 @@ participant2.ledger_api.state.acs.await_active_contract(HouseOwner, paintHouse.i
 // The house owner moves the PaintHouse agreement back to the Paint synchronizer
 participant2.ledger_api.commands.submit_reassign(
   HouseOwner,
-  paintHouse.id.toLf,
+  Seq(paintHouse.id.toLf),
   iouId,
   paintId
 )

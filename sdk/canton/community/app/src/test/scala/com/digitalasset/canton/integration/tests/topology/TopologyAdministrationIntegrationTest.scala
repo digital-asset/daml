@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignSpecificMappings,
 }
 import com.digitalasset.canton.topology.{ForceFlag, ForceFlags, PartyId, TopologyManagerError}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DarParser
 
 import java.io.File
@@ -88,9 +89,17 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       certs.head
     }
 
+    val expectedFeatureFlags =
+      if (testedProtocolVersion == ProtocolVersion.v33)
+        Seq(
+          SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag.ExternalSigningLocalContractsInSubview
+        )
+      else Seq.empty
+
     val expectedTrustCert1 = SynchronizerTrustCertificate(
       participant1.id,
       daId,
+      featureFlags = expectedFeatureFlags,
     )
 
     trustCert1.context.serial shouldBe PositiveInt.one

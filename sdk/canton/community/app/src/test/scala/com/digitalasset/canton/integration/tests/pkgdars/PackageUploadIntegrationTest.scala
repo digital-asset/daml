@@ -33,6 +33,8 @@ import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.daml.lf.archive.{DarParser, DarReader}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.google.protobuf.ByteString
+import org.scalatest.concurrent.PatienceConfiguration.Timeout
+import org.scalatest.time.{Seconds, Span}
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.Future
@@ -365,7 +367,7 @@ trait PackageUploadIntegrationTest
         .map(_.map(_.success.value))
 
       // If we reach this code, uploadedPackages should contain all the packages that we uploaded
-      val uploadedPackages = testParallelUploads().futureValue
+      val uploadedPackages = testParallelUploads().futureValue(Timeout(Span(30, Seconds)))
       uploadedPackages should have size darsDiscriminatorList.size.toLong
 
       if (!vettingSyncEnabled) {

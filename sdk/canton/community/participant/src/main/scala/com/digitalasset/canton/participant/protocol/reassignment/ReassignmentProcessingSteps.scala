@@ -57,6 +57,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -115,7 +116,21 @@ trait ReassignmentProcessingSteps[
       pendingSubmissions: concurrent.Map[RootHash, PendingReassignmentSubmission],
       pendingSubmissionId: RootHash,
   ): Option[PendingReassignmentSubmission] =
-    pendingSubmissions.remove(pendingSubmissionId)
+    pendingSubmissions.remove(pendingSubmissionId).map { pending =>
+      pending.decisionTimeTickRequestTracker.cancel()
+      pending
+    }
+
+  override def setDecisionTimeTickRequest(
+      pendingSubmissions: concurrent.Map[RootHash, PendingReassignmentSubmission],
+      pendingSubmissionId: RootHash,
+      requestedTick: SynchronizerTimeTracker.TickRequest,
+  ): Unit =
+    pendingSubmissions.get(pendingSubmissionId) match {
+      case Some(pendingSubmissionData) =>
+        pendingSubmissionData.decisionTimeTickRequestTracker.setRequest(requestedTick)
+      case None => requestedTick.cancel()
+    }
 
   override def postProcessSubmissionRejectedCommand(
       error: TransactionError,
@@ -449,7 +464,9 @@ object ReassignmentProcessingSteps {
 
   final case class PendingReassignmentSubmission(
       reassignmentCompletion: Promise[com.google.rpc.status.Status] =
-        Promise[com.google.rpc.status.Status]()
+        Promise[com.google.rpc.status.Status](),
+      private[ReassignmentProcessingSteps] val decisionTimeTickRequestTracker: SynchronizerTimeTracker.TickRequestTracker =
+        new SynchronizerTimeTracker.TickRequestTracker(),
   )
 
   final case class ParsedReassignmentRequest[VT <: FullReassignmentViewTree](

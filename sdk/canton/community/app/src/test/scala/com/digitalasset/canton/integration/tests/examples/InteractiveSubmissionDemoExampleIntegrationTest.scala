@@ -5,9 +5,14 @@ package com.digitalasset.canton.integration.tests.examples
 
 import better.files.File
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PreparedTransaction
+import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.integration.plugins.UseH2
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.interactiveSubmissionFolder
-import com.digitalasset.canton.integration.{CommunityIntegrationTest, ConfigTransform}
+import com.digitalasset.canton.integration.{
+  CommunityIntegrationTest,
+  ConfigTransform,
+  ConfigTransforms,
+}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.{
   PrepareTransactionData,
@@ -36,7 +41,12 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   private val portsFiles =
     (interactiveSubmissionFolder / "canton_ports.json").deleteOnExit()
   override protected def additionalConfigTransform: Seq[ConfigTransform] = Seq(
-    _.focus(_.parameters.portsFile).replace(Option(portsFiles.pathAsString))
+    _.focus(_.parameters.portsFile).replace(Option(portsFiles.pathAsString)),
+    // TODO(#27556): align config and port behaviour with ledger api / admin api
+    ConfigTransforms.updateParticipantConfig("participant1")(
+      _.focus(_.httpLedgerApi)
+        .modify(_.map(_.focus(_.server.port).replace(Some(UniquePortGenerator.next.unwrap))))
+    ),
   )
   private def mkProcessLogger(logErrors: Boolean = true) = new ConcurrentBufferedLogger {
     override def out(s: => String): Unit = {
@@ -67,6 +77,9 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       interactiveSubmissionFolder / "com",
       interactiveSubmissionFolder / "google",
       interactiveSubmissionFolder / "scalapb",
+      File("canton_ports.json"),
+      File("private_key.der"),
+      File("public_key.der"),
     ).foreach(_.delete(swallowIOExceptions = true))
   }
 
@@ -103,6 +116,8 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     runScript(interactiveSubmissionFolder / "multi-hosted.canton")(environment)
     environment.writePortsFile()
 
+    val privateKeyFile = File.newTemporaryFile()
+
     runAndAssertCommandSuccess(
       Process(
         Seq(
@@ -110,13 +125,46 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           (interactiveSubmissionFolder / "external_party_onboarding_multi_hosting.py").pathAsString,
           "--party-name",
           "alice",
+          "--private-key-file",
+          privateKeyFile.pathAsString,
           "--threshold",
           "2",
-          "--participant-endpoints",
-          portsFiles.pathAsString,
+          "--admin-endpoint",
+          s"${participant1.config.adminApi.address}:${participant1.config.adminApi.port.unwrap}",
+          s"${participant2.config.adminApi.address}:${participant2.config.adminApi.port.unwrap}",
           "--synchronizer-id",
           sequencer1.synchronizer_id.toProtoPrimitive,
           "-a", // Automatically accept all transactions (by default the script stops to ask users to explicitly confirm)
+          "onboard",
+        ),
+        cwd = interactiveSubmissionFolder.toJava,
+      ),
+      processLogger,
+    )
+
+    val alice = eventually() {
+      participant1.parties.list().find(_.party.toProtoPrimitive.contains("alice")).value.party
+    }
+
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "python",
+          (interactiveSubmissionFolder / "external_party_onboarding_multi_hosting.py").pathAsString,
+          "--private-key-file",
+          privateKeyFile.pathAsString,
+          "--threshold",
+          "2",
+          "--admin-endpoint",
+          s"${participant3.config.adminApi.address}:${participant3.config.adminApi.port.unwrap}",
+          "--synchronizer-id",
+          sequencer1.synchronizer_id.toProtoPrimitive,
+          "-a", // Automatically accept all transactions (by default the script stops to ask users to explicitly confirm)
+          "update",
+          "--party-id",
+          alice.toProtoPrimitive,
+          "--participant-permission",
+          "confirmation",
         ),
         cwd = interactiveSubmissionFolder.toJava,
       ),
@@ -252,6 +300,21 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       "Invalid unique identifier `invalid_Store` with missing namespace",
     )
   }
+
+  "run external party onboarding via ledger api" in { implicit env =>
+    setupTest
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "./external_party_onboarding.sh"
+        ),
+        cwd = interactiveSubmissionFolder.toJava,
+      ),
+      processLogger,
+    )
+
+  }
+
 }
 
 final class InteractiveSubmissionDemoExampleIntegrationTestH2

@@ -10,7 +10,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
+  ParticipantCommitmentData,
+  ReinitializationStatus,
+}
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
@@ -337,6 +340,9 @@ class InMemoryIncrementalCommitments(
 
   private val rt: AtomicReference[RecordTime] = new AtomicReference(initialRt)
 
+  private val reinitStarted: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
+  private val reinitCompleted: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
+
   private object lock
 
   /** Update the snapshot */
@@ -375,6 +381,39 @@ class InMemoryIncrementalCommitments(
 
   override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] =
     FutureUnlessShutdown.pure(watermark_())
+
+  override def readReinitilizationStatus()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ReinitializationStatus] = {
+    val (started, completed) = blocking {
+      lock.synchronized {
+        (reinitStarted.get(), reinitCompleted.get())
+      }
+    }
+    FutureUnlessShutdown.pure(ReinitializationStatus(started, completed))
+  }
+
+  override def markReinitializationStarted(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    reinitStarted.set(Some(timestamp))
+    FutureUnlessShutdown.pure(())
+  }
+
+  override def markReinitializationCompleted(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] = {
+    val completedSuccessfully = blocking {
+      lock.synchronized {
+        val changeConditionMet = reinitStarted.get().contains(timestamp)
+        if (changeConditionMet) {
+          reinitCompleted.set(Some(timestamp))
+        }
+        changeConditionMet
+      }
+    }
+    FutureUnlessShutdown.pure(completedSuccessfully)
+  }
 }
 
 class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends CommitmentQueue {

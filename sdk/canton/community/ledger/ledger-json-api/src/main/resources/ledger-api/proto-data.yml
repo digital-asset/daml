@@ -20,6 +20,38 @@ messages:
           This field will be the reassignment_counter of the latest observable activation event on this synchronizer, which is
           before the active_at_offset.
           Required
+  AllocateExternalPartyRequest:
+    message:
+      comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      fieldComments:
+        synchronizer: |-
+          TODO(#27670) support synchronizer aliases
+          Synchronizer ID on which to onboard the party
+          Required
+        onboarding_transactions: |-
+          TopologyTransactions to onboard the external party
+          Can contain:
+          - A namespace for the party.
+          This can be either a single NamespaceDelegation,
+          or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToKeyMapping to register the party's signing keys.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToParticipant to register the hosting relationship of the party.
+          Must be provided.
+          Required
+        multi_hash_signatures: |-
+          Optional signatures of the combined hash of all onboarding_transactions
+          This may be used instead of providing signatures on each individual transaction
+        identity_provider_id: |-
+          The id of the ``Identity Provider``
+          If not set, assume the party is managed by the default identity provider.
+          Optional
+  AllocateExternalPartyResponse:
+    message:
+      comments: null
+      fieldComments:
+        party_id: ''
   AllocatePartyRequest:
     message:
       comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -737,9 +769,10 @@ messages:
       comments: Exercise a choice on an existing contract.
       fieldComments:
         template_id: |-
-          The template of contract the client wants to exercise.
+          The template or interface of the contract the client wants to exercise.
           Both package-name and package-id reference identifier formats for the template-id are supported.
           Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+          To exercise a choice on an interface, specify the interface identifier in the template_id field.
 
           Required
         contract_id: |-
@@ -889,10 +922,42 @@ messages:
           template or wildcard filter means additional events that will match the query.
           The impact of include_interface_view and include_created_event_blob fields in the filters will
           also be accumulated.
+          At least one cumulative filter MUST be specified.
           A template or an interface SHOULD NOT appear twice in the accumulative field.
           A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
-          Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
-          include_created_event_blob unset is used.
+          Optional
+  GenerateExternalPartyTopologyRequest:
+    message:
+      comments: null
+      fieldComments:
+        synchronizer: |-
+          TODO(#27670) support synchronizer aliases
+          Required: synchronizer-id for which we are building this request.
+        other_confirming_participant_uids: 'Optional: other participant ids which
+          should be confirming for this party'
+        public_key: 'Required: public key'
+        observing_participant_uids: 'Optional: other observing participant ids for
+          this party'
+        local_participant_observation_only: 'Optional: if true, then the local participant
+          will only be observing, not confirming. Default false.'
+        confirmation_threshold: 'Optional: Confirmation threshold >= 1 for the party.
+          Defaults to all available confirmers (or if set to 0).'
+        party_hint: 'Required: the actual party id will be constructed from this hint
+          and a fingerprint of the public key'
+  GenerateExternalPartyTopologyResponse:
+    message:
+      comments: Response message with topology transactions and the multi-hash to
+        be signed.
+      fieldComments:
+        party_id: the generated party id
+        public_key_fingerprint: the fingerprint of the supplied public key
+        topology_transactions: |-
+          The serialized topology transactions which need to be signed and submitted as part of the allocate party process
+          Note that the serialization includes the versioning information. Therefore, the transaction here is serialized
+          as an `UntypedVersionedMessage` which in turn contains the serialized `TopologyTransaction` in the version
+          supported by the synchronizer.
+        multi_hash: the multi-hash which may be signed instead of each individual
+          transaction
   GetActiveContractsRequest:
     message:
       comments: |-
@@ -966,7 +1031,9 @@ messages:
         party: |-
           The party of interest
           Must be a valid PartyIdString (as described in ``value.proto``).
-          Required
+          If defined, will return only synchronizers on which this party is hosted
+          If empty, all synchronizers this node is connected to will be returned
+          Optional
         participant_id: |-
           The id of a participant whose mapping of a party to connected synchronizers is requested.
           Must be a valid participant-id retrieved through a prior call to getParticipantId.
@@ -1190,6 +1257,12 @@ messages:
         package_references: |-
           The package references of the preferred packages.
           Must contain one package reference for each requested package-name.
+
+          If you build command submissions whose content depends on the returned
+          preferred packages, then we recommend submitting the preferred package-ids
+          in the ``package_id_selection_preference`` of the command submission to
+          avoid race conditions with concurrent changes of the on-ledger package vetting state.
+
           Required
         synchronizer_id: |-
           The synchronizer for which the package preferences are computed.
@@ -1591,6 +1664,13 @@ messages:
         Transaction Metadata
         Refer to the hashing documentation for information on how it should be hashed.
       fieldComments:
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer `synchronizer_id`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Unsigned in 3.3 to avoid a breaking protocol change
+          Will be signed in 3.4+
+          Set max_record_time in the PreparedTransactionRequest to get this field set accordingly
         synchronizer_id: ''
         preparation_time: ''
         min_ledger_effective_time: ''
@@ -1824,6 +1904,15 @@ messages:
           The change ID can be used for matching the intended ledger changes with all their completions.
           Must be a valid LedgerString (as described in ``value.proto``).
           Required
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Use this to limit the time-to-life of a prepared transaction,
+          which is useful to know when it can definitely not be accepted
+          anymore and resorting to preparing another transaction for the same
+          intent is safe again.
+          Optional
         synchronizer_id: |-
           Must be a valid synchronizer id
           Required
@@ -2036,6 +2125,10 @@ messages:
     message:
       comments: A right granted to a user.
       fieldComments:
+        can_execute_as: The user can prepare and execute submissions as a specific
+          party.
+        can_execute_as_any_party: The user can prepare and execute submissions as
+          any party on a participant.
         can_read_as_any_party: The user can read as any party on a participant
         identity_provider_admin: The user can administer users and parties assigned
           to the same identity provider as the one of the user.
@@ -2066,6 +2159,13 @@ messages:
           and needed to verify.
         signing_algorithm_spec: The signing algorithm specification used to produce
           this signature
+  SigningPublicKey:
+    message:
+      comments: null
+      fieldComments:
+        format: The serialization format of the public key
+        key_data: Serialized public key in the format specified above
+        key_spec: The key specification
   SinglePartySignatures:
     message:
       comments: Signatures provided by a single party
@@ -2681,6 +2781,8 @@ messages:
           Optional
 oneOfs:
   ActiveContract: {}
+  AllocateExternalPartyRequest: {}
+  AllocateExternalPartyResponse: {}
   AllocatePartyRequest: {}
   AllocatePartyResponse: {}
   Archived: {}
@@ -2812,6 +2914,8 @@ oneOfs:
   FeaturesDescriptor: {}
   Fetch: {}
   Filters: {}
+  GenerateExternalPartyTopologyRequest: {}
+  GenerateExternalPartyTopologyResponse: {}
   GetActiveContractsRequest: {}
   GetActiveContractsResponse:
     contract_entry:
@@ -2993,6 +3097,10 @@ oneOfs:
       message:
         comments: Required
         fieldComments:
+          can_execute_as: The user can prepare and execute submissions as a specific
+            party.
+          can_execute_as_any_party: The user can prepare and execute submissions as
+            any party on a participant.
           can_read_as_any_party: The user can read as any party on a participant
           identity_provider_admin: The user can administer users and parties assigned
             to the same identity provider as the one of the user.
@@ -3002,6 +3110,7 @@ oneOfs:
   Rollback: {}
   SetTimeRequest: {}
   Signature: {}
+  SigningPublicKey: {}
   SinglePartySignatures: {}
   SubmitAndWaitForReassignmentRequest: {}
   SubmitAndWaitForReassignmentResponse: {}

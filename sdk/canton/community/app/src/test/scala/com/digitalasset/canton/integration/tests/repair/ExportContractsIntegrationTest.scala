@@ -12,7 +12,6 @@ import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
-  UseProgrammableSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartyToParticipantDeclarative}
@@ -23,6 +22,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.google.protobuf.ByteString
@@ -39,6 +39,15 @@ final class ExportContractsIntegrationTest
       .withSetup { implicit env =>
         import env.*
 
+        // Adding the "owner" party to P3 can expectedly trigger the ACS_MISMATCH_NO_SHARED_CONTRACTS
+        // commitment warning because the test exports, but does not import contracts.
+        // Set `reconciliationInterval` to ten years to avoid associated test flakes.
+        sequencer1.topology.synchronizer_parameters
+          .propose_update(
+            daId,
+            _.update(reconciliationInterval = PositiveSeconds.tryOfDays(10 * 365).toConfig),
+          )
+
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonExamplesPath)
       }
@@ -47,7 +56,6 @@ final class ExportContractsIntegrationTest
   registerPlugin(
     new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
-  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
   def tryLoadFrom(acsSnapshot: File): List[RepairContract] =
     RepairContract

@@ -3,7 +3,14 @@
 
 package com.digitalasset.canton.participant.synchronizer
 
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  ErrorCategory,
+  ErrorCategoryRetry,
+  ErrorCode,
+  ErrorGroup,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerInfoLoaderError
 import com.digitalasset.canton.error.*
@@ -20,6 +27,8 @@ import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithIni
 import com.digitalasset.canton.topology.{SynchronizerId, TopologyManagerError}
 import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
+
+import scala.concurrent.duration.DurationInt
 
 /** A registry of synchronizers. */
 trait SynchronizerRegistry extends AutoCloseable {
@@ -62,9 +71,11 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
         SynchronizerRegistryError.ConfigurationErrors.MisconfiguredStaticSynchronizerParameters
           .Error(cause)
       case SequencerInfoLoaderError.FailedToConnectToSequencers(cause) =>
-        SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers.Error(cause)
+        SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers
+          .Error(cause, isRetryable = true)
       case SequencerInfoLoaderError.InconsistentConnectivity(cause) =>
-        SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers.Error(cause)
+        SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers
+          .Error(cause, isRetryable = false)
     }
 
   object ConnectionErrors extends ErrorGroup() {
@@ -78,9 +89,15 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
           id = "FAILED_TO_CONNECT_TO_SEQUENCERS",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(cause = "The participant failed to connect to the sequencers")
-          with SynchronizerRegistryError
+      final case class Error(reason: String, isRetryable: Boolean)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(cause = "The participant failed to connect to the sequencers")
+          with SynchronizerRegistryError {
+        override def retryable: Option[ErrorCategoryRetry] = Option.when(isRetryable)(
+          ErrorCategoryRetry(duration = 1.seconds)
+        )
+
+      }
     }
 
     @Explanation(

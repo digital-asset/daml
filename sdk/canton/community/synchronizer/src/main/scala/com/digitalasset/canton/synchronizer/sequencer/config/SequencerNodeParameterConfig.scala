@@ -3,9 +3,47 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.config
 
+import cats.data.Chain
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
+import com.digitalasset.canton.synchronizer.sequencer.ProgressSupervisorConfig
+import io.scalaland.chimney.dsl.*
+
+/** Async block sequencer writer control parameters
+  *
+  * @param enabled
+  *   if true then the async writer is enabled
+  * @param trafficBatchSize
+  *   the maximum number of traffic events to batch in a single write
+  * @param aggregationBatchSize
+  *   the maximum number of inflight aggregations to batch in a single write
+  * @param blockInfoBatchSize
+  *   the maximum number of block info updates to batch in a single write
+  */
+final case class AsyncWriterConfig(
+    enabled: Boolean = false,
+    trafficBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
+    aggregationBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
+    blockInfoBatchSize: PositiveInt = PositiveInt.tryCreate(1000),
+) {
+
+  def toParameters: AsyncWriterParameters = this.transformInto[AsyncWriterParameters]
+
+}
+
+object AsyncWriterConfig {
+
+  implicit val asyncWriterConfigCantonConfigValidator: CantonConfigValidator[AsyncWriterConfig] =
+    new CantonConfigValidator[AsyncWriterConfig] {
+      override def validate(
+          edition: CantonEdition,
+          config: AsyncWriterConfig,
+      ): Chain[CantonConfigValidationError] = Chain.empty
+    }
+
+}
 
 /** Various parameters for non-standard sequencer settings
   *
@@ -23,6 +61,11 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   * @param warnOnUndefinedLimits
   *   if true, then this sequencer will emit a warning once if there is no limit configured for a
   *   particular stream
+  * @param progressSupervisor
+  *   if defined, enables the progress supervisor to monitor if the sequencer stops progressing and
+  *   to collect diagnostic data
+  * @param asyncWriter
+  *   controls the async writer
   */
 final case class SequencerNodeParameterConfig(
     override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
@@ -33,14 +76,17 @@ final case class SequencerNodeParameterConfig(
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
     override val watchdog: Option[WatchdogConfig] = None,
+    progressSupervisor: Option[ProgressSupervisorConfig] = None,
     unsafeEnableOnlinePartyReplication: Boolean = false,
     sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
     warnOnUndefinedLimits: Boolean = true,
+    asyncWriter: AsyncWriterConfig = AsyncWriterConfig(),
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
     with UniformCantonConfigValidation
 
 object SequencerNodeParameterConfig {
+
   implicit val sequencerNodeParameterConfigCantonConfigValidator
       : CantonConfigValidator[SequencerNodeParameterConfig] = {
     import CantonConfigValidatorInstances.*

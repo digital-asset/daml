@@ -198,7 +198,13 @@ paths:
       - apiKeyAuth: []
   /v2/commands/completions:
     post:
-      description: Query completions list (blocking call)
+      description: |-
+        Query completions list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2CommandsCompletions
       parameters:
       - name: limit
@@ -509,6 +515,38 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/parties/external/allocate:
+    post:
+      description: Allocate a new external party
+      operationId: postV2PartiesExternalAllocate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocateExternalPartyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllocateExternalPartyResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/parties/participant-id:
     get:
       description: Get participant id
@@ -617,9 +655,52 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/parties/external/generate-topology:
+    post:
+      description: Generate a topology for an external party
+      operationId: postV2PartiesExternalGenerate-topology
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateExternalPartyTopologyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateExternalPartyTopologyResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/state/active-contracts:
     post:
-      description: Query active contracts list (blocking call)
+      description: |-
+        Query active contracts list (blocking call).
+        Querying active contracts is an expensive operation and if possible should not be repeated often.
+        Consider querying active contracts initially (for a given offset)
+        and then repeatedly call one of `/v2/updates/...`endpoints  to get subsequent modifications.
+        You can also use websockets to get updates with better performance.
+
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2StateActive-contracts
       parameters:
       - name: limit
@@ -677,7 +758,7 @@ paths:
       parameters:
       - name: party
         in: query
-        required: true
+        required: false
         schema:
           type: string
       - name: participantId
@@ -760,9 +841,74 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/updates:
+    post:
+      description: |-
+        Query updates list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
+      operationId: postV2Updates
+      parameters:
+      - name: limit
+        in: query
+        description: maximum number of elements to return, this param is ignored if
+          is bigger than server setting
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: stream_idle_timeout_ms
+        in: query
+        description: timeout to complete and send result if no new elements are received
+          (for open ended streams)
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetUpdatesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JsGetUpdatesResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/updates/flats:
     post:
-      description: Query flat transactions update list (blocking call)
+      description: |-
+        Query flat transactions update list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2UpdatesFlats
       parameters:
       - name: limit
@@ -815,7 +961,13 @@ paths:
       - apiKeyAuth: []
   /v2/updates/trees:
     post:
-      description: Query update transactions tree list (blocking call)
+      description: |-
+        Query update transactions tree list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2UpdatesTrees
       parameters:
       - name: limit
@@ -1668,10 +1820,10 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
   /v2/interactive-submission/preferred-packages:
-    get:
+    post:
       description: Get the version of preferred packages for constructing a command
         submission
-      operationId: getV2Interactive-submissionPreferred-packages
+      operationId: postV2Interactive-submissionPreferred-packages
       requestBody:
         content:
           application/json:
@@ -1702,6 +1854,58 @@ paths:
       - apiKeyAuth: []
 components:
   schemas:
+    AllocateExternalPartyRequest:
+      title: AllocateExternalPartyRequest
+      description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      type: object
+      required:
+      - synchronizer
+      - identityProviderId
+      properties:
+        synchronizer:
+          description: |-
+            TODO(#27670) support synchronizer aliases
+            Synchronizer ID on which to onboard the party
+            Required
+          type: string
+        onboardingTransactions:
+          description: |-
+            TopologyTransactions to onboard the external party
+            Can contain:
+            - A namespace for the party.
+            This can be either a single NamespaceDelegation,
+            or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+            May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+            - A PartyToKeyMapping to register the party's signing keys.
+            May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+            - A PartyToParticipant to register the hosting relationship of the party.
+            Must be provided.
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/SignedTransaction'
+        multiHashSignatures:
+          description: |-
+            Optional signatures of the combined hash of all onboarding_transactions
+            This may be used instead of providing signatures on each individual transaction
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+        identityProviderId:
+          description: |-
+            The id of the ``Identity Provider``
+            If not set, assume the party is managed by the default identity provider.
+            Optional
+          type: string
+    AllocateExternalPartyResponse:
+      title: AllocateExternalPartyResponse
+      type: object
+      required:
+      - partyId
+      properties:
+        partyId:
+          description: ''
+          type: string
     AllocatePartyRequest:
       title: AllocatePartyRequest
       description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -1858,6 +2062,33 @@ components:
       properties:
         party:
           type: string
+    CanExecuteAs:
+      title: CanExecuteAs
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAs1'
+    CanExecuteAs1:
+      title: CanExecuteAs
+      type: object
+      required:
+      - party
+      properties:
+        party:
+          type: string
+    CanExecuteAsAnyParty:
+      title: CanExecuteAsAnyParty
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/CanExecuteAsAnyParty1'
+    CanExecuteAsAnyParty1:
+      title: CanExecuteAsAnyParty
+      type: object
     CanReadAs:
       title: CanReadAs
       type: object
@@ -2667,9 +2898,10 @@ components:
       properties:
         templateId:
           description: |-
-            The template of contract the client wants to exercise.
+            The template or interface of the contract the client wants to exercise.
             Both package-name and package-id reference identifier formats for the template-id are supported.
             Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+            To exercise a choice on an interface, specify the interface identifier in the template_id field.
 
             Required
           type: string
@@ -2924,13 +3156,83 @@ components:
             template or wildcard filter means additional events that will match the query.
             The impact of include_interface_view and include_created_event_blob fields in the filters will
             also be accumulated.
+            At least one cumulative filter MUST be specified.
             A template or an interface SHOULD NOT appear twice in the accumulative field.
             A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
-            Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
-            include_created_event_blob unset is used.
+            Optional
           type: array
           items:
             $ref: '#/components/schemas/CumulativeFilter'
+    GenerateExternalPartyTopologyRequest:
+      title: GenerateExternalPartyTopologyRequest
+      type: object
+      required:
+      - synchronizer
+      - partyHint
+      - localParticipantObservationOnly
+      - confirmationThreshold
+      properties:
+        synchronizer:
+          description: |-
+            TODO(#27670) support synchronizer aliases
+            Required: synchronizer-id for which we are building this request.
+          type: string
+        partyHint:
+          description: 'Required: the actual party id will be constructed from this
+            hint and a fingerprint of the public key'
+          type: string
+        publicKey:
+          $ref: '#/components/schemas/SigningPublicKey'
+          description: 'Required: public key'
+        localParticipantObservationOnly:
+          description: 'Optional: if true, then the local participant will only be
+            observing, not confirming. Default false.'
+          type: boolean
+        otherConfirmingParticipantUids:
+          description: 'Optional: other participant ids which should be confirming
+            for this party'
+          type: array
+          items:
+            type: string
+        confirmationThreshold:
+          description: 'Optional: Confirmation threshold >= 1 for the party. Defaults
+            to all available confirmers (or if set to 0).'
+          type: integer
+          format: int32
+        observingParticipantUids:
+          description: 'Optional: other observing participant ids for this party'
+          type: array
+          items:
+            type: string
+    GenerateExternalPartyTopologyResponse:
+      title: GenerateExternalPartyTopologyResponse
+      description: Response message with topology transactions and the multi-hash
+        to be signed.
+      type: object
+      required:
+      - partyId
+      - publicKeyFingerprint
+      - multiHash
+      properties:
+        partyId:
+          description: the generated party id
+          type: string
+        publicKeyFingerprint:
+          description: the fingerprint of the supplied public key
+          type: string
+        topologyTransactions:
+          description: |-
+            The serialized topology transactions which need to be signed and submitted as part of the allocate party process
+            Note that the serialization includes the versioning information. Therefore, the transaction here is serialized
+            as an `UntypedVersionedMessage` which in turn contains the serialized `TopologyTransaction` in the version
+            supported by the synchronizer.
+          type: array
+          items:
+            type: string
+        multiHash:
+          description: the multi-hash which may be signed instead of each individual
+            transaction
+          type: string
     GetActiveContractsRequest:
       title: GetActiveContractsRequest
       description: |-
@@ -3163,6 +3465,12 @@ components:
           description: |-
             The package references of the preferred packages.
             Must contain one package reference for each requested package-name.
+
+            If you build command submissions whose content depends on the returned
+            preferred packages, then we recommend submitting the preferred package-ids
+            in the ``package_id_selection_preference`` of the command submission to
+            avoid race conditions with concurrent changes of the on-ledger package vetting state.
+
             Required
           type: array
           items:
@@ -4101,6 +4409,17 @@ components:
             When true, the response will contain additional details on how the transaction was encoded and hashed
             This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
           type: boolean
+        maxRecordTime:
+          description: |-
+            Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+            If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+            with a new valid max_record_time.
+            Use this to limit the time-to-life of a prepared transaction,
+            which is useful to know when it can definitely not be accepted
+            anymore and resorting to preparing another transaction for the same
+            intent is safe again.
+            Optional
+          type: string
     JsPrepareSubmissionResponse:
       title: JsPrepareSubmissionResponse
       description: '[docs-entry-end: HashingSchemeVersion]'
@@ -4497,6 +4816,18 @@ components:
         properties:
           CanActAs:
             $ref: '#/components/schemas/CanActAs'
+      - type: object
+        required:
+        - CanExecuteAs
+        properties:
+          CanExecuteAs:
+            $ref: '#/components/schemas/CanExecuteAs'
+      - type: object
+        required:
+        - CanExecuteAsAnyParty
+        properties:
+          CanExecuteAsAnyParty:
+            $ref: '#/components/schemas/CanExecuteAsAnyParty'
       - type: object
         required:
         - CanReadAs
@@ -5100,6 +5431,37 @@ components:
           type: string
         signingAlgorithmSpec:
           description: The signing algorithm specification used to produce this signature
+          type: string
+    SignedTransaction:
+      title: SignedTransaction
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          type: string
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+    SigningPublicKey:
+      title: SigningPublicKey
+      type: object
+      required:
+      - format
+      - keyData
+      - keySpec
+      properties:
+        format:
+          description: The serialization format of the public key
+          example: CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO
+          type: string
+        keyData:
+          description: Serialized public key in the format specified above
+          type: string
+        keySpec:
+          description: The key specification
+          example: SIGNING_KEY_SPEC_EC_CURVE25519
           type: string
     SinglePartySignatures:
       title: SinglePartySignatures

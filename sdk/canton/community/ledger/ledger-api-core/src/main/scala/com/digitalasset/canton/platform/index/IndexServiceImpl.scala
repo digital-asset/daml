@@ -685,8 +685,7 @@ private[index] class IndexServiceImpl(
         packageIdsWithInterfaceInstance,
         "Package-ids with interface instances for the requested interface",
         loggingContextWithTrace,
-      )
-        .failOnShutdownToAbortException("getPackagePreference for stream construction")
+      ).asGrpcFuture
         .transform(handlePreferredPackageVersionError(_, packageName))
 
     // Computes the package-id for up/downgrading the interface instance used for computing an interface view.

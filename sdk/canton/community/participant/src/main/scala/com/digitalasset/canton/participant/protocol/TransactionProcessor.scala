@@ -77,6 +77,7 @@ class TransactionProcessor(
     packageResolver: PackageResolver,
     override val testingConfig: TestingConfigInternal,
     promiseFactory: PromiseUnlessShutdownFactory,
+    messagePayloadLoggingEnabled: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProtocolProcessor[
       TransactionProcessingSteps.SubmissionParam,
@@ -115,6 +116,7 @@ class TransactionProcessor(
         commandProgressTracker,
         loggerFactory,
         futureSupervisor,
+        messagePayloadLoggingEnabled,
       ),
       inFlightSubmissionSynchronizerTracker,
       ephemeral,

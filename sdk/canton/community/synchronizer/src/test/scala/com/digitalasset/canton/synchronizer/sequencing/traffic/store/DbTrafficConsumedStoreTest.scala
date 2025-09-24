@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbTest
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerWriterConfig
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.db.DbTrafficConsumedStore
@@ -28,9 +29,11 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
     timeouts,
     loggerFactory,
     blockSequencerMode = true,
+    useRecipientsTableForReads = false,
     sequencerMember = DefaultTestIdentities.sequencerId,
     cachingConfigs = CachingConfigs(),
     batchingConfig = BatchingConfig(),
+    sequencerMetrics = SequencerMetrics.noop("db-traffic-consumed-store-test"),
   )
   def registerMemberInSequencerStore(member: Member): FutureUnlessShutdown[Unit] =
     sequencerStore.registerMember(member, CantonTimestamp.Epoch).map(_ => ())
@@ -48,9 +51,10 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
   "TrafficConsumedStore" should {
     behave like trafficConsumedStore(() =>
       new DbTrafficConsumedStore(
-        storage,
-        timeouts,
-        loggerFactory,
+        storage = storage,
+        timeouts = timeouts,
+        loggerFactory = loggerFactory,
+        batchingConfig = BatchingConfig(),
       )
     )
   }

@@ -8,6 +8,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.ReinitializationStatus
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -17,6 +18,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.store.PrunableByTime
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.immutable.SortedSet
 import scala.util.control.Breaks.*
@@ -284,6 +286,43 @@ trait IncrementalCommitmentStore {
       deletes: Set[SortedSet[LfPartyId]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
+  /** Read the status of commitment reinitialization
+    *
+    * @return
+    *   Two timestamps: the first indicates when a reinitialization last started, and the second
+    *   indicates when a reinitialization last completed.
+    */
+  def readReinitilizationStatus()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ReinitializationStatus]
+
+  /** Mark that commitments are being reinitialized. The caller should insure it is not called while
+    * a reinitialization is in progress, otherwise we cannot detect when the reinitialization in
+    * progress is completed.
+    *
+    * The method doesn't check that a reinitialization is not already in progress, because there can
+    * be good reason why a reinitialization that appears in progress may not complete, for example,
+    * a shutdown occured during reinitialization.
+    *
+    * @param timestamp
+    *   Timestamp for which we are reinitializing the commitments
+    */
+  def markReinitializationStarted(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
+
+  /** Mark that commitment reinitialization completed. We can only complete a reinitialization
+    * that's in progress for the given timestamp. For consistency in case of crashes, this method
+    * should be called after the reinitialized running commitments have been written to the store.
+    *
+    * @param timestamp
+    *   Timestamp for which we completed reinitializing the commitments
+    * @return
+    *   True if we could complete the reinitialization because it was in progress, false otherwise.
+    */
+  def markReinitializationCompleted(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean]
 }
 
 /** Manages the buffer (priority queue) for incoming commitments.
@@ -375,5 +414,10 @@ object AcsCommitmentStore {
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
       commitment: AcsCommitment.HashedCommitmentType,
+  )
+
+  final case class ReinitializationStatus(
+      @VisibleForTesting lastStarted: Option[CantonTimestamp],
+      lastCompleted: Option[CantonTimestamp],
   )
 }

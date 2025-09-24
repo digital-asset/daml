@@ -11,6 +11,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
+import org.slf4j.event.Level
 
 import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicReference
@@ -65,16 +66,18 @@ trait HealthElement {
 
   /** Registers a listener that gets poked upon each change of this element's health state.
     *
+    * @param pokeIfNew
+    *   if true (default), poke the listener if it's new
     * @return
     *   Whether the listener was not registered before
     */
-  def registerOnHealthChange(listener: HealthListener): Boolean = {
+  def registerOnHealthChange(listener: HealthListener, pokeIfNew: Boolean = true): Boolean = {
     ErrorUtil.requireState(
       !highPriorityListeners.contains(listener),
       "Listener is already registered as a high priority listener",
     )(ErrorLoggingContext.fromTracedLogger(logger)(TraceContext.empty))
     val isNew = listeners.putIfAbsent(listener, ()).isEmpty
-    if (isNew) listener.poke()(TraceContext.empty)
+    if (isNew && pokeIfNew) listener.poke()(TraceContext.empty)
     isNew
   }
 
@@ -209,12 +212,17 @@ trait HealthElement {
     notifyListenersInternal(listeners)
   }
 
+  protected def stateLoggingLevel(state: State): Level = Level.INFO
+
   private def logStateChange(
       oldState: State,
       newState: State,
   )(implicit traceContext: TraceContext): Unit = {
     implicit val prettyS: Pretty[State] = prettyState
-    logger.info(show"${name.singleQuoted} is now in state $newState. Previous state was $oldState.")
+    val message =
+      show"${name.singleQuoted} is now in state $newState. Previous state was $oldState."
+    implicit val elc: ErrorLoggingContext = ErrorLoggingContext.fromTracedLogger(logger)
+    LoggerUtil.logAtLevel(stateLoggingLevel(newState), message)
   }
 }
 

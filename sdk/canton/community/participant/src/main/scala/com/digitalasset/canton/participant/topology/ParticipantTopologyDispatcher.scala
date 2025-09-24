@@ -21,6 +21,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.config.ParticipantNodeParameterConfig
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
@@ -31,10 +32,11 @@ import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithIni
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{ParticipantProtocolFeatureFlags, ProtocolVersion}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
@@ -157,7 +159,7 @@ class ParticipantTopologyDispatcher(
   def trustSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] = {
-    def alreadyTrustedInStore(
+    def alreadyTrustedInStoreWithSupportedFeatures(
         store: TopologyStore[?]
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
       EitherT.right(
@@ -172,23 +174,40 @@ class ParticipantTopologyDispatcher(
               filterNamespace = None,
             )
             .map(_.toTopologyState.exists {
-              case SynchronizerTrustCertificate(`participantId`, `synchronizerId`) => true
+              // If certificate is missing feature flags, re-issue the trust certificate with it
+              case SynchronizerTrustCertificate(`participantId`, `synchronizerId`, featureFlags)
+                  if missingFeatureFlags(featureFlags).isEmpty =>
+                true
               case _ => false
             })
         )
       )
 
+    def featureFlagsForPV: Set[ParticipantTopologyFeatureFlag] = config.parameters match {
+      case participantParameters: ParticipantNodeParameterConfig
+          if participantParameters.protocolFeatureFlags =>
+        state
+          .protocolVersionFor(synchronizerId)
+          .flatMap(ParticipantProtocolFeatureFlags.supportedFeatureFlagsByPV.get)
+          .getOrElse(Set.empty)
+      case _ => Set.empty[ParticipantTopologyFeatureFlag]
+    }
+
+    def missingFeatureFlags(featureFlags: Seq[ParticipantTopologyFeatureFlag]) =
+      featureFlagsForPV.diff(featureFlags.toSet)
+
     def trustSynchronizer(
         state: SyncPersistentState
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
       performUnlessClosingEitherUSF(functionFullName) {
-        MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
+        MonadUtil.unlessM(alreadyTrustedInStoreWithSupportedFeatures(manager.store)) {
           manager
             .proposeAndAuthorize(
               TopologyChangeOp.Replace,
               SynchronizerTrustCertificate(
                 participantId,
                 synchronizerId,
+                featureFlagsForPV.toSeq,
               ),
               serial = None,
               signingKeys = Seq.empty,
@@ -205,7 +224,7 @@ class ParticipantTopologyDispatcher(
       }
     // check if cert already exists in the synchronizer store
     getState(synchronizerId).flatMap(state =>
-      MonadUtil.unlessM(alreadyTrustedInStore(state.topologyStore))(
+      MonadUtil.unlessM(alreadyTrustedInStoreWithSupportedFeatures(state.topologyStore))(
         trustSynchronizer(state)
       )
     )
@@ -229,6 +248,7 @@ class ParticipantTopologyDispatcher(
           participantId,
           sequencerConnectClient,
           manager.store,
+          topologyConfig,
           timeouts,
           loggerFactory
             .append("synchronizerId", synchronizerId.toString)
@@ -276,7 +296,7 @@ class ParticipantTopologyDispatcher(
               timeouts = timeouts,
               loggerFactory = synchronizerLoggerFactory,
               crypto = crypto,
-              broadcastBatchSize = topologyConfig.broadcastBatchSize,
+              topologyConfig = topologyConfig,
             )
 
             val storeBasedSynchronizerOutbox = new StoreBasedSynchronizerOutbox(
@@ -291,7 +311,7 @@ class ParticipantTopologyDispatcher(
               timeouts = timeouts,
               loggerFactory = loggerFactory,
               crypto = crypto,
-              broadcastBatchSize = topologyConfig.broadcastBatchSize,
+              topologyConfig = topologyConfig,
               futureSupervisor = futureSupervisor,
             )
             ErrorUtil.requireState(
@@ -344,6 +364,7 @@ private class SynchronizerOnboardingOutbox(
     participantId: ParticipantId,
     sequencerConnectClient: SequencerConnectClient,
     val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+    override protected val topologyConfig: TopologyConfig,
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: Crypto,
@@ -441,6 +462,7 @@ object SynchronizerOnboardingOutbox {
       participantId: ParticipantId,
       sequencerConnectClient: SequencerConnectClient,
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+      topologyConfig: TopologyConfig,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       crypto: Crypto,
@@ -455,6 +477,7 @@ object SynchronizerOnboardingOutbox {
       participantId,
       sequencerConnectClient,
       authorizedStore,
+      topologyConfig,
       timeouts,
       loggerFactory,
       crypto,

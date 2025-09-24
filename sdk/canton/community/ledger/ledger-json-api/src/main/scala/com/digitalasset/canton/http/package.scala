@@ -197,7 +197,9 @@ package http {
   final case object IdentityProviderAdmin extends UserRight
   final case class CanActAs(party: Party) extends UserRight
   final case class CanReadAs(party: Party) extends UserRight
+  final case class CanExecuteAs(party: Party) extends UserRight
   final case object CanReadAsAnyParty extends UserRight
+  final case object CanExecuteAsAnyParty extends UserRight
 
   object UserRights {
     import com.digitalasset.daml.lf.data.Ref
@@ -214,6 +216,9 @@ package http {
         case CanReadAs(party) =>
           Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs.apply).disjunction
         case CanReadAsAnyParty => \/.right(LedgerUserRight.CanReadAsAnyParty)
+        case CanExecuteAs(party) =>
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanExecuteAs.apply).disjunction
+        case CanExecuteAsAnyParty => \/.right(LedgerUserRight.CanExecuteAsAnyParty)
       }
 
     def fromLedgerUserRights(input: Seq[LedgerUserRight]): List[UserRight] = input
@@ -221,10 +226,13 @@ package http {
         case LedgerUserRight.ParticipantAdmin => ParticipantAdmin
         case LedgerUserRight.IdentityProviderAdmin => IdentityProviderAdmin
         case LedgerUserRight.CanReadAsAnyParty => CanReadAsAnyParty
+        case LedgerUserRight.CanExecuteAsAnyParty => CanExecuteAsAnyParty
         case LedgerUserRight.CanActAs(party) =>
           CanActAs(Party(party: String))
         case LedgerUserRight.CanReadAs(party) =>
           CanReadAs(Party(party: String))
+        case LedgerUserRight.CanExecuteAs(party) =>
+          CanExecuteAs(Party(party: String))
       }
       .toList
   }

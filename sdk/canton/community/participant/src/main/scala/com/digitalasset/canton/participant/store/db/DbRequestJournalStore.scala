@@ -380,6 +380,21 @@ class DbRequestJournalStore(
         """.as[TimeOfRequest].headOption,
       functionFullName,
     )
+
+  override def lastRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] =
+    // By not selecting the request counter in cases the RC is not needed and using max
+    // on the single-column-select rather than order-by/limit-1, encourage the DB to use
+    // the index on the request_timestamp rather than the primary key based on request_counter.
+    storage.query(
+      sql"""
+        select max(request_timestamp)
+        from par_journal_requests
+        where synchronizer_idx = $indexedSynchronizer and request_timestamp <= $requestTimestamp
+        """.as[CantonTimestamp].headOption,
+      functionFullName,
+    )
 }
 
 object DbRequestJournalStore {

@@ -11,6 +11,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{
   BatchAggregatorConfig,
+  BatchingConfig,
   ProcessingTimeout,
   SessionSigningKeysConfig,
 }
@@ -37,6 +38,7 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficReceipt,
 }
 import com.digitalasset.canton.store.db.DbTest
+import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
 import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
@@ -129,7 +131,12 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
 
     val currentBalances =
       TrieMap.empty[Member, Either[TrafficPurchasedManagerError, NonNegativeLong]]
-    val trafficConsumedStore = TrafficConsumedStore(storage, timeouts, loggerFactory)
+    val trafficConsumedStore = TrafficConsumedStore(
+      storage = storage,
+      timeouts = timeouts,
+      loggerFactory = loggerFactory,
+      batchingConfig = BatchingConfig(),
+    )
 
     val topology: TestingTopology =
       TestingTopology()
@@ -259,6 +266,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
         dontWarnOnDeprecatedPV = false,
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
+      asyncWriter = AsyncWriterParameters(enabled = true),
     )
     // Important to create the histograms before the factory, because creating the factory will
     // register them once and for all and we can't add more afterwards
@@ -382,6 +390,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           availableUpToInclusive = availableUpToInclusive,
         ),
         FutureSupervisor.Noop,
+        progressSupervisorO = None,
         SequencerTrafficConfig(),
         runtimeReady = FutureUnlessShutdown.unit,
       )

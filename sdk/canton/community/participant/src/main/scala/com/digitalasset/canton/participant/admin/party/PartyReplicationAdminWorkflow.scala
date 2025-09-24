@@ -105,9 +105,16 @@ class PartyReplicationAdminWorkflow(
   }
 
   @nowarn("cat=deprecation")
-  override private[admin] def filters: TransactionFilter =
-    // we can't filter by template id as we don't know when the admin workflow package is loaded
-    LedgerConnection.transactionFilterByParty(Map(participantId.adminParty -> Seq.empty))
+  override private[admin] def filters: TransactionFilter = {
+    val templates = Seq(
+      M.partyreplication.PartyReplicationProposal.TEMPLATE_ID,
+      M.partyreplication.PartyReplicationAgreement.TEMPLATE_ID,
+    )
+
+    LedgerConnection.transactionFilterByParty(
+      Map(participantId.adminParty -> templates.map(LedgerConnection.mapTemplateIds))
+    )
+  }
 
   override private[admin] def processTransaction(tx: Transaction): Unit = {
     implicit val traceContext: TraceContext =

@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, Storage}
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors.Overloaded
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
@@ -138,6 +139,14 @@ class BlockSequencer(
   override protected def resetWatermarkTo: SequencerWriter.ResetWatermark =
     SequencerWriter.ResetWatermarkToTimestamp(stateManager.getHeadState.block.lastTs)
 
+  private val circuitBreaker = BlockSequencerCircuitBreaker(
+    blockSequencerConfig.circuitBreaker,
+    clock,
+    metrics,
+    materializer,
+    loggerFactory,
+  )
+
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
     noTracingLogger.info(s"Subscribing to block source from ${headState.block.height + 1}")
@@ -171,7 +180,7 @@ class BlockSequencer(
       .async
       .via(stateManager.applyBlockUpdate(this))
       .wireTap { lastTs =>
-        metrics.block.delay.updateValue((clock.now - lastTs.value).toMillis)
+        circuitBreaker.registerLastBlockTimestamp(lastTs)
       }
     PekkoUtil.runSupervised(
       driverSource.toMat(Sink.ignore)(Keep.both),
@@ -294,6 +303,23 @@ class BlockSequencer(
           )
       }
 
+  private def rejectSubmissionsIfOverloaded(
+      submission: SubmissionRequest
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    if (circuitBreaker.shouldRejectRequests(submission))
+      EitherT.leftT(
+        Overloaded("Sequencer can't take requests because it is behind on processing events")
+      )
+    else EitherT.rightT(())
+
+  private def rejectAcknowledgementIfOverloaded()
+      : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    if (circuitBreaker.shouldRejectAcknowledgements)
+      EitherT.leftT(
+        Overloaded("Sequencer can't take requests because it is behind on processing events")
+      )
+    else EitherT.rightT(())
+
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit
@@ -314,6 +340,9 @@ class BlockSequencer(
     )
 
     for {
+      _ <-
+        if (submission.isConfirmationRequest) rejectSubmissionsIfOverloaded(submission)
+        else EitherT.rightT[FutureUnlessShutdown, SequencerDeliverError](())
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
@@ -351,6 +380,9 @@ class BlockSequencer(
     val waitForAcknowledgementF =
       stateManager.waitForAcknowledgementToComplete(req.member, req.timestamp)
     for {
+      _ <- EitherTUtil.toFutureUnlessShutdown(
+        rejectAcknowledgementIfOverloaded().leftMap(_.asGrpcError)
+      )
       _ <- FutureUnlessShutdown.outcomeF(blockOrderer.acknowledge(signedAcknowledgeRequest))
       _ <- FutureUnlessShutdown.outcomeF(waitForAcknowledgementF)
     } yield ()
@@ -560,11 +592,14 @@ class BlockSequencer(
       _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
       if (!ledgerStatus.isActive) SequencerHealthStatus(isActive = false, ledgerStatus.description)
-      else
+      else if (!isStorageActive)
+        SequencerHealthStatus(isActive = false, Some("Can't connect to database"))
+      else if (circuitBreaker.shouldRejectRequests(SubmissionRequestType.ConfirmationRequest))
         SequencerHealthStatus(
-          isStorageActive,
-          if (isStorageActive) None else Some("Can't connect to database"),
+          isActive = false,
+          Some("Overloaded. Can't receive requests at the moment"),
         )
+      else SequencerHealthStatus(isActive = true, None)
     }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
@@ -612,9 +647,11 @@ class BlockSequencer(
         // Even though it may be more recent than the TrafficConsumed timestamp of individual members,
         // we are sure that nothing has been consumed since then, because by the time we update getHeadState.block.lastTs
         // all traffic has been consumed for that block. This means we can use this timestamp to compute an updated
-        // base traffic that will be correct.
-        case LatestSafe => Some(stateManager.getHeadState.block.lastTs)
-        case LatestApproximate => Some(clock.now.max(stateManager.getHeadState.block.lastTs))
+        // base traffic that will be correct. More precisely, we take the immediate successor such that we include
+        // all the changes of that last block.
+        case LatestSafe => Some(stateManager.getHeadState.block.lastTs.immediateSuccessor)
+        case LatestApproximate =>
+          Some(clock.now.max(stateManager.getHeadState.block.lastTs.immediateSuccessor))
       }
 
       blockRateLimitManager.getStates(

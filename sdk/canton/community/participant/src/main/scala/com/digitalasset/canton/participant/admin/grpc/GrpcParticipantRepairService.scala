@@ -14,6 +14,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld.loadFromByteString
@@ -27,7 +28,9 @@ import com.digitalasset.canton.participant.admin.repair.{
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -619,6 +622,68 @@ final class GrpcParticipantRepairService(
         res.leftMap(err => io.grpc.Status.CANCELLED.withDescription(err).asRuntimeException())
       )
       .asGrpcResponse
+  }
+
+  override def repairCommitmentsUsingAcs(
+      request: RepairCommitmentsUsingAcsRequest
+  ): Future[RepairCommitmentsUsingAcsResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val result = for {
+      synchronizerIds <- wrapErrUS(
+        request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+      )
+      counterParticipantsIds <- wrapErrUS(
+        request.counterParticipantIds.traverse(
+          ParticipantId.fromProtoPrimitive(_, "counter_participant_id")
+        )
+      )
+
+      partyIds <- wrapErrUS(
+        request.partyIds.traverse(party =>
+          UniqueIdentifier.fromProtoPrimitive(party, "party_ids").map(PartyId(_))
+        )
+      )
+
+      timeoutSeconds <- wrapErrUS(
+        ProtoConverter.parseRequired(
+          NonNegativeFiniteDuration.fromProtoPrimitive("initialRetryDelay"),
+          "timeoutSeconds",
+          request.timeoutSeconds,
+        )
+      )
+
+      res <- EitherT
+        .right[RpcError](
+          sync.commitmentsService
+            .reinitializeCommitmentsUsingAcs(
+              synchronizerIds.toSet,
+              counterParticipantsIds,
+              partyIds,
+              timeoutSeconds,
+            )
+        )
+
+    } yield RepairCommitmentsUsingAcsResponse(res.map {
+      case (synchronizerId: SynchronizerId, stringOrMaybeTimestamp) =>
+        stringOrMaybeTimestamp match {
+          case Left(err) =>
+            RepairCommitmentsStatus(
+              synchronizerId.toProtoPrimitive,
+              RepairCommitmentsStatus.Status.ErrorMessage(err),
+            )
+          case Right(ts) =>
+            RepairCommitmentsStatus(
+              synchronizerId.toProtoPrimitive,
+              RepairCommitmentsStatus.Status.CompletedRepairTimestamp(ts match {
+                case Some(value) => value.toProtoTimestamp
+                case None => CantonTimestamp.MinValue.toProtoTimestamp
+              }),
+            )
+        }
+    }.toSeq)
+
+    CantonGrpcUtil.mapErrNewEUS(result)
   }
 }
 

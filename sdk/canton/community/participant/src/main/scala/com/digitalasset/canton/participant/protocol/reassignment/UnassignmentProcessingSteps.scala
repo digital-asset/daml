@@ -56,6 +56,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -391,6 +392,7 @@ class UnassignmentProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -471,6 +473,7 @@ class UnassignmentProcessingSteps(
         locallyRejectedF,
         engineController.abort,
         engineAbortStatusF = engineAbortStatusF,
+        decisionTimeTickRequest,
       )
 
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -508,6 +511,7 @@ class UnassignmentProcessingSteps(
       _locallyRejected,
       _engineController,
       _abortedF,
+      _decisionTimeTickRequest,
     ) = pendingRequestData
 
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
@@ -702,6 +706,7 @@ object UnassignmentProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   ) extends PendingReassignment {
 
     def isReassigningParticipant: Boolean =
@@ -711,5 +716,7 @@ object UnassignmentProcessingSteps {
 
     override def submitterMetadata: ReassignmentSubmitterMetadata =
       unassignmentValidationResult.submitterMetadata
+
+    override def cancelDecisionTimeTickRequest(): Unit = decisionTimeTickRequest.cancel()
   }
 }

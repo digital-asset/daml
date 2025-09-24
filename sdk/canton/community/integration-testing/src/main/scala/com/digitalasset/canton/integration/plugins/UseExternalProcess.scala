@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration.plugins
 import better.files.File
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.integration.EnvironmentSetupPlugin
 import com.digitalasset.canton.integration.plugins.UseExternalProcess.{RunVersion, ShutdownPhase}
+import com.digitalasset.canton.integration.{ConfigTransform, EnvironmentSetupPlugin}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.config.{ParticipantNodeConfig, RemoteParticipantConfig}
 import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeConfig, RemoteMediatorConfig}
@@ -68,6 +68,7 @@ class UseExternalProcess(
     val externalSequencers: Set[String] = Set.empty,
     val externalMediators: Set[String] = Set.empty,
     val removeConfigPaths: Set[(String, Option[(String, Any)])] = Set.empty,
+    val configTransforms: Seq[ConfigTransform] = Seq.empty,
 ) extends EnvironmentSetupPlugin
     with UseExternalProcessBase[LocalNodeConfig] {
 
@@ -115,7 +116,7 @@ class UseExternalProcess(
     val nameInConfig = instanceNameInConfig(name)
     val singleConfig = config
       .asSingleNode(InstanceName.tryCreate(name))
-    val finalConfig =
+    val configToTransform =
       singleConfig
         .focus(_.parameters)
         .replace(adjustedParameters)
@@ -130,7 +131,12 @@ class UseExternalProcess(
             (InstanceName.tryCreate(instanceNameInConfig(k.unwrap)), v)
           },
         )
+
+    val finalConfig =
+      configTransforms.foldLeft(configToTransform)((config, transform) => transform(config))
+
     storeConfigFile(finalConfig, configFile(nameInConfig, nodeConfig))
+
     finalConfig
   }
 

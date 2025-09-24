@@ -35,7 +35,7 @@ import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubm
 import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
 
 import java.util.UUID
@@ -130,38 +130,40 @@ class InFlightSubmissionTracker(
         CantonTimestamp.MaxValue,
       )
       // Re-request ticks for all remaining unsequenced timestamps
-      _ = if (unsequencedInFlights.nonEmpty) {
-        timeTracker.requestTicks(
-          unsequencedInFlights.map(_.sequencingInfo.timeout)
+      tickRequests = timeTracker.requestTicks(
+        unsequencedInFlights.map(inFlight =>
+          Traced(inFlight.sequencingInfo.timeout)(inFlight.submissionTraceContext)
         )
-      }
+      )
       // Recover internal state: store unsequencedInFlights in unsequencedSubmissionMap, and schedule the rejection
       _ <- FutureUnlessShutdown.lift {
-        MonadUtil.sequentialTraverse(unsequencedInFlights) { unsequencedInFlight =>
-          val submissionTraceContext = unsequencedInFlight.submissionTraceContext
-          unsequencedSubmissionMap.pushIfNotExists(
-            unsequencedInFlight.messageUuid,
-            unsequencedInFlight.sequencingInfo.trackingData,
-            submissionTraceContext,
-            unsequencedInFlight.rootHashO,
-          )
-          recordOrderPublisher
-            .scheduleFloatingEventPublication( // first try to schedule with the recovered timeout
-              timestamp = unsequencedInFlight.sequencingInfo.timeout,
-              eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
-            )(submissionTraceContext)
-            .map {
-              _.valueOr { ropIsAlreadyAt =>
-                logger.debug(
-                  s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at synchronizer startup. [message ID: ${unsequencedInFlight.messageId}]"
-                )
-                recordOrderPublisher
-                  .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
-                    eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
-                  )(submissionTraceContext)
-                  .discard
+        MonadUtil.sequentialTraverse(unsequencedInFlights.zip(tickRequests)) {
+          case (unsequencedInFlight, tickRequest) =>
+            val submissionTraceContext = unsequencedInFlight.submissionTraceContext
+            val tickTracker = unsequencedSubmissionMap.pushIfNotExists(
+              unsequencedInFlight.messageUuid,
+              unsequencedInFlight.sequencingInfo.trackingData,
+              submissionTraceContext,
+              unsequencedInFlight.rootHashO,
+            )
+            tickTracker.foreach(_.setRequest(tickRequest))
+            recordOrderPublisher
+              .scheduleFloatingEventPublication( // first try to schedule with the recovered timeout
+                timestamp = unsequencedInFlight.sequencingInfo.timeout,
+                eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _),
+              )(submissionTraceContext)
+              .map {
+                _.valueOr { ropIsAlreadyAt =>
+                  logger.debug(
+                    s"Unsequenced Inflight Submission's sequencing timeout ${unsequencedInFlight.sequencingInfo.timeout} is expired: record time is already at $ropIsAlreadyAt, scheduling timely rejection as soon as possible at synchronizer startup. [message ID: ${unsequencedInFlight.messageId}]"
+                  )
+                  recordOrderPublisher
+                    .scheduleFloatingEventPublicationImmediately( // if the first try fails (timeout already expired), scheduling immediately
+                      eventFactory = pullTimelyRejectEvent(unsequencedInFlight.messageId, _)
+                    )(submissionTraceContext)
+                    .discard
+                }
               }
-            }
         }
       }
     } yield new InFlightSubmissionSynchronizerTracker(
@@ -203,7 +205,7 @@ class InFlightSubmissionSynchronizerTracker(
   ]] = {
     implicit val traceContext: TraceContext = submission.submissionTraceContext
     for {
-      _ <- EitherT(
+      tickCellO <- EitherT(
         recordOrderPublisher.scheduleFloatingEventPublication(
           timestamp = submission.sequencingInfo.timeout,
           eventFactory = pullTimelyRejectEvent(submission.messageId, _),
@@ -239,7 +241,10 @@ class InFlightSubmissionSynchronizerTracker(
         )
       // It is safe to request a tick only after persisting the in-flight submission
       // because if we crash in between, crash recovery will request the tick.
-      _ = timeTracker.requestTick(submission.sequencingInfo.timeout)
+      _ = tickCellO.foreach { tickCell =>
+        val maxSequencingTimeTick = timeTracker.requestTick(submission.sequencingInfo.timeout)
+        tickCell.setRequest(maxSequencingTimeTick)
+      }
       // After the registration of the in-flight submission, we want to deduplicate the command.
       // A command deduplication failure must be reported via a completion event
       // because we do not know whether we have already produced a timely rejection concurrently.
@@ -472,7 +477,7 @@ object InFlightSubmissionTracker {
       synchronized(
         mutableUnsequencedMap
           .updateWith(key) {
-            case Some(entry @ Entry(_, _, _, None)) =>
+            case Some(entry @ Entry(_, _, _, None, _)) =>
               rootHashMap += rootHash -> key
               Some(entry.copy(rootHashO = Some(rootHash)))
 
@@ -488,23 +493,28 @@ object InFlightSubmissionTracker {
         trackingData: T,
         submissionTraceContext: TraceContext,
         rootHash: Option[RootHash],
-    )(implicit traceContext: TraceContext): Unit = blocking(synchronized {
+    )(implicit traceContext: TraceContext): Option[SynchronizerTimeTracker.TickRequestCell] = {
       val messageId = MessageId.fromUuid(messageUuid)
-      if (!mutableUnsequencedMap.contains(MessageId.fromUuid(messageUuid))) {
-        mutableUnsequencedMap += messageId -> Entry(
-          trackingData,
-          messageUuid,
-          submissionTraceContext,
-          rootHash,
-        )
-        rootHash.map(_ -> messageId).foreach(rootHashMap += _)
-        unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
-        if (mutableUnsequencedMap.sizeIs > sizeWarnThreshold)
-          logger.warn(
-            s"UnsequencedSubmissionMap for synchronizer $synchronizerId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
+      blocking(synchronized {
+        Option.when(!mutableUnsequencedMap.contains(MessageId.fromUuid(messageUuid))) {
+          val entry = Entry(
+            trackingData,
+            messageUuid,
+            submissionTraceContext,
+            rootHash,
+            new SynchronizerTimeTracker.TickRequestTracker,
           )
-      }
-    })
+          mutableUnsequencedMap += messageId -> entry
+          rootHash.map(_ -> messageId).foreach(rootHashMap += _)
+          unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
+          if (mutableUnsequencedMap.sizeIs > sizeWarnThreshold)
+            logger.warn(
+              s"UnsequencedSubmissionMap for synchronizer $synchronizerId is growing too large (threshold with $sizeWarnThreshold breached: ${mutableUnsequencedMap.size})"
+            )
+          entry.maxSequencingTimeTickRequestTracker
+        }
+      })
+    }
 
     // Only the first call returns an entry, further calls result in None (meaning: already pulled).
     // This is needed as corresponding scheduled tasks are not getting removed, but rather those task will do nothing on perform()
@@ -517,6 +527,7 @@ object InFlightSubmissionTracker {
             .map { result =>
               result.rootHashO.foreach(rootHashMap.remove)
               unsequencedInFlightGauge.updateValue(mutableUnsequencedMap.size)
+              result.maxSequencingTimeTickRequestTracker.cancel()
               result
             }
         )
@@ -532,11 +543,12 @@ object InFlightSubmissionTracker {
       )
   }
 
-  final case class Entry[T](
+  final case class Entry[+T](
       trackingData: T,
       messageUuid: UUID,
       traceContext: TraceContext,
       rootHashO: Option[RootHash],
+      maxSequencingTimeTickRequestTracker: SynchronizerTimeTracker.TickRequestTracker,
   )
 
 }

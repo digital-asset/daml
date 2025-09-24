@@ -7,6 +7,8 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
+import com.daml.metrics.api.testing.InMemoryMetricsFactory
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -21,6 +23,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbTest
+import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.SynchronizerSequencingTestUtils.deliverStoreEventWithPayloadWithDefaults
 import com.digitalasset.canton.synchronizer.sequencer.store.SaveLowerBoundError.BoundLowerThanExisting
@@ -44,7 +47,26 @@ trait SequencerStoreTest
     with ProtocolVersionChecksAsyncWordSpec
     with FailOnShutdown {
 
+  private val factory = new InMemoryMetricsFactory
+
+  private val metricsContext = MetricsContext("cache" -> "events-fan-out-buffer")
+
   lazy val sequencerMember: Member = DefaultTestIdentities.sequencerId
+
+  private def metricCounterValue(name: String): Long =
+    factory.metrics
+      .counters(MetricName.Daml :+ "cache" :+ name)(metricsContext)
+      .markers
+      .get(metricsContext)
+      .map(_.get())
+      .getOrElse(0L)
+
+  protected def sequencerMetrics(): SequencerMetrics = {
+    val (_, metrics) = HistogramInventory.create(implicit inventory =>
+      new SequencerMetrics(new SequencerHistograms(MetricName.Daml), factory)
+    )
+    metrics
+  }
 
   def sequencerStore(mk: () => SequencerStore): Unit = {
 
@@ -177,7 +199,8 @@ trait SequencerStoreTest
           member: Member,
           fromTimestampO: Option[CantonTimestamp] = Some(CantonTimestamp.Epoch),
           limit: Int = 1000,
-      ): FutureUnlessShutdown[Seq[Sequenced[BytesPayload]]] =
+      ): FutureUnlessShutdown[Seq[Sequenced[BytesPayload]]] = {
+        implicit val metricsContext: MetricsContext = MetricsContext.Empty
         for {
           memberId <- lookupRegisteredMember(member)
           events <- store.readEvents(memberId, member, fromTimestampO, limit)
@@ -188,6 +211,7 @@ trait SequencerStoreTest
             case payload: BytesPayload => payload
           }
         }
+      }
 
       def assertDeliverEvent(
           event: Sequenced[BytesPayload],
@@ -530,6 +554,13 @@ trait SequencerStoreTest
                   logs.exists(_.message.contains("Serving 2 events from the buffer"))
                 val bufferDisabled = !env.store.eventsBufferEnabled
                 (readFromTheBuffer || bufferDisabled) shouldBe true
+                if (env.store.eventsBufferEnabled) {
+                  metricCounterValue("hits") should be > 0L
+                  metricCounterValue("misses") shouldBe 0L
+                } else {
+                  metricCounterValue("hits") shouldBe 0L
+                  metricCounterValue("misses") should be > 0L
+                }
               },
             )
           }.failOnShutdown

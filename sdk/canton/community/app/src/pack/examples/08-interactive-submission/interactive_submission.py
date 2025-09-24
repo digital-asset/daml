@@ -13,7 +13,7 @@ from google.protobuf.json_format import MessageToJson
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2_grpc
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2
 from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2
-from external_party_onboarding import onboard_external_party
+from external_party_onboarding_admin_api import onboard_external_party
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric import ec

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.syntax.parallel.*
-import com.digitalasset.canton
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
@@ -16,6 +15,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceInjectionError
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.collection.View
@@ -125,6 +125,18 @@ final class TopologyPackageMapBuilder(
         admissibleSynchronizersSnapshot.iterator.toList.parTraverse { case (syncId, topoLoader) =>
           topoLoader
             .activeParticipantsOfParties(informees.toList)
+            .map { activeParticipantsOfParties =>
+              val informeesHostedOnAnyParticipants =
+                activeParticipantsOfParties.view.filter(_._2.nonEmpty).keys
+              val nonHostedInformees = informees -- informeesHostedOnAnyParticipants
+
+              if (nonHostedInformees.nonEmpty) {
+                logger.info(
+                  show"Informees $nonHostedInformees are not hosted on any participant on synchronizer $syncId"
+                )
+              }
+              activeParticipantsOfParties
+            }
             .map(participantsOfParties => syncId -> (topoLoader -> participantsOfParties))
         }
 
@@ -158,12 +170,19 @@ final class TopologyPackageMapBuilder(
   private def computeGlobalPackageMap(
       partyAllocation: View[(SynchronizerId, Map[LfPartyId, Set[ParticipantId]])],
       participantVettingState: Map[SynchronizerId, Map[ParticipantId, Set[PackageId]]],
-  ): Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]] =
+  )(implicit traceContext: TraceContext): Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]] =
     partyAllocation.map { case (synchronizerId, partiesParticipants) =>
       synchronizerId -> partiesParticipants.view.map { case (party, hostingParticipants) =>
         val vettingStateIntersection = hostingParticipants.view
           .map(participantId =>
-            canton.checked(participantVettingState(synchronizerId)(participantId))
+            participantVettingState(synchronizerId).getOrElse(
+              participantId, {
+                logger.info(
+                  show"Participant $participantId does not have vetted packages for synchronizer $synchronizerId"
+                )
+                Set.empty
+              },
+            )
           )
           // We only care about packages vetted on all hosting participants
           // Otherwise, a transaction using them will be rejected

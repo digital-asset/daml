@@ -31,7 +31,7 @@ fi
       -o "$BUF_PROTO_IMAGE"
 )
 export BUF_PROTO_IMAGE
-# [start-docs-entry: build buf image]
+# [end-docs-entry: build buf image]
 
 # Source the utility script
 source "$(dirname "$0")/utils.sh"

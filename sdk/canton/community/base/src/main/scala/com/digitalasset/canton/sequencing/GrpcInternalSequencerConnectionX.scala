@@ -89,6 +89,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
   private val validationLimiter = new ConnectionValidationLimiter(
     validate()(_: TraceContext),
     futureSupervisor,
+    this,
     loggerFactory,
   )
 

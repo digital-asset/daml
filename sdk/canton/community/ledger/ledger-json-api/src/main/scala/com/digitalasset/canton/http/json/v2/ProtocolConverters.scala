@@ -1383,6 +1383,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       packageIdSelectionPreference = obj.packageIdSelectionPreference,
       verboseHashing = obj.verboseHashing,
       prefetchContractKeys = Nil,
+      maxRecordTime = obj.maxRecordTime,
     )
   }
 

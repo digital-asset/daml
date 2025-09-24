@@ -7,7 +7,12 @@ import cats.syntax.option.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
+import com.digitalasset.canton.config.{
+  BatchAggregatorConfig,
+  CantonConfigValidator,
+  PositiveFiniteDuration,
+  UniformCantonConfigValidation,
+}
 
 /** Configuration for the mediator.
   *
@@ -15,7 +20,8 @@ import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfi
   *   mediator pruning configuration
   */
 final case class MediatorConfig(
-    pruning: MediatorPruningConfig = MediatorPruningConfig()
+    pruning: MediatorPruningConfig = MediatorPruningConfig(),
+    deduplicationStore: DeduplicationStoreConfig = DeduplicationStoreConfig(),
 ) extends UniformCantonConfigValidation
 
 object MediatorConfig {
@@ -45,4 +51,21 @@ object MediatorPruningConfig {
     import com.digitalasset.canton.config.CantonConfigValidatorInstances.*
     CantonConfigValidatorDerivation[MediatorPruningConfig]
   }
+}
+
+/** Configuration for deduplication store
+  * @param pruneAtMostEvery
+  *   An interval to throttle pruning operations to at most once per this duration
+  * @param persistBatching
+  *   Configuration for batching of persist operation in the deduplication store
+  */
+final case class DeduplicationStoreConfig(
+    pruneAtMostEvery: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(10),
+    persistBatching: BatchAggregatorConfig = BatchAggregatorConfig(),
+) extends UniformCantonConfigValidation
+
+object DeduplicationStoreConfig {
+  implicit val deduplicationStoreConfigCantonConfigValidator
+      : CantonConfigValidator[DeduplicationStoreConfig] =
+    CantonConfigValidatorDerivation[DeduplicationStoreConfig]
 }

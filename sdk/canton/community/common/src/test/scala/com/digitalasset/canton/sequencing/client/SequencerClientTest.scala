@@ -1246,7 +1246,7 @@ class SequencerClientTest
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
-      client.sendAsync(batch, messageId = messageId)
+      client.send(batch, messageId = messageId)
     }
 
     def logout(): EitherT[FutureUnlessShutdown, Status, Unit] = client.logout()

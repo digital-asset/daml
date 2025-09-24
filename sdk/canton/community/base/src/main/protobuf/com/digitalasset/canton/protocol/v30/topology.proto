@@ -58,6 +58,11 @@ message Enums {
     TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
     TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING = 18;
   }
+
+  enum ParticipantFeatureFlag {
+    PARTICIPANT_FEATURE_FLAG_UNSPECIFIED = 0;
+    PARTICIPANT_FEATURE_FLAG_PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW = 1;
+  }
 }
 
 // [start NamespaceDelegation definition]
@@ -166,6 +171,9 @@ message SynchronizerTrustCertificate {
   reserved 3; // was bool reassignment_only_to_given_target_synchronizer_ids = 3;
 
   reserved 4; // was repeated string target_synchronizer_ids = 4;
+
+  // Feature flags that this node declares to support on this synchronizer
+  repeated Enums.ParticipantFeatureFlag feature_flags = 5;
 }
 
 // the optional trust certificate of the synchronizer towards the participant

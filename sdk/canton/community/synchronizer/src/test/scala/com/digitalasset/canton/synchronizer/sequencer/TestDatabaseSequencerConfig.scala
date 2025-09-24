@@ -10,6 +10,8 @@ final case class TestDatabaseSequencerConfig(
     reader: SequencerReaderConfig = SequencerReaderConfig(),
     testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
     pruning: SequencerPruningConfig = SequencerPruningConfig(),
+    streamInstrumentation: BlockSequencerStreamInstrumentationConfig =
+      BlockSequencerStreamInstrumentationConfig(),
 ) extends DatabaseSequencerConfig {
 
   override def highAvailabilityEnabled: Boolean = false

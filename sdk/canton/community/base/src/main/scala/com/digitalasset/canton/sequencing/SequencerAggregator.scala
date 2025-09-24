@@ -9,10 +9,12 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{CryptoPureApi, Hash, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
+  HasRunOnClosing,
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -28,6 +30,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.google.common.annotations.VisibleForTesting
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue}
@@ -40,6 +43,7 @@ class SequencerAggregator(
     eventInboxSize: PositiveInt,
     val loggerFactory: NamedLoggerFactory,
     initialConfig: MessageAggregationConfig,
+    updateSendTracker: Seq[SequencedEventWithTraceContext[?]] => Unit,
     override val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
 ) extends NamedLogging
@@ -107,6 +111,9 @@ class SequencerAggregator(
     logger.debug(
       show"Storing event in the event inbox.\n${event.signedEvent.content}"
     )
+
+    updateSendTracker(Seq(event))
+
     if (!receivedEvents.offer(event)) {
       logger.debug(
         s"Event inbox is full. Blocking sequenced event with timestamp ${event.timestamp}."
@@ -145,7 +152,7 @@ class SequencerAggregator(
           this.synchronized {
             if (cursor.forall(message.timestamp > _)) {
               val sequencerMessageData = updatedSequencerMessageData(sequencerId, message)
-              sequenceData.put(message.timestamp, sequencerMessageData): Unit
+              sequenceData.put(message.timestamp, sequencerMessageData).discard
 
               val (nextMinimumTimestamp, nextData) =
                 sequenceData.headOption.getOrElse(
@@ -175,10 +182,10 @@ class SequencerAggregator(
 
     if (expectedMessages.sizeCompare(sequencerTrustThreshold.unwrap) >= 0) {
       cursor = Some(nextMinimumTimestamp)
-      sequenceData.remove(nextMinimumTimestamp): Unit
+      sequenceData.remove(nextMinimumTimestamp).discard
 
       val nonEmptyMessages = NonEmptyUtil.fromUnsafe(expectedMessages.toMap)
-      val messagesToCombine = nonEmptyMessages.map(_._2).toList
+      val messagesToCombine = nonEmptyMessages.map { case (_, event) => event }.toList
       val (sequencerIdToNotify, _) = nonEmptyMessages.head1
 
       nextData.promise
@@ -192,7 +199,7 @@ class SequencerAggregator(
       sequencerId: SequencerId,
       message: SequencedSerializedEvent,
   ): SequencerMessageData = {
-    implicit val traceContext = message.traceContext
+    implicit val traceContext: TraceContext = message.traceContext
     val promise = PromiseUnlessShutdown.supervised[Either[SequencerAggregatorError, SequencerId]](
       "replica-manager-sync-service",
       futureSupervisor,
@@ -245,6 +252,7 @@ object SequencerAggregator {
   def aggregateHealthResult(
       healthResult: Map[SequencerId, ComponentHealthState],
       threshold: PositiveInt,
+      associatedHasRunOnClosing: HasRunOnClosing,
   ): ComponentHealthState =
     NonEmpty.from(healthResult) match {
       case None => ComponentHealthState.NotInitializedState
@@ -268,16 +276,23 @@ object SequencerAggregator {
         ): ComponentHealthState =
           if (healthyCount >= threshold.value) ComponentHealthState.Ok()
           else if (!iter.hasNext) {
+            val common =
+              s"The sequencer client's healthy subscriptions count is under the configured BFT threshold (${threshold.value})."
             val failureMsg = Option.when(failed.nonEmpty)(
               s"Failed sequencer subscriptions for [${failed.sortBy(_.toProtoPrimitive).mkString(", ")}]."
             )
             val degradationMsg = Option.when(degraded.nonEmpty)(
               s"Degraded sequencer subscriptions for [${degraded.sortBy(_.toProtoPrimitive).mkString(", ")}]."
             )
-            val message = Seq(failureMsg, degradationMsg).flatten.mkString(" ")
+            val message = Seq(Some(common), failureMsg, degradationMsg).flatten.mkString(" ")
             if (degraded.sizeIs >= threshold.value - healthyCount)
               ComponentHealthState.degraded(message)
-            else ComponentHealthState.failed(message)
+            else
+              ComponentHealthState.failed(
+                message,
+                // Don't log at WARN level if the sequencer client is closing
+                logLevel = if (associatedHasRunOnClosing.isClosing) Level.INFO else Level.WARN,
+              )
           } else {
             val (sequencerId, state) = iter.next()
             if (state.isOk) go(healthyCount + 1, failed, degraded)

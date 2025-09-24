@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.admin.api.client.data
+package com.digitalasset.canton.admin.api.client.data.parties
 
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta as ProtoObjectMeta
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails

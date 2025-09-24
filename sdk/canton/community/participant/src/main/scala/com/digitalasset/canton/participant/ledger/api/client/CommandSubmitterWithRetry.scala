@@ -76,8 +76,7 @@ class CommandSubmitterWithRetry(
   def abortIfClosing[R](name: String, futureSupervisor: FutureSupervisor)(
       future: => Future[R]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[R] =
-    if (isClosing) FutureUnlessShutdown.abortedDueToShutdown
-    else {
+    unlessClosing {
       implicit val ec: ExecutionContext = directEc
       val promise = PromiseUnlessShutdown.abortOnShutdown[R](
         description = name,

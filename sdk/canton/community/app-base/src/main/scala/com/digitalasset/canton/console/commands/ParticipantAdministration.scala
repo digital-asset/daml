@@ -10,6 +10,10 @@ import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.*
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Package.DarData
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Pruning.*
+import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.ReinitCommitments.{
+  CommitmentReinitializationInfo,
+  ReinitializeCommitments,
+}
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Resources.{
   GetResourceLimits,
   SetResourceLimits,
@@ -197,6 +201,7 @@ private[console] object ParticipantCommands {
         initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         timeTrackerConfig: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
+        sequencerAlias: SequencerAlias = SequencerAlias.Default,
     ): SynchronizerConnectionConfig = {
       // architecture-handbook-entry-begin: OnboardParticipantToConfig
       val certificates = OptionUtil.emptyStringAsNone(certificatesPath).map { path =>
@@ -207,6 +212,7 @@ private[console] object ParticipantCommands {
       }
       SynchronizerConnectionConfig.tryGrpcSingleConnection(
         synchronizerAlias,
+        sequencerAlias,
         connection,
         manualConnect,
         synchronizerId,
@@ -1390,6 +1396,40 @@ class CommitmentsAdministrationGroup(
       )
     )
 
+  @Help.Summary(
+    "Reinitializes commitments from the current ACS. Filtering is possible by synchronizers, counter-participants" +
+      "and stakeholder groups."
+  )
+  @Help.Description(
+    """The command is useful if the participant's commitments got corrupted due to a bug. The command reinitializes the
+      |commitments for the given synchronizers and counter-participants, and containing contracts with stakeholders
+      |including the given parties.
+      |If `synchronizers` is empty, the command considers all synchronizers.
+      |If `counterParticipants` is empty, the command considers all counter-participants.
+      |If `partyIds` is empty, the command considers all stakeholder groups.
+      |`timeout` specifies how long the commands waits for the reinitialization to complete. Granularities smaller than
+      |a second are ignored. Past this timeout, the operator can query the status of the reinitialization using
+      |`commitment_reinitialization_status`. The command returns a sequence pairs of synchronizer IDs and the
+      |reinitialization status for each synchronizer: either the ACS timestamp of the reinitialization, or an error
+      |message if reinitialization failed."""
+  )
+  def reinitialize_commitments(
+      synchronizerIds: Seq[SynchronizerId],
+      counterParticipants: Seq[ParticipantId],
+      partyIds: Seq[PartyId],
+      timeout: NonNegativeDuration,
+  ): Seq[CommitmentReinitializationInfo] = consoleEnvironment.run(
+    runner.adminCommand(
+      ReinitializeCommitments(
+        synchronizerIds,
+        counterParticipants,
+        partyIds,
+        timeout,
+        logger,
+      )
+    )
+  )
+
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
   private implicit val ec: ExecutionContext = consoleEnvironment.environment.executionContext
 }
@@ -2035,6 +2075,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+        sequencerAlias: SequencerAlias = SequencerAlias.Default,
     ): SynchronizerConnectionConfig = {
       val config = ParticipantCommands.synchronizers.to_config(
         synchronizerAlias,
@@ -2044,6 +2085,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         certificatesPath,
         priority,
         timeTrackerConfig = timeTrackerConfig,
+        sequencerAlias = sequencerAlias,
       )
       connect_by_config(config, validation, synchronize)
       config

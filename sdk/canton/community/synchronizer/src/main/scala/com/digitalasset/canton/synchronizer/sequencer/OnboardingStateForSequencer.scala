@@ -7,6 +7,7 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.sequencer
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.version.*
@@ -15,11 +16,13 @@ final case class OnboardingStateForSequencer(
     topologySnapshot: GenericStoredTopologyTransactions,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     sequencerSnapshot: SequencerSnapshot,
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      OnboardingStateForSequencer.type
-    ]
 ) extends HasProtocolVersionedWrapper[OnboardingStateForSequencer] {
+
+  override val representativeProtocolVersion
+      : RepresentativeProtocolVersion[sequencer.OnboardingStateForSequencer.type] =
+    OnboardingStateForSequencer.protocolVersionRepresentativeFor(
+      staticSynchronizerParameters.protocolVersion
+    )
 
   override protected val companionObj: OnboardingStateForSequencer.type =
     OnboardingStateForSequencer
@@ -33,16 +36,6 @@ final case class OnboardingStateForSequencer(
 
 object OnboardingStateForSequencer extends VersioningCompanion[OnboardingStateForSequencer] {
   override def name: String = "onboarding state for sequencer"
-
-  def apply(
-      topologySnapshot: GenericStoredTopologyTransactions,
-      staticSynchronizerParameters: StaticSynchronizerParameters,
-      sequencerSnapshot: SequencerSnapshot,
-      protocolVersion: ProtocolVersion,
-  ): OnboardingStateForSequencer =
-    OnboardingStateForSequencer(topologySnapshot, staticSynchronizerParameters, sequencerSnapshot)(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 
   override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
@@ -72,13 +65,9 @@ object OnboardingStateForSequencer extends VersioningCompanion[OnboardingStateFo
         "sequencer_snapshot",
         value.sequencerSnapshot,
       )
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield OnboardingStateForSequencer(
       topologySnapshot,
       staticSynchronizerParams,
       sequencerSnapshot,
-    )(
-      rpv
     )
-
 }
