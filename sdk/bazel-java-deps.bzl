@@ -324,6 +324,20 @@ def install_java_deps():
         fetch_sources = True,
         version_conflict_policy = "pinned",
     )
+    maven_install(
+        name = "legacy_maven",
+        maven_install_json = "@//:legacy_maven_install.json",
+        artifacts = [
+            # Last snapshot releases prior to mutating Daml 2.1
+            "com.daml:daml-lf-archive-java-proto:3.3.0-snapshot.20250814.13842.0.vc5be9bb3",
+            "com.daml:daml-lf-archive-reader_2.13:3.3.0-snapshot.20250814.13842.0.vc5be9bb3",
+        ],
+        repositories = [
+            "https://repo1.maven.org/maven2",
+        ],
+        fetch_sources = True,
+        version_conflict_policy = "pinned",
+    )
 
     # Do not use those dependencies in anything new !
     maven_install(
