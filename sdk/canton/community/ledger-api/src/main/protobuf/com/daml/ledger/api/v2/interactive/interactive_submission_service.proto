@@ -169,7 +169,7 @@ message PrepareSubmissionResponse {
   // Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
   // Note that there are no guarantees on the stability of the format or content of this field.
   // Its content should NOT be parsed and should only be used for troubleshooting purposes.
-  optional string hashing_details = 4;
+  string hashing_details = 4;
 }
 
 message Signature {
@@ -454,7 +454,7 @@ message Metadata {
 
   message GlobalKeyMappingEntry {
     interactive.GlobalKey key = 1;
-    optional Value value = 2;
+    Value value = 2;
   }
 
   message InputContract {
@@ -489,8 +489,8 @@ message Metadata {
    * If the ledger effective time is outside of any populated min/max bounds then a different transaction
    * can result, that will cause a confirmation message rejection.
    */
-  optional uint64 min_ledger_effective_time = 9;
-  optional uint64 max_ledger_effective_time = 10;
+  uint64 min_ledger_effective_time = 9;
+  uint64 max_ledger_effective_time = 10;
 
   /* ********************************************************** */
   /* ** Metadata information that does NOT need to be signed ** */
