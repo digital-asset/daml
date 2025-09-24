@@ -73,6 +73,11 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
     def encode(pkg: Package): PLF.Package = {
       val builder = PLF.Package.newBuilder()
+
+      this.pkgImports = pkg.imports.map(
+        _.toList.sorted.map(s => eitherToException(PackageId.fromString(s))).zipWithIndex.toMap
+      )
+
       pkg.modules.sortByKey.values.foreach(m => builder.addModules(encodeModule(m)))
 
       val metadataBuilder = PLF.PackageMetadata.newBuilder
@@ -94,10 +99,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       exprTable.build.foreach(builder.addInternedExprs)
       dottedNameTable.build.foreach(builder.addInternedDottedNames)
       stringsTable.build.foreach(builder.addInternedStrings)
-
-      this.pkgImports = pkg.imports.map(
-        _.toList.sorted.map(s => eitherToException(PackageId.fromString(s))).zipWithIndex.toMap
-      )
 
       if (languageVersion >= LV.Features.explicitPkgImports) {
         pkg.imports match {
@@ -166,15 +167,14 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       else {
         val builder = PLF.SelfOrImportedPackageId.newBuilder()
 
-        pkgImports match {
-          case Right(ids)
-              if !stableIds.contains(pkgId) && languageVersion >= LV.Features.explicitPkgImports =>
-            // explicit package imports table
-            builder.setPackageImportId(ids(pkgId))
-          case _ =>
-            // old style direct (but interned) ref
-            setString(pkgId, builder.setImportedPackageIdInternedStr)
-        }
+        if (!stableIds.contains(pkgId) && languageVersion >= LV.Features.explicitPkgImports)
+          pkgImports match {
+            case Right(ids) => builder.setPackageImportId(ids(pkgId))
+            case Left(rsn) => sys.error(s"in encodePackageId, did not find imports, reason {$rsn}")
+          }
+        else
+          setString(pkgId, builder.setImportedPackageIdInternedStr)
+
         builder.build()
       }
 
