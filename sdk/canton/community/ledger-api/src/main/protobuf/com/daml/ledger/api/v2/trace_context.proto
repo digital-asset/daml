@@ -11,6 +11,6 @@ option java_package = "com.daml.ledger.api.v2";
 
 message TraceContext {
   // https://www.w3.org/TR/trace-context/
-  optional string traceparent = 1;
-  optional string tracestate = 2;
+  string traceparent = 1;
+  string tracestate = 2;
 }
