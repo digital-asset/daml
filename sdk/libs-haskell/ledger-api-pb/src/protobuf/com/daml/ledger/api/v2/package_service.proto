@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // **** IMPORTANT NOTICE ****
-// This is a snapshot of the ledger-api proto file as of 2024-07-18.
+// This is a snapshot of the ledger-api proto file as of 2025-07-18.
 // HS bindings to the ledger API are deprecated, and it is assumed that the ledger API will not introduce breaking changes
 // for package service, party management, and user management.
 // These proto definitions should not be used for any other purpose.
