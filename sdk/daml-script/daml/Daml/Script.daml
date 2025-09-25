@@ -120,6 +120,9 @@ module Daml.Script
   , secp256k1generatekeypair
   , secp256k1sign
 #endif
+#ifdef DAML_CRYPTO_ADDITIONS
+  , secp256k1signWithEcdsaOnly
+#endif
 
   , -- Upgrades features
     PackageId (..)  

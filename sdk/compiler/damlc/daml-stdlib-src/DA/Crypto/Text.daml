@@ -10,7 +10,13 @@
 module DA.Crypto.Text
   {-# WARNING in "x-crypto" ["DA.Crypto.Text is an alpha feature. It can change without notice.", "use -Wno-crypto-text-is-alpha in build-options to disable this warning"] #-}
   (keccak256
+#ifdef DAML_CRYPTO_ADDITIONS
+  , sha256
+#endif
   , secp256k1
+#ifdef DAML_CRYPTO_ADDITIONS
+   , secp256k1WithEcdsaOnly
+#endif
   , HasToHex(..)
   , HasFromHex(..)
   , numericViaStringToHex
@@ -91,11 +97,29 @@ isBytesHex hex = Text.length hex % 2 == 0 && isHex hex
 isDEREncoded : Text -> Bool
 isDEREncoded msg = isBytesHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
 
+#ifdef DAML_CRYPTO_ADDITIONS
+-- | Computes the SHA256 hash of the decoded UTF8 bytes of the `Text`, and returns it in its hex-encoded
+-- form. The hex encoding uses lowercase letters.
+sha256 : BytesHex -> BytesHex
+sha256 msg | isBytesHex msg = primitive @"BESha256Hex" (Text.asciiToLower msg)
+sha256 msg = error $ "Message argument is not a hex string: " <> msg
+#endif
+
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
 keccak256 : BytesHex -> BytesHex
 keccak256 msg | isBytesHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower msg)
 keccak256 msg = error $ "Message argument is not a hex string: " <> msg
+
+#ifdef DAML_CRYPTO_ADDITIONS
+-- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
+secp256k1WithEcdsaOnly : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
+secp256k1WithEcdsaOnly sig msg pk
+  | not (isBytesHex msg) = error $ "Message argument is not a hex string: " <> msg
+  | not (isDEREncoded sig) = error $ "Signature argument is not a DER encoded hex string: " <> sig
+   | not (isDEREncoded pk) = error $ "Public key argument is not a DER encoded hex string: " <> pk
+  | otherwise = primitive @"BESecp256k1WithEcdsaBool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
+#endif
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
 secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
