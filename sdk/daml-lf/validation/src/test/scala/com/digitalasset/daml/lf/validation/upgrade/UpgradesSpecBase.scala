@@ -274,7 +274,7 @@ abstract class UpgradesSpec(val suffix: String)
       case _ => {}
     }
     cantonLogSrc should include regex (
-      s"KNOWN_PACKAGE_VERSION\\(.+,.+\\): Tried to vet two packages with the same name and version: $testPackageV1Id \\(.*\\) and $testPackageV2Id \\(.*\\)."
+      s"KNOWN_PACKAGE_VERSION\\(.+,.+\\): Tried to vet two packages with the same name and version: $testPackageV2Id \\(.*\\) and $testPackageV1Id \\(.*\\)."
     )
     uploadV2Result match {
       case None =>
@@ -282,7 +282,7 @@ abstract class UpgradesSpec(val suffix: String)
       case Some(err) => {
         val msg = err.toString
         msg should include("INVALID_ARGUMENT: KNOWN_PACKAGE_VERSION")
-        msg should include regex (s"KNOWN_PACKAGE_VERSION\\(.+,.+\\): Tried to vet two packages with the same name and version: $testPackageV1Id \\(.*\\) and $testPackageV2Id \\(.*\\).")
+        msg should include regex (s"KNOWN_PACKAGE_VERSION\\(.+,.+\\): Tried to vet two packages with the same name and version: $testPackageV2Id \\(.*\\) and $testPackageV1Id \\(.*\\).")
       }
     }
   }
