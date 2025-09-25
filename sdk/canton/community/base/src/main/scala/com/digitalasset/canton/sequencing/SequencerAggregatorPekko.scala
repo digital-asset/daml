@@ -44,6 +44,7 @@ import com.digitalasset.canton.version.RepresentativeProtocolVersion
 import org.apache.pekko.Done
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import org.apache.pekko.stream.{KillSwitch, OverflowStrategy}
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -322,12 +323,14 @@ object SequencerAggregatorPekko {
       val state = additionalState.get()
       if (state.deadlocked) {
         ComponentHealthState.failed(
-          s"Sequencer subscriptions have diverged and cannot reach the threshold ${state.currentThreshold} for synchronizer $synchronizerId any more."
+          s"Sequencer subscriptions have diverged and cannot reach the threshold ${state.currentThreshold} for synchronizer $synchronizerId any more.",
+          logLevel = Level.WARN,
         )
       } else {
         SequencerAggregator.aggregateHealthResult(
           getDependencies.fmap(_.getState),
           state.currentThreshold,
+          associatedHasRunOnClosing,
         )
       }
     }

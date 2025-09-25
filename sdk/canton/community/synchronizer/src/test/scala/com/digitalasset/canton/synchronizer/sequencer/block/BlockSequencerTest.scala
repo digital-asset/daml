@@ -149,12 +149,14 @@ class BlockSequencerTest
     private val balanceStore = new InMemoryTrafficPurchasedStore(loggerFactory)
 
     val fakeBlockOrderer = new FakeBlockOrderer(N)
+    val sequencerMetrics = SequencerMetrics.noop("block-sequencer-test")
     private val fakeBlockSequencerStateManager = new FakeBlockSequencerStateManager
     private val fakeDbSequencerStore = new InMemorySequencerStore(
       testedProtocolVersion,
       sequencer1,
       blockSequencerMode = true,
       loggerFactory,
+      sequencerMetrics = sequencerMetrics,
     )
     private val storage = new MemoryStorage(loggerFactory, timeouts)
     private val store =
@@ -164,6 +166,7 @@ class BlockSequencerTest
           sequencer1,
           blockSequencerMode = true,
           loggerFactory,
+          sequencerMetrics = sequencerMetrics,
         ),
         loggerFactory,
       )

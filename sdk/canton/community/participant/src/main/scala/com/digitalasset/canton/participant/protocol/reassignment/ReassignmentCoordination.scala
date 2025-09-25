@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.instances.future.catsStdInstancesForFuture
-import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
@@ -13,6 +12,7 @@ import com.digitalasset.canton.crypto.{
   SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ReassignmentSynchronizer
@@ -79,8 +79,8 @@ class ReassignmentCoordination(
   ): EitherT[Future, UnknownSynchronizer, Unit] =
     reassignmentSubmissionFor(synchronizerId.unwrap) match {
       case Some(handle) =>
-        handle.timeTracker.requestTick(timestamp, immediately = true)
-        EitherT.right(handle.timeTracker.awaitTick(timestamp).map(_.void).getOrElse(Future.unit))
+        handle.timeTracker.requestTick(timestamp, immediately = true).discard
+        EitherT.right(handle.timeTracker.awaitTick(timestamp).getOrElse(Future.unit))
       case None =>
         EitherT.leftT(
           UnknownSynchronizer(
@@ -135,7 +135,7 @@ class ReassignmentCoordination(
       )
       handle <- reassignmentSubmissionFor(synchronizerId.unwrap)
     } yield {
-      handle.timeTracker.requestTick(timestamp, immediately = true)
+      handle.timeTracker.requestTick(timestamp, immediately = true).discard
       cryptoApi.awaitTimestamp(timestamp)
     }).toRight(UnknownSynchronizer(synchronizerId.unwrap, "When waiting for timestamp"))
 

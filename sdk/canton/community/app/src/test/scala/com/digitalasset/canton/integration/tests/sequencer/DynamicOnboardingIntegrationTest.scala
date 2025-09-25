@@ -145,7 +145,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         logger.debug("Sending aggregation 1 part 1")
         val send1ResultPromise = Promise[UnlessShutdown[SendResult]]()
         p1SequencerClient
-          .sendAsync(
+          .send(
             aggregatedBatch,
             maxSequencingTime = maxSequencingTimeOfAggregation,
             aggregationRule = Some(aggregationRule1),
@@ -167,7 +167,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         logger.debug("Sending aggregation 2 part 1")
         val send2ResultPromise = Promise[UnlessShutdown[SendResult]]()
         val send2 = p1SequencerClient
-          .sendAsync(
+          .send(
             Batch.empty(testedProtocolVersion),
             maxSequencingTime = maxSequencingTimeOfAggregation,
             messageId = MessageId.tryCreate("aggregation-2-part-1a"),
@@ -179,7 +179,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
 
         val send3ResultPromise = Promise[UnlessShutdown[SendResult]]()
         val send3 = p3SequencerClient
-          .sendAsync(
+          .send(
             Batch.empty(testedProtocolVersion),
             maxSequencingTime = maxSequencingTimeOfAggregation,
             messageId = MessageId.tryCreate("aggregation-2-part-1b"),
@@ -294,7 +294,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         // When the mediator switches below to the other sequencer,
         // we'd see a ledger fork if the sequencers disagreed on the delivery of this event.
         p3SequencerClient
-          .sendAsync(
+          .send(
             aggregatedBatch,
             maxSequencingTime = maxSequencingTimeOfAggregation,
             aggregationRule = Some(aggregationRule1),
@@ -310,7 +310,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         logger.debug("Sending aggregation 2 part 2")
         val send2ResultPromise = Promise[UnlessShutdown[SendResult]]()
         p3SequencerClient
-          .sendAsync(
+          .send(
             Batch.empty(testedProtocolVersion),
             maxSequencingTime = maxSequencingTimeOfAggregation,
             aggregationRule = Some(aggregationRule2),
@@ -398,7 +398,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
               logger.debug("Sending submission request with tombstone topology timestamp")
               val send1ResultPromise = Promise[UnlessShutdown[SendResult]]()
               p3SequencerClient
-                .sendAsync(
+                .send(
                   Batch.empty(testedProtocolVersion),
                   maxSequencingTime = maxSequencingTimeOfAggregation,
                   callback = send1ResultPromise.success,

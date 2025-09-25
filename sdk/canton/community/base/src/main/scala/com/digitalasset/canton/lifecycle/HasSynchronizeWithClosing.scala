@@ -43,7 +43,7 @@ trait HasSynchronizeWithClosing extends HasRunOnClosing {
   def synchronizeWithClosingUSF[F[_], A](name: String)(f: => F[A])(implicit
       traceContext: TraceContext,
       F: Thereafter[F],
-      A: AbsorbUnlessShutdown[F],
+      A: CanAbortDueToShutdown[F],
   ): F[A] = A.absorbOuter(synchronizeWithClosingF(name)(f))
 
   /** Runs the computation `f` only if the component is not yet closing. If so, the component will

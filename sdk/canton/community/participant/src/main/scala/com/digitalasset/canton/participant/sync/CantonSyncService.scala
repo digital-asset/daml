@@ -17,7 +17,7 @@ import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
+import com.digitalasset.canton.crypto.{CryptoPureApi, HashOps, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
@@ -44,8 +44,8 @@ import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
   SyncStateInspection,
 }
-import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
+import com.digitalasset.canton.participant.admin.repair.{CommitmentsService, RepairService}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
@@ -398,6 +398,14 @@ class CantonSyncService(
       loggerFactory,
     )
 
+  val commitmentsService: CommitmentsService = new CommitmentsService(
+    ledgerApiIndexer.asEval(TraceContext.empty),
+    parameters,
+    syncPersistentStateManager,
+    connectedSynchronizersLookup,
+    loggerFactory,
+  )
+
   val dynamicSynchronizerParameterGetter =
     new CantonDynamicSynchronizerParameterGetter(
       syncCrypto,
@@ -674,10 +682,18 @@ class CantonSyncService(
   override def allocateParty(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
+      externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    partyAllocation.allocate(hint, rawSubmissionId)
+  ): FutureUnlessShutdown[SubmissionResult] =
+    partyAllocation.allocate(hint, rawSubmissionId, externalPartyOnboardingDetails)
+
+  override def protocolVersionForSynchronizerId(
+      synchronizerId: SynchronizerId
+  ): Option[ProtocolVersion] =
+    connectedSynchronizersLookup
+      .get(synchronizerId)
+      .map(_.synchronizerHandle.staticParameters.protocolVersion)
 
   override def uploadDar(dars: Seq[ByteString], submissionId: Ref.SubmissionId)(implicit
       traceContext: TraceContext
@@ -1646,7 +1662,7 @@ class CantonSyncService(
         _ = logger.debug(s"Awaiting tick at $tick from $alias for migration")
         _ <- EitherT.right(
           FutureUnlessShutdown.outcomeF(
-            syncService.timeTracker.awaitTick(tick).fold(Future.unit)(_.void)
+            syncService.timeTracker.awaitTick(tick).getOrElse(Future.unit)
           )
         )
         _ <- repairService
@@ -1721,6 +1737,7 @@ class CantonSyncService(
       connectQueue,
       migrationService,
       repairService,
+      commitmentsService,
       pruningProcessor,
     ) ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
       transactionRoutingProcessor,
@@ -1875,18 +1892,34 @@ class CantonSyncService(
         case (synchronizerAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
             topology <- getSnapshot(synchronizerAlias, synchronizerId)
-            partyWithAttributes <- topology.hostedOn(
-              Set(request.party),
-              participantId = request.participantId.getOrElse(participantId),
+            // Find the attributes for the party if one is passed in, and if we can find it in topology
+            attributesO <- request.party.parFlatTraverse(party =>
+              topology
+                .hostedOn(
+                  Set(party),
+                  participantId = request.participantId.getOrElse(participantId),
+                )
+                .map(
+                  _.get(party)
+                )
             )
-          } yield partyWithAttributes
-            .get(request.party)
+          } yield attributesO
             .map(attributes =>
               ConnectedSynchronizerResponse.ConnectedSynchronizer(
                 synchronizerAlias,
                 synchronizerId,
-                attributes.permission,
+                Some(attributes.permission),
               )
+            )
+            .orElse(
+              // Return the connected synchronizer without party information only when no party was requested
+              Option.when(request.party.isEmpty) {
+                ConnectedSynchronizerResponse.ConnectedSynchronizer(
+                  synchronizerAlias,
+                  synchronizerId,
+                  None,
+                )
+              }
             )
       }.toSeq
 
@@ -1984,8 +2017,22 @@ class CantonSyncService(
     val syncCryptoPureApi: RoutingSynchronizerStateFactory.SyncCryptoPureApiLookup =
       (synchronizerId, staticSyncParameters) =>
         syncCrypto.forSynchronizer(synchronizerId, staticSyncParameters).map(_.pureCrypto)
-    RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup, syncCryptoPureApi)
+    val routingState =
+      RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup, syncCryptoPureApi)
+
+    val connectedSynchronizers = routingState.connectedSynchronizers.keySet.mkString(", ")
+    val topologySnapshotInfo = routingState.topologySnapshots.view
+      .map { case (syncId, loader) => s"$syncId at ${loader.timestamp}" }
+      .mkString(", ")
+
+    logger.info(
+      show"Routing state contains connected synchronizers $connectedSynchronizers and topology $topologySnapshotInfo"
+    )
+
+    routingState
   }
+
+  override def hashOps: HashOps = this.syncCrypto.pureCrypto
 
 }
 

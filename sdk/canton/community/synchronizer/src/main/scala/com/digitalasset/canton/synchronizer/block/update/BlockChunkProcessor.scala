@@ -12,8 +12,14 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.base.error.BaseAlarm
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoClient, SynchronizerCryptoClient}
+import com.digitalasset.canton.crypto.{
+  HashPurpose,
+  SyncCryptoApi,
+  SyncCryptoClient,
+  SynchronizerCryptoClient,
+}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.GroupAddressResolver
@@ -37,9 +43,10 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-import BlockUpdateGeneratorImpl.{SequencedSubmission, State}
+import BlockUpdateGeneratorImpl.{SequencedValidatedSubmission, State}
 import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 
 /** Processes a chunk of events in a block, yielding a [[ChunkUpdate]].
@@ -56,14 +63,20 @@ final class BlockChunkProcessor(
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
-  private val sequencedSubmissionsValidator =
-    new SequencedSubmissionsValidator(
+  private val submissionRequestValidator =
+    new SubmissionRequestValidator(
       synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
       loggerFactory,
       metrics,
       memberValidator = memberValidator,
+    )
+
+  private val sequencedSubmissionsValidator =
+    new SequencedSubmissionsValidator(
+      loggerFactory,
+      submissionRequestValidator = submissionRequestValidator,
     )
 
   def processDataChunk(
@@ -75,13 +88,9 @@ final class BlockChunkProcessor(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[(BlockUpdateGeneratorImpl.State, ChunkUpdate)] = {
-    logger.debug(
-      s"Processing data chunk for block $height, chunk $index, with ${chunkEvents.size} events; " +
-        s"last chunk timestamp: ${state.lastChunkTs}, " +
-        s"last sequencer event timestamp: ${state.latestSequencerEventTimestamp}"
-    )
+    val (lastTsBeforeValidation, fixedTsChanges) = fixTimestamps(state, chunkEvents)
 
-    val (lastTsBeforeValidation, fixedTsChanges) = fixTimestamps(height, index, state, chunkEvents)
+    logChunkDetails(state, height, index, fixedTsChanges)
 
     // TODO(i18438): verify the signature of the sequencer on the SendEvent
     val orderingRequests =
@@ -95,24 +104,55 @@ final class BlockChunkProcessor(
       "submission metric updating failed",
     )
 
-    for {
-      sequencedSubmissionsWithSnapshots <-
-        addSnapshots(
-          state.latestSequencerEventTimestamp,
-          sequencersSequencerCounter = None,
-          height,
-          index,
-          orderingRequests,
-        )
+    def validateSubmission(
+        sequencingTimestamp: CantonTimestamp,
+        signedOrderingRequest: SignedOrderingRequest,
+        topologyOrSequencingSnapshot: SyncCryptoApi,
+        topologyTimestampError: Option[SequencerDeliverError],
+        traceContext: TraceContext,
+    ): FutureUnlessShutdown[SequencedValidatedSubmission] =
+      submissionRequestValidator
+        .performIndependentValidations(
+          sequencingTimestamp,
+          signedOrderingRequest.signedSubmissionRequest,
+          topologyOrSequencingSnapshot,
+          topologyTimestampError,
+        )(traceContext, ec)
+        .value
+        .run
+        .map { case (trafficConsumption, errorOrResolvedGroups) =>
+          SequencedValidatedSubmission(
+            sequencingTimestamp,
+            signedOrderingRequest,
+            topologyOrSequencingSnapshot,
+            topologyTimestampError,
+            trafficConsumption,
+            errorOrResolvedGroups,
+          )(traceContext)
+        }
 
-      acksValidationResult <- processAcknowledgements(state, fixedTsChanges)
+    // Note: this runs for every submission in parallel using parTraverse
+    val validatedSequencedSubmissionsF = addSnapshotsAndValidateSubmissions(
+      state.latestSequencerEventTimestamp,
+      sequencersSequencerCounter = None,
+      height,
+      index,
+      orderingRequests,
+      validateSubmission,
+    )
+
+    val acksValidationResultF = processAcknowledgements(state, fixedTsChanges)
+
+    for {
+      validatedSequencedSubmissions <- validatedSequencedSubmissionsF
+      acksValidationResult <- acksValidationResultF
       (acksByMember, invalidAcks) = acksValidationResult
 
       validationResult <-
-        sequencedSubmissionsValidator.validateSequencedSubmissions(
+        sequencedSubmissionsValidator.sequentialApplySubmissionsAndEmitOutcomes(
           state,
           height,
-          sequencedSubmissionsWithSnapshots,
+          validatedSequencedSubmissions,
         )
       SequencedSubmissionsValidationResult(
         finalInFlightAggregations,
@@ -156,6 +196,55 @@ final class BlockChunkProcessor(
         )
     } yield (newState, chunkUpdate)
   }
+
+  private def logChunkDetails(
+      state: State,
+      height: Long,
+      index: Int,
+      assignedTimestamps: Seq[(CantonTimestamp, Traced[LedgerBlockEvent])],
+  )(implicit traceContext: TraceContext): Unit =
+    noTracingLogger.whenInfoEnabled {
+      val sb = new mutable.StringBuilder()
+      sb.append("Processing block ")
+        .append(height)
+        .append(", data chunk ")
+        .append(index)
+        .append(". Last chunk timestamp=")
+        .append(state.lastChunkTs.toString)
+        .append(", last sequencer event timestamp=")
+        .append(state.latestSequencerEventTimestamp.toString)
+        .append(". ")
+        .append(assignedTimestamps.size)
+        .append(" events:")
+        .discard
+
+      def logLedgerBlockEvent(
+          timestamp: CantonTimestamp,
+          ledgerBlockEvent: LedgerBlockEvent,
+          eventTraceContext: TraceContext,
+      ): Unit = ledgerBlockEvent match {
+        case LedgerBlockEvent.Send(_, signedOrderingRequest, _) =>
+          sb.append("\n  Send of ")
+            .append(signedOrderingRequest.content.content.content.messageId.singleQuoted)
+            .append(" at ")
+            .append(timestamp.toString)
+            .discard
+          eventTraceContext.traceId.foreach { traceId =>
+            sb.append(" (tc=").append(traceId).append(")").discard
+          }
+        case LedgerBlockEvent.Acknowledgment(signedAck) =>
+          sb.append("\n  Ack by ")
+            .append(signedAck.content.member.toString)
+            .append(" for ")
+            .append(signedAck.content.timestamp.toString)
+            .discard
+      }
+
+      assignedTimestamps.foreach { case (ts, event) =>
+        logLedgerBlockEvent(ts, event.value, event.traceContext)
+      }
+      logger.info(sb.toString())
+    }
 
   def emitTick(
       state: BlockUpdateGeneratorImpl.State,
@@ -249,8 +338,6 @@ final class BlockChunkProcessor(
   }
 
   private def fixTimestamps(
-      height: Long,
-      index: Int,
       state: State,
       chunk: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
   ): (CantonTimestamp, Seq[(CantonTimestamp, Traced[LedgerBlockEvent])]) = {
@@ -264,16 +351,8 @@ final class BlockChunkProcessor(
         event.value match {
           case send: Send =>
             val ts = ensureStrictlyIncreasingTimestamp(lastTs, send.timestamp)
-            logger.info(
-              show"Observed Send with messageId ${send.signedSubmissionRequest.content.messageId.singleQuoted} in block $height, chunk $index and assigned it timestamp $ts"
-            )(event.traceContext)
             (ts, (ts, event) +: events)
           case _ =>
-            logger.info(
-              s"Observed ${event.value} in block $height, chunk $index at timestamp $lastTs"
-            )(
-              event.traceContext
-            )
             (lastTs, (lastTs, event) +: events)
         }
       }
@@ -307,13 +386,22 @@ final class BlockChunkProcessor(
     }
   }
 
-  private def addSnapshots(
+  private def addSnapshotsAndValidateSubmissions(
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       sequencersSequencerCounter: Option[SequencerCounter],
       height: Long,
       index: Int,
       submissionRequests: Seq[(CantonTimestamp, Traced[SignedOrderingRequest])],
-  )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[Seq[SequencedSubmission]] =
+      validateSubmission: (
+          CantonTimestamp,
+          SignedOrderingRequest,
+          SyncCryptoApi,
+          Option[SequencerDeliverError],
+          TraceContext,
+      ) => FutureUnlessShutdown[SequencedValidatedSubmission],
+  )(implicit
+      executionContext: ExecutionContext
+  ): FutureUnlessShutdown[Seq[SequencedValidatedSubmission]] =
     submissionRequests.zipWithIndex.parTraverse {
       case ((sequencingTimestamp, tracedSubmissionRequest), requestIndex) =>
         tracedSubmissionRequest.withTraceContext { implicit traceContext => orderingRequest =>
@@ -327,7 +415,7 @@ final class BlockChunkProcessor(
             topologySnapshotOrErrO <- orderingRequest.submissionRequest.topologyTimestamp.traverse(
               topologyTimestamp =>
                 SequencedEventValidator
-                  .validateTopologyTimestampUS(
+                  .validateTopologyTimestamp(
                     synchronizerSyncCryptoApi,
                     topologyTimestamp,
                     sequencingTimestamp,
@@ -379,12 +467,14 @@ final class BlockChunkProcessor(
                     snapshot
                   }
             }
-          } yield SequencedSubmission(
-            sequencingTimestamp,
-            orderingRequest,
-            topologyOrSequencingSnapshot,
-            topologySnapshotOrErrO.mapFilter(_.swap.toOption),
-          )(traceContext)
+            sequencedValidatedSubmission <- validateSubmission(
+              sequencingTimestamp,
+              orderingRequest,
+              topologyOrSequencingSnapshot,
+              topologySnapshotOrErrO.mapFilter(_.swap.toOption),
+              traceContext,
+            )
+          } yield sequencedValidatedSubmission
         }
     }
 
@@ -453,12 +543,12 @@ final class BlockChunkProcessor(
     Future {
       value.foreach(_.withTraceContext { implicit traceContext =>
         {
+
           case LedgerBlockEvent.Send(_, signedSubmissionRequest, payloadSize) =>
-            val mc = SequencerMetrics.submissionTypeMetricsContext(
-              signedSubmissionRequest.submissionRequest.batch.allRecipients,
-              signedSubmissionRequest.submissionRequest.sender,
-              logger,
-            )
+            val submissionRequest = signedSubmissionRequest.submissionRequest
+            val sender = submissionRequest.sender
+            val requestType = submissionRequest.requestType
+            val mc = SequencerMetrics.submissionTypeMetricsContext(sender, requestType, logger)
             metrics.block.blockEvents.mark()(mc)
             metrics.block.blockEventBytes.mark(payloadSize.longValue)(mc)
 

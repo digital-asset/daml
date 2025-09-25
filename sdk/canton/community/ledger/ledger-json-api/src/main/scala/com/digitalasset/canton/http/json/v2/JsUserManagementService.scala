@@ -301,14 +301,18 @@ object JsUserManagementCodecs {
   implicit val user: Codec[user_management_service.User] = deriveRelaxedCodec
   implicit val participantAdmin: Codec[user_management_service.Right.ParticipantAdmin] =
     deriveRelaxedCodec
-  implicit val canActAs: Codec[user_management_service.Right.CanActAs] = deriveRelaxedCodec
-  implicit val canReadAs: Codec[user_management_service.Right.CanReadAs] = deriveRelaxedCodec
+  implicit val canActAsRW: Codec[user_management_service.Right.CanActAs] = deriveRelaxedCodec
+  implicit val canReadAsRW: Codec[user_management_service.Right.CanReadAs] = deriveRelaxedCodec
+  implicit val canExecuteAsRW: Codec[user_management_service.Right.CanExecuteAs] =
+    deriveRelaxedCodec
   implicit val rightKindidentityProviderAdminRW
       : Codec[user_management_service.Right.Kind.IdentityProviderAdmin] =
     deriveRelaxedCodec
   implicit val identityProviderAdmin: Codec[user_management_service.Right.IdentityProviderAdmin] =
     deriveRelaxedCodec
-  implicit val canReadAsAnyPartyRW: Codec[user_management_service.Right.CanReadAsAnyParty] =
+  implicit val canReadAsAnyPartyRWRW: Codec[user_management_service.Right.CanReadAsAnyParty] =
+    deriveRelaxedCodec
+  implicit val canExecuteAsAnyPartyRWRW: Codec[user_management_service.Right.CanExecuteAsAnyParty] =
     deriveRelaxedCodec
   implicit val kindCanActAsRW: Codec[user_management_service.Right.Kind.CanActAs] =
     deriveRelaxedCodec
@@ -316,6 +320,11 @@ object JsUserManagementCodecs {
     deriveRelaxedCodec
   implicit val kindCanReadAsAnyPartyRW
       : Codec[user_management_service.Right.Kind.CanReadAsAnyParty] =
+    deriveRelaxedCodec
+  implicit val kindCanExecuteAsRWRW: Codec[user_management_service.Right.Kind.CanExecuteAs] =
+    deriveRelaxedCodec
+  implicit val kindCanExecuteAsAnyPartyRW
+      : Codec[user_management_service.Right.Kind.CanExecuteAsAnyParty] =
     deriveRelaxedCodec
   implicit val kindParticipantAdminRW: Codec[user_management_service.Right.Kind.ParticipantAdmin] =
     deriveRelaxedCodec

@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.participant.v30;
 
 import "com/digitalasset/canton/admin/participant/v30/synchronizer_connectivity.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 // Perform participant repair operations, including exporting and importing ACS, purging
@@ -43,6 +44,8 @@ service ParticipantRepairService {
 
   // Rollback the unassignment of a contract: the contract will be re-assigned back to the source synchronizer
   rpc RollbackUnassignment(RollbackUnassignmentRequest) returns (RollbackUnassignmentResponse);
+
+  rpc RepairCommitmentsUsingAcs(RepairCommitmentsUsingAcsRequest) returns (RepairCommitmentsUsingAcsResponse);
 }
 
 message PurgeContractsRequest {
@@ -250,3 +253,33 @@ message RollbackUnassignmentRequest {
 }
 
 message RollbackUnassignmentResponse {}
+
+message RepairCommitmentsUsingAcsRequest {
+  // The IDs of the synchronizers where to reinitialize commitments from ACS
+  // If empty, we reinitialize commitments for all synchronizers
+  repeated string synchronizer_ids = 1;
+
+  // Reinitialize commitments only for the given counter-participant
+  // If empty, we reinitialize commitments for all counter-participants
+  repeated string counter_participant_ids = 2;
+
+  // Reinitialize commitments only for the stakeholder groups containing the given parties
+  // If empty, we reinitialize commitments for all stakeholder groups
+  repeated string party_ids = 3;
+
+  // The timeout to wait for command to return success
+  // The success status can also be queried later using the `CommitmentsService`
+  google.protobuf.Duration timeout_seconds = 4;
+}
+
+message RepairCommitmentsUsingAcsResponse {
+  repeated RepairCommitmentsStatus statuses = 1;
+}
+
+message RepairCommitmentsStatus {
+  string synchronizer_id = 1;
+  oneof status {
+    string error_message = 2;
+    google.protobuf.Timestamp completed_repair_timestamp = 3;
+  }
+}

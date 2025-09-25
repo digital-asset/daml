@@ -132,6 +132,7 @@ class SequencedEventTestFixture(
       eventInboxSize = PositiveInt.tryCreate(2),
       loggerFactory = loggerFactory,
       initialConfig = config,
+      updateSendTracker = _ => (),
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
     )

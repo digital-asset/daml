@@ -42,10 +42,9 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionTestFactory,
 }
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
-  StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -53,6 +52,7 @@ import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, VersionedMessage}
 import com.digitalasset.canton.{
   BaseTest,
+  HasActorSystem,
   HasExecutionContext,
   ProtocolVersionChecksFixtureAsyncWordSpec,
 }
@@ -61,12 +61,15 @@ import io.grpc.Status.Code.*
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import io.grpc.{StatusException, StatusRuntimeException}
 import monocle.macros.syntax.lens.*
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.{ArgumentMatchers, Mockito}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
 import org.slf4j.event
 
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
@@ -76,7 +79,8 @@ class GrpcSequencerServiceTest
     extends FixtureAsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksFixtureAsyncWordSpec
-    with HasExecutionContext {
+    with HasExecutionContext
+    with HasActorSystem {
   type Subscription = GrpcManagedSubscription[?]
 
   import GrpcSequencerServiceTest.*
@@ -142,21 +146,19 @@ class GrpcSequencerServiceTest
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,
             traceContext: TraceContext,
-        ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = FutureUnlessShutdown.pure(
-          StoredTopologyTransactions(
-            // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
-            List
-              .fill(maxItemsInTopologyBatch * numBatches)(factory.ns1k1_k1)
-              .map(
-                StoredTopologyTransaction(
-                  SequencedTime.MinValue,
-                  EffectiveTime.MinValue,
-                  None,
-                  _,
-                  None,
-                )
+        ): Source[GenericStoredTopologyTransaction, NotUsed] = Source(
+          // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
+          List
+            .fill(maxItemsInTopologyBatch * numBatches)(factory.ns1k1_k1)
+            .map(
+              StoredTopologyTransaction(
+                SequencedTime.MinValue,
+                EffectiveTime.MinValue,
+                None,
+                _,
+                None,
               )
-          )
+            )
         )
       }
 
@@ -654,6 +656,69 @@ class GrpcSequencerServiceTest
         }
       }
     }
+
+    "close subscription if canceled before fully created" in { env =>
+      val observer = mock[MockServerStreamObserver[v30.SubscriptionResponse]]
+      val cancelHandler = new AtomicReference[Option[Runnable]](None)
+      val subscriptionClosed = new AtomicBoolean(false)
+
+      // Subscription augmented to let us know when it is closed.
+      val subscription =
+        new GrpcManagedSubscription(
+          _ => ???,
+          observer,
+          participant,
+          None,
+          timeouts,
+          loggerFactory,
+          _ => ???,
+        ) {
+          override def onClosed(): Unit = {
+            super.onClosed()
+            subscriptionClosed.set(true)
+          }
+        }
+
+      // Remember the cancel handler once set, so we can simulate a grpc context cancel.
+      Mockito
+        .when(observer.setOnCancelHandler(ArgumentMatchers.any[Runnable]()))
+        .thenAnswer(mockInvocation =>
+          cancelHandler.set(Some(mockInvocation.getArgument[Runnable](0)))
+        )
+
+      // Slow down the subscription pool to improve our chances of canceling before the
+      // subscription is fully created.
+      Mockito
+        .when(
+          env.subscriptionPool.create(
+            ArgumentMatchers.any[() => FutureUnlessShutdown[Subscription]](),
+            ArgumentMatchers.any[Member](),
+          )(anyTraceContext)
+        )
+        .thenReturn {
+          EitherT.right(Future {
+            logger.info("Test slowing down subscription creation")
+            // Simulate a delay in subscription creation to let us cancel the GRPC call
+            // before the subscription is fully created.
+            Threading.sleep(1000)
+            logger.info("Test done slowing down subscription creation")
+            subscription
+          })
+        }
+
+      // Initiate creating a subscription asynchronously.
+      val requestP =
+        SubscriptionRequestV2(participant, timestamp = None, testedProtocolVersion).toProtoV30
+      env.service.subscribeV2(requestP, observer)
+
+      // Cancel the grpc subscription once the cancel handler is known.
+      eventually()(cancelHandler.get().nonEmpty shouldBe true)
+      logger.info("Test canceling grpc request")
+      cancelHandler.get().foreach(_.run())
+
+      // The point of this test: Make sure the subscription is closed.
+      eventually()(subscriptionClosed.get() shouldBe true)
+    }
   }
 
   def performAcknowledgeRequest(env: Environment)(request: AcknowledgeRequest) =
@@ -717,7 +782,7 @@ class GrpcSequencerServiceTest
 
   "downloadTopologyStateForInit" should {
     "stream batches of topology transactions" in { env =>
-      val observer = new MockStreamObserver[v30.DownloadTopologyStateForInitResponse]()
+      val observer = new MockServerStreamObserver[v30.DownloadTopologyStateForInitResponse]()
       env.service.downloadTopologyStateForInit(
         TopologyStateForInitRequest(participant, testedProtocolVersion).toProtoV30,
         observer,

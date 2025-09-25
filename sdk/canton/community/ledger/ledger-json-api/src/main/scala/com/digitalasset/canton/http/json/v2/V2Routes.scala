@@ -59,8 +59,8 @@ object V2Routes {
       executionContext: ExecutionContext,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      esf: ExecutionSequencerFactory,
       ws: WebsocketConfig,
+      esf: ExecutionSequencerFactory,
       materializer: Materializer,
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext

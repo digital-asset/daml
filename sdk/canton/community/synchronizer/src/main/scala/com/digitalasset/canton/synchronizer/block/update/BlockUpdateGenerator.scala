@@ -15,7 +15,6 @@ import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.*
 import com.digitalasset.canton.synchronizer.block.data.{BlockEphemeralState, BlockInfo}
 import com.digitalasset.canton.synchronizer.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregations
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
   SignedOrderingRequest,
   SignedOrderingRequestOps,
@@ -24,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactor
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.InvalidLedgerEvent
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
+import com.digitalasset.canton.synchronizer.sequencer.{InFlightAggregations, SubmissionOutcome}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.*
@@ -212,10 +212,12 @@ object BlockUpdateGeneratorImpl {
       inFlightAggregations: InFlightAggregations,
   )
 
-  private[update] final case class SequencedSubmission(
+  private[update] final case class SequencedValidatedSubmission(
       sequencingTimestamp: CantonTimestamp,
       submissionRequest: SignedOrderingRequest,
       topologyOrSequencingSnapshot: SyncCryptoApi,
       topologyTimestampError: Option[SequencerDeliverError],
+      consumeTraffic: SubmissionRequestValidator.TrafficConsumption,
+      errorOrResolvedGroups: Either[SubmissionOutcome, Map[GroupRecipient, Set[Member]]],
   )(val traceContext: TraceContext)
 }

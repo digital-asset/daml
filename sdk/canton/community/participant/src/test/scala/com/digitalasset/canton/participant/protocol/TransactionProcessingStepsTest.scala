@@ -61,6 +61,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     CommandProgressTracker.NoOp,
     loggerFactory = loggerFactory,
     FutureSupervisor.Noop,
+    messagePayloadLoggingEnabled = false,
   )
 
   "authenticateInputContracts" when {

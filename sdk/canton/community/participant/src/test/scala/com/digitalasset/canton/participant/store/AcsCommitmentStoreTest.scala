@@ -18,7 +18,10 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
   SortedReconciliationIntervalsProvider,
 }
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
+  ParticipantCommitmentData,
+  ReinitializationStatus,
+}
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -1037,8 +1040,47 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
         res3 shouldBe (rt(3, 0) -> Map.empty)
       }
     }
-  }
 
+    "start reinitialization" in {
+      val snapshot = mk()
+      val ts1 = CantonTimestamp.now()
+      val ts2 = ts1.plusSeconds(100)
+      val ts3 = ts1.plusSeconds(200)
+      for {
+        beginRead <- snapshot.readReinitilizationStatus()
+        // completing a reinitialization does not work if it's not in progress
+        completion0 <- snapshot.markReinitializationCompleted(ts2)
+        completion0Read <- snapshot.readReinitilizationStatus()
+        // first reinitialization should work as nothing is in progress
+        _ <- snapshot.markReinitializationStarted(ts1)
+        reinit1 <- snapshot.readReinitilizationStatus()
+        // reinitialization should work while the first one is still in progress
+        _ <- snapshot.markReinitializationStarted(ts2)
+        reinit2 <- snapshot.readReinitilizationStatus()
+        // completing a reinitialization does not work if it's not in progress
+        completion1 <- snapshot.markReinitializationCompleted(ts1)
+        completion1Read <- snapshot.readReinitilizationStatus()
+        // completing a reinitialization works if it's in progress
+        completion2 <- snapshot.markReinitializationCompleted(ts2)
+        completion2Read <- snapshot.readReinitilizationStatus()
+        // third reinitialization should work as the previous reinit completed
+        _ <- snapshot.markReinitializationStarted(ts3)
+        reinit3 <- snapshot.readReinitilizationStatus()
+
+      } yield {
+        beginRead shouldBe ReinitializationStatus(None, None)
+        completion0 shouldBe false
+        completion0Read shouldBe ReinitializationStatus(None, None)
+        reinit1 shouldBe ReinitializationStatus(Some(ts1), None)
+        reinit2 shouldBe ReinitializationStatus(Some(ts2), None)
+        completion1 shouldBe false
+        completion1Read shouldBe ReinitializationStatus(Some(ts2), None)
+        completion2 shouldBe true
+        completion2Read shouldBe ReinitializationStatus(Some(ts2), Some(ts2))
+        reinit3 shouldBe ReinitializationStatus(Some(ts3), Some(ts2))
+      }
+    }
+  }
 }
 
 trait CommitmentQueueTest extends CommitmentStoreBaseTest {

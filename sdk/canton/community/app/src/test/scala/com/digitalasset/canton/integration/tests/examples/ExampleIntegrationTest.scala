@@ -74,6 +74,7 @@ object ExampleIntegrationTest {
   lazy val advancedConfTestEnv: File =
     "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
   lazy val bftSequencerConfigurationFolder: File = examplesPath / "11-bft-sequencer"
+  lazy val referenceSequencerConfigurationFolder: File = examplesPath / "12-reference-sequencer"
 
   def ensureSystemProperties(kvs: (String, String)*): Unit = blocking(synchronized {
     kvs.foreach { case (key, value) =>

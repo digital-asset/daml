@@ -15,7 +15,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
@@ -38,7 +38,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
-import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
+import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -461,6 +461,11 @@ object ModelConformanceChecker {
         protocolVersion: ProtocolVersion,
         transactionEnricher: TransactionEnricher,
         createNodeEnricher: CreateNodeEnricher,
+        hashTracer: HashTracer,
+        nodesWithoutSupportForLocalContractsInSubviews: () => FutureUnlessShutdown[
+          Set[ParticipantId]
+        ],
+        logger: TracedLogger,
     )(implicit
         traceContext: TraceContext,
         ec: ExecutionContext,
@@ -471,8 +476,42 @@ object ModelConformanceChecker {
           reInterpretationResult.transaction
         )(traceContext)
           .leftMap(_.toString)
+        // Detect viewInputContracts vs transaction.inputContract mismatch
+        // viewInputContracts also returns locally created contracts used in subviews
+        // Those are not true input contracts to the transaction and are therefore not part of the transaction hash
+        // Filter them out ONLY if all the informee participants declare supporting this bug fix
+        inputContracts <- {
+          if (viewInputContracts.sizeIs != reInterpretationResult.transaction.inputContracts.size) {
+            logger.debug(
+              "Detected mismatch between transaction input contracts signed and view input contracts."
+            )
+            EitherT
+              .liftF[FutureUnlessShutdown, String, Set[ParticipantId]](
+                nodesWithoutSupportForLocalContractsInSubviews()
+              )
+              .subflatMap {
+                // If all informee participants support the bug fix, use the correct set of input contracts
+                case nodesWithoutSupport if nodesWithoutSupport.isEmpty =>
+                  logger.debug(
+                    "All informee nodes support local contracts used in subview," +
+                      " the transaction hash will be computed using the correct set of input contracts"
+                  )
+                  Right(viewInputContracts.filter { case (cid, _) =>
+                    reInterpretationResult.transaction.inputContracts.contains(cid)
+                  })
+                // Otherwise fail already with a more helpful error message
+                case nodesWithoutSupport =>
+                  Left(
+                    "The externally signed transaction contains local contracts used in a subview. " +
+                      s"The following informee nodes do not support this feature: ${nodesWithoutSupport
+                          .mkString(", ")}. " +
+                      s"Upgrade these nodes to the latest version of canton to enable support for this transaction."
+                  )
+              }
+          } else EitherT.pure[FutureUnlessShutdown, String](viewInputContracts)
+        }
         // ... and the input contracts so that labels and template identifiers are set and can be included in the hash
-        enrichedInputContracts <- viewInputContracts.toList
+        enrichedInputContracts <- inputContracts.toList
           .parTraverse { case (cid, storedContract) =>
             createNodeEnricher(storedContract.toLf)(traceContext).map { enrichedNode =>
               cid -> FatContractInstance.fromCreateNode(
@@ -501,7 +540,7 @@ object ModelConformanceChecker {
               ),
               reInterpretationResult.metadata.seeds,
               protocolVersion,
-              hashTracer = NoOp,
+              hashTracer = hashTracer,
             )
             .leftMap(_.message)
         )

@@ -177,6 +177,13 @@ object PekkoUtil extends HasLoggerName {
       FutureUnlessShutdown.outcomeF(future)
     }
 
+  /** Convenience function that turns a Source[T] inside a FutureUnlessShutdown into a Source[T].
+    */
+  def futureSourceUS[T](sourceFUS: FutureUnlessShutdown[Source[T, NotUsed]])(implicit
+      ec: ExecutionContext
+  ): Source[T, NotUsed] =
+    Source.futureSource(sourceFUS.onShutdown(Source.empty)).mapMaterializedValue(_ => NotUsed)
+
   /** A version of [[org.apache.pekko.stream.scaladsl.FlowOps.mapAsync]] that additionally allows to
     * pass state of type `S` between every subsequent element. Unlike
     * [[org.apache.pekko.stream.scaladsl.FlowOps.statefulMapConcat]], the state is passed

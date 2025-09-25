@@ -337,6 +337,12 @@ trait BackpressureIntegrationTest
         // Make sure to test more than maxAccepted
         val testCount = maxAccepted * 2
 
+        // In addition to the above delay allowance for requests to become dirty (i.e. make it to phases 3 and 4),
+        // allow for requests to be submitted at a slower rate than testCount / second. In #24959, we see
+        // the submissions spanning over 1.4 seconds, and this lowers the actual rate at which requests are submitted.
+        // Hence, increase the max accepted number by 50% without changing the test count.
+        val maxAcceptedIncreasedForSlowSubmissionRate = maxAccepted * 3 / 2
+
         participant1.resources.set_resource_limits(
           ResourceLimits(Some(maxInFlight), Some(rateLimit), maxSubmissionBurstFactor = 0.01)
         )
@@ -347,7 +353,7 @@ trait BackpressureIntegrationTest
           preloadCount,
           testCount,
           minAccepted,
-          maxAccepted,
+          maxAcceptedIncreasedForSlowSubmissionRate,
           rateLimit,
         )
       }

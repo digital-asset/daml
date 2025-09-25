@@ -12,6 +12,7 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
+import com.digitalasset.canton.synchronizer.block.AsyncWriterParameters
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
   BftBlockOrdererConfig,
@@ -49,6 +50,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
         dontWarnOnDeprecatedPV = false,
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
+      asyncWriter = AsyncWriterParameters(enabled = true),
     )
 
   override final def createSequencer(crypto: SynchronizerCryptoClient)(implicit
@@ -81,6 +83,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
         driverClock,
         crypto,
         FutureSupervisor.Noop,
+        progressSupervisorO = None,
         SequencerTrafficConfig(),
         runtimeReady = FutureUnlessShutdown.unit,
       )

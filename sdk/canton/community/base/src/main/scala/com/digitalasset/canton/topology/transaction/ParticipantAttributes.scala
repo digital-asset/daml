@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 final case class ParticipantAttributes(
     permission: ParticipantPermission,
     loginAfter: Option[CantonTimestamp] = None,
+    features: Seq[SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag] = Seq.empty,
 ) {
 
   def canConfirm: Boolean = permission.canConfirm
@@ -17,6 +18,7 @@ final case class ParticipantAttributes(
     ParticipantAttributes(
       permission = ParticipantPermission.lowerOf(permission, elem.permission),
       loginAfter = loginAfter.max(elem.loginAfter),
+      features = features ++ elem.features,
     )
 
 }

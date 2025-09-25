@@ -257,6 +257,8 @@ class DatabaseSequencer(
       protocolVersion,
       timeouts,
       loggerFactory,
+      config.streamInstrumentation,
+      metrics,
     )
 
   override def isRegistered(member: Member)(implicit

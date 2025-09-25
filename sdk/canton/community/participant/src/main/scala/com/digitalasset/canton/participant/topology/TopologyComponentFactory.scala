@@ -4,7 +4,12 @@
 package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  ProcessingTimeout,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -28,6 +33,7 @@ import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, Topo
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContext
 
@@ -111,14 +117,16 @@ class TopologyComponentFactory(
   }
 
   def createInitialTopologySnapshotValidator(
-      staticSynchronizerParameters: StaticSynchronizerParameters
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+      topologyConfig: TopologyConfig,
   )(implicit
-      executionContext: ExecutionContext
+      executionContext: ExecutionContext,
+      materializer: Materializer,
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
-      protocolVersion,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
       topologyStore,
+      validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
       timeouts,
       loggerFactory,
     )

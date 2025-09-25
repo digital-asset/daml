@@ -12,6 +12,7 @@ import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, Onboardi
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
+import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
@@ -76,10 +77,10 @@ class ValidatingTopologyMappingChecksTest
         checks: TopologyMappingChecks,
         toValidate: GenericSignedTopologyTransaction,
         inStore: Option[GenericSignedTopologyTransaction] = None,
-        pendingChangesLookup: PendingChangesLookup = Map.empty,
+        pendingChanges: PendingChangesLookup = Map.empty,
     ): Either[TopologyTransactionRejection, Unit] =
       checks
-        .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore, pendingChangesLookup)
+        .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore, pendingChanges)
         .value
         .futureValueUS
 
@@ -203,7 +204,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor),
             codes = Set(Code.NamespaceDelegation),
-            pendingChangesLookup = Map.empty,
+            pendingChanges = Seq.empty,
           )
           .futureValueUS
           .value should contain theSameElementsAs Seq(nsd1Replace_1, nsd2Replace_1)
@@ -213,7 +214,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor),
             codes = Set(Code.NamespaceDelegation),
-            Map(nsd2Remove_2.mapping.uniqueKey -> nsd2Remove_2),
+            pendingChanges = Seq(MaybePending(nsd2Remove_2)),
           )
           .futureValueUS
           .value shouldBe Seq(nsd1Replace_1)
@@ -223,7 +224,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor),
             codes = Set(Code.NamespaceDelegation),
-            pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
+            pendingChanges = Seq(MaybePending(nsd3Replace_1)),
           )
           .futureValueUS
           .value should contain theSameElementsAs Seq(
@@ -238,7 +239,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor),
             codes = Set(Code.NamespaceDelegation),
-            pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
+            pendingChanges = Seq(MaybePending(nsd3Replace_1)),
             filterNamespace = Some(Seq(ns2, ns3)),
           )
           .futureValueUS
@@ -249,7 +250,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor + seconds(1)),
             codes = Set(Code.NamespaceDelegation),
-            Map.empty,
+            Seq.empty,
           )
           .futureValueUS
           .value shouldBe Seq(nsd2Replace_1)
@@ -259,7 +260,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor + seconds(1)),
             codes = Set(Code.NamespaceDelegation),
-            Map(nsd2Remove_2.mapping.uniqueKey -> nsd2Remove_2),
+            Seq(MaybePending(nsd2Remove_2)),
           )
           .futureValueUS
           .value shouldBe Seq.empty
@@ -269,7 +270,7 @@ class ValidatingTopologyMappingChecksTest
           .loadFromStore(
             EffectiveTime(ts.immediateSuccessor + seconds(2)),
             codes = Set(Code.NamespaceDelegation),
-            Map.empty,
+            Seq.empty,
           )
           .futureValueUS
           .value shouldBe Seq(nsd2Replace_1)

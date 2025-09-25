@@ -25,7 +25,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -34,11 +34,13 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendDecision,
   SendPolicyWithoutTraceContext,
 }
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.{BaseTest, SynchronizerAlias, config}
+import org.slf4j.event.Level
 
 import java.time.Duration
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 
@@ -128,16 +130,17 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
       acmeConfirmations(participant2) shouldBe 1
     }
 
-    "fails if the admin party does not confirm the reassignment" in { implicit env =>
+    "fail if the admin party does not confirm the reassignment" in { implicit env =>
       import env.*
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
 
+      val unassignmentCounter = new AtomicLong(0)
       programmableSequencers(daName).setPolicy_("drop confirmation response")(
-        dropConfirmationRequest(participant2)
+        dropConfirmationResponse(participant2, unassignmentCounter)
       )
 
-      assertMediatorTimout(
+      assertAndTriggerMediatorTimeout(
         commandId =>
           participant2.ledger_api.commands
             .submit_unassign_async(
@@ -147,19 +150,22 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
               acmeId,
               commandId = commandId,
             ),
-        daName,
-        daId,
+        unassignmentCounter,
+        "UnassignmentProcessor",
       )
+
+      programmableSequencers(daName).resetPolicy()
 
       val unassignId = participant2.ledger_api.commands
         .submit_unassign(observer, Seq(iou.id.toLf), daId, acmeId)
         .unassignId
 
+      val assignmentCounter = new AtomicLong(0)
       programmableSequencers(acmeName).setPolicy_("drop confirmation response")(
-        dropConfirmationRequest(participant2)
+        dropConfirmationResponse(participant2, assignmentCounter)
       )
 
-      assertMediatorTimout(
+      assertAndTriggerMediatorTimeout(
         commandId =>
           participant2.ledger_api.commands
             .submit_assign_async(
@@ -169,8 +175,8 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
               acmeId,
               commandId = commandId,
             ),
-        acmeName,
-        acmeId,
+        assignmentCounter,
+        "AssignmentProcessor",
       )
 
       programmableSequencers(acmeName).resetPolicy()
@@ -204,59 +210,90 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
       case _ => SendDecision.Process
     }
 
-  private def dropConfirmationRequest(
-      from: ParticipantId
-  )(implicit env: TestConsoleEnvironment): SendPolicyWithoutTraceContext =
-    submissionRequest =>
-      submissionRequest.sender match {
-        case participantId: ParticipantId
-            if participantId == from && ProgrammableSequencerPolicies.isConfirmationResponse(
-              submissionRequest
-            ) =>
-          logger.debug(s"Dropping confirmation response from $participantId")
-          // advancing time to trigger the decision timeout (60s = default decision timeout)
-          env.environment.simClock.value.advance(Duration.ofSeconds(60).plusSeconds(1))
-          SendDecision.Drop
-        case _ => SendDecision.Process
-      }
+  private def dropConfirmationResponse(
+      from: ParticipantId,
+      confirmationResponseCount: AtomicLong,
+  ): SendPolicyWithoutTraceContext = { submissionRequest =>
+    submissionRequest.sender match {
+      case participantId: ParticipantId
+          if participantId == from && ProgrammableSequencerPolicies.isConfirmationResponse(
+            submissionRequest
+          ) =>
+        confirmationResponseCount.incrementAndGet()
+        logger.debug(s"Dropping confirmation response from $participantId")
+        SendDecision.Drop
+      case _: ParticipantId
+          if ProgrammableSequencerPolicies.isConfirmationResponse(submissionRequest) =>
+        confirmationResponseCount.incrementAndGet()
+        SendDecision.Process
+      case _ => SendDecision.Process
+    }
+  }
 
-  private def assertMediatorTimout(
+  private def assertAndTriggerMediatorTimeout(
       submit: String => Unit,
-      synchronizerAlias: SynchronizerAlias,
-      synchronizerId: SynchronizerId,
+      confirmationCounter: AtomicLong,
+      className: String,
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
-    loggerFactory.assertLoggedWarningsAndErrorsSeq(
-      {
-        val ledgerEndBefore = participant2.ledger_api.state.end()
-        val commandId = UUID.randomUUID().toString
-        submit(commandId)
-        val completion = participant2.ledger_api.completions
-          .list(
-            partyId = observer,
-            atLeastNumCompletions = 1,
-            beginOffsetExclusive = ledgerEndBefore,
-            filter = _.commandId == commandId,
-          )(0)
-        completion.status
-          .map(_.message)
-          .foreach(
-            _ should include("Rejected transaction due to a participant determined timeout")
-          )
+    val ledgerEndBefore = participant2.ledger_api.state.end()
+    val commandId = UUID.randomUUID().toString
 
-        programmableSequencers(synchronizerAlias).resetPolicy()
-        participant2.health.ping(participant2, synchronizerId = Some(synchronizerId))
+    // Make sure that the mediator sees one confirmation response
+    // And we use the confirmation counter to make sure we have dropped the second confirmation response
+    loggerFactory.assertEventuallyLogsSeq(
+      (SuppressionRule.Level(Level.INFO) && SuppressionRule.LoggerNameContains(
+        "ConfirmationRequestAndResponseProcessor"
+      ))
+    )(
+      {
+        submit(commandId)
+        eventually() {
+          confirmationCounter.get() shouldBe 2
+        }
       },
       LogEntry.assertLogSeq(
         mustContainWithClue = Seq(
           (
-            _.warningMessage should include regex "Response message for request .* timed out",
-            "participant timeout",
+            _.infoMessage should include regex "Phase 2:",
+            "mediator phase 2",
           ),
-          (_.warningMessage shouldBe "Sequencing result message timed out.", "mediator timeout"),
+          (
+            _.infoMessage should include regex "Phase 5:",
+            "mediator phase 5",
+          ),
         )
       ),
     )
+
+    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
+      // making sure that we only advance time after seeing the participant 1 response and after dropping the confirmation response from participant 2
+      env.environment.simClock.value.advance(Duration.ofSeconds(30).plusSeconds(5)),
+      LogEntry.assertLogSeq(
+        mustContainWithClue = Seq(
+          (
+            entry => {
+              entry.warningMessage should include regex "Response message for request .* timed out"
+              entry.loggerName should (include("participant=participant2") and include(className))
+            },
+            "participant 2 timeout",
+          )
+        )
+      ),
+    )
+
+    val completion = participant2.ledger_api.completions
+      .list(
+        partyId = observer,
+        atLeastNumCompletions = 1,
+        beginOffsetExclusive = ledgerEndBefore,
+        filter = _.commandId == commandId,
+      )
+      .loneElement
+    completion.status.value.message should include(
+      "Rejected transaction as the mediator did not receive sufficient confirmations within the expected timeframe"
+    )
+
   }
 }
 

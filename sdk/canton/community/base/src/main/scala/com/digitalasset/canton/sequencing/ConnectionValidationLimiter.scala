@@ -7,6 +7,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
+  HasUnlessClosing,
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
@@ -40,6 +41,7 @@ import scala.util.{Failure, Success}
 class ConnectionValidationLimiter(
     validate: TraceContext => FutureUnlessShutdown[Unit],
     futureSupervisor: FutureSupervisor,
+    associatedHasUnlessClosing: HasUnlessClosing,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContextExecutor)
     extends AutoCloseable
@@ -122,7 +124,11 @@ class ConnectionValidationLimiter(
     */
   private def validationComplete()(implicit traceContext: TraceContext): Unit = {
     val newState = validationState.updateAndGet {
-      case ValidationState.Idle => ErrorUtil.invalidState("Cannot be Idle while validating")
+      case ValidationState.Idle =>
+        // During a shutdown, this can be a valid state due to a concurrent execution of `shutdown()`
+        if (!associatedHasUnlessClosing.isClosing)
+          ErrorUtil.invalidState("Cannot be Idle while validating")
+        else ValidationState.Idle
 
       case ValidationState.Validating(_, _) => ValidationState.Idle
 
@@ -145,7 +151,10 @@ class ConnectionValidationLimiter(
     logger.debug("Aborting connection validation")
 
     validationState.getAndSet(ValidationState.Idle) match {
-      case ValidationState.Idle => ErrorUtil.invalidState("Cannot be Idle while validating")
+      case ValidationState.Idle =>
+        // During a shutdown, this can be a valid state due to a concurrent execution of `shutdown()`
+        if (!associatedHasUnlessClosing.isClosing)
+          ErrorUtil.invalidState("Cannot be Idle while validating")
 
       case ValidationState.Validating(_, _) =>
 

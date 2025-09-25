@@ -207,21 +207,19 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             _ <- unitOrVerdictO match {
               // Request is well-formed, but not yet finalized
               case Right(()) =>
-                val aggregationF =
-                  ResponseAggregation.fromRequest(
+                val participantResponseDeadlineTick =
+                  timeTracker.requestTick(participantResponseDeadline)
+                for {
+                  aggregation <- ResponseAggregation.fromRequest(
                     requestId,
                     request,
                     participantResponseDeadline,
                     decisionTime,
                     snapshot.ipsSnapshot,
+                    Some(participantResponseDeadlineTick),
                   )
-
-                for {
-                  aggregation <- aggregationF
-
                   _ <- mediatorState.add(aggregation)
                 } yield {
-                  timeTracker.requestTick(participantResponseDeadline)
                   logger.info(
                     show"Phase 2: Registered request=${requestId.unwrap} with ${request.informeesAndConfirmationParamsByViewPosition.size} view(s). Initial state: ${aggregation.showMergedState}"
                   )
@@ -523,8 +521,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             sequencingTimestamp,
             submissionTopologyTimestamp,
             crypto,
-            logger,
-          )
+          )(loggingContext, ec)
 
         case Seq() =>
           // This can only happen if there are no root hash messages.
@@ -838,6 +835,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         logger.info(
           s"Phase 6: Finalized request=${finalizedResponse.requestId} with verdict ${finalizedResponse.verdict}"
         )
+
+        // We've reached a verdict. Cancel any outstanding request for a tick of the participant response deadline.
+        responseAggregation.participantResponseDeadlineTick.foreach(_.cancel())
 
         finalizedResponse.verdict match {
           case Verdict.Approve() => mediatorState.metrics.approvedRequests.mark()

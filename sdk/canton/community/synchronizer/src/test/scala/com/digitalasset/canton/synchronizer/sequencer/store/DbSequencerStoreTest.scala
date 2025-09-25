@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, PositiveFiniteDuration}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -20,6 +20,8 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
   ): FutureUnlessShutdown[Unit] =
     DbSequencerStoreTest.cleanSequencerTables(storage)
 
+  // TODO(#27366): Add check the metrics for the events buffer hit/miss
+
   "DbSequencerStore" should {
     behave like sequencerStore(() =>
       new DbSequencerStore(
@@ -32,8 +34,13 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
+        useRecipientsTableForReads = false,
         cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
+        sequencerMetrics = sequencerMetrics(),
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -47,8 +54,55 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
+        useRecipientsTableForReads = false,
         cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
+        sequencerMetrics = sequencerMetrics(),
+      )
+    )
+  }
+  "DbSequencerStore with recipient table reads" should {
+    behave like sequencerStore(() =>
+      new DbSequencerStore(
+        storage,
+        testedProtocolVersion,
+        bufferedEventsMaxMemory = BytesUnit.zero, // test with cache is below
+        bufferedEventsPreloadBatchSize =
+          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
+        timeouts,
+        loggerFactory,
+        sequencerMember,
+        blockSequencerMode = true,
+        useRecipientsTableForReads = true,
+        cachingConfigs = CachingConfigs(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
+        sequencerMetrics = sequencerMetrics(),
+      )
+    )
+    behave like multiTenantedSequencerStore(() =>
+      new DbSequencerStore(
+        storage,
+        testedProtocolVersion,
+        bufferedEventsMaxMemory = BytesUnit.zero, // HA mode does not support events cache
+        bufferedEventsPreloadBatchSize =
+          SequencerWriterConfig.DefaultBufferedEventsPreloadBatchSize,
+        timeouts,
+        loggerFactory,
+        sequencerMember,
+        blockSequencerMode = true,
+        useRecipientsTableForReads = true,
+        cachingConfigs = CachingConfigs(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
+        sequencerMetrics = sequencerMetrics(),
       )
     )
   }
@@ -64,8 +118,13 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
+        useRecipientsTableForReads = false,
         cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
+        sequencerMetrics = sequencerMetrics(),
       )
     )
   }

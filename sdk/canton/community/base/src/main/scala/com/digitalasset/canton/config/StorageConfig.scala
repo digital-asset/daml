@@ -108,6 +108,8 @@ final case class DbParametersConfig(
   *   number of parallel queries to the db. defaults to 8
   * @param aggregator
   *   batching configuration for DB queries
+  * @param maxPruningTimeInterval
+  *   split pruning queries into intervals of this duration to avoid sequential scans
   */
 final case class BatchingConfig(
     maxItemsInBatch: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsBatch,
@@ -117,6 +119,7 @@ final case class BatchingConfig(
     maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
+    maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
 ) extends UniformCantonConfigValidation
 
 object BatchingConfig {
@@ -131,6 +134,9 @@ object BatchingConfig {
   private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
   private val defaultMaxAcsImportBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000)
   private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
+  // default of 30min corresponds to 1440 pruning queries after 30 days downtime, which is a reasonable tradeoff
+  private val defaultMaxPruningTimeInterval: PositiveFiniteDuration =
+    PositiveFiniteDuration.ofMinutes(30)
 }
 
 final case class ConnectionAllocation(

@@ -32,8 +32,13 @@ import com.digitalasset.canton.admin.participant.v30.PingServiceGrpc.PingService
 import com.digitalasset.canton.admin.participant.v30.PruningServiceGrpc.PruningServiceStub
 import com.digitalasset.canton.admin.participant.v30.ResourceManagementServiceGrpc.ResourceManagementServiceStub
 import com.digitalasset.canton.admin.participant.v30.SynchronizerConnectivityServiceGrpc.SynchronizerConnectivityServiceStub
+import com.digitalasset.canton.admin.participant.v30.{
+  RepairCommitmentsUsingAcsRequest,
+  RepairCommitmentsUsingAcsResponse,
+}
 import com.digitalasset.canton.admin.pruning
 import com.digitalasset.canton.admin.pruning.v30.WaitCommitmentsSetup
+import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
@@ -1940,6 +1945,74 @@ object ParticipantAdminCommands {
         }
     }
 
+  }
+
+  object ReinitCommitments {
+
+    abstract class Base[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        v30.ParticipantRepairServiceGrpc.stub(channel)
+    }
+    final case class CommitmentReinitializationInfo(
+        synchronizerId: SynchronizerId,
+        error: Option[String],
+        acsTimestamp: Option[CantonTimestamp],
+    )
+
+    final case class ReinitializeCommitments(
+        synchronizerIds: Seq[SynchronizerId],
+        counterParticipants: Seq[ParticipantId],
+        partyIds: Seq[PartyId],
+        timeout: NonNegativeDuration,
+        logger: TracedLogger,
+    ) extends Base[
+          v30.RepairCommitmentsUsingAcsRequest,
+          v30.RepairCommitmentsUsingAcsResponse,
+          Seq[CommitmentReinitializationInfo],
+        ] {
+
+      override protected def createRequest() = Right(
+        v30.RepairCommitmentsUsingAcsRequest(
+          synchronizerIds.map(_.toProtoPrimitive),
+          counterParticipants.map(_.toProtoPrimitive),
+          partyIds.map(_.toProtoPrimitive),
+          Some(timeout.toProtoPrimitive),
+        )
+      )
+
+      override protected def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: RepairCommitmentsUsingAcsRequest,
+      ): Future[RepairCommitmentsUsingAcsResponse] =
+        service.repairCommitmentsUsingAcs(request)
+
+      override protected def handleResponse(
+          response: v30.RepairCommitmentsUsingAcsResponse
+      ): Either[String, Seq[CommitmentReinitializationInfo]] = {
+        response.statuses.map { response =>
+          for {
+            synchronizerId <- SynchronizerId.fromString(response.synchronizerId)
+            err = response.status.errorMessage
+            ts <- response.status.completedRepairTimestamp
+              .traverse(CantonTimestamp.fromProtoTimestamp)
+              .leftMap(_.toString): Either[String, Option[CantonTimestamp]]
+            // explicit check that status is not empty
+            _ <- Either.cond(
+              // one could use response.status.isDefined, but that is not as robust if you ever add a new one of item, but forget to actually parse it
+              err.nonEmpty || ts.nonEmpty,
+              (),
+              "Either error_message or completed_repair_timestamp must be set.",
+            )
+          } yield CommitmentReinitializationInfo(
+            synchronizerId,
+            err,
+            ts,
+          )
+        }
+      }.sequence
+    }
   }
 
   object Pruning {

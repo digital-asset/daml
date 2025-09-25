@@ -35,6 +35,8 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
   val traceContext3: TraceContext =
     W3CTraceContext("00-7a5e6a5c6f8d8646adce33d4f0b1c3b1-8546d5a6a5f6c5b6-01").toTraceContext
 
+  private val maxQueryBlockCount = 10
+
   private def block(height: Long, tracedEvent: Traced[BlockFormat.OrderedRequest]) =
     TimestampedBlock(
       BlockFormat.Block(height, Seq(tracedEvent)),
@@ -64,8 +66,8 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
         for {
           _ <- sut.insertRequest(event1)(traceContext1)
           _ <- sut.insertRequest(event2)(traceContext2)
-          result0 <- sut.queryBlocks(0)
-          result1 <- sut.queryBlocks(-1)
+          result0 <- sut.queryBlocks(0, maxQueryBlockCount)
+          result1 <- sut.queryBlocks(-1, maxQueryBlockCount)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
             block(0L, Traced(event1)(traceContext1)),
@@ -81,8 +83,8 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
           _ <- sut.insertRequest(event1)(traceContext1)
           _ <- sut.insertRequest(event2)(traceContext2)
           _ <- sut.insertRequest(event3)(traceContext3)
-          result0 <- sut.queryBlocks(1)
-          result1 <- sut.queryBlocks(2)
+          result0 <- sut.queryBlocks(1, maxQueryBlockCount)
+          result1 <- sut.queryBlocks(2, maxQueryBlockCount)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
             block(1L, Traced(event2)(traceContext2)),
@@ -101,8 +103,8 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
           _ <- sut.insertRequestWithHeight(0L, event1)(traceContext1)
           _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
           _ <- sut.insertRequestWithHeight(2L, event3)(traceContext3)
-          result0 <- sut.queryBlocks(1)
-          result1 <- sut.queryBlocks(2)
+          result0 <- sut.queryBlocks(1, maxQueryBlockCount)
+          result1 <- sut.queryBlocks(2, maxQueryBlockCount)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
             block(1L, Traced(event2)(traceContext2)),
@@ -116,13 +118,13 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
         for {
           _ <- sut.insertRequestWithHeight(0L, event1)(traceContext1)
           _ <- sut.insertRequestWithHeight(2L, event3)(traceContext3)
-          result0 <- sut.queryBlocks(0)
+          result0 <- sut.queryBlocks(0, maxQueryBlockCount)
           _ = result0 should contain theSameElementsInOrderAs Seq(
             block(0L, Traced(event1)(traceContext1))
           )
           _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
 
-          result1 <- sut.queryBlocks(0)
+          result1 <- sut.queryBlocks(0, maxQueryBlockCount)
         } yield {
           result1 should contain theSameElementsInOrderAs Seq(
             block(0L, Traced(event1)(traceContext1)),
@@ -137,7 +139,7 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
           _ <- sut.insertRequestWithHeight(0L, event1)(traceContext1)
           _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
           _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
-          result0 <- sut.queryBlocks(0)
+          result0 <- sut.queryBlocks(0, maxQueryBlockCount)
         } yield {
           result0 should contain theSameElementsInOrderAs Seq(
             block(0L, Traced(event1)(traceContext1)),

@@ -56,6 +56,15 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
           // Eventually complete the promise
           p.outcome(42)
           f.futureValue shouldBe UnlessShutdown.Outcome(42)
+
+          // Wait for the scheduled task to run and flush the WARN log
+          // to ensure it's suppressed in the current suppression block
+          //
+          // Note: Due to thread scheduling, the warning might be logged after the suppression block
+          //       and even spill into the next test. If so, consider either increasing the sleep duration
+          //       or using a more robust synchronization mechanism such as closing and waiting for shutdown of the scheduled executor.
+          Threading.sleep(1.second.toMillis)
+          succeed
         },
         entries => {
           assert(entries.nonEmpty)

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.store
 
 import cats.syntax.either.*
 import cats.syntax.option.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
@@ -28,6 +29,7 @@ trait MultiTenantedSequencerStoreTest
     val alice: Member = ParticipantId("alice")
     val bob: Member = ParticipantId("bob")
     val instanceDiscriminator = UUID.randomUUID()
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
     def mkInstanceStore(instanceIndex: Int, store: SequencerStore) =
       new SimpleSequencerWriterStore(instanceIndex, store)
 

@@ -6,7 +6,9 @@ package com.digitalasset.canton.util
 import cats.data.{Chain, EitherT, Nested, NonEmptyChain, OptionT}
 import cats.syntax.either.*
 import cats.{Applicative, FlatMap, Functor, Monad, MonadError, Parallel, ~>}
-import com.digitalasset.canton.FutureTransformer
+import com.digitalasset.canton.{FutureTransformer, Uninhabited}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /** Monad Transformer for [[Checked]], allowing the effect of a monad `F` to be combined with the
   * aborting and non-aborting failure effect of [[Checked]]. Similar to [[cats.data.EitherT]].
@@ -275,6 +277,17 @@ trait CheckedTInstances extends CheckedTInstances1 {
           }
         }
     }
+
+  implicit def cantonUtilThereafterCheckedT[F[_], A, N](implicit
+      FF: Thereafter[F]
+  ): Thereafter.Aux[
+    CheckedT[F, A, N, *],
+    CheckedTThereafterContent[FF.Content, A, N, *],
+    (FF.Shape, Chain[N]),
+  ] = new CheckedTThereafter[F, A, N, FF.Content, FF.Shape] {
+    override def F: Thereafter.Aux[F, FF.Content, FF.Shape] = FF
+  }
+
 }
 
 trait CheckedTInstances1 extends CheckedTInstances2 {
@@ -284,6 +297,84 @@ trait CheckedTInstances1 extends CheckedTInstances2 {
     new CheckedTApplicative[F, A, N] {
       implicit val F: Applicative[F] = F0
     }
+
+  /** Use a type synonym instead of a type lambda so that the Scala compiler does not get confused
+    * during implicit resolution, at least for simple cases.
+    */
+  type CheckedTThereafterContent[Content[_], E, N, A] = Content[Checked[E, N, A]]
+  trait CheckedTThereafter[F[_], E, N, FContent[_], FShape]
+      extends Thereafter[CheckedT[F, E, N, *]] {
+    def F: Thereafter.Aux[F, FContent, FShape]
+
+    override type Content[A] = CheckedTThereafterContent[FContent, E, N, A]
+
+    override def covariantContent[A, B](implicit ev: A <:< B): Content[A] <:< Content[B] =
+      F.covariantContent[Checked[E, N, A], Checked[E, N, B]](ev.liftCo[Checked[E, N, +*]])
+
+    override type Shape = (FShape, Chain[N])
+    override def withShape[A](shape: (FShape, Chain[N]), x: A): Content[A] = {
+      val (fshape, nonaborts) = shape
+      F.withShape(fshape, Checked.Result(nonaborts, x))
+    }
+
+    override def transformChaining[A](f: CheckedT[F, E, N, A])(
+        empty: CheckedTThereafterContent[FContent, E, N, Uninhabited] => Unit,
+        single: (Shape, A) => A,
+    ): CheckedT[F, E, N, A] =
+      CheckedT(
+        F.transformChaining(f.value)(
+          empty = fcontent =>
+            empty(F.covariantContent[Uninhabited, Checked[E, N, Uninhabited]].apply(fcontent)),
+          single = (fshape, x) =>
+            x match {
+              case abort @ Checked.Abort(e, ns) =>
+                // Run this only for the effect
+                empty(F.withShape(fshape, Checked.Abort(e, ns)))
+                abort
+              case Checked.Result(ns, x) => Checked.Result(ns, single((fshape, ns), x))
+            },
+        )
+      )
+  }
+
+  trait CheckedTThereafterAsync[F[_], E, N, FContent[_], FShape]
+      extends CheckedTThereafter[F, E, N, FContent, FShape]
+      with ThereafterAsync[CheckedT[F, E, N, *]] {
+    override def F: ThereafterAsync.Aux[F, FContent, FShape]
+    override def executionContext: ExecutionContext = F.executionContext
+
+    override def transformChainingF[A](f: CheckedT[F, E, N, A])(
+        empty: Content[Uninhabited] => Future[Unit],
+        single: (Shape, A) => Future[A],
+    ): CheckedT[F, E, N, A] = CheckedT(
+      F.transformChainingF(f.value)(
+        empty = fcontent =>
+          empty(F.covariantContent[Uninhabited, Checked[E, N, Uninhabited]].apply(fcontent)),
+        single = (fshape, x) =>
+          x match {
+            case abort @ Checked.Abort(e, ns) =>
+              // Run this only for the effect
+              empty(F.withShape(fshape, Checked.Abort(e, ns))).map(_ => abort)(executionContext)
+            case Checked.Result(ns, x) =>
+              single((fshape, ns), x).map(Checked.Result(ns, _))(executionContext)
+          },
+      )
+    )
+
+    override def thereafterF[A](f: CheckedT[F, E, N, A])(
+        body: Content[A] => Future[Unit]
+    ): CheckedT[F, E, N, A] =
+      CheckedT(F.thereafterF(f.value)(body))
+  }
+  implicit def cantonUtilThereafterAsyncCheckedT[F[_], E, N](implicit
+      FF: ThereafterAsync[F]
+  ): ThereafterAsync.Aux[
+    CheckedT[F, E, N, *],
+    CheckedTThereafterContent[FF.Content, E, N, *],
+    (FF.Shape, Chain[N]),
+  ] = new CheckedTThereafterAsync[F, E, N, FF.Content, FF.Shape] {
+    override def F: ThereafterAsync.Aux[F, FF.Content, FF.Shape] = FF
+  }
 }
 
 trait CheckedTInstances2 {

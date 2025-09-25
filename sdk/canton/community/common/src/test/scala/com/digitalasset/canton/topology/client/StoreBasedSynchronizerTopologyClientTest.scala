@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
@@ -160,6 +160,23 @@ trait StoreBasedTopologySnapshotTest
         awaitSequencedTimestampF.isCompleted shouldBe false
         observed(SequencedTime(ts2), EffectiveTime(ts1))
         awaitSequencedTimestampF.isCompleted shouldBe true
+      }
+
+      "await tick when effective time is in the future" in {
+        val fixture = new Fixture()
+        import fixture.*
+
+        // given
+        val timeTracker = mock[SynchronizerTimeTracker]
+        when(timeTracker.awaitTick(ts2)).thenReturn(None)
+        client.setSynchronizerTimeTracker(timeTracker)
+
+        // when
+        observed(SequencedTime(ts1), EffectiveTime(ts2))
+
+        // then
+        verify(timeTracker).awaitTick(ts2)
+        succeed
       }
 
       "correctly get notified on updateHead" in {

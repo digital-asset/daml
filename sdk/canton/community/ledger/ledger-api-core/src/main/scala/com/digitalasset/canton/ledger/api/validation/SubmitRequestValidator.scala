@@ -9,21 +9,14 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PartySignatures,
   PrepareSubmissionRequest,
-  Signature as InteractiveSignature,
-  SignatureFormat as InteractiveSignatureFormat,
   SinglePartySignatures,
 }
 import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.crypto.{
-  Fingerprint,
-  Signature,
-  SignatureFormat,
-  SigningAlgorithmSpec,
-}
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.messages.command.submission
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -34,7 +27,6 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
 import java.time.{Duration, Instant}
-import scala.annotation.nowarn
 
 class SubmitRequestValidator(
     commandsValidator: CommandsValidator
@@ -65,7 +57,7 @@ class SubmitRequestValidator(
       maxDeduplicationDuration: Duration,
   )(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, submission.SubmitRequest] =
+  ): Either[StatusRuntimeException, InteractiveSubmissionService.PrepareRequest] =
     for {
       validatedCommands <- commandsValidator.validatePrepareRequest(
         req,
@@ -73,58 +65,12 @@ class SubmitRequestValidator(
         currentUtcTime,
         maxDeduplicationDuration,
       )
-    } yield submission.SubmitRequest(validatedCommands)
-
-  private def validateSignatureFormat(
-      formatP: InteractiveSignatureFormat,
-      fieldName: String,
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, SignatureFormat] =
-    formatP match {
-      case InteractiveSignatureFormat.SIGNATURE_FORMAT_DER => Right(SignatureFormat.Der)
-      case InteractiveSignatureFormat.SIGNATURE_FORMAT_CONCAT => Right(SignatureFormat.Concat)
-      case InteractiveSignatureFormat.SIGNATURE_FORMAT_RAW =>
-        Right(SignatureFormat.Raw: @nowarn("msg=Raw in object SignatureFormat is deprecated"))
-      case InteractiveSignatureFormat.SIGNATURE_FORMAT_SYMBOLIC => Right(SignatureFormat.Symbolic)
-      case other =>
-        Left(invalidField(fieldName, message = s"Signature format $other not supported"))
-    }
-
-  private def validateSigningAlgorithmSpec(
-      signingAlgorithmSpecP: iss.SigningAlgorithmSpec,
-      fieldName: String,
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, SigningAlgorithmSpec] =
-    signingAlgorithmSpecP match {
-      case iss.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519 =>
-        Right(SigningAlgorithmSpec.Ed25519)
-      case iss.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 =>
-        Right(SigningAlgorithmSpec.EcDsaSha256)
-      case iss.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 =>
-        Right(SigningAlgorithmSpec.EcDsaSha384)
-      case other =>
-        Left(invalidField(fieldName, message = s"Signing algorithm spec $other not supported"))
-    }
-
-  private def validateSignature(
-      issSignatureP: iss.Signature,
-      fieldName: String,
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, Signature] = {
-    val InteractiveSignature(formatP, signatureP, signedByP, signingAlgorithmSpecP) =
-      issSignatureP
-    for {
-      format <- validateSignatureFormat(formatP, "format")
-      signature = signatureP
-      signedBy <- Fingerprint
-        .fromProtoPrimitive(signedByP)
-        .leftMap(err => invalidField(fieldName = fieldName, message = err.message))
-      signingAlgorithmSpec <- validateSigningAlgorithmSpec(signingAlgorithmSpecP, fieldName)
-    } yield Signature.fromExternalSigning(format, signature, signedBy, signingAlgorithmSpec)
-  }
+      maxRecordTime <- req.maxRecordTime.traverse(commandsValidator.validateLfTime)
+    } yield InteractiveSubmissionService.PrepareRequest(
+      validatedCommands,
+      req.verboseHashing,
+      maxRecordTime,
+    )
 
   private def validatePartySignatures(
       proto: PartySignatures
@@ -136,7 +82,7 @@ class SubmitRequestValidator(
         for {
           partyId <- requireTopologyPartyIdField(partyP, "SinglePartySignatures.party")
           signatures <- signaturesP.traverse(s =>
-            validateSignature(s, "SinglePartySignatures.signature")
+            CryptoValidator.validateSignature(s, "SinglePartySignatures.signature")
           )
         } yield partyId -> signatures
       }

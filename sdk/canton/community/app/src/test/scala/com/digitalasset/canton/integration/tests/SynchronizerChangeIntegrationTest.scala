@@ -909,6 +909,14 @@ trait SynchronizerChangeRealClockIntegrationTest
                 )
               },
             ),
+            (
+              LogEntryOptionality.OptionalMany,
+              logEntry => {
+                logEntry.errorMessage should (include("Cannot assign") and include(
+                  "can initiate before exclusivity timeout"
+                ))
+              },
+            ),
           )
 
           withClue("Number of successful assignments") {

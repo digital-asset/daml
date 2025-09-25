@@ -6,6 +6,7 @@ package com.digitalasset.canton.health
 import com.digitalasset.canton.lifecycle.{HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import org.slf4j.event.Level
 
 /** Refines the state of a [[HealthElement]] to [[ToComponentHealthState]] */
 trait HealthQuasiComponent extends HealthElement {
@@ -26,6 +27,7 @@ trait HealthComponent extends HealthQuasiComponent {
   override type State = ComponentHealthState
 
   override def closingState: ComponentHealthState = ComponentHealthState.ShutdownState
+  override protected def stateLoggingLevel(state: ComponentHealthState): Level = state.logLevel
 }
 
 object HealthComponent {

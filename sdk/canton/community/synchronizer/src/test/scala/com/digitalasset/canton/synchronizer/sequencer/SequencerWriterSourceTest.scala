@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -27,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
   InMemorySequencerStore,
   PayloadId,
   Presequenced,
+  ReadEvents,
   SavePayloadsError,
   Sequenced,
   SequencerMemberId,
@@ -35,7 +37,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
 }
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.{Member, ParticipantId, SequencerId, UniqueIdentifier}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -69,6 +71,8 @@ class SequencerWriterSourceTest
     with ProtocolVersionChecksAsyncWordSpec
     with FailOnShutdown {
 
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
   class MockEventSignaller extends EventSignaller {
     private val listenerRef =
       new AtomicReference[Option[WriteNotification => Unit]](None)
@@ -92,7 +96,7 @@ class SequencerWriterSourceTest
     override def readSignalsForMember(
         member: Member,
         memberId: SequencerMemberId,
-    )(implicit traceContext: TraceContext): Source[ReadSignal, NotUsed] =
+    )(implicit traceContext: TraceContext): Source[Traced[ReadSignal], NotUsed] =
       fail("shouldn't be used")
 
     override def close(): Unit = ()
@@ -112,13 +116,14 @@ class SequencerWriterSourceTest
     lazy val sequencerMember: Member = SequencerId(
       UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
     )
-    class InMemoryStoreWithTimeAdvancement(lFactory: NamedLoggerFactory)(implicit
+    class InMemoryStoreWithTimeAdvancement(loggerFactory: NamedLoggerFactory)(implicit
         ec: ExecutionContext
     ) extends InMemorySequencerStore(
           testedProtocolVersion,
           sequencerMember,
           blockSequencerMode = true,
-          lFactory,
+          loggerFactory = loggerFactory,
+          sequencerMetrics = SequencerMetrics.noop("sequencer-writer-source-test"),
         )(
           ec
         ) {
@@ -136,6 +141,16 @@ class SequencerWriterSourceTest
         clock.advance(timeAdvancement.get())
         super.savePayloads(payloadsToInsert, instanceDiscriminator)
       }
+
+      override def readEvents(
+          memberId: SequencerMemberId,
+          member: Member,
+          fromExclusiveO: Option[CantonTimestamp] = None,
+          limit: Int = 100,
+      )(implicit
+          traceContext: TraceContext,
+          metricsContext: MetricsContext,
+      ): FutureUnlessShutdown[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
     }
 
     val store =

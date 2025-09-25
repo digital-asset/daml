@@ -10,7 +10,7 @@ import com.digitalasset.canton.integration.plugins.toxiproxy.UseToxiproxy.*
 import com.digitalasset.canton.integration.{ConfigTransform, EnvironmentSetupPlugin}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
+import com.digitalasset.canton.{BaseTest, SequencerAlias, UniquePortGenerator}
 import eu.rekawek.toxiproxy.ToxiproxyClient
 import monocle.macros.syntax.lens.*
 import org.testcontainers.Testcontainers
@@ -314,6 +314,7 @@ object UseToxiproxy {
     val connection = s"http://${proxy.ipFromHost}:${proxy.portFromHost}"
     SynchronizerConnectionConfig.tryGrpcSingleConnection(
       config.synchronizerAlias,
+      sequencerAlias = SequencerAlias.tryCreate(proxyConf.sequencer),
       connection,
       config.manualConnect,
       config.synchronizerId,
