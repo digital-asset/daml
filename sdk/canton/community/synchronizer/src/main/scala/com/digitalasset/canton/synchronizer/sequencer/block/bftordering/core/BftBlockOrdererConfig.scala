@@ -403,7 +403,7 @@ object CreateStandaloneConfig extends App {
         },
     )
     val configFile = dir / s"node$i.conf"
-    import pureconfig.generic.auto.*
+    import pureconfig.generic.auto._
     configFile.writeText(
       ConfigWriter[BftBlockOrderingStandaloneNetworkConfig].to(config).render()
     )
