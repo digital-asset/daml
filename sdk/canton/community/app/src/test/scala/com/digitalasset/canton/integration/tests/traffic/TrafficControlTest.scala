@@ -10,13 +10,13 @@ import com.digitalasset.canton.admin.api.client.data.{
   ComponentHealthState,
   TrafficControlParameters,
 }
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeLong,
   NonNegativeNumeric,
   PositiveInt,
   PositiveLong,
 }
+import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalInstanceReference,
@@ -102,14 +102,14 @@ trait TrafficControlTest
         numMediators = 1,
       )
       .withNetworkBootstrap { implicit env =>
-        new NetworkBootstrapper(S1M1)
+        new NetworkBootstrapper(S1M1.withTopologyChangeDelay(NonNegativeFiniteDuration.Zero))
       }
       .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
         ConfigTransforms.updateAllSequencerClientConfigs_(
           // Force the participant to notice quickly that the synchronizer is down
           _.focus(_.warnDisconnectDelay).replace(config.NonNegativeFiniteDuration.ofMillis(1))
         ),
-        ConfigTransforms.useStaticTime,
       )
       .addConfigTransform(
         ConfigTransforms.updateAllSequencerConfigs_(

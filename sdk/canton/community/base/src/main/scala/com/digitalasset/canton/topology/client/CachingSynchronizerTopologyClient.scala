@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
   DynamicSynchronizerParametersWithValidity,
+  StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
@@ -49,6 +50,9 @@ final class CachingSynchronizerTopologyClient(
 )(implicit val executionContext: ExecutionContext)
     extends SynchronizerTopologyClientWithInit
     with NamedLogging {
+
+  override def staticSynchronizerParameters: StaticSynchronizerParameters =
+    delegate.staticSynchronizerParameters
 
   override def updateHead(
       sequencedTimestamp: SequencedTime,
@@ -272,6 +276,7 @@ object CachingSynchronizerTopologyClient {
 
   def create(
       clock: Clock,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       packageDependenciesResolver: PackageDependencyResolverUS,
@@ -290,6 +295,7 @@ object CachingSynchronizerTopologyClient {
     val dbClient =
       new StoreBasedSynchronizerTopologyClient(
         clock,
+        staticSynchronizerParameters,
         store,
         packageDependenciesResolver,
         timeouts,
@@ -305,7 +311,7 @@ object CachingSynchronizerTopologyClient {
         futureSupervisor,
         loggerFactory,
       )
-    headStateInitializer.initialize(caching, synchronizerPredecessor)
+    headStateInitializer.initialize(caching, synchronizerPredecessor, staticSynchronizerParameters)
   }
 }
 

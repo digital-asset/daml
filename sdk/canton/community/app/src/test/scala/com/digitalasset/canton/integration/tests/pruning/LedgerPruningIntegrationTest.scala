@@ -64,7 +64,7 @@ abstract class LedgerPruningIntegrationTest
     )
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updatePruningBatchSize(internalPruningBatchSize),

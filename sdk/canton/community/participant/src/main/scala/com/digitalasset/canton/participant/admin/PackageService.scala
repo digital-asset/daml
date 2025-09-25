@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
@@ -102,7 +101,7 @@ class PackageService(
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = packageDependencyResolver.damlPackageStore
 
-  def getPackageMetadataView: PackageMetadataView = packageUploader.getPackageMetadataView
+  def getPackageMetadataView: PackageMetadataView = packageUploader.packageMetadataView
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -532,11 +531,11 @@ object PackageService {
   def apply(
       clock: Clock,
       engine: Engine,
+      mutablePackageMetadataView: MutablePackageMetadataView,
       packageDependencyResolver: PackageDependencyResolver,
       enableStrictDarValidation: Boolean,
       loggerFactory: NamedLoggerFactory,
       metrics: ParticipantMetrics,
-      mutablePackageMetadataView: Eval[MutablePackageMetadataView],
       packageOps: PackageOps,
       timeouts: ProcessingTimeout,
   )(implicit

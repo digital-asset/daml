@@ -51,7 +51,7 @@ class UpgradeTimeOldSynchronizerIntegrationTest
   private val upgradeTime = CantonTimestamp.Epoch.plusSeconds(60)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .addConfigTransform(
         ConfigTransforms.updateAllParticipantConfigs_(

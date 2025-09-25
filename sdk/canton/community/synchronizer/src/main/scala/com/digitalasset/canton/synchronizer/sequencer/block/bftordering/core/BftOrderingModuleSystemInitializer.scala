@@ -181,6 +181,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             config.maxRequestsInBatch,
             config.minRequestsInBatch,
             config.maxBatchCreationInterval,
+            checkTags = config.standalone.isEmpty,
           )
           new MempoolModule(
             cfg,
@@ -246,6 +247,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             dependencies,
             loggerFactory,
             timeouts,
+            // In standalone mode don't check tag, as they are used for request IDs
+            checkTags = config.standalone.isEmpty,
           )()
         },
         consensus = (p2pNetworkOutRef, availabilityRef, outputRef) => {

@@ -745,9 +745,15 @@ final class RepairService(
       contracts: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      // All referenced templates known and vetted
+      // Each contract must have a known package that it can be type-checked against
       _packagesVetted <- contracts
-        .map(_.contract.templateId.packageId)
+        .map(contractToAdd =>
+          // Primarily, the package that must be known is the representative package id
+          // If this is not populated (i.e. the contract was exported in Canton 3.3)
+          // then check the contract's original package-id
+          Option(contractToAdd.representativePackageId)
+            .getOrElse(contractToAdd.contract.templateId.packageId)
+        )
         .distinct
         .parTraverse_(packageKnown)
 

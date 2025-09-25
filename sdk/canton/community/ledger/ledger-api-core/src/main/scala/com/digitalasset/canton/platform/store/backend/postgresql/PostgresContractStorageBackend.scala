@@ -3,27 +3,32 @@
 
 package com.digitalasset.canton.platform.store.backend.postgresql
 
+import anorm.SqlParser.{int, long}
 import anorm.{SqlStringInterpolation, ~}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.platform.Key
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   contractId,
   hashFromHexString,
   parties,
 }
 import com.digitalasset.canton.platform.store.backend.common.ContractStorageBackendTemplate
+import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
+import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
   KeyUnassigned,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.platform.{ContractId, Key}
+import com.digitalasset.canton.topology.SynchronizerId
 
 import java.sql.Connection
 
 class PostgresContractStorageBackend(
-    stringInterning: StringInterning
-) extends ContractStorageBackendTemplate(PostgresQueryStrategy, stringInterning) {
+    stringInterning: StringInterning,
+    ledgerEndCache: LedgerEndCache,
+) extends ContractStorageBackendTemplate(PostgresQueryStrategy, stringInterning, ledgerEndCache) {
 
   override final def supportsBatchKeyStateLookups: Boolean = true
 
@@ -76,4 +81,62 @@ class PostgresContractStorageBackend(
     }.toMap
   }
 
+  override def lastActivations(
+      synchronizerContracts: Iterable[(SynchronizerId, ContractId)]
+  )(
+      connection: Connection
+  ): Map[(SynchronizerId, ContractId), Long] = ledgerEndCache()
+    .map { ledgerEnd =>
+      val inputWithIndex = synchronizerContracts.zipWithIndex
+      val inputIndexes: Array[java.lang.Integer] = inputWithIndex.iterator.map { case (_, index) =>
+        Int.box(index)
+      }.toArray
+      val inputSynchronizerIds: Array[java.lang.Integer] = inputWithIndex.iterator.map {
+        case ((synchronizerId, _), _) =>
+          Int.box(stringInterning.synchronizerId.internalize(synchronizerId))
+      }.toArray
+      // need to override the default to not allow anorm to guess incorrectly the array type
+      import PostgresQueryStrategy.ArrayByteaToStatement
+      val inputContractIds: Array[Array[Byte]] = inputWithIndex.iterator.map {
+        case ((_, contractId), _) => contractId.toBytes.toByteArray
+      }.toArray
+      val resultParser = int("result_index") ~ long("result_event_sequential_id") map {
+        case index ~ resultEventSeqId => index -> resultEventSeqId
+      }
+      val resultsFromAssign = SQL"""
+        SELECT input.index as result_index, assign_evs.event_sequential_id as result_event_sequential_id
+        FROM UNNEST($inputIndexes, $inputSynchronizerIds, $inputContractIds) AS input(index, synchronizer_id, contract_id)
+        CROSS JOIN LATERAL (
+          SELECT *
+          FROM lapi_events_assign assign_evs
+          WHERE assign_evs.contract_id = input.contract_id
+          AND assign_evs.target_synchronizer_id = input.synchronizer_id
+          AND assign_evs.event_sequential_id <= ${ledgerEnd.lastEventSeqId}
+          ORDER BY assign_evs.event_sequential_id DESC
+          LIMIT 1
+        ) assign_evs"""
+        .asVectorOf(resultParser)(connection)
+        .toMap
+      val resultsFromCreate = SQL"""
+        SELECT input.index as result_index, create_evs.event_sequential_id as result_event_sequential_id
+        FROM UNNEST($inputIndexes, $inputSynchronizerIds, $inputContractIds) AS input(index, synchronizer_id, contract_id)
+        CROSS JOIN LATERAL (
+          SELECT *
+          FROM lapi_events_create create_evs
+          WHERE create_evs.contract_id = input.contract_id
+          AND create_evs.synchronizer_id = input.synchronizer_id
+          AND create_evs.event_sequential_id <= ${ledgerEnd.lastEventSeqId}
+          ORDER BY create_evs.event_sequential_id DESC
+          LIMIT 1
+        ) create_evs"""
+        .asVectorOf(resultParser)(connection)
+        .toMap
+      inputWithIndex.iterator.flatMap { case (synCon, index) =>
+        List(resultsFromAssign, resultsFromCreate)
+          .flatMap(_.get(index))
+          .maxOption
+          .map(synCon -> _)
+      }.toMap
+    }
+    .getOrElse(Map.empty)
 }

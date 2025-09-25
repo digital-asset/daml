@@ -7,7 +7,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, CryptoProvider}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreExtended, CryptoPrivateStoreFactory}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
@@ -36,7 +35,6 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
-      CommunityKmsFactory,
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,
@@ -80,6 +78,7 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
       requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
       requiredSignatureFormats = NonEmpty.mk(Set, SignatureFormat.Der),
+      topologyChangeDelay = StaticSynchronizerParameters.defaultTopologyChangeDelay,
       enableTransparencyChecks = false,
       protocolVersion = testedProtocolVersion,
       serial = NonNegativeInt.zero,

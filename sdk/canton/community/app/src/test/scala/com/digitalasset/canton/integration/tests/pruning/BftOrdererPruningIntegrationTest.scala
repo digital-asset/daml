@@ -20,7 +20,7 @@ import scala.concurrent.duration.*
 
 class BftOrdererPruningIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S2M1
+    EnvironmentDefinition.P2_S2M1_TopologyChangeDelay_0
       .addConfigTransform(ConfigTransforms.useStaticTime)
 
   registerPlugin(new UsePostgres(loggerFactory))

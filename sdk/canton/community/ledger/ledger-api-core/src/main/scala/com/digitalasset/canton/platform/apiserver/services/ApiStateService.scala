@@ -136,11 +136,11 @@ final class ApiStateService(
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
     val result = (for {
-      party <- FieldValidator
-        .requirePartyField(request.party, "party")
+      partyO <- FieldValidator
+        .optionalString(request.party)(FieldValidator.requirePartyField(_, "party"))
       participantId <- FieldValidator
         .optionalParticipantId(request.participantId, "participant_id")
-    } yield SyncService.ConnectedSynchronizerRequest(party, participantId))
+    } yield SyncService.ConnectedSynchronizerRequest(partyO, participantId))
       .fold(
         t => FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         request =>
@@ -148,24 +148,34 @@ final class ApiStateService(
             .getConnectedSynchronizers(request)
             .map(response =>
               GetConnectedSynchronizersResponse(
-                response.connectedSynchronizers.flatMap { connectedSynchronizer =>
+                response.connectedSynchronizers.map { connectedSynchronizer =>
                   val permissions = connectedSynchronizer.permission match {
-                    case TopologyParticipantPermission.Submission =>
-                      Seq(ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
-                    case TopologyParticipantPermission.Observation =>
-                      Seq(ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION)
-                    case TopologyParticipantPermission.Confirmation =>
-                      Seq(ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION)
-                    case _ => Nil
+                    case Some(TopologyParticipantPermission.Submission) =>
+                      Some(ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
+                    case Some(TopologyParticipantPermission.Observation) =>
+                      Some(ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION)
+                    case Some(TopologyParticipantPermission.Confirmation) =>
+                      Some(ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION)
+                    case _ => None
                   }
-                  permissions.map(permission =>
-                    GetConnectedSynchronizersResponse.ConnectedSynchronizer(
-                      synchronizerAlias = connectedSynchronizer.synchronizerAlias.toProtoPrimitive,
-                      synchronizerId =
-                        connectedSynchronizer.synchronizerId.logical.toProtoPrimitive,
-                      permission = permission,
+                  permissions
+                    .map(permission =>
+                      GetConnectedSynchronizersResponse.ConnectedSynchronizer(
+                        synchronizerAlias =
+                          connectedSynchronizer.synchronizerAlias.toProtoPrimitive,
+                        synchronizerId =
+                          connectedSynchronizer.synchronizerId.logical.toProtoPrimitive,
+                        permission = permission,
+                      )
                     )
-                  )
+                    .getOrElse(
+                      GetConnectedSynchronizersResponse.ConnectedSynchronizer(
+                        synchronizerAlias =
+                          connectedSynchronizer.synchronizerAlias.toProtoPrimitive,
+                        synchronizerId = connectedSynchronizer.synchronizerId.toProtoPrimitive,
+                        permission = ParticipantPermission.PARTICIPANT_PERMISSION_UNSPECIFIED,
+                      )
+                    )
                 }
               )
             ),

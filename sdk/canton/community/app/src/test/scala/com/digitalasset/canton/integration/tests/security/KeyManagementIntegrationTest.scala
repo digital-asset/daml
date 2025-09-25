@@ -281,7 +281,7 @@ sealed trait KeyManagementIntegrationTest
   // TODO(test-coverage): disable participant / roll keys while the affected nodes are busy
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.enableRemoteMediators("mediator1", "remoteMediator1"),
         // Disable ACS commitment processing, so that the sequencer is idle when keys get deleted

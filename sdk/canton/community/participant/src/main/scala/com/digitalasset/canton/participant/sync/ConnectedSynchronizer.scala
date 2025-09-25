@@ -436,7 +436,7 @@ class ConnectedSynchronizer(
         changes
       })
 
-    def initializeClientAtCleanHead(): FutureUnlessShutdown[Unit] = {
+    def initializeClientAtCleanHead(): Unit = {
       // generally, the topology client will be initialised by the topology processor. however,
       // if there is nothing to be replayed, then the topology processor will only be initialised
       // once the first event is dispatched.
@@ -451,25 +451,15 @@ class ConnectedSynchronizer(
         ApproximateTime(resubscriptionTs),
         potentialTopologyChange = true,
       )
-      // now, compute epsilon at resubscriptionTs
-      topologyClient
-        .awaitSnapshot(resubscriptionTs)
-        .flatMap(snapshot =>
-          snapshot.findDynamicSynchronizerParametersOrDefault(
-            staticSynchronizerParameters.protocolVersion,
-            warnOnUsingDefault = false,
-          )
-        )
-        .map(_.topologyChangeDelay)
-        .map { topologyChangeDelay =>
-          // update client
-          topologyClient.updateHead(
-            SequencedTime(resubscriptionTs),
-            EffectiveTime(resubscriptionTs.plus(topologyChangeDelay.duration)),
-            ApproximateTime(resubscriptionTs),
-            potentialTopologyChange = true,
-          )
-        }
+      // now, compute epsilon at resubscriptionTs and update client
+      topologyClient.updateHead(
+        SequencedTime(resubscriptionTs),
+        EffectiveTime(
+          resubscriptionTs.plus(staticSynchronizerParameters.topologyChangeDelay.duration)
+        ),
+        ApproximateTime(resubscriptionTs),
+        potentialTopologyChange = true,
+      )
     }
 
     val startingPoints = ephemeral.startingPoints
@@ -483,7 +473,7 @@ class ConnectedSynchronizer(
       _ <- EitherT.right(sequencerConnectionListener.init())
 
       // Phase 0: Initialise topology client at current clean head
-      _ <- EitherT.right(initializeClientAtCleanHead())
+      _ = initializeClientAtCleanHead()
 
       // Phase 2: Log so we know if any repairs have been applied.
       _ = logger.info(s"The next repair counter would be $nextRepairCounter")

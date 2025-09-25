@@ -58,7 +58,7 @@ import scala.util.Try
 trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.config
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{CryptoConfig, ProtocolConfig}
+import com.digitalasset.canton.config.{CryptoConfig, NonNegativeFiniteDuration, ProtocolConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -55,6 +55,7 @@ final case class SynchronizerParametersConfig(
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
     requiredSignatureFormats: Option[NonEmpty[Set[SignatureFormat]]] = None,
     enableTransparencyChecks: Boolean = false,
+    topologyChangeDelay: Option[NonNegativeFiniteDuration] = None,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val alphaVersionSupport: Boolean = true,
     override val betaVersionSupport: Boolean = false,
@@ -71,6 +72,7 @@ final case class SynchronizerParametersConfig(
     param("requiredHashAlgorithms", _.requiredHashAlgorithms),
     param("requiredCryptoKeyFormats", _.requiredCryptoKeyFormats),
     param("requiredSignatureFormats", _.requiredSignatureFormats),
+    param("topologyChangeDelay", _.topologyChangeDelay),
     param("enableTransparencyChecks", _.enableTransparencyChecks),
     param("alphaVersionSupport", _.alphaVersionSupport),
     param("betaVersionSupport", _.betaVersionSupport),
@@ -136,6 +138,11 @@ final case class SynchronizerParametersConfig(
       newSignatureFormats = requiredSignatureFormats.getOrElse(
         cryptoConfig.provider.supportedSignatureFormatsForProtocol(protocolVersion)
       )
+      newTopologyChangeDelay = topologyChangeDelay
+        .map(_.toInternal)
+        .getOrElse(
+          StaticSynchronizerParameters.defaultTopologyChangeDelay
+        )
     } yield {
       StaticSynchronizerParameters(
         requiredSigningSpecs = RequiredSigningSpecs(
@@ -150,6 +157,7 @@ final case class SynchronizerParametersConfig(
         requiredHashAlgorithms = newRequiredHashAlgorithms,
         requiredCryptoKeyFormats = newCryptoKeyFormats,
         requiredSignatureFormats = newSignatureFormats,
+        topologyChangeDelay = newTopologyChangeDelay,
         enableTransparencyChecks = enableTransparencyChecks,
         protocolVersion = protocolVersion,
         serial = serial,

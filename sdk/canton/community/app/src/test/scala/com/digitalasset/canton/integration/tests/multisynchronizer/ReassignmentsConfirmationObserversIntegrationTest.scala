@@ -82,7 +82,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
     mutable.Map()
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_S1M1
+    EnvironmentDefinition.P3_S1M1_S1M1_TopologyChangeDelay_0
       // We want to trigger time out
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>

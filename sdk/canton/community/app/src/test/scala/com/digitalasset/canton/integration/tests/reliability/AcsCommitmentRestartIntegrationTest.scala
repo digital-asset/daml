@@ -49,7 +49,7 @@ trait AcsCommitmentRestartIntegrationTest
   private lazy val mediatorReactionTimeout = Duration.ofHours(1)
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ProgrammableSequencer.configOverride(this.getClass.toString, loggerFactory),

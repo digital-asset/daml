@@ -6,7 +6,11 @@ package com.digitalasset.canton.integration.tests.upgrade.lsu
 import com.daml.ledger.javaapi.data.DisclosedContract
 import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.{
+  DbConfig,
+  NonNegativeFiniteDuration,
+  SynchronizerTimeTrackerConfig,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.*
@@ -37,7 +41,7 @@ abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3S2M2_Config
       .withNetworkBootstrap { implicit env =>
-        new NetworkBootstrapper(S1M1)
+        new NetworkBootstrapper(S1M1.withTopologyChangeDelay(NonNegativeFiniteDuration.Zero))
       }
       .addConfigTransforms(configTransforms*)
       .withSetup { implicit env =>

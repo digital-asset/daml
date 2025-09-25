@@ -605,6 +605,7 @@ class MediatorNodeBootstrap(
               crypto.pureCrypto,
               arguments.parameterConfig,
               arguments.clock,
+              staticSynchronizerParameters,
               arguments.futureSupervisor,
               synchronizerLoggerFactory,
             )()
@@ -745,7 +746,6 @@ class MediatorNodeBootstrap(
           new InitialTopologySnapshotValidator(
             crypto.pureCrypto,
             synchronizerTopologyStore,
-            arguments.parameterConfig.processingTimeouts,
             synchronizerLoggerFactory,
           ),
           topologyClient,

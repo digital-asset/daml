@@ -7,8 +7,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{DbConfig, NonNegativeFiniteDuration}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
@@ -53,7 +53,7 @@ trait MediatorOnboardingTest
             synchronizerThreshold = PositiveInt.one,
             sequencers = Seq(sequencer1),
             mediators = Seq(mediator1),
-          )
+          ).withTopologyChangeDelay(NonNegativeFiniteDuration.Zero)
         )
       }
       .withSetup { implicit env =>

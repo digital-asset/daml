@@ -616,11 +616,6 @@ object JsUpdateServiceCodecs {
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveRelaxedCodec
   implicit val getUpdatesRequestRW: Codec[update_service.GetUpdatesRequest] = deriveRelaxedCodec
   implicit val getUpdatesRequestLegacyRW: Codec[LegacyDTOs.GetUpdatesRequest] = deriveRelaxedCodec
-  implicit val getTransactionByIdRequestRW: Codec[update_service.GetTransactionByIdRequest] =
-    deriveRelaxedCodec
-  implicit val getTransactionByOffsetRequestRW
-      : Codec[update_service.GetTransactionByOffsetRequest] =
-    deriveRelaxedCodec
   implicit val getTransactionByIdRequestLegacyRW: Codec[LegacyDTOs.GetTransactionByIdRequest] =
     deriveRelaxedCodec
   implicit val getTransactionByOffsetRequestLegacyRW

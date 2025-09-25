@@ -192,7 +192,8 @@ CREATE TABLE lapi_events_consuming_exercise (
     tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * choice data
-    exercise_choice VARCHAR NOT NULL,
+    exercise_choice INTEGER NOT NULL,
+    exercise_choice_interface INTEGER,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
     exercise_actors BINARY LARGE OBJECT NOT NULL,
@@ -205,8 +206,12 @@ CREATE TABLE lapi_events_consuming_exercise (
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
-    external_transaction_hash  BINARY LARGE OBJECT
+    external_transaction_hash  BINARY LARGE OBJECT,
+    deactivated_event_sequential_id bigint
 );
+
+-- deactivations
+CREATE INDEX lapi_events_consuming_exercise_deactivated_idx ON lapi_events_consuming_exercise (deactivated_event_sequential_id, event_sequential_id);
 
 -- offset index: used to translate to sequential_id
 CREATE INDEX lapi_events_consuming_exercise_event_offset_idx ON lapi_events_consuming_exercise (event_offset);
@@ -244,7 +249,8 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * choice data
-    exercise_choice VARCHAR NOT NULL,
+    exercise_choice INTEGER NOT NULL,
+    exercise_choice_interface INTEGER,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
     exercise_actors BINARY LARGE OBJECT NOT NULL,
@@ -307,8 +313,12 @@ CREATE TABLE lapi_events_unassign (
     assignment_exclusivity BIGINT,
 
     trace_context BINARY LARGE OBJECT NOT NULL,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    deactivated_event_sequential_id bigint
 );
+
+-- sequential_id index for paging
+CREATE INDEX lapi_events_unassign_deactivated_idx ON lapi_events_unassign (deactivated_event_sequential_id, event_sequential_id);
 
 -- sequential_id index for paging
 CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassign (event_sequential_id);

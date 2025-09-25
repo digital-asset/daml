@@ -20,6 +20,27 @@ messages:
           This field will be the reassignment_counter of the latest observable activation event on this synchronizer, which is
           before the active_at_offset.
           Required
+  AllocateExternalPartyRequest:
+    message:
+      comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      fieldComments:
+        synchronizer_id: |-
+          Synchronizer ID on which to onboard the party
+          Required
+        onboarding_transactions: |-
+          TopologyTransactions to onboard the external party
+          Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+          Required
+        multi_hash_signatures: Signatures of the combined hash of all onboarding_transactions
+        identity_provider_id: |-
+          The id of the ``Identity Provider``
+          If not set, assume the party is managed by the default identity provider.
+          Optional
+  AllocateExternalPartyResponse:
+    message:
+      comments: null
+      fieldComments:
+        party_id: ''
   AllocatePartyRequest:
     message:
       comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -1110,7 +1131,8 @@ messages:
         party: |-
           The party of interest
           Must be a valid PartyIdString (as described in ``value.proto``).
-          Required
+          If empty, all synchronizers this node is connected to will be returned
+          Optional
         participant_id: |-
           The id of a participant whose mapping of a party to connected synchronizers is requested.
           Must be a valid participant-id retrieved through a prior call to getParticipantId.
@@ -3024,6 +3046,8 @@ messages:
           Optional
 oneOfs:
   ActiveContract: {}
+  AllocateExternalPartyRequest: {}
+  AllocateExternalPartyResponse: {}
   AllocatePartyRequest: {}
   AllocatePartyResponse: {}
   Archived: {}

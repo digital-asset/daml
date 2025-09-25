@@ -42,7 +42,8 @@ final class TimeBasedInteractiveIntegrationTest
   private val oneDay = Duration.ofHours(24)
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1
+    EnvironmentDefinition.P3_S1M1_TopologyChangeDelay_0
+      .addConfigTransform(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
         participants.all.dars.upload(CantonExamplesPath)
@@ -50,7 +51,6 @@ final class TimeBasedInteractiveIntegrationTest
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
-      .addConfigTransform(ConfigTransforms.useStaticTime)
 
   private var aliceE: ExternalParty = _
 

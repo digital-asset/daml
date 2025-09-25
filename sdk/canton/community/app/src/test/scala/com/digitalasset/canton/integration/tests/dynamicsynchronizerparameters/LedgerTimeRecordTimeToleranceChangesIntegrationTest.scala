@@ -37,7 +37,7 @@ trait LedgerTimeRecordTimeToleranceChangesIntegrationTest
     with HasCycleUtils {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*

@@ -51,10 +51,7 @@ import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, Prun
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
-import com.digitalasset.canton.participant.store.memory.{
-  MutablePackageMetadataViewImpl,
-  PackageMetadataView,
-}
+import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataViewImpl
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
@@ -120,6 +117,7 @@ class ParticipantNodeBootstrap(
     ](arguments) {
 
   private val cantonSyncService = new SingleUseCell[CantonSyncService]
+  private val mutablePackageMetadataView = new SingleUseCell[MutablePackageMetadataViewImpl]
   private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver]
   private val packageUpgradeValidator = new PackageUpgradeValidator(
     arguments.parameterConfig.general.cachingConfigs.packageUpgradeCache,
@@ -129,6 +127,11 @@ class ParticipantNodeBootstrap(
 
   override protected val adminTokenConfig: AdminTokenConfig =
     config.ledgerApi.adminTokenConfig.merge(config.adminApi.adminTokenConfig)
+
+  private def tryGetMutablePackageMetadataView(): MutablePackageMetadataViewImpl =
+    mutablePackageMetadataView.getOrElse(
+      sys.error("mutablePackageMetadataView should be defined")
+    )
 
   private def tryGetPackageDependencyResolver(): PackageDependencyResolver =
     packageDependencyResolver.getOrElse(
@@ -183,14 +186,27 @@ class ParticipantNodeBootstrap(
       authorizedStore: TopologyStore[AuthorizedStore],
       storage: Storage,
   ): AuthorizedTopologyManager = {
+    val store = DamlPackageStore(
+      storage,
+      arguments.futureSupervisor,
+      arguments.parameterConfig,
+      exitOnFatalFailures = parameters.exitOnFatalFailures,
+      loggerFactory,
+    )
+
+    val packageMetadataView = new MutablePackageMetadataViewImpl(
+      clock,
+      store,
+      packageUpgradeValidator,
+      loggerFactory,
+      config.parameters.packageMetadataView,
+      timeouts,
+    )
+
+    mutablePackageMetadataView.putIfAbsent(packageMetadataView).discard
+
     val resolver = new PackageDependencyResolver(
-      damlPackageStore = DamlPackageStore(
-        storage,
-        arguments.futureSupervisor,
-        arguments.parameterConfig,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
-        loggerFactory,
-      ),
+      damlPackageStore = store,
       timeouts = arguments.parameterConfig.processingTimeouts,
       loggerFactory = loggerFactory,
       fetchPackageParallelism = arguments.parameterConfig.general.batchingConfig.parallelism,
@@ -215,13 +231,6 @@ class ParticipantNodeBootstrap(
         .traverse(_.ledgerApiIndexer.asEval.value.ledgerApiStore.value.ledgerEnd)
         .map(_.flatten)
 
-    def getPackageMetadataView(): Option[PackageMetadataView] =
-      // In some rare cases, it is possible to vet packages before the package service is created.
-      // For instance, in a major upgrade, we import a topology snapshot as soon as the node
-      // topology is ready, and before the participant services are created.
-      // In such case, we cannot get a proper PackageMetadata snapshot and we bypass the upgrade checks.
-      cantonSyncService.get.map(_.getPackageMetadataView)
-
     val topologyManager = new AuthorizedTopologyManager(
       nodeId,
       clock,
@@ -242,7 +251,7 @@ class ParticipantNodeBootstrap(
         validatePackageVetting(
           currentlyVettedPackages,
           nextPackageIds,
-          getPackageMetadataView(),
+          packageMetadataView,
           resolver,
           acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
@@ -448,22 +457,8 @@ class ParticipantNodeBootstrap(
         _ <- EitherT.right(persistentStateContainer.initializeNext())
         persistentState = persistentStateContainer.asEval
 
-        mutablePackageMetadataViewContainer = new LifeCycleContainer[
-          MutablePackageMetadataViewImpl
-        ](
-          stateName = "mutable-package-metadata-view",
-          create = () =>
-            MutablePackageMetadataViewImpl.createAndInitialize(
-              clock,
-              packageDependencyResolver.damlPackageStore,
-              packageUpgradeValidator,
-              loggerFactory,
-              config.parameters.packageMetadataView,
-              parameters.processingTimeouts,
-            ),
-          loggerFactory = loggerFactory,
-        )
-        _ <- EitherT.right(mutablePackageMetadataViewContainer.initializeNext())
+        mutablePackageMetadataView = tryGetMutablePackageMetadataView()
+        _ <- EitherT.right(mutablePackageMetadataView.refreshState)
 
         syncPersistentStateManager = new SyncPersistentStateManager(
           participantId,
@@ -476,10 +471,10 @@ class ParticipantNodeBootstrap(
           (staticSynchronizerParameters: StaticSynchronizerParameters) =>
             SynchronizerCrypto(crypto, staticSynchronizerParameters),
           clock,
-          tryGetPackageDependencyResolver(),
+          mutablePackageMetadataView,
+          packageDependencyResolver,
           persistentState.map(_.ledgerApiStore),
           persistentState.map(_.contractStore),
-          mutablePackageMetadataViewContainer.asEval,
           futureSupervisor,
           loggerFactory,
         )
@@ -583,11 +578,11 @@ class ParticipantNodeBootstrap(
         packageService = PackageService(
           clock = clock,
           engine = engine,
+          mutablePackageMetadataView = mutablePackageMetadataView,
           packageDependencyResolver = packageDependencyResolver,
           enableStrictDarValidation = parameters.enableStrictDarValidation,
           loggerFactory = loggerFactory,
           metrics = arguments.metrics,
-          mutablePackageMetadataView = mutablePackageMetadataViewContainer.asEval,
           packageOps = createPackageOps(syncPersistentStateManager),
           timeouts = parameters.processingTimeouts,
         )
@@ -883,7 +878,6 @@ class ParticipantNodeBootstrap(
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable(packageService)
-        addCloseable(mutablePackageMetadataViewContainer.currentAutoCloseable())
         addCloseable(indexedStringStore)
         addCloseable(partyNotifier)
         addCloseable(ephemeralState.participantEventPublisher)
@@ -903,11 +897,12 @@ class ParticipantNodeBootstrap(
         })
         addCloseable(ledgerApiDependentServices)
         addCloseable(packageDependencyResolver)
+        addCloseable(mutablePackageMetadataView)
 
         // return values
         ParticipantServices(
           persistentStateContainer = persistentStateContainer,
-          mutablePackageMetadataViewContainer = mutablePackageMetadataViewContainer,
+          mutablePackageMetadataView = mutablePackageMetadataView,
           ledgerApiIndexerContainer = ledgerApiIndexerContainer,
           cantonSyncService = sync,
           schedulers = schedulers,
@@ -990,7 +985,7 @@ object ParticipantNodeBootstrap {
 
   final case class ParticipantServices(
       persistentStateContainer: LifeCycleContainer[ParticipantNodePersistentState],
-      mutablePackageMetadataViewContainer: LifeCycleContainer[MutablePackageMetadataViewImpl],
+      mutablePackageMetadataView: MutablePackageMetadataViewImpl,
       ledgerApiIndexerContainer: LifeCycleContainer[LedgerApiIndexer],
       cantonSyncService: CantonSyncService,
       schedulers: Schedulers,

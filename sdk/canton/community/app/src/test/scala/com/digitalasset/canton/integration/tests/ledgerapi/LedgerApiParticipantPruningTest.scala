@@ -82,7 +82,7 @@ trait LedgerApiParticipantPruningTest
 
   // single participant environment to focus on ledger api server pruning rather than acs canton commitments
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateMaxDeduplicationDurations(transactionTolerance.asJava),

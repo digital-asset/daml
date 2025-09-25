@@ -416,11 +416,11 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
 
     object GrpcMappings2 {
       val value: Seq[Mapping[_, _]] = Seq(
-        Mapping[v2.update_service.GetTransactionByIdRequest, openapi.GetTransactionByIdRequest](
+        Mapping[LegacyDTOs.GetTransactionByIdRequest, openapi.GetTransactionByIdRequest](
           openapi.GetTransactionByIdRequest.fromJson
         ),
         Mapping[
-          v2.update_service.GetTransactionByOffsetRequest,
+          LegacyDTOs.GetTransactionByOffsetRequest,
           openapi.GetTransactionByOffsetRequest,
         ](
           openapi.GetTransactionByOffsetRequest.fromJson
@@ -864,6 +864,24 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           openapi.Unvet,
         ](
           openapi.Unvet.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyRequest.SignedTransaction,
+          openapi.SignedTransaction,
+        ](
+          openapi.SignedTransaction.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyRequest,
+          openapi.AllocateExternalPartyRequest,
+        ](
+          openapi.AllocateExternalPartyRequest.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyResponse,
+          openapi.AllocateExternalPartyResponse,
+        ](
+          openapi.AllocateExternalPartyResponse.fromJson
         ),
       )
     }

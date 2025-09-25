@@ -71,10 +71,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val packageMetadata: PackageMetadata = PackageMetadata(packageName, packageVersion, None)
   val genPackage: GenPackage[Expr] =
     GenPackage(
-      Map.empty,
-      Set.empty,
-      LanguageVersion.default,
-      packageMetadata,
+      modules = Map.empty,
+      directDeps = Set.empty,
+      languageVersion = LanguageVersion.default,
+      metadata = packageMetadata,
+      imports = Right(Set.empty),
       isUtilityPackage = true,
     )
   val packageResolver: PackageResolver = _ => _ => FutureUnlessShutdown.pure(Some(genPackage))

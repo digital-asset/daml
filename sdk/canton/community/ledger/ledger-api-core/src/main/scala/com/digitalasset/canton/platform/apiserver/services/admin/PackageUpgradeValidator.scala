@@ -96,7 +96,7 @@ class PackageUpgradeValidator(
         .flatMap(getPackageToCheck)
         .groupBy(_.name)
         .view
-        .mapValues(_.sortBy(_.version))
+        .mapValues(_.sortBy(pkg => (pkg.version, pkg.packageId)))
         .toMap
 
     // validate the upgradeability of each lineage

@@ -49,7 +49,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
   private var decentralizedParty: PartyId = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1_S1M1
+    EnvironmentDefinition.P2_S1M1_S1M1_TopolopgyChangeDelay_0
       // We want to trigger time out
       .addConfigTransforms(ConfigTransforms.useStaticTime)
       .addConfigTransform(

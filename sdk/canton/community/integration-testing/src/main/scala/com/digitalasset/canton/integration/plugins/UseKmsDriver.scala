@@ -37,7 +37,7 @@ class UseKmsDriver(
     val driverConfig: ConfigValue = ConfigValueFactory.fromMap(Map.empty[String, AnyRef].asJava),
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-) extends UseCommunityKms {
+) extends UseKms {
   protected val kmsConfig: KmsConfig.Driver = KmsConfig.Driver(
     driverName,
     driverConfig,

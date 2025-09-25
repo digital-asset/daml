@@ -57,7 +57,7 @@ trait InFlightSubmissionTrackingIntegrationTest
   private val overrideMaxRequestSize = NonNegativeInt.tryCreate(100 * 1024)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1_TopologyChangeDelay_0
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         // Set a small request size for the participant so that the participant's sequencer client refuses to

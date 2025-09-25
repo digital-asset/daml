@@ -16,6 +16,7 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
@@ -117,6 +118,7 @@ trait TopologyAwaiter extends FlagCloseable {
   */
 class StoreBasedSynchronizerTopologyClient(
     val clock: Clock,
+    val staticSynchronizerParameters: StaticSynchronizerParameters,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     packageDependenciesResolver: PackageDependencyResolverUS,
     override val timeouts: ProcessingTimeout,

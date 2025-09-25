@@ -47,7 +47,7 @@ class AutomaticReassignmentDecentralizedPartyIntegrationTest
   private var aggregate: M.Aggregate.ContractId = _
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1_S1M1.withSetup { implicit env =>
+    EnvironmentDefinition.P2_S1M1_S1M1_TopolopgyChangeDelay_0.withSetup { implicit env =>
       import env.*
 
       def disableAssignmentExclusivityTimeout(d: InitializedSynchronizer): Unit =
@@ -56,8 +56,7 @@ class AutomaticReassignmentDecentralizedPartyIntegrationTest
             .propose_update(
               d.synchronizerId,
               _.update(
-                assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero,
-                topologyChangeDelay = config.NonNegativeFiniteDuration.Zero,
+                assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero
               ),
             )
         )
