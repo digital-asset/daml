@@ -1,0 +1,37 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.dev
+
+{-# OPTIONS_GHC -Wno-x-crypto #-}
+
+module AttestationTests where
+
+import AttestationTestData
+import DA.Assert ((===))
+import DA.Crypto.Text
+import Daml.Script
+
+template ValidateTestMessageSignature with
+    signature : SignatureHex
+    publicKey : PublicKeyHex
+    messageHash : BytesHex
+    owner : Party
+  where
+    signatory owner
+    ensure secp256k1 signature messageHash publicKey
+
+main =
+  script do
+    TestData msg encodedMsg msgHash sig <- testData
+    ((serializeTestMessage msg) === encodedMsg)
+    ((keccak256 (serializeTestMessage msg)) === msgHash)
+    actualSig <- secp256k1signWithEcdsaOnly signerAddress msgHash
+    (actualSig === sig)
+    alice <- allocateParty "Alice"
+    submit alice do
+      createCmd ValidateTestMessageSignature with
+        publicKey = signerAddress
+        messageHash = msgHash
+        signature = sig
+        owner = alice

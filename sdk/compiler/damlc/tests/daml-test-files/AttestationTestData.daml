@@ -1,0 +1,66 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @SINCE-LF 2.dev
+
+{-# OPTIONS_GHC -Wno-x-crypto #-}
+
+module AttestationTestData
+  (TestMessage,
+   TestData,
+   serializeTestMessage,
+   signerAddress,
+   signerPrivateKey,
+   testData,
+  ) where
+
+import DA.Crypto.Text
+
+type Address = Bytes32Hex
+
+data TestMessage =
+  amount : UInt256
+  hookData : BytesHex
+  localDepositor : Address
+  localToken : Address
+  maxFee : UInt256
+  nonce : Bytes32Hex
+  remoteDomain : UInt32
+  remoteRecipient : Bytes32Hex
+  remoteToken : Bytes32Hex
+  version : UInt32
+
+data TestData =
+  message : TestMessage
+  encodedMessage : BytesHex
+  messageHash : BytesHex
+  signature : BytesHex
+
+serializeTestMessage : TestMessage -> BytesHex
+serializeTestMessage (TestMessage amount hookData localDepositor localToken maxFee nonce remoteDomain remoteRecipient remoteToken version) =
+  "2bcc5ce7" <> version <> amount <> remoteDomain <> remoteToken <> remoteRecipient <> localToken <> localDepositor <> maxFee <> nonce <> (toUInt32 (byteCount hookData)) <> hookData
+
+signerAddress : BytesHex
+signerAddress = "589d3e40069df16c429522acab02c9dafd955833" -- convert to a DER encoded PublicKey
+
+signerPrivateKey : BytesHex
+signerPrivateKey = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee" -- convert to a DER format
+
+testData : TestData List
+testData = [
+  TestData with
+    message = TestMessage with
+      amount = "766294475885"
+      hookData = "78df9bc78f17fcb62277af72e10b126e51d52b075fcce149dc4f08cd0959d6cac362d7fff64667f6a6232ac78a84"
+      localDepositor = "e1c9f3ce60b6c8872c018e28f75c6b4cdd19400544d34025a3fcf98daafaa669"
+      localToken = "000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+      maxFee = "68966502829"
+      nonce = "bc97a5d0e2eea5cc008e3ba80d550a781bdb118c142915a2897019240601fb70"
+      remoteDomain = "10001"
+      remoteRecipient = "9c4fcdc01a43f9be5bbe1532488cc4fe0430d92de1108f7ccd8845e83733535d"
+      remoteToken = "000000000000000000000000a0b86a33e6f8ec61cc62f1b0cb2ad6dfe3c10e8b"
+      version = "1"
+    encodedMessage = "2bcc5ce700000001000000000000000000000000000000000000000000000000000000b26ab5c46d00002711000000000000000000000000a0b86a33e6f8ec61cc62f1b0cb2ad6dfe3c10e8b9c4fcdc01a43f9be5bbe1532488cc4fe0430d92de1108f7ccd8845e83733535d000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48e1c9f3ce60b6c8872c018e28f75c6b4cdd19400544d34025a3fcf98daafaa669000000000000000000000000000000000000000000000000000000100eb951adbc97a5d0e2eea5cc008e3ba80d550a781bdb118c142915a2897019240601fb700000002e78df9bc78f17fcb62277af72e10b126e51d52b075fcce149dc4f08cd0959d6cac362d7fff64667f6a6232ac78a84"
+    messageHash = "40e3e5b2d92a6a3235dc0b8f60ab7dd684ed80aee4e322e2372f8f13e47123d7"
+    signature = "23ac6caa0a25872c81c3eac30fede66302768cd83e6c7504c0c6b9c39e715c923756685f95bb886645cbe3b52f8e98b09780bb2e93083df048bd0a7bc33a252b1c" -- convert to a DER format
+]
