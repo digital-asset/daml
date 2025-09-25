@@ -487,14 +487,15 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         value,
       )
     Right(right match {
-      case UserRight.IdentityProviderAdmin =>
-        // TODO #15857
-        // Add support for the `IdentityProviderAdmin` in the Daml Script
-        sys.error("IdentityProviderAdmin user right has not been supported yet")
       case UserRight.ParticipantAdmin => toRight("ParticipantAdmin", 0, SUnit)
       case UserRight.CanActAs(p) => toRight("CanActAs", 1, SParty(p))
       case UserRight.CanReadAs(p) => toRight("CanReadAs", 2, SParty(p))
       case UserRight.CanReadAsAnyParty => toRight("CanReadAsAnyParty", 3, SUnit)
+      case UserRight.IdentityProviderAdmin | UserRight.CanExecuteAs(_) | UserRight.CanExecuteAsAnyParty =>
+        // TODO #15857
+        // Add support for the `IdentityProviderAdmin` in the Daml Script
+        sys.error(s"${right.getClass.getSimpleName} user right has not been supported yet")
+
     })
   }
 
