@@ -516,6 +516,7 @@ object Ast {
   final case object BTextToCodePoints extends BuiltinFunction // : Text -> List Int64
 
   final case object BSHA256Text extends BuiltinFunction // : Text -> Text
+  final case object BSHA256Hex extends BuiltinFunction // : Text -> Text
 
   final case object BKECCAK256Text extends BuiltinFunction // : Text -> Text
   final case object BDecodeHex extends BuiltinFunction // : Text -> Text
@@ -543,6 +544,8 @@ object Ast {
   final case object BGreaterEq extends BuiltinFunction // ∀a. a -> a -> Bool
 
   final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1WithEcdsaBool
+      extends BuiltinFunction // : Text -> Text -> Text -> Bool
 
   final case object BCoerceContractId
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b

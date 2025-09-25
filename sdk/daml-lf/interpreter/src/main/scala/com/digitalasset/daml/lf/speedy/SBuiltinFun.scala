@@ -581,7 +581,27 @@ private[lf] object SBuiltinFun {
 
   final case object SBSHA256Text extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(Utf8.sha256(getSText(args, 0)))
+      SText(Utf8.sha256(Utf8.getBytes(getSText(args, 0))))
+  }
+
+  final case object SBSHA256Hex extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      val hex = getSText(args, 0)
+
+      Ref.HexString.fromString(hex) match {
+        case Right(s) =>
+          Control.Value(SText(Utf8.sha256(Ref.HexString.decode(s))))
+        case Left(_) =>
+          Control.Error(
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(hex, "can not parse hex string")
+            )
+          )
+      }
+    }
   }
 
   final case object SBKECCAK256Text extends SBuiltinFun(1) {
@@ -605,6 +625,32 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBSECP256K1Bool extends SBuiltinFun(3) {
+    private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      val arg1 = getSText(args, 1)
+
+      Ref.HexString.fromString(arg1) match {
+        case Right(message) =>
+          val messageDigest = Utf8.sha256(Ref.HexString.decode(message))
+          discard(args.set(1, SText(messageDigest)))
+          SBSECP256K1WithEcdsaBool.execute(args, machine)
+
+        case Left(_) =>
+          Control.Error(
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(
+                arg1,
+                cause = "can not parse message hex string",
+              )
+            )
+          )
+      }
+    }
+  }
+
+  final case object SBSECP256K1WithEcdsaBool extends SBuiltinFun(3) {
     private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],

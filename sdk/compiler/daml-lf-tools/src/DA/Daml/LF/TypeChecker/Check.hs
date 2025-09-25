@@ -264,10 +264,12 @@ typeOfBuiltin = \case
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
   BESha256Text       -> pure $ TText :-> TText
+  BESha256Hex        -> pure $ TText :-> TText
   BEKecCak256Text    -> pure $ TText :-> TText
   BEEncodeHex        -> pure $ TText :-> TText
   BEDecodeHex        -> pure $ TText :-> TText
   BESecp256k1Bool    -> pure $ TText :-> TText :-> TText :-> TBool
+  BESecp256k1WithEcdsaBool -> pure $ TText :-> TText :-> TText :-> TBool
   BEFoldl -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $
              (tBeta :-> tAlpha :-> tBeta) :-> tBeta :-> TList tAlpha :-> tBeta
   BEFoldr -> pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $

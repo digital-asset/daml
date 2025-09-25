@@ -319,6 +319,7 @@ data BuiltinExpr
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
   | BESha256Text                 -- :: Text -> Text
+  | BESha256Hex                  -- :: Text -> Text
   | BEKecCak256Text              -- :: Text -> Text
   | BEEncodeHex                  -- :: Text -> Text
   | BEDecodeHex                  -- :: Text -> Text
@@ -329,6 +330,7 @@ data BuiltinExpr
   | BECodePointsToText           -- :: List Int64 -> Text
 
   | BESecp256k1Bool              -- :: Text -> Text -> Text -> Bool
+  | BESecp256k1WithEcdsaBool     -- :: Text -> Text -> Text -> Bool
 
   -- BigNumeric operations
   | BEScaleBigNumeric            -- :: BigNumeric -> Int64

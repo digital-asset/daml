@@ -26,7 +26,26 @@ data Secp256k1Sign = Secp256k1Sign with
   message: BytesHex
 instance IsQuestion Secp256k1Sign BytesHex where command = "Secp256k1Sign"
 
--- | Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message.
+#ifdef DAML_CRYPTO_ADDITIONS
+-- | HIDE
+data Secp256k1WithEcdsaSign = Secp256k1WithEcdsaSign with
+  privateKey: PublicKeyHex
+  message: BytesHex
+-- | HIDE
+instance IsQuestion Secp256k1WithEcdsaSign BytesHex where command = "Secp256k1WithEcdsaSign"
+
+-- | MOVE Daml.Script
+-- Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message.
+--
+-- Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing.
+--
+-- For example, CCTP attestation services may be mocked in daml-script code.
+secp256k1signWithEcdsaOnly : HasCallStack => PrivateKeyHex -> BytesHex -> Script BytesHex
+secp256k1signWithEcdsaOnly pk msg = lift $ Secp256k1WithEcdsaSign pk msg
+#endif
+
+-- | MOVE Daml.Script
+-- Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a SHA256 digest of a hex encoded string message.
 --
 -- Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing.
 --
