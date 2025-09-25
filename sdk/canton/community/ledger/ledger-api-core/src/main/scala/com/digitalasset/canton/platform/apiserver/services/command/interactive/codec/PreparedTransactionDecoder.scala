@@ -420,11 +420,15 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         mediatorGroup <- metadataProto.mediatorGroup
           .transformIntoPartial[MediatorGroupIndex]
           .toFutureWithLoggedFailures("Failed to deserialize mediator group", logger)
+        maxLedgerTimeO <- metadataProto.maxRecordTime
+          .transformIntoPartial[Option[lf.data.Time.Timestamp]]
+          .toFutureWithLoggedFailures("Failed to deserialize mediator group", logger)
       } yield ExternallySignedSubmission(
         executeRequest.serializationVersion,
         executeRequest.signatures,
         transactionUUID = transactionUUID,
         mediatorGroup = mediatorGroup,
+        maxRecordTimeO = maxLedgerTimeO,
       )
       submitterInfo <- submitterInfoProto
         .intoPartial[SubmitterInfo]

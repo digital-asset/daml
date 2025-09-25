@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.store.{
   RequestJournalStore,
   SyncPersistentState,
 }
-import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -293,19 +293,19 @@ object SyncEphemeralStateFactory {
     // * The first request whose commit time is after the clean synchronizer index timestamp
     // * The clean sequencer counter prehead timestamp
     for {
-      cleanTimeOfRequest <- cleanSynchronizerIndexO
-        .fold[FutureUnlessShutdown[Option[TimeOfRequest]]](FutureUnlessShutdown.pure(None))(
+      cleanRequestTimestamp <- cleanSynchronizerIndexO
+        .fold[FutureUnlessShutdown[Option[CantonTimestamp]]](FutureUnlessShutdown.pure(None))(
           synchronizerIndex =>
             requestJournalStore
-              .lastRequestTimeWithRequestTimestampBeforeOrAt(synchronizerIndex.recordTime)
+              .lastRequestTimestampBeforeOrAt(synchronizerIndex.recordTime)
         )
-      requestReplayTs <- cleanTimeOfRequest match {
+      requestReplayTs <- cleanRequestTimestamp match {
         case None =>
           // No request is known to be clean, nothing can be pruned
           FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
-        case Some(timeOfRequest) =>
-          requestJournalStore.firstRequestWithCommitTimeAfter(timeOfRequest.timestamp).map { res =>
-            val ts = res.fold(timeOfRequest.timestamp)(_.requestTimestamp)
+        case Some(timestamp) =>
+          requestJournalStore.firstRequestWithCommitTimeAfter(timestamp).map { res =>
+            val ts = res.fold(timestamp)(_.requestTimestamp)
             // If the only processed requests so far are repair requests, it can happen that `ts == CantonTimestamp.MinValue`.
             // Taking the predecessor throws an exception.
             if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor

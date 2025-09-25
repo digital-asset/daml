@@ -142,7 +142,9 @@ final case class DeclarativePartyConfig(
 final case class DeclarativeUserRightsConfig(
     actAs: Set[String] = Set(),
     readAs: Set[String] = Set(),
+    executeAs: Set[String] = Set(),
     readAsAnyParty: Boolean = false,
+    executeAsAnyParty: Boolean = false,
     participantAdmin: Boolean = false,
     identityProviderAdmin: Boolean = false,
 ) extends UniformCantonConfigValidation

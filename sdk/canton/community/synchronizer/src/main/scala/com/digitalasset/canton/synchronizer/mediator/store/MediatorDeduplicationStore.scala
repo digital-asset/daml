@@ -12,13 +12,14 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnl
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.resource.{DbStorage, DbStore, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.{MediatorId, Member}
+import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.BatchAggregatorUS
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{ConcurrentNavigableMap, ConcurrentSkipListMap}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -162,19 +163,19 @@ private[mediator] trait MediatorDeduplicationStore
 
 private[mediator] object MediatorDeduplicationStore {
   def apply(
-      mediatorId: MediatorId,
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      batchAggregatorConfig: BatchAggregatorConfig = BatchAggregatorConfig(),
+      pruneAtMostEvery: PositiveFiniteDuration,
+      persistBatching: BatchAggregatorConfig,
   )(implicit executionContext: ExecutionContext): MediatorDeduplicationStore = storage match {
     case _: MemoryStorage => new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts)
     case dbStorage: DbStorage =>
       new DbMediatorDeduplicationStore(
-        mediatorId,
         dbStorage,
         timeouts,
-        batchAggregatorConfig,
+        persistBatching,
+        pruneAtMostEvery,
         loggerFactory,
       )
   }
@@ -252,16 +253,15 @@ private[mediator] class InMemoryMediatorDeduplicationStore(
 // context propagation to improve and simplify shutdown semantics and reliability. For that reason closing this store
 // is inconsequential. DB operations won't be retried if and only if the caller's close context is closing.
 private[mediator] class DbMediatorDeduplicationStore(
-    mediatorId: MediatorId,
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
-    batchAggregatorConfig: BatchAggregatorConfig,
+    persistBatching: BatchAggregatorConfig,
+    pruneAtMostEvery: PositiveFiniteDuration,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends MediatorDeduplicationStore
     with DbStore {
 
-  import Member.DbStorageImplicits.*
   import storage.api.*
 
   override protected def doInitialize(
@@ -273,13 +273,13 @@ private[mediator] class DbMediatorDeduplicationStore(
     for {
       _ <- storage.update_(
         sqlu"""delete from mediator_deduplication_store
-              where mediator_id = $mediatorId and request_time >= $deleteFromInclusive""",
+              where request_time >= $deleteFromInclusive""",
         functionFullName,
       )(traceContext, callerCloseContext)
 
       activeUuids <- storage.query(
         sql"""select uuid, request_time, expire_after from mediator_deduplication_store
-             where mediator_id = $mediatorId and expire_after > $deleteFromInclusive"""
+             where expire_after > $deleteFromInclusive"""
           .as[DeduplicationData],
         functionFullName,
       )(traceContext, callerCloseContext)
@@ -293,8 +293,7 @@ private[mediator] class DbMediatorDeduplicationStore(
   ): FutureUnlessShutdown[Set[DeduplicationData]] =
     for {
       entries <- storage.query(
-        sql"""select uuid, request_time, expire_after from mediator_deduplication_store
-                where mediator_id = $mediatorId"""
+        sql"""select uuid, request_time, expire_after from mediator_deduplication_store"""
           .as[DeduplicationData],
         functionFullName,
       )(traceContext, callerCloseContext)
@@ -322,12 +321,11 @@ private[mediator] class DbMediatorDeduplicationStore(
           // The query does not have to be idempotent, because the stores don't have unique indices and
           // the data gets deduplicated on the read path.
           val action = DbStorage.bulkOperation_(
-            """insert into mediator_deduplication_store(mediator_id, uuid, request_time, expire_after)
-              |values (?, ?, ?, ?)""".stripMargin,
+            """insert into mediator_deduplication_store(uuid, request_time, expire_after)
+              |values (?, ?, ?)""".stripMargin,
             items,
             storage.profile,
           ) { pp => data =>
-            pp >> mediatorId
             pp >> data.value
           }
 
@@ -344,49 +342,48 @@ private[mediator] class DbMediatorDeduplicationStore(
 
     BatchAggregatorUS(
       processor,
-      batchAggregatorConfig,
+      persistBatching,
     )
   }
+
+  private val lastPruningTime: AtomicReference[Option[CantonTimestamp]] =
+    new AtomicReference(None)
+  private val lastPruningOperation: AtomicReference[FutureUnlessShutdown[Unit]] =
+    new AtomicReference(FutureUnlessShutdown.unit)
 
   override protected def prunePersistentData(
       upToInclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] =
-    pruningBatchAggregator.run(upToInclusive)(executionContext, traceContext, callerCloseContext)
-
-  private val pruningBatchAggregator = {
-    val processor: BatchAggregatorUS.ProcessorUS[CantonTimestamp, Unit] =
-      new BatchAggregatorUS.ProcessorUS[CantonTimestamp, Unit] {
-        override val kind: String = "deduplication data pruning"
-
-        override def logger: TracedLogger = DbMediatorDeduplicationStore.this.logger
-
-        override def executeBatch(items: NonEmpty[Seq[Traced[CantonTimestamp]]])(implicit
-            traceContext: TraceContext,
-            callerCloseContext: CloseContext,
-        ): FutureUnlessShutdown[Seq[Unit]] = {
-          // We only need to delete up to the max.
-          // The max is not necessarily the last one, as pruning requests can come out of order.
-          val maxUpToInclusive = items.map(_.value).max1
-
-          storage
+  ): FutureUnlessShutdown[Unit] = {
+    val previousPruningTime = lastPruningTime.get()
+    val earliestNextPruningTime = previousPruningTime.map(_ + pruneAtMostEvery)
+    if (upToInclusive >= earliestNextPruningTime.getOrElse(CantonTimestamp.MinValue)) {
+      // time to prune
+      if (lastPruningTime.compareAndSet(previousPruningTime, Some(upToInclusive))) {
+        // we are the first to update the pruning time, so we do the pruning
+        val ongoingPruning = lastPruningOperation.get()
+        if (ongoingPruning.isCompleted) {
+          val newPruning = storage
             .update_(
               sqlu"""delete from mediator_deduplication_store
-                       where mediator_id = $mediatorId and expire_after <= $maxUpToInclusive""",
+                       where expire_after <= $upToInclusive""",
               functionFullName,
             )(traceContext, callerCloseContext)
-            .map(_ => Seq.fill(items.size)(()))
+          lastPruningOperation.set(newPruning)
+          newPruning
+        } else {
+          // previous pruning is still ongoing, so we don't start a new one
+          FutureUnlessShutdown.unit
         }
-
-        override def prettyItem: Pretty[CantonTimestamp] = implicitly
+      } else {
+        // someone else updated the pruning time, so we don't do the pruning
+        FutureUnlessShutdown.unit
       }
-
-    BatchAggregatorUS(
-      processor,
-      batchAggregatorConfig,
-    )
+    } else {
+      // too soon since last pruning
+      FutureUnlessShutdown.unit
+    }
   }
-
 }

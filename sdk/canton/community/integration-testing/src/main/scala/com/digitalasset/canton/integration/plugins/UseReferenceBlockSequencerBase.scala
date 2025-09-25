@@ -82,26 +82,39 @@ abstract class UseReferenceBlockSequencerBase[
   ): Map[InstanceName, SequencerConfig] = {
     implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext.forClass(loggerFactory, getClass)
-    config.sequencers.keys.map { sequencerName =>
-      sequencerName -> SequencerConfig.External(
-        driverFactory.name,
-        BlockSequencerConfig(),
-        ConfigCursor(
-          driverFactory
-            .configWriter(confidential = false)
-            .to(
-              ReferenceSequencerDriver
-                .Config(
-                  storageConfigs.getOrElse(
-                    sequencerName,
-                    ErrorUtil.invalidState(s"Missing storage config for $sequencerName"),
-                  )
+    config.sequencers.map { case (sequencerName, originalConfig) =>
+      val driverConfigCursor = ConfigCursor(
+        driverFactory
+          .configWriter(confidential = false)
+          .to(
+            ReferenceSequencerDriver
+              .Config(
+                storageConfigs.getOrElse(
+                  sequencerName,
+                  ErrorUtil.invalidState(s"Missing storage config for $sequencerName"),
                 )
-            ),
-          List(),
-        ),
+              )
+          ),
+        List(),
       )
-    }.toMap
+
+      sequencerName ->
+        (originalConfig.sequencer match {
+          case external: SequencerConfig.External =>
+            // Here we preserve any settings coming from the original config, i.e. from ConfigTransforms
+            external.copy(
+              sequencerType = driverFactory.name,
+              config = driverConfigCursor,
+            )
+
+          case _ =>
+            SequencerConfig.External(
+              driverFactory.name,
+              BlockSequencerConfig(),
+              driverConfigCursor,
+            )
+        })
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

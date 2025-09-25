@@ -119,7 +119,7 @@ final class GeneratorsTransaction(
       .value
   )
 
-  val restrictionWithNamespaceDelegation = Gen.oneOf(
+  val restrictionWithNamespaceDelegation: Gen[DelegationRestriction] = Gen.oneOf(
     Gen.const(CanSignAllMappings),
     Generators
       // generate a random sequence of codes,
@@ -129,7 +129,7 @@ final class GeneratorsTransaction(
       .map(CanSignSpecificMappings(_)),
   )
 
-  val restrictionWithoutNamespaceDelegation = Gen.oneOf(
+  val restrictionWithoutNamespaceDelegation: Gen[DelegationRestriction] = Gen.oneOf(
     Gen.const(CanSignAllButNamespaceDelegations),
     Generators
       .nonEmptySetGen(
@@ -223,7 +223,7 @@ final class GeneratorsTransaction(
     Generators.nonEmptySet[Hash].arbitrary.map(_.map(TxHash(_)))
   )
 
-  def multiTransactionSignaturesGen(transactionHash: TxHash) = for {
+  def multiTransactionSignaturesGen(transactionHash: TxHash): Gen[MultiTransactionSignature] = for {
     hashes <- Arbitrary.arbitrary[NonEmpty[Set[TxHash]]]
     signatures <- Arbitrary.arbitrary[Signature]
   } yield MultiTransactionSignature(
@@ -246,12 +246,20 @@ final class GeneratorsTransaction(
     for {
       transaction <- Arbitrary.arbitrary[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
       proposal <- Arbitrary.arbBool.arbitrary
-      topologyTransactionSignatures <- {
-        implicit val localSignatureArb = topologyTransactionSignatureArb(transaction.hash)
+
+      signatures <- {
+        implicit val localSignatureArb: Arbitrary[TopologyTransactionSignature] =
+          topologyTransactionSignatureArb(transaction.hash)
         Generators.nonEmptySetGen[TopologyTransactionSignature]
       }
+      // multiple signatures by the same signing key are not allowed.
+      // therefore, ensure that we don't create flakes here.
+      signaturesWithoutDuplicates = TopologyTransactionSignature.distinctSignatures(
+        signatures.toSeq
+      )
+
     } yield SignedTopologyTransaction
-      .create(transaction, topologyTransactionSignatures, proposal, protocolVersion)
+      .tryCreate(transaction, signaturesWithoutDuplicates, proposal, protocolVersion)
   )
 
   implicit val signedTopologyTransactionsArb

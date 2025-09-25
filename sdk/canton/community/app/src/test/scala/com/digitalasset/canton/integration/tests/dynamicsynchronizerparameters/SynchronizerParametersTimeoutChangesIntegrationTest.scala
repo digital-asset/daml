@@ -138,6 +138,11 @@ trait SynchronizerParametersTimeoutChangesIntegrationTest
       loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(WARN))(
         clue("doing a ping") {
           participant1.health.maybe_ping(participant2.id, timeout = 600.seconds) shouldBe None
+          // Advance the clock so that the mediator observes the timeout of its result message.
+          val mediatorMinObservationDuration =
+            mediator1.underlying.value.replicaManager.mediatorRuntime.value.mediator.timeTracker.config.minObservationDuration
+          env.environment.simClock.value
+            .advance(mediatorMinObservationDuration.asJava.plusSeconds(1))
         },
         LogEntry.assertLogSeq(
           Seq(

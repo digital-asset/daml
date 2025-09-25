@@ -85,6 +85,16 @@ message PrepareSubmissionRequest {
   // Optional
   MinLedgerTime min_ledger_time = 4;
 
+  // Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+  // If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+  // with a new valid max_record_time.
+  // Use this to limit the time-to-life of a prepared transaction,
+  // which is useful to know when it can definitely not be accepted
+  // anymore and resorting to preparing another transaction for the same
+  // intent is safe again.
+  // Optional
+  optional google.protobuf.Timestamp max_record_time = 11;
+
   // Set of parties on whose behalf the command should be executed, if submitted.
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
   // to **read** (not act) on behalf of each of the given parties. This is because this RPC merely prepares a transaction
@@ -345,6 +355,14 @@ message Metadata {
   // Contextual information needed to process the transaction but not signed, either because it's already indirectly
   // signed by signing the transaction, or because it doesn't impact the ledger state
   repeated GlobalKeyMappingEntry global_key_mapping = 8;
+
+  // Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer `synchronizer_id`.
+  // If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+  // with a new valid max_record_time.
+  // Unsigned in 3.3 to avoid a breaking protocol change
+  // Will be signed in 3.4+
+  // Set max_record_time in the PreparedTransactionRequest to get this field set accordingly
+  optional uint64 max_record_time = 11;
 }
 
 /*

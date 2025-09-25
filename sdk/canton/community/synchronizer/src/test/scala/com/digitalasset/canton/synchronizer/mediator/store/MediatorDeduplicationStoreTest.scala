@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.synchronizer.mediator.store.MediatorDeduplicationStore.DeduplicationData
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -224,10 +224,11 @@ trait DbMediatorDeduplicationStoreTest extends MediatorDeduplicationStoreTest wi
       firstEventTs: CantonTimestamp
   ): DbMediatorDeduplicationStore = {
     val store = new DbMediatorDeduplicationStore(
-      DefaultTestIdentities.daMediator,
       storage,
       timeouts,
       BatchAggregatorConfig.defaultsForTesting,
+      pruneAtMostEvery =
+        PositiveFiniteDuration.tryOfSeconds(1), // pruning test case requires 1 second pruning steps
       loggerFactory,
     )
     store.initialize(firstEventTs).futureValueUS

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
@@ -21,7 +22,11 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
+import com.digitalasset.canton.sequencing.client.{
+  SendAsyncClientError,
+  SendCallback,
+  SequencerClientSend,
+}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -29,6 +34,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
+import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
 
@@ -104,6 +110,8 @@ abstract class AbstractMessageProcessor(
     if (messages.isEmpty) FutureUnlessShutdown.unit
     else {
       logger.trace(s"Request $requestId: ProtocolProcessor scheduling the sending of responses")
+      def errorBody = s"Request $requestId: Failed to send responses"
+
       for {
         synchronizerParameters <- crypto.ips
           .awaitSnapshot(requestId.unwrap)
@@ -112,7 +120,8 @@ abstract class AbstractMessageProcessor(
         maxSequencingTime = requestId.unwrap.add(
           synchronizerParameters.confirmationResponseTimeout.unwrap
         )
-        _ <- sequencerClient
+
+        sendResult = sequencerClient
           .sendAsync(
             Batch.of(protocolVersion, messages*),
             topologyTimestamp = Some(requestId.unwrap),
@@ -121,12 +130,25 @@ abstract class AbstractMessageProcessor(
             callback = SendCallback.log(s"Response message for request [$requestId]", logger),
             amplify = true,
           )
-          .valueOr {
-            // Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
-            // if the sequencer rejects them (e.g. max sequencing time has elapsed)
-            err =>
-              logger.warn(s"Request $requestId: Failed to send responses: ${err.show}")
-          }
+
+        /*
+        Swallow Left errors to avoid stopping request processing, as sending response could fail for arbitrary reasons
+        if the sequencer rejects them (e.g. max sequencing time has elapsed).
+
+         Discard the inner future (actual send) and wait only on the outer future.
+         As a result, we don't wait on the send of confirmation responses.
+         */
+        _ <- sendResult.value.value.map {
+          case Left(err) =>
+            logger.warn(s"$errorBody: ${err.show}")
+
+          case Right(inner: EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit]) =>
+            FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+              inner.valueOr(err => logger.warn(s"$errorBody: ${err.show}")),
+              failureMessage = errorBody,
+              level = Level.INFO,
+            )
+        }
       } yield ()
     }
   }

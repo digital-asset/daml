@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import cats.data.EitherT
-import cats.syntax.foldable.*
 import cats.syntax.option.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
@@ -26,8 +24,6 @@ import com.digitalasset.canton.sequencing.traffic.TrafficStateController
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.util.MonadUtil.sequentialTraverse_
 import com.google.common.annotations.VisibleForTesting
 
 import java.time.Instant
@@ -92,35 +88,33 @@ class SendTracker(
   )(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit] =
-    performUnlessClosingEitherUSF(s"track $messageId") {
-      for {
-        _ <- store.savePendingSend(messageId, maxSequencingTime)
-      } yield {
-        pendingSends.put(
-          messageId,
-          PendingSend(
-            maxSequencingTime,
-            callback,
-            startedAt = Some(Instant.now()),
-            traceContext,
-            metricsContext,
-          ),
-        ) match {
-          case Some(previousMaxSequencingTime) =>
-            // if we were able to persist the new message id without issue but found the message id in our in-memory
-            // pending set it suggests either:
-            //  - the database has been modified by a writer other than this sequencer client (so its pending set is not in sync)
-            //  - there is a bug :-|
-            sys.error(
-              s"""The SequencerClient pending set of sends is out of sync from the database.
+  ): Either[SavePendingSendError, Unit] =
+    for {
+      _ <- store.savePendingSend(messageId, maxSequencingTime)
+    } yield {
+      pendingSends.put(
+        messageId,
+        PendingSend(
+          maxSequencingTime,
+          callback,
+          startedAt = Some(Instant.now()),
+          traceContext,
+          metricsContext,
+        ),
+      ) match {
+        case Some(previousMaxSequencingTime) =>
+          // if we were able to persist the new message id without issue but found the message id in our in-memory
+          // pending set it suggests either:
+          //  - the database has been modified by a writer other than this sequencer client (so its pending set is not in sync)
+          //  - there is a bug :-|
+          sys.error(
+            s"""The SequencerClient pending set of sends is out of sync from the database.
                  |The database reported no send for $messageId but our pending set includes a prior send with mst of $previousMaxSequencingTime.""".stripMargin
-            )
-          case _none => // we're good
-        }
-        metrics.submissions.inFlight.inc()
+          )
+        case _none => // we're good
       }
-    }.tapOnShutdown(callback(UnlessShutdown.AbortedDueToShutdown))
+      metrics.submissions.inFlight.inc()
+    }
 
   /** Cancels a pending send without notifying any callers of the result. Should only be used if the
     * send operation itself fails and the transport returns an error indicating that the send will
@@ -129,7 +123,7 @@ class SendTracker(
     */
   def cancelPendingSend(messageId: MessageId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
+  ): Unit =
     removePendingSendUnlessTimeout(messageId, resultO = None, sequencedTimeO = None)
 
   /** Provide the latest sequenced events to update the send tracker
@@ -150,28 +144,27 @@ class SendTracker(
     */
   def update(
       events: Seq[SequencedEventWithTraceContext[?]]
-  ): FutureUnlessShutdown[Unit] = if (events.isEmpty) FutureUnlessShutdown.unit
+  ): Unit = if (events.isEmpty) ()
   else {
-    for {
-      maxTimestamp <- events.foldM(CantonTimestamp.MinValue) { case (maxTs, event) =>
-        removePendingSend(event.signedEvent.content)(event.traceContext).map { _ =>
-          maxTs.max(event.timestamp)
-        }
-      }
-      _ <- processTimeouts(maxTimestamp)
-    } yield ()
+    val maxTimestamp = events.foldLeft(CantonTimestamp.MinValue) { case (maxTs, event) =>
+      removePendingSend(event.signedEvent.content)(event.traceContext)
+
+      maxTs.max(event.timestamp)
+    }
+
+    processTimeouts(maxTimestamp)
   }
 
   private def processTimeouts(
       timestamp: CantonTimestamp
-  ): FutureUnlessShutdown[Unit] = {
+  ): Unit = {
     val timedOut = pendingSends.collect {
       case (messageId, PendingSend(maxSequencingTime, _, _, traceContext, _))
           if maxSequencingTime < timestamp =>
         Traced(messageId)(traceContext)
     }.toList
-    // parallel would be okay
-    sequentialTraverse_(timedOut)(_.withTraceContext { implicit traceContext =>
+
+    timedOut.foreach(_.withTraceContext { implicit traceContext =>
       handleTimeout(timestamp)
     })
   }
@@ -179,28 +172,25 @@ class SendTracker(
   @VisibleForTesting
   protected def handleTimeout(timestamp: CantonTimestamp)(
       messageId: MessageId
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"Sequencer send [$messageId] has timed out at $timestamp")
-    for {
-      _ <- removePendingSendUnlessTimeout(
-        messageId,
-        UnlessShutdown.Outcome(SendResult.Timeout(timestamp)).some,
-        None, // none because the message really timed out
-      )
-    } yield ()
+    removePendingSendUnlessTimeout(
+      messageId,
+      UnlessShutdown.Outcome(SendResult.Timeout(timestamp)).some,
+      None, // none because the message really timed out
+    )
   }
 
   private def removePendingSend(
       event: SequencedEvent[_]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    extractSendResult(event)
-      .fold(FutureUnlessShutdown.unit) { case (messageId, sendResult) =>
-        removePendingSendUnlessTimeout(
-          messageId,
-          UnlessShutdown.Outcome(sendResult).some,
-          Some(event.timestamp),
-        )
-      }
+  )(implicit traceContext: TraceContext): Unit =
+    extractSendResult(event).foreach { case (messageId, sendResult) =>
+      removePendingSendUnlessTimeout(
+        messageId,
+        UnlessShutdown.Outcome(sendResult).some,
+        Some(event.timestamp),
+      )
+    }
 
   private def updateSequencedMetrics(pendingSend: PendingSend, result: SendResult): Unit = {
     def recordSequencingTime(): Unit =
@@ -232,7 +222,7 @@ class SendTracker(
       sequencedTimeO: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
+  ): Unit = {
     // note: this should be okay from a concurrency perspective as there should be only one active
     // send with this message-id at a time (track would fail otherwise)
     val current = pendingSends.get(messageId)
@@ -291,14 +281,15 @@ class SendTracker(
           result.foreach(updateSequencedMetrics(pending, _))
           pending.callback(result)
         }
-        for {
-          _ <- store.removePendingSend(messageId)
-        } yield {
-          metrics.submissions.inFlight.dec()(eventSpecificMetricsContext)
-        }
+
+        store.removePendingSend(messageId)
+
+        metrics.submissions.inFlight.dec()(eventSpecificMetricsContext)
+
       case (Some(_), _) =>
         // We observed the command being sequenced but it arrived too late to be processed.
-        FutureUnlessShutdown.unit
+        ()
+
       case _ =>
         logger.debug(s"Removing unknown pending command $messageId")
         store.removePendingSend(messageId)
@@ -321,12 +312,11 @@ class SendTracker(
   override def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     import TraceContext.Implicits.Empty.emptyTraceContext
     Seq(
-      AsyncCloseable.applyUS(
+      SyncCloseable(
         "complete-pending-sends",
-        MonadUtil.sequentialTraverse_(pendingSends.keys)(
+        pendingSends.keys.foreach(
           removePendingSendUnlessTimeout(_, Some(UnlessShutdown.AbortedDueToShutdown), None)
         ),
-        timeouts.shutdownProcessing,
       ),
       SyncCloseable("send-tracker-store", store.close()),
     )

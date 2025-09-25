@@ -19,7 +19,6 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
-import java.time.Instant
 import java.util.Collections
 
 sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
@@ -67,6 +66,8 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
           .submit(actAs = Seq(alice), commands = commands)
       }
 
+      val beforeActivationOffset = participant1.ledger_api.state.end()
+
       PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
         participant1,
         alice,
@@ -77,22 +78,13 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
         ),
       )
 
-      val onboardingTx = participant1.topology.party_to_participant_mappings
-        .list(
-          synchronizerId = daId,
-          filterParty = alice.filterString,
-          filterParticipant = participant2.filterString,
-        )
-        .loneElement
-        .context
-
       silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
 
       replicate(
         party = alice,
         source = participant1,
         target = participant2,
-        onboardingTx.validFrom,
+        beforeActivationOffset,
       )
 
       resumeSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
@@ -150,6 +142,8 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
         .submit(actAs = Seq(bob), commands = commands)
     }
 
+    val beforeActivationOffset = participant1.ledger_api.state.end()
+
     PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
       participant1,
       bob,
@@ -160,22 +154,13 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       ),
     )
 
-    val onboardingTx = participant1.topology.party_to_participant_mappings
-      .list(
-        synchronizerId = daId,
-        filterParty = bob.filterString,
-        filterParticipant = participant3.filterString,
-      )
-      .loneElement
-      .context
-
     silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
 
     replicate(
       party = bob,
       source = participant1,
       target = participant3,
-      onboardingTx.validFrom,
+      beforeActivationOffset,
       workflowIdPrefix = workflowIdPrefix,
     )
 
@@ -204,7 +189,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       party: PartyId,
       source: ParticipantReference,
       target: ParticipantReference,
-      topologyTransactionEffectiveTime: Instant,
+      beforeActivationOffset: Long,
       workflowIdPrefix: String = "",
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
@@ -214,7 +199,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       source,
       target.id,
       acsSnapshotPath,
-      topologyTransactionEffectiveTime,
+      beforeActivationOffset,
     )
     repair.party_replication.step2_import_acs(
       party,

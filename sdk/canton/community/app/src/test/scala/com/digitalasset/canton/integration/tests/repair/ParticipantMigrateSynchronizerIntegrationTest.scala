@@ -113,6 +113,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
             .replace(targetProtocol.isAlpha)
         ),
       )
+      .addConfigTransform(ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion)
 
   private val remedy = operabilityTest("Participant.RepairService")("ProtocolVersion") _
 

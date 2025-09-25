@@ -2,7 +2,7 @@
 global:
   scrape_interval: 15s
   scrape_timeout: 10s
-  evaluation_interval: 1m
+  evaluation_interval: 15s
 
 scrape_configs:
   - job_name: prometheus
@@ -44,3 +44,8 @@ scrape_configs:
       - targets:
           # Docker compose service
           - postgres-exporter:9187
+# Uncomment for the metrics coming from the integration tests
+#  - job_name: integration_tests
+#    static_configs:
+#      - targets:
+#          - host.docker.internal:9464

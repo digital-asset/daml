@@ -69,7 +69,7 @@ object CryptoProvider {
     override def signingKeys: CryptoProviderScheme[SigningKeySpec] =
       CryptoProviderScheme(
         SigningKeySpec.EcCurve25519,
-        NonEmpty(
+        NonEmpty.mk(
           Set,
           SigningKeySpec.EcCurve25519,
           SigningKeySpec.EcP256,

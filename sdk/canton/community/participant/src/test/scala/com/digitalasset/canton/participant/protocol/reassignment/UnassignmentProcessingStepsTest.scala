@@ -66,6 +66,7 @@ import com.digitalasset.canton.store.{
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
+import com.digitalasset.canton.time.SynchronizerTimeTracker.DummyTickRequest
 import com.digitalasset.canton.time.{SynchronizerTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -782,6 +783,7 @@ final class UnassignmentProcessingStepsTest
             RequestId(CantonTimestamp.Epoch),
             loggerFactory,
           ),
+          DummyTickRequest,
         )
         .value
         .onShutdown(fail("unexpected shutdown during a test"))
@@ -897,6 +899,7 @@ final class UnassignmentProcessingStepsTest
           locallyRejectedF = FutureUnlessShutdown.pure(false),
           abortEngine = _ => (),
           engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+          DummyTickRequest,
         )
         _ <- valueOrFail(
           unassignmentProcessingSteps

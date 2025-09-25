@@ -29,6 +29,7 @@ import com.digitalasset.canton.integration.plugins.{
   UseH2,
   UsePostgres,
 }
+import com.digitalasset.canton.integration.tests.TrafficBalanceSupport
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -54,6 +55,7 @@ import com.digitalasset.canton.topology.transaction.{PartyToParticipant, Topolog
 import com.digitalasset.canton.topology.{Member, PartyId}
 import com.digitalasset.canton.{ProtocolVersionChecksFixtureAnyWordSpec, config}
 import monocle.macros.syntax.lens.*
+import org.scalatest.Assertion
 
 import java.time.Duration
 import scala.util.Random
@@ -62,7 +64,8 @@ trait TrafficControlTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with OnboardsNewSequencerNode
-    with ProtocolVersionChecksFixtureAnyWordSpec {
+    with ProtocolVersionChecksFixtureAnyWordSpec
+    with TrafficBalanceSupport {
 
   protected val enableSequencerRestart: Boolean = true
 
@@ -79,49 +82,18 @@ trait TrafficControlTest
 
   protected val pruningWindow = config.NonNegativeFiniteDuration.ofSeconds(5)
 
-  private def getTrafficForMember(
-      member: Member
-  )(implicit env: TestConsoleEnvironment): Option[TrafficState] = {
-    import env.*
-
-    sequencer1.traffic_control
-      .traffic_state_of_members_approximate(Seq(member))
-      .trafficStates
-      .get(member)
-  }
-
   private def updateBalanceForMember(
       instance: LocalInstanceReference,
       newBalance: PositiveLong,
-  )(implicit env: TestConsoleEnvironment) = {
-    val member = instance.id.member
-
-    sendTopUp(member, newBalance.toNonNegative)
-
-    eventually() {
-      // Advance the clock just slightly so we can observe the new balance be effective
-      env.environment.simClock.value.advance(Duration.ofMillis(1))
-      getTrafficForMember(member).value.extraTrafficPurchased.value shouldBe newBalance.value
-    }
-  }
-
-  private def sendTopUp(
-      member: Member,
-      newBalance: NonNegativeLong,
-      serialO: Option[PositiveInt] = None,
-  )(implicit
-      env: TestConsoleEnvironment
-  ): PositiveInt = {
-    import env.*
-
-    val serial = serialO
-      .orElse(getTrafficForMember(member).flatMap(_.serial).map(_.increment))
-      .getOrElse(PositiveInt.one)
-
-    sequencer1.traffic_control.set_traffic_balance(member, serial, newBalance)
-
-    serial
-  }
+  )(implicit env: TestConsoleEnvironment): Assertion =
+    updateBalanceForMember(
+      instance,
+      newBalance,
+      () => {
+        // Advance the clock just slightly so we can observe the new balance be effective
+        env.environment.simClock.value.advance(Duration.ofMillis(1))
+      },
+    )
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition

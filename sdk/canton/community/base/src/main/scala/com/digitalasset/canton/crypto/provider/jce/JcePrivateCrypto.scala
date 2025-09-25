@@ -79,7 +79,7 @@ object JcePrivateCrypto {
     JavaEncodedKeyPair(keyId, publicKey, privateKey)
   }
 
-  private def fromJavaSigningKeyPair(
+  def fromJavaSigningKeyPair(
       javaKeyPair: JKeyPair,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -147,7 +147,7 @@ object JcePrivateCrypto {
               {
                 val kpGen =
                   KeyPairGenerator.getInstance("EC", JceSecurityProvider.bouncyCastleProvider)
-                kpGen.initialize(new ECGenParameterSpec("secp256k1"))
+                kpGen.initialize(new ECGenParameterSpec(SigningKeySpec.EcSecp256k1.jcaCurveName))
                 kpGen.generateKeyPair()
               }
             )

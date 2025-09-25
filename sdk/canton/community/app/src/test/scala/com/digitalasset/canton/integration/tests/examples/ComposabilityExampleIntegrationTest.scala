@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.examples
 import com.digitalasset.canton.integration.CommunityIntegrationTest
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.composabilityConfiguration
-import org.scalatest.Ignore
 
 abstract class ComposabilityExampleIntegrationTest
     extends ExampleIntegrationTest(composabilityConfiguration / "composability.conf")
@@ -39,8 +38,6 @@ abstract class ComposabilityExampleIntegrationTest
   }
 }
 
-// TODO(i16831): re-enable when the flakiness is resolved
-@Ignore
 final class ComposabilityExampleIntegrationTestPostgres
     extends ComposabilityExampleIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))

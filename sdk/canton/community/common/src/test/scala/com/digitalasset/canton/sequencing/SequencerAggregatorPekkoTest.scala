@@ -42,6 +42,7 @@ import org.apache.pekko.stream.testkit.scaladsl.TestSink
 import org.apache.pekko.stream.{KillSwitches, QueueOfferResult}
 import org.scalatest.Outcome
 import org.scalatest.wordspec.FixtureAnyWordSpec
+import org.slf4j.event.Level
 
 import scala.concurrent.duration.DurationInt
 
@@ -173,6 +174,9 @@ class SequencerAggregatorPekkoTest
         _.errorMessage should include(
           s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
         ),
+        _.warningMessage should include(
+          s"'sequencer-subscription-da::default' is now in state Failed(Sequencer subscriptions have diverged and cannot reach the threshold 1 for synchronizer $synchronizerId any more.)."
+        ),
       )
       killSwitch.shutdown()
       sink.expectComplete()
@@ -211,6 +215,9 @@ class SequencerAggregatorPekkoTest
         _.errorMessage should include(s"Sequencer subscription for $sequencerAlice failed"),
         _.errorMessage should include(
           s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
+        ),
+        _.warningMessage should include(
+          s"'sequencer-subscription-da::default' is now in state Failed(Sequencer subscriptions have diverged and cannot reach the threshold 1 for synchronizer $synchronizerId any more.)."
         ),
       )
       killSwitch.shutdown()
@@ -509,6 +516,9 @@ class SequencerAggregatorPekkoTest
       val configSource =
         Source.single(config).concat(Source.never).viaMat(KillSwitches.single)(Keep.right)
 
+      val prefixMessage =
+        s"The sequencer client's healthy subscriptions count is under the configured BFT threshold (2)."
+
       val ((killSwitch, (doneF, reportedHealth)), sink) = configSource
         .viaMat(aggregator.aggregateFlow(Left(None)))(Keep.both)
         .toMat(TestSink.probe)(Keep.both)
@@ -534,7 +544,7 @@ class SequencerAggregatorPekkoTest
       healthBob.degradationOccurred("Bob degraded")
       eventually() {
         reportedHealth.getState shouldBe ComponentHealthState.degraded(
-          s"Failed sequencer subscriptions for [$sequencerAlice]. Degraded sequencer subscriptions for [$sequencerBob]."
+          s"$prefixMessage Failed sequencer subscriptions for [$sequencerAlice]. Degraded sequencer subscriptions for [$sequencerBob]."
         )
       }
 
@@ -546,24 +556,36 @@ class SequencerAggregatorPekkoTest
       healthAlice.degradationOccurred("Alice degraded")
       eventually() {
         reportedHealth.getState shouldBe ComponentHealthState.degraded(
-          s"Degraded sequencer subscriptions for [$sequencerBob, $sequencerAlice]."
+          s"$prefixMessage Degraded sequencer subscriptions for [$sequencerBob, $sequencerAlice]."
         )
       }
 
-      healthBob.failureOccurred("Bob failed")
-      healthCarlos.failureOccurred("Carlos failed")
-      eventually() {
-        reportedHealth.getState shouldBe ComponentHealthState.failed(
-          s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]. Degraded sequencer subscriptions for [$sequencerAlice]."
-        )
-      }
+      loggerFactory.assertLogs(
+        {
+          healthBob.failureOccurred("Bob failed")
+          healthCarlos.failureOccurred("Carlos failed")
+          eventually() {
+            reportedHealth.getState shouldBe ComponentHealthState.failed(
+              s"$prefixMessage Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]. Degraded sequencer subscriptions for [$sequencerAlice].",
+              logLevel = Level.WARN,
+            )
+          }
+        },
+        _.warningMessage should include(prefixMessage),
+      )
 
-      healthAlice.resolveUnhealthy()
-      eventually() {
-        reportedHealth.getState shouldBe ComponentHealthState.failed(
-          s"Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos]."
-        )
-      }
+      loggerFactory.assertLogs(
+        {
+          healthAlice.resolveUnhealthy()
+          eventually() {
+            reportedHealth.getState shouldBe ComponentHealthState.failed(
+              s"$prefixMessage Failed sequencer subscriptions for [$sequencerBob, $sequencerCarlos].",
+              logLevel = Level.WARN,
+            )
+          }
+        },
+        _.warningMessage should include(prefixMessage),
+      )
 
       killSwitch.shutdown()
       doneF.futureValue
@@ -669,12 +691,16 @@ class SequencerAggregatorPekkoTest
             }
             eventually() {
               reportedHealth.getState shouldBe ComponentHealthState.failed(
-                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for synchronizer $synchronizerId any more."
+                s"Sequencer subscriptions have diverged and cannot reach the threshold 2 for synchronizer $synchronizerId any more.",
+                logLevel = Level.WARN,
               )
             }
           },
           _.errorMessage should include(
             s"Sequencer subscriptions have diverged and cannot reach the threshold for synchronizer $synchronizerId any more."
+          ),
+          _.warningMessage should include(
+            s"'sequencer-subscription-da::default' is now in state Failed(Sequencer subscriptions have diverged and cannot reach the threshold 2 for synchronizer $synchronizerId any more.)."
           ),
         )
       }

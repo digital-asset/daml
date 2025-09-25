@@ -61,9 +61,7 @@ private[time] class GrpcSynchronizerTimeService(
           s"Waiting for synchronizer [${request.synchronizerIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
         )
         _ <- EitherT.right(
-          timeTracker
-            .awaitTick(request.timestamp)
-            .fold(Future.unit)(_.void)
+          timeTracker.awaitTick(request.timestamp).getOrElse(Future.unit)
         )
       } yield v30.AwaitTimeResponse()
     }

@@ -108,6 +108,7 @@ class UsePostgres(
   // can throw NullPointerException if called before `beforeTests`
   def getDbUsernameOrThrow: String = dbSetup.basicConfig.username
 
+  // Comment out to keep the container running after tests
   override def onClosed(): Unit =
     LifeCycle.close(
       dbSetup,
@@ -176,6 +177,7 @@ class UsePostgres(
     transformedConfig
   }
 
+  // Comment out to keep the databases after tests
   override def afterEnvironmentDestroyed(config: CantonConfig): Unit = {
     val nodes = nodeNamesOfConfig(config)
     val drops = dropDatabases(nodes)

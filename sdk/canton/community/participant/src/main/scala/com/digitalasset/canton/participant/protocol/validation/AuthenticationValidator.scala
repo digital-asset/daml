@@ -33,7 +33,10 @@ import com.digitalasset.canton.participant.protocol.validation.AuthenticationErr
 }
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.LazyAsyncReInterpretation
 import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
+import com.digitalasset.canton.protocol.hash.HashTracer
+import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
 import com.digitalasset.canton.protocol.{ExternalAuthorization, RequestId}
+import com.digitalasset.canton.topology.transaction.SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -50,6 +53,7 @@ private[protocol] object AuthenticationValidator {
       transactionEnricher: TransactionEnricher,
       createNodeEnricher: CreateNodeEnricher,
       logger: TracedLogger,
+      messagePayloadLoggingEnabled: Boolean,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -79,6 +83,7 @@ private[protocol] object AuthenticationValidator {
                 transactionEnricher = transactionEnricher,
                 createNodeEnricher = createNodeEnricher,
                 logger = logger,
+                messagePayloadLoggingEnabled = messagePayloadLoggingEnabled,
               )
             } yield participantSignatureError.orElse(externalSignatureError)
         }
@@ -162,6 +167,7 @@ private[protocol] object AuthenticationValidator {
       createNodeEnricher: CreateNodeEnricher,
       requestId: RequestId,
       logger: TracedLogger,
+      messagePayloadLoggingEnabled: Boolean,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -184,6 +190,26 @@ private[protocol] object AuthenticationValidator {
                 )
               )
             case Right(reInterpretedTopLevelView) =>
+              // The trace contains detailed information about the transaction
+              // Only compute it if message payload logging is enabled
+              val hashTracer =
+                if (messagePayloadLoggingEnabled && logger.underlying.isDebugEnabled) {
+                  Some(HashTracer.StringHashTracer(traceSubNodes = true))
+                } else None
+
+              def nodesWithoutSupportForExternallySignedLocalContractsInSubviews()
+                  : FutureUnlessShutdown[Set[ParticipantId]] =
+                for {
+                  informeeParticipantsMap <- topology.ipsSnapshot.activeParticipantsOfParties(
+                    viewTree.informees.toSeq
+                  )
+                  informeeParticipants = informeeParticipantsMap.values.flatten.toSet
+                  participantsWithSupport <- topology.ipsSnapshot.participantsWithSupportedFeature(
+                    informeeParticipants,
+                    ParticipantTopologyFeatureFlag.ExternalSigningLocalContractsInSubview,
+                  )
+                } yield informeeParticipants.diff(participantsWithSupport)
+
               reInterpretedTopLevelView
                 .computeHash(
                   externalAuthorization.hashingSchemeVersion,
@@ -195,6 +221,9 @@ private[protocol] object AuthenticationValidator {
                   protocolVersion,
                   transactionEnricher,
                   createNodeEnricher,
+                  hashTracer.getOrElse[HashTracer](NoOp),
+                  () => nodesWithoutSupportForExternallySignedLocalContractsInSubviews(),
+                  logger,
                 )
                 // If Hash computation is successful, verify the signature is valid
                 .flatMap { hash =>
@@ -203,7 +232,14 @@ private[protocol] object AuthenticationValidator {
                       hash,
                       externalAuthorization,
                       submitterMetadata.actAs,
-                    )
+                    ).map {
+                      case error @ Some(_) =>
+                        hashTracer.map(_.result).foreach { trace =>
+                          logger.debug("Hash trace:\n" + trace)
+                        }
+                        error
+                      case None => None
+                    }
                   )
                 }
                 .map(

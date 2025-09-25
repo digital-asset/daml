@@ -15,6 +15,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.tracing.DefaultOpenTelemetry
 import com.daml.tracing.TelemetrySpecBase.*
 import com.digitalasset.base.error.ErrorsAssertions
+import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -32,9 +33,15 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  ExternalPartyOnboardingDetails,
+  ParticipantId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfKeyResolver, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Party, SubmissionId, UserId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -168,6 +175,8 @@ object ApiPackageManagementServiceSpec {
     override def currentHealth(): HealthStatus =
       throw new UnsupportedOperationException()
 
+    override def hashOps: HashOps = throw new UnsupportedOperationException()
+
     override def submitTransaction(
         transaction: SubmittedTransaction,
         synchronizerRank: SynchronizerRank,
@@ -196,7 +205,8 @@ object ApiPackageManagementServiceSpec {
     override def allocateParty(
         hint: Party,
         submissionId: SubmissionId,
-    )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+        externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] =
       throw new UnsupportedOperationException()
 
     override def prune(
@@ -246,5 +256,12 @@ object ApiPackageManagementServiceSpec {
         traceContext: TraceContext
     ): RoutingSynchronizerState =
       throw new UnsupportedOperationException()
+
+    override def protocolVersionForSynchronizerId(
+        synchronizerId: SynchronizerId
+    ): Option[ProtocolVersion] =
+      throw new UnsupportedOperationException()
+
+    override def participantId: ParticipantId = DefaultTestIdentities.participant1
   }
 }

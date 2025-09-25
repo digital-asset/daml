@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -39,8 +39,10 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSynchronizerDisabledUs
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -110,14 +112,16 @@ trait AcsCommitmentProcessorIntegrationTest
             participant: ParticipantReference,
             minObservationDuration: NonNegativeFiniteDuration,
         ): Unit = {
-          // Connect and disconnect so that we can modify the synchronizer connection config afterwards
-          participant.synchronizers.connect_local(sequencer1, alias = daName)
-          participant.synchronizers.disconnect_local(daName)
-          val daConfig = participant.synchronizers.config(daName).value
+          val daSequencerConnection =
+            SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
           participant.synchronizers.connect_by_config(
-            daConfig
-              .focus(_.timeTracker.minObservationDuration)
-              .replace(minObservationDuration.toConfig)
+            SynchronizerConnectionConfig(
+              synchronizerAlias = daName,
+              sequencerConnections = daSequencerConnection,
+              timeTracker = SynchronizerTimeTrackerConfig(minObservationDuration =
+                minObservationDuration.toConfig
+              ),
+            )
           )
         }
 
@@ -529,7 +533,12 @@ trait AcsCommitmentProcessorIntegrationTest
     logger.info(
       s"After the min observation duration, participant1 should request a time proof and compute a new round of commitments"
     )
-    simClock.advance(minObservationDuration1.duration)
+    simClock.advance(
+      minObservationDuration1.duration
+        // Allow some margin as the sim clock advancement doesn't take into account the unique timestamps
+        // that have already been issued after sim clock "now".
+        .plusMillis(1)
+    )
     val end = simClock.now.toInstant
     eventually() {
       participant2.commitments.received(

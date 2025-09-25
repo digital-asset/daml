@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.block.data
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -45,7 +45,7 @@ trait SequencerBlockStore extends AutoCloseable {
   /** The current state of the sequencer, which can be used when the node is restarted to
     * deterministically derive the following counters and timestamps.
     *
-    * The state excludes updates of unfinalized blocks added with [[partialBlockUpdate]].
+    * The state excludes updates of unfinalized blocks added with [[storeInflightAggregations]].
     */
   def readHead(implicit traceContext: TraceContext): FutureUnlessShutdown[BlockEphemeralState]
 
@@ -79,25 +79,25 @@ trait SequencerBlockStore extends AutoCloseable {
 
   /** Stores some updates that happen in a single block. May be called several times for the same
     * block and the same update may be contained in several of the calls. Before adding updates of a
-    * subsequent block, [[finalizeBlockUpdate]] must be called to wrap up the current block.
+    * subsequent block, [[finalizeBlockUpdates]] must be called to wrap up the current block.
     *
-    * This method must not be called concurrently with itself or [[finalizeBlockUpdate]].
+    * This method must not be called concurrently with itself or [[finalizeBlockUpdates]].
     */
-  def partialBlockUpdate(
+  def storeInflightAggregations(
       inFlightAggregationUpdates: InFlightAggregationUpdates
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Finalizes the current block whose updates have been added in the calls to
-    * [[partialBlockUpdate]] since the last call to [[finalizeBlockUpdate]].
+    * [[storeInflightAggregations]] since the last call to [[finalizeBlockUpdates]].
     *
-    * This method must not be called concurrently with itself or [[partialBlockUpdate]], and must be
-    * called for the blocks in monotonically increasing order of height.
+    * This method must not be called concurrently with itself or [[storeInflightAggregations]], and
+    * must be called for the blocks in monotonically increasing order of height.
     *
-    * @param block
+    * @param blocks
     *   The block information about the current block. It is the responsibility of the caller to
     *   ensure that the height increases monotonically by one
     */
-  def finalizeBlockUpdate(block: BlockInfo)(implicit
+  def finalizeBlockUpdates(blocks: Seq[BlockInfo])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 }
@@ -109,6 +109,7 @@ object SequencerBlockStore {
       sequencerStore: SequencerStore,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      batchingConfig: BatchingConfig,
   )(implicit
       executionContext: ExecutionContext
   ): SequencerBlockStore =
@@ -121,6 +122,7 @@ object SequencerBlockStore {
           protocolVersion,
           timeouts,
           loggerFactory,
+          batchingConfig,
         )
       case otherwise =>
         sys.error(s"Invalid combination of stores: $otherwise")

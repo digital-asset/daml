@@ -423,7 +423,7 @@ class EnterpriseSequencerRateLimitManager(
       for {
         // We call validateTopologyTimestampUS which will accept T2 timestamps only
         topologyAtSubmissionTime <- SequencedEventValidator
-          .validateTopologyTimestampUS(
+          .validateTopologyTimestamp(
             synchronizerSyncCryptoApi,
             submissionTimestamp,
             mostRecentKnownSynchronizerTimestamp,

@@ -12,7 +12,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
-import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal, TopologyConfig}
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
@@ -70,6 +70,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       cryptoApiProvider: SyncCryptoApiParticipantProvider,
       clock: Clock,
       testingConfig: TestingConfigInternal,
+      topologyConfig: TopologyConfig,
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
@@ -277,7 +278,8 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         syncPersistentStateManager,
         synchronizerId,
         topologyFactory.createInitialTopologySnapshotValidator(
-          sequencerAggregatedInfo.staticSynchronizerParameters
+          sequencerAggregatedInfo.staticSynchronizerParameters,
+          topologyConfig,
         ),
         topologyClient,
         sequencerClient,

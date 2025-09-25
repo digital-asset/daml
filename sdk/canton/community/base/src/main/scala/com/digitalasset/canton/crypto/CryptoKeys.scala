@@ -330,6 +330,13 @@ object PrivateKey {
 
 }
 
+/** Indicates that the key is based on elliptic curve cryptography. */
+trait EcKeySpec {
+
+  /** Standard JCA curve name (e.g., "secp256r1") used for key generation and validation. */
+  def jcaCurveName: String
+}
+
 sealed trait CryptoKeyFormat extends Product with Serializable with PrettyPrinting {
   def name: String
   def toProtoEnum: v30.CryptoKeyFormat

@@ -20,6 +20,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.protocol.TransactionProcessor
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.util.ResourceUtil.withResource
@@ -103,35 +104,37 @@ sealed abstract class MaxRequestSizeCrashTest
   "Canton" should {
     "recover from failure due to too small request size " in { implicit env =>
       import env.*
-      participant1.dars.upload(CantonTestsPath)
-
-      // verify the ping is successful
-      assertPingSucceeds(participant1, participant1)
-      // change maxRequestSize
-      for (owner <- synchronizerOwners1) {
-        owner.topology.synchronizer_parameters
-          .propose_update(
-            synchronizerId = daId,
-            _.update(maxRequestSize = lowMaxRequestSize.unwrap),
-          )
-      }
-
-      eventually() {
-        forAll(Seq(sequencer1, sequencer2) ++ participants.all) {
-          _.topology.synchronizer_parameters
-            .get_dynamic_synchronizer_parameters(daId)
-            .maxRequestSize
-            .value shouldBe lowMaxRequestSize.unwrap
-        }
-      }
 
       val commandId = s"submit-async-dummy-${UUID.randomUUID().toString}"
       val matchError =
         s"RequestInvalid\\(Batch size \\(\\d+ bytes\\) is exceeding maximum size \\(MaxRequestSize\\(${lowMaxRequestSize.unwrap}\\) bytes\\) for synchronizer .*\\)"
       val matchLog = s"Failed to submit submission due to Error\\($matchError\\)"
 
-      loggerFactory.assertLogs(
+      participant1.dars.upload(CantonTestsPath)
+
+      // verify the ping is successful
+      assertPingSucceeds(participant1, participant1)
+
+      loggerFactory.assertLogsUnorderedOptional(
         {
+          // change maxRequestSize
+          for (owner <- synchronizerOwners1) {
+            owner.topology.synchronizer_parameters
+              .propose_update(
+                synchronizerId = daId,
+                _.update(maxRequestSize = lowMaxRequestSize.unwrap),
+              )
+          }
+
+          eventually() {
+            forAll(Seq(sequencer1, sequencer2) ++ participants.all) {
+              _.topology.synchronizer_parameters
+                .get_dynamic_synchronizer_parameters(daId)
+                .maxRequestSize
+                .value shouldBe lowMaxRequestSize.unwrap
+            }
+          }
+
           participant1.ledger_api.javaapi.commands.submit_async(
             Seq(participant1.adminParty),
             new Dummy(participant1.adminParty.toProtoPrimitive).create.commands.asScala.toSeq,
@@ -153,27 +156,30 @@ sealed abstract class MaxRequestSizeCrashTest
             deserializedError.code.id shouldBe TransactionProcessor.SubmissionErrors.SequencerRequest.id
             sendError should fullyMatch regex matchError
           }
-        },
-        _.warningMessage should include regex matchLog,
-      )
 
-      // restart Canton with overrideMaxRequestSize
-      setOverrideMaxRequestSizeWithNewEnv(env, overrideMaxRequestSize) { implicit newEnv =>
-        import newEnv.*
-        // we verify that the dynamic parameter is still set to the low value
-        forAll(synchronizerOwners1) { owner =>
-          forAll(owner.topology.synchronizer_parameters.list(daId).map(_.item.maxRequestSize))(
-            _ == lowMaxRequestSize
-          )
-        }
-        // we verify that this time the dynamic parameter is ignored
-        participant1.ledger_api.javaapi.commands
-          .submit(
-            Seq(participant1.adminParty),
-            new Dummy(participant1.adminParty.toProtoPrimitive).create.commands.asScala.toSeq,
-          )
-          .discard
-      }
+          // restart Canton with overrideMaxRequestSize
+          setOverrideMaxRequestSizeWithNewEnv(env, overrideMaxRequestSize) { implicit newEnv =>
+            import newEnv.*
+            // we verify that the dynamic parameter is still set to the low value
+            forAll(synchronizerOwners1) { owner =>
+              forAll(owner.topology.synchronizer_parameters.list(daId).map(_.item.maxRequestSize))(
+                _ == lowMaxRequestSize
+              )
+            }
+            // we verify that this time the dynamic parameter is ignored
+            participant1.ledger_api.javaapi.commands
+              .submit(
+                Seq(participant1.adminParty),
+                new Dummy(participant1.adminParty.toProtoPrimitive).create.commands.asScala.toSeq,
+              )
+              .discard
+          }
+        },
+        LogEntryOptionality.Required -> (_.warningMessage should include regex matchLog),
+        LogEntryOptionality.OptionalMany -> (_.warningMessage should include(
+          "Could not send a time-advancing message"
+        )),
+      )
     }
   }
 }

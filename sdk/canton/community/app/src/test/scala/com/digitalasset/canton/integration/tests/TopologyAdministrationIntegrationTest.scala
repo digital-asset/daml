@@ -19,13 +19,15 @@ import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKey
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.{Authorized, Temporary}
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
   OwnerToKeyMapping,
   SignedTopologyTransaction,
   TopologyTransaction,
 }
+import com.digitalasset.canton.util.GrpcStreamingUtils
+import com.google.protobuf.ByteString
 import monocle.macros.syntax.lens.*
 
 import scala.concurrent.ExecutionContext
@@ -116,13 +118,13 @@ class TopologyAdministrationIntegrationTest
         },
       )
 
-      val topologySnapshotBytes = node.topology.transactions.export_topology_snapshot()
+      val topologySnapshotBytes = node.topology.transactions.export_topology_snapshotV2()
 
-      val topologySnapshot = StoredTopologyTransactions
-        .fromTrustedByteString(topologySnapshotBytes)
+      val topologySnapshot = GrpcStreamingUtils
+        .parseDelimitedFromTrusted(topologySnapshotBytes.newInput(), StoredTopologyTransaction)
         .valueOrFail("failed to deserialize topology snapshot")
 
-      val storedOtkm = topologySnapshot.result
+      val storedOtkm = topologySnapshot
         .find(_.mapping.isInstanceOf[OwnerToKeyMapping])
         .valueOrFail("retrieve OwnerToKeyMapping request")
 
@@ -159,14 +161,13 @@ class TopologyAdministrationIntegrationTest
         .valueOrFail("failed to re-sign transaction")
 
       // we replace the previous OwnerToKeyMapping transaction in the topology snapshot with the new one
-      val topologySnapshotUpdated = topologySnapshot.copy(result =
-        topologySnapshot.result.updated(
-          topologySnapshot.result.indexWhere(_.mapping == otkm),
+      val topologySnapshotUpdated =
+        topologySnapshot.updated(
+          topologySnapshot.indexWhere(_.mapping == otkm),
           storedOtkm.focus(_.transaction).replace(signedTopologyTransaction),
         )
-      )
 
-      topologySnapshotUpdated.result
+      topologySnapshotUpdated
         .find(_.mapping.isInstanceOf[OwnerToKeyMapping])
         .valueOrFail("retrieve OwnerToKeyMapping request")
         .transaction
@@ -176,11 +177,14 @@ class TopologyAdministrationIntegrationTest
         .keys
         .forgetNE should contain(keyToAdd)
 
-      val topologySnapshotUpdatedBytes =
-        topologySnapshotUpdated.toByteString(testedProtocolVersion)
+      val builder = ByteString.newOutput()
+      topologySnapshotUpdated.foreach(stored =>
+        stored.writeDelimitedTo(testedProtocolVersion, builder)
+      )
+      val topologySnapshotUpdatedBytes = builder.toByteString
 
       // we can import the previous topology snapshot with a namespace-only key in the OwnerToKeyMapping
-      node.topology.transactions.import_topology_snapshot(
+      node.topology.transactions.import_topology_snapshotV2(
         topologySnapshotUpdatedBytes,
         TopologyStoreId.Authorized,
       )

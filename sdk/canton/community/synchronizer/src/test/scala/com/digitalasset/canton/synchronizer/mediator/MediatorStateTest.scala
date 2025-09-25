@@ -117,6 +117,7 @@ class MediatorStateTest
           requestId.unwrap.plusSeconds(300),
           requestId.unwrap.plusSeconds(600),
           mockTopologySnapshot,
+          participantResponseDeadlineTick = None,
         )(traceContext, executorService)
         .futureValueUS // without explicit ec it deadlocks on AnyTestSuite.serialExecutionContext
 

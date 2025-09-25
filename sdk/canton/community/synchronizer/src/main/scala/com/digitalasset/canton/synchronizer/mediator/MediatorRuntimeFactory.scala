@@ -140,10 +140,11 @@ object MediatorRuntimeFactory {
     )
     val deduplicationStore =
       MediatorDeduplicationStore(
-        mediatorId,
         storage,
         nodeParameters.processingTimeouts,
         loggerFactory,
+        config.deduplicationStore.pruneAtMostEvery.toInternal,
+        config.deduplicationStore.persistBatching,
       )
     val state =
       new MediatorState(

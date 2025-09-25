@@ -45,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
+import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.SequencerConnectServerInterceptor
 import com.digitalasset.canton.synchronizer.sequencing.service.*
 import com.digitalasset.canton.synchronizer.sequencing.service.channel.GrpcSequencerChannelService
@@ -70,6 +71,7 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, config}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.{ServerInterceptor, ServerInterceptors, ServerServiceDefinition}
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -124,6 +126,7 @@ class SequencerRuntime(
     runtimeReadyPromise: PromiseUnlessShutdown[Unit],
 )(implicit
     executionContext: ExecutionContext,
+    materializer: Materializer,
     traceContext: TraceContext,
 ) extends FlagCloseable
     with HasCloseContext
@@ -352,6 +355,19 @@ class SequencerRuntime(
         )
     }
   })
+
+  logger.info("Subscribing to topology transactions for time-advancing broadcast")
+  topologyProcessor.subscribe(
+    new TimeAdvancingTopologySubscriber(
+      clock,
+      client,
+      topologyClient,
+      synchronizerId,
+      sequencerId,
+      staticSynchronizerParameters.protocolVersion,
+      loggerFactory,
+    )
+  )
 
   private lazy val synchronizerOutboxO: Option[SynchronizerOutboxHandle] =
     maybeSynchronizerOutboxFactory

@@ -17,6 +17,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PrepareSubmissionRequest,
 }
 import com.daml.ledger.api.v2.reassignment_commands.{ReassignmentCommand, ReassignmentCommands}
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
@@ -258,6 +259,18 @@ final class CommandsValidator(
         )
 
     } yield ledgerEffectiveTimestamp
+
+  def validateLfTime(protoTimestamp: com.google.protobuf.timestamp.Timestamp)(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[StatusRuntimeException, LfTimestamp] =
+    LfTimestamp
+      .fromInstant(TimestampConversion.toInstant(protoTimestamp))
+      .left
+      .map(_ =>
+        invalidArgument(
+          s"Can not represent ledger time $protoTimestamp as a Daml timestamp"
+        )
+      )
 
   // Public because it is used by Canton.
   def validateInnerCommands(

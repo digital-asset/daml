@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import cats.data.EitherT
+import cats.data.{EitherT, Nested}
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.client.TestSequencerClientSend.Request
 import com.digitalasset.canton.sequencing.protocol.{
@@ -18,11 +17,13 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 /** Test implementation that stores all requests in a queue.
   */
-class TestSequencerClientSend extends SequencerClientSend {
+class TestSequencerClientSend(implicit val executionContext: ExecutionContext)
+    extends SequencerClientSend {
 
   val requestsQueue: java.util.concurrent.BlockingQueue[Request] =
     new java.util.concurrent.LinkedBlockingQueue()
@@ -40,11 +41,12 @@ class TestSequencerClientSend extends SequencerClientSend {
   )(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+  ): SendAsyncResult = {
     requestsQueue.add(
       Request(batch, topologyTimestamp, maxSequencingTime, messageId, aggregationRule, None)
     )
-    EitherTUtil.unitUS[SendAsyncClientError]
+
+    Nested(EitherT.pure(EitherTUtil.unitUS[SendAsyncClientError]))
   }
 
   override def generateMaxSequencingTime: CantonTimestamp =

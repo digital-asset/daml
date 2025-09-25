@@ -244,11 +244,8 @@ class JsonCodec(
 
     override def fromDynamicValue(dv: DynamicValue): Value = {
       val time = LocalDateTime
-        .ofEpochSecond(
-          dv.timestamp / 1000000,
-          (dv.timestamp % 1000000 * 1000).intValue,
-          ZoneOffset.UTC,
-        )
+        .ofEpochSecond(dv.timestamp / 1_000_000, 0, ZoneOffset.UTC)
+        .plusNanos(dv.timestamp % 1_000_000 * 1_000)
         .atZone(ZoneOffset.UTC)
       Str(DateTimeFormatter.ISO_DATE_TIME.format(time))
     }

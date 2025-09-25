@@ -129,7 +129,7 @@ object TimeProof {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     implicit val metricsContext: MetricsContext = MetricsContext("type" -> "time-proof")
-    client.sendAsync(
+    client.send(
       // we intentionally ask for an empty event to be sequenced to observe the time.
       // this means we can safely share this event without mentioning other recipients.
       batch = Batch.empty(client.protocolVersion),

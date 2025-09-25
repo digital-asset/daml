@@ -30,6 +30,8 @@ export async function allocateParty(user: string): Promise<string | undefined> {
             body: {
                 partyIdHint: user,
                 identityProviderId: "",
+                synchronizerId: "",
+                userId: "",
             }
         });
         return valueOrError(resp).then(data => data.partyDetails?.party);

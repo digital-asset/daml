@@ -54,7 +54,7 @@ object JceJavaKeyConverter {
       case sigKey: SigningPublicKey =>
         sigKey.keySpec match {
           case SigningKeySpec.EcCurve25519 =>
-            convertFromX509Spki(publicKey.key.toByteArray, "Ed25519")
+            convertFromX509Spki(publicKey.key.toByteArray, SigningKeySpec.EcCurve25519.jcaCurveName)
           case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 | SigningKeySpec.EcSecp256k1 =>
             convertFromX509Spki(publicKey.key.toByteArray, "EC")
         }
@@ -112,7 +112,7 @@ object JceJavaKeyConverter {
       case sigKey: SigningPrivateKey =>
         sigKey.keySpec match {
           case SigningKeySpec.EcCurve25519 =>
-            convertFromPkcs8(privateKey.key.toByteArray, "Ed25519")
+            convertFromPkcs8(privateKey.key.toByteArray, SigningKeySpec.EcCurve25519.jcaCurveName)
           case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 | SigningKeySpec.EcSecp256k1 =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
         }

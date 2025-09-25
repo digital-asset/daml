@@ -5,10 +5,10 @@ package com.digitalasset.canton.store.memory
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.store.SendTrackerStoreTest
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
 class SendTrackerTrackerStoreTestInMemory
-    extends AsyncWordSpec
+    extends AnyWordSpec
     with BaseTest
     with SendTrackerStoreTest {
   "InMemoryPendingSendStore" should {
