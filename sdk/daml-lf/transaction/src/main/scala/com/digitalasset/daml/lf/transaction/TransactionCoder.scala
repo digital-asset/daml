@@ -27,7 +27,7 @@ object TransactionCoder {
   def decodeContractInstance(
       protoCoinst: TransactionOuterClass.ThinContractInstance
   ): Either[DecodeError, Versioned[Value.ThinContractInstance]] =
-    internal.decodeContractInstance(protoCoinst)
+    ensuresNoUnknownFieldsThenDecode(protoCoinst)(internal.decodeContractInstance)
 
   /** Encodes a contract instance with the help of the contractId encoding function
     *
@@ -45,8 +45,6 @@ object TransactionCoder {
     * Supported transaction versions configured in [[TransactionVersion]].
     *
     * @param protoTx protobuf encoded transaction
-    * @tparam Nid node id type
-    * @tparam Cid contract id typefencode
     * @return decoded transaction
     */
   def decodeTransaction(
@@ -54,11 +52,9 @@ object TransactionCoder {
   ): Either[DecodeError, VersionedTransaction] =
     ensuresNoUnknownFieldsThenDecode(protoTx)(internal.decodeTransaction)
 
-  /** Encode a [[Transaction[Nid]]] to protobuf using [[TransactionVersion]] provided by the libary.
+  /** Encode a [[Transaction]] to protobuf using [[TransactionVersion]] provided by the libary.
     *
     * @param tx the transaction to be encoded
-    * @tparam Nid node id type
-    * @tparam Cid contract id type
     * @return protobuf encoded transaction
     */
   def encodeTransaction(
@@ -184,7 +180,7 @@ object TransactionCoder {
           Right(ByteString.empty())
       }
 
-    /** encodes a [[Node[Nid]] to protocol buffer
+    /** encodes a [[Node]] to protocol buffer
       *
       * @param enclosingVersion the version of the transaction
       * @param nodeId           node id of the node to be encoded
@@ -393,7 +389,7 @@ object TransactionCoder {
       else
         ValueCoder.decodeValue(version, unversionedProto).map(Some(_))
 
-    /** read a [[Node[Nid]] from protobuf
+    /** read a [[Node]] from protobuf
       *
       * @param protoNode protobuf encoded node
       * @return decoded GenNode
