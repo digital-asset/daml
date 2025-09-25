@@ -46,6 +46,8 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
   val pkgId2 = Ref.PackageId.assertFromString("-packageId2-")
   val pkgId3 = Ref.PackageId.assertFromString("-packageId3-")
   val pkgId4 = Ref.PackageId.assertFromString("-packageId4-")
+  val pkgId5 = Ref.PackageId.assertFromString("-packageId5-")
+  val pkgId6 = Ref.PackageId.assertFromString("-packageId6-")
 
   val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
@@ -56,10 +58,10 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '1.0.0' )
         module M {
-          record @serializable T = { p: Party };
+          record @serializable T = { p1: Party, p2: Party };
           template (this : T) = {
             precondition True;
-            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            signatories Cons @Party [M:T {p1} this] (Nil @Party);
             observers Nil @Party;
           };
         }
@@ -73,10 +75,10 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p: Party, extra: Option Int64 };
+          record @serializable T = { p1: Party, p2: Party, extra: Option Int64 };
           template (this : T) = {
             precondition True;
-            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            signatories Cons @Party [M:T {p1} this] (Nil @Party);
             observers Nil @Party;
           };
         }
@@ -90,10 +92,10 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p: Party, extra: Int64 };
+          record @serializable T = { p1: Party, p2: Party, extra: Int64 };
           template (this : T) = {
             precondition True;
-            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            signatories Cons @Party [M:T {p1} this] (Nil @Party);
             observers Nil @Party;
           };
         }
@@ -107,11 +109,45 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p: Party };
+          record @serializable T = { p1: Party, p2: Party };
           template (this : T) = {
             precondition False;
-            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            signatories Cons @Party [M:T {p1} this] (Nil @Party);
             observers Nil @Party;
+          };
+        }
+    """
+  }
+
+  // An invalid upgrade of pkg1: the signatories differ
+  val pkg5 = {
+    implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(
+      defaultPackageId = pkgId5
+    )
+    p""" metadata ( 'test-pkg' : '2.0.0' )
+        module M {
+          record @serializable T = { p1: Party, p2: Party };
+          template (this : T) = {
+            precondition False;
+            signatories Cons @Party [M:T {p2} this] (Nil @Party);
+            observers Nil @Party;
+          };
+        }
+    """
+  }
+
+  // An invalid upgrade of pkg1: the observers differ
+  val pkg6 = {
+    implicit def parserParameters: ParserParameters[this.type] = defaultParserParameters.copy(
+      defaultPackageId = pkgId6
+    )
+    p""" metadata ( 'test-pkg' : '2.0.0' )
+        module M {
+          record @serializable T = { p1: Party, p2: Party };
+          template (this : T) = {
+            precondition False;
+            signatories Cons @Party [M:T {p1} this] (Nil @Party);
+            observers Cons @Party [M:T {p2} this] (Nil @Party);
           };
         }
     """
@@ -124,10 +160,12 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     EngineConfig(LanguageVersion.StableVersions(majorLanguageVersion))
   )
 
-  val alice = Party.assertFromString("Party")
+  val alice = Party.assertFromString("alice")
+  val bob = Party.assertFromString("bob")
   val packageName = Ref.PackageName.assertFromString("-test-pkg-")
   val templateId = Ref.Identifier(pkgId1, Ref.QualifiedName.assertFromString("M:T"))
-  val createArg = V.ValueRecord(None, ImmArray(None -> V.ValueParty(alice)))
+  val createArg =
+    V.ValueRecord(None, ImmArray(None -> V.ValueParty(alice), None -> V.ValueParty(bob)))
   val createNode = Node.Create(
     coid = TransactionBuilder.newCid,
     packageName = Ref.PackageName.assertFromString("-test-pkg-"),
@@ -156,8 +194,8 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
       templateId.qualifiedName,
       SValue.SRecord(
         templateId,
-        ImmArray(Ref.Name.assertFromString("p")),
-        ArraySeq(SValue.SParty(alice)),
+        ImmArray(Ref.Name.assertFromString("p1"), Ref.Name.assertFromString("p2")),
+        ArraySeq(SValue.SParty(alice), SValue.SParty(bob)),
       ),
     )
     .value
@@ -260,7 +298,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "return a ResultDone(Left(_)) when metadata check fails" in {
+    "return a ResultDone(Left(_)) when the ensure clause evaluates to false" in {
 
       val hashes = Table(
         "hashingMethod",
@@ -278,6 +316,56 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
             idValidator = _ => true,
           )
           .consume(pkgs = Map(pkgId4 -> pkg4))
+
+        inside(result) { case Right(res) =>
+          res shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
+    "return a ResultDone(Left(_)) when the signatories change" in {
+
+      val hashes = Table(
+        "hashingMethod",
+        Hash.HashingMethod.Legacy,
+        Hash.HashingMethod.UpgradeFriendly,
+        Hash.HashingMethod.TypedNormalForm,
+      )
+
+      forEvery(hashes) { hashingMethod =>
+        val result = newEngine
+          .validateContractInstance(
+            contractInstance,
+            pkgId5, // The signatories differ from those of contractInstance
+            hashingMethod,
+            idValidator = _ => true,
+          )
+          .consume(pkgs = Map(pkgId5 -> pkg5))
+
+        inside(result) { case Right(res) =>
+          res shouldBe a[Left[_, _]]
+        }
+      }
+    }
+
+    "return a ResultDone(Left(_)) when the observers change" in {
+
+      val hashes = Table(
+        "hashingMethod",
+        Hash.HashingMethod.Legacy,
+        Hash.HashingMethod.UpgradeFriendly,
+        Hash.HashingMethod.TypedNormalForm,
+      )
+
+      forEvery(hashes) { hashingMethod =>
+        val result = newEngine
+          .validateContractInstance(
+            contractInstance,
+            pkgId6, // The observers differ from those of contractInstance
+            hashingMethod,
+            idValidator = _ => true,
+          )
+          .consume(pkgs = Map(pkgId6 -> pkg6))
 
         inside(result) { case Right(res) =>
           res shouldBe a[Left[_, _]]
