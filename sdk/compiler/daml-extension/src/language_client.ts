@@ -34,7 +34,8 @@ namespace DamlKeepAliveRequest {
 }
 
 let damlRoot: string = path.join(os.homedir(), ".daml");
-let dpmRoot: string = path.join(os.homedir(), ".dpm");
+let dpmRootUnix: string = path.join(os.homedir(), ".dpm");
+let dpmRootWindows: string = path.join(os.homedir(), "AppData/Roaming/dpm");
 
 export interface EnvVars {
   [envVarName: string]: string | undefined;
@@ -219,7 +220,7 @@ export class DamlLanguageClient {
     projectPath: string | undefined,
   ): Promise<boolean> {
     const { stdout } = await util.promisify(child_process.exec)(
-      damlPath + " multi-ide --help",
+      damlPath + " damlc multi-ide --help",
       { cwd: projectPath },
     );
     return stdout.includes("--ide-identifier");
@@ -298,6 +299,8 @@ export class DamlLanguageClient {
     try {
       return which.sync("dpm");
     } catch (ex) {
+      const dpmRoot =
+        process.platform === "win32" ? dpmRootWindows : dpmRootUnix;
       const dpmCmdPath = path.join(dpmRoot, "bin", "dpm");
       return fs.existsSync(dpmCmdPath) ? dpmCmdPath : null;
     }
