@@ -275,9 +275,13 @@ packageSummaryFromDamlYaml path = do
     let overrideMapToMaybe :: T.Text -> Map.Map T.Text T.Text -> Either ConfigError (Maybe T.Text)
         overrideMapToMaybe componentName m =
           case (Map.lookup "version" m, Map.lookup "local-path" m) of
-            (Just v, _) -> Right $ Just v
-            (_, Just _) -> Right Nothing
-            _ -> Left $ ConfigFieldInvalid "package" ["component-overrides", componentName] "Missing version or local-path field"
+            (Just _, Just _) -> Left $ makeConfigError "Both version and local-path fields specified, only one can be provided"
+            (Just v, Nothing) -> Right $ Just v
+            (Nothing, Just _) -> Right Nothing
+            (Nothing, Nothing) -> Left $ makeConfigError "Missing version or local-path field"
+          where
+            makeConfigError :: String -> ConfigError
+            makeConfigError = ConfigFieldInvalid "package" ["component-overrides", componentName]
     componentOverrides <-
       except $ queryPackageConfig @(Map.Map T.Text (Map.Map T.Text T.Text)) ["override-components"] package
         >>= maybe (pure mempty) (Map.traverseWithKey overrideMapToMaybe)

@@ -299,7 +299,8 @@ export class DamlLanguageClient {
     try {
       return which.sync("dpm");
     } catch (ex) {
-      const dpmRoot = process.platform==='win32' ? dpmRootWindows : dpmRootUnix;
+      const dpmRoot =
+        process.platform === "win32" ? dpmRootWindows : dpmRootUnix;
       const dpmCmdPath = path.join(dpmRoot, "bin", "dpm");
       return fs.existsSync(dpmCmdPath) ? dpmCmdPath : null;
     }

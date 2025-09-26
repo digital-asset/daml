@@ -119,7 +119,7 @@ fi
 
 if [ ! -d "$DPM_HOME" ]; then
   echo "$(tput setaf 5)DPM is not installed, installing latest from remote....$(tput sgr 0)"
-  $REPO_ROOT/../ci/get-dpm.sh "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
   # Setup DPM config using private edition
   cat > "${DPM_HOME}/dpm-config.yaml" << EOF
 edition: private
@@ -169,21 +169,20 @@ assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
 
 # When installing via `get-dpm`, an SDK is not installed
 # Detect this and install private latest
-if [ -z "$(find $DPM_HOME/cache/sdk/* -type f)" ]; then
+if [ -z "$(find "$DPM_HOME"/cache/sdk/* -type f)" ]; then
   echo "$(tput setaf 5)No assemblies installed for copying from, installing latest.$(tput sgr 0)"
-  $DPM_HOME/bin/dpm install latest
-  echo "$(tput setaf 3)Installed $($DPM_HOME/bin/dpm version).$(tput sgr 0)"
+  "$DPM_HOME/bin/dpm" install latest
+  echo "$(tput setaf 3)Installed $("$DPM_HOME/bin/dpm" version).$(tput sgr 0)"
 fi
 
 # Create a `$RELEASE_VERSION.yaml` by copying the current latest installed version and updating the name/version field
 if [ ! -f "$assembly_location" ]; then
   echo "$(tput setaf 5)No assembly found for $RELEASE_VERSION, creating new.$(tput sgr 0)"
-  latest_version=$($DPM_HOME/bin/dpm version)
+  latest_version=$("$DPM_HOME/bin/dpm" version)
   assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
   cp "$DPM_HOME/cache/sdk/${latest_version#* }/${latest_version% *}.yaml" "$assembly_location"
-  # yq fails with a permission error when using -i, unsure why, directly overwrite instead
-  new_content=$(cat "$assembly_location" | version=$RELEASE_VERSION yq -M e '.spec.version |= env(version)' -)
-  echo "$new_content" > "$assembly_location"
+  # yq has trouble picking up env vars
+  RELEASE_VERSION=$RELEASE_VERSION yq -MiY '.spec.version |= env.RELEASE_VERSION' "$assembly_location"
   echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version% *}.$(tput sgr 0)"
 fi
 
@@ -222,36 +221,34 @@ update_component() {
 
     # get-dpm script doesn't delete, it only updates
     # use it to pull down a new dpm
-    $REPO_ROOT/../ci/get-dpm.sh "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
-    version_line=$($DPM_HOME/bin/dpm version --assistant | grep -o 'version: .*')
-    dpm_version=${version_line#version: }
+    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+    version_line=$("$DPM_HOME/bin/dpm" version --assistant | grep -o 'version: .*')
+    DPM_VERSION=${version_line#version: }
 
     # Update our $RELEASE_VERSION.yaml to point to new DPM
-    new_content=$(cat "$assembly_location" | version=$dpm_version yq -M e '.spec.assistant.version |= env(version)' -)
-    echo "$new_content" > "$assembly_location"
+    DPM_VERSION=$DPM_VERSION yq -MiY '.spec.assistant.version |= env.DPM_VERSION' "$assembly_location"
     echo "$(tput setaf 3)$progress_marker Installed most recent dpm.$(tput sgr 0)"
   else
     # Find the OCI bazel target for the component as `package_oci_component` rule named `${component}-oci`
     bazel_path=$(bazel query "kind('package_oci_component', //...)" 2> /dev/null | grep "$target_name-oci")
     echo "$(tput setaf 5)$progress_marker Building $bazel_path.$(tput sgr 0)"
     # Build target
-    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build ${BAZEL_MODE_FLAGS[@]:-} $bazel_path
+    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION chronic bazel build "${BAZEL_MODE_FLAGS[@]}" "$bazel_path"
     echo "$(tput setaf 5)$progress_marker Built $bazel_path.$(tput sgr 0)"
     # Find built tar and unpack to DPM component
-    output_path=$(bazel cquery ${BAZEL_MODE_FLAGS[@]:-} $bazel_path --output=files 2> /dev/null)
+    output_path=$(bazel cquery "${BAZEL_MODE_FLAGS[@]}" "$bazel_path" --output=files 2> /dev/null)
     component_path="$DPM_HOME/cache/components/$target_name/$COMPONENT_VERSION"
     mkdir -p "$component_path"
-    tar -xzf $output_path -C "$component_path"
+    tar -xzf "$output_path" -C "$component_path"
     echo "$(tput setaf 5)$progress_marker Unpacked component, updating assembly.$(tput sgr 0)"
     # Update $RELEASE_VERSION.yaml entry for given component to point to new unpacked component
-    new_content=$(cat "$assembly_location" | name=$target_name version=$COMPONENT_VERSION yq -M e '.spec.components.[env(name)].version |= env(version)' -)
-    echo "$new_content" > "$assembly_location"
+    TARGET_NAME=$target_name COMPONENT_VERSION=$COMPONENT_VERSION yq -MiY '.spec.components.[env.TARGET_NAME].version |= env.COMPONENT_VERSION' "$assembly_location"
     echo "$(tput setaf 3)$progress_marker Installed $target_name to $component_path.$(tput sgr 0)"
   fi
 }
 
 for i in "${!TO_BUILD[@]}"; do
-  update_component "${TO_BUILD[$i]}" "($(expr $i + 1)/${#TO_BUILD[@]})"
+  update_component "${TO_BUILD[$i]}" "($((i + 1))/${#TO_BUILD[@]})"
 done
 
 # TODO: Implement fully once DPM supports this, See https://github.com/DACH-NY/dpm/issues/421
@@ -263,7 +260,7 @@ done
 
 if [[ $REMOVE_NON_HEAD -ne 0 ]]; then
   # Deleting sdk/* rather than sdk with a depth of 2, to avoid accidentally deleting sdk/.lock
-  find $DPM_HOME/cache/sdk/* ! -name "$RELEASE_VERSION.yaml" -type f -exec rm -f {} +
+  find "$DPM_HOME"/cache/sdk/* ! -name "$RELEASE_VERSION.yaml" -type f -exec rm -f {} +
   echo "$(tput setaf 1)Removed all versions other than $RELEASE_VERSION$(tput sgr 0)"
 fi
 

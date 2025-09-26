@@ -271,6 +271,9 @@ renderSdkVersionData (SdkVersionData ver overrides) = T.pack $ unresolvedRelease
 sdkVersionDataUsingLocalOverrides :: SdkVersionData -> Bool
 sdkVersionDataUsingLocalOverrides (SdkVersionData _ overrides) = any isNothing overrides
 
+-- Represents the installation status of a version, where a version (SdkVersionData) is a version string and 0 or more overrides
+-- Contains a status for asking/installation, and a set of packages that are waiting for this SDK version to be installed
+-- Stored in a mapping from SdkVersionData to SdkInstallData, see SdkInstallDatas
 data SdkInstallData = SdkInstallData
   { sidVersionData :: SdkVersionData
   , sidPendingHomes :: Set.Set PackageHome

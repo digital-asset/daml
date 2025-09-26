@@ -7,8 +7,8 @@ import * as vscode from "vscode";
 import { LanguageClient, NotificationType } from "vscode-languageclient/node";
 
 interface DamlSdkInstallProgressNotification {
-  sdkVersionIdentifier: string;
-  sdkVersionRendered: string;
+  sdkVersionIdentifier: string; // Unique indentifier with overrides hash i.e. 3.4.0-with-overrides-495374952876
+  sdkVersionRendered: string; // Human readable version string i.e. 3.4.0 (with 2 overrides)
   kind: "begin" | "report" | "end";
   progress: number;
 }

@@ -19,7 +19,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
 import Control.Exception (SomeException, displayException, throwIO)
 import Control.Lens ((^.), (&))
-import Control.Monad (foldM, forM_, void, when)
+import Control.Monad (foldM, forM_, void, unless, when)
 import Control.Monad.STM
 import Data.Aeson (fromJSON, toJSON)
 import qualified Data.Yaml as Y
@@ -116,7 +116,7 @@ ensureIdeSdkInstalledDamlAssistant :: MultiIdeState -> SdkVersionData -> Package
 ensureIdeSdkInstalledDamlAssistant miState ver home ideData = do
   damlPath <- getDamlPath
   installedVersions <- getInstalledSdkVersions damlPath
-  let versionIsInstalled = any ((unwrapUnresolvedReleaseVersion (svdVersion ver)==) . releaseVersionFromReleaseVersion) installedVersions
+  let versionIsInstalled = any (\installedVer -> unwrapUnresolvedReleaseVersion (svdVersion ver) == releaseVersionFromReleaseVersion installedVer) installedVersions
 
   globalErrorStatus <- getGlobalErrorStatusWithPackageRestart miState home
 
@@ -130,6 +130,9 @@ ensureIdeSdkInstalledDamlAssistant miState ver home ideData = do
     Nothing -> pure ideData
     Just (severity, message) -> do
       let ideDataWithError = ideData {ideDataDisabled = IdeDataDisabled severity message}
+      -- Must prevent repeat diagnostic messages, as sending diagnostics triggers a
+      -- code actions request from the editor, which would fail from missing
+      -- SDK and trigger this code again, leading to a loop.
       when (ideDataDisabled ideDataWithError /= ideDataDisabled ideData) $
         atomically $ sendPackageDiagnostic miState ideDataWithError
       pure ideDataWithError
@@ -141,16 +144,16 @@ tryAskForSdkInstall :: MultiIdeState -> (SdkVersionData -> T.Text) -> SdkVersion
 tryAskForSdkInstall miState makeMissingSdkIdeDiagnosticMessage ver home = do
   installDatas <- atomically $ takeTMVar $ misSdkInstallDatasVar miState
   let installData = getSdkInstallData ver installDatas
+      addHomeAndReturn :: SdkInstallData -> (LSP.DiagnosticSeverity, T.Text) -> IO (SdkInstallDatas, (LSP.DiagnosticSeverity, T.Text))
+      addHomeAndReturn installData' message =
+        pure (Map.insert ver (installData' {sidPendingHomes = Set.insert home $ sidPendingHomes installData}) installDatas, message)
+  
   (newInstallDatas, disableDiagnostic) <- case sidStatus installData of
     SISCanAsk -> do  
         if unresolvedReleaseVersionToString (svdVersion ver) == "0.0.0" then do
           let errText = "Version 0.0.0 is not installed, it can be installed by building daml-head locally."
-              installData' = 
-                installData
-                  { sidPendingHomes = Set.insert home $ sidPendingHomes installData
-                  , sidStatus = SISFailed errText Nothing
-                  }
-          pure (Map.insert ver installData' installDatas, (LSP.DsError, errText))
+              installData' = installData {sidStatus = SISFailed errText Nothing}
+          addHomeAndReturn installData' (LSP.DsError, errText)
         else do
           -- Ask the user if they want to install
           let lspId = sdkVersionDataToLspId ver
@@ -158,22 +161,13 @@ tryAskForSdkInstall miState makeMissingSdkIdeDiagnosticMessage ver home = do
               messageContent = "This package uses the release version " <> verStr <> " which is not installed on this system.\n"
                 <> "The IDE cannot give intelligence on this package without this SDK. Would you like to install it?"
               message = showMessageRequest lspId LSP.MtError messageContent ["Install SDK " <> verStr, "Do not install"]
-              installData' = 
-                installData
-                  { sidPendingHomes = Set.insert home $ sidPendingHomes installData
-                  , sidStatus = SISAsking
-                  }
-
+              installData' = installData {sidStatus = SISAsking}
           putFromServerCoordinatorMessage miState message
           sendClient miState message
-          pure (Map.insert ver installData' installDatas, (LSP.DsError, makeMissingSdkIdeDiagnosticMessage ver))
-    _ ->
-      let message = 
-            case sidStatus installData of
-              SISInstalling _ -> (LSP.DsInfo, installingSdkIdeDiagnosticMessage ver)
-              SISFailed log err -> (LSP.DsError, failedInstallIdeDiagnosticMessage ver log err)
-              _ -> (LSP.DsError, makeMissingSdkIdeDiagnosticMessage ver)
-       in pure (Map.insert ver (installData {sidPendingHomes = Set.insert home $ sidPendingHomes installData}) installDatas, message)
+          addHomeAndReturn installData' (LSP.DsError, makeMissingSdkIdeDiagnosticMessage ver)
+    SISInstalling _ -> addHomeAndReturn installData (LSP.DsInfo, installingSdkIdeDiagnosticMessage ver)
+    SISFailed log err -> addHomeAndReturn installData (LSP.DsError, failedInstallIdeDiagnosticMessage ver log err)
+    _ -> addHomeAndReturn installData (LSP.DsError, makeMissingSdkIdeDiagnosticMessage ver)
   atomically $ putTMVar (misSdkInstallDatasVar miState) newInstallDatas
   pure disableDiagnostic
 
@@ -240,9 +234,8 @@ getSdkInstallDataFromLspId (LSP.IdString (T.stripPrefix "sdk-install-request-" -
   getSdkInstallDataFromIdentifier verIdentifier installDatas
 getSdkInstallDataFromLspId _ _ = Nothing
 
--- TODO[SW]: Consider improving this
 sdkVersionDataOverridesHash :: SdkVersionData -> T.Text
-sdkVersionDataOverridesHash = T.pack . show . hash . show . svdOverrides
+sdkVersionDataOverridesHash = T.pack . show . hash . svdOverrides
 
 -- When running `dpm resolve` in a package that sits under a multi-package.yaml, but isn't listed in it
 -- dpm will generate a resolution for the multi-package, and won't include the single package we care about
@@ -397,6 +390,10 @@ onSdkInstallerFinished miState ver outputLogVar mError = do
              in misUnsafeAddNewSubIdeAndSend miState ides' home Nothing
       atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
       updatedHomes <- updateResolutionFileForManyChanged miState homes
+      -- Since updateResolutionFileForManyChanged calls DPM resolve, which can result in package changes outside the scope of
+      -- this version, i.e. those with already running environments, we need to be able to reboot them
+      -- For similar circular dependency reasons to the existence of misUnsafeAddNewSubIdeAndSend,
+      -- we also use misRebootIdeByHome here, over the real `rebootIdeByHome` function.
       traverse_ (misRebootIdeByHome miState) $ Set.fromList updatedHomes Set.\\ homes
       withIDEs_ miState $ \ides -> foldM enableIde ides homes
     Just err -> do
@@ -420,6 +417,8 @@ installSdkDpm packageHome _outputLogVar _report = do
 -- Given a version, logging MVar and progress handler, install an sdk (blocking)
 installSdkDamlAssistant :: SdkVersionData -> MVar Text -> (Int -> IO ()) -> IO ()
 installSdkDamlAssistant versionData outputLogVar report = do
+  unless (null $ svdOverrides versionData) $
+    throwIO $ assistantError "Daml Assistant cannot install versions with overrides, use DPM by opening Studio with `dpm studio`."
   damlPath <- getDamlPath
   cachePath <- getCachePath
   -- Override the cache timeout to 5 minutes, to be sure we have a recent cache
