@@ -38,7 +38,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.util.ContractAuthenticator
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -374,7 +374,7 @@ final class AssignmentValidationTest
       participantId: ParticipantId,
   ): AssignmentValidation = {
 
-    val contractAuthenticator = ContractAuthenticator(new SymbolicPureCrypto())
+    val contractValidator = ContractValidator.AllowAll
 
     new AssignmentValidation(
       synchronizerId,
@@ -388,7 +388,7 @@ final class AssignmentValidationTest
         loggerFactory,
       ),
       loggerFactory = loggerFactory,
-      contractAuthenticator = contractAuthenticator,
+      contractValidator = contractValidator,
     )
   }
 

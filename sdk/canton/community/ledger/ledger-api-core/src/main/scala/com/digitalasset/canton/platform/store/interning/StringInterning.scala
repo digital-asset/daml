@@ -5,7 +5,14 @@ package com.digitalasset.canton.platform.store.interning
 
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, ParticipantId, UserId}
+import com.digitalasset.daml.lf.data.Ref.{
+  ChoiceName,
+  Identifier,
+  NameTypeConRef,
+  PackageId,
+  ParticipantId,
+  UserId,
+}
 
 /** The facade for all supported string-interning domains
   *
@@ -20,6 +27,8 @@ trait StringInterning {
   def synchronizerId: StringInterningDomain[SynchronizerId]
   def userId: StringInterningDomain[UserId]
   def participantId: StringInterningDomain[ParticipantId]
+  def choiceName: StringInterningDomain[ChoiceName]
+  def interfaceId: StringInterningDomain[Identifier]
 }
 
 /** Composes a StringInterningAccessor for the domain-string type and an unsafe

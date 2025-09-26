@@ -145,8 +145,7 @@ object LedgerApiIndexer {
         DbSupport.DataSourceProperties(
           connectionPool = IndexerConfig
             .createConnectionPoolConfig(
-              ingestionParallelism =
-                ledgerApiIndexerConfig.indexerConfig.ingestionParallelism.unwrap,
+              indexerConfig = ledgerApiIndexerConfig.indexerConfig,
               connectionTimeout =
                 ledgerApiIndexerConfig.serverConfig.databaseConnectionTimeout.underlying,
             ),

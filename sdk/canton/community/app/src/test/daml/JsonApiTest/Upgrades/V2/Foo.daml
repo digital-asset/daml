@@ -3,8 +3,8 @@
 
 module Foo where
 
--- This template is an upgrade on the Bar in V1/Foo.daml
-template Bar with
+-- This template is an upgrade on the Foo in V1/Foo.daml
+template Foo with
     owner : Party
     extra : Optional Int -- new optional field
   where

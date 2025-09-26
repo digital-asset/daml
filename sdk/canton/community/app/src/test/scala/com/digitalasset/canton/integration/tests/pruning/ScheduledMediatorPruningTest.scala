@@ -105,7 +105,7 @@ abstract class ScheduledMediatorPruningTest
         // In the second half, the pruning test is able to prune a lot more aggressively according to the 4 second
         // timeout set as a dynamic synchronizer parameter.
         val secondsWorstCaseUntilFirstPrune = DynamicSynchronizerParameters
-          .initialValues(env.environment.clock, testedProtocolVersion)
+          .initialValues(testedProtocolVersion)
           .confirmationResponseTimeout // == 30.seconds
           .unwrap
           .getSeconds

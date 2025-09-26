@@ -29,7 +29,6 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors
-import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizer
 import com.digitalasset.canton.topology.{
   ForceFlag,
@@ -103,26 +102,26 @@ trait SynchronizerParametersChangeIntegrationTest
   private lazy val dynamicReconciliationInterval = config.PositiveDurationSeconds.ofSeconds(2)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1_S1M1.addConfigTransforms(
-      ConfigTransforms.useStaticTime,
-      // Disable retries in the ping service so that any submission error is reported reliably
-      // This makes the log messages more deterministic.
-      ConfigTransforms.updateAllParticipantConfigs_(
-        _.focus(_.parameters.adminWorkflow.retries).replace(false)
-      ),
-    ) withSetup { implicit env =>
-      import env.*
+    EnvironmentDefinition.P2_S1M1_S1M1
+      .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
+        // Disable retries in the ping service so that any submission error is reported reliably
+        // This makes the log messages more deterministic.
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.parameters.adminWorkflow.retries).replace(false)
+        ),
+      )
+      .withSetup { implicit env =>
+        import env.*
 
-      participant1.synchronizers.connect_local(sequencer1, alias = daName)
-    }
+        participant1.synchronizers.connect_local(sequencer1, alias = daName)
+      }
 
   protected lazy val sequencersForPlugin: MultiSynchronizer =
     MultiSynchronizer(Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate)))
 
-  private lazy val defaultParameters = ConsoleDynamicSynchronizerParameters.initialValues(
-    new SimClock(loggerFactory = loggerFactory),
-    testedProtocolVersion,
-  )
+  private lazy val defaultParameters =
+    ConsoleDynamicSynchronizerParameters.initialValues(testedProtocolVersion)
 
   private def acmeSynchronizer(implicit env: TestConsoleEnvironment) =
     SynchronizerParametersFixture.Synchronizer(env.sequencer2)
@@ -239,9 +238,6 @@ trait SynchronizerParametersChangeIntegrationTest
         .assignmentExclusivityTimeout
       myParticipant.topology.synchronizer_parameters
         .get_dynamic_synchronizer_parameters(synchronizerId)
-        .topologyChangeDelay
-      myParticipant.topology.synchronizer_parameters
-        .get_dynamic_synchronizer_parameters(synchronizerId)
         .ledgerTimeRecordTimeTolerance
       myParticipant.topology.synchronizer_parameters
         .get_dynamic_synchronizer_parameters(synchronizerId)
@@ -270,7 +266,6 @@ trait SynchronizerParametersChangeIntegrationTest
             preparationTimeRecordTimeTolerance = 1.minute,
             mediatorReactionTimeout = 20.seconds,
             assignmentExclusivityTimeout = 1.second,
-            topologyChangeDelay = 0.millis,
             reconciliationInterval = 5.seconds,
             confirmationRequestsMaxRate = 100,
             maxRequestSize = 100000,
@@ -297,8 +292,7 @@ trait SynchronizerParametersChangeIntegrationTest
       mySequencer.topology.synchronizer_parameters.propose_update(
         synchronizerId,
         _.update(
-          confirmationResponseTimeout = 10.seconds,
-          topologyChangeDelay = 1.second,
+          confirmationResponseTimeout = 10.seconds
         ),
       )
       // user-manual-entry-begin:-end: UpdateDynamicSynchronizerParameters
@@ -311,7 +305,6 @@ trait SynchronizerParametersChangeIntegrationTest
               _confirmationResponseTimeout,
               _mediatorReactionTimeout,
               _assignmentExclusivityTimeout,
-              _topologyChangeDelay,
               _ledgerTimeRecordTimeTolerance,
               _mediatorDeduplicationTimeout,
               _reconciliationInterval,
@@ -421,7 +414,6 @@ trait SynchronizerParametersChangeIntegrationTest
         confirmationResponseTimeout = config.NonNegativeFiniteDuration.Zero,
         mediatorReactionTimeout = config.NonNegativeFiniteDuration.Zero,
         assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero,
-        topologyChangeDelay = d,
         ledgerTimeRecordTimeTolerance = config.NonNegativeFiniteDuration.Zero,
         mediatorDeduplicationTimeout = d,
         reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(1),
@@ -568,7 +560,7 @@ trait SynchronizerParametersRestartIntegrationTest
     EnvironmentDefinition.P0_S1M1
 
   private lazy val defaultParameters =
-    ConsoleDynamicSynchronizerParameters.defaultValues(testedProtocolVersion)
+    ConsoleDynamicSynchronizerParameters.initialValues(testedProtocolVersion)
 
   "Dynamic synchronizer parameters" should {
     "not be read from config upon restart" in { implicit env =>

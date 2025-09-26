@@ -884,15 +884,18 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         newSequencer: SequencerReference,
         existingSequencer: SequencerReference,
         synchronizerOwners: Set[InstanceReference],
+        customCommandTimeout: Option[config.NonNegativeDuration] = None,
         isBftSequencer: Boolean = false,
     )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
       import consoleEnvironment.*
+
+      val commandTimeout = customCommandTimeout.getOrElse(commandTimeouts.bounded)
 
       def synchronizeTopologyAfterAddingSequencer(
           newSequencerId: SequencerId,
           existingSequencer: SequencerReference,
       ): Unit =
-        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+        ConsoleMacros.utils.retry_until_true(commandTimeout) {
           existingSequencer.topology.sequencers
             .list(existingSequencer.synchronizer_id)
             .headOption
@@ -905,7 +908,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           newSequencerId: SequencerId,
           existingSequencer: SequencerReference,
       ): Unit =
-        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+        ConsoleMacros.utils.retry_until_true(commandTimeout) {
           existingSequencer.bft.get_ordering_topology().sequencerIds.contains(newSequencerId)
         }
 
@@ -945,7 +948,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       logger.info("Proposed a sequencer synchronizer state with the new sequencer")
 
       // wait for SequencerSynchronizerState to be observed by the sequencer
-      ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+      ConsoleMacros.utils.retry_until_true(commandTimeout) {
         val sequencerStates =
           existingSequencer.topology.sequencers.list(store = synchronizerId)
 

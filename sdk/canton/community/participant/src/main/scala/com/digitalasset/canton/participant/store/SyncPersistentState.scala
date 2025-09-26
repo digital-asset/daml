@@ -9,7 +9,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.db.{
   DbLogicalSyncPersistentState,
@@ -24,8 +23,8 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
+import com.digitalasset.canton.topology.store.{PackageDependencyResolver, TopologyStore}
 import com.digitalasset.canton.topology.{
   ParticipantId,
   PhysicalSynchronizerId,
@@ -167,10 +166,10 @@ object PhysicalSyncPersistentState {
       clock: Clock,
       crypto: SynchronizerCrypto,
       parameters: ParticipantNodeParameters,
+      packageMetadataView: PackageMetadataView,
       packageDependencyResolver: PackageDependencyResolver,
       ledgerApiStore: Eval[LedgerApiStore],
       logicalSyncPersistentState: LogicalSyncPersistentState,
-      packageMetadataView: Eval[PackageMetadataView],
       loggerFactory: NamedLoggerFactory,
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): PhysicalSyncPersistentState =
@@ -184,10 +183,10 @@ object PhysicalSyncPersistentState {
           staticSynchronizerParameters,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           disableUpgradeValidation = parameters.disableUpgradeValidation,
+          packageMetadataView,
           packageDependencyResolver,
           ledgerApiStore,
           logicalSyncPersistentState,
-          packageMetadataView,
           loggerFactory,
           parameters.processingTimeouts,
           futureSupervisor,
@@ -201,10 +200,10 @@ object PhysicalSyncPersistentState {
           db,
           crypto,
           parameters,
+          packageMetadataView,
           packageDependencyResolver,
           ledgerApiStore,
           logicalSyncPersistentState,
-          packageMetadataView,
           loggerFactory,
           futureSupervisor,
         )

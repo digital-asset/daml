@@ -25,7 +25,7 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
     val crypto = TestingIdentityFactory(
       TestingTopology(),
       loggerFactory,
-      DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
+      DynamicSynchronizerParameters.initialValues(testedProtocolVersion),
     ).forOwnerAndSynchronizer(owner = mediatorId, psid)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 

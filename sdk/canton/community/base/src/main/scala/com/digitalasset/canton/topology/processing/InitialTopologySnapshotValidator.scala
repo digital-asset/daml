@@ -6,10 +6,9 @@ package com.digitalasset.canton.topology.processing
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.TopologyStateProcessor
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
@@ -48,16 +47,11 @@ import scala.concurrent.ExecutionContext
 class InitialTopologySnapshotValidator(
     pureCrypto: CryptoPureApi,
     store: TopologyStore[TopologyStoreId],
-    timeouts: ProcessingTimeout,
-    loggerFactory: NamedLoggerFactory,
+    override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyTransactionHandling(
-      store,
-      timeouts,
-      loggerFactory,
-    ) {
+    extends NamedLogging {
 
-  override protected lazy val stateProcessor: TopologyStateProcessor =
+  protected val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forInitialSnapshotValidation(
       store,
       new ValidatingTopologyMappingChecks(store, loggerFactory),
@@ -215,45 +209,29 @@ class InitialTopologySnapshotValidator(
 
   private def processTransactionsAtSequencedTime(
       sequenced: SequencedTime,
-      effectiveTimeFromSnapshot: EffectiveTime,
+      effectiveTime: EffectiveTime,
       storedTxs: Seq[StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
-    for {
-      effectiveTime <- EitherT
-        .right(
-          timeAdjuster
-            .trackAndComputeEffectiveTime(sequenced, strictMonotonicity = true)
-        )
-
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        effectiveTime == effectiveTimeFromSnapshot,
-        s"The computed effective time ($effectiveTime) for sequenced time ($sequenced) is different than the effective time from the topology snapshot ($effectiveTimeFromSnapshot).",
+    EitherT
+      .right(
+        stateProcessor
+          .validateAndApplyAuthorization(
+            sequenced,
+            effectiveTime,
+            storedTxs.map(_.transaction),
+            expectFullAuthorization = false,
+            // when validating the initial snapshot, missing signing key signatures are only
+            // acceptable, if the transaction was part of the genesis topology snapshot
+            transactionMayHaveMissingSigningKeySignatures =
+              sequenced.value == SignedTopologyTransaction.InitialTopologySequencingTime,
+            // The snapshot might contain transactions that only add additional
+            // signatures. Since the genesis snapshot usually has all transactions at the same timestamp
+            // and we compare the provided snapshot with what is stored one-by-one,
+            // we don't want to compact during the validation of the initial snapshot, as this
+            // would combine multiple transactions into one.
+            compactTransactions = false,
+          )
       )
+      .map(_ => ())
 
-      validationResult <- EitherT
-        .right(
-          stateProcessor
-            .validateAndApplyAuthorization(
-              sequenced,
-              effectiveTime,
-              storedTxs.map(_.transaction),
-              expectFullAuthorization = false,
-              // when validating the initial snapshot, missing signing key signatures are only
-              // acceptable, if the transaction was part of the genesis topology snapshot
-              transactionMayHaveMissingSigningKeySignatures =
-                sequenced.value == SignedTopologyTransaction.InitialTopologySequencingTime,
-              // The snapshot might contain transactions that only add additional
-              // signatures. Since the genesis snapshot usually has all transactions at the same timestamp
-              // and we compare the provided snapshot with what is stored one-by-one,
-              // we don't want to compact during the validation of the initial snapshot, as this
-              // would combine multiple transactions into one.
-              compactTransactions = false,
-            )
-        )
-      (validatedTxs, _) = validationResult
-      _ = inspectAndAdvanceTopologyTransactionDelay(
-        effectiveTime,
-        validatedTxs,
-      )
-    } yield ()
 }

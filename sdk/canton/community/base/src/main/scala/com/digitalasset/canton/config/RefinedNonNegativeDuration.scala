@@ -373,6 +373,10 @@ object NonNegativeFiniteDuration
   implicit val forgetRefinementFDuration: Transformer[NonNegativeFiniteDuration, FiniteDuration] =
     _.underlying
 
+  implicit val toInternalTransformer
+      : Transformer[NonNegativeFiniteDuration, NonNegativeFiniteDurationInternal] =
+    _.toInternal
+
   def fromDuration(duration: Duration): Either[String, NonNegativeFiniteDuration] = duration match {
     case x: FiniteDuration =>
       Either.cond(x.length >= 0, NonNegativeFiniteDuration(x), s"Duration $x is negative!")

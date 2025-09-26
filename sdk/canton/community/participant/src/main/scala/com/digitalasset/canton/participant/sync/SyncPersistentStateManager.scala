@@ -18,7 +18,6 @@ import com.digitalasset.canton.environment.{
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
@@ -35,6 +34,7 @@ import com.digitalasset.canton.store.{
   IndexedSynchronizer,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{MonadUtil, StampedLockWithHandle}
@@ -123,10 +123,10 @@ class SyncPersistentStateManager(
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
+    packageMetadataView: PackageMetadataView,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
     val contractStore: Eval[ContractStore],
-    packageMetadataView: Eval[PackageMetadataView],
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -420,10 +420,10 @@ class SyncPersistentStateManager(
         clock,
         synchronizerCryptoFactory(staticSynchronizerParameters),
         parameters,
+        packageMetadataView,
         packageDependencyResolver,
         ledgerApiStore,
         logicalSyncPersistentState,
-        packageMetadataView,
         psidLoggerFactory(physicalSynchronizerIdx.synchronizerId),
         futureSupervisor,
       )

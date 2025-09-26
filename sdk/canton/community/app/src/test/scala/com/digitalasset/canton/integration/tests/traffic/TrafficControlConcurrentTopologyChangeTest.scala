@@ -63,9 +63,7 @@ trait TrafficControlConcurrentTopologyChangeTest
         sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,
           _.update(
-            trafficControl = Some(trafficControlParameters),
-            // So that topology changes become effective as of sequencing time
-            topologyChangeDelay = config.NonNegativeFiniteDuration.Zero,
+            trafficControl = Some(trafficControlParameters)
           ),
         )
 

@@ -142,7 +142,7 @@ object JcePrivateCrypto {
         .leftMap(SigningKeyGenerationError.KeyCreationError.apply)
     } yield keyPair
 
-  private[crypto] def generateSigningKeypair(
+  private[canton] def generateSigningKeypair(
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SigningKeyGenerationError, SigningKeyPair] = keySpec match {

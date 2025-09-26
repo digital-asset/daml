@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
@@ -22,7 +23,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryReassignmentStor
 import com.digitalasset.canton.participant.sync.StaticSynchronizerParametersGetter
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, TimeProofTestUtil}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
@@ -38,9 +39,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
-import org.mockito.ArgumentMatchers.any
-import org.mockito.Mockito.when
-import org.mockito.MockitoSugar.mock
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -62,17 +60,6 @@ private[reassignment] object TestReassignmentCoordination {
       targetTimestampForwardTolerance: FiniteDuration = 30.seconds,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
 
-    val recentTimeProofProvider = mock[RecentTimeProofProvider]
-    when(
-      recentTimeProofProvider.get(
-        any[Target[PhysicalSynchronizerId]],
-        any[Target[StaticSynchronizerParameters]],
-      )(
-        any[TraceContext]
-      )
-    )
-      .thenReturn(EitherT.pure(TimeProofTestUtil.mkTimeProof(timeProofTimestamp)))
-
     val reassignmentStores =
       synchronizers
         .map(synchronizer =>
@@ -87,7 +74,12 @@ private[reassignment] object TestReassignmentCoordination {
     val staticSynchronizerParametersGetter = new StaticSynchronizerParametersGetter {
       override def staticSynchronizerParameters(
           synchronizerId: PhysicalSynchronizerId
-      ): Option[StaticSynchronizerParameters] = Some(BaseTest.testedStaticSynchronizerParameters)
+      ): Option[StaticSynchronizerParameters] = Some(
+        BaseTest.defaultStaticSynchronizerParametersWith(
+          topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+          testedProtocolVersion,
+        )
+      )
 
       override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
         ???
@@ -107,7 +99,6 @@ private[reassignment] object TestReassignmentCoordination {
     new ReassignmentCoordination(
       reassignmentStoreFor = id =>
         reassignmentStores.get(id).toRight(UnknownSynchronizer(id.unwrap, "not found")),
-      recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = assignmentBySubmission,
       pendingUnassignments = reassignmentSynchronizer.map(Option(_)),
       staticSynchronizerParametersGetter = staticSynchronizerParametersGetter,

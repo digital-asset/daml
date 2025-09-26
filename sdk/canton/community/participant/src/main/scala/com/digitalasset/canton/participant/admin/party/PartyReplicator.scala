@@ -815,8 +815,11 @@ final class PartyReplicator(
         )
         isPartyOnboarded <- topologyWorkflow.authorizeOnboardedTopology(
           status.params,
+          status.effectiveAt,
+          connectedSynchronizer.ephemeral.timeTracker,
           connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
           connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
+          connectedSynchronizer.synchronizerHandle.topologyClient,
         )
       } yield {
         if (isAgreementArchived && isPartyOnboarded) {

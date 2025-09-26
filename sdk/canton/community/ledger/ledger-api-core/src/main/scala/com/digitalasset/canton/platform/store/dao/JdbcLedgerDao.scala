@@ -17,7 +17,6 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
-  TransactionTreeStreamsConfig,
   UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.*
@@ -51,7 +50,6 @@ private class JdbcLedgerDao(
     completionsPageSize: Int,
     activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
     updatesStreamsConfig: UpdatesStreamsConfig,
-    transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
@@ -291,20 +289,6 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
-    config = transactionTreeStreamsConfig,
-    globalIdQueriesLimiter = globalIdQueriesLimiter,
-    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    dbDispatcher = dbDispatcher,
-    queryValidRange = queryValidRange,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
-    metrics = metrics,
-    tracer = tracer,
-    reassignmentStreamReader = reassignmentStreamReader,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
   private val reassignmentPointwiseReader = new ReassignmentPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -340,14 +324,6 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
-    dbDispatcher = dbDispatcher,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    metrics = metrics,
-    lfValueTranslation = translation,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
   override val updateReader: UpdateReader =
     new UpdateReader(
       dispatcher = dbDispatcher,
@@ -356,8 +332,6 @@ private class JdbcLedgerDao(
       metrics = metrics,
       updatesStreamReader = updatesStreamReader,
       updatePointwiseReader = updatePointwiseReader,
-      treeTransactionsStreamReader = treeTransactionsStreamReader,
-      treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(queryExecutionContext)
 
@@ -474,7 +448,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize: Int,
       activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
       updatesStreamsConfig: UpdatesStreamsConfig,
-      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
@@ -502,7 +475,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
       updatesStreamsConfig = updatesStreamsConfig,
-      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,
@@ -523,7 +495,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize: Int,
       activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
       updatesStreamsConfig: UpdatesStreamsConfig,
-      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
@@ -546,7 +517,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
       updatesStreamsConfig = updatesStreamsConfig,
-      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,

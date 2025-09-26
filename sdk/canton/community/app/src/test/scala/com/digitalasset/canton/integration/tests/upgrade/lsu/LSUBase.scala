@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.RequireTypes
+import com.digitalasset.canton.config.{NonNegativeFiniteDuration, RequireTypes}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UsePostgres
@@ -112,7 +112,11 @@ private[lsu] object LSUBase {
     val newSerial: RequireTypes.NonNegativeNumeric[Int] = currentPSId.serial.increment.toNonNegative
 
     val newStaticSynchronizerParameters: StaticSynchronizerParameters =
-      StaticSynchronizerParameters.defaultsWithoutKMS(newPV, newSerial)
+      StaticSynchronizerParameters.defaultsWithoutKMS(
+        newPV,
+        newSerial,
+        topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+      )
 
     val newPSId: PhysicalSynchronizerId =
       PhysicalSynchronizerId(currentPSId.logical, newStaticSynchronizerParameters.toInternal)

@@ -64,12 +64,9 @@ final class TimeAdvancingTopologySubscriber(
       val snapshot = topologyClient.currentSnapshotApproximation
 
       for {
-        dynamicSynchronizerParameters <- snapshot
-          .findDynamicSynchronizerParametersOrDefault(protocolVersion)
         maybeSequencerGroup <- snapshot.sequencerGroup()
       } yield {
-        val topologyChangeDelay =
-          dynamicSynchronizerParameters.topologyChangeDelay
+        val topologyChangeDelay = topologyClient.staticSynchronizerParameters.topologyChangeDelay
         maybeSequencerGroup.foreach { sequencerGroup =>
           if (sequencerGroup.active.contains(thisSequencerId)) {
             FutureUnlessShutdownUtil

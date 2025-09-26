@@ -527,7 +527,7 @@ object DbStorage {
       loggerFactory: NamedLoggerFactory
   )(implicit closeContext: CloseContext): EitherT[UnlessShutdown, String, Database] = {
     val baseLogger = loggerFactory.getLogger(classOf[DbStorage])
-    val logger = TracedLogger(baseLogger)
+    implicit val logger = TracedLogger(baseLogger)
 
     TraceContext.withNewTraceContext("create_db") { implicit traceContext =>
       // Must be called to set proper defaults in case of H2
@@ -569,27 +569,32 @@ object DbStorage {
         s"Initializing database storage with config: ${DbConfig.hideConfidential(configWithMigrationFallbacks)}"
       )
 
-      RetryEither.retry[String, Database](
-        maxRetries = retryConfig.maxRetries,
-        waitInMs = retryConfig.retryWaitingTime.toMillis,
-        operationName = functionFullName,
-        retryLogLevel = retryConfig.retryLogLevel,
-        failLogLevel = Level.ERROR,
-      ) {
-        for {
-          db <- createJdbcBackendDatabase(
-            configWithMigrationFallbacks,
-            metrics,
-            logQueryCost,
-            scheduler,
-            config.parameters,
-            baseLogger,
-          )
-          _ <- Either
-            .catchOnly[SQLException](db.createSession().close())
-            .leftMap(err => show"Failed to create session with database: $err")
-        } yield db
-      }(ErrorLoggingContext.fromTracedLogger(logger), closeContext)
+      RetryEither
+        .retry[DatabaseCreationFailed, Database](
+          maxRetries = retryConfig.maxRetries,
+          waitInMs = retryConfig.retryWaitingTime.toMillis,
+          operationName = functionFullName,
+          stopOnLeft = Some(_.isFatal),
+          retryLogLevel = retryConfig.retryLogLevel,
+          failLogLevel = Level.ERROR,
+        ) {
+          for {
+            db <- createJdbcBackendDatabase(
+              configWithMigrationFallbacks,
+              metrics,
+              logQueryCost,
+              scheduler,
+              config.parameters,
+              baseLogger,
+            )
+            _ <- Either
+              .catchOnly[SQLException](db.createSession().close())
+              .leftMap(err =>
+                DatabaseCreationFailed(show"Failed to create session with database: $err", err)
+              )
+          } yield db
+        }(ErrorLoggingContext.fromTracedLogger(logger), closeContext)
+        .leftMap(_.message)
     }
   }
 
@@ -601,7 +606,10 @@ object DbStorage {
       scheduler: Option[ScheduledExecutorService],
       parameters: DbParametersConfig,
       logger: Logger,
-  ): Either[String, Database] = {
+  )(implicit
+      tracedLogger: TracedLogger,
+      traceContext: TraceContext,
+  ): Either[DatabaseCreationFailed, Database] = {
     // copy paste from JdbcBackend.forConfig
     import slick.util.ConfigExtensionMethods.*
     try {
@@ -660,10 +668,21 @@ object DbStorage {
 
       Right(JdbcBackend.Database.forSource(source, executor))
     } catch {
-      case ex: SlickException => Left(show"Failed to setup database access: $ex")
-      case ex: PoolInitializationException => Left(show"Failed to connect to database: $ex")
+      case ex: SlickException =>
+        Left(DatabaseCreationFailed(show"Failed to setup database access: $ex", ex.getCause))
+      case ex: PoolInitializationException =>
+        Left(DatabaseCreationFailed(show"Failed to connect to database: $ex", ex.getCause))
     }
+  }
 
+  private final case class DatabaseCreationFailed(message: String, ex: Throwable)(implicit
+      logger: TracedLogger,
+      traceContext: TraceContext,
+  ) {
+    import com.digitalasset.canton.util.retry.ErrorKind
+
+    val isFatal =
+      DbExceptionRetryPolicy.determineExceptionErrorKind(ex, logger) == ErrorKind.FatalErrorKind
   }
 
   /** Construct a bulk operation (e.g., insertion, deletion). The operation must not return a result

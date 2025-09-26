@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandServiceS
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
   SubmitAndWaitResponse,
 }
@@ -59,17 +58,6 @@ class CommandServiceClient(
       getSubmitAndWaitForTransactionRequest(request.commands)
     )
 
-  // TODO(#23504) remove when json/v1 api is removed
-  @deprecated("TransactionTrees are deprecated", "3.3.0")
-  def deprecatedSubmitAndWaitForTransactionTreeForJsonApi(
-      request: SubmitAndWaitRequest,
-      timeout: Option[Duration] = None,
-      token: Option[String] = None,
-  )(implicit traceContext: TraceContext): Future[SubmitAndWaitForTransactionTreeResponse] =
-    serviceWithTokenAndDeadline(timeout, token).submitAndWaitForTransactionTree(
-      request
-    )
-
   def submitAndWaitForTransaction(
       commands: Commands,
       transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
@@ -85,23 +73,6 @@ class CommandServiceClient(
         _.submitAndWaitForTransaction(
           getSubmitAndWaitForTransactionRequest(Some(commands), transactionShape)
         )
-      ),
-    )
-
-  // TODO(#23504) remove method
-  @deprecated("TransactionTrees are deprecated", "3.3.0")
-  def submitAndWaitForTransactionTree(
-      commands: Commands,
-      timeout: Option[Duration] = None,
-      token: Option[String] = None,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Either[Status, SubmitAndWaitForTransactionTreeResponse]] =
-    submitAndHandle(
-      timeout,
-      token,
-      withTraceContextInjectedIntoOpenTelemetryContext(
-        _.submitAndWaitForTransactionTree(SubmitAndWaitRequest(commands = Some(commands)))
       ),
     )
 

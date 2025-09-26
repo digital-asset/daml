@@ -1255,18 +1255,34 @@ private[sync] class SynchronizerConnectionsManager(
         case (synchronizerAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
             topology <- getSnapshot(synchronizerAlias, synchronizerId)
-            partyWithAttributes <- topology.hostedOn(
-              Set(request.party),
-              participantId = request.participantId.getOrElse(participantId),
+            // Find the attributes for the party if one is passed in, and if we can find it in topology
+            attributesO <- request.party.parFlatTraverse(party =>
+              topology
+                .hostedOn(
+                  Set(party),
+                  participantId = request.participantId.getOrElse(participantId),
+                )
+                .map(
+                  _.get(party)
+                )
             )
-          } yield partyWithAttributes
-            .get(request.party)
+          } yield attributesO
             .map(attributes =>
               ConnectedSynchronizerResponse.ConnectedSynchronizer(
                 synchronizerAlias,
                 synchronizerId,
-                attributes.permission,
+                Some(attributes.permission),
               )
+            )
+            .orElse(
+              // Return the connected synchronizer without party information only when no party was requested
+              Option.when(request.party.isEmpty) {
+                ConnectedSynchronizerResponse.ConnectedSynchronizer(
+                  synchronizerAlias,
+                  synchronizerId,
+                  None,
+                )
+              }
             )
       }.toSeq
 

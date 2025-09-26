@@ -290,8 +290,7 @@ message ImportAcsRequest {
   //  3. The contract's representative package ID from the ACS snapshot, if present in the package store
   //  4. The contract's creation package ID, if present in the package store
   //  5. The associated override for the contract's package name in RepresentativePackageIdOverride.package_name_override, if specified and present in the package store
-  //  6. The package vetted by all of the contract's stakeholders with the highest version for the contract's package name on the contract's target synchronizer, if existing
-  //  7. The highest-versioned package in the participant's package store for the contract's package name
+  //  6. The highest-versioned package in the participant's package store for the contract's package name
   //
   // If none of the above rules yield a representative package ID, the ACS import request will fail.
   //

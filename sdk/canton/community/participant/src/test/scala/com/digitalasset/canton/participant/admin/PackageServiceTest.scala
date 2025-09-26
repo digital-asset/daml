@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.admin
 
 import better.files.*
-import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.BaseTest.getResourcePath
@@ -106,7 +105,12 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     val packageStore = new InMemoryDamlPackageStore(loggerFactory)
     private val processingTimeouts = ProcessingTimeout()
     val packageDependencyResolver =
-      new PackageDependencyResolver(packageStore, processingTimeouts, loggerFactory)
+      new PackageDependencyResolver.Impl(
+        participantId,
+        packageStore,
+        processingTimeouts,
+        loggerFactory,
+      )
     private val engine =
       DAMLe.newEngine(
         enableLfDev = false,
@@ -116,24 +120,23 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       )
 
     val clock = new SimClock(start = now, loggerFactory = loggerFactory)
-    val mutablePackageMetadataView = MutablePackageMetadataViewImpl
-      .createAndInitialize(
-        clock,
-        packageDependencyResolver.damlPackageStore,
-        new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
-        loggerFactory,
-        PackageMetadataViewConfig(),
-        processingTimeouts,
-      )
-      .futureValueUS
+    val mutablePackageMetadataView = new MutablePackageMetadataViewImpl(
+      clock,
+      packageDependencyResolver.damlPackageStore,
+      new PackageUpgradeValidator(CachingConfigs.defaultPackageUpgradeCache, loggerFactory),
+      loggerFactory,
+      PackageMetadataViewConfig(),
+      processingTimeouts,
+    )
+    mutablePackageMetadataView.refreshState.futureValueUS
     val sut: PackageService = PackageService(
       clock = clock,
       engine = engine,
+      mutablePackageMetadataView = mutablePackageMetadataView,
       packageDependencyResolver = packageDependencyResolver,
       enableStrictDarValidation = enableStrictDarValidation,
       loggerFactory = loggerFactory,
       metrics = ParticipantTestMetrics,
-      mutablePackageMetadataView = Eval.now(mutablePackageMetadataView),
       packageOps = new PackageOpsForTesting(participantId, loggerFactory),
       timeouts = processingTimeouts,
     )
@@ -360,7 +363,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       } yield {
         // test for explict dependencies
         deps match {
-          case Left(value) => fail(value)
+          case Left((value, _)) => fail(value)
           case Right(loaded) =>
             // all direct dependencies should be part of this
             (dependencyIds -- loaded) shouldBe empty

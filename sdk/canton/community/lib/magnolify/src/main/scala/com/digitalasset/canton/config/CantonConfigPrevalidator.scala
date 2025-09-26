@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.config
 
+import scala.annotation.implicitNotFound
+
 /** Type class for the validation checks that are specific for a particular configuration class.
   * Unlike [[CantonConfigValidator]], the checks performed by instances of this type class do not
   * recurse into subconfigurations.
@@ -19,6 +21,9 @@ package com.digitalasset.canton.config
   * @tparam A
   *   The configuration class to validate
   */
+@implicitNotFound(
+  "Could not find a suitable CantonConfigPrevalidator for ${A} to determine the necessary validations. In typical cases, ${A} should extend UniformCantonConfigValidation, EnterpriseOnlyCantonConfigValidation, or CommunityOnlyCantonConfigValidation."
+)
 trait CantonConfigPrevalidator[-A] {
 
   /** Checks the configuration `config` for validity in the given [[CantonEdition]] and returns the

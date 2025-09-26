@@ -34,7 +34,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
   private val crypto = TestingIdentityFactory(
     TestingTopology(),
     loggerFactory,
-    DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
+    DynamicSynchronizerParameters.initialValues(testedProtocolVersion),
   ).forOwnerAndSynchronizer(owner = mediatorId, psid)
 
   private val requestSigner = RequestSigner(crypto, testedProtocolVersion, loggerFactory)

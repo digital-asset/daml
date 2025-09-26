@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.topology
 
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.synchronizer.sequencer.SequencerSnapshot
 import com.digitalasset.canton.topology.client.{
   SynchronizerTopologyClientHeadStateInitializer,
@@ -30,6 +31,7 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
   override def initialize(
       client: SynchronizerTopologyClientWithInit,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
+      staticSynchronizerParameters: StaticSynchronizerParameters,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -43,6 +45,7 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
           .computeInitialHeadUpdate(
             maxTopologyStoreTimestamp,
             synchronizerPredecessor,
+            staticSynchronizerParameters.topologyChangeDelay,
           )
           .fold(snapshotLastTsEffective) { case (_, maxStoreEffectiveTime) =>
             maxStoreEffectiveTime.max(snapshotLastTsEffective)

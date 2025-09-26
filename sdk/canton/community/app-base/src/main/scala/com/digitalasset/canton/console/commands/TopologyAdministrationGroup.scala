@@ -693,8 +693,7 @@ class TopologyAdministrationGroup(
               synchronizerId.logical,
               ConsoleDynamicSynchronizerParameters
                 .initialValues(
-                  consoleEnvironment.environment.clock,
-                  synchronizerId.protocolVersion,
+                  synchronizerId.protocolVersion
                 ),
               signedBy = None,
               store = Some(store),

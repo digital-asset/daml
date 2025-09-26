@@ -451,7 +451,7 @@ object VettedPackagesRef {
       id: Ref.PackageId
   ) extends VettedPackagesRef {
     def toProtoLAPI: package_management_service.VettedPackagesRef =
-      package_management_service.VettedPackagesRef(id.toString, "", "")
+      package_management_service.VettedPackagesRef(Some(id.toString), None, None)
 
     // TODO(#27753): Check that the package ID exists on the participant
     def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId] =
@@ -464,9 +464,9 @@ object VettedPackagesRef {
   ) extends VettedPackagesRef {
     def toProtoLAPI: package_management_service.VettedPackagesRef =
       package_management_service.VettedPackagesRef(
-        "",
-        name.toString,
-        version.toString,
+        None,
+        Some(name.toString),
+        Some(version.toString),
       )
 
     // TODO(#27753): Check that the package name and version resolves to at least one package ID
@@ -487,9 +487,9 @@ object VettedPackagesRef {
   ) extends VettedPackagesRef {
     def toProtoLAPI: package_management_service.VettedPackagesRef =
       package_management_service.VettedPackagesRef(
-        id.toString,
-        name.toString,
-        version.toString,
+        Some(id.toString),
+        Some(name.toString),
+        Some(version.toString),
       )
 
     // TODO(#27753): Check that the package name and version resolves to at least one package ID
@@ -505,7 +505,7 @@ object VettedPackagesRef {
       name: Ref.PackageName
   ) extends VettedPackagesRef {
     def toProtoLAPI: package_management_service.VettedPackagesRef =
-      package_management_service.VettedPackagesRef("", name.toString, "")
+      package_management_service.VettedPackagesRef(None, Some(name.toString), None)
 
     // TODO(#27753): Check that the package name resolves to at least one package ID
     def findMatchingPackages(metadata: PackageMetadata): Seq[Ref.PackageId] =
@@ -517,14 +517,10 @@ object VettedPackagesRef {
 
   private def parseWith[A](
       name: String,
-      value: String,
+      value: Option[String],
       f: String => Either[String, A],
   ): ParsingResult[Option[A]] =
-    if (value == "") {
-      Right(None)
-    } else {
-      f(value).map(Some(_)).leftMap(ValueConversionError(name, _))
-    }
+    value.traverse(f(_).leftMap(ValueConversionError(name, _)))
 
   private def process(
       mbPackageId: Option[Ref.PackageId],
@@ -587,7 +583,7 @@ final case class EnrichedVettedPackage(
     vetted.packageId,
     validFromInclusive = vetted.validFromInclusive.map(_.toProtoTimestamp),
     validUntilExclusive = vetted.validUntilExclusive.map(_.toProtoTimestamp),
-    packageName = name.map(_.toString).getOrElse(""),
-    packageVersion = version.map(_.toString).getOrElse(""),
+    packageName = name.map(_.toString),
+    packageVersion = version.map(_.toString),
   )
 }

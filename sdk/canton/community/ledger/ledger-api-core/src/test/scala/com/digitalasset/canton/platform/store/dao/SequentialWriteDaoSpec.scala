@@ -27,6 +27,7 @@ import com.digitalasset.canton.tracing.SerializableTraceContextConverter.Seriali
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, PackageId, Party, UserId}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
@@ -242,6 +243,9 @@ object SequentialWriteDaoSpec {
 
   private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
+  private def hashCid(key: String): ContractId =
+    ContractId.V1(com.digitalasset.daml.lf.crypto.Hash.hashPrivateKey(key))
+
   private def someUpdate(key: String) = Some(
     Update.PartyAddedToParticipant(
       party = Ref.Party.assertFromString(key),
@@ -270,7 +274,7 @@ object SequentialWriteDaoSpec {
     user_id = None,
     submitters = None,
     node_id = 3,
-    contract_id = Array(24),
+    contract_id = hashCid("24"),
     template_id = "",
     package_id = "2",
     representative_package_id = "3",
@@ -286,7 +290,7 @@ object SequentialWriteDaoSpec {
     create_key_value_compression = None,
     event_sequential_id = 0,
     authentication_data = Array.empty,
-    synchronizer_id = "x::synchronizer",
+    synchronizer_id = SynchronizerId.tryFromString("x::synchronizer"),
     trace_context = serializableTraceContext,
     record_time = 0,
     external_transaction_hash = Some(externalTransactionHash),
@@ -302,12 +306,13 @@ object SequentialWriteDaoSpec {
     user_id = None,
     submitters = None,
     node_id = 3,
-    contract_id = Array(24),
+    contract_id = hashCid("24"),
     template_id = "",
     package_id = "2",
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     exercise_choice = "",
+    exercise_choice_interface_id = None,
     exercise_argument = Array.empty,
     exercise_result = None,
     exercise_actors = Set.empty,
@@ -315,10 +320,11 @@ object SequentialWriteDaoSpec {
     exercise_argument_compression = None,
     exercise_result_compression = None,
     event_sequential_id = 0,
-    synchronizer_id = "x::synchronizer",
+    synchronizer_id = SynchronizerId.tryFromString("x::synchronizer"),
     trace_context = serializableTraceContext,
     record_time = 0,
     external_transaction_hash = Some(externalTransactionHash),
+    deactivated_event_sequential_id = None,
   )
 
   val singlePartyFixture: Option[Update.PartyAddedToParticipant] =
@@ -356,6 +362,8 @@ object SequentialWriteDaoSpec {
         packageIds = Iterator("2"),
         userIds = Iterator.empty,
         participantIds = Iterator.empty,
+        choiceNames = Iterator.empty,
+        interfaceIds = Iterator.empty,
       )
     case _ =>
       new DomainStringIterators(
@@ -365,6 +373,8 @@ object SequentialWriteDaoSpec {
         packageIds = Iterator.empty,
         userIds = Iterator.empty,
         participantIds = Iterator.empty,
+        choiceNames = Iterator.empty,
+        interfaceIds = Iterator.empty,
       )
   }
 
@@ -384,6 +394,12 @@ object SequentialWriteDaoSpec {
       override def userId: StringInterningDomain[UserId] = throw new NotImplementedException
 
       override def participantId: StringInterningDomain[Ref.ParticipantId] =
+        throw new NotImplementedException
+
+      override def choiceName: StringInterningDomain[Ref.ChoiceName] =
+        throw new NotImplementedException
+
+      override def interfaceId: StringInterningDomain[Ref.Identifier] =
         throw new NotImplementedException
 
       override def internize(

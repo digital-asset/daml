@@ -34,7 +34,6 @@ import com.digitalasset.canton.platform.apiserver.services.ApiCommandService.gen
 import io.grpc.ServerServiceDefinition
 
 import java.time.{Duration, Instant}
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiCommandService(
@@ -66,15 +65,6 @@ class ApiCommandService(
       request: SubmitAndWaitForReassignmentRequest
   ): Future[SubmitAndWaitForReassignmentResponse] =
     enrichRequestAndSubmit(request = request)(service.submitAndWaitForReassignment)
-
-  // TODO(#23504) remove when submitAndWaitForTransactionTree is removed
-  @nowarn("cat=deprecation")
-  override def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForTransactionTreeResponse] =
-    enrichRequestAndSubmit(request = request)(
-      service.submitAndWaitForTransactionTree
-    )
 
   override def bindService(): ServerServiceDefinition =
     CommandServiceGrpc.bindService(this, executionContext)

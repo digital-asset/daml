@@ -17,6 +17,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   ProtocolMessage,
@@ -27,7 +28,6 @@ import com.digitalasset.canton.sequencing.protocol.{AllMembersOfSynchronizer, De
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
-import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
@@ -63,20 +63,15 @@ class TopologyTransactionProcessor(
     val terminateProcessing: TerminateProcessing,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
-    timeouts: ProcessingTimeout,
-    loggerFactory: NamedLoggerFactory,
+    override val timeouts: ProcessingTimeout,
+    override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyTransactionHandling(
-      store,
-      timeouts,
-      loggerFactory,
-    )
-    with NamedLogging
+    extends NamedLogging
     with FlagCloseable {
 
   private val psid = store.storeId.psid
 
-  override protected lazy val stateProcessor: TopologyStateProcessor =
+  protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
       new ValidatingTopologyMappingChecks(store, loggerFactory),
@@ -139,12 +134,13 @@ class TopologyTransactionProcessor(
         // find effective time of sequenced Ts (directly from store)
         // merge times
       )
-      currentEpsilon <- epsilonForTimestamp(sequencedTs.value)
     } yield {
       // we have (ts+e, ts) and quite a few te in the future, so we create list of upcoming changes and sort them
 
       val head = (
-        EffectiveTime(sequencedTs.value.plus(currentEpsilon.changeDelay.unwrap)),
+        EffectiveTime(
+          sequencedTs.value.plus(pureCrypto.staticSynchronizerParameters.topologyChangeDelay.unwrap)
+        ),
         ApproximateTime(sequencedTs.value),
       )
       val tail = upcoming.map(x => (x.validFrom, x.validFrom.toApproximate))
@@ -275,21 +271,22 @@ class TopologyTransactionProcessor(
         serializer.executeUS(
           {
             val hasTransactions = txs.nonEmpty
-            for {
-              effectiveTime <-
-                timeAdjuster.trackAndComputeEffectiveTime(sequencedTime, hasTransactions)
-              _ <-
-                if (hasTransactions) {
-                  // we need to inform the acs commitment processor about the incoming change
-                  // this is safe to do here, as the acs commitment processor `publish` method will only be
-                  // invoked long after the outer future here has finished processing
-                  acsCommitmentScheduleEffectiveTime(Traced(effectiveTime))
+            val effectiveTime =
+              EffectiveTime(
+                sequencedTime.value.plus(
+                  pureCrypto.staticSynchronizerParameters.topologyChangeDelay.unwrap
+                )
+              )
+            if (hasTransactions) {
+              // we need to inform the acs commitment processor about the incoming change
+              // this is safe to do here, as the acs commitment processor `publish` method will only be
+              // invoked long after the outer future here has finished processing
+              acsCommitmentScheduleEffectiveTime(Traced(effectiveTime))
 
-                  process(sequencedTime, effectiveTime, sc, txs)
-                } else {
-                  tickleListeners(sequencedTime, effectiveTime)
-                }
-            } yield ()
+              process(sequencedTime, effectiveTime, sc, txs)
+            } else {
+              tickleListeners(sequencedTime, effectiveTime)
+            }
           },
           "processing topology transactions",
         )
@@ -413,11 +410,6 @@ class TopologyTransactionProcessor(
       maxTimestampFromStore().map(_.map { case (sequenced, _effective) => sequenced })
     )
 
-  private def epsilonForTimestamp(asOfExclusive: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Change.TopologyDelay] =
-    store.currentChangeDelay(asOfExclusive)
-
   private def maxTimestampFromStore()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
@@ -475,11 +467,6 @@ class TopologyTransactionProcessor(
           )
       )
       (validated, _) = validationResult
-
-      _ = inspectAndAdvanceTopologyTransactionDelay(
-        effectiveTimestamp,
-        validated,
-      )
 
       validTransactions = validated.collect {
         case tx if tx.rejectionReason.isEmpty && !tx.transaction.isProposal => tx.transaction
@@ -541,6 +528,7 @@ object TopologyTransactionProcessor {
       pureCrypto: SynchronizerCryptoPureApi,
       parameters: CantonNodeParameters,
       clock: Clock,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
   )(
@@ -563,6 +551,7 @@ object TopologyTransactionProcessor {
 
     val cachingClientF = CachingSynchronizerTopologyClient.create(
       clock,
+      staticSynchronizerParameters,
       topologyStore,
       synchronizerPredecessor,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,

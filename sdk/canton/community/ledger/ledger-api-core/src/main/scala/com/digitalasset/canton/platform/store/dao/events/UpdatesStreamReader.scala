@@ -29,7 +29,6 @@ import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForUpdatesAcsDelta,
   EventPayloadSourceForUpdatesLedgerEffects,
 }
-import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.ReassignmentStreamReader.ReassignmentStreamQueryParams
 import com.digitalasset.canton.platform.store.dao.events.TopologyTransactionsStreamReader.TopologyTransactionsStreamQueryParams
@@ -521,28 +520,26 @@ class UpdatesStreamReader(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[Long, NotUsed] =
-    paginatingAsyncStream.streamIdsFromSeekPagination(
+    paginatingAsyncStream.streamIdsFromSeekPaginationWithoutIdFilter(
+      idStreamName = s"Update IDs for $target $filter",
       idPageSizing = idPageSizing,
       idPageBufferSize = maxPagesPerIdPagesBuffer,
       initialFromIdExclusive = queryRange.startInclusiveEventSeqId,
+      initialEndInclusive = queryRange.endInclusiveEventSeqId,
     )(
-      fetchPage = (state: IdPaginationState) => {
+      eventStorageBackend.updateStreamingQueries.fetchEventIds(
+        target = target
+      )(
+        stakeholderO = filter.party,
+        templateIdO = filter.templateId,
+      )
+    )(
+      executeIdQuery = f =>
         maxParallelIdQueriesLimiter.execute {
           globalIdQueriesLimiter.execute {
-            dbDispatcher.executeSql(metric) { connection =>
-              eventStorageBackend.updateStreamingQueries.fetchEventIds(
-                target = target
-              )(
-                stakeholderO = filter.party,
-                templateIdO = filter.templateId,
-                startExclusive = state.fromIdExclusive,
-                endInclusive = queryRange.endInclusiveEventSeqId,
-                limit = state.pageSize,
-              )(connection)
-            }
+            dbDispatcher.executeSql(metric)(f)
           }
         }
-      }
     )
 
   private def mergeSortAndBatch(

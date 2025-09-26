@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-public final class CreatedEvent implements Event, TreeEvent {
+public final class CreatedEvent implements Event {
 
   private final @NonNull List<@NonNull String> witnessParties;
 

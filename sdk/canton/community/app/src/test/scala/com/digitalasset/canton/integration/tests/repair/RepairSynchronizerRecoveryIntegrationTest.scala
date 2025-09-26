@@ -171,7 +171,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
                         val signedModifiedRequest = signModifiedSubmissionRequest(
                           modifiedRequest,
                           participant1.underlying.value.sync.syncCrypto
-                            .tryForSynchronizer(daId, defaultStaticSynchronizerParameters),
+                            .tryForSynchronizer(daId, staticSynchronizerParameters1),
                         )
                         dropSomeMessagesToP1.set(true)
                         SendDecision.Replace(signedModifiedRequest)

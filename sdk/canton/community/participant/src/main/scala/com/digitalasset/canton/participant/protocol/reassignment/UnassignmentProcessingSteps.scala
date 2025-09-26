@@ -59,7 +59,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ContractAuthenticator, MonadUtil}
+import com.digitalasset.canton.util.{ContractValidator, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -72,7 +72,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     sourceCrypto: SynchronizerCryptoClient,
     seedGenerator: SeedGenerator,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-    override protected val contractAuthenticator: ContractAuthenticator,
+    override protected val contractValidator: ContractValidator,
     val protocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -140,8 +140,10 @@ private[reassignment] class UnassignmentProcessingSteps(
         TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractIds),
       )
 
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetSynchronizer)
+      targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentCoordination
+          .getStaticSynchronizerParameter(targetSynchronizer)
+      )
       targetTopology <- reassignmentCoordination
         .getRecentTopologySnapshot(
           targetSynchronizer,
@@ -406,7 +408,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     val unassignmentValidation = UnassignmentValidation(
       isReassigningParticipant,
       participantId,
-      contractAuthenticator,
+      contractValidator,
       activenessF,
       reassignmentCoordination,
     )
@@ -639,8 +641,10 @@ private[reassignment] class UnassignmentProcessingSteps(
     val t0 = pendingRequestData.unassignmentValidationResult.targetTimestamp
 
     for {
-      targetStaticSynchronizerParameters <- reassignmentCoordination
-        .getStaticSynchronizerParameter(targetSynchronizer)
+      targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentCoordination
+          .getStaticSynchronizerParameter(targetSynchronizer)
+      )
 
       automaticAssignment <- AutomaticAssignment
         .perform(

@@ -18,7 +18,7 @@ import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
-import com.digitalasset.canton.time.WallClock
+import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext, W3CTraceContext}
 import com.digitalasset.canton.util.CheckedT
@@ -432,6 +432,9 @@ trait BaseTest
   lazy val PerformanceTestPath: String = BaseTest.PerformanceTestPath
   lazy val DamlTestFilesPath: String = BaseTest.DamlTestFilesPath
   lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
+  // TODO(#25385): Consider deduplicating the upgrade test DARs below
+  lazy val FooV1Path: String = BaseTest.FooV1Path
+  lazy val FooV2Path: String = BaseTest.FooV2Path
   lazy val UpgradeTestsPath: String = BaseTest.UpgradeTestsPath
   lazy val UpgradeTestsCompatPath: String = BaseTest.UpgradeTestsCompatPath
   lazy val UpgradeTestsIncompatPath: String = BaseTest.UpgradeTestsIncompatPath
@@ -543,23 +546,24 @@ object BaseTest {
     defaultStaticSynchronizerParametersWith()
 
   def defaultStaticSynchronizerParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
-  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
-    requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
-    requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
-    requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
-    requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
-    requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
-    requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
-    enableTransparencyChecks = false,
-    protocolVersion = protocolVersion,
-    serial = NonNegativeInt.zero,
-  )
+      topologyChangeDelay: NonNegativeFiniteDuration =
+        StaticSynchronizerParameters.defaultTopologyChangeDelay,
+      protocolVersion: ProtocolVersion = testedProtocolVersion,
+  ): StaticSynchronizerParameters =
+    StaticSynchronizerParameters(
+      requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
+      requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
+      requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
+      requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
+      requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
+      requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
+      topologyChangeDelay = topologyChangeDelay,
+      enableTransparencyChecks = false,
+      protocolVersion = protocolVersion,
+      serial = NonNegativeInt.zero,
+    )
 
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer
-
-  lazy val testedStaticSynchronizerParameters: StaticSynchronizerParameters =
-    defaultStaticSynchronizerParametersWith(testedProtocolVersion)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)
@@ -577,6 +581,9 @@ object BaseTest {
   lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.4.0.dar")
   lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.4.0.dar")
   lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.4.0.dar")
+  // TODO(#25385): Deduplicate these upgrading test DARs
+  lazy val FooV1Path: String = getResourcePath("foo-0.0.1.dar")
+  lazy val FooV2Path: String = getResourcePath("foo-0.0.2.dar")
   lazy val UpgradeTestsPath: String = getResourcePath("UpgradeTests-3.4.0.dar")
   lazy val UpgradeTestsCompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
   lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-5.0.0.dar")

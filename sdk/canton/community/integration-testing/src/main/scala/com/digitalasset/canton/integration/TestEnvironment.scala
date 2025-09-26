@@ -22,7 +22,6 @@ import com.digitalasset.canton.console.{
   LocalInstanceReference,
 }
 import com.digitalasset.canton.crypto.Crypto
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -61,7 +60,6 @@ trait TestEnvironment
       CachingConfigs.defaultPublicKeyConversionCache,
       storage,
       CryptoPrivateStoreFactory.withoutKms(environment.clock, executionContext),
-      CommunityKmsFactory,
       testedReleaseProtocolVersion,
       FutureSupervisor.Noop,
       environment.clock,

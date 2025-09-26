@@ -586,6 +586,38 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/parties/external:
+    post:
+      description: Allocate a new external party
+      operationId: postV2PartiesExternal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocateExternalPartyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllocateExternalPartyResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/parties/participant-id:
     get:
       description: Get participant id
@@ -1974,6 +2006,47 @@ paths:
       - apiKeyAuth: []
 components:
   schemas:
+    AllocateExternalPartyRequest:
+      title: AllocateExternalPartyRequest
+      description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      type: object
+      required:
+      - synchronizerId
+      - identityProviderId
+      properties:
+        synchronizerId:
+          description: |-
+            Synchronizer ID on which to onboard the party
+            Required
+          type: string
+        onboardingTransactions:
+          description: |-
+            TopologyTransactions to onboard the external party
+            Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/SignedTransaction'
+        multiHashSignatures:
+          description: Signatures of the combined hash of all onboarding_transactions
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+        identityProviderId:
+          description: |-
+            The id of the ``Identity Provider``
+            If not set, assume the party is managed by the default identity provider.
+            Optional
+          type: string
+    AllocateExternalPartyResponse:
+      title: AllocateExternalPartyResponse
+      type: object
+      required:
+      - partyId
+      properties:
+        partyId:
+          description: ''
+          type: string
     AllocatePartyRequest:
       title: AllocatePartyRequest
       description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -5831,12 +5904,6 @@ components:
         format:
           description: ''
           type: string
-          enum:
-          - SIGNATURE_FORMAT_UNSPECIFIED
-          - SIGNATURE_FORMAT_RAW
-          - SIGNATURE_FORMAT_DER
-          - SIGNATURE_FORMAT_CONCAT
-          - SIGNATURE_FORMAT_SYMBOLIC
         signature:
           description: ''
           type: string
@@ -5847,11 +5914,18 @@ components:
         signingAlgorithmSpec:
           description: The signing algorithm specification used to produce this signature
           type: string
-          enum:
-          - SIGNING_ALGORITHM_SPEC_UNSPECIFIED
-          - SIGNING_ALGORITHM_SPEC_ED25519
-          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
-          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
+    SignedTransaction:
+      title: SignedTransaction
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          type: string
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
     SinglePartySignatures:
       title: SinglePartySignatures
       description: Signatures provided by a single party

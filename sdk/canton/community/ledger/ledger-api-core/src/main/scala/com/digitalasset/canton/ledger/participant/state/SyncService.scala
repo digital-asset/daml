@@ -173,7 +173,7 @@ trait SyncService
 
 object SyncService {
   final case class ConnectedSynchronizerRequest(
-      party: LfPartyId,
+      party: Option[LfPartyId],
       participantId: Option[ParticipantId],
   )
 
@@ -185,7 +185,7 @@ object SyncService {
     final case class ConnectedSynchronizer(
         synchronizerAlias: SynchronizerAlias,
         synchronizerId: PhysicalSynchronizerId,
-        permission: ParticipantPermission,
+        permission: Option[ParticipantPermission],
     )
   }
 }

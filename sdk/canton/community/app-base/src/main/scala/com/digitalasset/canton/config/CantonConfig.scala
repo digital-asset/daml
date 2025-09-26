@@ -1021,6 +1021,12 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererP2PNetworkConfigReader
         : ConfigReader[BftBlockOrdererConfig.P2PNetworkConfig] =
       deriveReader[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandalonePeerConfigReader
+        : ConfigReader[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig] =
+      deriveReader[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandaloneNetworkConfigReader
+        : ConfigReader[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig] =
+      deriveReader[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig]
     lazy implicit val bftBlockOrdererLeaderSelectionPolicyHowLongToBlacklistConfigReader
         : ConfigReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist] =
       deriveEnumerationReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist]
@@ -1686,6 +1692,12 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererBftP2PNetworkConfigWriter
         : ConfigWriter[BftBlockOrdererConfig.P2PNetworkConfig] =
       deriveWriter[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandalonePeerConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig] =
+      deriveWriter[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandaloneNetworkConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig] =
+      deriveWriter[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig]
     lazy implicit val bftBlockOrdererBftP2PConnectionManagementConfigWriter
         : ConfigWriter[BftBlockOrdererConfig.P2PConnectionManagementConfig] =
       deriveWriter[BftBlockOrdererConfig.P2PConnectionManagementConfig]

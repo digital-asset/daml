@@ -639,7 +639,6 @@ class SequencedEventValidatorTest
           syncCryptoApi,
           deliver4.timestamp,
           Some(deliver3.timestamp),
-          testedProtocolVersion,
           warnIfApproximate = false,
         )
         .failOnShutdown

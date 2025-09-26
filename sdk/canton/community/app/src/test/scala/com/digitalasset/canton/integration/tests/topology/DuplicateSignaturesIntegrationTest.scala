@@ -74,7 +74,7 @@ sealed trait DuplicateSignaturesIntegrationTest
           testedProtocolVersion,
         )
 
-        val network = NetworkTopologyDescription(
+        val network = NetworkTopologyDescription.createWithStaticSynchronizerParameters(
           daName,
           synchronizerOwners = Seq[InstanceReference](sequencer1, mediator1),
           synchronizerThreshold = PositiveInt.two,

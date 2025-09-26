@@ -6,10 +6,12 @@ package com.digitalasset.canton.platform.store.dao
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.dao.events.IdPageSizing
+import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.OverflowStrategy
 import org.apache.pekko.stream.scaladsl.Source
 
+import java.sql.Connection
 import scala.concurrent.Future
 
 private[platform] class PaginatingAsyncStream(
@@ -19,40 +21,6 @@ private[platform] class PaginatingAsyncStream(
   import PaginatingAsyncStream.*
 
   private val directEc = DirectExecutionContext(noTracingLogger)
-
-  /** Concatenates the results of multiple asynchronous calls into a single [[Source]], injecting
-    * the offset of the next page to retrieve for every call.
-    *
-    * This is designed to work with database limit/offset pagination and in particular to break down
-    * large queries intended to serve streams into smaller ones. The reason for this is that we are
-    * currently using simple blocking JDBC APIs and a long-running stream would end up occupying a
-    * thread in the DB pool, severely limiting the ability of keeping multiple, concurrent,
-    * long-running streams while serving lookup calls.
-    *
-    * This is not designed to page through results using the "seek method":
-    * https://use-the-index-luke.com/sql/partial-results/fetch-next-page
-    *
-    * @param pageSize
-    *   number of items to retrieve per call
-    * @param queryPage
-    *   takes the offset from which to start the next page and returns that page
-    * @tparam T
-    *   the type of the items returned in each call
-    */
-  def streamFromLimitOffsetPagination[T](
-      pageSize: Int
-  )(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] =
-    Source
-      .unfoldAsync(Option(0L)) {
-        case None => Future.successful(None)
-        case Some(queryOffset) =>
-          queryPage(queryOffset).map { result =>
-            val resultSize = result.size.toLong
-            val newQueryOffset = if (resultSize < pageSize) None else Some(queryOffset + pageSize)
-            Some(newQueryOffset -> result)
-          }(directEc)
-      }
-      .flatMapConcat(Source(_))
 
   /** Concatenates the results of multiple asynchronous calls into a single [[Source]], passing the
     * last seen event's offset to the next iteration query, so it can continue reading events from
@@ -90,21 +58,44 @@ private[platform] class PaginatingAsyncStream(
       }
       .flatMapConcat(Source(_))
 
-  def streamIdsFromSeekPagination(
+  def streamIdsFromSeekPaginationWithoutIdFilter(
+      idStreamName: String,
       idPageSizing: IdPageSizing,
       idPageBufferSize: Int,
       initialFromIdExclusive: Long,
+      initialEndInclusive: Long,
   )(
-      fetchPage: IdPaginationState => Future[Vector[Long]]
+      fetchPageDbQuery: Connection => PaginationInput => Vector[Long]
+  )(
+      executeIdQuery: (Connection => Vector[Long]) => Future[Vector[Long]]
+  )(implicit
+      traceContext: TraceContext
   ): Source[Long, NotUsed] = {
     assert(idPageBufferSize > 0)
+    def wrapIdDbQuery(paginationInput: PaginationInput): Connection => Vector[Long] = { c =>
+      val started = System.nanoTime()
+      val result = fetchPageDbQuery(c)(paginationInput)
+      def elapsedMillis: Long = (System.nanoTime() - started) / 1000000
+      logger.debug(
+        s"ID query for $idStreamName for IDs returned: limit:${paginationInput.limit} from:${paginationInput.startExclusive} #IDs:${result.size} lastID:${result.lastOption} DB query took: ${elapsedMillis}ms"
+      )
+      result
+    }
     val initialState = IdPaginationState(
       fromIdExclusive = initialFromIdExclusive,
       pageSize = idPageSizing.minPageSize,
     )
     Source
       .unfoldAsync[IdPaginationState, Vector[Long]](initialState) { state =>
-        fetchPage(state).map { ids =>
+        executeIdQuery(
+          wrapIdDbQuery(
+            PaginationInput(
+              startExclusive = state.fromIdExclusive,
+              endInclusive = initialEndInclusive,
+              limit = state.pageSize,
+            )
+          )
+        ).map { ids =>
           ids.lastOption.map { last =>
             val nextState = IdPaginationState(
               fromIdExclusive = last,
@@ -117,9 +108,109 @@ private[platform] class PaginatingAsyncStream(
       .buffer(idPageBufferSize, OverflowStrategy.backpressure)
       .mapConcat(identity)
   }
+
+  def streamIdsFromSeekPaginationWithIdFilter(
+      idStreamName: String,
+      idPageSizing: IdPageSizing,
+      idPageBufferSize: Int,
+      initialFromIdExclusive: Long,
+      initialEndInclusive: Long,
+  )(
+      fetchPageDbQuery: Connection => IdFilterPaginationInput => Vector[Long]
+  )(
+      executeLastIdQuery: (Connection => Vector[Long]) => Future[Vector[Long]],
+      idFilterQueryParallelism: Int,
+      executeIdFilterQuery: (Connection => Vector[Long]) => Future[Vector[Long]],
+  )(implicit
+      traceContext: TraceContext
+  ): Source[Long, NotUsed] = {
+    assert(idPageBufferSize > 0)
+    def wrapIdDbQuery(
+        idFilterPaginationInput: IdFilterPaginationInput
+    )(debugLogMiddle: Vector[Long] => String): Connection => Vector[Long] = { c =>
+      val started = System.nanoTime()
+      val result = fetchPageDbQuery(c)(idFilterPaginationInput)
+      def elapsedMillis: Long = (System.nanoTime() - started) / 1000000
+      logger.debug(
+        s"ID query for $idStreamName ${debugLogMiddle(result)} DB query took: ${elapsedMillis}ms"
+      )
+      result
+    }
+    def lastIdDbQuery(
+        paginationLastOnlyInput: PaginationLastOnlyInput
+    ): Connection => Vector[Long] =
+      wrapIdDbQuery(paginationLastOnlyInput)(result =>
+        s"for next ID window returned: limit:${paginationLastOnlyInput.limit} from:${paginationLastOnlyInput.startExclusive} to:$result"
+      )
+    def idFilterDbQuery(idFilterInput: IdFilterInput): Connection => Vector[Long] =
+      wrapIdDbQuery(idFilterInput)(result =>
+        s"for filtered IDs returned: from:${idFilterInput.startExclusive} to:${idFilterInput.endInclusive} #IDs:${result.size}"
+      )
+    val initialState = IdPaginationState(
+      fromIdExclusive = initialFromIdExclusive,
+      pageSize = idPageSizing.minPageSize,
+    )
+    Source
+      .unfoldAsync[IdPaginationState, PaginationFromTo](initialState) { state =>
+        executeLastIdQuery(
+          lastIdDbQuery(
+            PaginationLastOnlyInput(
+              startExclusive = state.fromIdExclusive,
+              endInclusive = initialEndInclusive,
+              limit = state.pageSize,
+            )
+          )
+        ).map { ids =>
+          ids.lastOption.map { last =>
+            val nextState = IdPaginationState(
+              fromIdExclusive = last,
+              pageSize = Math.min(state.pageSize * 4, idPageSizing.maxPageSize),
+            )
+            nextState -> PaginationFromTo(
+              fromExclusive = state.fromIdExclusive,
+              toInclusive = last,
+            )
+          }
+        }(directEc)
+      }
+      .mapAsync(idFilterQueryParallelism)(paginationFromTo =>
+        executeIdFilterQuery(
+          idFilterDbQuery(
+            IdFilterInput(
+              startExclusive = paginationFromTo.fromExclusive,
+              endInclusive = paginationFromTo.toInclusive,
+            )
+          )
+        )
+      )
+      .buffer(idPageBufferSize, OverflowStrategy.backpressure)
+      .mapConcat(identity)
+  }
 }
 
 object PaginatingAsyncStream {
 
   final case class IdPaginationState(fromIdExclusive: Long, pageSize: Int)
+
+  final case class PaginationFromTo(
+      fromExclusive: Long,
+      toInclusive: Long,
+  )
+
+  sealed trait IdFilterPaginationInput
+  final case class PaginationInput(
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  ) extends IdFilterPaginationInput
+  final case class IdFilterInput(
+      startExclusive: Long,
+      endInclusive: Long,
+  ) extends IdFilterPaginationInput
+  final case class PaginationLastOnlyInput(
+      startExclusive: Long,
+      endInclusive: Long,
+      limit: Int,
+  ) extends IdFilterPaginationInput
+
 }

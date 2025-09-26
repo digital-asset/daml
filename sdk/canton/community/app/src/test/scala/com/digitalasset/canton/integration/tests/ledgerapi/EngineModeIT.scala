@@ -137,7 +137,8 @@ abstract class BaseEngineModeIT(supportDevLanguageVersions: Boolean)
         else if (supportDevLanguageVersions) ProtocolVersion.dev
         else fail(s"Unsupported language version: $langVersion")
 
-      s"accept LF ${langVersion.pretty} ($version) when $mode mode is used" onlyRunWith protocolVersion in {
+      // TODO(#28093) re-enable when it is possible to produce proper dars for dev
+      s"accept LF ${langVersion.pretty} ($version) when $mode mode is used" onlyRunWith protocolVersion ignore {
         env =>
           import env.*
           val serverPort = participant1.config.ledgerApi.clientConfig.port

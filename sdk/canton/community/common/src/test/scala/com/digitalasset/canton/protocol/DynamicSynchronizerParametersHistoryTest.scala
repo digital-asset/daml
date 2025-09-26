@@ -4,8 +4,12 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicSynchronizerParametersHistory.latestDecisionDeadline
+import com.digitalasset.canton.protocol.DynamicSynchronizerParametersHistory.{
+  latestDecisionDeadline,
+  latestDecisionDeadlineEffectiveAt,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -28,6 +32,28 @@ class DynamicSynchronizerParametersHistoryTest extends AnyWordSpec with BaseTest
     confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfMinutes(45L),
     mediatorReactionTimeout = NonNegativeFiniteDuration.tryOfMinutes(45L),
   )
+
+  private def params(
+      validFromToMaxDecisionTimeoutAndValidUntil: Seq[
+        (Int, (Int, Option[Int]))
+      ]
+  ): Seq[DynamicSynchronizerParametersWithValidity] =
+    validFromToMaxDecisionTimeoutAndValidUntil.map { case (validFrom, (maxDecision, validUntil)) =>
+      DynamicSynchronizerParametersWithValidity(
+        paramsDefault.tryUpdate(
+          confirmationResponseTimeout =
+            NonNegativeFiniteDuration.tryOfSeconds(maxDecision.toLong) / NonNegativeInt.two,
+          mediatorReactionTimeout =
+            NonNegativeFiniteDuration.tryOfSeconds(maxDecision.toLong) / NonNegativeInt.two,
+        ),
+        CantonTimestamp.ofEpochSecond(validFrom.toLong),
+        validUntil.map(until => CantonTimestamp.ofEpochSecond(until.toLong)),
+      )
+    }
+
+  private def at(when: Int) = CantonTimestamp.ofEpochSecond(when.toLong)
+  private def duration(seconds: Int) =
+    NonNegativeFiniteDuration.tryOfSeconds(seconds.toLong)
 
   "latestDecisionDeadline" should {
 
@@ -101,6 +127,124 @@ class DynamicSynchronizerParametersHistoryTest extends AnyWordSpec with BaseTest
       val expectedDeadline = CantonTimestamp.ofEpochSecond(5700L)
 
       latestDecisionDeadline(history, lowerBound) shouldBe expectedDeadline
+    }
+  }
+
+  "latestDecisionDeadlineEffectiveAt" should {
+    "compute latest decision deadline on unchanged parameters" in {
+      latestDecisionDeadlineEffectiveAt(
+        params(Seq(0 -> (60, None))),
+        at(1),
+      ) shouldBe at(1) + duration(60)
+
+      latestDecisionDeadlineEffectiveAt(
+        params(Seq(0 -> (60, None))),
+        at(60),
+      ) shouldBe at(60) + duration(60)
+
+      latestDecisionDeadlineEffectiveAt(
+        params(Seq(0 -> (60, None))),
+        at(61),
+      ) shouldBe at(61) + duration(60)
+    }
+
+    "compute latest decision deadline on unchanged decision time" in {
+      latestDecisionDeadlineEffectiveAt(
+        params(
+          Seq(
+            0 -> (60, Some(100)),
+            100 -> (60, Some(200)),
+            200 -> (60, None),
+          )
+        ),
+        at(300),
+      ) shouldBe at(300) + duration(60)
+    }
+
+    "compute latest decision deadline on expired effectiveAt parameters" in {
+      latestDecisionDeadlineEffectiveAt(
+        params(
+          Seq(
+            0 -> (60, Some(100)),
+            100 -> (60, Some(200)),
+            200 -> (90, Some(400)),
+          )
+        ),
+        at(300),
+      ) shouldBe at(300) + duration(90)
+    }
+
+    "compute latest decision deadline on unordered parameters" in {
+      latestDecisionDeadlineEffectiveAt(
+        params(
+          Seq(
+            100 -> (60, Some(200)),
+            200 -> (90, None),
+            0 -> (60, Some(100)),
+          )
+        ),
+        at(300),
+      ) shouldBe at(300) + duration(90)
+    }
+
+    "compute latest decision deadline on unordered parameters and all expired" in {
+      latestDecisionDeadlineEffectiveAt(
+        params(
+          Seq(
+            100 -> (60, Some(200)),
+            200 -> (90, Some(400)),
+            0 -> (60, Some(100)),
+          )
+        ),
+        at(300),
+      ) shouldBe at(300) + duration(90)
+    }
+
+    "compute latest decision deadline honoring extreme earlier max decision timeout" in {
+      latestDecisionDeadlineEffectiveAt(
+        params(
+          Seq(
+            0 -> (60, Some(100)),
+            100 -> (20000, Some(200)), // This should determine the safe decision deadline
+            200 -> (60, Some(300)),
+            300 -> (60, None),
+          )
+        ),
+        at(400),
+      ) shouldBe at(200) + duration(20000)
+    }
+
+    "compute latest decision deadline honoring validUntil sort-None-last ordering" in {
+      val newestMaxDecisionTimeout = 90
+      latestDecisionDeadlineEffectiveAt(
+        params(
+          Seq(
+            0 -> (60, Some(100)),
+            100 -> (60, Some(200)),
+            200 -> (newestMaxDecisionTimeout, None), // this max decision time should be chosen as None sorts after Some(x)
+            200 -> (60, Some(200)),
+          )
+        ),
+        at(300),
+      ) shouldBe at(300) + duration(newestMaxDecisionTimeout)
+    }
+
+    "throw on empty parameter history" in {
+      assertThrows[IllegalStateException](
+        latestDecisionDeadlineEffectiveAt(
+          params(Seq.empty),
+          at(100),
+        )
+      )
+    }
+
+    "throw if last parameters expired before effective at time" in {
+      assertThrows[IllegalArgumentException](
+        latestDecisionDeadlineEffectiveAt(
+          params(Seq(0 -> (60, Some(100)))),
+          at(200),
+        )
+      )
     }
   }
 }

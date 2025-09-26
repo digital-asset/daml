@@ -22,7 +22,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnections}
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
@@ -603,8 +602,7 @@ object ReferenceDemoScript {
 
   private def computeMaxWaitForPruning = {
     val defaultDynamicSynchronizerParameters = DynamicSynchronizerParameters.initialValues(
-      topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
-      protocolVersion = ProtocolVersion.latest,
+      protocolVersion = ProtocolVersion.latest
     )
     val mediatorReactionTimeout = defaultDynamicSynchronizerParameters.mediatorReactionTimeout
     val confirmationResponseTimeout =

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.bootstrap
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   InstanceReference,
@@ -15,6 +16,7 @@ import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEn
 import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.{SynchronizerAlias, protocol}
+import monocle.syntax.all.*
 
 /** Bootstraps synchronizers given topology descriptions and stores information in
   * [[com.digitalasset.canton.integration.EnvironmentTestHelpers.initializedSynchronizers]].
@@ -87,23 +89,49 @@ final case class NetworkTopologyDescription(
       Map[MediatorReference, (Seq[SequencerReference], PositiveInt, NonNegativeInt)]
     ],
     mediatorThreshold: PositiveInt,
-)
+) {
+  def withTopologyChangeDelay(
+      topologyChangeDelay: NonNegativeFiniteDuration
+  ): NetworkTopologyDescription =
+    this
+      .focus(_.staticSynchronizerParameters.topologyChangeDelay)
+      .replace(topologyChangeDelay)
+}
 
 object NetworkTopologyDescription {
+
   def apply(
       synchronizerAlias: SynchronizerAlias,
       synchronizerOwners: Seq[InstanceReference],
       synchronizerThreshold: PositiveInt,
       sequencers: Seq[SequencerReference],
       mediators: Seq[MediatorReference],
-      staticSynchronizerParameters: StaticSynchronizerParameters =
-        EnvironmentDefinition.defaultStaticSynchronizerParameters,
       mediatorRequestAmplification: SubmissionRequestAmplification =
         SubmissionRequestAmplification.NoAmplification,
       overrideMediatorToSequencers: Option[
         Map[MediatorReference, (Seq[SequencerReference], PositiveInt, NonNegativeInt)]
       ] = None,
       mediatorThreshold: PositiveInt = PositiveInt.one,
+  )(implicit env: TestConsoleEnvironment): NetworkTopologyDescription =
+    NetworkTopologyDescription(
+      synchronizerName = synchronizerAlias.unwrap,
+      synchronizerOwners,
+      synchronizerThreshold,
+      sequencers,
+      mediators,
+      EnvironmentDefinition.defaultStaticSynchronizerParameters,
+      mediatorRequestAmplification,
+      overrideMediatorToSequencers,
+      mediatorThreshold,
+    )
+
+  def createWithStaticSynchronizerParameters(
+      synchronizerAlias: SynchronizerAlias,
+      synchronizerOwners: Seq[InstanceReference],
+      synchronizerThreshold: PositiveInt,
+      sequencers: Seq[SequencerReference],
+      mediators: Seq[MediatorReference],
+      staticSynchronizerParameters: StaticSynchronizerParameters,
   ): NetworkTopologyDescription =
     NetworkTopologyDescription(
       synchronizerName = synchronizerAlias.unwrap,
@@ -112,10 +140,11 @@ object NetworkTopologyDescription {
       sequencers,
       mediators,
       staticSynchronizerParameters,
-      mediatorRequestAmplification,
-      overrideMediatorToSequencers,
-      mediatorThreshold,
+      SubmissionRequestAmplification.NoAmplification,
+      None,
+      PositiveInt.one,
     )
+
 }
 
 /** A data container to hold useful information for initialized synchronizers

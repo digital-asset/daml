@@ -142,7 +142,8 @@ message IncompleteAssigned {
 message GetConnectedSynchronizersRequest {
   // The party of interest
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // If empty, all synchronizers this node is connected to will be returned
+  // Optional
   string party = 1;
 
   // The id of a participant whose mapping of a party to connected synchronizers is requested.
@@ -167,7 +168,8 @@ message GetConnectedSynchronizersResponse {
     string synchronizer_id = 2;
 
     // The permission on the synchronizer
-    // Required
+    // Set if a party was used in the request, otherwise unspecified.
+    // Optional
     ParticipantPermission permission = 3;
   }
   repeated ConnectedSynchronizer connected_synchronizers = 1;

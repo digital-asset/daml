@@ -1,0 +1,63 @@
+{-# LANGUAGE CPP #-}
+
+module NonConforming where
+
+template NonConforming with
+  issuer : Party
+  owner : Party
+  mode : Int
+ where
+
+  -- See V2/Upgrade for how mode changes these
+  signatory (if (mode /= 1) then issuer else owner)
+  observer (if (mode /= 2) then owner else issuer)
+
+  nonconsuming choice GetVersion: Text
+    controller issuer
+    do pure "V2"
+
+ncKey : Int -> Party -> Party -> (Int, Party, Party)
+ncKey 1 issuer owner = (1, owner, issuer) -- flip key
+ncKey mode issuer owner = (mode, issuer, owner)
+
+ncKeyMaintainer : (Int, Party, Party) -> Party
+ncKeyMaintainer (1, owner, issuer) = issuer -- pick correct maintainer from flipped key
+ncKeyMaintainer (2, issuer, owner) = owner -- incorrect maintainer
+ncKeyMaintainer (_, issuer, owner) = issuer
+
+template NonConformingCK with
+  issuer : Party
+  owner : Party
+  mode : Int
+ where
+
+  -- See V2/NonConformingCK for how mode changes these
+  signatory issuer
+  observer owner
+#ifdef DAML_CONTRACT_KEYS
+  key ncKey mode issuer owner: (Int, Party, Party)
+  maintainer ncKeyMaintainer key
+#endif
+
+--  key (mode, issuer, owner): (Int, Party, Party)
+--  maintainer key._2
+
+  nonconsuming choice GetVersionCK: Text
+    controller issuer
+    do pure "V2"
+
+
+-- Type Contract Test
+-- In V2 in order of payer and payee have changed
+--
+template BankTransfer with
+  bank: Party
+  payer: Party
+  payee: Party
+  amount: Int
+ where
+  signatory bank
+
+  nonconsuming choice BankTransfer_GetPayee : Party
+      controller bank
+      do pure payee

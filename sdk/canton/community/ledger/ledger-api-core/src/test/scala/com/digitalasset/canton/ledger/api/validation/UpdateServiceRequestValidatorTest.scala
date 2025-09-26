@@ -11,8 +11,8 @@ import com.daml.ledger.api.v2.transaction_filter.{
   *,
 }
 import com.daml.ledger.api.v2.update_service.{
-  GetTransactionByIdRequest,
-  GetTransactionByOffsetRequest,
+  GetUpdateByIdRequest,
+  GetUpdateByOffsetRequest,
   GetUpdatesRequest,
 }
 import com.daml.ledger.api.v2.value.Identifier
@@ -165,42 +165,48 @@ class UpdateServiceRequestValidatorTest
     Some(Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString)))
   )
 
-  private val txByOffsetReqLegacy =
-    GetTransactionByOffsetRequest(offsetLong, Seq(party), None)
   private val txByOffsetReq =
-    GetTransactionByOffsetRequest(
+    GetUpdateByOffsetRequest(
       offset = offsetLong,
-      requestingParties = Nil,
-      transactionFormat = Some(
-        TransactionFormat(
-          eventFormat = Some(
-            EventFormat(
-              filtersByParty = Map(party -> Filters(Nil)),
-              filtersForAnyParty = None,
-              verbose = false,
+      updateFormat = Some(
+        UpdateFormat(
+          includeTransactions = Some(
+            TransactionFormat(
+              eventFormat = Some(
+                EventFormat(
+                  filtersByParty = Map(party -> Filters(Nil)),
+                  filtersForAnyParty = None,
+                  verbose = false,
+                )
+              ),
+              transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
             )
           ),
-          transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
+          includeReassignments = None,
+          includeTopologyEvents = None,
         )
       ),
     )
 
-  private val txByIdReqLegacy =
-    GetTransactionByIdRequest(updateId, Seq(party), None)
   private val txByIdReq =
-    GetTransactionByIdRequest(
+    GetUpdateByIdRequest(
       updateId = updateId,
-      requestingParties = Nil,
-      transactionFormat = Some(
-        TransactionFormat(
-          eventFormat = Some(
-            EventFormat(
-              filtersByParty = Map(party -> Filters(Nil)),
-              filtersForAnyParty = None,
-              verbose = false,
+      updateFormat = Some(
+        UpdateFormat(
+          includeTransactions = Some(
+            TransactionFormat(
+              eventFormat = Some(
+                EventFormat(
+                  filtersByParty = Map(party -> Filters(Nil)),
+                  filtersForAnyParty = None,
+                  verbose = false,
+                )
+              ),
+              transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
             )
           ),
-          transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,
+          includeReassignments = None,
+          includeTopologyEvents = None,
         )
       ),
     )
@@ -221,17 +227,6 @@ class UpdateServiceRequestValidatorTest
           req.updateFormat.includeTransactions.value.eventFormat.verbose shouldEqual verbose
         }
 
-      }
-
-      "return the correct error on missing filter" in {
-        requestMustFailWith(
-          UpdateServiceRequestValidator
-            .validateForTrees(txReqLegacy.update(_.optionalFilter := None), ledgerEnd),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: filter",
-          metadata = Map.empty,
-        )
       }
 
       "return the correct error on missing filter/verbose and update_format" in {
@@ -845,8 +840,7 @@ class UpdateServiceRequestValidatorTest
 
       "fail on empty transactionId" in {
         requestMustFailWith(
-          request =
-            UpdateServiceRequestValidator.validateTransactionById(txByIdReqLegacy.withUpdateId("")),
+          request = UpdateServiceRequestValidator.validateUpdateById(txByIdReq.withUpdateId("")),
           code = INVALID_ARGUMENT,
           description =
             "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_id",
@@ -854,84 +848,24 @@ class UpdateServiceRequestValidatorTest
         )
       }
 
-      // TODO(#23504) enable the test
-//      "fail on empty transaction format" in {
-//        requestMustFailWith(
-//          request = UpdateServiceRequestValidator.validateTransactionById(
-//            txByIdReq.clearTransactionFormat
-//          ),
-//          code = INVALID_ARGUMENT,
-//          description =
-//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_format",
-//          metadata = Map.empty,
-//        )
-//      }
-
-    }
-
-    // TODO(#23504) remove
-    "validating transaction by id legacy requests" should {
-
-      "fail on empty transactionId" in {
+      "fail on empty update format" in {
         requestMustFailWith(
-          request =
-            UpdateServiceRequestValidator.validateTransactionById(txByIdReqLegacy.withUpdateId("")),
-          code = INVALID_ARGUMENT,
-          description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_id",
-          metadata = Map.empty,
-        )
-      }
-
-      "fail on empty requesting parties" in {
-        requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateTransactionByIdForTrees(
-            txByIdReqLegacy.withRequestingParties(Nil)
+          request = UpdateServiceRequestValidator.validateUpdateById(
+            txByIdReq.clearUpdateFormat
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_format",
           metadata = Map.empty,
         )
       }
-
-      "return the correct error on missing requesting parties and transaction_format" in {
-        requestMustFailWith(
-          UpdateServiceRequestValidator
-            .validateTransactionById(
-              txByIdReq.update(_.optionalTransactionFormat := None)
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either requesting_parties or " +
-              "transaction_format is required. Please use either backwards compatible arguments (requesting_parties) or " +
-              "transaction_format, but not both.",
-          metadata = Map.empty,
-        )
-      }
-
-      "return the correct error on defining both requesting_parties and transaction_format" in {
-        requestMustFailWith(
-          UpdateServiceRequestValidator
-            .validateTransactionById(
-              txByIdReqLegacy.update(_.optionalTransactionFormat := txByIdReq.transactionFormat)
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Both requesting_parties and " +
-              "transaction_format are specified. Please use either backwards compatible arguments (requesting_parties) " +
-              "or transaction_format, but not both.",
-          metadata = Map.empty,
-        )
-      }
-
     }
 
     "validating transaction by offset requests" should {
 
       "fail on zero offset" in {
         requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateTransactionByOffset(
+          request = UpdateServiceRequestValidator.validateUpdateByOffset(
             txByOffsetReq.withOffset(0)
           ),
           code = INVALID_ARGUMENT,
@@ -943,7 +877,7 @@ class UpdateServiceRequestValidatorTest
 
       "fail on negative offset" in {
         requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateTransactionByOffset(
+          request = UpdateServiceRequestValidator.validateUpdateByOffset(
             txByOffsetReq.withOffset(-21)
           ),
           code = INVALID_ARGUMENT,
@@ -953,64 +887,14 @@ class UpdateServiceRequestValidatorTest
         )
       }
 
-      // TODO(#23504) enable the test
-//      "fail on empty transaction format" in {
-//        requestMustFailWith(
-//          request = UpdateServiceRequestValidator.validateTransactionByOffset(
-//            txByOffsetReq.clearTransactionFormat
-//          ),
-//          code = INVALID_ARGUMENT,
-//          description =
-//            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: transaction_format",
-//          metadata = Map.empty,
-//        )
-//      }
-
-    }
-
-    // TODO(#23504) remove
-    "validating transaction by offset legacy requests" should {
-
-      "fail on empty requesting parties" in {
+      "fail on empty update format" in {
         requestMustFailWith(
-          request = UpdateServiceRequestValidator.validateTransactionByOffsetForTrees(
-            txByOffsetReqLegacy.withRequestingParties(Nil)
+          request = UpdateServiceRequestValidator.validateUpdateByOffset(
+            txByOffsetReq.clearUpdateFormat
           ),
           code = INVALID_ARGUMENT,
           description =
-            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: requesting_parties",
-          metadata = Map.empty,
-        )
-      }
-
-      "return the correct error on missing requesting parties and transaction_format" in {
-        requestMustFailWith(
-          UpdateServiceRequestValidator
-            .validateTransactionByOffset(
-              txByOffsetReq.update(_.optionalTransactionFormat := None)
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Either requesting_parties or " +
-              "transaction_format is required. Please use either backwards compatible arguments (requesting_parties) or " +
-              "transaction_format, but not both.",
-          metadata = Map.empty,
-        )
-      }
-
-      "return the correct error on defining both requesting_parties and transaction_format" in {
-        requestMustFailWith(
-          UpdateServiceRequestValidator
-            .validateTransactionByOffset(
-              txByOffsetReqLegacy.update(
-                _.optionalTransactionFormat := txByOffsetReq.transactionFormat
-              )
-            ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Both requesting_parties and " +
-              "transaction_format are specified. Please use either backwards compatible arguments (requesting_parties) " +
-              "or transaction_format, but not both.",
+            "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: update_format",
           metadata = Map.empty,
         )
       }

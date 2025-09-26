@@ -8,6 +8,7 @@ import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.common.EventIdSource
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.compatible.Assertion
@@ -463,9 +464,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )(
         stakeholderO = Some(someParty),
         templateIdO = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
       )
     )
 
@@ -475,9 +479,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         .fetchEventIds(EventIdSource.ConsumingNonStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
+        )(_)(
+          PaginationInput(
+            startExclusive = 0,
+            endInclusive = 1000,
+            limit = 1000,
+          )
         )
     )
 
@@ -487,9 +494,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         .fetchEventIds(EventIdSource.ConsumingStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
+        )(_)(
+          PaginationInput(
+            startExclusive = 0,
+            endInclusive = 1000,
+            limit = 1000,
+          )
         )
     )
 
@@ -499,9 +509,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         .fetchEventIds(EventIdSource.CreateNonStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
+        )(_)(
+          PaginationInput(
+            startExclusive = 0,
+            endInclusive = 1000,
+            limit = 1000,
+          )
         )
     )
 
@@ -511,9 +524,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         .fetchEventIds(EventIdSource.CreateStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
-          startExclusive = 0,
-          endInclusive = 1000,
-          limit = 1000,
+        )(_)(
+          PaginationInput(
+            startExclusive = 0,
+            endInclusive = 1000,
+            limit = 1000,
+          )
         )
     )
 
@@ -522,9 +538,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
       )
     )
 
@@ -533,19 +552,25 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
       )
     )
 
   private def fetchTopologyParty(): Vector[Long] =
     executeSql(
       backend.event.fetchTopologyPartyEventIds(
-        party = Some(someParty),
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
+        party = Some(someParty)
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
       )
     )
 

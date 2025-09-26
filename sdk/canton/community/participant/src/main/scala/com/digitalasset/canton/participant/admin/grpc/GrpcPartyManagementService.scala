@@ -403,14 +403,14 @@ class GrpcPartyManagementService(
           try {
             ParticipantCommon.importAcsNewSnapshot(
               acsSnapshot = ByteString.copyFrom(outputStream.toByteArray),
-              workflowIdPrefix = s"import-party-acs-${UUID.randomUUID}",
+              batching = batching,
               contractImportMode = ContractImportMode.Validation,
               excludedStakeholders = Set.empty,
+              loggerFactory = loggerFactory,
               // TODO(#27872): Consider allowing package-id overrides for party imports
               representativePackageIdOverride = RepresentativePackageIdOverride.NoOverride,
-              sync,
-              batching,
-              loggerFactory,
+              sync = sync,
+              workflowIdPrefix = s"import-party-acs-${UUID.randomUUID}",
             )
           } catch {
             // If toByteArray or importAcsNewSnapshot fails

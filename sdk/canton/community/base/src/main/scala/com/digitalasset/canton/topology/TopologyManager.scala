@@ -184,7 +184,10 @@ class AuthorizedTopologyManager(
       timeouts,
       futureSupervisor,
       loggerFactory,
-    )
+    ) {
+  def initialize(implicit @unused traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.unit
+}
 
 abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     nodeId: UniqueIdentifier,

@@ -34,7 +34,6 @@ trait SortedReconciliationIntervalsHelpers {
   ): DynamicSynchronizerParametersWithValidity =
     DynamicSynchronizerParametersWithValidity(
       DynamicSynchronizerParameters.tryInitialValues(
-        topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
         reconciliationInterval = PositiveSeconds.tryOfSeconds(reconciliationInterval),
         protocolVersion = protocolVersion,
       ),
@@ -49,7 +48,6 @@ trait SortedReconciliationIntervalsHelpers {
   ): DynamicSynchronizerParametersWithValidity =
     DynamicSynchronizerParametersWithValidity(
       DynamicSynchronizerParameters.tryInitialValues(
-        topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(250),
         reconciliationInterval = PositiveSeconds.tryOfSeconds(reconciliationInterval),
         protocolVersion = protocolVersion,
       ),

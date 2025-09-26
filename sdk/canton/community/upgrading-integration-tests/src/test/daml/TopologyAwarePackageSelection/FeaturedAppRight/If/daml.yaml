@@ -1,0 +1,10 @@
+sdk-version: 3.4.0-snapshot.20250924.14225.0.v7e1fa417
+build-options: 
+- --target=2.1
+- --enable-interfaces=yes
+name: tests-featured-app-right-iface
+source: FeaturedAppRightV1.daml
+version: 1.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

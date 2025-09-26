@@ -47,7 +47,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -80,7 +80,7 @@ class GrpcSynchronizerRegistry(
     testingConfig: TestingConfigInternal,
     recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
-    packageDependencyResolver: PackageDependencyResolverUS,
+    packageDependencyResolver: PackageDependencyResolver,
     metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     partyNotifier: LedgerServerPartyNotifier,

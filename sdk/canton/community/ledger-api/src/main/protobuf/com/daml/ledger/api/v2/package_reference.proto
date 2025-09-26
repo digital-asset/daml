@@ -29,19 +29,19 @@ message VettedPackage {
 
   // The time from which this package is vetted. Empty if vetting time has no
   // lower bound.
-  google.protobuf.Timestamp valid_from_inclusive = 2;
+  optional google.protobuf.Timestamp valid_from_inclusive = 2;
 
   // The time until which this package is vetted. Empty if vetting time has no
   // upper bound.
-  google.protobuf.Timestamp valid_until_exclusive = 3;
+  optional google.protobuf.Timestamp valid_until_exclusive = 3;
 
   // Name of this package.
   // Only available if the package has been uploaded to the current participant.
-  string package_name = 4;
+  optional string package_name = 4;
 
   // Version of this package.
   // Only available if the package has been uploaded to the current participant.
-  string package_version = 5;
+  optional string package_version = 5;
 }
 
 // The list of packages vetted on a given participant and synchronizer, modelled

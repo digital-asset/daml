@@ -12,7 +12,6 @@ import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   CantonConfig,
   CantonFeatures,
-  CryptoConfig,
   EnterpriseCantonEdition,
   LoggingConfig,
   MonitoringConfig,
@@ -26,7 +25,6 @@ import com.digitalasset.canton.integration.bootstrap.{
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
-import com.digitalasset.canton.synchronizer.config.SynchronizerParametersConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.tracing.TracingConfig
@@ -139,10 +137,11 @@ final case class EnvironmentDefinition(
   */
 object EnvironmentDefinition extends LazyLogging {
 
-  lazy val defaultStaticSynchronizerParameters: StaticSynchronizerParameters =
-    StaticSynchronizerParameters.fromConfig(
-      SynchronizerParametersConfig(),
-      CryptoConfig(),
+  def defaultStaticSynchronizerParameters(implicit
+      env: TestConsoleEnvironment
+  ): StaticSynchronizerParameters =
+    StaticSynchronizerParameters.initialValues(
+      env.environment.clock,
       BaseTest.testedProtocolVersion,
     )
 
@@ -617,7 +616,7 @@ object EnvironmentDefinition extends LazyLogging {
             .getOrElse(alias.unwrap, defaultStaticSynchronizerParameters)
 
         new NetworkBootstrapper(
-          NetworkTopologyDescription(
+          NetworkTopologyDescription.createWithStaticSynchronizerParameters(
             daName,
             synchronizerOwners = Seq(sequencer1),
             synchronizerThreshold = PositiveInt.one,
@@ -625,7 +624,7 @@ object EnvironmentDefinition extends LazyLogging {
             mediators = Seq(mediator1),
             staticSynchronizerParameters = paramsOrDefaults(daName),
           ),
-          NetworkTopologyDescription(
+          NetworkTopologyDescription.createWithStaticSynchronizerParameters(
             acmeName,
             synchronizerOwners = Seq(sequencer2),
             synchronizerThreshold = PositiveInt.one,
@@ -633,7 +632,7 @@ object EnvironmentDefinition extends LazyLogging {
             mediators = Seq(mediator2),
             staticSynchronizerParameters = paramsOrDefaults(acmeName),
           ),
-          NetworkTopologyDescription(
+          NetworkTopologyDescription.createWithStaticSynchronizerParameters(
             repairSynchronizerName,
             synchronizerOwners = Seq(sequencer3),
             synchronizerThreshold = PositiveInt.one,
@@ -769,7 +768,7 @@ object EnvironmentDefinition extends LazyLogging {
   /**   - 5 participants '''not''' connected to the synchronizer
     *   - 2 synchronizers with 1 sequencer and 1 mediator each
     */
-  private lazy val P5_S1M1_S1M1_Config: EnvironmentDefinition =
+  lazy val P5_S1M1_S1M1_Config: EnvironmentDefinition =
     buildBaseEnvironmentDefinition(
       numParticipants = 5,
       numSequencers = 2,
@@ -781,23 +780,7 @@ object EnvironmentDefinition extends LazyLogging {
     */
   lazy val P5_S1M1_S1M1: EnvironmentDefinition =
     P5_S1M1_S1M1_Config.withNetworkBootstrap { implicit env =>
-      import env.*
-      new NetworkBootstrapper(
-        NetworkTopologyDescription(
-          daName,
-          synchronizerOwners = Seq(sequencer1),
-          synchronizerThreshold = PositiveInt.one,
-          sequencers = Seq(sequencer1),
-          mediators = Seq(mediator1),
-        ),
-        NetworkTopologyDescription(
-          acmeName,
-          synchronizerOwners = Seq(sequencer2),
-          synchronizerThreshold = PositiveInt.one,
-          sequencers = Seq(sequencer2),
-          mediators = Seq(mediator2),
-        ),
-      )
+      NetworkBootstrapper(S1M1_S1M1)
     }
 
   lazy val P5_S1M1_S1M1_Manual: EnvironmentDefinition =
@@ -865,11 +848,16 @@ object EnvironmentDefinition extends LazyLogging {
   /**   - 3 participants '''not''' connected to any synchronizer
     *   - 2 synchronizers with 1 sequencer and 1 mediator each
     */
-  lazy val P3_S1M1_S1M1: EnvironmentDefinition = buildBaseEnvironmentDefinition(
+  lazy val P3_S1M1_S1M1_Config: EnvironmentDefinition = buildBaseEnvironmentDefinition(
     numParticipants = 3,
     numSequencers = 2,
     numMediators = 2,
   )
+
+  /**   - 3 participants '''not''' connected to any synchronizer
+    *   - 2 synchronizers with 1 sequencer and 1 mediator each
+    */
+  lazy val P3_S1M1_S1M1: EnvironmentDefinition = P3_S1M1_S1M1_Config
     .withNetworkBootstrap { implicit env =>
       NetworkBootstrapper(S1M1_S1M1)
     }

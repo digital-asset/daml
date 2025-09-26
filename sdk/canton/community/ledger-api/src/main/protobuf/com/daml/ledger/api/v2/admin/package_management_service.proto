@@ -142,8 +142,8 @@ message VettedPackagesChange {
     repeated VettedPackagesRef packages = 1;
 
     // Vet the packages with these bounds, prior bounds are overwritten
-    google.protobuf.Timestamp new_valid_from_inclusive = 2;
-    google.protobuf.Timestamp new_valid_until_exclusive = 3;
+    optional google.protobuf.Timestamp new_valid_from_inclusive = 2;
+    optional google.protobuf.Timestamp new_valid_until_exclusive = 3;
   }
 
   oneof operation {
@@ -166,13 +166,13 @@ message VettedPackagesChange {
 // unresolved and the entire update request is rejected.
 message VettedPackagesRef {
   // Package's package id must be the same as this field.
-  string package_id = 1;
+  optional string package_id = 1;
 
   // Package's name must be the same as this field.
-  string package_name = 2;
+  optional string package_name = 2;
 
   // Package's version must be the same as this field.
-  string package_version = 3;
+  optional string package_version = 3;
 }
 
 message UpdateVettedPackagesRequest {
@@ -199,13 +199,13 @@ message UpdateVettedPackagesRequest {
   // left unspecified, the request always succeeds.
   //
   // Use this to guard against concurrent changes.
-  uint32 expected_topology_serial = 4;
+  optional uint32 expected_topology_serial = 4;
 }
 
 message UpdateVettedPackagesResponse {
   // All vetted packages on this participant and synchronizer, before the
   // specified changes. Empty if no vetting state existed beforehand.
-  VettedPackages past_vetted_packages = 1;
+  optional VettedPackages past_vetted_packages = 1;
   // All vetted packages on this participant and synchronizer, after the specified changes.
   VettedPackages new_vetted_packages = 2;
 }

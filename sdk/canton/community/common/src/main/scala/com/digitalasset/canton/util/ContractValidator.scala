@@ -132,4 +132,20 @@ object ContractValidator {
       } yield ()
     }
   }
+
+  object AllowAll extends ContractValidator {
+    override def authenticate(
+        contract: FatContractInstance,
+        targetPackageId: Ref.PackageId,
+    )(implicit
+        ec: ExecutionContext,
+        traceContext: TraceContext,
+    ): EitherT[FutureUnlessShutdown, String, Unit] =
+      EitherT.pure(())
+
+    override def authenticateHash(
+        contract: FatContractInstance,
+        contractHash: LfHash,
+    ): Either[String, Unit] = Right(())
+  }
 }

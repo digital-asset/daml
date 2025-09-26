@@ -923,7 +923,8 @@ class JsonV2Tests
           _ <- createCommand(fixture, alice, headers, "cmd2", "completions1")
           (status, result) <- fixture.postJsonStringRequest(
             fixture.uri withPath Uri.Path("/v2/commands/completions") withQuery Query(
-              ("limit", "2")
+              ("limit", "2"),
+              ("stream_idle_timeout_ms", "1000"),
             ),
             command_completion_service
               .CompletionStreamRequest(

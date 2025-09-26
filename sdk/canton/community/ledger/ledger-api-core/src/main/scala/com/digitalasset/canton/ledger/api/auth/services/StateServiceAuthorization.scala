@@ -36,12 +36,15 @@ final class StateServiceAuthorization(
   override def getConnectedSynchronizers(
       request: GetConnectedSynchronizersRequest
   ): Future[GetConnectedSynchronizersResponse] =
-    authorizer.rpc(service.getConnectedSynchronizers)(
-      RequiredClaim.AdminOrIdpAdminOrReadAsParty(request.party),
-      RequiredClaim.MatchIdentityProviderId(
-        Lens.unit[GetConnectedSynchronizersRequest].identityProviderId
-      ),
-    )(request)
+    if (request.party.isEmpty)
+      authorizer.rpc(service.getConnectedSynchronizers)(RequiredClaim.Public())(request)
+    else
+      authorizer.rpc(service.getConnectedSynchronizers)(
+        RequiredClaim.AdminOrIdpAdminOrOperateAsParty(Seq(request.party)),
+        RequiredClaim.MatchIdentityProviderId(
+          Lens.unit[GetConnectedSynchronizersRequest].identityProviderId
+        ),
+      )(request)
 
   override def getLedgerEnd(request: GetLedgerEndRequest): Future[GetLedgerEndResponse] =
     authorizer.rpc(service.getLedgerEnd)(RequiredClaim.Public())(request)

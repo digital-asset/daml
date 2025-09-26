@@ -208,15 +208,29 @@ def execute_and_get_contract_id(
             completion: completion_pb2.Completion = update.completion
             break
 
-    transaction_response: update_service_pb2.GetTransactionResponse = (
-        us_client.GetTransactionById(
-            update_service_pb2.GetTransactionByIdRequest(
+    update_response: update_service_pb2.GetUpdateResponse = (
+        us_client.GetUpdateById(
+            update_service_pb2.GetUpdateByIdRequest(
                 update_id=completion.update_id,
-                requesting_parties=[party],
+                update_format=transaction_filter_pb2.UpdateFormat(
+                    include_transactions=transaction_filter_pb2.TransactionFormat(
+                        event_format=transaction_filter_pb2.EventFormat(
+                            filters_by_party = {
+                                party: transaction_filter_pb2.Filters(
+                                    cumulative=[transaction_filter_pb2.CumulativeFilter(
+                                        wildcard_filter=transaction_filter_pb2.WildcardFilter(
+                                        )
+                                    )]
+                                )
+                            }
+                        ),
+                        transaction_shape=transaction_filter_pb2.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+                    )
+                )
             )
         )
     )
-    for event in transaction_response.transaction.events:
+    for event in update_response.transaction.events:
         if event.HasField("created"):
             contract_id = event.created.contract_id
             break

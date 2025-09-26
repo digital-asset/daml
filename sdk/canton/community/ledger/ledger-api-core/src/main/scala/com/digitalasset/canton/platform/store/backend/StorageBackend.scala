@@ -33,6 +33,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
   UpdateStreamingQueries,
 }
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.KeyState
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.SynchronizerId
@@ -239,6 +240,10 @@ trait ContractStorageBackend {
   def assignedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
   ): Map[ContractId, ContractStorageBackend.RawCreatedContract]
+
+  def lastActivations(synchronizerContracts: Iterable[(SynchronizerId, ContractId)])(
+      connection: Connection
+  ): Map[(SynchronizerId, ContractId), Long]
 }
 
 object ContractStorageBackend {
@@ -295,18 +300,12 @@ trait EventStorageBackend {
   def fetchAssignEventIdsForStakeholder(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
+  )(connection: Connection): PaginationInput => Vector[Long]
 
   def fetchUnassignEventIdsForStakeholder(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
+  )(connection: Connection): PaginationInput => Vector[Long]
 
   def assignEventBatch(
       eventSequentialIds: SequentialIdBatch,
@@ -368,12 +367,9 @@ trait EventStorageBackend {
       connection: Connection
   ): Set[ContractId]
 
-  def fetchTopologyPartyEventIds(
-      party: Option[Party],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long]
+  def fetchTopologyPartyEventIds(party: Option[Party])(
+      connection: Connection
+  ): PaginationInput => Vector[Long]
 
   def topologyPartyEventBatch(
       eventSequentialIds: SequentialIdBatch
@@ -460,7 +456,8 @@ object EventStorageBackend {
       contractId: ContractId,
       templateId: FullIdentifier,
       exerciseConsuming: Boolean,
-      exerciseChoice: String,
+      exerciseChoice: ChoiceName,
+      exerciseChoiceInterface: Option[Ref.Identifier],
       exerciseArgument: Array[Byte],
       exerciseArgumentCompression: Option[Int],
       exerciseResult: Option[Array[Byte]],

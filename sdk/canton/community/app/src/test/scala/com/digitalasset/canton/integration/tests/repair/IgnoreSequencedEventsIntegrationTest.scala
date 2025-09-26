@@ -372,7 +372,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           // The problem happens to be "ForkHappened" due to the order of checks carried out by the sequencer client.
           // Feel free to change, if another property is checked first, e.g., "SignatureInvalid".
           _.shouldBeCantonErrorCode(ResilientSequencerSubscription.ForkHappened),
-          _.warningMessage should include("ForkHappened"),
+          _.message should include(s"ForkHappened"),
           _.shouldBeCantonErrorCode(SyncServiceSynchronizerDisconnect),
         )
 
