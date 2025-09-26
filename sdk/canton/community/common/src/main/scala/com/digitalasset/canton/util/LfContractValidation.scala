@@ -4,16 +4,16 @@
 package com.digitalasset.canton.util
 
 import cats.data.EitherT
+import com.daml.logging.LoggingContext
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.LfNodeCreate
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PackageConsumer.{ContinueOnInterruption, PackageResolver}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.engine.{ContractValidation, Engine}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
+import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 import scala.concurrent.ExecutionContext
 
@@ -39,6 +39,7 @@ trait LfContractValidation extends LfContractHasher {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
+      loggingContext: LoggingContext,
   ): EitherT[FutureUnlessShutdown, String, Unit]
 
 }
@@ -46,10 +47,10 @@ trait LfContractValidation extends LfContractHasher {
 object LfContractValidation {
 
   def apply(engine: Engine, packageResolver: PackageResolver): LfContractValidation =
-    new LfContractValidationImpl(ContractValidation(engine), packageResolver)
+    new LfContractValidationImpl(engine, packageResolver)
 
   private class LfContractValidationImpl(
-      delegate: ContractValidation,
+      delegate: Engine,
       packageResolver: PackageResolver,
       continueOnInterruption: ContinueOnInterruption = () => true,
   ) extends PackageConsumer(packageResolver, continueOnInterruption)
@@ -63,10 +64,16 @@ object LfContractValidation {
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
+        loggingContext: LoggingContext,
     ): EitherT[FutureUnlessShutdown, String, Unit] =
       consume(
-        delegate.validate(instance, targetPackageId, hashingMethod, idValidator = idValidator)
-      ).subflatMap(identity)
+        delegate.validateContractInstance(
+          instance,
+          targetPackageId,
+          hashingMethod,
+          idValidator = idValidator,
+        )
+      ).subflatMap(e => e.left.map(_.toString))
 
     override def hash(
         create: LfNodeCreate,
@@ -75,10 +82,7 @@ object LfContractValidation {
         ec: ExecutionContext,
         traceContext: TraceContext,
     ): EitherT[FutureUnlessShutdown, String, Hash] = {
-
-      // TODO(#23876) - provide method that takes a create node
-      val contract = FatContractInstance.fromCreateNode(create, CreationTime.Now, Bytes.Empty)
-      consume(delegate.hash(contract, create.templateId.packageId, hashingMethod))
+      consume(delegate.hashCreateNode(create, hashingMethod))
     }
   }
 

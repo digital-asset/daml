@@ -261,6 +261,8 @@ private[lf] object Pretty {
           case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
             text("Cost budget has been exceeded:") /
               text(cause)
+          case Dev.HashingError(message) =>
+            text("Hashing error:") / text(message)
         }
     }
   }
