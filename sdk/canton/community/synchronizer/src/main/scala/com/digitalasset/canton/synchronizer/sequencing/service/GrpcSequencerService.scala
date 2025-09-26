@@ -213,7 +213,6 @@ class GrpcSequencerService(
 
     // This has to run at the beginning, because it reads from a thread-local.
     val senderFromMetadata = authenticationCheck.lookupCurrentMember()
-
     def parseAndValidate(
         maxRequestSize: MaxRequestSize
     ): Either[SequencerDeliverError, SignedContent[SubmissionRequest]] = for {

@@ -350,6 +350,7 @@ class PruningProcessor(
       // We must prune the contract store even if the event log is empty, because there is not necessarily an
       // archival event reassigned-away contracts.
       _ = logger.debug("Pruning contract store...")
+      // TODO(#28005): not only archived but also divulged created contracts should be deleted (will be implemented later)
       _ <- participantNodePersistentState.value.contractStore.deleteIgnoringUnknown(
         archivedContracts
       )

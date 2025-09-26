@@ -12,12 +12,12 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{AcsInspection, ReassignmentStore}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.topology.transaction.HostingParticipant
 import com.digitalasset.canton.topology.{
   ForceFlag,
@@ -36,7 +36,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
   def validatePackageVetting(
       currentlyVettedPackages: Set[LfPackageId],
       nextPackageIds: Set[LfPackageId],
-      packageMetadataView: Option[PackageMetadataView],
+      packageMetadataView: PackageMetadataView,
       packageDependencyResolver: PackageDependencyResolver,
       acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
@@ -66,22 +66,12 @@ trait ParticipantTopologyValidation extends NamedLogging {
             show"Skipping upgrade validation for newly-added packages $toBeAdded because force flag ${ForceFlag.AllowVetIncompatibleUpgrades.toString} is set"
           )
           Right(())
-        } else {
-          // packageMetadata can be empty if the vetting happens before the package service is created
-          packageMetadataView match {
-            case Some(packageMetadataView) =>
-              packageMetadataView.packageUpgradeValidator.validateUpgrade(
-                toBeAdded,
-                nextPackageIds,
-                packageMetadataView.getSnapshot.packages,
-              )(LoggingContextWithTrace(loggerFactory))
-            case None =>
-              logger.info(
-                show"Skipping upgrade checks on newly-added packages because package metadata is not available: $toBeAdded"
-              )
-              Right(())
-          }
-        }
+        } else
+          packageMetadataView.packageUpgradeValidator.validateUpgrade(
+            toBeAdded,
+            nextPackageIds,
+            packageMetadataView.getSnapshot.packages,
+          )(LoggingContextWithTrace(loggerFactory))
       }
     } yield ()
   }
@@ -260,7 +250,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
     for {
       dependencies <- packageDependencyResolver
         .packageDependencies(toBeAdded.toList)
-        .leftFlatMap[Set[LfPackageId], TopologyManagerError] { missing =>
+        .leftFlatMap[Set[LfPackageId], TopologyManagerError] { case (missing, _) =>
           if (forceFlags.permits(ForceFlag.AllowUnknownPackage))
             EitherT.rightT(Set.empty)
           else

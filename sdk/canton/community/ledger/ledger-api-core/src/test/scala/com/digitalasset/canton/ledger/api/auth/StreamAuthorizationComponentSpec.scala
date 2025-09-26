@@ -270,27 +270,6 @@ class StreamAuthorizationComponentSpec
 
       def notSupported = throw new UnsupportedOperationException()
 
-      override def getUpdateTrees(
-          request: GetUpdatesRequest,
-          responseObserver: StreamObserver[GetUpdateTreesResponse],
-      ): Unit = notSupported
-
-      override def getTransactionTreeByOffset(
-          request: GetTransactionByOffsetRequest
-      ): Future[GetTransactionTreeResponse] = notSupported
-
-      override def getTransactionTreeById(
-          request: GetTransactionByIdRequest
-      ): Future[GetTransactionTreeResponse] = notSupported
-
-      override def getTransactionByOffset(
-          request: GetTransactionByOffsetRequest
-      ): Future[GetTransactionResponse] = notSupported
-
-      override def getTransactionById(
-          request: GetTransactionByIdRequest
-      ): Future[GetTransactionResponse] = notSupported
-
       override def getUpdateByOffset(
           request: GetUpdateByOffsetRequest
       ): Future[GetUpdateResponse] = notSupported

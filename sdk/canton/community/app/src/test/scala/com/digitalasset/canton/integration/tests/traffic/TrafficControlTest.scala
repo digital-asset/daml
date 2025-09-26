@@ -105,11 +105,11 @@ trait TrafficControlTest
         new NetworkBootstrapper(S1M1)
       }
       .addConfigTransforms(
+        ConfigTransforms.useStaticTime,
         ConfigTransforms.updateAllSequencerClientConfigs_(
           // Force the participant to notice quickly that the synchronizer is down
           _.focus(_.warnDisconnectDelay).replace(config.NonNegativeFiniteDuration.ofMillis(1))
         ),
-        ConfigTransforms.useStaticTime,
       )
       .addConfigTransform(
         ConfigTransforms.updateAllSequencerConfigs_(

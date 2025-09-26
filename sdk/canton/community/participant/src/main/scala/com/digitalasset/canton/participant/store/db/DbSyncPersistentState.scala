@@ -12,7 +12,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{
@@ -33,6 +32,7 @@ import com.digitalasset.canton.store.{
   SendTrackerStore,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
 import com.digitalasset.canton.topology.transaction.HostingParticipant
@@ -119,10 +119,10 @@ class DbPhysicalSyncPersistentState(
     storage: DbStorage,
     crypto: SynchronizerCrypto,
     parameters: ParticipantNodeParameters,
+    packageMetadataView: PackageMetadataView,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
-    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
@@ -203,7 +203,7 @@ class DbPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value),
+        packageMetadataView,
         packageDependencyResolver,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store.memory
 
-import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -475,47 +474,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
             .toSeq
             .sortBy(_.validFrom)
             .distinct
-        }
-      }
-    }
-
-  protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[GenericStoredTopologyTransaction]] = FutureUnlessShutdown.pure {
-    blocking {
-      synchronized {
-        topologyTransactionStore
-          .filter(entry =>
-            entry.mapping.code == SynchronizerParametersState.code &&
-              (entry.from.value >= sequencedTime || entry.until.forall(_.value >= sequencedTime)) &&
-              !entry.until.contains(entry.from) &&
-              entry.sequenced.value < sequencedTime &&
-              entry.rejected.isEmpty &&
-              !entry.transaction.isProposal
-          )
-          .map(_.toStoredTransaction)
-      }
-    }
-  }
-
-  override def findExpiredChangeDelays(
-      validUntilMinInclusive: CantonTimestamp,
-      validUntilMaxExclusive: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]] =
-    FutureUnlessShutdown.pure {
-      blocking {
-        synchronized {
-          topologyTransactionStore
-            .filter(
-              _.until.exists(until =>
-                validUntilMinInclusive <= until.value && until.value < validUntilMaxExclusive
-              )
-            )
-            .map(_.toStoredTransaction)
-            .toSeq
-            .mapFilter(TopologyStore.Change.selectTopologyDelay)
         }
       }
     }

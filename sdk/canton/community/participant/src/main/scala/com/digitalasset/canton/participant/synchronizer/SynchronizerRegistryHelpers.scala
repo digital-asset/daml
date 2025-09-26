@@ -44,7 +44,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -82,7 +82,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
       replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
       topologyDispatcher: ParticipantTopologyDispatcher,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolver,
       partyNotifier: LedgerServerPartyNotifier,
       metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
   )(implicit

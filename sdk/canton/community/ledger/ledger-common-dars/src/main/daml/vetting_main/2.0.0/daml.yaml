@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250919.14213.0.vfa842949
+sdk-version: 3.4.0-snapshot.20250924.14225.0.v7e1fa417
 name: vetting-main
 data-dependencies: 
 - ../../../../../scala-2.13/resource_managed/main/vetting-dep-1.0.0.dar

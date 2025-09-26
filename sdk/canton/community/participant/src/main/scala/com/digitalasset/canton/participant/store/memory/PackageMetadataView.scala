@@ -147,29 +147,3 @@ class MutablePackageMetadataViewImpl(
           )
       }
 }
-
-object MutablePackageMetadataViewImpl {
-  def createAndInitialize(
-      clock: Clock,
-      damlPackageStore: DamlPackageStore,
-      packageUpgradeValidator: PackageUpgradeValidator,
-      loggerFactory: NamedLoggerFactory,
-      packageMetadataViewConfig: PackageMetadataViewConfig,
-      timeouts: ProcessingTimeout,
-  )(implicit
-      actorSystem: ActorSystem,
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[MutablePackageMetadataViewImpl] = {
-    val mutablePackageMetadataView =
-      new MutablePackageMetadataViewImpl(
-        clock,
-        damlPackageStore,
-        packageUpgradeValidator,
-        loggerFactory,
-        packageMetadataViewConfig,
-        timeouts,
-      )
-    mutablePackageMetadataView.refreshState.map(_ => mutablePackageMetadataView)
-  }
-}

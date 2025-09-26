@@ -1,0 +1,18 @@
+module Token where
+
+import qualified HoldingV1
+import qualified HoldingV2
+
+template Token
+  with
+    owner: Party
+    assetId: Text
+    expiry: Optional Time -- added in 3.0.0
+  where
+    signatory owner
+
+    interface instance HoldingV1.Holding for Token where
+      view = error "Use HoldingV2"
+
+    interface instance HoldingV2.Holding for Token where
+      view = HoldingV2.HoldingView with owner = owner, assetId = assetId, expiry = expiry

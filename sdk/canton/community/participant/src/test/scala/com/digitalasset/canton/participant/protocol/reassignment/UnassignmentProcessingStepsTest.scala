@@ -27,7 +27,6 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.{DefaultPromiseUnlessShutdownFactory, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -83,6 +82,7 @@ import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
@@ -91,7 +91,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ContractAuthenticator, ResourceUtil}
+import com.digitalasset.canton.util.{ContractValidator, ResourceUtil}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -189,10 +189,10 @@ final class UnassignmentProcessingStepsTest
     defaultStaticSynchronizerParameters,
     exitOnFatalFailures = true,
     disableUpgradeValidation = false,
+    packageMetadataView = mock[PackageMetadataView],
     packageDependencyResolver = mock[PackageDependencyResolver],
     Eval.now(mock[LedgerApiStore]),
     logicalPersistentState,
-    Eval.now(mock[PackageMetadataView]),
     loggerFactory,
     timeouts,
     futureSupervisor,
@@ -318,7 +318,7 @@ final class UnassignmentProcessingStepsTest
       cryptoClient,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),
-      ContractAuthenticator(crypto.pureCrypto),
+      ContractValidator.AllowAll,
       Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)

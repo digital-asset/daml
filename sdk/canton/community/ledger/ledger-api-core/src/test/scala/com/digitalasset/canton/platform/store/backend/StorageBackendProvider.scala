@@ -118,7 +118,8 @@ object TestBackend {
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       completion =
         storageBackendFactory.createCompletionStorageBackend(stringInterning, loggerFactory),
-      contract = storageBackendFactory.createContractStorageBackend(stringInterning),
+      contract =
+        storageBackendFactory.createContractStorageBackend(stringInterning, ledgerEndCache),
       event = storageBackendFactory
         .createEventStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
       dataSource = storageBackendFactory.createDataSourceStorageBackend,

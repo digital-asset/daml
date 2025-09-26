@@ -287,9 +287,7 @@ class CommandServiceImplSpec
 
 object CommandServiceImplSpec {
   private val UnimplementedTransactionServices = new CommandServiceImpl.UpdateServices(
-    getTransactionTreeById = _ =>
-      Future.failed(new RuntimeException("This should never be called.")),
-    getUpdateById = _ => Future.failed(new RuntimeException("This should never be called.")),
+    getUpdateById = _ => Future.failed(new RuntimeException("This should never be called."))
   )
 
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)

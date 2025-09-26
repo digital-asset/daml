@@ -12,15 +12,7 @@ import com.daml.ledger.api.v2.reassignment.{
 }
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
-import com.daml.ledger.api.v2.transaction.TreeEvent
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionResponse,
-  GetTransactionTreeResponse,
-  GetUpdateResponse,
-  GetUpdateTreesResponse,
-  GetUpdatesResponse,
-}
-import com.digitalasset.canton.data
+import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -43,18 +35,12 @@ import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoUpdateReader,
 }
-import com.digitalasset.canton.platform.{
-  InternalTransactionFormat,
-  InternalUpdateFormat,
-  Party,
-  TemplatePartiesFilter,
-}
+import com.digitalasset.canton.platform.{InternalUpdateFormat, TemplatePartiesFilter}
 import com.digitalasset.canton.util.MonadUtil
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -82,8 +68,6 @@ import scala.util.{Failure, Success}
 private[dao] final class UpdateReader(
     updatesStreamReader: UpdatesStreamReader,
     updatePointwiseReader: UpdatePointwiseReader,
-    treeTransactionsStreamReader: TransactionsTreeStreamReader,
-    treeTransactionPointwiseReader: TransactionTreePointwiseReader,
     dispatcher: DbDispatcher,
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
@@ -114,42 +98,6 @@ private[dao] final class UpdateReader(
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
 
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  override def lookupTransactionById(
-      updateId: data.UpdateId,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    updatePointwiseReader
-      .lookupUpdateBy(
-        lookupKey = LookupKey.UpdateId(updateId),
-        internalUpdateFormat = InternalUpdateFormat(
-          includeTransactions = Some(internalTransactionFormat),
-          includeReassignments = None,
-          includeTopologyEvents = None,
-        ),
-      )
-      .map(_.flatMap(_.update.transaction))
-      .map(_.map(tx => GetTransactionResponse(transaction = Some(tx))))
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  override def lookupTransactionByOffset(
-      offset: data.Offset,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
-    updatePointwiseReader
-      .lookupUpdateBy(
-        lookupKey = LookupKey.Offset(offset),
-        internalUpdateFormat = InternalUpdateFormat(
-          includeTransactions = Some(internalTransactionFormat),
-          includeReassignments = None,
-          includeTopologyEvents = None,
-        ),
-      )
-      .map(_.flatMap(_.update.transaction))
-      .map(_.map(tx => GetTransactionResponse(transaction = Some(tx))))
-
   override def lookupUpdateBy(
       lookupKey: LookupKey,
       internalUpdateFormat: InternalUpdateFormat,
@@ -158,60 +106,6 @@ private[dao] final class UpdateReader(
       lookupKey = lookupKey,
       internalUpdateFormat = internalUpdateFormat,
     )
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  override def lookupTransactionTreeById(
-      updateId: data.UpdateId,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[GetTransactionTreeResponse]] =
-    treeTransactionPointwiseReader.lookupTransactionBy(
-      lookupKey = LookupKey.UpdateId(updateId),
-      requestingParties = requestingParties,
-      eventProjectionProperties = eventProjectionProperties,
-    )
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  override def lookupTransactionTreeByOffset(
-      offset: data.Offset,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[GetTransactionTreeResponse]] =
-    treeTransactionPointwiseReader.lookupTransactionBy(
-      lookupKey = LookupKey.Offset(offset),
-      requestingParties = requestingParties,
-      eventProjectionProperties = eventProjectionProperties,
-    )
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  override def getTransactionTrees(
-      startInclusive: Offset,
-      endInclusive: Offset,
-      requestingParties: Option[Set[Party]],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed] = {
-    val futureSource =
-      getEventSeqIdRange(startInclusive, endInclusive)
-        .map(queryRange =>
-          treeTransactionsStreamReader.streamTreeTransaction(
-            queryRange = queryRange,
-            requestingParties = requestingParties,
-            eventProjectionProperties = eventProjectionProperties,
-          )
-        )
-    Source
-      .futureSource(futureSource)
-      .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
-  }
 
   override def getActiveContracts(
       activeAt: Option[Offset],
@@ -441,36 +335,6 @@ private[dao] object UpdateReader {
           )
         )
       )
-  }
-
-  // TODO(#23504) cleanup
-  @nowarn("cat=deprecation")
-  def deserializeTreeEvent(
-      eventProjectionProperties: EventProjectionProperties,
-      lfValueTranslation: LfValueTranslation,
-  )(
-      rawTreeEntry: Entry[RawTreeEvent]
-  )(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[Entry[TreeEvent]] = rawTreeEntry.event match {
-    case rawCreated: RawCreatedEvent =>
-      lfValueTranslation
-        .deserializeRaw(eventProjectionProperties, rawCreated)
-        .map(createdEvent =>
-          rawTreeEntry.copy(
-            event = TreeEvent(TreeEvent.Kind.Created(createdEvent))
-          )
-        )
-
-    case rawExercised: RawExercisedEvent =>
-      lfValueTranslation
-        .deserializeRaw(eventProjectionProperties, rawExercised)
-        .map(exercisedEvent =>
-          rawTreeEntry.copy(
-            event = TreeEvent(TreeEvent.Kind.Exercised(exercisedEvent))
-          )
-        )
   }
 
   def deserializeRawTreeEvent(

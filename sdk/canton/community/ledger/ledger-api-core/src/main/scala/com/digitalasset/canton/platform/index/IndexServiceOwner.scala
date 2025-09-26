@@ -206,7 +206,6 @@ final class IndexServiceOwner(
       completionsPageSize = config.completionsPageSize,
       activeContractsServiceStreamsConfig = config.activeContractsServiceStreams,
       updatesStreamsConfig = config.updatesStreams,
-      transactionTreeStreamsConfig = config.transactionTreeStreams,
       globalMaxEventIdQueries = config.globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = config.globalMaxEventPayloadQueries,
       tracer = tracer,
