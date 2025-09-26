@@ -1,0 +1,432 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Tests scenarios prevented by the authentication of v >= 12 contract IDs
+module InvalidUpgrades (main) where
+
+import UpgradeTestLib
+import PackageIds
+
+import qualified V1.InvalidUpgrades as V1
+import qualified V2.InvalidUpgrades as V2
+import qualified V1.Iface as Iface
+import qualified V1.Client as Client
+
+{- PACKAGE
+name: invalid-upgrades-iface
+versions: 1
+-}
+
+{- MODULE
+package: invalid-upgrades-iface
+contents: |
+  module Iface where
+
+  data MyUnit = MyUnit {}
+
+  interface InvalidUpgradesIface where
+
+    viewtype MyUnit
+
+    nonconsuming choice IfaceChoice : ()
+      with
+        ctl : Party
+      controller ctl
+      do
+        pure ()
+-}
+
+{- PACKAGE
+name: invalid-upgrades
+versions: 2
+depends: invalid-upgrades-iface-1.0.0
+-}
+
+{- MODULE
+package: invalid-upgrades
+contents: |
+  module InvalidUpgrades where
+
+  import qualified V1.Iface as Iface
+
+  ---- Templates for testing invalid field renamings ----
+
+  template FieldRenamingTemplate
+    with
+      sig: Party
+      originalLabel: Bool -- @V 1
+      newLabel: Bool      -- @V 2
+    where
+      signatory sig
+
+      choice FieldRenamingChoice : ()
+        controller sig
+        do
+          pure ()
+
+      interface instance Iface.InvalidUpgradesIface for FieldRenamingTemplate where
+        view = Iface.MyUnit
+
+  ---- Templates for testing invalid template name renamings ----
+
+  template TemplateRenamingTemplate1
+    with
+      sig: Party
+    where
+      signatory sig
+
+      choice TemplateRenamingChoice1 : ()
+        controller sig
+        do
+          pure ()
+
+  -- same template as TemplateRenamingTemplate1 but with a different template name
+  template TemplateRenamingTemplate2
+    with
+      sig: Party
+    where
+      signatory sig
+
+      choice TemplateRenamingChoice2 : ()
+        controller sig
+        do
+          pure ()
+
+  ---- Templates and datatypes for testing invalid variant rank modification ----
+
+  data MyVariant = A Bool | B Bool -- @V 1
+  data MyVariant = B Bool | A Bool -- @V 2
+    deriving (Eq, Show)
+
+  template VariantRankChangeTemplate
+    with
+      sig: Party
+      variant: MyVariant
+    where
+      signatory sig
+
+      choice VariantRankChangeChoice : ()
+        controller sig
+        do
+          pure ()
+
+      interface instance Iface.InvalidUpgradesIface for VariantRankChangeTemplate where
+        view = Iface.MyUnit
+        
+  ---- Templates and datatypes for testing invalid enum rank modification ----
+
+  data MyEnum = C | D -- @V 1
+  data MyEnum = D | C -- @V 2
+    deriving (Eq, Show)
+
+  template EnumRankChangeTemplate
+    with
+      sig: Party
+      enum: MyEnum
+    where
+      signatory sig
+
+      choice EnumRankChangeChoice : ()
+        controller sig
+        do
+          pure ()
+
+      interface instance Iface.InvalidUpgradesIface for EnumRankChangeTemplate where
+        view = Iface.MyUnit
+-}
+
+{- PACKAGE
+name: invalid-upgrades-client
+versions: 1
+depends: |
+  invalid-upgrades-iface-1.0.0
+  invalid-upgrades-1.0.0
+  invalid-upgrades-2.0.0
+-}
+
+{- MODULE
+package: invalid-upgrades-client
+contents: |
+  module Client where
+
+  import qualified V1.Iface as Iface
+  import qualified V1.InvalidUpgrades as V1
+  import qualified V2.InvalidUpgrades as V2
+
+  template ClientTemplate
+    with
+      sig: Party
+    where
+      signatory sig
+
+      choice FetchFieldRenamingV2 : ()
+        with
+          cid: ContractId V2.FieldRenamingTemplate
+        controller sig
+        do
+          _ <- fetch cid
+          pure ()
+
+      choice ExerciseFieldRenamingV2 : ()
+        with
+          cid: ContractId V2.FieldRenamingTemplate
+        controller sig
+        do
+          _ <- exercise cid V2.FieldRenamingChoice
+          pure ()
+
+      choice FetchTemplateRenaming2 : ()
+        with
+          cid: ContractId V1.TemplateRenamingTemplate2
+        controller sig
+        do
+          _ <- fetch cid
+          pure ()
+
+      choice ExerciseTemplateRenaming2 : ()
+        with
+          cid: ContractId V1.TemplateRenamingTemplate2
+        controller sig
+        do
+          _ <- exercise cid V1.TemplateRenamingChoice2
+          pure ()
+
+      choice FetchVariantRankChangeV2 : ()
+        with
+          cid: ContractId V2.VariantRankChangeTemplate
+        controller sig
+        do
+          _ <- fetch cid
+          pure ()
+
+      choice ExerciseVariantRankChangeV2 : ()
+        with
+          cid: ContractId V2.VariantRankChangeTemplate
+        controller sig
+        do
+          _ <- exercise cid V2.VariantRankChangeChoice
+          pure ()
+
+      choice FetchEnumRankChangeV2 : ()
+        with
+          cid: ContractId V2.EnumRankChangeTemplate
+        controller sig
+        do
+          _ <- fetch cid
+          pure ()
+
+      choice ExerciseEnumRankChangeV2 : ()
+        with
+          cid: ContractId V2.EnumRankChangeTemplate
+        controller sig
+        do
+          _ <- exercise cid V2.EnumRankChangeChoice
+          pure ()
+
+      choice ExerciseIface : ()
+        with
+          cid: ContractId Iface.InvalidUpgradesIface
+        controller sig
+        do
+          _ <- exercise cid Iface.IfaceChoice { ctl = sig }
+          pure ()
+-}
+
+main : TestTree
+main = tests
+  -- TODO(https://github.com/digital-asset/daml/issues/21667): enable these tests once canton uses contract ID v12
+  [ broken ("Reject template field renaming in fetches from choice body", fieldRenamingFetchChoiceBody)
+  , broken ("Reject template field renaming in exercises from choice body", fieldRenamingExerciseChoiceBody)
+  , broken ("Reject template field renaming in interface exercises from choice body", fieldRenamingExerciseInterfaceChoiceBody)
+  , broken ("Reject template field renaming in command exercises", fieldRenamingExerciseCommand)
+  , broken ("Reject template field renaming in command interface exercises", fieldRenamingExerciseInterfaceCommand)
+
+  , broken ("Reject template renaming in fetches from choice body", templateRenamingFetchChoiceBody)
+  , broken ("Reject template renaming in exercises from choice body", templateRenamingExerciseChoiceBody)
+
+  , broken ("Reject variant rank change in fetches from choice body", variantRankChangeFetchChoiceBody)
+  , broken ("Reject variant rank change in exercises from choice body", variantRankChangeExerciseChoiceBody)
+  , broken ("Reject variant rank change in interface exercises from choice body", variantRankChangeExerciseInterfaceChoiceBody)
+  , broken ("Reject variant rank change in command exercises", variantRankChangeExerciseCommand)
+  , broken ("Reject variant rank change in command interface exercises", variantRankChangeExerciseInterfaceCommand)
+
+  , broken ("Reject enum rank change in fetches from choice body", enumRankChangeFetchChoiceBody)
+  , broken ("Reject enum rank change in exercises from choice body", enumRankChangeExerciseChoiceBody)
+  , broken ("Reject enum rank change in interface exercises from choice body", enumRankChangeExerciseInterfaceChoiceBody)
+  , broken ("Reject enum rank change in command exercises", enumRankChangeExerciseCommand)
+  , broken ("Reject enum rank change in command interface exercises", enumRankChangeExerciseInterfaceCommand)
+  ]
+
+--- Utils ---
+
+invalidUpgradesV2 : PackageId
+invalidUpgradesV2 = getPackageId "invalid-upgrades-2.0.0"
+
+setupCommandTest : Script Party
+setupCommandTest = allocatePartyOn "alice" participant0
+
+setUpChoiceBodyTest : Script (Party, ContractId Client.ClientTemplate)
+setUpChoiceBodyTest = do
+  alice <- allocatePartyOn "alice" participant0
+  clientCid <- alice `submit` createCmd Client.ClientTemplate { sig = alice }
+  pure (alice, clientCid)
+
+assertIsTranslationError : Show a => Either SubmitError a -> Script ()
+assertIsTranslationError (Left (DevError TranslationError _)) = pure ()
+assertIsTranslationError res = assertFail $ "Expected TranslationError, got " <> show res
+
+--- Field renaming test cases ---
+
+fieldRenamingFetchChoiceBody : Test
+fieldRenamingFetchChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
+  let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchFieldRenamingV2 with cid = v2Cid)
+  assertIsTranslationError res
+
+fieldRenamingExerciseChoiceBody : Test
+fieldRenamingExerciseChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
+  let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseFieldRenamingV2 with cid = v2Cid)
+  assertIsTranslationError res
+
+fieldRenamingExerciseInterfaceChoiceBody : Test
+fieldRenamingExerciseInterfaceChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
+  let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.InvalidUpgradesIface v1Cid
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
+  assertIsTranslationError res
+
+fieldRenamingExerciseCommand : Test
+fieldRenamingExerciseCommand = test $ do
+  alice <- setupCommandTest
+  v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
+  let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd v2Cid V2.FieldRenamingChoice
+  assertIsTranslationError res
+
+fieldRenamingExerciseInterfaceCommand : Test
+fieldRenamingExerciseInterfaceCommand = test $ do
+  alice <- setupCommandTest
+  v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
+  let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.InvalidUpgradesIface v1Cid
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
+  assertIsTranslationError res
+
+--- Template renaming test cases ---
+
+templateRenamingFetchChoiceBody : Test
+templateRenamingFetchChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
+  let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchTemplateRenaming2 with cid = cid2)
+  assertIsTranslationError res
+
+templateRenamingExerciseChoiceBody : Test
+templateRenamingExerciseChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
+  let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseTemplateRenaming2 with cid = cid2)
+  assertIsTranslationError res
+
+--- Variant rank change test cases ---
+
+variantRankChangeFetchChoiceBody : Test
+variantRankChangeFetchChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
+  let v2Cid = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchVariantRankChangeV2 with cid = v2Cid)
+  assertIsTranslationError res
+
+variantRankChangeExerciseChoiceBody : Test
+variantRankChangeExerciseChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
+  let v2Cid = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseVariantRankChangeV2 with cid = v2Cid)
+  assertIsTranslationError res
+
+variantRankChangeExerciseInterfaceChoiceBody : Test
+variantRankChangeExerciseInterfaceChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
+  let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
+  assertIsTranslationError res
+
+variantRankChangeExerciseCommand : Test
+variantRankChangeExerciseCommand = test $ do
+  alice <- setupCommandTest
+  v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
+  let v2Cid = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd v2Cid V2.VariantRankChangeChoice
+  assertIsTranslationError res
+
+variantRankChangeExerciseInterfaceCommand : Test
+variantRankChangeExerciseInterfaceCommand = test $ do
+  alice <- setupCommandTest
+  v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
+  let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
+  assertIsTranslationError res
+
+--- Enum rank change test cases ---
+
+enumRankChangeFetchChoiceBody : Test
+enumRankChangeFetchChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
+  let v2Cid = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchEnumRankChangeV2 with cid = v2Cid)
+  assertIsTranslationError res
+
+enumRankChangeExerciseChoiceBody : Test
+enumRankChangeExerciseChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
+  let v2Cid = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseEnumRankChangeV2 with cid = v2Cid)
+  assertIsTranslationError res
+
+enumRankChangeExerciseInterfaceChoiceBody : Test
+enumRankChangeExerciseInterfaceChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
+  let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
+  assertIsTranslationError res
+  
+enumRankChangeExerciseCommand : Test
+enumRankChangeExerciseCommand = test $ do
+  alice <- setupCommandTest
+  v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
+  let v2Cid = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate v1Cid
+  res <- alice `trySubmit` exerciseCmd v2Cid V2.EnumRankChangeChoice
+  assertIsTranslationError res
+
+enumRankChangeExerciseInterfaceCommand : Test
+enumRankChangeExerciseInterfaceCommand = test $ do
+  alice <- setupCommandTest
+  v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
+  let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
+  assertIsTranslationError res
