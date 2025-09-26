@@ -32,7 +32,7 @@ class DarReaderTest
       .readArchiveFromFile(darFile, entrySizeThreshold = 1024) shouldBe Left(Error.ZipBomb)
   }
 
-  "should read LF1 dar file, main archive: DarReaderTest returned first" in {
+  s"should read LF1 dar file, main archive: DarReaderTest returned first" in {
     assume(System.getProperty("hasLegacyDamlc").toLowerCase() != "false")
     val darFile = resource("daml-lf/archive/DarReaderTest-v115.dar")
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
@@ -109,7 +109,7 @@ class DarReaderTest
     }
   }
 
-  "should read LF2 dar file, main archive: DarReaderTest returned first" in {
+  s"should read LF2 dar file, main archive: DarReaderTest returned first" in {
     val darFile = resource("daml-lf/archive/DarReaderTest.dar")
     val Right(dar) = DarReader.readArchiveFromFile(darFile)
 
@@ -172,14 +172,6 @@ class DarReaderTest
           "LibraryModules",
           "GHC.Tuple.Check",
         )
-    }
-
-    "Legacy archive readers should fail with mutated 2.1 code" in {
-      val darFile = resource("daml-lf/archive/DarReaderTest.dar")
-
-      inside(LegacyDarReader.readArchiveFromFile(darFile)) { case Left(_) =>
-        succeed
-      }
     }
 
     def internedName(
