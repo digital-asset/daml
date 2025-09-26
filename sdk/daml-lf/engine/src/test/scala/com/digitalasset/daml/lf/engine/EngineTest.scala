@@ -33,7 +33,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.speedy.{DisclosedContract, InitialSeeding, SValue, svalue}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.engine.Error.Interpretation
 import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
@@ -2621,6 +2621,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Hash
         .hashContractInstance(simpleId, createArg, basicTestsPkg.pkgName, upgradeFriendly = true)
         .value
+    def expectedTypedNormalFormHash = SValueHash
+      .hashContractInstance(
+        basicTestsPkg.pkgName,
+        simpleId.qualifiedName,
+        SValue.SRecord(
+          simpleId,
+          ImmArray(Ref.Name.assertFromString("p")),
+          ArraySeq(SValue.SParty(alice)),
+        ),
+      )
+      .value
 
     def run(
         cmds: ImmArray[ApiCommand],
@@ -2648,6 +2659,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       ("hashingMethod", "expectedHash"),
       (Hash.HashingMethod.Legacy, expectedLegacyHash),
       (Hash.HashingMethod.UpgradeFriendly, expectedUpgradeFriendlyHash),
+      (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
     )
 
     "be authenticated on fetch" in {

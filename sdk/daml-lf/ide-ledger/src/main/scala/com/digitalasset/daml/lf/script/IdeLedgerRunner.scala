@@ -342,7 +342,7 @@ private[lf] object IdeLedgerRunner {
                   callback(
                     fcoinst.nonVerbose,
                     Hash.HashingMethod.TypedNormalForm,
-                    _ => throw new NotImplementedError("authentication not implemented yet"),
+                    _ => true, // The IDE ledger doesn't authenticate disclosed contracts
                   )
                   go()
                 case None =>
@@ -354,7 +354,7 @@ private[lf] object IdeLedgerRunner {
                       callback(
                         fcoinst.nonVerbose,
                         Hash.HashingMethod.TypedNormalForm,
-                        _ => throw new NotImplementedError("authentication not implemented yet"),
+                        _ => true, // The IDE ledger doesn't authenticate input contracts
                       ),
                   ) match {
                     case Left(err) =>
