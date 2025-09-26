@@ -24,11 +24,11 @@ class LegacyArchiveReaderTest
     f
   }
 
-    "Legacy archive readers should fail with mutated 2.1 code" in {
-      val darFile = resource("daml-lf/archive/DarReaderTest.dar")
-      inside(DarDecoder.readArchiveFromFile(darFile)) { case Left(err) =>
-        err.msg should include("BuiltinFunction.UNRECOGNIZED")
-      }
+  "Legacy archive readers should fail with mutated 2.1 code" in {
+    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+    inside(DarDecoder.readArchiveFromFile(darFile)) { case Left(err) =>
+      err.msg should include("BuiltinFunction.UNRECOGNIZED")
     }
+  }
 
 }

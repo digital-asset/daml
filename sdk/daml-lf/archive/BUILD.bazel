@@ -135,7 +135,10 @@ da_scala_library(
 da_scala_test_suite(
     name = "daml_lf_archive_reader_tests",
     size = "small",
-    srcs = glob(["src/test/scala/**/*.scala"], exclude=["src/test/scala/**/LegacyArchive*.scala"]),
+    srcs = glob(
+        ["src/test/scala/**/*.scala"],
+        exclude = ["src/test/scala/**/LegacyArchive*.scala"],
+    ),
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
@@ -167,7 +170,6 @@ da_scala_test_suite(
     ],
 )
 
-
 da_scala_test(
     name = "daml_lf_legacy_archive_reader_test",
     size = "small",
@@ -182,9 +184,9 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
-       "@legacy_maven//:com_daml_daml_lf_data_2_13",
-       "@legacy_maven//:com_daml_daml_lf_language_2_13",
-       "@legacy_maven//:com_daml_daml_lf_archive_reader_2_13",
+        "@legacy_maven//:com_daml_daml_lf_archive_reader_2_13",
+        "@legacy_maven//:com_daml_daml_lf_data_2_13",
+        "@legacy_maven//:com_daml_daml_lf_language_2_13",
     ],
 )
 
