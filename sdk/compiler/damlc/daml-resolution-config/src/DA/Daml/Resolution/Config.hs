@@ -26,6 +26,7 @@ import DA.Daml.LF.Ast qualified as LF
 import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
 import DA.Daml.Project.Types
 import Data.Aeson qualified as Aeson
+import Data.Bifunctor (first)
 import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Extra (eitherToMaybe, fromRight)
 import Data.Function ((&))
@@ -37,6 +38,7 @@ import Data.Text qualified as T
 import Data.Time.Clock
 import Data.Typeable (Typeable)
 import Data.Yaml
+import System.Directory (createDirectoryIfMissing)
 import System.Environment (lookupEnv)
 import System.FilePath
 
@@ -118,7 +120,10 @@ getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
       pathEntries :: Map.Map FilePath DalfInfoCacheEntry
       pathEntries = Map.fromList $ mapMaybe (\(path, _, pkgId) -> (path,) <$> Map.lookup pkgId (getDalfInfoCacheMap newCache)) extractedDarsWithPackageIds
 
-  encodeFile (darInfoCachePath cachePath) newCache
+  -- Ensure path exists before writing file
+  let diCachePath = darInfoCachePath cachePath
+  createDirectoryIfMissing True $ takeDirectory diCachePath
+  encodeFile diCachePath newCache
 
   pure pathEntries
 
@@ -181,7 +186,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
 
 findPackageResolutionData :: FilePath -> ResolutionData -> Either ResolutionError ValidPackageResolution
 findPackageResolutionData path (ResolutionData packages) =
-  Map.lookup path packages & \case
+  Map.lookup (toPosixFilePath path) packages & \case
     Just (ErrorPackageResolutionData errs) -> Left $ ResolutionError $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
     Just (ValidPackageResolutionData res) -> Right res
     Nothing -> Left $ ResolutionError $ "Failed to find DPM package resolution for " <> path <> ". This should never happen, contact support."
@@ -220,12 +225,21 @@ data ErrorPackageResolution = ErrorPackageResolution
   }
   deriving Eq
 
+-- Changes backslashes to forward slashes, lowercases the drive
+-- Need native filepath for splitDrive, as Posix version just takes first n `/`s
+toPosixFilePath :: FilePath -> FilePath
+toPosixFilePath = uncurry joinDrive . first lower . splitDrive . replace "\\" "/"
+
+toPosixFilePathValidPackageResolution :: ValidPackageResolution -> ValidPackageResolution
+toPosixFilePathValidPackageResolution (ValidPackageResolution components imports) =
+  ValidPackageResolution (fmap toPosixFilePath components) (fmap (fmap toPosixFilePath) imports)
+
 instance Show ErrorPackageResolution where
   show ErrorPackageResolution {..} = code <> ": " <> cause
 
 instance Aeson.FromJSON ResolutionData where
   parseJSON = Aeson.withObject "ResolutionData" $ \obj ->
-    ResolutionData <$> obj .: "packages"
+    ResolutionData . Map.mapKeys toPosixFilePath <$> obj .: "packages"
 
 instance Aeson.FromJSON PackageResolutionData where
   parseJSON = Aeson.withObject "PackageResolutionData" $ \obj -> do
@@ -236,9 +250,10 @@ instance Aeson.FromJSON PackageResolutionData where
 
 instance Aeson.FromJSON ValidPackageResolution where
   parseJSON = Aeson.withObject "ValidPackageResolution" $ \obj ->
-    ValidPackageResolution
-      <$> obj .:? "components" .!= mempty
-      <*> obj .:? "imports" .!= mempty
+    fmap toPosixFilePathValidPackageResolution $
+      ValidPackageResolution
+        <$> obj .:? "components" .!= mempty
+        <*> obj .:? "imports" .!= mempty
 
 instance Aeson.FromJSON ErrorPackageResolution where
   parseJSON = Aeson.withObject "ErrorPackageResolution" $ \obj ->
