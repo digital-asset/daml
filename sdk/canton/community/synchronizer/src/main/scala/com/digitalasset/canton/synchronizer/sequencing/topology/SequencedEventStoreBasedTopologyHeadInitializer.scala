@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencing.topology
 
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
 import com.digitalasset.canton.topology.client.{
@@ -13,6 +14,7 @@ import com.digitalasset.canton.topology.client.{
 }
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -29,6 +31,7 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
   override def initialize(
       client: SynchronizerTopologyClientWithInit,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
+      staticSynchronizerParameters: StaticSynchronizerParameters,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -43,13 +46,34 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
         SequencedTime.MaxValue,
         includeRejected = true,
       )
+      // This is needed, because we ALWAYS use staticParams.topologyChangeDelay in SyncCryptoClient.computeTimestampForValidation.
+      // Previously, we used to fall back to 0 for the initial genesis transactions.
+      // Alternatively, we could reset the genesis times to always set the correct topology change delay, but that messes with
+      // the genesis timestamp logic in the BftOrderingService
+      maxTopologyStoreTimestampWithTopologyChangeDelay =
+        if (
+          maxTopologyStoreTimestamp.contains(
+            (
+              SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+            )
+          )
+        ) {
+          Some(
+            (
+              SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+              EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime)
+                + staticSynchronizerParameters.topologyChangeDelay,
+            )
+          )
+        } else maxTopologyStoreTimestamp
     } yield {
       // Defensively, get the latest possible timestamps or don't update the head.
       val sequencedToEffectiveTimes = List(
         latestSequencedEvent.map(event =>
           (SequencedTime(event.timestamp), EffectiveTime(event.timestamp))
         ),
-        maxTopologyStoreTimestamp,
+        maxTopologyStoreTimestampWithTopologyChangeDelay,
       ).flatten
       val maxTimestampsO = sequencedToEffectiveTimes.maxByOption {
         case (_, effectiveTime: EffectiveTime) => effectiveTime
@@ -59,6 +83,7 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
         .computeInitialHeadUpdate(
           maxTimestampsO,
           synchronizerPredecessor,
+          staticSynchronizerParameters.topologyChangeDelay,
         )
         .foreach { case (maxSequencedTime, maxEffectiveTime) =>
           client.updateHead(

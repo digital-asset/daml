@@ -11,4 +11,5 @@ final case class MempoolModuleConfig(
     maxRequestsInBatch: Short,
     minRequestsInBatch: Short,
     maxBatchCreationInterval: FiniteDuration,
+    checkTags: Boolean = true,
 )

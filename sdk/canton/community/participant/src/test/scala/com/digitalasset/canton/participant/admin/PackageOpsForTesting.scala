@@ -12,8 +12,8 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.topology.{PackageOps, ParticipantTopologyManagerError}
-import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.transaction.VettedPackage
+import com.digitalasset.canton.topology.{ForceFlags, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -40,6 +40,7 @@ class PackageOpsForTesting(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: PackageService.DarDescription,
+      forceFlags: ForceFlags,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     EitherT.rightT(())
 

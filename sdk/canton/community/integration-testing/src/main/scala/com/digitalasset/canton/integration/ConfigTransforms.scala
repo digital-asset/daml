@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.{
   *,
 }
 import com.digitalasset.canton.console.FeatureFlag
+import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   RemoteParticipantConfig,
@@ -252,6 +253,8 @@ object ConfigTransforms {
         .replace(nextPort.some)
         .focus(_.adminApi.internalPort)
         .replace(nextPort.some)
+        .focus(_.httpLedgerApi)
+        .modify(_.map(_.focus(_.server.internalPort).replace(nextPort.some)))
         .focus(_.monitoring.grpcHealthServer)
         .modify(_.map(_.copy(internalPort = nextPort.some)))
     )
@@ -881,4 +884,29 @@ object ConfigTransforms {
     }).compose(updateAllParticipantConfigs { case (_name, config) =>
       config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
     })
+
+  /** Must be applied before the default config transformers */
+  def enableHttpLedgerApi: ConfigTransform = updateAllParticipantConfigs_(
+    _.copy(httpLedgerApi = Some(JsonApiConfig(server = HttpServerConfig())))
+  )
+
+  /** Must be applied before the default config transformers */
+  def enableHttpLedgerApi(
+      participantName: String,
+      websocketConfig: Option[WebsocketConfig] = None,
+      pathPrefix: Option[String] = None,
+  ): ConfigTransform =
+    updateParticipantConfig(participantName)(config =>
+      config.copy(httpLedgerApi =
+        Some(
+          JsonApiConfig(
+            server = HttpServerConfig(
+              pathPrefix = pathPrefix
+            ),
+            websocketConfig = websocketConfig,
+          )
+        )
+      )
+    )
+
 }

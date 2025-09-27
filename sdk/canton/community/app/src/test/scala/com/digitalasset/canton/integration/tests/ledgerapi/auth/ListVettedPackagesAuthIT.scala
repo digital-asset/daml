@@ -24,8 +24,8 @@ final class ListVettedPackagesAuthIT extends PublicServiceCallAuthTests {
     ListVettedPackagesRequest(
       Some(PackageMetadataFilter(Seq(), Seq())),
       Some(TopologyStateFilter(Seq(), Seq())),
-      None,
-      None,
+      "",
+      0,
     )
 
   override def serviceCall(context: ServiceCallContext)(implicit

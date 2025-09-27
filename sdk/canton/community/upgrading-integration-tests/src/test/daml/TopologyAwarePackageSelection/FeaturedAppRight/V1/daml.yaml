@@ -1,0 +1,12 @@
+sdk-version: 3.4.0-snapshot.20250925.14227.0.v1f81f9a1
+build-options: 
+- --target=2.1
+- --enable-interfaces=yes
+name: tests-featured-app-right-impl
+data-dependencies: 
+- ../../../../scala-2.13/resource_managed/test/tests-featured-app-right-iface-1.0.0.dar
+source: FeaturedAppRightImpl.daml
+version: 1.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

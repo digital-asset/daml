@@ -15,7 +15,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PAddress,
   P2PNetworkRef,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.mutex
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.{
+  abort,
+  mutex,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.stub.StreamObserver
@@ -393,32 +396,52 @@ final class P2PGrpcConnectionState(
         .collect {
           case (endpointId, nodeId) if nodeId == bftNodeId => endpointId
         }
-    bftNodeIdToNetworkRef
-      .get(bftNodeId)
-      .orElse(
-        p2pEndpointIds
-          .flatMap(p2pEndpointIdToNetworkRef.get)
-          .headOption
-      )
-      .foreach { case e @ P2PNetworkRefEntry(existingNetworkRef, isOutgoingConnection) =>
-        bftNodeIdToNetworkRef
-          .put(bftNodeId, e)
-          .foreach { case P2PNetworkRefEntry(previousNetworkRef, _) =>
-            closePreviousNetworkRefIfDuplicate(existingNetworkRef, previousNetworkRef, bftNodeId)
-          }
-        p2pEndpointIds.foreach { p2pEndpoint =>
-          p2pEndpointIdToNetworkRef
-            .put(p2pEndpoint, P2PNetworkRefEntry(existingNetworkRef, isOutgoingConnection))
-            .foreach { case P2PNetworkRefEntry(previousNetworkRef, _) =>
-              closePreviousNetworkRefIfDuplicate(
-                existingNetworkRef,
-                previousNetworkRef,
-                p2pEndpoint.toString,
+    val maybeExistingNetworkRefAssociatedToNodeIdOrElseEndpoint =
+      bftNodeIdToNetworkRef
+        .get(bftNodeId)
+        .map(_ -> true)
+        .orElse(
+          p2pEndpointIds.view
+            .flatMap(p2pEndpointIdToNetworkRef.get)
+            .map(_ -> false)
+            .headOption
+        )
+
+    maybeExistingNetworkRefAssociatedToNodeIdOrElseEndpoint
+      .foreach {
+        // Prioritize the network ref associated to the BFT node ID (potentially an incoming connection)
+
+        case (e, isAssociatedToNodeId) if isAssociatedToNodeId =>
+          updateEndpointsNetworkRef(p2pEndpointIds, e)
+
+        case (e, _) => // Associated to endpoint
+          bftNodeIdToNetworkRef
+            .put(bftNodeId, e)
+            .foreach(impossibleNetworkRefEntry =>
+              abort(
+                logger,
+                s"Unexpected existing network ref ${impossibleNetworkRefEntry.networkRef} associated to node ID $bftNodeId",
               )
-            }
-        }
+            )
+          updateEndpointsNetworkRef(p2pEndpointIds, e)
       }
   }
+
+  private def updateEndpointsNetworkRef(
+      p2pEndpointIds: Iterable[P2PEndpoint.Id],
+      existingNetworkRefEntry: P2PNetworkRefEntry,
+  )(implicit traceContext: TraceContext): Unit =
+    p2pEndpointIds.foreach { p2pEndpoint =>
+      p2pEndpointIdToNetworkRef
+        .put(p2pEndpoint, existingNetworkRefEntry)
+        .foreach { case P2PNetworkRefEntry(previousNetworkRefAssociatedToEndpoint, _) =>
+          closePreviousNetworkRefIfDuplicate(
+            toBeClosedIfDuplicate = previousNetworkRefAssociatedToEndpoint,
+            kept = existingNetworkRefEntry.networkRef,
+            p2pEndpoint.toString,
+          )
+        }
+    }
 
   private def cleanupNetworkRef(
       bftNodeId: BftNodeId,
@@ -461,19 +484,19 @@ final class P2PGrpcConnectionState(
       }
 
   private def closePreviousNetworkRefIfDuplicate(
-      networkRef: P2PNetworkRef[BftOrderingMessage],
-      previousNetworkRef: P2PNetworkRef[BftOrderingMessage],
+      toBeClosedIfDuplicate: P2PNetworkRef[BftOrderingMessage],
+      kept: P2PNetworkRef[BftOrderingMessage],
       connectionId: String,
   )(implicit traceContext: TraceContext): Unit =
-    if (previousNetworkRef != networkRef) {
+    if (toBeClosedIfDuplicate != kept) {
       logger.debug(
-        s"Replacing network ref for $connectionId from $previousNetworkRef to $networkRef " +
+        s"Replaced network ref $toBeClosedIfDuplicate (for $connectionId) with $kept " +
           "and closing the previous one"
       )
-      previousNetworkRef.close()
+      toBeClosedIfDuplicate.close()
     } else {
       logger.debug(
-        s"Keeping network ref $networkRef for $connectionId, no change"
+        s"Keeping network ref $toBeClosedIfDuplicate for $connectionId, no change"
       )
     }
 }

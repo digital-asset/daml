@@ -12,7 +12,6 @@ import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
-import com.digitalasset.canton.platform.store.dao.*
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.UseOriginalViewPackageId
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
@@ -38,210 +37,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   import JdbcLedgerDaoTransactionsSpec.*
-
-  // TODO(#23504) remove the test when the rpc methods are removed
-  behavior of "JdbcLedgerDao (lookupFlatTransactionById, lookupFlatTransactionByOffset)"
-
-  it should "return nothing for a mismatching transaction id" in {
-    for {
-      (_, tx) <- store(singleCreate)
-      result <- ledgerDao.updateReader
-        .lookupTransactionById(
-          updateId = "WRONG",
-          internalTransactionFormat = transactionFormatForWildcardParties(tx.actAs.toSet),
-        )
-    } yield {
-      result shouldBe None
-    }
-  }
-
-  it should "return nothing for a mismatching offset" in {
-    for {
-      (_, tx) <- store(singleCreate)
-      result <- ledgerDao.updateReader
-        .lookupTransactionByOffset(
-          offset = Offset.tryFromLong(12345678L),
-          internalTransactionFormat = transactionFormatForWildcardParties(tx.actAs.toSet),
-        )
-    } yield {
-      result shouldBe None
-    }
-  }
-
-  it should "return nothing for a mismatching party" in {
-    for {
-      (offset, tx) <- store(singleCreate)
-      resultById <- ledgerDao.updateReader
-        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(Set("WRONG")))
-      resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(Set("WRONG")))
-    } yield {
-      resultById shouldBe None
-      resultByOffset shouldBe resultById
-    }
-  }
-
-  it should "return the expected flat transaction for a correct request (create)" in {
-    for {
-      (offset, tx) <- store(singleCreate)
-      resultById <- ledgerDao.updateReader
-        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(tx.actAs.toSet))
-      resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(tx.actAs.toSet))
-    } yield {
-      inside(resultById.value.transaction) { case Some(transaction) =>
-        transaction.commandId shouldBe tx.commandId.value
-        transaction.offset shouldBe offset.unwrap
-        TimestampConversion.toLf(
-          transaction.effectiveAt.value,
-          TimestampConversion.ConversionMode.Exact,
-        ) shouldBe tx.ledgerEffectiveTime
-        transaction.updateId shouldBe tx.updateId
-        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-        inside(transaction.events.loneElement.event.created) { case Some(created) =>
-          inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
-            created.offset shouldBe offset.unwrap
-            created.nodeId shouldBe nodeId.index
-            created.witnessParties should contain only (tx.actAs*)
-            created.contractKey shouldBe None
-            created.createArguments shouldNot be(None)
-            created.signatories should contain theSameElementsAs createNode.signatories
-            created.observers should contain theSameElementsAs createNode.stakeholders.diff(
-              createNode.signatories
-            )
-            created.templateId shouldNot be(None)
-          }
-        }
-      }
-      resultByOffset shouldBe resultById
-    }
-  }
-
-  it should "return the expected flat transaction for a correct request (exercise)" in {
-    for {
-      (_, create) <- store(singleCreate)
-      (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
-      resultById <- ledgerDao.updateReader
-        .lookupTransactionById(
-          updateId = exercise.updateId,
-          internalTransactionFormat = transactionFormatForWildcardParties(exercise.actAs.toSet),
-        )
-      resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionByOffset(
-          offset = offset,
-          internalTransactionFormat = transactionFormatForWildcardParties(exercise.actAs.toSet),
-        )
-    } yield {
-      inside(resultById.value.transaction) { case Some(transaction) =>
-        transaction.commandId shouldBe exercise.commandId.value
-        transaction.offset shouldBe offset.unwrap
-        transaction.updateId shouldBe exercise.updateId
-        TimestampConversion.toLf(
-          transaction.effectiveAt.value,
-          TimestampConversion.ConversionMode.Exact,
-        ) shouldBe exercise.ledgerEffectiveTime
-        transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
-        inside(transaction.events.loneElement.event.archived) { case Some(archived) =>
-          inside(exercise.transaction.nodes.headOption) {
-            case Some((nodeId, exerciseNode: Node.Exercise)) =>
-              archived.offset shouldBe offset.unwrap
-              archived.nodeId shouldBe nodeId.index
-              archived.witnessParties should contain only (exercise.actAs*)
-              archived.contractId shouldBe exerciseNode.targetCoid.coid
-              archived.templateId shouldNot be(None)
-          }
-        }
-      }
-      resultByOffset shouldBe resultById
-    }
-  }
-
-  it should "show command IDs to the original submitters (lookupFlatTransactionById)" in {
-    val signatories = Set(alice, bob)
-    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
-    val actAs = List(alice, bob, david) // David is submitter but not signatory
-    for {
-      (_, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
-      // Response 1: querying as all submitters
-      result1 <- ledgerDao.updateReader
-        .lookupTransactionById(
-          updateId = tx.updateId,
-          internalTransactionFormat = transactionFormatForWildcardParties(Set(alice, bob, david)),
-        )
-      // Response 2: querying as a proper subset of all submitters
-      result2 <- ledgerDao.updateReader
-        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(Set(alice, david)))
-      // Response 3: querying as a proper superset of all submitters
-      result3 <- ledgerDao.updateReader
-        .lookupTransactionById(
-          updateId = tx.updateId,
-          internalTransactionFormat =
-            transactionFormatForWildcardParties(Set(alice, bob, charlie, david)),
-        )
-    } yield {
-      result1.value.transaction.value.commandId shouldBe tx.commandId.value
-      result2.value.transaction.value.commandId shouldBe tx.commandId.value
-      result3.value.transaction.value.commandId shouldBe tx.commandId.value
-    }
-  }
-
-  it should "show command IDs to the original submitters (lookupFlatTransactionByOffset)" in {
-    val signatories = Set(alice, bob)
-    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
-    val actAs = List(alice, bob, david) // David is submitter but not signatory
-    for {
-      (offset, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
-      // Response 1: querying as all submitters
-      result1 <- ledgerDao.updateReader
-        .lookupTransactionByOffset(
-          offset = offset,
-          internalTransactionFormat = transactionFormatForWildcardParties(Set(alice, bob, david)),
-        )
-      // Response 2: querying as a proper subset of all submitters
-      result2 <- ledgerDao.updateReader
-        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(Set(alice, david)))
-      // Response 3: querying as a proper superset of all submitters
-      result3 <- ledgerDao.updateReader
-        .lookupTransactionByOffset(
-          offset = offset,
-          internalTransactionFormat =
-            transactionFormatForWildcardParties(Set(alice, bob, charlie, david)),
-        )
-    } yield {
-      result1.value.transaction.value.commandId shouldBe tx.commandId.value
-      result2.value.transaction.value.commandId shouldBe tx.commandId.value
-      result3.value.transaction.value.commandId shouldBe tx.commandId.value
-    }
-  }
-
-  it should "hide command IDs from non-submitters" in {
-    val signatories = Set(alice, bob)
-    val stakeholders = Set(alice, bob, charlie) // Charlie is only stakeholder
-    val actAs = List(alice, bob, david) // David is submitter but not signatory
-    for {
-      (offset, tx) <- store(singleCreate(createNode(_, signatories, stakeholders), actAs))
-      resultById <- ledgerDao.updateReader
-        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(Set(charlie)))
-      resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(Set(charlie)))
-    } yield {
-      resultById.value.transaction.value.commandId shouldBe ""
-      resultByOffset shouldBe resultById
-    }
-  }
-
-  it should "hide transactions with transient contracts" in {
-    for {
-      (offset, tx) <- store(fullyTransient(), contractActivenessChanged = false)
-      resultById <- ledgerDao.updateReader
-        .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(tx.actAs.toSet))
-      resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(tx.actAs.toSet))
-    } yield {
-      resultById shouldBe empty
-      resultByOffset shouldBe empty
-    }
-  }
 
   behavior of "JdbcLedgerDao (lookupUpdateById, lookupUpdateByOffset)"
 
@@ -1046,10 +841,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       .sequence(
         transactions.map(tx =>
           ledgerDao.updateReader
-            .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(as))
+            .lookupUpdateBy(LookupKey.UpdateId(tx.updateId), updateFormatForWildcardParties(as))
         )
       )
-      .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
+      .map(_.flatMap(_.toList.flatMap(_.update.transaction.toList)))
 
   private def transactionsOf(
       source: Source[(Offset, GetUpdatesResponse), NotUsed]

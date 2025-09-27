@@ -196,7 +196,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         import env.*
 
         arrangeCurrentlyVetted(List(pkgId1))
-        expectNewVettingState(List(pkgId1, pkgId2))
+        expectNewVettingState(List(pkgId1, pkgId2), allowUnvetting = false)
         packageOps
           .vetPackages(Seq(pkgId1, pkgId2), PackageVettingSynchronization.NoSync)
           .value
@@ -239,13 +239,14 @@ class PackageOpsTest extends PackageOpsTestBase {
         import env.*
 
         arrangeCurrentlyVetted(List(pkgId1, pkgId2, pkgId3))
-        expectNewVettingState(List(pkgId3))
+        expectNewVettingState(List(pkgId3), allowUnvetting = true)
         val str = String255.tryCreate("DAR descriptor")
         packageOps
           .revokeVettingForPackages(
             pkgId1,
             List(pkgId1, pkgId2),
             DarDescription(mainPackageId, str, str, str),
+            ForceFlags(ForceFlag.AllowUnvetPackage),
           )
           .value
           .unwrap
@@ -265,6 +266,7 @@ class PackageOpsTest extends PackageOpsTestBase {
             pkgId3,
             List(pkgId3),
             DarDescription(mainPackageId, str, str, str),
+            ForceFlags(ForceFlag.AllowUnvetPackage),
           )
           .value
           .unwrap
@@ -317,7 +319,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         )(anyTraceContext)
       ).thenReturn(FutureUnlessShutdown.pure(packagesVettedStoredTx(currentlyVettedPackages)))
 
-    def expectNewVettingState(newVettedPackagesState: List[LfPackageId]) =
+    def expectNewVettingState(newVettedPackagesState: List[LfPackageId], allowUnvetting: Boolean) =
       when(
         topologyManager.proposeAndAuthorize(
           eqTo(TopologyChangeOp.Replace),
@@ -331,7 +333,8 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(Seq.empty),
           eqTo(testedProtocolVersion),
           eqTo(true),
-          eqTo(ForceFlags(ForceFlag.AllowUnvetPackage)),
+          if (allowUnvetting) eqTo(ForceFlags(ForceFlag.AllowUnvetPackage))
+          else eqTo(ForceFlags.none),
           any[Option[NonNegativeFiniteDuration]],
         )(anyTraceContext)
       ).thenReturn(

@@ -32,7 +32,6 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsStateService(
@@ -146,8 +145,6 @@ class JsStateService(
           .asGrpcError
       case (Some(_), None, false) =>
         state_service.GetActiveContractsRequest(
-          filter = None,
-          verbose = false,
           activeAtOffset = req.activeAtOffset,
           eventFormat = req.eventFormat,
         )
@@ -159,8 +156,6 @@ class JsStateService(
           .asGrpcError
       case (None, Some(filter), verbose) =>
         state_service.GetActiveContractsRequest(
-          filter = None,
-          verbose = false,
           activeAtOffset = req.activeAtOffset,
           eventFormat = Some(
             EventFormat(
@@ -264,8 +259,6 @@ final case class JsGetActiveContractsResponse(
     contractEntry: JsContractEntry,
 )
 
-// TODO(#23504) remove deprecation suppression
-@nowarn("cat=deprecation")
 object JsStateServiceCodecs {
 
   import JsSchema.*

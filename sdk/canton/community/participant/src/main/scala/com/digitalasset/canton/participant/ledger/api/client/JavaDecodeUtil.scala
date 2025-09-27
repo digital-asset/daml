@@ -19,6 +19,7 @@ import com.daml.ledger.javaapi.data.{
 }
 import com.digitalasset.daml.lf.data.Ref
 
+import java.util.Optional
 import scala.jdk.CollectionConverters.*
 
 /** Java event decoders
@@ -140,10 +141,10 @@ object JavaDecodeUtil {
       )
     else
       new DisclosedContract(
-        create.getTemplateId,
-        create.getContractId,
         createdEventBlob,
         synchronizerId,
+        Optional.of(create.getTemplateId),
+        Optional.of(create.getContractId),
       )
   }
 

@@ -8,7 +8,6 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
   SubmitAndWaitResponse,
 }
@@ -31,11 +30,8 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
-// TODO(#23504) remove TransactionTree related methods when TransactionTree is removed from the API
-@nowarn("cat=deprecation")
 class ApiCommandServiceSpec
     extends AsyncWordSpec
     with MockitoSugar
@@ -69,9 +65,6 @@ class ApiCommandServiceSpec
         _ <- grpcCommandService.submitAndWait(aSubmitAndWaitRequestWithNoSubmissionId)
         _ <- grpcCommandService.submitAndWaitForTransaction(
           aSubmitAndWaitForTransactionRequestWithNoSubmissionId
-        )
-        _ <- grpcCommandService.submitAndWaitForTransactionTree(
-          aSubmitAndWaitRequestWithNoSubmissionId
         )
         _ <- grpcCommandService.submitAndWaitForReassignment(
           aSubmitAndWaitForReassignmentRequestWithNoSubmissionId
@@ -109,17 +102,13 @@ class ApiCommandServiceSpec
         )
         requestCaptorSubmitAndWaitForTransaction.value shouldBe
           expectedSubmitAndWaitForTransactionRequest("2")
-        verify(mockCommandService).submitAndWaitForTransactionTree(
-          requestCaptorSubmitAndWait.capture
-        )(any[LoggingContextWithTrace])
-        requestCaptorSubmitAndWait.value shouldBe expectedSubmitAndWaitRequest("3")
         verify(mockCommandService).submitAndWaitForReassignment(
           requestCaptorSubmitAndWaitForReassignment.capture
         )(
           any[LoggingContextWithTrace]
         )
         requestCaptorSubmitAndWaitForReassignment.value shouldBe
-          expectedSubmitAndWaitForReassignmentRequest("4")
+          expectedSubmitAndWaitForReassignmentRequest("3")
         succeed
       }
     }
@@ -151,7 +140,6 @@ class ApiCommandServiceSpec
         _ <- grpcCommandService.submitAndWaitForTransaction(
           submissionWithDisclosedContractsForTransaction
         )
-        _ <- grpcCommandService.submitAndWaitForTransactionTree(submissionWithDisclosedContracts)
       } yield {
         succeed
       }
@@ -160,8 +148,6 @@ class ApiCommandServiceSpec
   }
 }
 
-// TODO(#23504) remove TransactionTree related methods when TransactionTree is removed from the API
-@nowarn("cat=deprecation")
 object ApiCommandServiceSpec {
   private val aCommand = Command.of(
     Command.Command.Create(
@@ -215,12 +201,6 @@ object ApiCommandServiceSpec {
       )
     )
       .thenReturn(Future.successful(SubmitAndWaitForReassignmentResponse.defaultInstance))
-    when(
-      mockCommandService.submitAndWaitForTransactionTree(any[SubmitAndWaitRequest])(
-        any[LoggingContextWithTrace]
-      )
-    )
-      .thenReturn(Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance))
     mockCommandService
   }
 

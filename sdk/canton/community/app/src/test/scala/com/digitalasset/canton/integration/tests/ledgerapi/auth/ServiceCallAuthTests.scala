@@ -11,7 +11,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   ParticipantAuthorizationTopologyFormat,
   TopologyFormat,
-  TransactionFilter,
   TransactionFormat,
   UpdateFormat,
 }
@@ -20,7 +19,6 @@ import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import io.grpc.Status
 import org.scalatest.Assertion
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -65,11 +63,6 @@ trait ServiceCallAuthTests
       case NonFatal(e) =>
         fail(e)
     }.futureValue
-
-  // TODO(#23504) use UpdateFormat instead of TransactionFilter
-  @nowarn("cat=deprecation")
-  protected def txFilterFor(party: String): Option[TransactionFilter] =
-    Some(TransactionFilter(Map(party -> Filters(Nil)), None))
 
   protected def eventFormat(party: String): EventFormat =
     EventFormat(

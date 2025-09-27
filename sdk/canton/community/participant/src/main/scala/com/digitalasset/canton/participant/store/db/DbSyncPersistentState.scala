@@ -12,7 +12,6 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{
@@ -119,10 +118,9 @@ class DbPhysicalSyncPersistentState(
     storage: DbStorage,
     crypto: SynchronizerCrypto,
     parameters: ParticipantNodeParameters,
-    packageDependencyResolver: PackageDependencyResolver,
+    packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
-    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val futureSupervisor: FutureSupervisor,
 )(implicit ec: ExecutionContext)
@@ -203,8 +201,7 @@ class DbPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value),
-        packageDependencyResolver,
+        packageMetadataView,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,

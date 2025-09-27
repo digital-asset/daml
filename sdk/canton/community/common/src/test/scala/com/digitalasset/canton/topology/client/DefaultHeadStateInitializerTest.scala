@@ -36,7 +36,11 @@ class DefaultHeadStateInitializerTest
         )
 
       initializer
-        .initialize(topologyClientMock, synchronizerPredecessor = None)
+        .initialize(
+          topologyClientMock,
+          synchronizerPredecessor = None,
+          defaultStaticSynchronizerParameters,
+        )
         .map { _ =>
           verify(topologyClientMock).updateHead(
             SequencedTime(maxSequencedTimestamp),
@@ -56,7 +60,11 @@ class DefaultHeadStateInitializerTest
       val initializer = new DefaultHeadStateInitializer(topologyStoreMock)
 
       initializer
-        .initialize(topologyClientMock, synchronizerPredecessor = None)
+        .initialize(
+          topologyClientMock,
+          synchronizerPredecessor = None,
+          defaultStaticSynchronizerParameters,
+        )
         .map { _ =>
           verify(topologyClientMock, never).updateHead(
             any[SequencedTime],

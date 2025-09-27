@@ -514,7 +514,6 @@ class SequencerNodeBootstrap(
                 val topologySnapshotValidator = new InitialTopologySnapshotValidator(
                   crypto.pureCrypto,
                   synchronizerTopologyStore,
-                  parameters.processingTimeouts,
                   loggerFactory,
                 )
                 for {
@@ -599,6 +598,7 @@ class SequencerNodeBootstrap(
                 crypto.pureCrypto,
                 parameters,
                 clock,
+                crypto.staticSynchronizerParameters,
                 futureSupervisor,
                 synchronizerLoggerFactory,
               )(topologyHeadInitializer)

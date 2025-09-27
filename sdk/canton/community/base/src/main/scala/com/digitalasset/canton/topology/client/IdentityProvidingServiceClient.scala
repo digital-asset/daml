@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.client
 
 import cats.data.EitherT
+import cats.implicits.toFoldableOps
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -25,6 +26,7 @@ import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
   DynamicSynchronizerParameters,
   DynamicSynchronizerParametersWithValidity,
+  StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -38,6 +40,7 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionProcessingSubscriber,
 }
+import com.digitalasset.canton.topology.store.UnknownOrUnvettedPackages
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
@@ -99,6 +102,8 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   /** The synchronizer this client applies to */
   def psid: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
+
+  def staticSynchronizerParameters: StaticSynchronizerParameters
 
   def protocolVersion: ProtocolVersion = psid.protocolVersion
 
@@ -582,7 +587,7 @@ trait VettedPackagesSnapshotClient {
       participantId: ParticipantId,
       packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages]
 
   /** Checks the vetting state for the given packages and returns the packages that have no entry in
     * the participant's VettedPackages topology transactions. Note: this does not check the vetted
@@ -629,8 +634,7 @@ trait SynchronizerGovernanceSnapshotClient {
           // we must use zero as default change delay parameter, as otherwise static time tests will not work
           // however, once the synchronizer has published the initial set of synchronizer parameters, the zero time will be
           // adjusted.
-          topologyChangeDelay = DynamicSynchronizerParameters.topologyChangeDelayIfAbsent,
-          protocolVersion = protocolVersion,
+          protocolVersion = protocolVersion
         )
     }
 
@@ -1078,18 +1082,18 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with Vet
       packageId: PackageId,
       ledgerTime: CantonTimestamp,
       vettedPackagesLoader: VettedPackagesLoader,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages]
 
   override final def findUnvettedPackagesOrDependencies(
       participantId: ParticipantId,
       packages: Set[PackageId],
       ledgerTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[UnknownOrUnvettedPackages] =
     packages.toList
       .parTraverse(packageId =>
         loadUnvettedPackagesOrDependenciesUsingLoader(participantId, packageId, ledgerTime, this)
       )
-      .map(_.flatten.toSet)
+      .map(_.combineAll)
 
   override final def determinePackagesWithNoVettingEntry(
       participantId: ParticipantId,

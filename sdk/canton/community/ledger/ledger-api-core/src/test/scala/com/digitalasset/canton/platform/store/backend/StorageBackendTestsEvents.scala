@@ -9,6 +9,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawTreeEvent,
   SynchronizerOffset,
 }
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
@@ -62,36 +63,48 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultObserver1 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyObserver1),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultObserver2 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyObserver2),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultSuperReader = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = None,
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
 
@@ -134,36 +147,48 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = Some(someTemplateId),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultObserver1 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyObserver1),
         templateIdO = Some(someTemplateId),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultObserver2 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyObserver2),
         templateIdO = Some(someTemplateId),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultSuperReader = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = None,
         templateIdO = Some(someTemplateId),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
 
@@ -207,36 +232,48 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = Some(otherTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultObserver1 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyObserver1),
         templateIdO = Some(otherTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultObserver2 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyObserver2),
         templateIdO = Some(otherTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultSuperReader = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = None,
         templateIdO = Some(otherTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
 
@@ -271,36 +308,48 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyUnknown),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultUnknownTemplate = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = Some(unknownTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultUnknownPartyAndTemplate = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partyUnknown),
         templateIdO = Some(unknownTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
     val resultUnknownTemplateSuperReader = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = None,
         templateIdO = Some(unknownTemplate),
-        startExclusive = 0L,
-        endInclusive = 10L,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 10L,
+          limit = 10,
+        )
       )
     )
 
@@ -343,36 +392,48 @@ private[backend] trait StorageBackendTestsEvents
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 1L,
-        limit = 2,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 1L,
+          limit = 2,
+        )
       )
     )
     val result12L2 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = None,
-        startExclusive = 1L,
-        endInclusive = 2L,
-        limit = 2,
+      )(_)(
+        PaginationInput(
+          startExclusive = 1L,
+          endInclusive = 2L,
+          limit = 2,
+        )
       )
     )
     val result02L1 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 2L,
-        limit = 1,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 2L,
+          limit = 1,
+        )
       )
     )
     val result02L2 = executeSql(
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(partySignatory),
         templateIdO = None,
-        startExclusive = 0L,
-        endInclusive = 2L,
-        limit = 2,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 2L,
+          limit = 2,
+        )
       )
     )
 
@@ -534,13 +595,13 @@ private[backend] trait StorageBackendTestsEvents
     val dbDtos = Vector(
       dtoCompletion(
         offset = offset(1),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(500),
         publicationTime = startPublicationTime.addMicros(500),
       ),
       dtoTransactionMeta(
         offset = offset(3),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         recordTime = startRecordTimeSynchronizer2.addMicros(500),
         publicationTime = startPublicationTime.addMicros(500),
         event_sequential_id_first = 1,
@@ -548,7 +609,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(5),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(1000),
         publicationTime = startPublicationTime.addMicros(1000),
         event_sequential_id_first = 1,
@@ -556,19 +617,19 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoCompletion(
         offset = offset(7),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         recordTime = startRecordTimeSynchronizer2.addMicros(1000),
         publicationTime = startPublicationTime.addMicros(1000),
       ),
       dtoCompletion(
         offset = offset(9),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(2000),
         publicationTime = startPublicationTime.addMicros(1000),
       ),
       dtoTransactionMeta(
         offset = offset(11),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         recordTime = startRecordTimeSynchronizer2.addMicros(2000),
         publicationTime = startPublicationTime.addMicros(1000),
         event_sequential_id_first = 1,
@@ -576,13 +637,13 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoCompletion(
         offset = offset(13),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(3000),
         publicationTime = startPublicationTime.addMicros(2000),
       ),
       dtoTransactionMeta(
         offset = offset(15),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         recordTime = startRecordTimeSynchronizer2.addMicros(3000),
         publicationTime = startPublicationTime.addMicros(2000),
         event_sequential_id_first = 1,
@@ -1126,7 +1187,7 @@ private[backend] trait StorageBackendTestsEvents
     val dbDtos = Vector(
       dtoTransactionMeta(
         offset = offset(3),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(500),
         publicationTime = startPublicationTime.addMicros(500),
         event_sequential_id_first = 1,
@@ -1134,7 +1195,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(7),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(550),
         publicationTime = startPublicationTime.addMicros(700),
         event_sequential_id_first = 1,
@@ -1142,7 +1203,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(9),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(550),
         publicationTime = startPublicationTime.addMicros(800),
         event_sequential_id_first = 1,
@@ -1151,7 +1212,7 @@ private[backend] trait StorageBackendTestsEvents
       // insertion is out of order for this entry, for testing result is not reliant on insertion order, but rather on index order (regression for bug #26434)
       dtoTransactionMeta(
         offset = offset(5),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(550),
         publicationTime = startPublicationTime.addMicros(600),
         event_sequential_id_first = 1,
@@ -1159,7 +1220,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(11),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(600),
         publicationTime = startPublicationTime.addMicros(900),
         event_sequential_id_first = 1,
@@ -1193,32 +1254,32 @@ private[backend] trait StorageBackendTestsEvents
     val dbDtos = Vector(
       dtoCompletion(
         offset = offset(3),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(500),
         publicationTime = startPublicationTime.addMicros(500),
       ),
       dtoCompletion(
         offset = offset(7),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(550),
         publicationTime = startPublicationTime.addMicros(700),
       ),
       dtoCompletion(
         offset = offset(9),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(550),
         publicationTime = startPublicationTime.addMicros(800),
       ),
       // insertion is out of order for this entry, for testing result is not reliant on insertion order, but rather on index order (regression for bug #26434)
       dtoCompletion(
         offset = offset(5),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(550),
         publicationTime = startPublicationTime.addMicros(600),
       ),
       dtoCompletion(
         offset = offset(11),
-        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        synchronizerId = someSynchronizerId,
         recordTime = startRecordTimeSynchronizer.addMicros(600),
         publicationTime = startPublicationTime.addMicros(900),
       ),
@@ -1260,7 +1321,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(5),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         event_sequential_id_first = 10,
         event_sequential_id_last = 20,
       ),
@@ -1278,7 +1339,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(15),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         event_sequential_id_first = 110,
         event_sequential_id_last = 120,
       ),
@@ -1302,7 +1363,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(25),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         event_sequential_id_first = 210,
         event_sequential_id_last = 220,
       ),
@@ -1314,7 +1375,7 @@ private[backend] trait StorageBackendTestsEvents
       ),
       dtoTransactionMeta(
         offset = offset(35),
-        synchronizerId = someSynchronizerId2.toProtoPrimitive,
+        synchronizerId = someSynchronizerId2,
         event_sequential_id_first = 310,
         event_sequential_id_last = 320,
       ),

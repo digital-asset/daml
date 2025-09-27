@@ -106,8 +106,6 @@ class PartyOps(
                 ParticipantTopologyManagerError.IdentityManagerParentError(
                   InvalidTopologyMapping.Reject(err)
                 ),
-              // leaving serial to None, because in case of a REMOVE we let the serial
-              // auto detection mechanism figure out the correct next serial
               ptp => (Some(existingPtpTx.serial.increment), ptp),
             )
 
@@ -134,6 +132,47 @@ class PartyOps(
             synchronizerId.protocolVersion,
             expectFullAuthorization = true,
             waitToBecomeEffective = None,
+          )
+          .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
+    } yield ()
+
+  def allocateExternalParty(
+      participantId: ParticipantId,
+      externalPartyOnboardingDetails: ExternalPartyOnboardingDetails,
+      synchronizerId: PhysicalSynchronizerId,
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
+    for {
+      topologyManager <- EitherT.fromOption[FutureUnlessShutdown](
+        topologyManagerLookup(synchronizerId),
+        ParticipantTopologyManagerError.IdentityManagerParentError(
+          TopologyManagerError.TopologyStoreUnknown.Failure(SynchronizerStore(synchronizerId))
+        ),
+      )
+      // Sign the party to participant tx with this participant
+      // Validation that this participant is a hosting should already be done in ExternalPartyOnboardingDetails
+      // If somehow that's not done, authorization will fail in the topology manager
+      partyToParticipantSigned <- topologyManager
+        .extendSignature(
+          externalPartyOnboardingDetails.signedPartyToParticipantTransaction,
+          Seq(participantId.fingerprint),
+          ForceFlags.none,
+        )
+        .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
+      // Add all 3 transactions at once
+      _ <-
+        topologyManager
+          .add(
+            Seq(
+              externalPartyOnboardingDetails.signedNamespaceTransaction.signedTransaction,
+              externalPartyOnboardingDetails.signedPartyToKeyMappingTransaction,
+              partyToParticipantSigned,
+            ),
+            ForceFlags.none,
+            // Should be fully authorized only if the party is not multi hosted
+            expectFullAuthorization = !externalPartyOnboardingDetails.isMultiHosted,
           )
           .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
     } yield ()

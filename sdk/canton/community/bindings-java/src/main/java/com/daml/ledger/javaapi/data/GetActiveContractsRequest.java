@@ -14,16 +14,6 @@ public final class GetActiveContractsRequest {
 
   @NonNull private final Long activeAtOffset;
 
-  // TODO(#23504) remove
-  @Deprecated
-  public GetActiveContractsRequest(
-      @NonNull TransactionFilter transactionFilter, boolean verbose, @NonNull Long activeAtOffset) {
-    this.eventFormat =
-        new EventFormat(
-            transactionFilter.getPartyToFilters(), transactionFilter.getAnyPartyFilter(), verbose);
-    this.activeAtOffset = activeAtOffset;
-  }
-
   public GetActiveContractsRequest(@NonNull EventFormat eventFormat, @NonNull Long activeAtOffset) {
     this.eventFormat = eventFormat;
     this.activeAtOffset = activeAtOffset;
@@ -32,18 +22,10 @@ public final class GetActiveContractsRequest {
   public static GetActiveContractsRequest fromProto(
       StateServiceOuterClass.GetActiveContractsRequest request) {
     if (request.hasEventFormat()) {
-      if (request.hasFilter() || request.getVerbose())
-        throw new IllegalArgumentException(
-            "Request has both eventFormat and filter/verbose defined.");
       return new GetActiveContractsRequest(
           EventFormat.fromProto(request.getEventFormat()), request.getActiveAtOffset());
     } else {
-      if (!request.hasFilter())
-        throw new IllegalArgumentException("Request has neither eventFormat nor filter defined.");
-      return new GetActiveContractsRequest(
-          TransactionFilter.fromProto(request.getFilter()),
-          request.getVerbose(),
-          request.getActiveAtOffset());
+      throw new IllegalArgumentException("Request has no eventFormat defined.");
     }
   }
 
@@ -52,17 +34,6 @@ public final class GetActiveContractsRequest {
         .setEventFormat(this.eventFormat.toProto())
         .setActiveAtOffset(this.activeAtOffset)
         .build();
-  }
-
-  // TODO(i23504) remove
-  @NonNull
-  public TransactionFilter getTransactionFilter() {
-    return new TransactionFilter(eventFormat.getPartyToFilters(), eventFormat.getAnyPartyFilter());
-  }
-
-  // TODO(i23504) remove
-  public boolean isVerbose() {
-    return eventFormat.getVerbose();
   }
 
   @NonNull

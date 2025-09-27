@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{byteArray, int}
+import anorm.SqlParser.{byteArray, int, long}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
@@ -18,6 +18,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
   KeyState,
@@ -25,12 +26,14 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{ContractId, Key}
+import com.digitalasset.canton.topology.SynchronizerId
 
 import java.sql.Connection
 
 class ContractStorageBackendTemplate(
     queryStrategy: QueryStrategy,
     stringInterning: StringInterning,
+    ledgerEndCache: LedgerEndCache,
 ) extends ContractStorageBackend {
 
   override def supportsBatchKeyStateLookups: Boolean = false
@@ -188,4 +191,38 @@ class ContractStorageBackendTemplate(
         .as(rawCreatedContractRowParser.*)(connection)
         .toMap
     }
+
+  override def lastActivations(
+      synchronizerContracts: Iterable[(SynchronizerId, ContractId)]
+  )(
+      connection: Connection
+  ): Map[(SynchronizerId, ContractId), Long] = ledgerEndCache()
+    .map { ledgerEnd =>
+      synchronizerContracts.iterator.flatMap { case (synchronizerId, contractId) =>
+        val internedSynchronizerId = stringInterning.synchronizerId.internalize(synchronizerId)
+        val createEventSeqId = SQL"""
+            SELECT event_sequential_id
+            FROM lapi_events_create
+            WHERE
+              contract_id = ${contractId.toBytes.toByteArray} AND
+              synchronizer_id = $internedSynchronizerId AND
+              event_sequential_id <= ${ledgerEnd.lastEventSeqId}
+              -- not checking here the fact of activation (flat_event_witnesses) because it is invalid to have non-divulged deactivation for non-divulged create. Transients won't be searched for in the first place.
+            LIMIT 1"""
+          .as(long("event_sequential_id").singleOpt)(connection)
+        val assignEventSeqId = SQL"""
+            SELECT event_sequential_id
+            FROM lapi_events_assign
+            WHERE
+              contract_id = ${contractId.toBytes.toByteArray} AND
+              target_synchronizer_id = $internedSynchronizerId AND
+              event_sequential_id <= ${ledgerEnd.lastEventSeqId}
+            ORDER BY event_sequential_id DESC
+            LIMIT 1"""
+          .as(long("event_sequential_id").singleOpt)(connection)
+        List(createEventSeqId, assignEventSeqId).flatten.maxOption
+          .map((synchronizerId, contractId) -> _)
+      }.toMap
+    }
+    .getOrElse(Map.empty)
 }

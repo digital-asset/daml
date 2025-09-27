@@ -32,7 +32,6 @@ import sttp.tapir.{DecodeResult, Schema, SchemaType, Validator}
 
 import java.time.Instant
 import java.util.Base64
-import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -155,10 +154,6 @@ object JsSchema {
       deriveRelaxedCodec
 
     implicit val filtersRW: Codec[transaction_filter.Filters] = deriveRelaxedCodec
-    // TODO(#23504) remove
-    @nowarn("cat=deprecation")
-    implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] =
-      deriveRelaxedCodec
     implicit val transactionFilterLegacyRW: Codec[LegacyDTOs.TransactionFilter] =
       deriveRelaxedCodec
     implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveRelaxedCodec
@@ -403,6 +398,12 @@ object JsSchema {
         }
       }
 
+    implicit val emptyCodec: Codec[com.google.protobuf.empty.Empty] =
+      Codec.from(
+        Decoder.decodeUnit.map(_ => com.google.protobuf.empty.Empty()),
+        Encoder.encodeUnit.contramap[com.google.protobuf.empty.Empty](_ => ()),
+      )
+
     implicit val encodeIdentifier: Encoder[com.daml.ledger.api.v2.value.Identifier] =
       Encoder.encodeString.contramap { identifier =>
         IdentifierConverter.toJson(identifier)
@@ -474,6 +475,12 @@ object JsSchema {
     implicit val timestampSchema: Schema[protobuf.timestamp.Timestamp] = Schema.string
 
     implicit val structSchema: Schema[protobuf.struct.Struct] = Schema.any
+
+    implicit val emptySchema: Schema[com.google.protobuf.empty.Empty] =
+      Schema(
+        schemaType = SchemaType.SProduct[com.google.protobuf.empty.Empty](List.empty),
+        name = Some(Schema.SName("Empty")),
+      )
 
     implicit val anySchema: Schema[com.google.protobuf.any.Any] =
       Schema.derived.name(Some(SName("ProtoAny")))

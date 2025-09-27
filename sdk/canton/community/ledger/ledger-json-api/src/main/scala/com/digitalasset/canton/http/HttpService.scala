@@ -137,7 +137,7 @@ class HttpService(
 
           binding <- liftET[HttpService.Error] {
             val serverBuilder = Http()
-              .newServerAt(server.address, server.port.getOrElse(0))
+              .newServerAt(server.address, server.port.unwrap)
               .withSettings(settings)
 
             httpsConfiguration

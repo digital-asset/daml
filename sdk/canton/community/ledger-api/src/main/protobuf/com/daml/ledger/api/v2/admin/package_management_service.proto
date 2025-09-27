@@ -141,8 +141,14 @@ message VettedPackagesChange {
     // words, every reference must match exactly one package.
     repeated VettedPackagesRef packages = 1;
 
-    // Vet the packages with these bounds, prior bounds are overwritten
+    // The time from which these packages should be vetted, prior lower bounds
+    // are overwritten.
+    // Optional
     google.protobuf.Timestamp new_valid_from_inclusive = 2;
+
+    // The time until which these packages should be vetted, prior upper bounds
+    // are overwritten.
+    // Optional
     google.protobuf.Timestamp new_valid_until_exclusive = 3;
   }
 
@@ -158,20 +164,24 @@ message VettedPackagesChange {
 //
 // A reference matches a package if its ``package_id`` matches the package's ID,
 // its ``package_name`` matches the package's name, and its ``package_version``
-// matches the package's version. If any attribute is left unspecified in the
-// reference, it is treated as a wildcard. At a minimum, ``package_id`` or the
-// ``package_name`` must be specified.
+// matches the package's version. If an attribute in the reference is left
+// unspecified (i.e. as an empty string), that attribute is treated as a
+// wildcard. At a minimum, ``package_id`` or the ``package_name`` must be
+// specified.
 //
 // If a reference does not match any package, the reference is considered
 // unresolved and the entire update request is rejected.
 message VettedPackagesRef {
   // Package's package id must be the same as this field.
+  // Optional
   string package_id = 1;
 
   // Package's name must be the same as this field.
+  // Optional
   string package_name = 2;
 
   // Package's version must be the same as this field.
+  // Optional
   string package_version = 3;
 }
 
@@ -195,11 +205,14 @@ message UpdateVettedPackagesRequest {
   // The serial of the last ``VettedPackages`` topology transaction of this
   // participant and on this synchronizer.
   //
-  // Execution of the request fails if this is not correct. If the serial is
-  // left unspecified, the request always succeeds.
+  // Execution of the request fails if this is not correct. Use this to guard
+  // against concurrent changes.
   //
-  // Use this to guard against concurrent changes.
-  uint32 expected_topology_serial = 4;
+  // If left unspecified, no validation is done against the last transaction's
+  // serial.
+  //
+  // Optional
+  PriorTopologySerial expected_topology_serial = 4;
 }
 
 message UpdateVettedPackagesResponse {

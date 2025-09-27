@@ -97,7 +97,7 @@ class UseLedgerApiTestTool(
         version match {
           case LAPITTVersion.LocalJar =>
             // Requires running `sbt ledger-test-tool-<lfVersion>/assembly` first.
-            s"file://${System.getProperty("user.dir")}/enterprise/ledger-test-tool/tool/lf-v${lfVersion.testToolSuffix.tail}/target/scala-2.13/$testToolName-$testToolVersion.jar"
+            s"file://${System.getProperty("user.dir")}/community/ledger-test-tool/tool/lf-v${lfVersion.testToolSuffix.tail}/target/scala-2.13/$testToolName-$testToolVersion.jar"
           case _ =>
             val relativeUrl =
               s"com/digitalasset/canton/ledger-api-test-tool_2.13/$testToolVersion/${testToolName}_2.13-$testToolVersion.jar"

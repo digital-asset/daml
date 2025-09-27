@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -47,6 +48,25 @@ private[backend] trait StorageBackendTestsContracts
     val archivedContracts = executeSql(
       backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
+    val activeCreateIds = executeSql(
+      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+        stakeholderO = Some(signatory),
+        templateIdO = None,
+        activeAtEventSeqId = 1000,
+      )(_)(
+        PaginatingAsyncStream.IdFilterInput(
+          startExclusive = 0L,
+          endInclusive = 1000L,
+        )
+      )
+    )
+    val lastActivations = executeSql(
+      backend.contract.lastActivations(
+        List(
+          someSynchronizerId -> contractId
+        )
+      )
+    )
 
     createdContracts.contains(contractId) shouldBe true
     createdContracts.get(contractId).foreach { c =>
@@ -55,6 +75,10 @@ private[backend] trait StorageBackendTestsContracts
       c.flatEventWitnesses shouldBe Set(signatory, observer)
     }
     archivedContracts shouldBe empty
+    activeCreateIds shouldBe Vector(1L)
+    lastActivations shouldBe Map(
+      (someSynchronizerId, contractId) -> 1L
+    )
   }
 
   it should "not find an active contract with empty flat event witnesses" in {
@@ -90,9 +114,34 @@ private[backend] trait StorageBackendTestsContracts
     val archivedContracts = executeSql(
       backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
+    val activeCreateIds = executeSql(
+      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+        stakeholderO = Some(signatory),
+        templateIdO = None,
+        activeAtEventSeqId = 1000,
+      )(_)(
+        PaginatingAsyncStream.IdFilterInput(
+          startExclusive = 0L,
+          endInclusive = 1000L,
+        )
+      )
+    )
+    val lastActivations = executeSql(
+      backend.contract.lastActivations(
+        List(
+          someSynchronizerId -> contractId
+        )
+      )
+    )
 
     createdContracts shouldBe empty
     archivedContracts shouldBe empty
+    activeCreateIds shouldBe Vector.empty
+    // Last activation for divulged contracts can be looked up with this query, but we ensure in code that we won't do this:
+    // only divulged deactivation can have a divulged activation pair.
+    lastActivations shouldBe Map(
+      (someSynchronizerId, contractId) -> 1L
+    )
   }
 
   it should "correctly find a contract from assigned table" in {
@@ -165,7 +214,7 @@ private[backend] trait StorageBackendTestsContracts
       ),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, consuming = true, contractId),
+      dtoExercise(offset(2), 2L, consuming = true, contractId, deactivatedEventSeqId = Some(1L)),
       dtoCompletion(offset(2)),
     )
 
@@ -186,6 +235,25 @@ private[backend] trait StorageBackendTestsContracts
     val archivedContracts2 = executeSql(
       backend.contract.archivedContracts(contractId :: Nil, offset(2))
     )
+    val activeCreateIds = executeSql(
+      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+        stakeholderO = Some(signatory),
+        templateIdO = None,
+        activeAtEventSeqId = 1000,
+      )(_)(
+        PaginatingAsyncStream.IdFilterInput(
+          startExclusive = 0L,
+          endInclusive = 1000L,
+        )
+      )
+    )
+    val lastActivations = executeSql(
+      backend.contract.lastActivations(
+        List(
+          someSynchronizerId -> contractId
+        )
+      )
+    )
 
     createdContracts1.contains(contractId) shouldBe true
     createdContracts1.get(contractId).foreach { c =>
@@ -204,7 +272,12 @@ private[backend] trait StorageBackendTestsContracts
     archivedContracts2.get(contractId).foreach { c =>
       c.flatEventWitnesses shouldBe Set(signatory)
     }
+    activeCreateIds shouldBe Vector.empty
+    lastActivations shouldBe Map(
+      (someSynchronizerId, contractId) -> 1L
+    )
   }
+
   it should "not find an archived contract with empty flat event witnesses" in {
     val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")

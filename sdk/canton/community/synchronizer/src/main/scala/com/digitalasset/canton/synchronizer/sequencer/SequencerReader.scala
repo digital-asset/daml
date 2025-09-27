@@ -356,7 +356,6 @@ class SequencerReader(
                 syncCryptoApi,
                 event.timestamp,
                 previousTopologyClientTimestamp,
-                protocolVersion,
                 warnIfApproximate = warnIfApproximate,
               )
             }
@@ -424,7 +423,6 @@ class SequencerReader(
             topologyTimestamp,
             sequencingTimestamp,
             topologyClientTimestampBefore,
-            protocolVersion,
             // This warning should never be triggered.
             warnIfApproximate = true,
             _.sequencerTopologyTimestampTolerance,
@@ -770,7 +768,6 @@ class SequencerReader(
                   syncCryptoApi,
                   timestamp,
                   topologyClientTimestampBeforeO,
-                  protocolVersion,
                 )
                 .map(_.ipsSnapshot)
             )(FutureUnlessShutdown.pure)

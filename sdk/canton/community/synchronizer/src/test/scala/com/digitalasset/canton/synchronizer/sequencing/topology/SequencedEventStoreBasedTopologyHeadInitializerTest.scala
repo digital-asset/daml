@@ -114,7 +114,11 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
             )
 
           initializer
-            .initialize(topologyClientMock, synchronizerPredecessor = None)
+            .initialize(
+              topologyClientMock,
+              synchronizerPredecessor = None,
+              defaultStaticSynchronizerParameters,
+            )
             .map { _ =>
               verify(topologyClientMock).updateHead(
                 SequencedTime(expectedHeadStateSequencedTime),

@@ -16,7 +16,6 @@ import org.scalatest.Inspectors.forAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import scala.util.Using
@@ -33,8 +32,6 @@ import scala.util.control.NonFatal
   * Test generates multiple samples, unfortunately no seed is used so every time examples will be
   * different. (Introduction of a seed would complicate the code a lot)
   */
-// TODO(#23504) remove suppression of deprecation warnings
-@nowarn("cat=deprecation")
 class OpenapiTypesTest extends AnyWordSpec with Matchers {
   // this can be increased locally
   // with 100 examples tests take 5 minutes on my machine
@@ -339,7 +336,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         Mapping[v2.transaction_filter.Filters, openapi.Filters](
           openapi.Filters.fromJson
         ),
-        Mapping[v2.state_service.GetActiveContractsRequest, openapi.GetActiveContractsRequest](
+        Mapping[LegacyDTOs.GetActiveContractsRequest, openapi.GetActiveContractsRequest](
           openapi.GetActiveContractsRequest.fromJson
         ),
         Mapping[
@@ -416,11 +413,11 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
 
     object GrpcMappings2 {
       val value: Seq[Mapping[_, _]] = Seq(
-        Mapping[v2.update_service.GetTransactionByIdRequest, openapi.GetTransactionByIdRequest](
+        Mapping[LegacyDTOs.GetTransactionByIdRequest, openapi.GetTransactionByIdRequest](
           openapi.GetTransactionByIdRequest.fromJson
         ),
         Mapping[
-          v2.update_service.GetTransactionByOffsetRequest,
+          LegacyDTOs.GetTransactionByOffsetRequest,
           openapi.GetTransactionByOffsetRequest,
         ](
           openapi.GetTransactionByOffsetRequest.fromJson
@@ -431,7 +428,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         Mapping[v2.update_service.GetUpdateByOffsetRequest, openapi.GetUpdateByOffsetRequest](
           openapi.GetUpdateByOffsetRequest.fromJson
         ),
-        Mapping[v2.update_service.GetUpdatesRequest, openapi.GetUpdatesRequest](
+        Mapping[LegacyDTOs.GetUpdatesRequest, openapi.GetUpdatesRequest](
           openapi.GetUpdatesRequest.fromJson
         ),
         Mapping[v2.admin.user_management_service.GetUserResponse, openapi.GetUserResponse](
@@ -694,7 +691,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         Mapping[v2.trace_context.TraceContext, openapi.TraceContext](
           openapi.TraceContext.fromJson
         ),
-        Mapping[v2.transaction_filter.TransactionFilter, openapi.TransactionFilter](
+        Mapping[LegacyDTOs.TransactionFilter, openapi.TransactionFilter](
           openapi.TransactionFilter.fromJson
         ),
         Mapping[v2.transaction_filter.TransactionFormat, openapi.TransactionFormat](
@@ -864,6 +861,36 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           openapi.Unvet,
         ](
           openapi.Unvet.fromJson
+        ),
+        Mapping[
+          v2.package_reference.PriorTopologySerial,
+          openapi.PriorTopologySerial,
+        ](
+          openapi.PriorTopologySerial.fromJson
+        ),
+        Mapping[
+          v2.package_reference.PriorTopologySerial.Serial.Prior,
+          openapi.Prior,
+        ](
+          openapi.Prior.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyRequest.SignedTransaction,
+          openapi.SignedTransaction,
+        ](
+          openapi.SignedTransaction.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyRequest,
+          openapi.AllocateExternalPartyRequest,
+        ](
+          openapi.AllocateExternalPartyRequest.fromJson
+        ),
+        Mapping[
+          v2.admin.party_management_service.AllocateExternalPartyResponse,
+          openapi.AllocateExternalPartyResponse,
+        ](
+          openapi.AllocateExternalPartyResponse.fromJson
         ),
       )
     }

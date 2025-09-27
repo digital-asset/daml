@@ -238,6 +238,24 @@ object ClaimSet {
         (),
         AuthorizationError.MissingExecuteAsAnyPartyClaim,
       )
+
+    /** Returns true if the set of claims authorizes the user to read data for the given party,
+      * unless the claims expired
+      */
+    def canOperateAs(party: String): Either[AuthorizationError, Unit] =
+      Either.cond(
+        claims.exists {
+          case ClaimActAsAnyParty => true
+          case ClaimReadAsAnyParty => true
+          case ClaimExecuteAsAnyParty => true
+          case ClaimActAsParty(p) if p == party => true
+          case ClaimReadAsParty(p) if p == party => true
+          case ClaimExecuteAsParty(p) if p == party => true
+          case _ => false
+        },
+        (),
+        AuthorizationError.MissingOperationClaim(party),
+      )
   }
 
   /** The representation of a user that was authenticated, but whose [[Claims]] have not yet been

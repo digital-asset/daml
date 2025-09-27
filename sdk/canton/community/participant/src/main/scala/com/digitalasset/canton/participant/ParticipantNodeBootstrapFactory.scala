@@ -8,8 +8,7 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CommunityCryptoPrivateStoreFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.{
   CantonNodeBootstrapCommonArguments,
   NodeFactoryArguments,
@@ -127,17 +126,16 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
     arguments
       .toCantonNodeBootstrapCommonArguments(
         new StorageSingleFactory(arguments.config.storage),
-        new CommunityCryptoPrivateStoreFactory(
+        new CryptoPrivateStoreFactory(
           arguments.config.crypto.provider,
           arguments.config.crypto.kms,
-          CommunityKmsFactory,
           arguments.config.parameters.caching.kmsMetadataCache,
           arguments.config.crypto.privateKeyStore,
+          replicaManager = None,
           arguments.futureSupervisor,
           arguments.clock,
           arguments.executionContext,
         ),
-        CommunityKmsFactory,
       )
       .map { arguments =>
         val engine = createEngine(arguments)

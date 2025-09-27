@@ -56,7 +56,7 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, ReassignmentTag}
+import com.digitalasset.canton.util.{ContractValidator, EitherTUtil, ReassignmentTag}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -82,7 +82,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
   val protocolVersion: ReassignmentTag[ProtocolVersion]
 
-  protected def contractAuthenticator: ContractAuthenticator
+  protected def contractValidator: ContractValidator
 
   protected implicit def ec: ExecutionContext
 

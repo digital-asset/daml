@@ -4,10 +4,9 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event.Event
-import com.daml.ledger.api.v2.transaction.{Transaction, TreeEvent}
-import com.daml.ledger.api.v2.update_service.GetTransactionTreeResponse
+import com.daml.ledger.api.v2.transaction.Transaction
+import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
-import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -20,149 +19,16 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
 }
-import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForUpdatesAcsDelta,
   EventPayloadSourceForUpdatesLedgerEffects,
 }
-import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTransaction
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 import com.digitalasset.canton.platform.{InternalTransactionFormat, Party, TemplatePartiesFilter}
 import com.digitalasset.canton.util.MonadUtil
 
-import java.sql.Connection
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
-
-// TODO(#23504) cleanup
-sealed trait TransactionPointwiseReaderLegacy {
-  type EventT
-  type RawEventT <: RawEvent
-  type RespT
-
-  def dbDispatcher: DbDispatcher
-  def eventStorageBackend: EventStorageBackend
-  def lfValueTranslation: LfValueTranslation
-  val metrics: LedgerApiServerMetrics
-  val dbMetric: DatabaseMetrics
-  val directEC: DirectExecutionContext
-  implicit def ec: ExecutionContext
-
-  protected val dbMetrics: metrics.index.db.type = metrics.index.db
-
-  protected def fetchTransaction(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-      requestingParties: Set[Party],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]]
-
-  protected def deserializeEntry(
-      eventProjectionProperties: EventProjectionProperties,
-      lfValueTranslation: LfValueTranslation,
-  )(
-      entry: Entry[RawEventT]
-  )(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[Entry[EventT]]
-
-  protected def toTransactionResponse(
-      events: Seq[Entry[EventT]]
-  ): Option[RespT]
-
-  final def lookupTransactionBy(
-      lookupKey: LookupKey,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[RespT]] = {
-    val requestingPartiesStrings: Set[String] = requestingParties.toSet[String]
-    for {
-      // Fetching event sequential id range corresponding to the requested transaction id
-      eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.updatePointwiseQueries
-          .fetchIdsFromUpdateMeta(
-            lookupKey = lookupKey
-          )
-      )
-      response <- eventSeqIdRangeO match {
-        case Some((firstEventSeqId, lastEventSeqId)) =>
-          for {
-            // Fetching all events from the event sequential id range
-            rawEvents <- dbDispatcher.executeSql(dbMetric)(
-              fetchTransaction(
-                firstEventSequentialId = firstEventSeqId,
-                lastEventSequentialId = lastEventSeqId,
-                requestingParties = requestingParties,
-              )
-            )
-            // Filtering by requesting parties
-            filteredRawEvents = rawEvents.filter(
-              _.event.witnessParties.exists(requestingPartiesStrings)
-            )
-            // Deserialization of lf values
-            deserialized <- Timed.value(
-              timer = dbMetric.translationTimer,
-              value = Future.delegate {
-                implicit val ec: ExecutionContext =
-                  directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
-                MonadUtil.sequentialTraverse(filteredRawEvents)(
-                  deserializeEntry(eventProjectionProperties, lfValueTranslation)
-                )
-              },
-            )
-          } yield {
-            // Conversion to API response type
-            toTransactionResponse(deserialized)
-          }
-        case None => Future.successful[Option[RespT]](None)
-      }
-    } yield response
-  }
-}
-
-// TODO(#23504) remove when TransactionTrees are removed
-@nowarn("cat=deprecation")
-final class TransactionTreePointwiseReader(
-    override val dbDispatcher: DbDispatcher,
-    override val eventStorageBackend: EventStorageBackend,
-    override val metrics: LedgerApiServerMetrics,
-    override val lfValueTranslation: LfValueTranslation,
-    override val loggerFactory: NamedLoggerFactory,
-)(implicit val ec: ExecutionContext)
-    extends TransactionPointwiseReaderLegacy
-    with NamedLogging {
-
-  override type EventT = TreeEvent
-  override type RawEventT = RawTreeEvent
-  override type RespT = GetTransactionTreeResponse
-
-  override val dbMetric: DatabaseMetrics = dbMetrics.lookupTransactionTreeById
-  override val directEC: DirectExecutionContext = DirectExecutionContext(logger)
-
-  override protected def fetchTransaction(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
-      requestingParties: Set[Party],
-  )(connection: Connection): Vector[Entry[RawEventT]] =
-    eventStorageBackend.updatePointwiseQueries.fetchTreeTransactionEvents(
-      firstEventSequentialId = firstEventSequentialId,
-      lastEventSequentialId = lastEventSequentialId,
-      requestingParties = Some(requestingParties),
-    )(connection)
-
-  override protected def toTransactionResponse(events: Seq[Entry[EventT]]): Option[RespT] =
-    TransactionConversions.toGetTransactionTreeResponse(events)
-
-  override protected def deserializeEntry(
-      eventProjectionProperties: EventProjectionProperties,
-      lfValueTranslation: LfValueTranslation,
-  )(entry: Entry[RawTreeEvent])(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[Entry[TreeEvent]] =
-    UpdateReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
-}
 
 final class TransactionPointwiseReader(
     val dbDispatcher: DbDispatcher,

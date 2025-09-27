@@ -64,9 +64,6 @@ abstract class RehydrationIntegrationTest
   private val transactionLimit: Int = iterations * 3
   private val acsLimit: Int = iterations
 
-  private val staticSynchronizerParameters =
-    EnvironmentDefinition.defaultStaticSynchronizerParameters
-
   private var observedTx: Seq[Transaction] = _
   private var observedAcs: Map[String, CreatedEvent] = _
 
@@ -123,7 +120,7 @@ abstract class RehydrationIntegrationTest
           mediators = Seq(mediator1),
           synchronizerOwners = Seq[InstanceReference](sequencer1, mediator1),
           synchronizerThreshold = PositiveInt.two,
-          staticSynchronizerParameters,
+          staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
         )
 
         sequencer1.health.wait_for_initialized()
@@ -223,7 +220,7 @@ abstract class RehydrationIntegrationTest
               sequencer2,
               tempDirSequencer,
               synchronizerId,
-              staticSynchronizerParameters,
+              EnvironmentDefinition.defaultStaticSynchronizerParameters,
               sequencerConnections,
             )
             // architecture-handbook-entry-end: RehydrationSequencer
@@ -236,7 +233,7 @@ abstract class RehydrationIntegrationTest
           mediator2,
           tempDirMediator,
           synchronizerId,
-          staticSynchronizerParameters,
+          EnvironmentDefinition.defaultStaticSynchronizerParameters,
           sequencerConnections,
         )
         // architecture-handbook-entry-end: RehydrationMediator
@@ -265,7 +262,7 @@ abstract class RehydrationIntegrationTest
           participant2,
           tempDirParticipant,
           synchronizerId,
-          staticSynchronizerParameters,
+          EnvironmentDefinition.defaultStaticSynchronizerParameters,
           sequencerConnections,
         )
         repair.dars.upload(participant2, tempDirParticipant)

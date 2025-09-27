@@ -662,6 +662,51 @@ object ParticipantAdminCommands {
 
     }
 
+    final case class CompletePartyOnboarding(
+        party: PartyId,
+        synchronizerId: SynchronizerId,
+        targetParticipantId: ParticipantId,
+        beginOffsetExclusive: NonNegativeLong,
+        waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
+    ) extends GrpcAdminCommand[
+          v30.CompletePartyOnboardingRequest,
+          v30.CompletePartyOnboardingResponse,
+          (Boolean, Option[CantonTimestamp]),
+        ] {
+
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.CompletePartyOnboardingRequest] =
+        Right(
+          v30.CompletePartyOnboardingRequest(
+            party.toProtoPrimitive,
+            synchronizerId.toProtoPrimitive,
+            targetParticipantId.uid.toProtoPrimitive,
+            beginOffsetExclusive.unwrap,
+            waitForActivationTimeout.map(_.toProtoPrimitive),
+          )
+        )
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.CompletePartyOnboardingRequest,
+      ): Future[v30.CompletePartyOnboardingResponse] = service.completePartyOnboarding(request)
+
+      override protected def handleResponse(
+          response: v30.CompletePartyOnboardingResponse
+      ): Either[String, (Boolean, Option[CantonTimestamp])] =
+        response.earliestRetryTimestamp
+          .traverse(
+            CantonTimestamp
+              .fromProtoTimestamp(_)
+              .leftMap(_.message)
+          )
+          .map(tsOption => (response.onboarded, tsOption))
+    }
+
   }
 
   object ParticipantRepairManagement {

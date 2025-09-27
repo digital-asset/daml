@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerEr
 import com.digitalasset.canton.participant.topology.{LedgerServerPartyNotifier, PartyOps}
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
 import com.digitalasset.canton.topology.{
+  ExternalPartyOnboardingDetails,
   ParticipantId,
   PartyId,
   PhysicalSynchronizerId,
@@ -44,17 +45,19 @@ private[sync] class PartyAllocation(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerId: PhysicalSynchronizerId,
+      externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] =
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
       span.setAttribute("submission_id", rawSubmissionId)
 
-      allocateInternal(hint, rawSubmissionId, synchronizerId)
+      allocateInternal(hint, rawSubmissionId, synchronizerId, externalPartyOnboardingDetails)
     }
 
   private def allocateInternal(
       partyName: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerId: PhysicalSynchronizerId,
+      externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] = {
     import com.google.rpc.status.Status
     import io.grpc.Status.Code
@@ -69,8 +72,12 @@ private[sync] class PartyAllocation(
         _ <- EitherT
           .cond[FutureUnlessShutdown](isActive(), (), SyncServiceError.Synchronous.PassiveNode)
           .leftWiden[SubmissionResult]
+        // External parties have their own namespace, local parties re-use the participant's namespace
+        namespace = externalPartyOnboardingDetails
+          .map(_.namespace)
+          .getOrElse(participantId.uid.namespace)
         id <- UniqueIdentifier
-          .create(partyName, participantId.uid.namespace)
+          .create(partyName, namespace)
           .leftMap(SyncServiceError.Synchronous.internalError)
           .toEitherT[FutureUnlessShutdown]
         partyId = PartyId(id)
@@ -100,12 +107,16 @@ private[sync] class PartyAllocation(
             reject(err, Some(Code.ABORTED))
           }
           .toEitherT[FutureUnlessShutdown]
-        _ <- partyOps
-          .allocateParty(partyId, participantId, synchronizerId)
+        _ <- (externalPartyOnboardingDetails match {
+          case Some(details) =>
+            partyOps.allocateExternalParty(participantId, details, synchronizerId)
+          case None => partyOps.allocateParty(partyId, participantId, synchronizerId)
+        })
           .leftMap[SubmissionResult] {
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
               reject(
-                show"Party already exists: party $partyId is already allocated on this node",
+                show"Party already exists: party $partyId is already allocated${if (externalPartyOnboardingDetails.isEmpty) { " on this node" }
+                  else ""}",
                 e.code.category.grpcCode,
               )
             case IdentityManagerParentError(e) => reject(e.cause, e.code.category.grpcCode)
@@ -119,11 +130,10 @@ private[sync] class PartyAllocation(
             )
             x
           }
-
         // TODO(i25076) remove this waiting logic once topology events are published on the ledger api
         // wait for parties to be available on the currently connected synchronizers
         waitingSuccessful <- EitherT
-          .right[SubmissionResult](
+          .right[SubmissionResult](if (externalPartyOnboardingDetails.forall(!_.isMultiHosted)) {
             connectedSynchronizersLookup.get(synchronizerId).traverse { connectedSynchronizer =>
               connectedSynchronizer.topologyClient
                 .awaitUS(
@@ -133,7 +143,7 @@ private[sync] class PartyAllocation(
                 )
                 .map(synchronizerId -> _)
             }
-          )
+          } else FutureUnlessShutdown.pure(None))
         _ = waitingSuccessful.foreach { case (synchronizerId, successful) =>
           if (!successful)
             logger.warn(

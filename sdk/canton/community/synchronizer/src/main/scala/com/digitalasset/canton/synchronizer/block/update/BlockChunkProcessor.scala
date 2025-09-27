@@ -253,7 +253,6 @@ final class BlockChunkProcessor(
           synchronizerSyncCryptoApi,
           tickSequencingTimestamp,
           state.latestSequencerEventTimestamp,
-          protocolVersion,
           warnIfApproximate = false,
         )
       _ = logger.debug(
@@ -382,7 +381,6 @@ final class BlockChunkProcessor(
                         topologyTimestamp,
                         sequencingTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                         _.sequencerTopologyTimestampTolerance,
                       )
@@ -416,7 +414,6 @@ final class BlockChunkProcessor(
                         synchronizerSyncCryptoApi,
                         sequencingTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                       )
                       .map { snapshot =>
@@ -471,7 +468,6 @@ final class BlockChunkProcessor(
         synchronizerSyncCryptoApi,
         state.lastBlockTs,
         state.latestSequencerEventTimestamp,
-        protocolVersion,
         warnIfApproximate = false,
       )
       synchronizerSuccessorO <- snapshot.ipsSnapshot

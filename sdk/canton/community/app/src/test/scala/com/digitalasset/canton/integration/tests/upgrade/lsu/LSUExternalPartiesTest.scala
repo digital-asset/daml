@@ -21,6 +21,7 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnections
 
+import java.util.Optional
 import scala.jdk.CollectionConverters.*
 
 abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
@@ -105,10 +106,10 @@ abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
       val iouCreated = txIouAlice.getEvents.asScalaProtoCreatedContracts.loneElement
 
       val disclosedIou = new DisclosedContract(
-        Iou.TEMPLATE_ID_WITH_PACKAGE_ID,
-        iou.id.contractId,
         iouCreated.createdEventBlob,
         daId.logical.toProtoPrimitive,
+        Optional.of(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
+        Optional.of(iou.id.contractId),
       )
 
       participant3.ledger_api.state.acs.of_all() shouldBe empty

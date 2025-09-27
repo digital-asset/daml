@@ -14,7 +14,7 @@ import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.base.error.utils.ErrorDetails.RetryInfoDetail
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{
   PartyRecord,
@@ -27,14 +27,23 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   IndexerPartyDetails,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.logging.{
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  SuppressionRule,
+}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.{InFlight, StreamTracker}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  ExternalPartyOnboardingDetails,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
@@ -45,6 +54,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
@@ -73,6 +83,10 @@ class ApiPartyManagementServiceSpec
     testTelemetrySetup.close()
 
   private implicit val ec: ExecutionContext = directExecutionContext
+
+  val ApiPartyManagementServiceSuppressionRule: SuppressionRule =
+    SuppressionRule.LoggerNameContains("ApiPartyManagementService") &&
+      SuppressionRule.Level(Level.ERROR)
 
   "ApiPartyManagementService" should {
     def blind(
@@ -122,38 +136,45 @@ class ApiPartyManagementServiceSpec
         mockUserManagementStore,
         mockIdentityProviderExists,
         partiesPageSize,
+        NonNegativeInt.tryCreate(0),
         mockPartyRecordStore,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
         ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId),
         new DefaultOpenTelemetry(OpenTelemetrySdk.builder().build()),
         partyAllocationTracker,
+        participantId = participantId,
         loggerFactory = loggerFactory,
       )
 
-      val span = testTelemetrySetup.anEmptySpan()
-      val scope = span.makeCurrent()
+      loggerFactory.suppress(
+        ApiPartyManagementServiceSuppressionRule
+      ) {
 
-      // Kick the interaction off
-      val future = apiService
-        .allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
-        .thereafter { _ =>
-          scope.close()
-          span.end()
-        }
+        val span = testTelemetrySetup.anEmptySpan()
+        val scope = span.makeCurrent()
 
-      // Allow the tracker to complete
-      partyAllocationTracker.onStreamItem(
-        PartyAllocation.Completed(
-          PartyAllocation.TrackerKey.forTests(aSubmissionId),
-          IndexerPartyDetails(aParty, isLocal = true),
+        // Kick the interaction off
+        val future = apiService
+          .allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
+          .thereafter { _ =>
+            scope.close()
+            span.end()
+          }
+
+        // Allow the tracker to complete
+        partyAllocationTracker.onStreamItem(
+          PartyAllocation.Completed(
+            PartyAllocation.TrackerKey.forTests(aSubmissionId),
+            IndexerPartyDetails(aParty, isLocal = true),
+          )
         )
-      )
 
-      // Wait for tracker to complete
-      future.futureValue
+        // Wait for tracker to complete
+        future.futureValue
 
-      testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
+        testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
+      }
     }
 
     "close while allocating party" in {
@@ -170,49 +191,55 @@ class ApiPartyManagementServiceSpec
         mockUserManagementStore,
         mockIdentityProviderExists,
         partiesPageSize,
+        NonNegativeInt.tryCreate(0),
         mockPartyRecordStore,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
         ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId.toString),
         NoOpTelemetry,
         partyAllocationTracker,
+        participantId = participantId,
         loggerFactory = loggerFactory,
       )
 
-      // Kick the interaction off
-      val future =
-        apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
+      loggerFactory.suppress(
+        ApiPartyManagementServiceSuppressionRule
+      ) {
+        // Kick the interaction off
+        val future =
+          apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
 
-      // Close the service
-      apiPartyManagementService.close()
+        // Close the service
+        apiPartyManagementService.close()
 
-      // Assert that it caused the appropriate failure
-      future
-        .transform {
-          case Success(_) =>
-            fail("Expected a failure, but received success")
-          case Failure(err: StatusRuntimeException) =>
-            assertError(
-              actual = err,
-              expectedStatusCode = Code.UNAVAILABLE,
-              expectedMessage = "ABORTED_DUE_TO_SHUTDOWN(1,0): request aborted due to shutdown",
-              expectedDetails = List(
-                ErrorDetails.ErrorInfoDetail(
-                  "ABORTED_DUE_TO_SHUTDOWN",
-                  Map(
-                    "parties" -> "['aParty']",
-                    "category" -> "1",
-                    "test" -> s"'${getClass.getSimpleName}'",
+        // Assert that it caused the appropriate failure
+        future
+          .transform {
+            case Success(_) =>
+              fail("Expected a failure, but received success")
+            case Failure(err: StatusRuntimeException) =>
+              assertError(
+                actual = err,
+                expectedStatusCode = Code.UNAVAILABLE,
+                expectedMessage = "ABORTED_DUE_TO_SHUTDOWN(1,0): request aborted due to shutdown",
+                expectedDetails = List(
+                  ErrorDetails.ErrorInfoDetail(
+                    "ABORTED_DUE_TO_SHUTDOWN",
+                    Map(
+                      "parties" -> "['aParty']",
+                      "category" -> "1",
+                      "test" -> s"'${getClass.getSimpleName}'",
+                    ),
                   ),
+                  RetryInfoDetail(10.seconds),
                 ),
-                RetryInfoDetail(10.seconds),
-              ),
-              verifyEmptyStackTrace = true,
-            )
-            Success(succeed)
-          case Failure(other) =>
-            fail("Unexpected error", other)
-        }
+                verifyEmptyStackTrace = true,
+              )
+              Success(succeed)
+            case Failure(other) =>
+              fail("Unexpected error", other)
+          }
+      }
     }
   }
 
@@ -267,7 +294,7 @@ class ApiPartyManagementServiceSpec
 
 object ApiPartyManagementServiceSpec {
 
-  val participantId = Ref.ParticipantId.assertFromString("participant1")
+  val participantId = DefaultTestIdentities.participant1.toLf
 
   val partyDetails: IndexerPartyDetails = IndexerPartyDetails(
     party = Ref.Party.assertFromString("Bob"),
@@ -294,6 +321,7 @@ object ApiPartyManagementServiceSpec {
         hint: Ref.Party,
         submissionId: Ref.SubmissionId,
         synchronizerIdO: Option[SynchronizerId],
+        externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
     )(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[state.SubmissionResult] = {
@@ -304,5 +332,9 @@ object ApiPartyManagementServiceSpec {
       )
       FutureUnlessShutdown.pure(state.SubmissionResult.Acknowledged)
     }
+
+    override def protocolVersionForSynchronizerId(
+        synchronizerId: SynchronizerId
+    ): Option[ProtocolVersion] = Some(BaseTest.testedProtocolVersion)
   }
 }

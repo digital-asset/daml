@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.model
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
@@ -23,7 +24,9 @@ import scala.util.Random
 trait ModelBasedTest extends AnyWordSpec with BftSequencerBaseTest { this: DbTest =>
 
   def createStore(): AvailabilityStore[PekkoEnv] =
-    new DbAvailabilityStore(storage, timeouts, loggerFactory)(implicitly[ExecutionContext])
+    new DbAvailabilityStore(BatchAggregatorConfig(), storage, timeouts, loggerFactory)(
+      implicitly[ExecutionContext]
+    )
 
   override def cleanDb(
       storage: DbStorage

@@ -804,8 +804,6 @@ class ActiveContractsIntegrationTest
           StateService.getActiveContracts(
             proto.state_service.GetActiveContractsRequest(
               activeAtOffset = bigOffset,
-              filter = None,
-              verbose = false,
               eventFormat = Some(getEventFormat(List(party1a.toLf))),
             )
           )

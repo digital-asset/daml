@@ -62,7 +62,11 @@ class SequencerSnapshotBasedTopologyHeadInitializerTest
           )
 
         initializer
-          .initialize(topologyClientMock, synchronizerPredecessor = None)
+          .initialize(
+            topologyClientMock,
+            synchronizerPredecessor = None,
+            defaultStaticSynchronizerParameters,
+          )
           .map { _ =>
             verify(topologyClientMock).updateHead(
               SequencedTime(aSnapshotLastTs),

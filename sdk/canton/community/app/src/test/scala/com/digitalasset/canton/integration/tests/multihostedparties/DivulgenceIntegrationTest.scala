@@ -31,6 +31,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.participant.admin.data.ContractImportMode
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
@@ -75,6 +76,20 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     val alice = participant1.parties.find("Alice")
     val bob = participant2.parties.find("Bob")
 
+    def contractStore(participant: LocalParticipantReference) =
+      participant.testing.state_inspection.syncPersistentStateManager
+        .acsInspection(daId)
+        .map(_.contractStore)
+        .value
+    def contractFor(
+        participant: LocalParticipantReference,
+        contractId: String,
+    ): Option[ContractInstance] =
+      contractStore(participant)
+        .lookup(LfContractId.assertFromString(contractId))
+        .value
+        .futureValueUS
+
     // baseline Iou-s to test views / stakeholders / projections on the two participants, and ensure correct party migration baseline
     val (aliceStakeholderCreatedP1, _) = participant1.createIou(alice, alice)
     val (bobStakeholderCreatedP2, _) = participant2.createIou(bob, bob)
@@ -83,12 +98,19 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 1
       participant2.acsDeltas(bob) should have size 1
     }
+    contractFor(participant1, aliceStakeholderCreatedP1.contractId) should not be empty
+    contractFor(participant1, bobStakeholderCreatedP2.contractId) shouldBe empty
+    contractFor(participant2, aliceStakeholderCreatedP1.contractId) shouldBe empty
+    contractFor(participant2, bobStakeholderCreatedP2.contractId) should not be empty
+
     val (aliceBobStakeholderCreatedP1, _) = participant1.createIou(alice, bob)
     eventually() {
       //  ensuring that both participants see all events necessary after running the commands (these numbers are deduced from the assertions below)
       participant1.acsDeltas(alice) should have size 2
       participant2.acsDeltas(bob) should have size 2
     }
+    contractFor(participant1, aliceBobStakeholderCreatedP1.contractId) should not be empty
+    contractFor(participant2, aliceBobStakeholderCreatedP1.contractId) should not be empty
 
     // divulgence proxy contract for divulgence operations: divulging to bob
     val (divulgeIouByExerciseP2, divulgeIouByExerciseContract) =
@@ -98,6 +120,8 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 3
       participant2.acsDeltas(bob) should have size 3
     }
+    contractFor(participant1, divulgeIouByExerciseP2.contractId) should not be empty
+    contractFor(participant2, divulgeIouByExerciseP2.contractId) should not be empty
 
     // creating two iou-s with alice, which will be divulged to bob
     val (immediateDivulged1P1, immediateDivulged1Contract) =
@@ -109,6 +133,12 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 5
       participant2.ledgerEffects(alice) should have size 6
     }
+    contractFor(participant1, immediateDivulged1P1.contractId) should not be empty
+    // Immediately divulged contracts are stored in the ContractStore
+    contractFor(participant2, immediateDivulged1P1.contractId) should not be empty
+    contractFor(participant1, immediateDivulged2P1.contractId) should not be empty
+    // Immediately divulged contracts are stored in the ContractStore
+    contractFor(participant2, immediateDivulged2P1.contractId) should not be empty
 
     // archiving the first divulged Iou
     participant1.archiveIou(alice, immediateDivulged1Contract)
@@ -126,6 +156,9 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 8
       participant2.ledgerEffects(alice) should have size 8
     }
+    contractFor(participant1, aliceStakeholderCreated2P1.contractId) should not be empty
+    // Retroactively divulged contracts are not stored in the ContractStore
+    contractFor(participant2, aliceStakeholderCreated2P1.contractId) shouldBe empty
 
     // participant1 alice
     val divulgeIouByExerciseP1 = participant1.acsDeltas(alice)(2)._1

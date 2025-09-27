@@ -37,6 +37,7 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
 }
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -160,14 +161,15 @@ object EventStorageBackendTemplate {
       int("representative_package_id")
 
   private type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Seq[Party] ~ Int ~ Option[Seq[Party]]
+    SharedRow ~ Boolean ~ Int ~ Option[Int] ~ Array[Byte] ~ Option[Int] ~
+      Option[Array[Byte]] ~ Option[Int] ~ Seq[Party] ~ Int ~ Option[Seq[Party]]
 
   private def exercisedEventRow(stringInterning: StringInterning): RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
     sharedRow(stringInterning) ~
       bool("exercise_consuming") ~
-      str("exercise_choice") ~
+      int("exercise_choice") ~
+      int("exercise_choice_interface").? ~
       byteArray("exercise_argument") ~
       int("exercise_argument_compression").? ~
       byteArray("exercise_result").? ~
@@ -340,7 +342,8 @@ object EventStorageBackendTemplate {
           recordTime ~
           externalTransactionHash ~
           exerciseConsuming ~
-          choice ~
+          choiceName ~
+          choiceInterface ~
           exerciseArgument ~
           exerciseArgumentCompression ~
           exerciseResult ~
@@ -373,7 +376,10 @@ object EventStorageBackendTemplate {
               .externalize(templateId)
               .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             exerciseConsuming = exerciseConsuming,
-            exerciseChoice = choice,
+            exerciseChoice = stringInterning.choiceName.externalize(choiceName),
+            exerciseChoiceInterface = choiceInterface.map { interfaceId =>
+              stringInterning.interfaceId.externalize(interfaceId)
+            },
             exerciseArgument = exerciseArgument,
             exerciseArgumentCompression = exerciseArgumentCompression,
             exerciseResult = exerciseResult,
@@ -419,6 +425,7 @@ object EventStorageBackendTemplate {
     "create_key_value_compression",
     "create_key_maintainers",
     "NULL as exercise_choice",
+    "NULL as exercise_choice_interface",
     "NULL as exercise_argument",
     "NULL as exercise_argument_compression",
     "NULL as exercise_result",
@@ -455,6 +462,7 @@ object EventStorageBackendTemplate {
       "NULL as create_key_value_compression",
       "NULL as create_key_maintainers",
       "exercise_choice",
+      "exercise_choice_interface",
       "exercise_argument",
       "exercise_argument_compression",
       "exercise_result",
@@ -1374,24 +1382,6 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_assign assign_evs
         WHERE
           assign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-          AND NOT EXISTS (  -- check not archived as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_consuming_exercise consuming_evs
-                WHERE
-                  assign_evs.contract_id = consuming_evs.contract_id
-                  AND assign_evs.target_synchronizer_id = consuming_evs.synchronizer_id
-                  AND consuming_evs.event_sequential_id <= $endInclusive
-              )
-          AND NOT EXISTS (  -- check not unassigned after as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_unassign unassign_evs
-                WHERE
-                  assign_evs.contract_id = unassign_evs.contract_id
-                  AND assign_evs.target_synchronizer_id = unassign_evs.source_synchronizer_id
-                  AND unassign_evs.event_sequential_id > assign_evs.event_sequential_id
-                  AND unassign_evs.event_sequential_id <= $endInclusive
-                ${QueryStrategy.limitClause(Some(1))}
-              )
         ORDER BY assign_evs.event_sequential_id -- deliver in index order
         """
       .withFetchSize(Some(eventSequentialIds.size))
@@ -1407,23 +1397,6 @@ abstract class EventStorageBackendTemplate(
         FROM lapi_events_create create_evs
         WHERE
           create_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
-          AND NOT EXISTS (  -- check not archived as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_consuming_exercise consuming_evs
-                WHERE
-                  create_evs.contract_id = consuming_evs.contract_id
-                  AND create_evs.synchronizer_id = consuming_evs.synchronizer_id
-                  AND consuming_evs.event_sequential_id <= $endInclusive
-              )
-          AND NOT EXISTS (  -- check not unassigned as of snapshot in the same synchronizer
-                SELECT 1
-                FROM lapi_events_unassign unassign_evs
-                WHERE
-                  create_evs.contract_id = unassign_evs.contract_id
-                  AND create_evs.synchronizer_id = unassign_evs.source_synchronizer_id
-                  AND unassign_evs.event_sequential_id <= $endInclusive
-                ${QueryStrategy.limitClause(Some(1))}
-              )
         ORDER BY create_evs.event_sequential_id -- deliver in index order
         """
       .withFetchSize(Some(eventSequentialIds.size))
@@ -1432,17 +1405,12 @@ abstract class EventStorageBackendTemplate(
   override def fetchAssignEventIdsForStakeholder(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] =
+  )(connection: Connection): PaginationInput => Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_assign_id_filter_stakeholder",
       witnessO = stakeholderO,
       templateIdO = templateId,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
+      idFilter = None,
       stringInterning = stringInterning,
       hasFirstPerSequentialId = true,
     )(connection)
@@ -1450,17 +1418,12 @@ abstract class EventStorageBackendTemplate(
   override def fetchUnassignEventIdsForStakeholder(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] =
+  )(connection: Connection): PaginationInput => Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_pe_reassignment_id_filter_stakeholder",
       witnessO = stakeholderO,
       templateIdO = templateId,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
+      idFilter = None,
       stringInterning = stringInterning,
       hasFirstPerSequentialId = true,
     )(connection)
@@ -1735,18 +1698,13 @@ abstract class EventStorageBackendTemplate(
       .toSet
   }
   override def fetchTopologyPartyEventIds(
-      party: Option[Party],
-      startExclusive: Long,
-      endInclusive: Long,
-      limit: Int,
-  )(connection: Connection): Vector[Long] =
+      party: Option[Party]
+  )(connection: Connection): PaginationInput => Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
       tableName = "lapi_events_party_to_participant",
       witnessO = party,
       templateIdO = None,
-      startExclusive = startExclusive,
-      endInclusive = endInclusive,
-      limit = limit,
+      idFilter = None,
       stringInterning = stringInterning,
       hasFirstPerSequentialId = false,
     )(connection)

@@ -24,7 +24,11 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.grpc.Logging.traceId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
-import com.digitalasset.canton.ledger.api.{ListVettedPackagesOpts, ValidationLogger}
+import com.digitalasset.canton.ledger.api.{
+  ListVettedPackagesOpts,
+  PriorTopologySerialExists,
+  ValidationLogger,
+}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
@@ -141,7 +145,7 @@ private[apiserver] final class ApiPackageService(
             // updates and queries can specify target synchronizers
             participantId = "",
             synchronizerId = "",
-            topologySerial = serial.value,
+            topologySerial = Some(PriorTopologySerialExists(serial.value).toProtoLAPI),
           )
         },
         nextPageToken = "",

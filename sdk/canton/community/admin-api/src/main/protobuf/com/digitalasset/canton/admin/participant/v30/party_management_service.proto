@@ -13,8 +13,13 @@ import "scalapb/scalapb.proto";
  * The PartyManagementService allows modifying party hosting on participants.
  *
  * Note that ACS refers to Active Contract Set.
+ *
+ * Important: The online and offline party replication endpoints serve distinct workflows,
+ * and must not be combined.
  */
 service PartyManagementService {
+  // Online party replication endpoint.
+  //
   // Initiate adding a party already hosted on one or more source participants to this
   // target participant in the specified synchronizer.
   // Performs some checks synchronously and then starts the party addition asynchronously.
@@ -26,6 +31,8 @@ service PartyManagementService {
   // already be in place prior to the call.
   rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
 
+  // Online party replication endpoint.
+  //
   // Status endpoint that given an add_party_request_id returns status information about progress,
   // completion, or errors of a previous call to AddPartyAsync on the source or target
   // participant.
@@ -37,7 +44,7 @@ service PartyManagementService {
   // successfully.
   rpc GetAddPartyStatus(GetAddPartyStatusRequest) returns (GetAddPartyStatusResponse);
 
-  // Party replication focused ACS export.
+  // Offline party replication focused ACS export.
   //
   // Exports the ACS of a single party from a source participant, so that the party can be
   // replicated onto a target participant.
@@ -45,7 +52,7 @@ service PartyManagementService {
   // This endpoint works in conjunction with the ImportPartyAcs endpoint.
   rpc ExportPartyAcs(ExportPartyAcsRequest) returns (stream ExportPartyAcsResponse);
 
-  // Party replication focused ACS import.
+  // Offline party replication focused ACS import.
   //
   // Imports the party's ACS into the target participant.
   //
@@ -59,6 +66,15 @@ service PartyManagementService {
   // Further, a returned offset is guaranteed to be "clean", meaning all events have been processed fully and
   // published to the Ledger API DB until the requested timestamp.
   rpc GetHighestOffsetByTimestamp(GetHighestOffsetByTimestampRequest) returns (GetHighestOffsetByTimestampResponse);
+
+  // Offline party replication endpoint.
+  //
+  // Finalizes a party's onboarding by having the target participant unilaterally remove the onboarding flag on the
+  // party to participant topology mapping.
+  //
+  // The successful removal depends on the change history of the dynamic synchronizer's confirmation response timeout
+  // and the mediator reaction timeout parameters.
+  rpc CompletePartyOnboarding(CompletePartyOnboardingRequest) returns (CompletePartyOnboardingResponse);
 }
 
 message AddPartyAsyncRequest {
@@ -278,4 +294,41 @@ message GetHighestOffsetByTimestampResponse {
   // An error when no such offset (yet) exists.
   // Required
   int64 ledger_offset = 1;
+}
+
+message CompletePartyOnboardingRequest {
+  // The identifier of the party being onboarded. This party must already be active on the target participant.
+  // Required
+  string party_id = 1;
+
+  // The identifier of the synchronizer.
+  // Required
+  string synchronizer_id = 2;
+
+  // The unique identifier of the target participant where the party is being onboarded.
+  // Required
+  string target_participant_uid = 3;
+
+  // The exclusive ledger offset used as starting point to find the party's most recent activation on the target
+  // participant.
+  // Required
+  int64 begin_offset_exclusive = 4;
+
+  // The maximum duration the service will wait to find the topology transaction that activates the party on
+  // the target participant.
+  // If not set, the service use will use a default timeout.
+  // Optional
+  google.protobuf.Duration wait_for_activation_timeout = 5;
+}
+
+message CompletePartyOnboardingResponse {
+  // True if the party onboarding was successfully finalized, false otherwise.
+  // Required
+  bool onboarded = 1;
+
+  // If onboarding finalization failed, this filed suggests the earliest time to retry the call.
+  //
+  // This is only present when `onboarded` is false. The timestamp is an estimate and does not
+  // guarantee success on the next attempt.
+  optional google.protobuf.Timestamp earliest_retry_timestamp = 2;
 }

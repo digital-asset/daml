@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
@@ -37,8 +38,9 @@ trait SynchronizerParameterStoreTest extends FailOnShutdown { this: AsyncWordSpe
       "be idempotent" in {
         val store = mk(synchronizerId)
         val params =
-          BaseTest.defaultStaticSynchronizerParametersWith(protocolVersion =
-            anotherProtocolVersion(testedProtocolVersion)
+          BaseTest.defaultStaticSynchronizerParametersWith(
+            topologyChangeDelay = StaticSynchronizerParameters.defaultTopologyChangeDelay,
+            protocolVersion = anotherProtocolVersion(testedProtocolVersion),
           )
         for {
           _ <- store.setParameters(params)
@@ -53,8 +55,9 @@ trait SynchronizerParameterStoreTest extends FailOnShutdown { this: AsyncWordSpe
         val store = mk(synchronizerId)
         val params = defaultStaticSynchronizerParameters
         val modified =
-          BaseTest.defaultStaticSynchronizerParametersWith(protocolVersion =
-            anotherProtocolVersion(testedProtocolVersion)
+          BaseTest.defaultStaticSynchronizerParametersWith(
+            topologyChangeDelay = StaticSynchronizerParameters.defaultTopologyChangeDelay,
+            protocolVersion = anotherProtocolVersion(testedProtocolVersion),
           )
         for {
           _ <- store.setParameters(params)

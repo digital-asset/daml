@@ -28,8 +28,6 @@ final class GetActiveContractsAuthIT extends SuperReaderServiceCallAuthTests {
       stub(StateServiceGrpc.stub(channel), context.token)
         .getActiveContracts(
           GetActiveContractsRequest(
-            filter = None,
-            verbose = false,
             activeAtOffset = 0,
             eventFormat = context.eventFormat.orElse(Some(eventFormat(getMainActorId))),
           ),

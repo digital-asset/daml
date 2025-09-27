@@ -431,7 +431,6 @@ class EnterpriseSequencerRateLimitManager(
             submissionTimestamp,
             mostRecentKnownSynchronizerTimestamp,
             latestSequencerEventTimestamp,
-            protocolVersion,
             warnIfApproximate = true,
             _.submissionCostTimestampTopologyTolerance,
           )
@@ -449,7 +448,6 @@ class EnterpriseSequencerRateLimitManager(
                         synchronizerSyncCryptoApi,
                         submissionTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                       )
                   )
@@ -708,7 +706,6 @@ class EnterpriseSequencerRateLimitManager(
           synchronizerSyncCryptoApi,
           sequencingTime,
           latestSequencerEventTimestamp,
-          protocolVersion,
           warnIfApproximate,
         )
       )
@@ -738,7 +735,6 @@ class EnterpriseSequencerRateLimitManager(
               synchronizerSyncCryptoApi,
               minTimestamp,
               lastSequencerEventTimestamp,
-              protocolVersion,
               warnIfApproximate,
             )
           )

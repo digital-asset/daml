@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.interning.DomainStringIterators
+import com.digitalasset.canton.topology.SynchronizerId
 
 object DbDtoToStringsForInterning {
 
@@ -15,6 +16,8 @@ object DbDtoToStringsForInterning {
       packageIds = dbDtos.iterator.flatMap(packageIdsOf),
       userIds = dbDtos.iterator.flatMap(userIdsOf),
       participantIds = dbDtos.iterator.flatMap(participantIdsOf),
+      choiceNames = dbDtos.iterator.flatMap(choiceNamesOf),
+      interfaceIds = dbDtos.iterator.flatMap(interfaceIdsOf),
     )
 
   private def templateIdsOf(dbDto: DbDto): Iterator[String] =
@@ -86,7 +89,7 @@ object DbDtoToStringsForInterning {
       case _ => Iterator.empty
     }
 
-  private def synchronizerIdsOf(dbDto: DbDto): Iterator[String] =
+  private def synchronizerIdsOf(dbDto: DbDto): Iterator[SynchronizerId] =
     dbDto match {
       case dbDto: DbDto.EventExercise => Iterator(dbDto.synchronizer_id)
       case dbDto: DbDto.EventCreate => Iterator(dbDto.synchronizer_id)
@@ -110,6 +113,18 @@ object DbDtoToStringsForInterning {
   private def participantIdsOf(dbDto: DbDto): Iterator[String] =
     dbDto match {
       case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.participant_id)
+      case _ => Iterator.empty
+    }
+
+  private def choiceNamesOf(dbDto: DbDto): Iterator[String] =
+    dbDto match {
+      case dbDto: DbDto.EventExercise => Iterator(dbDto.exercise_choice)
+      case _ => Iterator.empty
+    }
+
+  private def interfaceIdsOf(dbDto: DbDto): Iterator[String] =
+    dbDto match {
+      case dbDto: DbDto.EventExercise => dbDto.exercise_choice_interface_id.iterator
       case _ => Iterator.empty
     }
 }

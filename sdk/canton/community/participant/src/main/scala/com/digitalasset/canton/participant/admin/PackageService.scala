@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
@@ -42,6 +41,7 @@ import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.transaction.VettedPackage
+import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId, ProtoDeserializationError}
@@ -88,7 +88,7 @@ trait DarService {
 }
 
 class PackageService(
-    val packageDependencyResolver: PackageDependencyResolver,
+    val packageDependencyResolver: PackageDependencyResolver.Impl,
     protected val loggerFactory: NamedLoggerFactory,
     metrics: ParticipantMetrics,
     packageOps: PackageOps,
@@ -102,7 +102,7 @@ class PackageService(
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = packageDependencyResolver.damlPackageStore
 
-  def getPackageMetadataView: PackageMetadataView = packageUploader.getPackageMetadataView
+  def getPackageMetadataView: PackageMetadataView = packageUploader.packageMetadataView
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -367,7 +367,17 @@ class PackageService(
             )
           )
         else
-          packageOps.revokeVettingForPackages(mainPkg, packages, darDescriptor).leftWiden
+          packageOps
+            .revokeVettingForPackages(
+              mainPkg,
+              packages,
+              darDescriptor,
+              // Unvetting a DAR requires AllowUnvettedDependencies because it is going to unvet all
+              // packages from the DAR, even the utility packages. UnvetDar is an experimental
+              // operation that requires expert-level knowledge.
+              ForceFlags(ForceFlag.AllowUnvetPackage, ForceFlag.AllowUnvettedDependencies),
+            )
+            .leftWiden
       }
 
   /** Performs the upload DAR flow:
@@ -532,11 +542,11 @@ object PackageService {
   def apply(
       clock: Clock,
       engine: Engine,
-      packageDependencyResolver: PackageDependencyResolver,
+      mutablePackageMetadataView: MutablePackageMetadataView,
+      packageDependencyResolver: PackageDependencyResolver.Impl,
       enableStrictDarValidation: Boolean,
       loggerFactory: NamedLoggerFactory,
       metrics: ParticipantMetrics,
-      mutablePackageMetadataView: Eval[MutablePackageMetadataView],
       packageOps: PackageOps,
       timeouts: ProcessingTimeout,
   )(implicit

@@ -70,7 +70,7 @@ trait DeliverErrorIntegrationTest
           val signedModifiedRequest =
             signModifiedSubmissionRequest(
               modifiedRequest,
-              syncCrypto.tryForSynchronizer(daId, defaultStaticSynchronizerParameters),
+              syncCrypto.tryForSynchronizer(daId, staticSynchronizerParameters1),
             )
           SendDecision.Replace(signedModifiedRequest)
 

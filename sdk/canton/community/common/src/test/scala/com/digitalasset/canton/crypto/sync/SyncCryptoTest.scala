@@ -12,7 +12,6 @@ import com.digitalasset.canton.config.{
   CryptoProvider,
   SessionSigningKeysConfig,
 }
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.verifier.SyncCryptoVerifier
@@ -68,6 +67,7 @@ trait SyncCryptoTest
       requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
       requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
       requiredSignatureFormats = CryptoProvider.Jce.supportedSignatureFormats,
+      topologyChangeDelay = StaticSynchronizerParameters.defaultTopologyChangeDelay,
       enableTransparencyChecks = false,
       protocolVersion = testedProtocolVersion,
       serial = NonNegativeInt.zero,
@@ -125,7 +125,6 @@ trait SyncCryptoTest
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
-      CommunityKmsFactory,
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,

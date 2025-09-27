@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.config
 
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 
 /** Ledger api party management service specific configurations
   *
@@ -11,14 +11,18 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
   *   maximum number of parties returned
   */
 final case class PartyManagementServiceConfig(
-    maxPartiesPageSize: PositiveInt = PartyManagementServiceConfig.DefaultMaxPartiesPageSize
+    maxPartiesPageSize: PositiveInt = PartyManagementServiceConfig.DefaultMaxPartiesPageSize,
+    maxSelfAllocatedParties: NonNegativeInt =
+      PartyManagementServiceConfig.DefaultMaxSelfAllocatedParties,
 )
 
 object PartyManagementServiceConfig {
 
   val DefaultMaxPartiesPageSize: PositiveInt = PositiveInt.tryCreate(10000)
+  val DefaultMaxSelfAllocatedParties: NonNegativeInt = NonNegativeInt.tryCreate(0)
 
   def default: PartyManagementServiceConfig = PartyManagementServiceConfig(
-    maxPartiesPageSize = DefaultMaxPartiesPageSize
+    maxPartiesPageSize = DefaultMaxPartiesPageSize,
+    maxSelfAllocatedParties = DefaultMaxSelfAllocatedParties,
   )
 }

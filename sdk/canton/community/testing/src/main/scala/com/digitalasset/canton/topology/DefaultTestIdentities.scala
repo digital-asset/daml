@@ -6,7 +6,6 @@ package com.digitalasset.canton.topology
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 object DefaultTestIdentities {
   import BaseTest.*
@@ -35,7 +34,6 @@ object DefaultTestIdentities {
 
   val defaultDynamicSynchronizerParameters: DynamicSynchronizerParameters =
     DynamicSynchronizerParameters.initialValues(
-      NonNegativeFiniteDuration.Zero,
-      BaseTest.testedProtocolVersion,
+      BaseTest.testedProtocolVersion
     )
 }

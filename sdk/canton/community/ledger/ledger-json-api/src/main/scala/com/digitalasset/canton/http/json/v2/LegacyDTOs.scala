@@ -64,13 +64,13 @@ object LegacyDTOs {
       beginExclusive: Long,
       endInclusive: Option[Long],
       filter: Option[LegacyDTOs.TransactionFilter],
-      verbose: Boolean,
+      verbose: Boolean = false,
       updateFormat: Option[com.daml.ledger.api.v2.transaction_filter.UpdateFormat],
   )
 
   final case class GetActiveContractsRequest(
       filter: Option[LegacyDTOs.TransactionFilter],
-      verbose: Boolean,
+      verbose: Boolean = false,
       activeAtOffset: Long,
       eventFormat: Option[com.daml.ledger.api.v2.transaction_filter.EventFormat],
   )

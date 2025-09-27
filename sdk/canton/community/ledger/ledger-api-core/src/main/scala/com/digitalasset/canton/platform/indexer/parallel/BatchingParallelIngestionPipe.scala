@@ -17,6 +17,8 @@ object BatchingParallelIngestionPipe {
       inputMapper: Iterable[IN] => Future[IN_BATCH],
       seqMapperZero: IN_BATCH,
       seqMapper: (IN_BATCH, IN_BATCH) => IN_BATCH,
+      dbPrepareParallelism: Int,
+      dbPrepare: IN_BATCH => Future[IN_BATCH],
       batchingParallelism: Int,
       batcher: IN_BATCH => Future[DB_BATCH],
       ingestingParallelism: Int,
@@ -24,23 +26,25 @@ object BatchingParallelIngestionPipe {
       maxTailerBatchSize: Int,
       ingestTail: Vector[DB_BATCH] => Future[Vector[DB_BATCH]],
   ): Flow[IN, DB_BATCH, NotUsed] =
-    // Stage 1: the stream coming from ReadService, involves deserialization and translation to Update-s
+    // The stream coming from ReadService, involves deserialization and translation to Update-s
     Flow[IN]
-      // Stage 2: Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
+      // Batching plus mapping to Database DTOs encapsulates all the CPU intensive computation of the ingestion. Executed in parallel.
       .via(BatchN(submissionBatchSize.toInt, inputMappingParallelism))
       .mapAsync(inputMappingParallelism)(inputMapper)
-      // Stage 3: Encapsulates sequential/stateful computation (generation of sequential IDs for events)
+      // Encapsulates sequential/stateful computation (generation of sequential IDs for events)
       .scan(seqMapperZero)(seqMapper)
       .drop(1) // remove the zero element from the beginning of the stream
-      // Stage 4: Mapping to Database specific representation, encapsulates all database specific preparation of the data. Executed in parallel.
+      .async
+      .mapAsync(dbPrepareParallelism)(dbPrepare)
+      // Mapping to Database specific representation, encapsulates all database specific preparation of the data. Executed in parallel.
       .async
       .mapAsync(batchingParallelism)(batcher)
-      // Stage 5: Inserting data into the database. Almost no CPU load here, threads are executing SQL commands over JDBC, and waiting for the result. This defines the parallelism on the SQL database side, same amount of PostgreSQL Backend processes will do the ingestion work.
+      // Inserting data into the database. Almost no CPU load here, threads are executing SQL commands over JDBC, and waiting for the result. This defines the parallelism on the SQL database side, same amount of PostgreSQL Backend processes will do the ingestion work.
       .async
       .mapAsync(ingestingParallelism)(ingester)
-      // Stage 6: Batching data for throttled ledger-end update in database
+      // Batching data for throttled ledger-end update in database
       .batch(maxTailerBatchSize.toLong, Vector(_))(_ :+ _)
-      // Stage 7: Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
+      // Updating ledger-end and related data in database (this stage completion demarcates the consistent point-in-time)
       .mapAsync(1)(ingestTail)
       .mapConcat(identity)
 }

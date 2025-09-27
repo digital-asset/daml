@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesLedgerEffects
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -106,9 +107,12 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(someParty),
         templateIdO = None,
-        startExclusive = 0,
-        endInclusive = 1000,
-        limit = 1000,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1000,
+          limit = 1000,
+        )
       )
     )
 
@@ -130,9 +134,12 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0L,
-        endInclusive = 1000L,
-        1000,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 1000L,
+          1000,
+        )
       )
     )
 
@@ -140,9 +147,12 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0L,
-        endInclusive = 1000L,
-        1000,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0L,
+          endInclusive = 1000L,
+          1000,
+        )
       )
     )
 

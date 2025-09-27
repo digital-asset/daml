@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.admin.user_management_service.*
 import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
-import com.digitalasset.canton.ledger.api.auth.services.UserManagementServiceAuthorization.userReaderClaims
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import io.grpc.ServerServiceDefinition
@@ -24,6 +23,7 @@ final class UserManagementServiceAuthorization(
     with ProxyCloseable
     with GrpcApiService
     with NamedLogging {
+  import UserManagementServiceAuthorization.*
 
   // Only ParticipantAdmin is allowed to grant ParticipantAdmin right
   private def containsParticipantAdmin(rights: Seq[Right]): Boolean =

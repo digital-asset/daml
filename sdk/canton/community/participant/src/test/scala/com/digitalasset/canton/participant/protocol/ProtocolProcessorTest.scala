@@ -32,7 +32,6 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -73,7 +72,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, IndexedSynchronizer}
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker, WallClock}
+import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -207,8 +206,7 @@ class ProtocolProcessorTest
   private val resultSc = SequencerCounter(1)
   private val rc = RequestCounter(0)
   private val parameters = DynamicSynchronizerParametersWithValidity(
-    DynamicSynchronizerParameters
-      .initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
+    DynamicSynchronizerParameters.initialValues(testedProtocolVersion),
     CantonTimestamp.MinValue,
     None,
   )
@@ -251,8 +249,6 @@ class ProtocolProcessorTest
       SyncEphemeralState,
       ParticipantNodeEphemeralState,
   ) = {
-
-    val packageDependencyResolver = mock[PackageDependencyResolver]
     val clock = new WallClock(timeouts, loggerFactory)
 
     val nodePersistentState = timeouts.default.await("creating node persistent state")(
@@ -292,10 +288,9 @@ class ProtocolProcessorTest
         defaultStaticSynchronizerParameters,
         exitOnFatalFailures = true,
         disableUpgradeValidation = false,
-        packageDependencyResolver,
+        mock[PackageMetadataView],
         Eval.now(nodePersistentState.ledgerApiStore),
         logical,
-        Eval.now(mock[PackageMetadataView]),
         loggerFactory,
         timeouts,
         futureSupervisor,

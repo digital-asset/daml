@@ -192,6 +192,8 @@ class BatchingParallelIngestionPipeSpec
             (index + lastIndex + 1, value)
           }
         },
+        dbPrepareParallelism = 2,
+        dbPrepare = inBatch => Future(inBatch),
         batchingParallelism = 2,
         batcher = inBatch =>
           Future {

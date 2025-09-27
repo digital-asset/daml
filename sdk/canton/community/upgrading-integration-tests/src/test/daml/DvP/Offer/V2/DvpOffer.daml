@@ -1,0 +1,33 @@
+module DvpOffer where
+
+import qualified Assets
+import DA.TextMap as TM
+
+mergeMeta : Optional Assets.Meta -> Optional Assets.Meta -> Optional Assets.Meta
+mergeMeta None m = m
+mergeMeta m None = m
+mergeMeta (Some m1) (Some m2) = Some (Assets.Meta with meta = TM.union m1.meta m2.meta)
+
+template DvpOffer
+  with
+    buyer : Party
+    seller : Party
+    registry : Party
+    company : Text
+    iouId : ContractId Assets.Iou
+  where
+    signatory buyer
+    observer seller
+    choice Accept : (ContractId Assets.Iou, ContractId Assets.Share)
+      with
+        shareId : ContractId Assets.Share
+        meta: Optional Assets.Meta -- added in V2
+      controller seller
+        do
+          share <- fetch shareId
+          iou <- fetch iouId
+          assert $ share.company == company && share.registry == registry && iou.owner == buyer
+
+          newShareId <- exercise shareId Assets.TransferShare with newHolder = buyer, newMeta = mergeMeta share.meta meta
+          newIouId   <- exercise iouId   Assets.TransferIou   with newOwner  = seller, newMeta = mergeMeta iou.meta meta
+          pure $ (newIouId, newShareId)

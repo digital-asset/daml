@@ -30,7 +30,6 @@ import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   NewConfiguration,
 }
 import com.digitalasset.canton.util.{EitherTUtil, OrderedBucketMergeConfig, ResourceUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutionContext,
@@ -335,7 +334,6 @@ class SequencerAggregatorPekkoTest
             priorEventO: Option[ProcessingSerializedEvent],
             event: SequencedSerializedEvent,
             sequencerId: SequencerId,
-            protocolVersion: ProtocolVersion,
         ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
           EitherTUtil.unitUS
       }

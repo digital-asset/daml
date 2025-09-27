@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.http
 
+import com.digitalasset.canton.config.RequireTypes.Port
+
 import java.nio.file.Path
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
@@ -24,11 +26,16 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
   */
 final case class HttpServerConfig(
     address: String = HttpServerConfig.defaultAddress,
-    port: Option[Int] = None,
+    internalPort: Option[Port] = None,
     portFile: Option[Path] = None,
     pathPrefix: Option[String] = None,
     requestTimeout: FiniteDuration = HttpServerConfig.defaultRequestTimeout,
-)
+) {
+  def port: Port =
+    internalPort.getOrElse(
+      throw new IllegalStateException("Accessing server port before default was set")
+    )
+}
 
 object HttpServerConfig {
   private val defaultAddress: String = java.net.InetAddress.getLoopbackAddress.getHostAddress

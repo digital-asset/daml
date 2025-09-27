@@ -1,0 +1,59 @@
+-- mock implementation of the featured app right interface
+-- expected to be provided by `tests-featured-app-right` package
+module FeaturedAppRightImpl where
+import DA.Optional
+import qualified FeaturedAppRightV1
+
+template FeaturedAppRightImpl with
+    dso : Party
+    provider : Party
+    optWeight : Optional Decimal  -- Additional parameter added in version `2.0.0` of the `tests-featured-app-right` package
+  where
+    signatory dso
+    observer provider
+
+    interface instance FeaturedAppRightV1.FeaturedAppRight for FeaturedAppRightImpl where
+      view = FeaturedAppRightV1.FeaturedAppRightView with dso = dso, provider = provider
+
+      -- v1.0.0 version
+      -- featuredAppRight_CreateActivityMarkerImpl = do
+      --   markerCid <- create FeaturedAppActivityMarkerImpl with dso = dso, provider = provider
+      --   return FeaturedAppRightV1.FeaturedAppRight_CreateActivityMarkerResult with
+      --     activityMarkerContractId = toInterfaceContractId markerCid
+
+      -- v2.0.0 version -- creates the new kind of marker contract
+      featuredAppRight_CreateActivityMarkerImpl = do
+        markerCid <- create NewFeaturedAppActivityMarkerImpl with
+          dso
+          provider
+          weight = DA.Optional.fromOptional 1.0 optWeight
+        return FeaturedAppRightV1.FeaturedAppRight_CreateActivityMarkerResult with
+          activityMarkerContractId = toInterfaceContractId markerCid
+
+
+template FeaturedAppActivityMarkerImpl with
+    dso : Party
+    provider : Party
+  where
+    signatory dso
+    observer provider
+
+    interface instance FeaturedAppRightV1.FeaturedAppActivityMarker for FeaturedAppActivityMarkerImpl where
+      view = FeaturedAppRightV1.FeaturedAppActivityMarkerView with dso = dso, provider = provider
+
+
+-- | A new version of the `FeaturedAppActivityMarkerImpl` template that includes a `weight` field.
+-- This template is only introduced in version `2.0.0` of the `tests-featured-app-right` package.
+--
+-- Introducing a new template for this is atypical, but it is done here to increase test coverage,
+-- wrt to the fetching of the `FeaturedAppActivityMarker` contract via the `FeatureAppActivityMarker` interface.
+template NewFeaturedAppActivityMarkerImpl with
+    dso : Party
+    provider : Party
+    weight : Decimal
+  where
+    signatory dso
+    observer provider
+
+    interface instance FeaturedAppRightV1.FeaturedAppActivityMarker for NewFeaturedAppActivityMarkerImpl where
+      view = FeaturedAppRightV1.FeaturedAppActivityMarkerView with dso = dso, provider = provider

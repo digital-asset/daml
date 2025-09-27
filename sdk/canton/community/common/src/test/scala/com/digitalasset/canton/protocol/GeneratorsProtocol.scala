@@ -57,6 +57,7 @@ final class GeneratorsProtocol(
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
       requiredSignatureFormats <- nonEmptySetGen[SignatureFormat]
+      topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       enableTransparencyChecks <- Arbitrary.arbitrary[Boolean]
       serial <- Arbitrary.arbitrary[NonNegativeInt]
 
@@ -67,6 +68,7 @@ final class GeneratorsProtocol(
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
         requiredSignatureFormats,
+        topologyChangeDelay,
         enableTransparencyChecks,
         protocolVersion,
         serial,
@@ -80,7 +82,6 @@ final class GeneratorsProtocol(
         confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         assignmentExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-        topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
 
         mediatorDeduplicationMargin <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         // Because of the potential multiplication by 2 below, we want a reasonably small value
@@ -130,7 +131,6 @@ final class GeneratorsProtocol(
           confirmationResponseTimeout,
           mediatorReactionTimeout,
           assignmentExclusivityTimeout,
-          topologyChangeDelay,
           ledgerTimeRecordTimeTolerance,
           updatedMediatorDeduplicationTimeout,
           reconciliationInterval,

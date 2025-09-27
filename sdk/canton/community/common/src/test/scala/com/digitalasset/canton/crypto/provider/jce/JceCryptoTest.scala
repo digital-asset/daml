@@ -9,7 +9,6 @@ import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, PositiveFin
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.SigningKeySpec.EcSecp256k1
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
@@ -49,7 +48,6 @@ class JceCryptoTest
           ),
           new MemoryStorage(loggerFactory, timeouts),
           CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
-          CommunityKmsFactory, // Does not matter for the test as we do not use KMS
           testedReleaseProtocolVersion,
           futureSupervisor,
           wallClock,

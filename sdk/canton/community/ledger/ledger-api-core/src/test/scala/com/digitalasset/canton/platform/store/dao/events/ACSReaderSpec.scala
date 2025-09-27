@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream
-import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.dao.events.EventIdsUtils.*
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -13,6 +13,7 @@ import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
+import java.sql.Connection
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext, Future}
 
@@ -131,13 +132,13 @@ class ACSReaderSpec extends AsyncFlatSpec with BaseTest with BeforeAndAfterAll {
       Range(1, 70).map(_.toLong).toVector,
     ).map(
       _ shouldBe Vector(
-        IdPaginationState(0, 1),
-        IdPaginationState(1, 4),
-        IdPaginationState(5, 16),
-        IdPaginationState(21, 20),
-        IdPaginationState(41, 20),
-        IdPaginationState(61, 20),
-        IdPaginationState(69, 20),
+        PaginationInput(0, 69, 1),
+        PaginationInput(1, 69, 4),
+        PaginationInput(5, 69, 16),
+        PaginationInput(21, 69, 20),
+        PaginationInput(41, 69, 20),
+        PaginationInput(61, 69, 20),
+        PaginationInput(69, 69, 20),
       )
     )
   }
@@ -151,11 +152,11 @@ class ACSReaderSpec extends AsyncFlatSpec with BaseTest with BeforeAndAfterAll {
       Range(1, 70).map(_.toLong).toVector,
     ).map(
       _ shouldBe Vector(
-        IdPaginationState(0, 20),
-        IdPaginationState(20, 20),
-        IdPaginationState(40, 20),
-        IdPaginationState(60, 20),
-        IdPaginationState(69, 20),
+        PaginationInput(0, 69, 20),
+        PaginationInput(20, 69, 20),
+        PaginationInput(40, 69, 20),
+        PaginationInput(60, 69, 20),
+        PaginationInput(69, 69, 20),
       )
     )
   }
@@ -169,9 +170,9 @@ class ACSReaderSpec extends AsyncFlatSpec with BaseTest with BeforeAndAfterAll {
       Range(1, 6).map(_.toLong).toVector,
     ).map(
       _ shouldBe Vector(
-        IdPaginationState(0, 1),
-        IdPaginationState(1, 4),
-        IdPaginationState(5, 16),
+        PaginationInput(0, 5, 1),
+        PaginationInput(1, 5, 4),
+        PaginationInput(5, 5, 16),
       )
     )
   }
@@ -185,7 +186,7 @@ class ACSReaderSpec extends AsyncFlatSpec with BaseTest with BeforeAndAfterAll {
       Vector.empty,
     ).map(
       _ shouldBe Vector(
-        IdPaginationState(0, 1)
+        PaginationInput(0, 0, 1)
       )
     )
   }
@@ -298,17 +299,23 @@ class ACSReaderSpec extends AsyncFlatSpec with BaseTest with BeforeAndAfterAll {
   private def testIdSource(
       idQueryConfiguration: IdPageSizing,
       ids: Vector[Long],
-  ): Future[Vector[IdPaginationState]] = {
-    val queries = Vector.newBuilder[IdPaginationState]
+  ): Future[Vector[PaginationInput]] = {
+    val queries = Vector.newBuilder[PaginationInput]
     paginatingAsyncStream
-      .streamIdsFromSeekPagination(idQueryConfiguration, 1, 0L) { idQuery =>
-        queries.addOne(idQuery)
-        Future.successful(
+      .streamIdsFromSeekPaginationWithoutIdFilter(
+        idStreamName = "test-stream",
+        idPageSizing = idQueryConfiguration,
+        idPageBufferSize = 1,
+        initialFromIdExclusive = 0L,
+        initialEndInclusive = ids.lastOption.getOrElse(0),
+      )(_ =>
+        input => {
+          queries.addOne(input)
           ids
-            .dropWhile(_ <= idQuery.fromIdExclusive)
-            .take(idQuery.pageSize)
-        )
-      }
+            .dropWhile(_ <= input.startExclusive)
+            .take(input.limit)
+        }
+      )(f => Future.successful(f(mock[Connection])))
       .runWith(Sink.seq[Long])
       .map { result =>
         result shouldBe ids

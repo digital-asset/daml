@@ -70,6 +70,7 @@ trait StoreBasedTopologySnapshotTest
       val client =
         new StoreBasedSynchronizerTopologyClient(
           mock[Clock],
+          defaultStaticSynchronizerParameters,
           store,
           StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
           DefaultProcessingTimeouts.testing,

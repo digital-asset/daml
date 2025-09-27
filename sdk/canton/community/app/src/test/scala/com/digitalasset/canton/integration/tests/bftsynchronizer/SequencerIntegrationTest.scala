@@ -7,8 +7,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.InstanceReference
+import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
+import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.integration.{
@@ -192,6 +193,10 @@ trait SequencerIntegrationTest
 
     def submitInvalidEnvelopeAndAssertWarnings(
         broadcasts: Seq[TopologyTransactionsBroadcast],
+        participantsToPingForSynchronization: (
+            LocalParticipantReference,
+            LocalParticipantReference,
+        ),
         assertEventually: Option[() => Assertion] = None,
     ): Assertion =
       loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
@@ -207,6 +212,12 @@ trait SequencerIntegrationTest
             val approximateTimestampAfter =
               sequencer1.underlying.value.sequencer.syncCrypto.approximateTimestamp
             approximateTimestampAfter should be > approximateTimestampBefore
+
+            {
+              // We do a ping in order to make sure the mediator have processed the above malicious topology transaction
+              val (from, to) = participantsToPingForSynchronization
+              from.health.ping(to)
+            }
 
             assertEventually.map(_()).getOrElse(succeed)
           }
@@ -225,7 +236,7 @@ trait SequencerIntegrationTest
             )
           val assertMediatorDeserializationWarning: LogEntry => Assertion =
             _.shouldBeCantonError(
-              SyncServiceAlarm,
+              MalformedMessage,
               _ should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r),
             )
           forAtLeast(2, logs)(assertSequencerDeserializationWarning)
@@ -248,7 +259,10 @@ trait SequencerIntegrationTest
     // check that a batch with a single invalid envelope still gets processed by the sequencer
     // topology processing pipeline, even if it's just an empty Deliver that simply moves the approximate time forward.
     clue("check that a batch with a single invalid envelope still gets processed by the sequencer")(
-      submitInvalidEnvelopeAndAssertWarnings(broadcasts = Seq(mkBroadcast(invalidRootCert)))
+      submitInvalidEnvelopeAndAssertWarnings(
+        broadcasts = Seq(mkBroadcast(invalidRootCert)),
+        participantsToPingForSynchronization = participant3 -> participant3,
+      )
     )
     // submit the invalid root cert together with a valid root cert.
     // we expect that the invalid envelope gets dropped, and the valid envelope
@@ -256,6 +270,7 @@ trait SequencerIntegrationTest
     clue("submit the invalid root cert together with a valid root cert")(
       submitInvalidEnvelopeAndAssertWarnings(
         broadcasts = Seq(invalidRootCert, rootCert).map(mkBroadcast),
+        participantsToPingForSynchronization = participant3 -> participant3,
         assertEventually = Some(() =>
           participant3.topology.namespace_delegations
             .list(

@@ -38,16 +38,11 @@ service StateService {
 // Note that it is ok to request acs snapshots for party migration with offsets other than ledger end, because party
 // migration is not concerned with incomplete (un)assignments.
 message GetActiveContractsRequest {
-  // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-  // Templates to include in the served snapshot, per party.
-  // Optional, if specified event_format must be unset, if not specified event_format must be set.
-  TransactionFilter filter = 1 [deprecated = true];
+  reserved 1;
+  reserved "filter";
 
-  // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
-  // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
-  // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
-  // Optional, if specified event_format must be unset.
-  bool verbose = 2 [deprecated = true];
+  reserved 2;
+  reserved "verbose";
 
   // The offset at which the snapshot of the active contracts will be computed.
   // Must be no greater than the current ledger end offset.
@@ -142,7 +137,8 @@ message IncompleteAssigned {
 message GetConnectedSynchronizersRequest {
   // The party of interest
   // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
+  // If empty, all synchronizers this node is connected to will be returned
+  // Optional
   string party = 1;
 
   // The id of a participant whose mapping of a party to connected synchronizers is requested.
@@ -167,7 +163,8 @@ message GetConnectedSynchronizersResponse {
     string synchronizer_id = 2;
 
     // The permission on the synchronizer
-    // Required
+    // Set if a party was used in the request, otherwise unspecified.
+    // Optional
     ParticipantPermission permission = 3;
   }
   repeated ConnectedSynchronizer connected_synchronizers = 1;

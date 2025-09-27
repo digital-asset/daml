@@ -17,7 +17,6 @@ import com.digitalasset.canton.integration.tests.ledgerapi.auth.{
 import com.google.protobuf.empty.Empty
 
 import java.util.UUID
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 trait SubmitAndWaitDummyCommand extends TestCommands with SubmitAndWaitDummyCommandHelpers {
@@ -91,20 +90,6 @@ trait SubmitAndWaitDummyCommandHelpers extends TestCommands {
     service(token)
       .submitAndWaitForTransaction(
         dummySubmitAndWaitForTransactionRequest(userId, party = party, commandId = commandId)
-      )
-      .map(_ => Empty())
-
-  // TODO(#23504) remove
-  @nowarn("cat=deprecation")
-  protected def submitAndWaitForTransactionTree(
-      token: Option[String],
-      userId: String,
-      party: String,
-      commandId: Option[String] = None,
-  )(implicit ec: ExecutionContext): Future[Empty] =
-    service(token)
-      .submitAndWaitForTransactionTree(
-        dummySubmitAndWaitRequest(userId, party = party, commandId = commandId)
       )
       .map(_ => Empty())
 

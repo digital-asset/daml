@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store.db
 
-import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
@@ -480,33 +479,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     )
     toStoredTopologyTransactions(storage.query(query, operationName = "upcomingEffectiveChanges"))
       .map(res => res.result.map(TopologyStore.Change.selectChange).distinct)
-  }
-
-  protected def doFindCurrentAndUpcomingChangeDelays(sequencedTime: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Iterable[GenericStoredTopologyTransaction]] = {
-    val query = buildQueryForTransactions(
-      sql""" AND transaction_type = ${SynchronizerParametersState.code}
-             AND (valid_from >= $sequencedTime OR valid_until is NULL OR valid_until >= $sequencedTime)
-             AND (valid_until is NULL or valid_from != valid_until)
-             AND sequenced < $sequencedTime
-             AND is_proposal = false """
-    )
-    toStoredTopologyTransactions(storage.query(query, operationName = functionFullName))
-      .map(_.result)
-  }
-
-  override def findExpiredChangeDelays(
-      validUntilMinInclusive: CantonTimestamp,
-      validUntilMaxExclusive: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[TopologyStore.Change.TopologyDelay]] = {
-    val query = buildQueryForTransactions(
-      sql" AND transaction_type = ${SynchronizerParametersState.code} AND $validUntilMinInclusive <= valid_until AND valid_until < $validUntilMaxExclusive AND is_proposal = false "
-    )
-    toStoredTopologyTransactions(storage.query(query, operationName = functionFullName))
-      .map(_.result.mapFilter(TopologyStore.Change.selectTopologyDelay))
   }
 
   override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit

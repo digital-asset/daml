@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -23,9 +24,12 @@ import com.digitalasset.canton.platform.store.interning.{
   InternizingStringInterningView,
   StringInterning,
 }
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.sql.Connection
+import scala.collection.mutable
 import scala.concurrent.{Future, blocking}
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -92,6 +96,8 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var previousTransactionMetaToEventSeqId: Long = _
 
+  private val acs: mutable.HashMap[(SynchronizerId, ContractId), Long] = mutable.HashMap()
+
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
       val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
@@ -108,8 +114,28 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
 
   private def adaptEventSeqIds(dbDtos: Iterator[DbDto]): Vector[DbDto] =
     dbDtos.map {
-      case e: DbDto.EventCreate => e.copy(event_sequential_id = nextEventSeqId)
-      case e: DbDto.EventExercise => e.copy(event_sequential_id = nextEventSeqId)
+      case e: DbDto.EventCreate =>
+        val eventSeqId = nextEventSeqId
+        if (e.flat_event_witnesses.nonEmpty) {
+          acs.put(e.synchronizer_id -> e.contract_id, eventSeqId).discard
+        }
+        e.copy(event_sequential_id = eventSeqId)
+      case e: DbDto.EventExercise =>
+        val deactivatedEventSeqId = Option
+          .when(e.consuming && e.flat_event_witnesses.nonEmpty) {
+            acs.get(e.synchronizer_id -> e.contract_id) match {
+              case Some(deactivatedEventSeqId) =>
+                acs.remove(e.synchronizer_id -> e.contract_id).discard
+                Some(deactivatedEventSeqId)
+              case None =>
+                None
+            }
+          }
+          .flatten
+        e.copy(
+          event_sequential_id = nextEventSeqId,
+          deactivated_event_sequential_id = deactivatedEventSeqId,
+        )
       case e: DbDto.IdFilterCreateStakeholder =>
         e.copy(event_sequential_id = lastEventSeqId)
       case e: DbDto.IdFilterCreateNonStakeholderInformee =>

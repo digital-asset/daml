@@ -11,7 +11,7 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import scala.concurrent.Future
 
 final class GetConnectedSynchronizersAuthIT
-    extends AdminOrIdpAdminOrReadAsPartyServiceCallAuthTests {
+    extends AdminOrIdpAdminOrOperateAsPartyServiceCallAuthTests {
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "StateService#GetConnectedSynchronizers"

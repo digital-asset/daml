@@ -4,7 +4,7 @@
 module Foo where
 
 -- This template is upgraded by the Bar in V2/Foo.daml
-template Bar with
+template Foo with
     owner : Party
   where
     signatory owner

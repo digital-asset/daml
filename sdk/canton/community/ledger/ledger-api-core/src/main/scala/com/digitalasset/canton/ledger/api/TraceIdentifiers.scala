@@ -5,10 +5,8 @@ package com.digitalasset.canton.ledger.api
 
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
-import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.tracing.SpanAttribute
-
-import scala.annotation.nowarn
 
 /** Extracts identifiers from Protobuf messages to correlate traces.
   */
@@ -27,25 +25,6 @@ object TraceIdentifiers {
     setIfNotEmpty(SpanAttribute.CommandId, transaction.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, transaction.updateId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transaction.workflowId)
-
-    attributes.result()
-  }
-
-  /** Extract identifiers from a transaction tree message.
-    */
-  // TODO(#23504) remove this method once TransactionTrees are removed from the API
-  @nowarn("cat=deprecation")
-  def fromTransactionTree(transactionTree: TransactionTree): Map[SpanAttribute, String] = {
-    val attributes = Map.newBuilder[SpanAttribute, String]
-    def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
-      if (value.nonEmpty) attributes += attribute -> value
-    def setIfNotZero(attribute: SpanAttribute, value: Long): Unit =
-      if (value != 0) attributes += attribute -> value.toString
-
-    setIfNotZero(SpanAttribute.Offset, transactionTree.offset)
-    setIfNotEmpty(SpanAttribute.CommandId, transactionTree.commandId)
-    setIfNotEmpty(SpanAttribute.TransactionId, transactionTree.updateId)
-    setIfNotEmpty(SpanAttribute.WorkflowId, transactionTree.workflowId)
 
     attributes.result()
   }

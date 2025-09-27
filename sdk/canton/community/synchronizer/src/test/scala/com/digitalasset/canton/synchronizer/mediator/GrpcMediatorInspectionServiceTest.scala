@@ -3,14 +3,19 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
-import com.digitalasset.canton.BaseTest
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.CantonTimestamp.Epoch
 import com.digitalasset.canton.error.MediatorError
-import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  CloseContext,
+  FlagCloseable,
+  FutureUnlessShutdown,
+  LifeCycle,
+}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.mediator.admin.v30.VerdictsResponse
@@ -23,16 +28,21 @@ import com.digitalasset.canton.synchronizer.service.RecordStreamObserverItems
 import com.digitalasset.canton.time.TimeAwaiter
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
 import com.digitalasset.canton.version.CommonGenerators
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.stub.ServerCallStreamObserver
+import org.apache.pekko.actor.ActorSystem
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.{Future, Promise}
 import scala.util.Random
 
-class GrpcMediatorInspectionServiceTest extends AsyncWordSpec with BaseTest {
+class GrpcMediatorInspectionServiceTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutionContext {
   private lazy val generators = new CommonGenerators(testedProtocolVersion)
 
   // use our generators to generate a random full informee tree
@@ -65,6 +75,18 @@ class GrpcMediatorInspectionServiceTest extends AsyncWordSpec with BaseTest {
           )
           .toVerdict(testedProtocolVersion),
     )(TraceContext.empty)
+
+  private implicit val actorSystem: ActorSystem =
+    PekkoUtil.createActorSystem(loggerFactory.threadName)
+
+  private implicit val executionSequencerFactory: ExecutionSequencerFactory =
+    PekkoUtil.createExecutionSequencerFactory(loggerFactory.threadName, noTracingLogger)
+
+  override def afterAll(): Unit =
+    LifeCycle.close(
+      executionSequencerFactory,
+      LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts),
+    )(logger)
 
   class Fixture(val batchSize: Int = 5) {
     val finalizedResponseStore = new InMemoryFinalizedResponseStore(loggerFactory)
@@ -99,27 +121,46 @@ class GrpcMediatorInspectionServiceTest extends AsyncWordSpec with BaseTest {
       val observer = new ServerCallStreamObserver[v30.VerdictsResponse]
         with RecordStreamObserverItems[v30.VerdictsResponse] {
         @volatile var isCancelled_ = false
+        val onCancelHandlerRef = new AtomicReference[Option[Runnable]](None)
         override def isCancelled: Boolean = isCancelled_
-        override def setOnCancelHandler(onCancelHandler: Runnable): Unit = ()
+        override def setOnCancelHandler(onCancelHandler: Runnable): Unit =
+          onCancelHandlerRef.set(Some(onCancelHandler))
+
         override def setOnCloseHandler(onCloseHandler: Runnable): Unit = ()
         override def setCompression(compression: String): Unit = ???
         override def isReady: Boolean = ???
-        override def setOnReadyHandler(onReadyHandler: Runnable): Unit = ???
+
+        val onReadyHandlerRef = new AtomicReference[Option[Runnable]](None)
+        override def setOnReadyHandler(onReadyHandler: Runnable): Unit = {
+          onReadyHandlerRef.set(Some(onReadyHandler))
+          if (counter.get > 0) signalReady()
+        }
+
         override def request(count: Int): Unit = ???
         override def setMessageCompression(enable: Boolean): Unit = ???
-        override def disableAutoInboundFlowControl(): Unit = ???
+        override def disableAutoInboundFlowControl(): Unit = ()
 
         override def onNext(value: VerdictsResponse): Unit = {
           super.onNext(value)
-          if (counter.decrementAndGet() == 0) {
-            isCancelled_ = true
+          val newCounter = counter.decrementAndGet()
+          if (newCounter == 0) {
             promise.trySuccess(values)
+            cancel()
+          } else if (newCounter > 0) {
+            signalReady()
           }
         }
 
         override def onError(t: Throwable): Unit = {
           super.onError(t)
           promise.tryFailure(t)
+        }
+
+        private def signalReady(): Unit = onReadyHandlerRef.get.foreach(_.run())
+
+        private def cancel(): Unit = {
+          isCancelled_ = true
+          onCancelHandlerRef.get.foreach(_.run())
         }
       }
       scanService.verdicts(

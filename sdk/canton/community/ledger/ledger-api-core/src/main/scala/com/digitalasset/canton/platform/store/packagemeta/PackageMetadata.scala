@@ -14,6 +14,8 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.util.PackageInfo
 import com.digitalasset.daml.lf.language.{Ast, Util as LfUtil}
 
+import scala.annotation.tailrec
+
 // TODO(#17635): Move to [[com.digitalasset.canton.participant.store.memory.PackageMetadataView]]
 final case class PackageMetadata(
     interfaces: Set[Ref.Identifier] = Set.empty,
@@ -24,6 +26,37 @@ final case class PackageMetadata(
     // TODO(#21695): Use [[com.digitalasset.daml.lf.language.PackageInterface]] once public
     packages: Map[Ref.PackageId, Ast.PackageSignature] = Map.empty,
 ) {
+
+  /** Compute the set of dependencies recursively. Assuming that the package store is closed under
+    * dependencies, it throws an exception if a package is unknown.
+    *
+    * @param packageIds
+    *   the set of packages from which to compute the dependencies
+    * @return
+    *   the set of packages and their dependencies, recursively
+    */
+  def allDependenciesRecursively(
+      packageIds: Set[Ref.PackageId]
+  ): Set[Ref.PackageId] = {
+    @tailrec
+    def go(
+        packageIds: Set[Ref.PackageId],
+        knownDependencies: Set[Ref.PackageId],
+    ): Set[Ref.PackageId] =
+      if (packageIds.isEmpty) knownDependencies
+      else {
+        val newDependencies =
+          packageIds.flatMap(pkgId => tryGet(pkgId).directDeps) -- knownDependencies
+        go(newDependencies, knownDependencies ++ newDependencies)
+      }
+    go(packageIds, packageIds)
+  }
+
+  private def tryGet(packageId: Ref.PackageId): Ast.PackageSignature =
+    packages.getOrElse(
+      packageId,
+      throw new IllegalStateException(s"Missing package-id $packageId in package metadata view"),
+    )
 
   /** Resolve all template or interface ids for (package-name, qualified-name).
     *

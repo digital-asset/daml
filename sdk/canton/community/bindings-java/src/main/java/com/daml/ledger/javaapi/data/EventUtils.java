@@ -16,18 +16,4 @@ public class EventUtils {
     throw new IllegalArgumentException(
         "Expected exactly one created event from the transaction, got: " + events);
   }
-
-  /** @hidden */
-  public static ExercisedEvent firstExercisedEvent(TransactionTree txTree) {
-    var maybeExercisedEvent =
-        txTree.getRootNodeIds().stream()
-            .map(nodeId -> txTree.getEventsById().get(nodeId))
-            .filter(e -> e instanceof ExercisedEvent)
-            .map(e -> (ExercisedEvent) e)
-            .findFirst();
-
-    return maybeExercisedEvent.orElseThrow(
-        () ->
-            new IllegalArgumentException("Expect an exercised event but not found. tx: " + txTree));
-  }
 }

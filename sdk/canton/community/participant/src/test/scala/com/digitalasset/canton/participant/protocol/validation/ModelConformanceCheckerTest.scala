@@ -16,13 +16,10 @@ import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
   GetEngineAbortStatus,
 }
+import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceCheckerTest.HashReInterpretationCounter
-import com.digitalasset.canton.participant.protocol.{
-  DummyContractAuthenticator,
-  TransactionProcessingSteps,
-}
 import com.digitalasset.canton.participant.store.ContractAndKeyLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.{
@@ -35,8 +32,8 @@ import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticato
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{
   BaseTest,
@@ -71,10 +68,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val packageMetadata: PackageMetadata = PackageMetadata(packageName, packageVersion, None)
   val genPackage: GenPackage[Expr] =
     GenPackage(
-      Map.empty,
-      Set.empty,
-      LanguageVersion.default,
-      packageMetadata,
+      modules = Map.empty,
+      directDeps = Set.empty,
+      languageVersion = LanguageVersion.default,
+      metadata = packageMetadata,
+      imports = Right(Set.empty),
       isUtilityPackage = true,
     )
   val packageResolver: PackageResolver = _ => _ => FutureUnlessShutdown.pure(Some(genPackage))
@@ -217,7 +215,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         reinterpretCommand,
         transactionTreeFactory,
         submittingParticipant,
-        DummyContractAuthenticator,
+        ContractValidator.AllowAll,
         packageResolver,
         pureCrypto,
         loggerFactory,
@@ -543,16 +541,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       }
     }
   }
-
-  class TestPackageResolver(result: Either[PackageId, Set[PackageId]])
-      extends PackageDependencyResolverUS {
-    import cats.syntax.either.*
-    override def packageDependencies(packageId: PackageId)(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-      result.toEitherT
-  }
-
 }
 
 object ModelConformanceCheckerTest {

@@ -96,7 +96,7 @@ class PackageUpgradeValidator(
         .flatMap(getPackageToCheck)
         .groupBy(_.name)
         .view
-        .mapValues(_.sortBy(_.version))
+        .mapValues(_.sortBy(pkg => (pkg.version, pkg.packageId)))
         .toMap
 
     // validate the upgradeability of each lineage
@@ -144,7 +144,7 @@ class PackageUpgradeValidator(
         // we cannot check the upgradability of a package if one of its dependency is unknown
         storedPackageMap
           .get(packageId)
-          .toRight(CannotVetDueToMissingPackages.Missing(packageId))
+          .toRight(CannotVetDueToMissingPackages.Missing(Set(packageId)))
       }
       .map(_ => ())
 

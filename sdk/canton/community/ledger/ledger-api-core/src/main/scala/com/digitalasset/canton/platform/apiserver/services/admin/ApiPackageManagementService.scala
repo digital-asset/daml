@@ -13,6 +13,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.api.{
+  PriorTopologySerialNone,
   UpdateVettedPackagesOpts,
   UploadDarVettingChange as UploadDarOpts,
 }
@@ -134,7 +135,7 @@ private[apiserver] final class ApiPackageManagementService private (
                 // updates and queries can specify target synchronizers
                 participantId = "",
                 synchronizerId = "",
-                topologySerial = 0,
+                topologySerial = Some(PriorTopologySerialNone.toProtoLAPI),
               )
             ),
             newVettedPackages = Some(
@@ -144,7 +145,7 @@ private[apiserver] final class ApiPackageManagementService private (
                 // updates and queries can specify target synchronizers
                 participantId = "",
                 synchronizerId = "",
-                topologySerial = 0,
+                topologySerial = Some(PriorTopologySerialNone.toProtoLAPI),
               )
             ),
           )

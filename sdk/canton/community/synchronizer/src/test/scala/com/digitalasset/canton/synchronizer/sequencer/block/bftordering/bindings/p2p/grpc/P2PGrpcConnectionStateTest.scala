@@ -25,7 +25,7 @@ class P2PGrpcConnectionStateTest extends AnyWordSpec with BftSequencerBaseTest {
 
   import P2PGrpcConnectionStateTest.*
 
-  "P2PGrpcBidiConnectionState" should {
+  "P2PGrpcConnectionState" should {
 
     "associate multiple P2P endpoint ID to a BFT node ID" in {
       val state = new P2PGrpcConnectionState(SelfBftNodeId, loggerFactory)

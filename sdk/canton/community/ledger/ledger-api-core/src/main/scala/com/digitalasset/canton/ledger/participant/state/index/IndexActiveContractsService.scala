@@ -16,7 +16,7 @@ import org.apache.pekko.stream.scaladsl.Source
 trait IndexActiveContractsService {
 
   def getActiveContracts(
-      filter: EventFormat,
+      eventFormat: EventFormat,
       activeAt: Option[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
 }

@@ -370,8 +370,6 @@ class ParticipantTab(
     val req = new GetUpdatesRequest(
       beginExclusive = offset,
       endInclusive = None,
-      filter = None,
-      verbose = false,
       updateFormat = Some(
         UpdateFormat(
           includeTransactions = Some(
