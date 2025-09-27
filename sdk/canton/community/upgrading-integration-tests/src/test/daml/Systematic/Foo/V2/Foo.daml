@@ -1,0 +1,21 @@
+module Foo where
+
+import IBar
+import Bar
+
+template Foo
+  with
+    owner: Party
+  where
+    signatory owner
+
+    choice Foo_Exe: ()
+      with
+        fooExeInformee: Party
+        subInformee: Party
+      observer fooExeInformee
+      controller owner
+        do
+          barCid <- create Bar with owner = owner, obs = owner
+          _ <- exercise (toInterfaceContractId @IBar barCid) IBar_Exe with subInformee = subInformee
+          pure ()

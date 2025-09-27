@@ -75,8 +75,6 @@ final class OngoingStreamAuthIT
         val request = new GetUpdatesRequest(
           beginExclusive = participantBegin,
           endInclusive = None,
-          filter = None,
-          verbose = false,
           updateFormat = Some(getUpdateFormat(Set(party))),
         )
         val _ = stub(UpdateServiceGrpc.stub(channel), token)
@@ -170,8 +168,6 @@ final class OngoingStreamAuthIT
         val request = new GetUpdatesRequest(
           beginExclusive = participantBegin,
           endInclusive = None,
-          filter = None,
-          verbose = false,
           updateFormat = Some(getUpdateFormat(Set(party))),
         )
         val _ = stub(UpdateServiceGrpc.stub(channel), token)

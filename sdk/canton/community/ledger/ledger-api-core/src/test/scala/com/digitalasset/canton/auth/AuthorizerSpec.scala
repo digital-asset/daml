@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.data.Ref
 import io.grpc.{Status, StatusRuntimeException}
 import org.mockito.MockitoSugar
 import org.scalatest.Assertion
+import org.scalatest.Assertions.succeed
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
@@ -349,96 +350,390 @@ class AuthorizerSpec
     ),
   ).foreach(generateAuthorizationTest)
 
+  val userId1 = "userId1"
+  val userId2 = "userId2"
+
+  def matchUserIdTestDef(
+      claims: Seq[Claim],
+      userId: Option[String],
+      req: String,
+      expectedResult: ExpectedResult,
+      descSuffix: String,
+      resolvedFromUser: Boolean = true,
+  ): TestDefinition =
+    TestDefinition(
+      RequiredClaim.MatchUserIdForUserManagement(simpleLens),
+      ClaimSet.Claims.Empty.copy(
+        claims = claims,
+        userId = userId,
+        resolvedFromUser = resolvedFromUser,
+      ),
+      expectedResult,
+      req = req,
+      descSuffix = descSuffix,
+      resultAssert = _ shouldBe userId1,
+    )
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement without Admin rights"
+
+  List(
+    matchUserIdTestDef(
+      Nil,
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    matchUserIdTestDef(Nil, Some(userId1), "", ExpectedSuccess, "when missing request user ID"),
+    matchUserIdTestDef(
+      Nil,
+      Some(userId2),
+      userId1,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+    ),
+    matchUserIdTestDef(Nil, None, userId1, expectedInternal, "when undefined authorized user ID"),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement with Admin rights"
+  List(
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when missing request user ID",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId1,
+      expectedInternal,
+      "when undefined authorized user ID",
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement with IDP Admin rights"
+  List(
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when missing request user ID",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId2),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      None,
+      userId1,
+      expectedInternal,
+      "when undefined authorized user ID",
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for RequiredClaim.MatchUserIdForUserManagement not resolvedFromUser"
+
+  List(
+    matchUserIdTestDef(
+      Nil,
+      Some(userId1),
+      userId1,
+      expectedPermissionDenied,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Nil,
+      None,
+      userId1,
+      expectedPermissionDenied,
+      "when undefined authenticated user ID",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Nil,
+      Some(userId2),
+      userId1,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId1,
+      ExpectedSuccess,
+      "when undefined authenticated user ID",
+      resolvedFromUser = false,
+    ),
+    matchUserIdTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId1,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  def anyAdminTestDef(
+      claims: Seq[Claim],
+      userId: Option[String],
+      req: String,
+      expectedResult: ExpectedResult,
+      descSuffix: String,
+      resolvedFromUser: Boolean = true,
+  ): TestDefinition =
+    TestDefinition(
+      RequiredClaim.AdminOrIdpAdminOrSelfAdmin(simpleLens),
+      ClaimSet.Claims.Empty.copy(
+        claims = claims,
+        userId = userId,
+        resolvedFromUser = resolvedFromUser,
+      ),
+      expectedResult,
+      req = req,
+      descSuffix = descSuffix,
+    )
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Admin claims"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Idp Admin claims"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+    ),
+  )
+    .foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin without Admin claims"
+  List(
+    anyAdminTestDef(
+      Nil,
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      userId2,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      "",
+      expectedPermissionDenied,
+      "when request user ID missing",
+    ),
+    anyAdminTestDef(Nil, None, userId2, expectedInternal, "when authorized user ID missing"),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Admin claims when not resolvedFromUser"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin with Idp Admin claims when not resolvedFromUser"
+  List(
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId2),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      userId2,
+      ExpectedSuccess,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      Some(userId1),
+      "",
+      ExpectedSuccess,
+      "when request user ID missing",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Seq(ClaimIdentityProviderAdmin),
+      None,
+      userId2,
+      ExpectedSuccess,
+      "when authorized user ID missing",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
+  behavior of s"$className.authorize for AdminOrIdpAdminOrSelfAdmin without Admin claims when not resolvedFromUser"
+  List(
+    anyAdminTestDef(
+      Nil,
+      Some(userId2),
+      userId2,
+      expectedPermissionDenied,
+      "when authorized and request user IDs match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      userId2,
+      expectedPermissionDenied,
+      "when authorized and request user IDs don't match",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Nil,
+      Some(userId1),
+      "",
+      expectedPermissionDenied,
+      "when request user ID missing",
+      resolvedFromUser = false,
+    ),
+    anyAdminTestDef(
+      Nil,
+      None,
+      userId2,
+      expectedPermissionDenied,
+      "when authorized user ID missing",
+      resolvedFromUser = false,
+    ),
+  ).foreach(generateAuthorizationTest)
+
   behavior of s"$className.authorize for RequiredClaim.MatchUserId"
 
-  it should "authorize for resolvedFromUser and user ID matching user ID" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        userId = Some(dummyRequest.toString),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "return permission denied for resolvedFromUser and user ID not matching user ID" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        userId = Some("x"),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for not resolvedFromUser" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        resolvedFromUser = false,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "return permission denied for resolvedFromUser and not defined user ID" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Nil,
-        resolvedFromUser = false,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }
-      .transform(
-        assertExpectedFailure(Status.PERMISSION_DENIED.getCode)
-      )
-  }
-
-  it should "authorize for resolvedFromUser and user ID not matching user ID if Admin rights available" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimAdmin),
-        userId = Some("x"),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  it should "authorize for resolvedFromUser and user ID not matching user ID if IDP Admin rights available" in {
-    val userL = Lens[Long, String](_.toString)((_, s) => s.toLong)
-    contextWithClaims(
-      ClaimSet.Claims.Empty.copy(
-        claims = Seq(ClaimIdentityProviderAdmin),
-        userId = Some("x"),
-        resolvedFromUser = true,
-      )
-    ) {
-      authorizer().rpc(dummyReqRes)(RequiredClaim.MatchUserIdForUserManagement(userL))(dummyRequest)
-    }.map(_ shouldBe expectedSuccessfulResponse)
-  }
-
-  behavior of s"$className.authorize for RequiredClaim.MatchUserId"
-
-  it should "authorize for user ID matching user ID" in {
+  it should "authorize for authenticated user ID matching request user ID" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -450,7 +745,7 @@ class AuthorizerSpec
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "authorize for no user ID specified but available in the claims" in {
+  it should "authorize for authenticated user ID when request user ID is missing" in {
     val userIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -462,7 +757,7 @@ class AuthorizerSpec
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return permission denied for user ID not matching user ID" in {
+  it should "return permission denied for authenticated user ID not matching request user ID" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -477,7 +772,7 @@ class AuthorizerSpec
       )
   }
 
-  it should "return permission denied for user ID not matching user ID if skipUserIdValidationForAnyPartyReaders" in {
+  it should "return permission denied for authenticated user ID not matching request user ID if skipUserIdValidationForAnyPartyReaders" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -497,7 +792,7 @@ class AuthorizerSpec
       )
   }
 
-  it should "authorize for user ID not matching user ID for AnyPartyReaders-s if skipUserIdValidationForAnyPartyReaders" in {
+  it should "authorize for authenticated user ID not matching request user ID for AnyPartyReaders-s if skipUserIdValidationForAnyPartyReaders" in {
     val userIdL = Lens[Long, String](_.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -514,7 +809,7 @@ class AuthorizerSpec
     }.map(_ shouldBe expectedSuccessfulResponse)
   }
 
-  it should "return invalid argument for no user ID in claims, and none provided in the request" in {
+  it should "return invalid argument for no authenticated user ID, and no request user ID" in {
     val userIdL = Lens[Long, String](l => if (l == 0) "" else l.toString)((_, s) => s.toLong)
     contextWithClaims(
       ClaimSet.Claims.Empty.copy(
@@ -624,14 +919,14 @@ class AuthorizerSpec
     val prettyClaims = s"Claims(${td.suppliedClaim.claims.map(_.toString).mkString(",")})"
     val testDescription = td.expectedResult match {
       case ExpectedSuccess =>
-        s"authorize for $prettyClaims"
+        s"authorize for $prettyClaims ${td.descSuffix}"
       case ExpectedFailure(code) =>
-        s"return $code for $prettyClaims"
+        s"return $code for $prettyClaims ${td.descSuffix}"
     }
     it should testDescription in {
       contextWithClaims(td.suppliedClaim) {
-        authorizer().rpc(dummyReqRes)(td.requiredClaim)(dummyRequest)
-      }.transform {
+        authorizer().rpc(simpleReqRes)(td.requiredClaim)(td.req)
+      }.map(td.resultAssert).transform {
         case Success(_) =>
           td.expectedResult match {
             case ExpectedSuccess =>
@@ -659,10 +954,18 @@ object AuthorizerSpec {
   final case class ExpectedFailure(code: Status.Code) extends ExpectedResult
 
   val expectedPermissionDenied: ExpectedFailure = ExpectedFailure(Status.PERMISSION_DENIED.getCode)
+  val expectedInternal: ExpectedFailure = ExpectedFailure(Status.INTERNAL.getCode)
+
+  val simpleRequest: String = "simpleRequest"
+  val simpleReqRes: String => Future[String] = s => Future.successful(s)
+  val simpleLens: Lens[String, String] = Lens[String, String](s => s)((_, s) => s)
 
   final case class TestDefinition(
-      requiredClaim: RequiredClaim[Long],
+      requiredClaim: RequiredClaim[String],
       suppliedClaim: ClaimSet.Claims,
       expectedResult: ExpectedResult,
+      req: String = simpleRequest,
+      descSuffix: String = "",
+      resultAssert: String => Assertion = _ => succeed,
   )
 }

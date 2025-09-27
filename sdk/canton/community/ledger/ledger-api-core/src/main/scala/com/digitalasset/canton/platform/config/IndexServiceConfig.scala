@@ -125,6 +125,8 @@ final case class ActiveContractsServiceStreamsConfig(
     maxPayloadsPerPayloadsPage: Int = ActiveContractsServiceStreamsConfig.DefaultEventsPageSize,
     maxParallelIdCreateQueries: Int =
       ActiveContractsServiceStreamsConfig.DefaultAcsIdFetchingParallelism,
+    idFilterQueryParallelism: Int =
+      ActiveContractsServiceStreamsConfig.DefaultAcsIdFilterQueryParallelism,
     // Must be a power of 2
     maxParallelPayloadCreateQueries: Int =
       ActiveContractsServiceStreamsConfig.DefaultAcsContractFetchingParallelism,
@@ -139,7 +141,8 @@ object ActiveContractsServiceStreamsConfig {
   val DefaultAcsIdPageSize: Int = 20000
   val DefaultAcsIdPageBufferSize: Int = 1
   val DefaultAcsIdPageWorkingMemoryBytes: Int = 100 * 1024 * 1024
-  val DefaultAcsIdFetchingParallelism: Int = 2
+  val DefaultAcsIdFetchingParallelism: Int = 4
+  val DefaultAcsIdFilterQueryParallelism: Int = 2
   // Must be a power of 2
   val DefaultAcsContractFetchingParallelism: Int = 2
   val DefaultContractProcessingParallelism: Int = 8

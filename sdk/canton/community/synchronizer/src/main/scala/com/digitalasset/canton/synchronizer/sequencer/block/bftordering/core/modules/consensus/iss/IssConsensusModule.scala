@@ -569,8 +569,9 @@ final class IssConsensusModule[E <: Env[E]](
   private def startConsensusForCurrentEpoch()(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
-  ): Unit =
-    if (epochState.epoch.info == GenesisEpoch.info) {
+  ): Unit = {
+    val epochInfo = epochState.epoch.info
+    if (epochInfo == GenesisEpoch.info) {
       logger.debug("Started at genesis, self-sending its topology to start epoch 0")
       context.self.asyncSend(
         NewEpochTopology(
@@ -580,7 +581,9 @@ final class IssConsensusModule[E <: Env[E]](
         )
       )
     } else if (!epochState.epochCompletionStatus.isComplete) {
-      logger.debug("Started during an in-progress epoch, starting segment modules")
+      logger.debug(
+        s"Starting consensus for not-yet-started or in-progress epoch ${epochInfo.number} (starting segment modules)"
+      )
       epochState.startSegmentModules()
       retransmissionsManager.startEpoch(epochState)
     } else {
@@ -603,6 +606,7 @@ final class IssConsensusModule[E <: Env[E]](
         "Started after a completed epoch but before starting a new one, waiting for topology from the output module"
       )
     }
+  }
 
   private def startNewEpochUnlessOffboarded(
       currentEpochInfo: EpochInfo,

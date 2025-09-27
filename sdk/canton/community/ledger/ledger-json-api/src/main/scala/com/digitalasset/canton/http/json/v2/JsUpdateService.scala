@@ -50,11 +50,8 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, webSocketBody}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-// TODO(#23504) remove deprecated methods
-@nowarn("cat=deprecation")
 class JsUpdateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -331,18 +328,7 @@ class JsUpdateService(
     req => {
       implicit val tc = req.traceContext
       Flow[LegacyDTOs.GetUpdatesRequest].map { request =>
-        update_service.GetUpdatesRequest(
-          beginExclusive = request.beginExclusive,
-          endInclusive = request.endInclusive,
-          filter = request.filter.map(f =>
-            transaction_filter.TransactionFilter(
-              filtersByParty = f.filtersByParty,
-              filtersForAnyParty = f.filtersForAnyParty,
-            )
-          ),
-          verbose = request.verbose,
-          updateFormat = request.updateFormat,
-        )
+        toGetUpdatesRequest(request, forTrees = false)
       } via
         prepareSingleWsStream(
           updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
@@ -404,8 +390,6 @@ class JsUpdateService(
         update_service.GetUpdatesRequest(
           beginExclusive = req.beginExclusive,
           endInclusive = req.endInclusive,
-          filter = None,
-          verbose = false,
           updateFormat = req.updateFormat,
         )
       case (None, None, _) =>
@@ -418,8 +402,6 @@ class JsUpdateService(
         update_service.GetUpdatesRequest(
           beginExclusive = req.beginExclusive,
           endInclusive = req.endInclusive,
-          filter = None,
-          verbose = false,
           updateFormat = Some(toUpdateFormat(filter, verbose, forTrees)),
         )
     }
@@ -604,8 +586,6 @@ final case class JsGetUpdateTreesResponse(
     update: JsUpdateTree.Update
 )
 
-// TODO(#23504) remove suppression of deprecation warnings
-@nowarn("cat=deprecation")
 object JsUpdateServiceCodecs {
   import JsSchema.config
   import JsSchema.JsServicesCommonCodecs.*
@@ -616,11 +596,6 @@ object JsUpdateServiceCodecs {
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveRelaxedCodec
   implicit val getUpdatesRequestRW: Codec[update_service.GetUpdatesRequest] = deriveRelaxedCodec
   implicit val getUpdatesRequestLegacyRW: Codec[LegacyDTOs.GetUpdatesRequest] = deriveRelaxedCodec
-  implicit val getTransactionByIdRequestRW: Codec[update_service.GetTransactionByIdRequest] =
-    deriveRelaxedCodec
-  implicit val getTransactionByOffsetRequestRW
-      : Codec[update_service.GetTransactionByOffsetRequest] =
-    deriveRelaxedCodec
   implicit val getTransactionByIdRequestLegacyRW: Codec[LegacyDTOs.GetTransactionByIdRequest] =
     deriveRelaxedCodec
   implicit val getTransactionByOffsetRequestLegacyRW

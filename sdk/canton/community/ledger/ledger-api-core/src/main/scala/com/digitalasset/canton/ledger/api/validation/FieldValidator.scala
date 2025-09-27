@@ -15,7 +15,12 @@ import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, SubmissionId, WorkflowId}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.topology.{ParticipantId, PartyId as TopologyPartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PartyId as TopologyPartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -203,6 +208,12 @@ object FieldValidator {
   ): Either[StatusRuntimeException, SynchronizerId] =
     if (s.isEmpty) Left(missingField(fieldName))
     else SynchronizerId.fromString(s).left.map(invalidField(fieldName, _))
+
+  def requirePhysicalSynchronizerId(s: String, fieldName: String)(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[StatusRuntimeException, PhysicalSynchronizerId] =
+    if (s.isEmpty) Left(missingField(fieldName))
+    else PhysicalSynchronizerId.fromString(s).left.map(invalidField(fieldName, _))
 
   def optionalSynchronizerId(s: String, fieldName: String)(implicit
       errorLoggingContext: ErrorLoggingContext

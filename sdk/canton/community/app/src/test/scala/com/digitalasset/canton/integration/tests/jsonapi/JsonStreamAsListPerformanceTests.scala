@@ -58,9 +58,7 @@ class JsonStreamAsListPerformanceTests
                 .parse(
                   state_service
                     .GetActiveContractsRequest(
-                      filter = None,
                       activeAtOffset = completionOffset,
-                      verbose = false,
                       eventFormat = Some(
                         transaction_filter.EventFormat(
                           filtersByParty = Map.empty,

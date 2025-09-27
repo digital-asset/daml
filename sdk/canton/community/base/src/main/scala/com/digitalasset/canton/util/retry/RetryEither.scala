@@ -63,6 +63,10 @@ object RetryEither {
                 .leftFlatMap { err =>
                   if (stopOnLeft.exists(fn => fn(err))) {
                     // Stop the retry attempts on this particular Left if stopOnLeft is true
+                    LoggerUtil.logAtLevel(
+                      failLogLevel,
+                      s"Operation $operationName failed, stopping retries: $err",
+                    )
                     Left(err)
                   } else if (retryCount <= 0) {
                     // Stop the recursion with the error if we exhausted the max retries

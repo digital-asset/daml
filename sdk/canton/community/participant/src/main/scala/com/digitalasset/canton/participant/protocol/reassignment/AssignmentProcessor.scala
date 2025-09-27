@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
-import com.digitalasset.canton.util.ContractAuthenticator
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -34,6 +34,7 @@ class AssignmentProcessor(
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
     synchronizerCrypto: SynchronizerCryptoClient,
+    contractValidator: ContractValidator,
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
     override protected val timeouts: ProcessingTimeout,
@@ -55,7 +56,7 @@ class AssignmentProcessor(
         reassignmentCoordination,
         synchronizerCrypto,
         seedGenerator,
-        ContractAuthenticator(synchronizerCrypto.pureCrypto),
+        contractValidator,
         staticSynchronizerParameters,
         targetProtocolVersion,
         loggerFactory,

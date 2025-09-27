@@ -110,6 +110,8 @@ final case class ParticipantNodeConfig(
       .modify(ports.ledgerApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
       .modify(ports.participantAdminApiPort.setDefaultPort)
+      .focus(_.httpLedgerApi)
+      .modify(_.map(_.focus(_.server.internalPort).modify(ports.httpLedgerApiPort.setDefaultPort)))
       .focus(_.replication)
       .modify(ReplicationConfig.withDefaultO(storage, _, edition))
 }

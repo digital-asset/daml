@@ -19,6 +19,7 @@ final case class IndexerConfig(
     ingestionParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultIngestionParallelism),
     inputMappingParallelism: NonNegativeInt =
       NonNegativeInt.tryCreate(DefaultInputMappingParallelism),
+    dbPrepareParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultDbPrepareParallelism),
     maxInputBufferSize: NonNegativeInt = NonNegativeInt.tryCreate(DefaultMaxInputBufferSize),
     restartDelay: NonNegativeFiniteDuration =
       NonNegativeFiniteDuration.ofSeconds(DefaultRestartDelay.toSeconds),
@@ -40,17 +41,17 @@ object IndexerConfig {
 
   // Exposed as public method so defaults can be overriden in the downstream code.
   def createDataSourcePropertiesForTesting(
-      ingestionParallelism: Int
+      indexerConfig: IndexerConfig
   ): DataSourceProperties = DataSourceProperties(
     // PostgresSQL specific configurations
     postgres = PostgresDataSourceConfig(
       synchronousCommit = Some(PostgresDataSourceConfig.SynchronousCommitValue.Off)
     ),
-    connectionPool = createConnectionPoolConfig(ingestionParallelism),
+    connectionPool = createConnectionPoolConfig(indexerConfig),
   )
 
   def createConnectionPoolConfig(
-      ingestionParallelism: Int,
+      indexerConfig: IndexerConfig,
       connectionTimeout: FiniteDuration = FiniteDuration(
         // 250 millis is the lowest possible value for this Hikari configuration (see HikariConfig JavaDoc)
         250,
@@ -59,13 +60,15 @@ object IndexerConfig {
   ): ConnectionPoolConfig =
     ConnectionPoolConfig(
       connectionPoolSize =
-        ingestionParallelism + 2, // + 2 for the tailing ledger_end and post processing end updates
+        indexerConfig.ingestionParallelism.unwrap + indexerConfig.dbPrepareParallelism.unwrap +
+          2, // + 2 for the tailing ledger_end and post processing end updates
       connectionTimeout = connectionTimeout,
     )
 
   val DefaultRestartDelay: FiniteDuration = 10.seconds
   val DefaultMaxInputBufferSize: Int = 50
   val DefaultInputMappingParallelism: Int = 16
+  val DefaultDbPrepareParallelism: Int = 4
   val DefaultBatchingParallelism: Int = 4
   val DefaultIngestionParallelism: Int = 16
   val DefaultSubmissionBatchSize: Long = 50L

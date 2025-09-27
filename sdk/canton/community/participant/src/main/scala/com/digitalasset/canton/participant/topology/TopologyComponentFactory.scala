@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
+import com.digitalasset.canton.topology.store.{PackageDependencyResolver, TopologyStore}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
@@ -115,12 +115,11 @@ class TopologyComponentFactory(
     new InitialTopologySnapshotValidator(
       crypto.pureCrypto,
       topologyStore,
-      timeouts,
       loggerFactory,
     )
 
   def createCachingTopologyClient(
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolver,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       executionContext: ExecutionContext,
@@ -128,6 +127,7 @@ class TopologyComponentFactory(
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     CachingSynchronizerTopologyClient.create(
       clock,
+      crypto.staticSynchronizerParameters,
       topologyStore,
       synchronizerPredecessor,
       packageDependencyResolver,
@@ -140,7 +140,7 @@ class TopologyComponentFactory(
 
   def createTopologySnapshot(
       asOf: CantonTimestamp,
-      packageDependencyResolver: PackageDependencyResolverUS,
+      packageDependencyResolver: PackageDependencyResolver,
       preferCaching: Boolean,
   )(implicit executionContext: ExecutionContext): TopologySnapshot = {
     val snapshot = new StoreBasedTopologySnapshot(

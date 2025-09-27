@@ -87,13 +87,6 @@ sealed trait CommandRejectionConcurrentRequestTopologyChangeIntegrationTest
       .withSetup { implicit env =>
         import env.*
 
-        // So that topology changes become effective as of sequencing time
-        sequencer1.topology.synchronizer_parameters
-          .propose_update(
-            daId,
-            _.update(topologyChangeDelay = config.NonNegativeFiniteDuration.Zero),
-          )
-
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
 

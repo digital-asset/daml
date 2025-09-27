@@ -12,6 +12,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawCreatedEvent,
   UnassignProperties,
 }
+import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -64,9 +66,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1, 2)
 
@@ -74,9 +79,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty2),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -84,9 +92,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1, 2)
 
@@ -94,9 +105,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 1,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 1,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -104,9 +118,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -114,9 +131,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId2),
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(2)
 
@@ -124,9 +144,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 1,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -134,9 +157,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 1,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -144,9 +170,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchAssignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = Some(someTemplateId2),
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(2)
 
@@ -182,9 +211,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1, 2)
 
@@ -192,9 +224,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty2),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -202,9 +237,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1, 2)
 
@@ -212,9 +250,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 1,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 1,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -222,9 +263,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -232,9 +276,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1, 2)
 
@@ -242,9 +289,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId2),
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(2)
 
@@ -252,9 +302,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = Some(someTemplateId2),
-        startExclusive = 0,
-        endInclusive = 2,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 2,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(2)
 
@@ -262,9 +315,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 1,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -272,9 +328,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 1,
-        limit = 10,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1,
+          limit = 10,
+        )
       )
     ) shouldBe Vector(1)
 
@@ -282,9 +341,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = None,
         templateId = Some(someTemplateId),
-        startExclusive = 0,
-        endInclusive = 1,
-        limit = 1,
+      )(_)(
+        PaginationInput(
+          startExclusive = 0,
+          endInclusive = 1,
+          limit = 1,
+        )
       )
     ) shouldBe Vector(1)
   }
@@ -591,7 +653,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId,
         authenticationData = someAuthenticationDataBytes,
       ),
       dtoCreate(
@@ -599,7 +661,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId,
         authenticationData = someAuthenticationDataBytes,
         representativePackageId = someRepresentativePackageId,
       ),
@@ -608,26 +670,26 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
-        synchronizerId = "x::synchronizer2",
+        synchronizerId = someSynchronizerId2,
       ),
       dtoUnassign(
         offset = offset(4),
         eventSequentialId = 4L,
         contractId = hashCid("#2"),
-        sourceSynchronizerId = "x::synchronizer2",
+        sourceSynchronizerId = someSynchronizerId2,
       ),
       dtoExercise(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId,
       ),
       dtoUnassign(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
-        sourceSynchronizerId = "x::synchronizer1",
+        sourceSynchronizerId = someSynchronizerId,
       ),
     )
 
@@ -652,7 +714,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(1).toDecimalString,
@@ -678,7 +740,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       ),
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toDecimalString,
@@ -713,14 +775,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       )
     ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
 
-    // archive in the same synchronizer renders it inactive
+    // archive in the same synchronizer renders it inactive, but batch returns all regardless (filtering moved to ID filters)
     executeSql(
       backend.event.activeContractCreateEventBatch(
         eventSequentialIds = List(1, 2),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 10,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L).map(x => offset(x).toDecimalString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
 
     // unassignment in the same synchronizer renders it inactive
     executeSql(
@@ -729,7 +791,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 11,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe Nil
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
   }
 
   it should "return the correct active contracts from assign events, and only if not archived/unassigned" in {
@@ -738,47 +800,47 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
-        sourceSynchronizerId = "x::synchronizer1",
+        sourceSynchronizerId = someSynchronizerId,
       ),
       dtoAssign(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        targetSynchronizerId = "x::synchronizer1",
+        targetSynchronizerId = someSynchronizerId,
       ),
       dtoAssign(
         offset = offset(3),
         eventSequentialId = 3L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        targetSynchronizerId = "x::synchronizer1",
+        targetSynchronizerId = someSynchronizerId,
       ),
       dtoExercise(
         offset = offset(4),
         eventSequentialId = 4L,
         consuming = true,
         contractId = hashCid("#2"),
-        synchronizerId = "x::synchronizer2",
+        synchronizerId = someSynchronizerId2,
       ),
       dtoUnassign(
         offset = offset(5),
         eventSequentialId = 5L,
         contractId = hashCid("#2"),
-        sourceSynchronizerId = "x::synchronizer2",
+        sourceSynchronizerId = someSynchronizerId2,
       ),
       dtoExercise(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId,
       ),
       dtoUnassign(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
-        sourceSynchronizerId = "x::synchronizer1",
+        sourceSynchronizerId = someSynchronizerId,
       ),
     )
 
@@ -803,7 +865,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toDecimalString,
@@ -829,7 +891,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       ),
       EventStorageBackend.RawActiveContract(
         workflowId = Some("workflow_id"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(3).toDecimalString,
@@ -864,23 +926,23 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       )
     ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
 
-    // archive in the same synchronizer renders it inactive
+    // archive in the same synchronizer renders it inactive, but we populate all of them with the batch query
     executeSql(
       backend.event.activeContractAssignEventBatch(
         eventSequentialIds = List(2, 3),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 10,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L).map(x => offset(x).toDecimalString)
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
 
-    // unassignment in the same synchronizer renders it inactive
+    // unassignment in the same synchronizer renders it inactive, but we populate all of them with the batch query
     executeSql(
       backend.event.activeContractAssignEventBatch(
         eventSequentialIds = List(2, 3),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 11,
       )
-    ).map(_.rawCreatedEvent.updateId) shouldBe Nil
+    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
   }
 
   behavior of "incomplete lookup related event_sequential_id lookup queries"
@@ -896,13 +958,18 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           )
       }
 
+    val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizer1")
+    val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizer2")
+    val synchronizerId3 = SynchronizerId.tryFromString("x::synchronizer3")
+    val synchronizerId4 = SynchronizerId.tryFromString("x::synchronizer4")
+
     val dbDtos = Vector(
       dtoCreate(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = synchronizerId1,
         authenticationData = someAuthenticationDataBytes,
       ),
       dtoCreate(
@@ -910,7 +977,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
         commandId = "command id 2",
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = synchronizerId1,
         authenticationData = someAuthenticationDataBytes,
       ),
       dtoExercise(
@@ -918,71 +985,71 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
-        synchronizerId = "x::synchronizer2",
+        synchronizerId = synchronizerId2,
       ),
       dtoUnassign(
         offset = offset(4),
         eventSequentialId = 4L,
         contractId = hashCid("#2"),
-        sourceSynchronizerId = "x::synchronizer2",
-        targetSynchronizerId = "x::synchronizer1",
+        sourceSynchronizerId = synchronizerId2,
+        targetSynchronizerId = synchronizerId1,
       ),
       dtoAssign(
         offset = offset(5),
         eventSequentialId = 5L,
         contractId = hashCid("#2"),
-        sourceSynchronizerId = "x::synchronizer2",
-        targetSynchronizerId = "x::synchronizer1",
+        sourceSynchronizerId = synchronizerId2,
+        targetSynchronizerId = synchronizerId1,
       ),
       dtoAssign(
         offset = offset(6),
         eventSequentialId = 6L,
         contractId = hashCid("#2"),
-        sourceSynchronizerId = "x::synchronizer3",
-        targetSynchronizerId = "x::synchronizer4",
+        sourceSynchronizerId = synchronizerId3,
+        targetSynchronizerId = synchronizerId4,
       ),
       dtoExercise(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = synchronizerId1,
       ),
       dtoUnassign(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
-        sourceSynchronizerId = "x::synchronizer1",
+        sourceSynchronizerId = synchronizerId1,
       ),
       dtoUnassign(
         offset = offset(12),
         eventSequentialId = 12L,
         contractId = hashCid("#1"),
-        targetSynchronizerId = "x::synchronizer2",
+        targetSynchronizerId = synchronizerId2,
       ),
       dtoAssign(
         offset = offset(13),
         eventSequentialId = 13L,
         contractId = hashCid("#2"),
-        targetSynchronizerId = "x::synchronizer2",
+        targetSynchronizerId = synchronizerId2,
       ),
       dtoUnassign(
         offset = offset(14),
         eventSequentialId = 14L,
         contractId = hashCid("#2"),
-        sourceSynchronizerId = "x::synchronizer2",
+        sourceSynchronizerId = synchronizerId2,
       ),
       dtoAssign(
         offset = offset(15),
         eventSequentialId = 15L,
         contractId = hashCid("#2"),
-        targetSynchronizerId = "x::synchronizer2",
+        targetSynchronizerId = synchronizerId2,
       ),
       dtoCreate(
         offset = offset(16),
         eventSequentialId = 16L,
         contractId = hashCid("#3"),
-        synchronizerId = "x::synchronizer4",
+        synchronizerId = synchronizerId4,
       ),
     )
 

@@ -586,6 +586,38 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/parties/external:
+    post:
+      description: Allocate a new external party
+      operationId: postV2PartiesExternal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocateExternalPartyRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AllocateExternalPartyResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/parties/participant-id:
     get:
       description: Get participant id
@@ -1974,6 +2006,47 @@ paths:
       - apiKeyAuth: []
 components:
   schemas:
+    AllocateExternalPartyRequest:
+      title: AllocateExternalPartyRequest
+      description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
+      type: object
+      required:
+      - synchronizerId
+      - identityProviderId
+      properties:
+        synchronizerId:
+          description: |-
+            Synchronizer ID on which to onboard the party
+            Required
+          type: string
+        onboardingTransactions:
+          description: |-
+            TopologyTransactions to onboard the external party
+            Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/SignedTransaction'
+        multiHashSignatures:
+          description: Signatures of the combined hash of all onboarding_transactions
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
+        identityProviderId:
+          description: |-
+            The id of the ``Identity Provider``
+            If not set, assume the party is managed by the default identity provider.
+            Optional
+          type: string
+    AllocateExternalPartyResponse:
+      title: AllocateExternalPartyResponse
+      type: object
+      required:
+      - partyId
+      properties:
+        partyId:
+          description: ''
+          type: string
     AllocatePartyRequest:
       title: AllocatePartyRequest
       description: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
@@ -2810,7 +2883,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty9'
+            $ref: '#/components/schemas/Empty10'
     DeleteIdentityProviderConfigResponse:
       title: DeleteIdentityProviderConfigResponse
       description: Does not (yet) contain any data.
@@ -2831,12 +2904,15 @@ components:
             The template id of the contract.
             The identifier uses the package-id reference format.
 
-            Required
+            If provided, used to validate the template id of the contract serialized in the created_event_blob.
+            Optional
           type: string
         contractId:
           description: |-
             The contract id
-            Required
+
+            If provided, used to validate the contract id of the contract serialized in the created_event_blob.
+            Optional
           type: string
         createdEventBlob:
           description: |-
@@ -2870,6 +2946,9 @@ components:
       title: Empty
       type: object
     Empty1:
+      title: Empty
+      type: object
+    Empty10:
       title: Empty
       type: object
     Empty2:
@@ -5079,7 +5158,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty7'
+            $ref: '#/components/schemas/Empty8'
       - type: object
         required:
         - IdentityProviderAdmin
@@ -5160,17 +5239,20 @@ components:
     ListVettedPackagesRequest:
       title: ListVettedPackagesRequest
       type: object
+      required:
+      - pageToken
+      - pageSize
       properties:
         packageMetadataFilter:
           $ref: '#/components/schemas/PackageMetadataFilter'
           description: |-
             The package metadata filter the returned vetted packages set must satisfy.
-            Optional.
+            Optional
         topologyStateFilter:
           $ref: '#/components/schemas/TopologyStateFilter'
           description: |-
             The topology filter the returned vetted packages set must satisfy.
-            Optional.
+            Optional
         pageToken:
           description: |-
             Pagination token to determine the specific page to fetch. Using the token
@@ -5183,7 +5265,7 @@ components:
             added and a page is requested twice using the same token, more packages can
             be returned on the second call.
 
-            Leave empty to fetch the first page.
+            Leave unspecified (i.e. as empty string) to fetch the first page.
 
             Optional
           type: string
@@ -5191,8 +5273,8 @@ components:
           description: |-
             Maximum number of ``VettedPackages`` results to return in a single page.
 
-            If the page_size is unspecified, the server will decide the number of
-            results to be returned.
+            If the page_size is unspecified (i.e. left as 0), the server will decide
+            the number of results to be returned.
 
             If the page_size exceeds the maximum supported by the server, an
             error will be returned.
@@ -5206,6 +5288,8 @@ components:
     ListVettedPackagesResponse:
       title: ListVettedPackagesResponse
       type: object
+      required:
+      - nextPageToken
       properties:
         vettedPackages:
           description: |-
@@ -5218,7 +5302,7 @@ components:
         nextPageToken:
           description: |-
             Pagination token to retrieve the next page.
-            Empty, if there are no further results.
+            Empty string if there are no further results.
           type: string
     Map_Filters:
       title: Map_Filters
@@ -5264,6 +5348,9 @@ components:
       properties:
         value:
           $ref: '#/components/schemas/Duration'
+    NoPrior:
+      title: NoPrior
+      type: object
     ObjectMeta:
       title: ObjectMeta
       description: |-
@@ -5393,7 +5480,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty5'
+            $ref: '#/components/schemas/Empty6'
       - type: object
         required:
         - Unvet
@@ -5679,6 +5766,26 @@ components:
           description: |-
             The key of the contract the client wants to prefetch.
             Required
+    Prior:
+      title: Prior
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          type: integer
+          format: int32
+    PriorTopologySerial:
+      title: PriorTopologySerial
+      description: |-
+        The serial of last ``VettedPackages`` topology transaction on a given
+        participant and synchronizer.
+      type: object
+      required:
+      - serial
+      properties:
+        serial:
+          $ref: '#/components/schemas/Serial'
     ProtoAny:
       title: ProtoAny
       type: object
@@ -5819,6 +5926,27 @@ components:
       properties:
         kind:
           $ref: '#/components/schemas/Kind'
+    Serial:
+      title: Serial
+      oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty5'
+      - type: object
+        required:
+        - NoPrior
+        properties:
+          NoPrior:
+            $ref: '#/components/schemas/NoPrior'
+      - type: object
+        required:
+        - Prior
+        properties:
+          Prior:
+            $ref: '#/components/schemas/Prior'
     Signature:
       title: Signature
       type: object
@@ -5831,12 +5959,6 @@ components:
         format:
           description: ''
           type: string
-          enum:
-          - SIGNATURE_FORMAT_UNSPECIFIED
-          - SIGNATURE_FORMAT_RAW
-          - SIGNATURE_FORMAT_DER
-          - SIGNATURE_FORMAT_CONCAT
-          - SIGNATURE_FORMAT_SYMBOLIC
         signature:
           description: ''
           type: string
@@ -5847,11 +5969,18 @@ components:
         signingAlgorithmSpec:
           description: The signing algorithm specification used to produce this signature
           type: string
-          enum:
-          - SIGNING_ALGORITHM_SPEC_UNSPECIFIED
-          - SIGNING_ALGORITHM_SPEC_ED25519
-          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
-          - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
+    SignedTransaction:
+      title: SignedTransaction
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          type: string
+        signatures:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signature'
     SinglePartySignatures:
       title: SinglePartySignatures
       description: Signatures provided by a single party
@@ -5978,7 +6107,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty8'
+            $ref: '#/components/schemas/Empty9'
       - type: object
         required:
         - MinLedgerTimeAbs
@@ -6007,7 +6136,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty6'
+            $ref: '#/components/schemas/Empty7'
       - type: object
         required:
         - ParticipantAuthorizationAdded
@@ -6373,7 +6502,6 @@ components:
             $ref: '#/components/schemas/Transaction'
     Update1:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -6577,16 +6705,18 @@ components:
             should be changed.
           type: string
         expectedTopologySerial:
+          $ref: '#/components/schemas/PriorTopologySerial'
           description: |-
             The serial of the last ``VettedPackages`` topology transaction of this
             participant and on this synchronizer.
 
-            Execution of the request fails if this is not correct. If the serial is
-            left unspecified, the request always succeeds.
+            Execution of the request fails if this is not correct. Use this to guard
+            against concurrent changes.
 
-            Use this to guard against concurrent changes.
-          type: integer
-          format: int32
+            If left unspecified, no validation is done against the last transaction's
+            serial.
+
+            Optional
     UpdateVettedPackagesResponse:
       title: UpdateVettedPackagesResponse
       type: object
@@ -6709,6 +6839,8 @@ components:
       type: object
       required:
       - packageId
+      - packageName
+      - packageVersion
       properties:
         packageId:
           description: Package ID of this package. Always present.
@@ -6727,11 +6859,13 @@ components:
           description: |-
             Name of this package.
             Only available if the package has been uploaded to the current participant.
+            If unavailable, is empty string.
           type: string
         packageVersion:
           description: |-
             Version of this package.
             Only available if the package has been uploaded to the current participant.
+            If unavailable, is empty string.
           type: string
     VettedPackages:
       title: VettedPackages
@@ -6744,7 +6878,6 @@ components:
       required:
       - participantId
       - synchronizerId
-      - topologySerial
       properties:
         packages:
           description: |-
@@ -6760,11 +6893,10 @@ components:
           description: Synchronizer on which these packages are vetted. Always present.
           type: string
         topologySerial:
+          $ref: '#/components/schemas/PriorTopologySerial'
           description: |-
             Serial of last ``VettedPackages`` topology transaction of this participant
-            and on this synchronizer.
-          type: integer
-          format: int32
+            and on this synchronizer. Always present.
     VettedPackagesChange:
       title: VettedPackagesChange
       description: A change to the set of vetted packages.
@@ -6781,22 +6913,33 @@ components:
 
         A reference matches a package if its ``package_id`` matches the package's ID,
         its ``package_name`` matches the package's name, and its ``package_version``
-        matches the package's version. If any attribute is left unspecified in the
-        reference, it is treated as a wildcard. At a minimum, ``package_id`` or the
-        ``package_name`` must be specified.
+        matches the package's version. If an attribute in the reference is left
+        unspecified (i.e. as an empty string), that attribute is treated as a
+        wildcard. At a minimum, ``package_id`` or the ``package_name`` must be
+        specified.
 
         If a reference does not match any package, the reference is considered
         unresolved and the entire update request is rejected.
       type: object
+      required:
+      - packageId
+      - packageName
+      - packageVersion
       properties:
         packageId:
-          description: Package's package id must be the same as this field.
+          description: |-
+            Package's package id must be the same as this field.
+            Optional
           type: string
         packageName:
-          description: Package's name must be the same as this field.
+          description: |-
+            Package's name must be the same as this field.
+            Optional
           type: string
         packageVersion:
-          description: Package's version must be the same as this field.
+          description: |-
+            Package's version must be the same as this field.
+            Optional
           type: string
     WildcardFilter:
       title: WildcardFilter
