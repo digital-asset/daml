@@ -111,28 +111,6 @@ public final class ContractFilter<Ct> {
     return companion.fromCreatedEvent(createdEvent);
   }
 
-  /** Method will be removed in 3.4.0 */
-  // TODO(#23504) remove
-  @Deprecated
-  public TransactionFilter transactionFilter(Optional<Set<String>> parties) {
-    return transactionFilter(filter, parties);
-  }
-
-  // TODO(#23504) remove
-  @Deprecated
-  private static TransactionFilter transactionFilter(
-      Filter filter, Optional<Set<String>> partiesO) {
-    Map<String, Filter> partyToFilters =
-        partiesO
-            .map(
-                parties ->
-                    parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter)))
-            .orElse(Collections.emptyMap());
-
-    Optional<Filter> anyPartyFilterO = partiesO.isEmpty() ? Optional.of(filter) : Optional.empty();
-    return new TransactionFilter(partyToFilters, anyPartyFilterO);
-  }
-
   public UpdateFormat updateFormat(Optional<Set<String>> parties) {
     return updateFormat(filter, parties, verbose, transactionShape);
   }
@@ -171,8 +149,14 @@ public final class ContractFilter<Ct> {
 
   private static EventFormat eventFormat(
       Filter filter, Optional<Set<String>> partiesO, boolean verbose) {
-    TransactionFilter transactionFilter = transactionFilter(filter, partiesO);
-    return new EventFormat(
-        transactionFilter.getPartyToFilters(), transactionFilter.getAnyPartyFilter(), verbose);
+    Map<String, Filter> partyToFilters =
+        partiesO
+            .map(
+                parties ->
+                    parties.stream().collect(Collectors.toMap(Function.identity(), x -> filter)))
+            .orElse(Collections.emptyMap());
+
+    Optional<Filter> anyPartyFilterO = partiesO.isEmpty() ? Optional.of(filter) : Optional.empty();
+    return new EventFormat(partyToFilters, anyPartyFilterO, verbose);
   }
 }

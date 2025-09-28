@@ -431,7 +431,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     participant1.topology.vetted_packages.propose_delta(
       participant1.id,
       removes = startingPackages,
-      force = ForceFlags(ForceFlag.AllowUnvetPackage),
+      force = ForceFlags(ForceFlag.AllowUnvetPackage, ForceFlag.AllowUnvettedDependencies),
     )
 
     val removedPackagesResult = getVettedPackages()

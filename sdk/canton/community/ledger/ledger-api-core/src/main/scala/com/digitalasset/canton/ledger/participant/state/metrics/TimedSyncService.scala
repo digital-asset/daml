@@ -26,8 +26,13 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.{LfContractId, LfFatContractInst, LfSubmittedTransaction}
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ExternalPartyOnboardingDetails,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -108,12 +113,13 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       hint: Ref.Party,
       submissionId: Ref.SubmissionId,
       synchronizerIdO: Option[SynchronizerId],
+      externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SubmissionResult] =
     Timed.future(
       metrics.services.write.allocateParty,
-      delegate.allocateParty(hint, submissionId, synchronizerIdO),
+      delegate.allocateParty(hint, submissionId, synchronizerIdO, externalPartyOnboardingDetails),
     )
 
   override def prune(
@@ -266,4 +272,8 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       traceContext: TraceContext
   ): RoutingSynchronizerState =
     delegate.getRoutingSynchronizerState
+
+  override def protocolVersionForSynchronizerId(
+      synchronizerId: SynchronizerId
+  ): Option[ProtocolVersion] = delegate.protocolVersionForSynchronizerId(synchronizerId)
 }

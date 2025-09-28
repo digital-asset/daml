@@ -114,11 +114,14 @@ message DisclosedContract {
   // The template id of the contract.
   // The identifier uses the package-id reference format.
   //
-  // Required
+  // If provided, used to validate the template id of the contract serialized in the created_event_blob.
+  // Optional
   Identifier template_id = 1;
 
   // The contract id
-  // Required
+  //
+  // If provided, used to validate the contract id of the contract serialized in the created_event_blob.
+  // Optional
   string contract_id = 2;
 
   // Opaque byte string containing the complete payload required by the Daml engine

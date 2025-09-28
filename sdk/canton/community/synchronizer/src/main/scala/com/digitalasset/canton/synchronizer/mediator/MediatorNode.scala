@@ -21,6 +21,7 @@ import com.digitalasset.canton.crypto.{
   CryptoHandshakeValidator,
   SynchronizerCrypto,
   SynchronizerCryptoClient,
+  SynchronizerCryptoPureApi,
 }
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.health.*
@@ -492,6 +493,7 @@ class MediatorNodeBootstrap(
                   synchronizerTopologyStore,
                   topologyManagerStatus = TopologyManagerStatus
                     .combined(authorizedTopologyManager, synchronizerTopologyManager),
+                  config.topology,
                   synchronizerOutboxFactory,
                 ),
               storage.isActive,
@@ -552,6 +554,7 @@ class MediatorNodeBootstrap(
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerTopologyStore: TopologyStore[SynchronizerStore],
       topologyManagerStatus: TopologyManagerStatus,
+      topologyConfig: TopologyConfig,
       synchronizerOutboxFactory: SynchronizerOutboxFactory,
   ): EitherT[FutureUnlessShutdown, String, MediatorRuntime] = {
     val synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
@@ -605,6 +608,7 @@ class MediatorNodeBootstrap(
               crypto.pureCrypto,
               arguments.parameterConfig,
               arguments.clock,
+              staticSynchronizerParameters,
               arguments.futureSupervisor,
               synchronizerLoggerFactory,
             )()
@@ -743,9 +747,9 @@ class MediatorNodeBootstrap(
           mediatorId
         ).callback(
           new InitialTopologySnapshotValidator(
-            crypto.pureCrypto,
+            new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
             synchronizerTopologyStore,
-            arguments.parameterConfig.processingTimeouts,
+            validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
             synchronizerLoggerFactory,
           ),
           topologyClient,

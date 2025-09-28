@@ -162,8 +162,7 @@ object GrpcStreamingUtils {
     * [[scalapb.GeneratedMessage#writeDelimitedTo]] directly.
     *
     * @return
-    *   either an error, or a list of versioned message instances in reverse order as appeared in
-    *   the given stream
+    *   either an error, or a list of versioned message instances
     */
   def parseDelimitedFromTrusted[ValueClass <: HasRepresentativeProtocolVersion](
       stream: InputStream,
@@ -180,8 +179,7 @@ object GrpcStreamingUtils {
     * [[scalapb.GeneratedMessage#writeDelimitedTo]] directly.
     *
     * @return
-    *   either an error, or a list of versioned message instances in reverse order as appeared in
-    *   the given stream
+    *   either an error, or a list of versioned message instances
     */
   def parseDelimitedFromTrusted[ValueClass](
       stream: InputStream,
@@ -206,7 +204,7 @@ object GrpcStreamingUtils {
               read(value :: acc)
           }
         case None =>
-          Right(acc)
+          Right(acc.reverse)
       }
     read(Nil)
   }

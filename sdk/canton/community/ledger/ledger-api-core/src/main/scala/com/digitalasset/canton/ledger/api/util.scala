@@ -520,11 +520,10 @@ object VettedPackagesRef {
       value: String,
       f: String => Either[String, A],
   ): ParsingResult[Option[A]] =
-    if (value == "") {
-      Right(None)
-    } else {
-      f(value).map(Some(_)).leftMap(ValueConversionError(name, _))
-    }
+    Some(value)
+      .filter(_.nonEmpty)
+      .traverse(f)
+      .leftMap(ValueConversionError(name, _))
 
   private def process(
       mbPackageId: Option[Ref.PackageId],
@@ -590,4 +589,22 @@ final case class EnrichedVettedPackage(
     packageName = name.map(_.toString).getOrElse(""),
     packageVersion = version.map(_.toString).getOrElse(""),
   )
+}
+
+sealed trait PriorTopologySerial {
+  def toProtoLAPI: package_reference.PriorTopologySerial
+}
+
+final case class PriorTopologySerialExists(serial: Int) extends PriorTopologySerial {
+  override def toProtoLAPI =
+    package_reference.PriorTopologySerial(
+      package_reference.PriorTopologySerial.Serial.Prior(serial)
+    )
+}
+
+final case object PriorTopologySerialNone extends PriorTopologySerial {
+  override def toProtoLAPI =
+    package_reference.PriorTopologySerial(
+      package_reference.PriorTopologySerial.Serial.NoPrior(com.google.protobuf.empty.Empty())
+    )
 }

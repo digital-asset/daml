@@ -12,7 +12,6 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
@@ -92,10 +91,9 @@ class InMemoryPhysicalSyncPersistentState(
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     exitOnFatalFailures: Boolean,
     disableUpgradeValidation: Boolean,
-    packageDependencyResolver: PackageDependencyResolver,
+    packageMetadataView: PackageMetadataView,
     ledgerApiStore: Eval[LedgerApiStore],
     logicalSyncPersistentState: LogicalSyncPersistentState,
-    packageMetadataView: Eval[PackageMetadataView],
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     val futureSupervisor: FutureSupervisor,
@@ -142,8 +140,7 @@ class InMemoryPhysicalSyncPersistentState(
       validatePackageVetting(
         currentlyVettedPackages,
         nextPackageIds,
-        Some(packageMetadataView.value),
-        packageDependencyResolver,
+        packageMetadataView,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,

@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.protocol.validation.AuthenticationVal
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ContractAuthenticator
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.ExecutionContext
@@ -35,7 +35,7 @@ sealed trait UnassignmentValidation {
 
   protected def performCommonValidations(
       parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
-      contractAuthenticator: ContractAuthenticator,
+      contractValidator: ContractValidator,
       activenessF: FutureUnlessShutdown[ActivenessResult],
   )(implicit
       ec: ExecutionContext,
@@ -44,7 +44,7 @@ sealed trait UnassignmentValidation {
     val fullTree = parsedRequest.fullViewTree
     val sourceTopologySnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
     val authenticationResultET =
-      ReassignmentValidation.checkMetadata(contractAuthenticator, fullTree)
+      ReassignmentValidation.authenticateContractAndStakeholders(contractValidator, fullTree)
 
     for {
       activenessResult <- activenessF
@@ -79,22 +79,22 @@ object UnassignmentValidation {
   def apply(
       isReassigningParticipant: Boolean,
       participantId: ParticipantId,
-      contractAuthenticator: ContractAuthenticator,
+      contractValidator: ContractValidator,
       activenessF: FutureUnlessShutdown[ActivenessResult],
       getTopologyAtTs: GetTopologyAtTimestamp,
   ): UnassignmentValidation =
     if (isReassigningParticipant)
       ReassigningParticipantUnassignmentValidator(
         participantId,
-        contractAuthenticator,
+        contractValidator,
         activenessF,
         getTopologyAtTs,
       )
-    else NonReassigningParticipantUnassignmentValidator(contractAuthenticator, activenessF)
+    else NonReassigningParticipantUnassignmentValidator(contractValidator, activenessF)
 }
 
 private final case class NonReassigningParticipantUnassignmentValidator(
-    contractAuthenticator: ContractAuthenticator,
+    contractValidator: ContractValidator,
     activenessF: FutureUnlessShutdown[ActivenessResult],
 ) extends UnassignmentValidation {
   def perform(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
@@ -102,7 +102,7 @@ private final case class NonReassigningParticipantUnassignmentValidator(
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] =
     EitherT.right(
-      performCommonValidations(parsedRequest, contractAuthenticator, activenessF)
+      performCommonValidations(parsedRequest, contractValidator, activenessF)
         .map { commonValidationResult =>
           UnassignmentValidationResult(
             unassignmentData =
@@ -120,7 +120,7 @@ private final case class NonReassigningParticipantUnassignmentValidator(
 
 private final case class ReassigningParticipantUnassignmentValidator(
     participantId: ParticipantId,
-    contractAuthenticator: ContractAuthenticator,
+    contractValidator: ContractValidator,
     activenessF: FutureUnlessShutdown[ActivenessResult],
     getTopologyAtTs: GetTopologyAtTimestamp,
 ) extends UnassignmentValidation {
@@ -136,7 +136,7 @@ private final case class ReassigningParticipantUnassignmentValidator(
       commonValidationResult <- EitherT.right(
         performCommonValidations(
           parsedRequest,
-          contractAuthenticator,
+          contractValidator,
           activenessF,
         )
       )

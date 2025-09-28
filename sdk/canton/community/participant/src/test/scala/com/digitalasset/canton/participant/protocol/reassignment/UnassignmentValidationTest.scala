@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxEitherId
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage}
@@ -20,7 +21,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.{
-  ContractIdAuthenticationFailure,
+  ContractAuthenticationFailure,
   ReassigningParticipantsMismatch,
   StakeholdersMismatch,
   SubmitterMustBeStakeholder,
@@ -32,11 +33,16 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.util.ContractAuthenticator
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.github.dockerjava.zerodep.shaded.org.apache.hc.core5.http.NotImplementedException
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.UUID
+import scala.concurrent.ExecutionContext
 
 class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   private val sourceSynchronizer = Source(
@@ -131,48 +137,35 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       validation.reassigningParticipantValidationResult.isTargetTsValidatable shouldBe false
     }
 
-    "fail when wrong metadata is given" in {
+    "fail if contract validation fails" in {
 
-      def testBadMetadata(badMetadata: ContractMetadata): Unit =
-        test(badMetadata).left.value match {
-          case ContractIdAuthenticationFailure(ref, reason, contractId) =>
-            ref shouldBe ReassignmentRef(contract.contractId)
-            contractId shouldBe contract.contractId
-            reason should startWith("Mismatching contract id suffixes")
-          case other => fail(s"Did not expect $other")
-        }
+      val expected = "bad-contract"
 
-      def test(
-          metadata: ContractMetadata
-      ): Either[ReassignmentValidationError, Unit] = {
-        val updatedContract = ExampleContractFactory.modify(contract, metadata = Some(metadata))
-        performValidation(
-          updatedContract
-        ).futureValueUS.value.commonValidationResult.contractAuthenticationResultF.futureValueUS
+      val failingContractValidator = new ContractValidator {
+        override def authenticate(contract: FatContractInstance, targetPackageId: PackageId)(
+            implicit
+            ec: ExecutionContext,
+            traceContext: TraceContext,
+        ): EitherT[FutureUnlessShutdown, String, Unit] =
+          EitherT.fromEither[FutureUnlessShutdown](expected.asLeft[Unit])
+        override def authenticateHash(
+            contract: FatContractInstance,
+            contractHash: LfHash,
+        ): Either[String, Unit] = throw new NotImplementedException()
       }
 
-      val incorrectStakeholders = testMetadata(
-        stakeholders = baseMetadata.stakeholders + receiverParty2
-      )
-
-      val incorrectSignatories = testMetadata(
-        stakeholders = baseMetadata.stakeholders + receiverParty2,
-        signatories = baseMetadata.signatories + receiverParty2,
-      )
-
-      val incorrectKey = testMetadata(
-        maybeKeyWithMaintainersVersioned = Some(
-          ExampleTransactionFactory.globalKeyWithMaintainers(
-            ExampleTransactionFactory.defaultGlobalKey,
-            baseMetadata.signatories,
-          )
-        )
-      )
-
-      test(testMetadata()).isRight shouldBe true
-      testBadMetadata(incorrectStakeholders)
-      testBadMetadata(incorrectSignatories)
-      testBadMetadata(incorrectKey)
+      inside(
+        performValidation(
+          contract,
+          contractValidator = failingContractValidator,
+        ).futureValueUS.value.commonValidationResult.contractAuthenticationResultF.futureValueUS.left.value
+      ) {
+        case ContractAuthenticationFailure(ref, reason, contractId) =>
+          ref shouldBe ReassignmentRef(contract.contractId)
+          contractId shouldBe contract.contractId
+          reason should include(expected)
+        case other => fail(s"Did not expect $other")
+      }
 
     }
 
@@ -342,6 +335,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   private def validateUnassignmentTree(
       fullUnassignmentTree: FullUnassignmentTree,
       targetTopology: Option[Target[TopologySnapshot]],
+      contractValidator: ContractValidator = ContractValidator.AllowAll,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val recipients = Recipients.cc(
       reassigningParticipants.toSeq.head,
@@ -352,8 +346,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       .futureValueUS
       .value
     val parsed = mkParsedRequest(fullUnassignmentTree, recipients, Some(signature))
-
-    val contractAuthenticator = ContractAuthenticator(new SymbolicPureCrypto())
 
     val getTopologyAtTs = new GetTopologyAtTimestamp {
       import com.digitalasset.canton.tracing.TraceContext
@@ -366,7 +358,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     val unassignmentValidation = UnassignmentValidation(
       isReassigningParticipant = true,
       participantId = confirmingParticipant,
-      contractAuthenticator = contractAuthenticator,
+      contractValidator = contractValidator,
       activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
       getTopologyAtTs = getTopologyAtTs,
     )
@@ -382,6 +374,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       targetTopology: Option[Target[TopologySnapshot]] = Some(
         Target(identityFactory.topologySnapshot())
       ),
+      contractValidator: ContractValidator = ContractValidator.AllowAll,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val unassignmentRequest =
       ReassignmentDataHelpers(contract, sourceSynchronizer, targetSynchronizer, identityFactory)
@@ -402,6 +395,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     validateUnassignmentTree(
       fullUnassignmentTree,
       targetTopology,
+      contractValidator,
     )
   }
 }

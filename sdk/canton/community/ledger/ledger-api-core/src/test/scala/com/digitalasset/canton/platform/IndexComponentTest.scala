@@ -50,7 +50,13 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     LoggingContextWithTrace.ForTesting
 
   // if we would need multi-db, polimorphism can come here, look for JdbcLedgerDaoBackend
-  private val jdbcUrl = s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase};db_close_delay=-1"
+  protected val jdbcUrl = s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase};db_close_delay=-1"
+
+  protected val indexerConfig: IndexerConfig = IndexerConfig()
+
+  protected val indexServiceConfig: IndexServiceConfig = IndexServiceConfig()
+
+  protected val indexReadConnectionPoolSize: Int = 10
 
   private val testServicesRef: AtomicReference[TestServices] = new AtomicReference()
 
@@ -70,6 +76,9 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     }
   }
 
+  protected def ingestUpdateAsync(update: Update): Unit =
+    testServices.indexer.offer(update).futureValue
+
   protected def index: IndexService = testServices.index
 
   protected def sequentialPostProcessor: Update => Unit = _ => ()
@@ -78,8 +87,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     super.beforeAll()
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
-
-    val indexerConfig = IndexerConfig()
 
     val engine = new Engine(
       EngineConfig(LanguageVersion.StableVersions(LanguageMajorVersion.V2))
@@ -108,7 +115,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
             dbConfig = DbConfig(
               jdbcUrl = jdbcUrl,
               connectionPool = ConnectionPoolConfig(
-                connectionPoolSize = 10,
+                connectionPoolSize = indexReadConnectionPoolSize,
                 connectionTimeout = 250.millis,
               ),
             ),
@@ -124,9 +131,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           executionContext = ec,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(
-            indexerConfig.ingestionParallelism.unwrap
-          ),
+          dataSourceProperties = IndexerConfig.createDataSourcePropertiesForTesting(indexerConfig),
           highAvailability = HaConfig(),
           indexSericeDbDispatcher = Some(dbSupport.dbDispatcher),
           clock = clock,
@@ -143,7 +148,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         }
         contractLoader <- ContractLoader.create(
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-            inMemoryState.stringInterningView
+            inMemoryState.stringInterningView,
+            inMemoryState.ledgerEndCache,
           ),
           dbDispatcher = dbSupport.dbDispatcher,
           metrics = LedgerApiServerMetrics.ForTesting,
@@ -154,7 +160,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         )
         indexService <- new IndexServiceOwner(
           dbSupport = dbSupport,
-          config = IndexServiceConfig(),
+          config = indexServiceConfig,
           participantId = Ref.ParticipantId.assertFromString(IndexComponentTest.TestParticipantId),
           metrics = LedgerApiServerMetrics.ForTesting,
           inMemoryState = inMemoryState,
@@ -207,8 +213,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 object IndexComponentTest {
 
   val TestParticipantId = "index-component-test-participant-id"
-
-  val maxUpdateCount = 1000000
 
   final case class TestServices(
       indexResource: Resource[Any],

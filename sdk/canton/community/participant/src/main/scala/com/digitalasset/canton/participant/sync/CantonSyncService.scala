@@ -105,6 +105,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -304,7 +305,6 @@ class CantonSyncService(
 
   private val transactionRoutingProcessor = TransactionRoutingProcessor(
     connectedSynchronizersLookup = connectedSynchronizersLookup,
-    cryptoPureApi = syncCrypto.pureCrypto,
     synchronizerConnectionConfigStore = synchronizerConnectionConfigStore,
     participantId = participantId,
     parameters = parameters,
@@ -317,13 +317,18 @@ class CantonSyncService(
     }
   }
 
-  private val contractAuthenticator = ContractAuthenticator(syncCrypto.pureCrypto)
+  private val contractValidator = ContractValidator(
+    cryptoOps = syncCrypto.pureCrypto,
+    engine = engine,
+    packageResolver =
+      packageId => traceContext => packageService.getPackage(packageId)(traceContext),
+  )
 
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
     packageService.packageDependencyResolver,
-    contractAuthenticator,
+    contractValidator,
     participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
@@ -626,10 +631,18 @@ class CantonSyncService(
     }
   }
 
+  override def protocolVersionForSynchronizerId(
+      synchronizerId: SynchronizerId
+  ): Option[ProtocolVersion] =
+    connectedSynchronizersLookup
+      .get(synchronizerId)
+      .map(_.synchronizerHandle.staticParameters.protocolVersion)
+
   override def allocateParty(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerIdO: Option[SynchronizerId],
+      externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SubmissionResult] = {
@@ -670,7 +683,7 @@ class CantonSyncService(
       specifiedSynchronizer.getOrElse(onlyConnectedSynchronizer)
 
     synchronizerIdOrDetectionError
-      .map(partyAllocation.allocate(hint, rawSubmissionId, _))
+      .map(partyAllocation.allocate(hint, rawSubmissionId, _, externalPartyOnboardingDetails))
       .leftMap(FutureUnlessShutdown.pure)
       .merge
   }
@@ -1344,18 +1357,34 @@ class CantonSyncService(
         case (synchronizerAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
             topology <- getSnapshot(synchronizerAlias, synchronizerId)
-            partyWithAttributes <- topology.hostedOn(
-              Set(request.party),
-              participantId = request.participantId.getOrElse(participantId),
+            // Find the attributes for the party if one is passed in, and if we can find it in topology
+            attributesO <- request.party.parFlatTraverse(party =>
+              topology
+                .hostedOn(
+                  Set(party),
+                  participantId = request.participantId.getOrElse(participantId),
+                )
+                .map(
+                  _.get(party)
+                )
             )
-          } yield partyWithAttributes
-            .get(request.party)
+          } yield attributesO
             .map(attributes =>
               ConnectedSynchronizerResponse.ConnectedSynchronizer(
                 synchronizerAlias,
                 synchronizerId,
-                attributes.permission,
+                Some(attributes.permission),
               )
+            )
+            .orElse(
+              // Return the connected synchronizer without party information only when no party was requested
+              Option.when(request.party.isEmpty) {
+                ConnectedSynchronizerResponse.ConnectedSynchronizer(
+                  synchronizerAlias,
+                  synchronizerId,
+                  None,
+                )
+              }
             )
       }.toSeq
 

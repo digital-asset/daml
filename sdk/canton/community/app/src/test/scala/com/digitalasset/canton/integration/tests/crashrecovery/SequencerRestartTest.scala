@@ -120,7 +120,6 @@ abstract class BaseSynchronizerRestartTest
         synchronizerThreshold = PositiveInt.one,
         sequencers = Seq(remoteSequencer1),
         mediators = Seq(mediator1),
-        EnvironmentDefinition.defaultStaticSynchronizerParameters,
       )
     )
   }

@@ -3,23 +3,27 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import cats.implicits.toFoldableOps
+import cats.implicits.{toFoldableOps, toTraverseOps}
 import com.daml.ledger.api.v2.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
 import com.digitalasset.canton.ledger.api.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
-  requireContractId,
   requireSynchronizerId,
+  validateOptional,
 }
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.{
+  invalidArgument,
+  invalidField,
+}
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import io.grpc.StatusRuntimeException
 
 trait ValidateDisclosedContracts {
@@ -92,15 +96,10 @@ object ValidateDisclosedContracts extends ValidateDisclosedContracts {
       Left(ValidationErrors.missingField("DisclosedContract.createdEventBlob"))
     else
       for {
-        rawTemplateId <- requirePresence(
-          disclosedContract.templateId,
-          "DisclosedContract.template_id",
-        )
-        validatedTemplateId <- validateIdentifier(rawTemplateId)
-        validatedContractId <- requireContractId(
-          disclosedContract.contractId,
-          "DisclosedContract.contract_id",
-        )
+        validatedTemplateIdO <- validateOptionalIdentifier(disclosedContract.templateId)
+        validatedContractIdO <- validateOptional(
+          OptionUtil.emptyStringAsNone(disclosedContract.contractId)
+        )(ContractId.fromString(_).left.map(invalidField("DisclosedContract.contract_id", _)))
         synchronizerIdO <- OptionUtil
           .emptyStringAsNone(disclosedContract.synchronizerId)
           .map(requireSynchronizerId(_, "DisclosedContract.synchronizer_id").map(Some(_)))
@@ -111,19 +110,23 @@ object ValidateDisclosedContracts extends ValidateDisclosedContracts {
           .map(decodeError =>
             invalidArgument(s"Unable to decode disclosed contract event payload: $decodeError")
           )
-        _ <- Either.cond(
-          validatedContractId == fatContractInstance.contractId,
-          (),
-          invalidArgument(
-            s"Mismatch between DisclosedContract.contract_id (${disclosedContract.contractId}) and contract_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.contractId.coid})"
-          ),
+        _ <- validatedContractIdO.traverse(validatedContractId =>
+          Either.cond(
+            validatedContractId == fatContractInstance.contractId,
+            (),
+            invalidArgument(
+              s"Mismatch between DisclosedContract.contract_id (${validatedContractId.coid}) and contract_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.contractId.coid})"
+            ),
+          )
         )
-        _ <- Either.cond(
-          validatedTemplateId == fatContractInstance.templateId,
-          (),
-          invalidArgument(
-            s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
-          ),
+        _ <- validatedTemplateIdO.traverse(validatedTemplateId =>
+          Either.cond(
+            validatedTemplateId == fatContractInstance.templateId,
+            (),
+            invalidArgument(
+              s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
+            ),
+          )
         )
         lfFatContractInst <- fatContractInstance.traverseCreateAt {
           case time: CreationTime.CreatedAt => Right(time)

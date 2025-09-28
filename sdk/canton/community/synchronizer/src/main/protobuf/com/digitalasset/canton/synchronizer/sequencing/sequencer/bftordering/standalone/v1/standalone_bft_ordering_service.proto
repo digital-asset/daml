@@ -1,0 +1,34 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.standalone.v1;
+
+service StandaloneBftOrderingService {
+  rpc Send(SendRequest) returns (SendResponse);
+  rpc ReadOrdered(ReadOrderedRequest) returns (stream ReadOrderedResponse);
+}
+
+message SendRequest {
+  string tag = 1;
+  bytes payload = 2;
+}
+
+message SendResponse {
+  optional string rejection_reason = 1;
+}
+
+message ReadOrderedRequest {
+  int64 start_height = 1;
+}
+
+message ReadOrderedResponse {
+  int64 height = 1;
+  repeated Ordered block = 2;
+}
+
+message Ordered {
+  string tag = 1;
+  bytes payload = 2;
+}

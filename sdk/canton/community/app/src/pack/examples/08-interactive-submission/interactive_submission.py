@@ -102,21 +102,8 @@ def get_active_contracts(party: str):
     )
     active_contracts_response = state_client.GetActiveContracts(
         state_service_pb2.GetActiveContractsRequest(
-            filter=transaction_filter_pb2.TransactionFilter(
-                filters_by_party={
-                    party: transaction_filter_pb2.Filters(
-                        cumulative=[
-                            transaction_filter_pb2.CumulativeFilter(
-                                wildcard_filter=transaction_filter_pb2.WildcardFilter(
-                                    include_created_event_blob=True
-                                )
-                            )
-                        ]
-                    )
-                }
-            ),
+            event_format=get_event_format(party),
             active_at_offset=ledger_end_response.offset,
-            verbose=True,
         )
     )
     return active_contracts_response
@@ -208,15 +195,20 @@ def execute_and_get_contract_id(
             completion: completion_pb2.Completion = update.completion
             break
 
-    transaction_response: update_service_pb2.GetTransactionResponse = (
-        us_client.GetTransactionById(
-            update_service_pb2.GetTransactionByIdRequest(
+    update_response: update_service_pb2.GetUpdateResponse = (
+        us_client.GetUpdateById(
+            update_service_pb2.GetUpdateByIdRequest(
                 update_id=completion.update_id,
-                requesting_parties=[party],
+                update_format=transaction_filter_pb2.UpdateFormat(
+                    include_transactions=transaction_filter_pb2.TransactionFormat(
+                        event_format=get_event_format(party),
+                        transaction_shape=transaction_filter_pb2.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+                    )
+                )
             )
         )
     )
-    for event in transaction_response.transaction.events:
+    for event in update_response.transaction.events:
         if event.HasField("created"):
             contract_id = event.created.contract_id
             break

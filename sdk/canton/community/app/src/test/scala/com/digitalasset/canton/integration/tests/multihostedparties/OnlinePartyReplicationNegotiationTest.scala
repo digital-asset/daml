@@ -54,6 +54,7 @@ import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
+import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -285,7 +286,9 @@ sealed trait OnlinePartyReplicationNegotiationTest
       })
 
       // Wait until both SP and TP report that party replication has completed.
-      eventually() {
+      // Clearing the onboarding flag takes up to max-decision-timeout (initial value of 60s),
+      // so wait at least 1 minute.
+      eventually(timeUntilSuccess = 2.minutes) {
         val tpStatus = targetParticipant.parties.get_add_party_status(
           addPartyRequestId = addPartyRequestId
         )

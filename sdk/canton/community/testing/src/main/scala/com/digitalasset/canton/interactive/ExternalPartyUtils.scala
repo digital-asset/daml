@@ -10,7 +10,6 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.data.OnboardingTransactions
 import com.digitalasset.canton.logging.SuppressingLogger
@@ -44,7 +43,6 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       CachingConfigs.defaultPublicKeyConversionCache,
       storage,
       CryptoPrivateStoreFactory.withoutKms(wallClock, externalPartyExecutionContext),
-      CommunityKmsFactory,
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,
@@ -57,11 +55,11 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
     .futureValue
 
   private def generateProtocolSigningKeys(
-      numberOfKeys: PositiveInt
+      numberOfKeys: Int
   ): NonEmpty[Seq[SigningPublicKey]] =
     NonEmpty
       .from(
-        Seq.fill(numberOfKeys.value)(
+        Seq.fill(numberOfKeys)(
           crypto.generateSigningKey(usage = SigningKeyUsage.ProtocolOnly).futureValueUS.value
         )
       )
@@ -76,14 +74,23 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       confirmationThreshold: PositiveInt = PositiveInt.one,
       numberOfKeys: PositiveInt = PositiveInt.one,
       keyThreshold: PositiveInt = PositiveInt.one,
+      shareNamespaceAndSigningKey: Boolean = false,
   ): (OnboardingTransactions, ExternalParty) = {
 
     val namespaceKey: SigningPublicKey =
-      crypto.generateSigningKey(usage = SigningKeyUsage.NamespaceOnly).futureValueUS.value
+      crypto
+        .generateSigningKey(usage =
+          if (shareNamespaceAndSigningKey) SigningKeyUsage.All else SigningKeyUsage.NamespaceOnly
+        )
+        .futureValueUS
+        .value
     val partyId: PartyId = PartyId.tryCreate(name, namespaceKey.fingerprint)
-    val protocolSigningKeys: NonEmpty[Seq[SigningPublicKey]] = generateProtocolSigningKeys(
-      numberOfKeys
-    )
+    val protocolSigningKeys: NonEmpty[Seq[SigningPublicKey]] =
+      if (shareNamespaceAndSigningKey && numberOfKeys == PositiveInt.one) {
+        NonEmpty.mk(Seq, namespaceKey)
+      } else if (shareNamespaceAndSigningKey) {
+        NonEmpty.mk(Seq, namespaceKey, generateProtocolSigningKeys(numberOfKeys.value - 1)*)
+      } else generateProtocolSigningKeys(numberOfKeys.value)
 
     val namespaceDelegationTx =
       TopologyTransaction(

@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
+import com.digitalasset.canton.admin.api.client.data.{
+  AddPartyStatus,
+  DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
+}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
@@ -17,7 +20,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyChangeOp,
 }
-import com.digitalasset.canton.{BaseTest, integration}
+import com.digitalasset.canton.{BaseTest, config, integration}
 
 import scala.concurrent.duration.*
 import scala.util.Try
@@ -26,6 +29,24 @@ import scala.util.Try
   */
 private[tests] trait OnlinePartyReplicationTestHelpers {
   this: BaseTest =>
+
+  protected def updateSynchronizerParameters(
+      synchronizerOwner: InstanceReference,
+      maxDecisionTimeout: config.NonNegativeFiniteDuration,
+      update: ConsoleDynamicSynchronizerParameters => ConsoleDynamicSynchronizerParameters =
+        identity,
+  )(implicit
+      env: integration.TestConsoleEnvironment
+  ): Unit = {
+    import env.*
+    val half = (maxDecisionTimeout.toInternal / NonNegativeInt.two).toConfig
+    synchronizerOwner.topology.synchronizer_parameters.propose_update(
+      daId,
+      params =>
+        update(params.update(confirmationResponseTimeout = half, mediatorReactionTimeout = half)),
+      mustFullyAuthorize = true,
+    )
+  }
 
   protected def createSharedContractsAndProposeTopologyForOnPR(
       sourceParticipant: ParticipantReference,
@@ -222,7 +243,13 @@ private[tests] trait OnlinePartyReplicationTestHelpers {
       addPartyRequestId: String,
       expectedNumContracts: NonNegativeInt,
   ): Unit =
-    eventually(retryOnTestFailuresOnly = false, maxPollInterval = 10.millis) {
+    eventually(
+      // Clearing the onboarding flag takes up to max-decision-timeout (initial value of 60s),
+      // so wait at least 1 minute.
+      timeUntilSuccess = 2.minutes,
+      retryOnTestFailuresOnly = false,
+      maxPollInterval = 1.second,
+    ) {
       // The try handles the optional `CommandFailure`, so that we don't give up while the SP is stopped.
       val spStatusO =
         Try(sourceParticipant.parties.get_add_party_status(addPartyRequestId)).toOption

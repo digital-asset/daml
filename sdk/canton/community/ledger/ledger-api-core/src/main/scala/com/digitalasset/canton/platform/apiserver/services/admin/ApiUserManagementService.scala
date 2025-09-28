@@ -15,8 +15,6 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.base.error.ErrorResource
-import com.digitalasset.canton.auth.ClaimSet.Claims
-import com.digitalasset.canton.auth.{AuthInterceptor, ClaimAdmin}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
 import com.digitalasset.canton.ledger.api.{
@@ -26,7 +24,6 @@ import com.digitalasset.canton.ledger.api.{
   User,
   UserRight,
 }
-import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
   UserManagementServiceErrors,
@@ -67,9 +64,11 @@ private[apiserver] final class ApiUserManagementService(
     executionContext: ExecutionContext
 ) extends proto.UserManagementServiceGrpc.UserManagementService
     with GrpcApiService
-    with NamedLogging {
+    with NamedLogging
+    with AuthenticatedUserContextResolver {
 
   import ApiUserManagementService.*
+  import AuthenticatedUserContextResolver.*
   import FieldValidator.*
   import ValueValidator.*
 
@@ -216,32 +215,6 @@ private[apiserver] final class ApiUserManagementService(
         } yield resp
       }
     }
-
-  private def resolveAuthenticatedUserContext(implicit
-      errorLogger: ErrorLoggingContext
-  ): Future[AuthenticatedUserContext] =
-    AuthInterceptor
-      .extractClaimSetFromContext()
-      .fold(
-        fa = error =>
-          Future.failed(
-            LedgerApiErrors.InternalError
-              .Generic("Could not extract a claim set from the context", throwableO = Some(error))
-              .asGrpcError
-          ),
-        fb = {
-          case claims: Claims =>
-            Future.successful(AuthenticatedUserContext(claims))
-          case claimsSet =>
-            Future.failed(
-              LedgerApiErrors.InternalError
-                .Generic(
-                  s"Unexpected claims when trying to resolve the authenticated user: $claimsSet"
-                )
-                .asGrpcError
-            )
-        },
-      )
 
   override def getUser(request: proto.GetUserRequest): Future[GetUserResponse] = {
     implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
@@ -588,15 +561,6 @@ private[apiserver] final class ApiUserManagementService(
 }
 
 object ApiUserManagementService {
-  final case class AuthenticatedUserContext(userId: Option[String], isParticipantAdmin: Boolean)
-  object AuthenticatedUserContext {
-    def apply(claims: Claims): AuthenticatedUserContext = claims match {
-      case claims: Claims if claims.resolvedFromUser =>
-        AuthenticatedUserContext(claims.userId, claims.claims.contains(ClaimAdmin))
-      case claims: Claims =>
-        AuthenticatedUserContext(None, claims.claims.contains(ClaimAdmin))
-    }
-  }
 
   private def toProtoUser(user: User): proto.User =
     proto.User(

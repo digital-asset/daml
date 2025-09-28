@@ -75,6 +75,7 @@ import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, config}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.{ServerInterceptor, ServerInterceptors, ServerServiceDefinition}
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -129,6 +130,7 @@ class SequencerRuntime(
     runtimeReadyPromise: PromiseUnlessShutdown[Unit],
 )(implicit
     executionContext: ExecutionContext,
+    materializer: Materializer,
     traceContext: TraceContext,
 ) extends FlagCloseable
     with HasCloseContext

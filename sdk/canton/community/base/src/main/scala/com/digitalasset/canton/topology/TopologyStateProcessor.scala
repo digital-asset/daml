@@ -16,6 +16,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.AsyncResult
+import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
   SequencedTime,
@@ -57,27 +58,6 @@ class TopologyStateProcessor private (
     if (store.storeId == AuthorizedStore) {
       loggerFactoryParent.append("store", store.storeId.toString)
     } else loggerFactoryParent
-
-  // small container to store potentially pending data
-  private case class MaybePending(originalTx: GenericSignedTopologyTransaction)
-      extends PrettyPrinting {
-    val adjusted = new AtomicReference[Option[GenericSignedTopologyTransaction]](None)
-    val rejection = new AtomicReference[Option[TopologyTransactionRejection]](None)
-    val expireImmediately = new AtomicBoolean(false)
-
-    def currentTx: GenericSignedTopologyTransaction = adjusted.get().getOrElse(originalTx)
-
-    def validatedTx: GenericValidatedTopologyTransaction =
-      ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
-
-    override protected def pretty: Pretty[MaybePending] =
-      prettyOfClass(
-        param("original", _.originalTx),
-        paramIfDefined("adjusted", _.adjusted.get()),
-        paramIfDefined("rejection", _.rejection.get()),
-        paramIfTrue("expireImmediately", _.expireImmediately.get()),
-      )
-  }
 
   private val txForMapping = TrieMap[MappingHash, MaybePending]()
   private val proposalsByMapping = TrieMap[MappingHash, Seq[TxHash]]()
@@ -360,15 +340,7 @@ class TopologyStateProcessor private (
         effective,
         tx_deduplicatedAndMerged,
         tx_inStore,
-        // TODO(#26009): this creates a new data structure for every check. this is very inefficient.
-        //    even more, we never shrink the map and we keep on iterating through it.
-        txForMapping.view.mapValues { pending =>
-          require(
-            !pending.expireImmediately.get() && pending.rejection.get.isEmpty,
-            s"unexpectedly used rejected or immediately expired tx: $pending",
-          )
-          pending.currentTx
-        }.toMap,
+        txForMapping,
       )
       _ <-
         // we potentially merge the transaction with the currently active if this is just a signature update
@@ -466,6 +438,27 @@ class TopologyStateProcessor private (
 }
 
 object TopologyStateProcessor {
+
+  // small container to store potentially pending data
+  private[topology] final case class MaybePending(originalTx: GenericSignedTopologyTransaction)
+      extends PrettyPrinting {
+    val adjusted = new AtomicReference[Option[GenericSignedTopologyTransaction]](None)
+    val rejection = new AtomicReference[Option[TopologyTransactionRejection]](None)
+    val expireImmediately = new AtomicBoolean(false)
+
+    def currentTx: GenericSignedTopologyTransaction = adjusted.get().getOrElse(originalTx)
+
+    def validatedTx: GenericValidatedTopologyTransaction =
+      ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
+
+    override protected def pretty: Pretty[MaybePending] =
+      prettyOfClass(
+        param("original", _.originalTx),
+        paramIfDefined("adjusted", _.adjusted.get()),
+        paramIfDefined("rejection", _.rejection.get()),
+        paramIfTrue("expireImmediately", _.expireImmediately.get()),
+      )
+  }
 
   /** Creates a TopologyStateProcessor for topology managers.
     */

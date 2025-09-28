@@ -11,12 +11,11 @@ import com.daml.jwt.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
-import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, PositiveInt}
 import com.digitalasset.canton.config.{AuthServiceConfig, PemFile, TlsServerConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.UseTls
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.ParticipantSelector
@@ -66,18 +65,11 @@ trait HttpJsonApiTestBase extends CantonFixture {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
+      .addConfigTransform(ConfigTransforms.useStaticTime)
+      .prependConfigTransform(
+        ConfigTransforms.enableHttpLedgerApi("participant1", wsConfig)
+      )
       .addConfigTransforms(
-        ConfigTransforms.updateParticipantConfig("participant1")(config =>
-          config.copy(httpLedgerApi =
-            Some(
-              JsonApiConfig(
-                // TODO(#13519): Extract in ConfigTransforms.globallyUniquePorts
-                server = HttpServerConfig().copy(port = Some(UniquePortGenerator.next.unwrap)),
-                websocketConfig = wsConfig,
-              )
-            )
-          )
-        ),
         ConfigTransforms.updateParticipantConfig("participant1")(
           ConfigTransforms.useTestingTimeService
         ),
@@ -110,7 +102,6 @@ trait HttpJsonApiTestBase extends CantonFixture {
               .focus(_.ledgerApi.partyManagementService.maxPartiesPageSize)
               .replace(maxPartiesPageSize)
           ),
-        ConfigTransforms.useStaticTime,
       )
       .withSetup { implicit env =>
         import env.*
@@ -133,7 +124,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       .valueOrFail("http ledger api must be configured")
       .server
       .port
-      .valueOrFail("port must be configured")
+      .unwrap
 
     val userId = getClass.getName
     val client = DamlLedgerClient.withoutToken(
@@ -167,7 +158,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       .valueOrFail("http ledger api must be configured")
       .server
       .port
-      .valueOrFail("port must be configured")
+      .unwrap
 
     val userId = getClass.getName
     val client = DamlLedgerClient.withoutToken(
@@ -198,7 +189,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       .valueOrFail("http ledger api must be configured")
       .server
       .port
-      .valueOrFail("port must be configured")
+      .unwrap
 
     val userId = getClass.getName
     val client = DamlLedgerClient.withoutToken(

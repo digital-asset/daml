@@ -56,8 +56,7 @@ class AutomaticReassignmentDecentralizedPartyIntegrationTest
             .propose_update(
               d.synchronizerId,
               _.update(
-                assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero,
-                topologyChangeDelay = config.NonNegativeFiniteDuration.Zero,
+                assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero
               ),
             )
         )
