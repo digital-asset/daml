@@ -612,7 +612,9 @@ object SubmitError {
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
         case "TranslationError" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("TranslationError"), 1)
-        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 2)
+        case "AuthenticationError" =>
+          SEnum(devErrorTypeIdentifier, Name.assertFromString("AuthenticationError"), 2)
+        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
