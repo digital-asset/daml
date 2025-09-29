@@ -669,7 +669,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractObservers = List.empty,
           globalContractKeyWithMaintainers = None,
         )
-      ) { case Left(SError.SErrorDamlException(IE.Dev(_, error: IE.Dev.TranslationError))) =>
+      ) { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
         error shouldBe a[IE.Dev.AuthenticationError]
       }
     }
