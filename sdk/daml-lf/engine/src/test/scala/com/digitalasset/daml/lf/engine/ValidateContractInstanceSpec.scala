@@ -162,13 +162,13 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
 
   val alice = Party.assertFromString("alice")
   val bob = Party.assertFromString("bob")
-  val packageName = Ref.PackageName.assertFromString("-test-pkg-")
+  val packageName = Ref.PackageName.assertFromString("test-pkg")
   val templateId = Ref.Identifier(pkgId1, Ref.QualifiedName.assertFromString("M:T"))
   val createArg =
     V.ValueRecord(None, ImmArray(None -> V.ValueParty(alice), None -> V.ValueParty(bob)))
   val createNode = Node.Create(
     coid = TransactionBuilder.newCid,
-    packageName = Ref.PackageName.assertFromString("-test-pkg-"),
+    packageName = packageName,
     templateId = Ref.Identifier(pkgId1, Ref.QualifiedName.assertFromString("M:T")),
     arg = createArg,
     signatories = Set(alice),
@@ -208,8 +208,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
         ("hashingMethod", "expectedHash"),
         (Hash.HashingMethod.Legacy, expectedLegacyHash),
         (Hash.HashingMethod.UpgradeFriendly, expectedUpgradeFriendlyHash),
-        // TODO(https://github.com/digital-asset/daml/issues/21667): enable once TypedNormalForm is supported
-        // (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
+        (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
       )
 
       val targetPackageIds = Table(
@@ -245,8 +244,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
         "hashingMethod",
         Hash.HashingMethod.Legacy,
         Hash.HashingMethod.UpgradeFriendly,
-        // TODO(https://github.com/digital-asset/daml/issues/21667): enable once TypedNormalForm is supported
-        // Hash.HashingMethod.TypedNormalForm,
+        Hash.HashingMethod.TypedNormalForm,
       )
 
       val targetPackageIds = Table(

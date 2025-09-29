@@ -25,7 +25,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-import scala.annotation.nowarn
 import scala.collection.immutable.ArraySeq
 
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
@@ -179,7 +178,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
-  @nowarn("cat=unused")
   private lazy val pkg0 = {
     implicit def pkgId: Ref.PackageId = pkgId0
     p""" metadata ( '-upgrade-test-' : '1.0.0' )
@@ -321,6 +319,58 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
       }
+    """
+  }
+
+  lazy val pkgId5 = Ref.PackageId.assertFromString("-pkg5-")
+  private lazy val pkg5 = {
+    // renames "aNumber" in pkg0 to "aNumberRenamed"
+    implicit def pkgId: Ref.PackageId = pkgId5
+    p""" metadata ( '-upgrade-test-' : '5.0.0' )
+    module M {
+
+      record @serializable T = { sig: Party, obs: Party, aNumberRenamed: Int64 };
+      template (this: T) = {
+        precondition True;
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-util-':M:mkList (M:T {obs} this) (None @Party);
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
+    }
+    """
+  }
+
+  lazy val localUpgradePkgId = Ref.PackageId.assertFromString("-local-upgrade-pkg-")
+  private lazy val pkgLocalUpgrade = {
+    implicit def pkgId: Ref.PackageId = localUpgradePkgId
+    p""" metadata ( '-local-upgrade-' : '1.0.0' )
+    module M {
+
+      record @serializable T = { sig: Party };
+      template (this: T) = {
+        precondition True;
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers Nil @Party;
+
+        choice @nonConsuming FetchLocal (self) (u: Unit): '-pkg5-':M:T
+          , controllers (Cons @Party [M:T {sig} this] (Nil @Party))
+          , observers (Nil @Party)
+          to ubind cid: ContractId '-pkg0-':M:T <- create
+                 @'-pkg0-':M:T
+                 ('-pkg0-':M:T { sig = M:T {sig} this, obs = M:T {sig} this, aNumber = 42 })
+             in fetch_template
+                 @'-pkg5-':M:T
+                 (COERCE_CONTRACT_ID @'-pkg0-':M:T @'-pkg5-':M:T cid);
+      };
+
+      val do_fetch_local: ContractId M:T -> Update '-pkg5-':M:T =
+        \(cid: ContractId M:T) ->
+          exercise @M:T FetchLocal cid ();
+    }
     """
   }
 
@@ -597,6 +647,30 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             error shouldBe a[IE.WronglyTypedContract]
           }
         }
+      }
+    }
+
+    "renamed template field in local contract -- should be rejected" in {
+      inside(
+        go(
+          e"'-local-upgrade-pkg-':M:do_fetch_local",
+          // We cannot test the case where the creation package is unavailable because this test case tests the upgrade
+          // of a local contract, which requires the creation package in order to be created.
+          availablePackages = Map(
+            utilPkgId -> utilPkg,
+            pkgId0 -> pkg0,
+            pkgId5 -> pkg5,
+            localUpgradePkgId -> pkgLocalUpgrade,
+          ),
+          globalContractPackageName = pkgLocalUpgrade.pkgName,
+          globalContractTemplateId = i"'-local-upgrade-pkg-':M:T",
+          globalContractArg = makeRecord(ValueParty(alice)),
+          globalContractSignatories = List(alice),
+          globalContractObservers = List.empty,
+          globalContractKeyWithMaintainers = None,
+        )
+      ) { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
+        error shouldBe a[IE.Dev.AuthenticationError]
       }
     }
   }
