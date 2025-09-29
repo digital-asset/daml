@@ -7,7 +7,7 @@ package speedy
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{CostModel => _, _}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
@@ -181,11 +181,14 @@ private[lf] object Speedy {
         version = version,
       )
 
-    lazy val metadata = ContractMetadata(
+    lazy val metadata: ContractMetadata = ContractMetadata(
       signatories,
       observers,
       keyOpt.map(_.globalKeyWithMaintainers),
     )
+
+    lazy val valueHash: Hash =
+      SValueHash.assertHashContractInstance(packageName, templateId.qualifiedName, value)
   }
 
   private[speedy] def throwLimitError(location: String, error: IError.Dev.Limit.Error): Nothing =

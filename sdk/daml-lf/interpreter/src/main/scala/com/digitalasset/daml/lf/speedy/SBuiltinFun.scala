@@ -1562,13 +1562,13 @@ private[lf] object SBuiltinFun {
             coid,
             srcTmplId,
             srcSArg,
-          ) { srcContracInfo =>
+          ) { srcContractInfo =>
             processSrcContract(
-              srcPackageName = srcContracInfo.packageName,
+              srcPackageName = srcContractInfo.packageName,
               srcTmplId = srcTmplId,
-              srcMetadata = srcContracInfo.metadata,
-              srcArg = srcContracInfo.arg,
-              mbTypedNormalFormAuthenticator = None,
+              srcMetadata = srcContractInfo.metadata,
+              srcArg = srcContractInfo.arg,
+              mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
             )
           }
         }
@@ -2634,12 +2634,12 @@ private[lf] object SBuiltinFun {
               coid,
               srcTmplId,
               srcSArg,
-            ) { srcContracInfo =>
+            ) { srcContractInfo =>
               processSrcContract(
                 srcTmplId = srcTmplId,
-                srcMetadata = srcContracInfo.metadata,
-                srcArg = srcContracInfo.arg,
-                mbTypedNormalFormAuthenticator = None,
+                srcMetadata = srcContractInfo.metadata,
+                srcArg = srcContractInfo.arg,
+                mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
               )
             }
           }
