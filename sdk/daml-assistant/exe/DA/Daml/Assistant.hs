@@ -11,7 +11,7 @@ import qualified DA.Service.Logger as L
 import qualified DA.Service.Logger.Impl.Pure as L
 import qualified DA.Service.Logger.Impl.GCP as L
 import DA.Daml.Project.Config
-import DA.Daml.Project.Consts (projectPathEnvVar, sdkVersionEnvVar)
+import DA.Daml.Project.Consts (packagePathEnvVar, projectPathEnvVar, sdkVersionEnvVar)
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Env
 import DA.Daml.Assistant.Command
@@ -60,7 +60,9 @@ main = withSdkVersions $ do
         installSignalHandlers
         builtinCommandM <- tryBuiltinCommand
         usingProjectRootVar <- isJust <$> lookupEnv projectPathEnvVar
-        when usingProjectRootVar $
+        usingPackageRootVar <- isJust <$> lookupEnv packagePathEnvVar
+        -- Don't warn if both old and new are provided, as daml assistant must do this for backwards compatibility
+        when (usingProjectRootVar && not usingPackageRootVar) $
           hPutStrLn stderr "The DAML_PROJECT environment variable is deprecated, please use DAML_PACKAGE"
         case builtinCommandM of
             Just builtinCommand -> do
