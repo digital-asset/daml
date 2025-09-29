@@ -611,6 +611,8 @@ templateRenamingFetchChoiceBody = test $ do
   cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
   let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
   res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchTemplateRenamingTemplate2 with cid = cid2)
+  -- once we migrate to contract ID v12 this will become a WronglyTypedContract error, as authentication happens after
+  -- template name comparison for v12 contract IDs
   assertIsAuthenticationError res
 
 templateRenamingFetchLocal : Test
@@ -625,6 +627,8 @@ templateRenamingExerciseChoiceBody = test $ do
   cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
   let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
   res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseTemplateRenamingTemplate2 with cid = cid2)
+  -- once we migrate to contract ID v12 this will become a WronglyTypedContract error, as authentication happens after
+  -- template name comparison for v12 contract IDs
   assertIsAuthenticationError res
 
 templateRenamingExerciseLocal : Test
