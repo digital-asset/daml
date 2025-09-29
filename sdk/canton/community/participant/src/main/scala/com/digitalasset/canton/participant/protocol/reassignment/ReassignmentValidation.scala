@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import com.daml.logging.LoggingContext
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -90,7 +91,11 @@ object ReassignmentValidation {
       _ <- MonadUtil.sequentialTraverse(reassignmentRequest.contracts.contracts.forgetNE) {
         reassign =>
           contractValidator
-            .authenticate(reassign.contract.inst, reassign.contract.templateId.packageId)
+            .authenticate(reassign.contract.inst, reassign.contract.templateId.packageId)(
+              ec,
+              traceContext,
+              LoggingContext.empty,
+            )
             .leftMap { reason =>
               ReassignmentValidationError.ContractAuthenticationFailure(
                 reassignmentRequest.reassignmentRef,

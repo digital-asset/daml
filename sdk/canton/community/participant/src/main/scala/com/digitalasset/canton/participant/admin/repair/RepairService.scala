@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.{
   HasCloseContext,
   LifeCycle,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -214,7 +214,9 @@ final class RepairService(
       ignoreAlreadyAdded: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
+  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = {
+    implicit val loggingContext = LoggingContextUtil.createLoggingContext(loggerFactory)(identity)
+
     for {
       _ <-
         contractValidator
@@ -231,6 +233,7 @@ final class RepairService(
         storedContract = storedContract,
       )
     } yield contractToAdd
+  }
 
   // The repair request gets inserted at the reprocessing starting point.
   // We use the prenextTimestamp such that a regular request is always the first request for a given timestamp.
