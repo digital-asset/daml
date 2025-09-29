@@ -54,7 +54,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     extends UpgradesMatrix[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ](UpgradesMatrixCasesV2Dev, Some((n, k)))
+    ](UpgradesMatrix.CantonLedger, UpgradesMatrixCasesV2Dev, Some((n, k)))
     with CantonFixture {
   def encodeDar(
       mainDalfName: String,

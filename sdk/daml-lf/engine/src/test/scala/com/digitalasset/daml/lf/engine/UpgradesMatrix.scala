@@ -54,6 +54,7 @@ import scala.language.implicitConversions
   * multiple Canton runners.
   */
 abstract class UpgradesMatrix[Err, Res](
+    val underlyingLedger: UpgradesMatrix.UnderlyingLedger,
     val cases: UpgradesMatrixCases,
     nk: Option[(Int, Int)] = None,
 ) extends AsyncFreeSpec
@@ -89,6 +90,7 @@ abstract class UpgradesMatrix[Err, Res](
             for (creationPackageStatus <- cases.creationPackageStatuses) {
               testHelper
                 .makeApiCommands(
+                  underlyingLedger,
                   operation,
                   catchBehavior,
                   entryPoint,
@@ -139,6 +141,12 @@ abstract class UpgradesMatrix[Err, Res](
       }
     }
   }
+}
+
+object UpgradesMatrix {
+  sealed abstract class UnderlyingLedger
+  case object IdeLedger extends UnderlyingLedger
+  case object CantonLedger extends UnderlyingLedger
 }
 
 // Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
@@ -1982,6 +1990,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       )
 
     def makeApiCommands(
+        @nowarn("cat=unused") underlyingLedger: UpgradesMatrix.UnderlyingLedger,
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
@@ -2008,7 +2017,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
         creationPackageStatus,
       ) match {
         // TODO(https://github.com/digital-asset/daml/issues/21667):
-        //   remove this exception once canton uses contract IDs v12
+        //   restrict this blacklisting to the IDE ledger only once canton uses contract IDs v12
         case (
               DifferentlyNamedTemplateArg | DifferentlyNamedFieldInRecordArg |
               DifferentlyRankedConstructorInVariantArg | DifferentlyRankedConstructorInEnumArg,
@@ -2017,7 +2026,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               _,
               Global | Disclosed,
               _,
-            ) =>
+            ) /* if underlyingLedger == UpgradesMatrix.IdeLedger */ =>
           None
         case (_, _, _, _, Local, CreationPackageUnvetted) =>
           None // local contracts cannot be created from unvetted packages

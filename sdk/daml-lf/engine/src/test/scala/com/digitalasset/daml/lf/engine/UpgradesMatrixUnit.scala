@@ -35,6 +35,7 @@ class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
   */
 abstract class UpgradesMatrixUnit(n: Int, k: Int)
     extends UpgradesMatrix[Error, (SubmittedTransaction, Transaction.Metadata)](
+      UpgradesMatrix.IdeLedger,
       UpgradesMatrixCasesV2MaxStable,
       Some((n, k)),
     )
