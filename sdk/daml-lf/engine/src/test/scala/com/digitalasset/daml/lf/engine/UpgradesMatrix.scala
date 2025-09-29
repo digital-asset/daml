@@ -187,11 +187,9 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
   def encodeDalfArchive(
       pkgId: PackageId,
       pkgSrc: String,
-      imports: Set[String],
       lfVersion: LanguageVersion = langVersion,
   ): (String, Archive, Ast.Package, PackageId) = {
-    val pkg1 = p"${pkgSrc}" (parserParameters(pkgId))
-    val pkg = pkg1.copy(imports = Right(imports.flatMap(s => PackageId.fromString(s).toOption)))
+    val pkg = p"${pkgSrc}" (parserParameters(pkgId))
     val archive = Encode.encodeArchive(pkgId -> pkg, lfVersion)
     val computedPkgId = PackageId.assertFromString(archive.getHash)
     val dalfName = s"${pkg.metadata.name}-${pkg.metadata.version}-$computedPkgId.dalf"
@@ -237,7 +235,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               };
             }
         """,
-      Set.empty,
     )
 
   /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
@@ -1697,7 +1694,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               ${testCases.map(_.v1TemplateDefinition).mkString("\n")}
             }
         """,
-      Set("da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd"),
     )
 
   /** Version 2 of the package above. It upgrades the previously defined templates such that:
@@ -1713,7 +1709,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               ${testCases.map(_.v2TemplateDefinition).mkString("\n")}
             }
         """,
-      Set("da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd"),
     )
 
   val (clientLocalDalfName, clientLocalDalf, clientLocalPkg, clientLocalPkgId) =
@@ -1734,11 +1729,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
                 }
             """
       },
-      Set(
-        "2e3534afaed2be79a2981ca0996aa1941de42be74da40f96692faa05d18365e3",
-        "533a8cda2a0f0449396a8c69e346d2d30a82d60b14860868c0b46816526a4adc",
-        "da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd",
-      ),
     )
 
   val (clientGlobalDalfName, clientGlobalDalf, clientGlobalPkg, clientGlobalPkgId) =
@@ -1759,10 +1749,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
                 }
             """
       },
-      Set(
-        "533a8cda2a0f0449396a8c69e346d2d30a82d60b14860868c0b46816526a4adc",
-        "da9b2bda0d7361e191167a0b5565474a0fed42aeff6dbe08744c97b50d0d36fd",
-      ),
     )
 
   /** The package used for the creation (local or global) v1 contracts and packages that depend on them. */
