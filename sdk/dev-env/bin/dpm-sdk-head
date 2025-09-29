@@ -23,47 +23,47 @@ VERBOSE=0
 LOG_PATH_INSTRUCTIONS=0
 for opt in "$@"; do
   case "$opt" in
-    "--damlc")
+    --damlc)
       TO_BUILD+=(damlc)
       ;;
-    "--daml-script")
+    --daml-script)
       TO_BUILD+=(daml-script)
       ;;
-    "--codegen-js")
+    --codegen-js)
       TO_BUILD+=(codegen-js)
       ;;
-    "--codegen-java")
+    --codegen-java)
       TO_BUILD+=(codegen-java)
       ;;
-    "--daml-new")
+    --daml-new)
       TO_BUILD+=(daml-new)
       ;;
-    "--dpm")
+    --dpm)
       TO_BUILD+=(dpm)
       ;;
-    "--version=*")
+    --version=*)
       RELEASE_VERSION=${opt#--version=}
       COMPONENT_VERSION=${opt#--version=}
       ;;
-    "--release-version=*")
+    --release-version=*)
       RELEASE_VERSION=${opt#--release-version=}
       ;;
-    "--component-version=*")
+    --component-version=*)
       COMPONENT_VERSION=${opt#--component-version=}
       ;;
-    "--profiling")
+    --profiling)
       PROFILING=1
       ;;
-    "--nuke")
+    --nuke)
       NUKE=1
       ;;
-    "--refresh-external")
+    --refresh-external)
       REFRESH_EXTERNAL=1
       ;;
-    "--remove-non-head")
+    --remove-non-head)
       REMOVE_NON_HEAD=1
       ;;
-    "--verbose")
+    --verbose)
       VERBOSE=1
       ;;
     *)
