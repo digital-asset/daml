@@ -167,6 +167,14 @@ contents: |
           _ <- fetch cid
           pure ()
 
+      choice FetchFieldRenamingLocal : ()
+        controller sig
+        do
+          v1Cid <- create V1.FieldRenamingTemplate { sig = sig, originalLabel = True }
+          let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
+          _ <- fetch v2Cid
+          pure ()
+
       choice ExerciseFieldRenamingV2 : ()
         with
           cid: ContractId V2.FieldRenamingTemplate
@@ -175,20 +183,20 @@ contents: |
           _ <- exercise cid V2.FieldRenamingChoice
           pure ()
 
-      choice FetchTemplateRenaming2 : ()
-        with
-          cid: ContractId V1.TemplateRenamingTemplate2
+      choice ExerciseFieldRenamingLocal : ()
         controller sig
         do
-          _ <- fetch cid
+          v1Cid <- create V1.FieldRenamingTemplate { sig = sig, originalLabel = True }
+          let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
+          _ <- exercise v2Cid V2.FieldRenamingChoice
           pure ()
 
-      choice ExerciseTemplateRenaming2 : ()
-        with
-          cid: ContractId V1.TemplateRenamingTemplate2
+      choice ExerciseIfaceFieldRenamingLocal : ()
         controller sig
         do
-          _ <- exercise cid V1.TemplateRenamingChoice2
+          v1Cid <- create V1.FieldRenamingTemplate { sig = sig, originalLabel = True }
+          let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.InvalidUpgradesIface v1Cid
+          _ <- exercise iCid Iface.IfaceChoice { ctl = sig }
           pure ()
 
       choice FetchVariantRankChangeV2 : ()
@@ -199,12 +207,36 @@ contents: |
           _ <- fetch cid
           pure ()
 
+      choice FetchVariantRankChangeLocal : ()
+        controller sig
+        do
+          cid1 <- create V1.VariantRankChangeTemplate { sig = sig, variant = V1.A True }
+          let cid2 = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate cid1
+          _ <- fetch cid2
+          pure ()
+
       choice ExerciseVariantRankChangeV2 : ()
         with
           cid: ContractId V2.VariantRankChangeTemplate
         controller sig
         do
           _ <- exercise cid V2.VariantRankChangeChoice
+          pure ()
+
+      choice ExerciseVariantRankChangeLocal : ()
+        controller sig
+        do
+          cid1 <- create V1.VariantRankChangeTemplate { sig = sig, variant = V1.A True }
+          let cid2 = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate cid1
+          _ <- exercise cid2 V2.VariantRankChangeChoice
+          pure ()
+
+      choice ExerciseIfaceVariantRankChangeLocal : ()
+        controller sig
+        do
+          cid1 <- create V1.VariantRankChangeTemplate { sig = sig, variant = V1.A True }
+          let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.InvalidUpgradesIface cid1
+          _ <- exercise iCid Iface.IfaceChoice { ctl = sig }
           pure ()
 
       choice FetchEnumRankChangeV2 : ()
@@ -215,12 +247,36 @@ contents: |
           _ <- fetch cid
           pure ()
 
+      choice FetchEnumRankChangeLocal : ()
+        controller sig
+        do
+          cid1 <- create V1.EnumRankChangeTemplate { sig = sig, enum = V1.C }
+          let cid2 = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate cid1
+          _ <- fetch cid2
+          pure ()
+
       choice ExerciseEnumRankChangeV2 : ()
         with
           cid: ContractId V2.EnumRankChangeTemplate
         controller sig
         do
           _ <- exercise cid V2.EnumRankChangeChoice
+          pure ()
+
+      choice ExerciseEnumRankChangeLocal : ()
+        controller sig
+        do
+          cid1 <- create V1.EnumRankChangeTemplate { sig = sig, enum = V1.C }
+          let cid2 = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate cid1
+          _ <- exercise cid2 V2.EnumRankChangeChoice
+          pure ()
+
+      choice ExerciseIfaceEnumRankChangeLocal : ()
+        controller sig
+        do
+          cid1 <- create V1.EnumRankChangeTemplate { sig = sig, enum = V1.C }
+          let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.InvalidUpgradesIface cid1
+          _ <- exercise iCid Iface.IfaceChoice { ctl = sig }
           pure ()
 
       choice ExerciseIface : ()
@@ -230,31 +286,101 @@ contents: |
         do
           _ <- exercise cid Iface.IfaceChoice { ctl = sig }
           pure ()
+
+      choice FetchTemplateRenamingTemplate2 : ()
+        with
+          cid: ContractId V1.TemplateRenamingTemplate2
+        controller sig
+        do
+          _ <- fetch cid
+          pure ()
+
+      choice FetchTemplateRenamingTemplate2Local : ()
+        controller sig
+        do
+          cid1 <- create V1.TemplateRenamingTemplate1 { sig = sig }
+          let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
+          _ <- fetch cid2
+          pure ()
+
+      choice ExerciseTemplateRenamingTemplate2 : ()
+        with
+          cid: ContractId V1.TemplateRenamingTemplate2
+        controller sig
+        do
+          _ <- exercise cid V1.TemplateRenamingChoice2
+          pure ()
+
+      choice ExerciseTemplateRenamingTemplate2Local : ()
+        controller sig
+        do
+          cid1 <- create V1.TemplateRenamingTemplate1 { sig = sig }
+          let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
+          _ <- exercise cid2 V1.TemplateRenamingChoice2
+          pure ()
 -}
 
 main : TestTree
 main = tests
-  -- TODO(https://github.com/digital-asset/daml/issues/21667): enable these tests once canton uses contract ID v12
-  [ broken ("Reject template field renaming in fetches from choice body", fieldRenamingFetchChoiceBody)
-  , broken ("Reject template field renaming in exercises from choice body", fieldRenamingExerciseChoiceBody)
-  , broken ("Reject template field renaming in interface exercises from choice body", fieldRenamingExerciseInterfaceChoiceBody)
-  , broken ("Reject template field renaming in command exercises", fieldRenamingExerciseCommand)
-  , broken ("Reject template field renaming in command interface exercises", fieldRenamingExerciseInterfaceCommand)
-
-  , broken ("Reject template renaming in fetches from choice body", templateRenamingFetchChoiceBody)
-  , broken ("Reject template renaming in exercises from choice body", templateRenamingExerciseChoiceBody)
-
-  , broken ("Reject variant rank change in fetches from choice body", variantRankChangeFetchChoiceBody)
-  , broken ("Reject variant rank change in exercises from choice body", variantRankChangeExerciseChoiceBody)
-  , broken ("Reject variant rank change in interface exercises from choice body", variantRankChangeExerciseInterfaceChoiceBody)
-  , broken ("Reject variant rank change in command exercises", variantRankChangeExerciseCommand)
-  , broken ("Reject variant rank change in command interface exercises", variantRankChangeExerciseInterfaceCommand)
-
-  , broken ("Reject enum rank change in fetches from choice body", enumRankChangeFetchChoiceBody)
-  , broken ("Reject enum rank change in exercises from choice body", enumRankChangeExerciseChoiceBody)
-  , broken ("Reject enum rank change in interface exercises from choice body", enumRankChangeExerciseInterfaceChoiceBody)
-  , broken ("Reject enum rank change in command exercises", enumRankChangeExerciseCommand)
-  , broken ("Reject enum rank change in command interface exercises", enumRankChangeExerciseInterfaceCommand)
+  -- TODO(https://github.com/digital-asset/daml/issues/21667): enable the broken tests once canton uses contract ID v12
+  [ subtree "should reject field renaming"
+    [ subtree "in fetches"
+      [ broken ("from choice body" , fieldRenamingFetchChoiceBody)
+      , ("of local contract", fieldRenamingFetchLocal)
+      ]
+    , subtree "in exercises"
+      [ broken ("in command", fieldRenamingExerciseCommand)
+      , broken ("from choice body", fieldRenamingExerciseChoiceBody)
+      , ("of local contract", fieldRenamingExerciseLocal)
+      ]
+    , subtree "in interface exercises"
+      [ broken ("in command", fieldRenamingExerciseInterfaceCommand)
+      , broken ("from choice body", fieldRenamingExerciseInterfaceChoiceBody)
+      , ("of local contract", fieldRenamingExerciseInterfaceLocal)
+      ]
+    ]
+  , subtree "should reject variant rank change"
+    [ subtree "in fetches"
+      [ broken ("from choice body", variantRankChangeFetchChoiceBody)
+      , ("of local contract", variantRankChangeFetchLocal)
+      ]
+    , subtree "in exercises"
+      [ broken ("in command", variantRankChangeExerciseCommand)
+      , broken ("from choice body", variantRankChangeExerciseChoiceBody)
+      , ("of local contract", variantRankChangeExerciseLocal)
+      ]
+    , subtree "in interface exercises"
+      [ broken ("in command", variantRankChangeExerciseInterfaceCommand)
+      , broken ("from choice body", variantRankChangeExerciseInterfaceChoiceBody)
+      , ("of local contract", variantRankChangeExerciseInterfaceLocal)
+      ]
+    ]
+  , subtree "should reject enum rank change"
+    [ subtree "in fetches"
+      [ broken ("from choice body", enumRankChangeFetchChoiceBody)
+      , ("of local contract", enumRankChangeFetchLocal)
+      ]
+    , subtree "in exercises"
+      [ broken ("in command", enumRankChangeExerciseCommand)
+      , broken ("from choice body", enumRankChangeExerciseChoiceBody)
+      , ("of local contract", enumRankChangeExerciseLocal)
+      ]
+    , subtree "in interface exercises"
+      [ broken ("in command", enumRankChangeExerciseInterfaceCommand)
+      , broken ("from choice body", enumRankChangeExerciseInterfaceChoiceBody)
+      , ("of local contract", enumRankChangeExerciseInterfaceLocal)
+      ]
+    ]
+  , subtree "should reject template renaming"
+    [ subtree "in fetches"
+      [ broken ("from choice body", templateRenamingFetchChoiceBody)
+      , ("of local contract", templateRenamingFetchLocal)
+      ]
+    , subtree "in exercises"
+      [ broken ("from choice body", templateRenamingExerciseChoiceBody)
+      , ("of local contract", templateRenamingExerciseLocal)
+      ]
+    ]
   ]
 
 --- Utils ---
@@ -271,9 +397,13 @@ setUpChoiceBodyTest = do
   clientCid <- alice `submit` createCmd Client.ClientTemplate { sig = alice }
   pure (alice, clientCid)
 
-assertIsTranslationError : Show a => Either SubmitError a -> Script ()
-assertIsTranslationError (Left (DevError TranslationError _)) = pure ()
-assertIsTranslationError res = assertFail $ "Expected TranslationError, got " <> show res
+assertIsAuthenticationError : Show a => Either SubmitError a -> Script ()
+assertIsAuthenticationError (Left (DevError AuthenticationError _)) = pure ()
+assertIsAuthenticationError res = assertFail $ "Expected TranslationError, got " <> show res
+
+assertIsWronglyTypedContractError : Show a => Either SubmitError a -> Script ()
+assertIsWronglyTypedContractError (Left (WronglyTypedContract _ _ _)) = pure ()
+assertIsWronglyTypedContractError res = assertFail $ "Expected WronglyTypedContract, got " <> show res
 
 --- Field renaming test cases ---
 
@@ -283,7 +413,13 @@ fieldRenamingFetchChoiceBody = test $ do
   v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
   let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchFieldRenamingV2 with cid = v2Cid)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+fieldRenamingFetchLocal : Test
+fieldRenamingFetchLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchFieldRenamingLocal)
+  assertIsAuthenticationError res
 
 fieldRenamingExerciseChoiceBody : Test
 fieldRenamingExerciseChoiceBody = test $ do
@@ -291,7 +427,13 @@ fieldRenamingExerciseChoiceBody = test $ do
   v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
   let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseFieldRenamingV2 with cid = v2Cid)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+fieldRenamingExerciseLocal : Test
+fieldRenamingExerciseLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseFieldRenamingLocal)
+  assertIsAuthenticationError res
 
 fieldRenamingExerciseInterfaceChoiceBody : Test
 fieldRenamingExerciseInterfaceChoiceBody = test $ do
@@ -301,7 +443,15 @@ fieldRenamingExerciseInterfaceChoiceBody = test $ do
   res <- trySubmit
     (actAs alice <> packagePreference [invalidUpgradesV2])
     (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+fieldRenamingExerciseInterfaceLocal : Test
+fieldRenamingExerciseInterfaceLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd clientCid (Client.ExerciseIfaceFieldRenamingLocal))
+  assertIsAuthenticationError res
 
 fieldRenamingExerciseCommand : Test
 fieldRenamingExerciseCommand = test $ do
@@ -309,7 +459,7 @@ fieldRenamingExerciseCommand = test $ do
   v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
   let v2Cid = coerceContractId @V1.FieldRenamingTemplate @V2.FieldRenamingTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd v2Cid V2.FieldRenamingChoice
-  assertIsTranslationError res
+  assertIsAuthenticationError res
 
 fieldRenamingExerciseInterfaceCommand : Test
 fieldRenamingExerciseInterfaceCommand = test $ do
@@ -319,25 +469,7 @@ fieldRenamingExerciseInterfaceCommand = test $ do
   res <- trySubmit
     (actAs alice <> packagePreference [invalidUpgradesV2])
     (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
-  assertIsTranslationError res
-
---- Template renaming test cases ---
-
-templateRenamingFetchChoiceBody : Test
-templateRenamingFetchChoiceBody = test $ do
-  (alice, clientCid) <- setUpChoiceBodyTest
-  cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
-  let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
-  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchTemplateRenaming2 with cid = cid2)
-  assertIsTranslationError res
-
-templateRenamingExerciseChoiceBody : Test
-templateRenamingExerciseChoiceBody = test $ do
-  (alice, clientCid) <- setUpChoiceBodyTest
-  cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
-  let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
-  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseTemplateRenaming2 with cid = cid2)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
 
 --- Variant rank change test cases ---
 
@@ -347,7 +479,13 @@ variantRankChangeFetchChoiceBody = test $ do
   v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
   let v2Cid = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchVariantRankChangeV2 with cid = v2Cid)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+variantRankChangeFetchLocal : Test
+variantRankChangeFetchLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchVariantRankChangeLocal)
+  assertIsAuthenticationError res
 
 variantRankChangeExerciseChoiceBody : Test
 variantRankChangeExerciseChoiceBody = test $ do
@@ -355,7 +493,13 @@ variantRankChangeExerciseChoiceBody = test $ do
   v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
   let v2Cid = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseVariantRankChangeV2 with cid = v2Cid)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+variantRankChangeExerciseLocal : Test
+variantRankChangeExerciseLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseVariantRankChangeLocal)
+  assertIsAuthenticationError res
 
 variantRankChangeExerciseInterfaceChoiceBody : Test
 variantRankChangeExerciseInterfaceChoiceBody = test $ do
@@ -365,7 +509,15 @@ variantRankChangeExerciseInterfaceChoiceBody = test $ do
   res <- trySubmit
     (actAs alice <> packagePreference [invalidUpgradesV2])
     (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+variantRankChangeExerciseInterfaceLocal : Test
+variantRankChangeExerciseInterfaceLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd clientCid (Client.ExerciseIfaceVariantRankChangeLocal))
+  assertIsAuthenticationError res
 
 variantRankChangeExerciseCommand : Test
 variantRankChangeExerciseCommand = test $ do
@@ -373,7 +525,7 @@ variantRankChangeExerciseCommand = test $ do
   v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
   let v2Cid = coerceContractId @V1.VariantRankChangeTemplate @V2.VariantRankChangeTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd v2Cid V2.VariantRankChangeChoice
-  assertIsTranslationError res
+  assertIsAuthenticationError res
 
 variantRankChangeExerciseInterfaceCommand : Test
 variantRankChangeExerciseInterfaceCommand = test $ do
@@ -383,7 +535,7 @@ variantRankChangeExerciseInterfaceCommand = test $ do
   res <- trySubmit
     (actAs alice <> packagePreference [invalidUpgradesV2])
     (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
-  assertIsTranslationError res
+  assertIsAuthenticationError res
 
 --- Enum rank change test cases ---
 
@@ -393,7 +545,13 @@ enumRankChangeFetchChoiceBody = test $ do
   v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
   let v2Cid = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchEnumRankChangeV2 with cid = v2Cid)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+enumRankChangeFetchLocal : Test
+enumRankChangeFetchLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchEnumRankChangeLocal)
+  assertIsAuthenticationError res
 
 enumRankChangeExerciseChoiceBody : Test
 enumRankChangeExerciseChoiceBody = test $ do
@@ -401,7 +559,13 @@ enumRankChangeExerciseChoiceBody = test $ do
   v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
   let v2Cid = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseEnumRankChangeV2 with cid = v2Cid)
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+enumRankChangeExerciseLocal : Test
+enumRankChangeExerciseLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseEnumRankChangeLocal)
+  assertIsAuthenticationError res
 
 enumRankChangeExerciseInterfaceChoiceBody : Test
 enumRankChangeExerciseInterfaceChoiceBody = test $ do
@@ -411,15 +575,23 @@ enumRankChangeExerciseInterfaceChoiceBody = test $ do
   res <- trySubmit
     (actAs alice <> packagePreference [invalidUpgradesV2])
     (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
-  assertIsTranslationError res
-  
+  assertIsAuthenticationError res
+
+enumRankChangeExerciseInterfaceLocal : Test
+enumRankChangeExerciseInterfaceLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- trySubmit
+    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (exerciseCmd clientCid (Client.ExerciseIfaceEnumRankChangeLocal))
+  assertIsAuthenticationError res
+
 enumRankChangeExerciseCommand : Test
 enumRankChangeExerciseCommand = test $ do
   alice <- setupCommandTest
   v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
   let v2Cid = coerceContractId @V1.EnumRankChangeTemplate @V2.EnumRankChangeTemplate v1Cid
   res <- alice `trySubmit` exerciseCmd v2Cid V2.EnumRankChangeChoice
-  assertIsTranslationError res
+  assertIsAuthenticationError res
 
 enumRankChangeExerciseInterfaceCommand : Test
 enumRankChangeExerciseInterfaceCommand = test $ do
@@ -429,4 +601,34 @@ enumRankChangeExerciseInterfaceCommand = test $ do
   res <- trySubmit
     (actAs alice <> packagePreference [invalidUpgradesV2])
     (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
-  assertIsTranslationError res
+  assertIsAuthenticationError res
+
+--- Template renaming test cases ---
+
+templateRenamingFetchChoiceBody : Test
+templateRenamingFetchChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
+  let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchTemplateRenamingTemplate2 with cid = cid2)
+  assertIsAuthenticationError res
+
+templateRenamingFetchLocal : Test
+templateRenamingFetchLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchTemplateRenamingTemplate2Local)
+  assertIsWronglyTypedContractError res
+
+templateRenamingExerciseChoiceBody : Test
+templateRenamingExerciseChoiceBody = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
+  let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseTemplateRenamingTemplate2 with cid = cid2)
+  assertIsAuthenticationError res
+
+templateRenamingExerciseLocal : Test
+templateRenamingExerciseLocal = test $ do
+  (alice, clientCid) <- setUpChoiceBodyTest
+  res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseTemplateRenamingTemplate2Local)
+  assertIsWronglyTypedContractError res

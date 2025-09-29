@@ -51,6 +51,7 @@ data CryptoErrorType
 data DevErrorType
   = ChoiceGuardFailed
   | TranslationError
+  | AuthenticationError
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
