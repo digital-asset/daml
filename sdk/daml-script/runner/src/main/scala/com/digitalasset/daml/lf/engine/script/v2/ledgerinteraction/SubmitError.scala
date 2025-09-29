@@ -613,7 +613,7 @@ object SubmitError {
         case "TranslationError" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("TranslationError"), 1)
         case "AuthenticationError" =>
-          SEnum(devErrorTypeIdentifier, Name.assertFromString("TranslationError"), 2)
+          SEnum(devErrorTypeIdentifier, Name.assertFromString("AuthenticationError"), 2)
         case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
       }
       SubmitErrorConverters(env).damlScriptError(
