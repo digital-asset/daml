@@ -90,8 +90,8 @@ trait LongTests { this: UpgradesSpec =>
 
     s"uploads against the same package name must be version unique ($suffix)" in {
       testPackagePair(
-        "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
+        "test-common/upgrades-CommonVersionFailure-v1a.dar",
         assertPackageUploadVersionFailure,
       )
     }
