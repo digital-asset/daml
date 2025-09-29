@@ -20,6 +20,11 @@ private[postgresql] object PGSchema {
     ): Field[FROM, Iterable[String], _] =
       PGStringArray(extractor)
 
+    override def smallint[FROM](
+        extractor: StringInterning => FROM => Int
+    ): Field[FROM, Int, _] =
+      PGSmallint(extractor)
+
     override def smallintOptional[FROM](
         extractor: StringInterning => FROM => Option[Int]
     ): Field[FROM, Option[Int], _] =
@@ -29,15 +34,6 @@ private[postgresql] object PGSchema {
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
       PGTable.transposedInsert(tableName)(fields*)
-
-    override def idempotentInsert[FROM](
-        tableName: String,
-        keyFieldIndex: Int,
-        ordering: Ordering[FROM],
-    )(
-        fields: (String, Field[FROM, _, _])*
-    ): Table[FROM] =
-      PGTable.idempotentTransposedInsert(tableName, keyFieldIndex, ordering)(fields*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(PGFieldStrategy)

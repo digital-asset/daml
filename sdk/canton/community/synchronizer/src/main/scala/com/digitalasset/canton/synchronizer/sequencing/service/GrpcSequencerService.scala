@@ -19,7 +19,6 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   PromiseUnlessShutdown,
-  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -60,7 +59,8 @@ import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
-import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Keep, Sink}
+import org.apache.pekko.stream.{KillSwitches, Materializer}
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -184,7 +184,7 @@ class GrpcSequencerService(
     protocolVersion: ProtocolVersion,
     maxItemsInTopologyResponse: PositiveInt = PositiveInt.tryCreate(100),
     acknowledgementsConflateWindow: Option[PositiveFiniteDuration] = None,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, materializer: Materializer)
     extends v30.SequencerServiceGrpc.SequencerService
     with NamedLogging
     with FlagCloseable {
@@ -213,7 +213,6 @@ class GrpcSequencerService(
 
     // This has to run at the beginning, because it reads from a thread-local.
     val senderFromMetadata = authenticationCheck.lookupCurrentMember()
-
     def parseAndValidate(
         maxRequestSize: MaxRequestSize
     ): Either[SequencerDeliverError, SignedContent[SubmissionRequest]] = for {
@@ -648,29 +647,34 @@ class GrpcSequencerService(
       responseObserver: StreamObserver[v30.DownloadTopologyStateForInitResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    TopologyStateForInitRequest
-      .fromProtoV30(requestP)
-      .traverse(request =>
-        topologyStateForInitializationService
-          .initialSnapshot(request.member)
-      )
-      .onComplete {
-        case Success(UnlessShutdown.Outcome(Left(parsingError))) =>
-          responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
 
-        case Success(UnlessShutdown.Outcome(Right(initialSnapshot))) =>
-          initialSnapshot.result.grouped(maxItemsInTopologyResponse.value).foreach { batch =>
-            val response =
-              TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch)))
-            responseObserver.onNext(response.toProtoV30)
-          }
-          responseObserver.onCompleted()
+    withServerCallStreamObserver(responseObserver) { observer =>
+      TopologyStateForInitRequest
+        .fromProtoV30(requestP)
+        .traverse { request =>
+          val (killSwitch, future) = topologyStateForInitializationService
+            .initialSnapshot(request.member)
+            .grouped(maxItemsInTopologyResponse.value)
+            .map { batch =>
+              TopologyStateForInitResponse(Traced(StoredTopologyTransactions(batch))).toProtoV30
+            }
+            .viaMat(KillSwitches.single)(Keep.right)
+            .toMat(Sink.foreach(observer.onNext))(Keep.both)
+            .run()
+          observer.setOnCancelHandler(() => killSwitch.shutdown())
+          future
+        }
+        .onComplete {
+          case Success(Left(parsingError)) =>
+            responseObserver.onError(ProtoDeserializationFailure.Wrap(parsingError).asGrpcError)
 
-        case Failure(exception) =>
-          responseObserver.onError(exception)
-        case Success(UnlessShutdown.AbortedDueToShutdown) =>
-          responseObserver.onCompleted()
-      }
+          case Success(Right(_)) =>
+            responseObserver.onCompleted()
+
+          case Failure(exception) =>
+            responseObserver.onError(exception)
+        }
+    }
   }
 
   private def invalidRequest(message: String): Status =

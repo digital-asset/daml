@@ -25,7 +25,8 @@ trait StorageBackendFactory {
       loggerFactory: NamedLoggerFactory,
   ): CompletionStorageBackend
   def createContractStorageBackend(
-      stringInterning: StringInterning
+      stringInterning: StringInterning,
+      ledgerEndCache: LedgerEndCache,
   ): ContractStorageBackend
   def createEventStorageBackend(
       ledgerEndCache: LedgerEndCache,
@@ -48,7 +49,7 @@ trait StorageBackendFactory {
     ReadStorageBackend(
       partyStorageBackend = createPartyStorageBackend(ledgerEndCache),
       completionStorageBackend = createCompletionStorageBackend(stringInterning, loggerFactory),
-      contractStorageBackend = createContractStorageBackend(stringInterning),
+      contractStorageBackend = createContractStorageBackend(stringInterning, ledgerEndCache),
       eventStorageBackend =
         createEventStorageBackend(ledgerEndCache, stringInterning, loggerFactory),
     )

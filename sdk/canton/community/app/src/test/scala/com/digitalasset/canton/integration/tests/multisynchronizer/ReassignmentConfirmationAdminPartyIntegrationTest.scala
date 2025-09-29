@@ -64,13 +64,12 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
+      // We want to trigger time out
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
       .addConfigTransforms(
-        // We want to trigger time out
-        ConfigTransforms.useStaticTime,
-
         // Because we play with the simClock, ensure we have enough forward tolerance
         // on the target timestamp to not impact up unassigments.
-        ConfigTransforms.updateTargetTimestampForwardTolerance(1.hours),
+        ConfigTransforms.updateTargetTimestampForwardTolerance(1.hours)
       )
       .withSetup { implicit env =>
         import env.*

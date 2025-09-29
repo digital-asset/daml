@@ -7,7 +7,6 @@ import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{LocalNodeConfig, TestingConfigInternal}
-import com.digitalasset.canton.crypto.kms.KmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -40,7 +39,6 @@ final case class NodeFactoryArguments[
   def toCantonNodeBootstrapCommonArguments(
       storageFactory: StorageFactory,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-      kmsFactory: KmsFactory,
   ): Either[String, CantonNodeBootstrapCommonArguments[NodeConfig, ParameterConfig, Metrics]] =
     InstanceName
       .create(name)
@@ -54,7 +52,6 @@ final case class NodeFactoryArguments[
           metrics,
           storageFactory,
           cryptoPrivateStoreFactory,
-          kmsFactory,
           futureSupervisor,
           loggerFactory,
           writeHealthDumpToFile,

@@ -72,7 +72,7 @@ class MempoolModule[E <: Env[E]](
             from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
             span.setStatus(StatusCode.ERROR, "queue_full"); span.end()
             metrics.ingress.labels.outcome.values.QueueFull
-          } else if (!orderingRequest.isTagValid) {
+          } else if (config.checkTags && !orderingRequest.isTagValid) {
             val rejectionMessage =
               s"mempool received a client request with an invalid tag '${orderingRequest.tag}', " +
                 s"valid tags are: (${OrderingRequest.ValidTags.mkString(", ")}), rejecting"
@@ -103,7 +103,7 @@ class MempoolModule[E <: Env[E]](
               metrics.ingress.labels.outcome.values.Success
             }
           }
-        emitRequestStats(metrics)(orderingRequest, sender, outcome)
+        emitRequestStats(metrics)(orderingRequest, sender, outcome, config.checkTags)
 
       // From local availability
       case Mempool.CreateLocalBatches(atMost) =>

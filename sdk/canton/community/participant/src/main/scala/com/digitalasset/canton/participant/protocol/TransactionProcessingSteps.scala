@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
-import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
@@ -37,7 +36,6 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.*
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.{
-  ContractAuthenticationFailed,
   SequencerRequest,
   SubmissionDuringShutdown,
   SubmissionInternalError,
@@ -92,7 +90,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
@@ -104,7 +102,6 @@ import com.digitalasset.canton.{
   checked,
 }
 import com.digitalasset.daml.lf.transaction.CreationTime
-import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.PLens
 
@@ -129,7 +126,6 @@ class TransactionProcessingSteps(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     crypto: SynchronizerCryptoClient,
     metrics: TransactionProcessingMetrics,
-    serializableContractAuthenticator: ContractAuthenticator,
     transactionEnricher: TransactionEnricher,
     createNodeEnricher: CreateNodeEnricher,
     authorizationValidator: AuthorizationValidator,
@@ -775,14 +771,13 @@ class TransactionProcessingSteps(
     //   Also, check that all the view's informees received the derived randomness
     Right(parsedRequest.usedAndCreated.activenessSet)
 
-  def authenticateInputContracts(
+  override def authenticateInputContracts(
       parsedRequest: ParsedTransactionRequest
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, Unit] =
-    authenticateInputContractsInternal(
-      parsedRequest.usedAndCreated.contracts.used
-    )
+    // For transaction processing contract authentication is done as part of model conformance
+    EitherT.pure(())
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedTransactionRequest,
@@ -1127,21 +1122,6 @@ class TransactionProcessingSteps(
     Right(updateO)
   }
 
-  @VisibleForTesting
-  private[protocol] def authenticateInputContractsInternal(
-      inputContracts: Map[LfContractId, GenContractInstance]
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, TransactionProcessorError, Unit] =
-    EitherT.fromEither(
-      inputContracts.toList
-        .traverse_ { case (contractId, contract) =>
-          serializableContractAuthenticator
-            .legacyAuthenticate(contract.inst)
-            .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
-        }
-    )
-
   private def completionInfoFromSubmitterMetadataO(
       meta: SubmitterMetadata,
       freshOwnTimelyTx: Boolean,
@@ -1243,7 +1223,9 @@ class TransactionProcessingSteps(
     val commitSetF = FutureUnlessShutdown.pure(commitSet)
     val ledgerEffectiveTime = lfTx.metadata.ledgerTime
     val contractsToBeStored =
-      createdContracts.values.map(ContractInstance.assignCreationTime(_, ledgerEffectiveTime)).toSeq
+      (createdContracts ++ witnessed).values
+        .map(ContractInstance.assignCreationTime(_, ledgerEffectiveTime))
+        .toSeq
 
     for {
       lfTxId <- EitherT
@@ -1252,7 +1234,8 @@ class TransactionProcessingSteps(
 
       contractAuthenticationData =
         // We deliberately do not forward the authentication data
-        // for divulged contracts since they are not visible on the Ledger API
+        // for retroactively divulged contracts since they are not visible on the Ledger API
+        // For immediately divulged contracts we populate this as those are visible.
         (createdContracts ++ witnessed).view.map { case (contractId, contract) =>
           contractId -> contract.inst.authenticationData
         }.toMap

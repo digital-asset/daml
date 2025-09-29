@@ -9,11 +9,12 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   ExecutorServiceExtensions,
+  FutureSupervisor,
   Threading,
 }
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts.shutdownProcessing
-import com.digitalasset.canton.crypto.kms.{Kms, KmsError, KmsKeyId}
+import com.digitalasset.canton.crypto.kms.{Kms, KmsError, KmsFactory, KmsKeyId}
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, EncryptedCryptoPrivateStore}
 import com.digitalasset.canton.integration.{
   ConfigTransforms,
@@ -22,7 +23,8 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.time.WallClock
+import com.digitalasset.canton.tracing.{NoReportingTracerProvider, NoTracing}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ResourceUtil
 import monocle.macros.syntax.lens.*
@@ -40,8 +42,6 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
   protected val timeouts: ProcessingTimeout
   protected val loggerFactory: NamedLoggerFactory
 
-  protected def createKms()(implicit ec: ExecutionContext): Either[KmsError, Kms]
-
   // ensure that all nodes with session signing keys `disabled` are part of the full protected node set
   require(
     nodesWithSessionSigningKeysDisabled.subsetOf(nodes),
@@ -49,11 +49,23 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
       s"${nodesWithSessionSigningKeysDisabled.diff(nodes).mkString(", ")}",
   )
 
+  private val clock = new WallClock(timeouts, loggerFactory)
+
   protected def withKmsClient[V](
       f: Kms => EitherT[Future, KmsError, V]
   )(implicit ec: ExecutionContext): EitherT[Future, KmsError, V] =
     for {
-      kmsClient <- createKms().toEitherT[Future]
+      kmsClient <- KmsFactory
+        .create(
+          kmsConfig,
+          timeouts,
+          FutureSupervisor.Noop,
+          NoReportingTracerProvider,
+          clock,
+          loggerFactory,
+          ec,
+        )
+        .toEitherT[Future]
       res <- ResourceUtil.withResourceM(kmsClient)(f)
     } yield res
 
@@ -182,13 +194,38 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
 
   override def close(): Unit =
     LifeCycle.close(
+      clock,
       ExecutorServiceExtensions(kmsKeyDeletionExecutionContext)(
         logger,
         DefaultProcessingTimeouts.testing,
-      )
+      ),
     )(logger)
 
   override def afterTests(): Unit = close()
+}
+
+object UseKms {
+  def withKmsClient[V](
+      kmsConfig: KmsConfig,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(
+      f: Kms => EitherT[Future, KmsError, V]
+  )(implicit ec: ExecutionContext): EitherT[Future, KmsError, V] =
+    for {
+      kmsClient <- KmsFactory
+        .create(
+          kmsConfig,
+          timeouts,
+          FutureSupervisor.Noop,
+          NoReportingTracerProvider,
+          new WallClock(timeouts, loggerFactory),
+          loggerFactory,
+          ec,
+        )
+        .toEitherT[Future]
+      res <- ResourceUtil.withResourceM(kmsClient)(f)
+    } yield res
 }
 
 sealed trait EncryptedPrivateStoreStatus

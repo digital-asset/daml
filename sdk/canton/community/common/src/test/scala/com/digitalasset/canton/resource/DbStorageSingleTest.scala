@@ -69,7 +69,7 @@ trait DbStorageSingleTest
 
     "fail on invalid database" in {
       val config = modifyDatabaseName("foobar")
-      loggerFactory.suppressWarningsAndErrors {
+      loggerFactory.assertLogs(
         DbStorageSingle
           .create(
             config,
@@ -81,8 +81,9 @@ trait DbStorageSingleTest
             DefaultProcessingTimeouts.testing,
             loggerFactory,
           )
-          .leftOrFailShutdown("storage create") shouldBe a[String]
-      }
+          .leftOrFailShutdown("storage create") shouldBe a[String],
+        _.message should include("""database "foobar" does not exist"""),
+      )
     }
 
     "fail on invalid port" in {

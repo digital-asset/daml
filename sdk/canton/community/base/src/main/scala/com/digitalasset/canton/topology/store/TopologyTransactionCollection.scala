@@ -6,14 +6,10 @@ package com.digitalasset.canton.topology.store
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmptyReturningOps.*
-import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.v30 as adminV30
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.*
@@ -34,18 +30,8 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
   def toTopologyState: List[M] =
     result.map(_.mapping).toList
 
-  def toProtoV30: adminV30.TopologyTransactions = adminV30.TopologyTransactions(
-    items = result.map { item =>
-      adminV30.TopologyTransactions.Item(
-        sequenced = Some(item.sequenced.toProtoPrimitive),
-        validFrom = Some(item.validFrom.toProtoPrimitive),
-        validUntil = item.validUntil.map(_.toProtoPrimitive),
-        // these transactions are serialized as versioned topology transactions
-        transaction = item.transaction.toByteString,
-        rejectionReason = item.rejectionReason.map(_.unwrap),
-      )
-    }
-  )
+  def toProtoV30: adminV30.TopologyTransactions =
+    adminV30.TopologyTransactions(items = result.map(_.toAdminProtoV30))
 
   def collectOfType[T <: TopologyChangeOp: ClassTag]: StoredTopologyTransactions[T, M] =
     StoredTopologyTransactions(
@@ -146,37 +132,10 @@ object StoredTopologyTransactions
 
   def fromProtoV30(
       value: adminV30.TopologyTransactions
-  ): ParsingResult[GenericStoredTopologyTransactions] = {
-    def parseItem(
-        item: adminV30.TopologyTransactions.Item
-    ): ParsingResult[GenericStoredTopologyTransaction] =
-      for {
-        sequenced <- ProtoConverter.parseRequired(
-          SequencedTime.fromProtoPrimitive,
-          "sequenced",
-          item.sequenced,
-        )
-        validFrom <- ProtoConverter.parseRequired(
-          EffectiveTime.fromProtoPrimitive,
-          "valid_from",
-          item.validFrom,
-        )
-        validUntil <- item.validUntil.traverse(EffectiveTime.fromProtoPrimitive)
-        rejectionReason <- item.rejectionReason.traverse(
-          String300.fromProtoPrimitive(_, "rejection_reason")
-        )
-        transaction <- SignedTopologyTransaction.fromTrustedByteStringPVV(item.transaction)
-      } yield StoredTopologyTransaction(
-        sequenced,
-        validFrom,
-        validUntil,
-        transaction,
-        rejectionReason,
-      )
+  ): ParsingResult[GenericStoredTopologyTransactions] =
     value.items
-      .traverse(parseItem)
+      .traverse(StoredTopologyTransaction.fromProtoV30)
       .map(StoredTopologyTransactions(_))
-  }
 
   def empty[Op <: TopologyChangeOp]: StoredTopologyTransactions[Op, TopologyMapping] =
     StoredTopologyTransactions[Op, TopologyMapping](Seq.empty)

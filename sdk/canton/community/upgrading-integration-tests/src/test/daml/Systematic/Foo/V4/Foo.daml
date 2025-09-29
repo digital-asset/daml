@@ -1,0 +1,32 @@
+module Foo where
+
+import IBaz
+import Baz
+import IBar
+import Bar
+
+template Foo
+  with
+    owner: Party
+  where
+    signatory owner
+
+    choice Foo_Exe: ()
+      with
+        fooExeInformee: Party
+        subInformee: Party
+        newSubInformeeO: Optional Party -- Added in V4
+      observer fooExeInformee
+      controller owner
+        do
+          bazCid <- create Baz with owner = owner, obs = owner
+          _ <- exercise (toInterfaceContractId @IBaz bazCid) IBaz_Exe with subInformee = subInformee
+          -- Case below introduced in V4
+          case newSubInformeeO of
+            None -> pure ()
+            Some newSubInformee ->
+              do
+                barCid <- create Bar with owner = owner, obs = owner
+                _ <- exercise (toInterfaceContractId @IBar barCid) IBar_Exe with subInformee = newSubInformee
+                pure ()
+          pure ()

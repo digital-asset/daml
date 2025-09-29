@@ -44,7 +44,9 @@ import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.admin.v30.{
   ExportTopologySnapshotResponse,
+  ExportTopologySnapshotV2Response,
   GenesisStateResponse,
+  GenesisStateV2Response,
   LogicalUpgradeStateResponse,
 }
 import com.digitalasset.canton.topology.store.{
@@ -278,6 +280,19 @@ class TopologyAdministrationGroup(
       writeToFile(file, bytes)
     }
 
+    @Help.Summary("Serializes node's topology identity transactions to a file")
+    @Help.Description(
+      "Transactions serialized this way should be loaded into another node with load_from_file"
+    )
+    def export_identity_transactionsV2(file: String): Unit = {
+      val bytes = instance.topology.transactions
+        .export_topology_snapshotV2(
+          filterMappings = Seq(NamespaceDelegation.code, OwnerToKeyMapping.code),
+          filterNamespace = instance.namespace.filterString,
+        )
+      writeToFile(file, bytes)
+    }
+
     @Help.Summary("Loads topology transactions from a file into the specified topology store")
     @Help.Description("The file must contain data serialized by TopologyTransactions.")
     def import_topology_snapshot_from(file: String, store: TopologyStoreId): Unit =
@@ -296,6 +311,34 @@ class TopologyAdministrationGroup(
         adminCommand(
           TopologyAdminCommands.Write
             .ImportTopologySnapshot(
+              topologyTransactions,
+              store,
+              synchronize,
+            )
+        )
+      }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by TopologyTransactions.")
+    def import_topology_snapshot_fromV2(file: String, store: TopologyStoreId): Unit =
+      BinaryFileUtil
+        .readByteStringFromFile(file)
+        .map(import_topology_snapshotV2(_, store))
+        .valueOr { err =>
+          throw new IllegalArgumentException(s"import_topology_snapshot failed: $err")
+        }
+
+    def import_topology_snapshotV2(
+        topologyTransactions: ByteString,
+        store: TopologyStoreId,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
+    ): Unit =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .ImportTopologySnapshotV2(
               topologyTransactions,
               store,
               synchronize,
@@ -542,6 +585,68 @@ class TopologyAdministrationGroup(
         }
     }
 
+    @Help.Summary("export topology snapshot")
+    @Help.Description(
+      """This command export the node's topology transactions as byte string.
+        |
+        |The arguments are:
+        |excludeMappings: a list of topology mapping codes to exclude from the export. If not provided, all mappings are included.
+        |filterNamespace: the namespace to filter the transactions by.
+        |protocolVersion: the protocol version used to serialize the topology transactions. If not provided, the latest protocol version is used.
+        """
+    )
+    def export_topology_snapshotV2(
+        store: TopologyStoreId = TopologyStoreId.Authorized,
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOp] = None,
+        filterMappings: Seq[TopologyMapping.Code] = Nil,
+        excludeMappings: Seq[TopologyMapping.Code] = Nil,
+        filterAuthorizedKey: Option[Fingerprint] = None,
+        protocolVersion: Option[String] = None,
+        filterNamespace: String = "",
+        timeout: NonNegativeDuration = timeouts.unbounded,
+    ): ByteString = {
+      if (filterMappings.nonEmpty && excludeMappings.nonEmpty) {
+        consoleEnvironment.run(
+          CommandErrors
+            .GenericCommandError("Cannot specify both filterMappings and excludeMappings")
+        )
+      }
+      val excludeMappingsCodes = if (filterMappings.nonEmpty) {
+        TopologyMapping.Code.all.diff(filterMappings).map(_.code)
+      } else excludeMappings.map(_.code)
+
+      consoleEnvironment
+        .run {
+          val responseObserver =
+            new ByteStringStreamObserver[ExportTopologySnapshotV2Response](_.chunk)
+
+          def call: ConsoleCommandResult[Context.CancellableContext] =
+            adminCommand(
+              TopologyAdminCommands.Read.ExportTopologySnapshotV2(
+                responseObserver,
+                BaseQuery(
+                  store,
+                  proposals,
+                  timeQuery,
+                  operation,
+                  filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
+                  protocolVersion.map(ProtocolVersion.tryCreate),
+                ),
+                excludeMappings = excludeMappingsCodes,
+                filterNamespace = filterNamespace,
+              )
+            )
+          processResult(
+            call,
+            responseObserver.resultBytes,
+            timeout,
+            s"Exporting the topology state from store $store",
+          )
+        }
+    }
+
     @Help.Summary(
       "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
     )
@@ -562,6 +667,35 @@ class TopologyAdministrationGroup(
         def call: ConsoleCommandResult[Context.CancellableContext] =
           adminCommand(
             TopologyAdminCommands.Read.GenesisState(
+              responseObserver,
+              synchronizerStore = filterSynchronizerStore,
+              timestamp = timestamp,
+            )
+          )
+
+        processResult(call, responseObserver.resultBytes, timeout, "Downloading the genesis state")
+      }
+
+    @Help.Summary(
+      "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
+    )
+    @Help.Description(
+      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
+        |filterSynchronizerStore: Must be specified if the genesis state is requested from a participant node.
+        |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
+        """
+    )
+    def genesis_stateV2(
+        filterSynchronizerStore: Option[TopologyStoreId.Synchronizer] = None,
+        timestamp: Option[CantonTimestamp] = None,
+        timeout: NonNegativeDuration = timeouts.unbounded,
+    ): ByteString =
+      consoleEnvironment.run {
+        val responseObserver = new ByteStringStreamObserver[GenesisStateV2Response](_.chunk)
+
+        def call: ConsoleCommandResult[Context.CancellableContext] =
+          adminCommand(
+            TopologyAdminCommands.Read.GenesisStateV2(
               responseObserver,
               synchronizerStore = filterSynchronizerStore,
               timestamp = timestamp,
@@ -693,8 +827,7 @@ class TopologyAdministrationGroup(
               synchronizerId.logical,
               ConsoleDynamicSynchronizerParameters
                 .initialValues(
-                  consoleEnvironment.environment.clock,
-                  synchronizerId.protocolVersion,
+                  synchronizerId.protocolVersion
                 ),
               signedBy = None,
               store = Some(store),

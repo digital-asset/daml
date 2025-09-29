@@ -57,7 +57,7 @@ object ReassignmentValidationError {
         s"Expected $expectedStakeholders, found $declaredViewStakeholders"
   }
 
-  final case class ContractIdAuthenticationFailure(
+  final case class ContractAuthenticationFailure(
       reassignmentRef: ReassignmentRef,
       reason: String,
       contractId: LfContractId,

@@ -71,9 +71,9 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "fail validation on absent contract_id" in {
-    requestMustFailWith(
-      request = underTest.validateCommands(
+  it should "support absent contract_id" in {
+    underTest
+      .validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -84,29 +84,21 @@ class ValidateDisclosedContractsTest
               .copy(contractId = "")
           )
         )
-      ),
-      code = Status.Code.INVALID_ARGUMENT,
-      description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.contract_id",
-      metadata = Map.empty,
-    )
+      )
+      .value shouldBe lf.expectedDisclosedContracts
   }
 
-  it should "fail validation on absent template_id" in {
-    requestMustFailWith(
-      request = underTest.validateCommands(
+  it should "support absent template_id" in {
+    underTest
+      .validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
               .copy(templateId = None)
           )
         )
-      ),
-      code = Status.Code.INVALID_ARGUMENT,
-      description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.template_id",
-      metadata = Map.empty,
-    )
+      )
+      .value shouldBe lf.expectedDisclosedContracts
   }
 
   it should "fail validation on invalid contract_id" in {

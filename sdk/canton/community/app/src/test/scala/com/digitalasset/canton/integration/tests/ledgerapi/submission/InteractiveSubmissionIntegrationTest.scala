@@ -55,6 +55,7 @@ import monocle.macros.GenLens
 import org.slf4j.event.Level
 
 import java.util.UUID
+import scala.jdk.OptionConverters.RichOption
 
 trait InteractiveSubmissionIntegrationTestSetup
     extends CommunityIntegrationTest
@@ -522,10 +523,10 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         Seq(archiveCmd),
         disclosedContracts = Seq(
           new DisclosedContract(
-            TrailingNone.TEMPLATE_ID_WITH_PACKAGE_ID,
-            contract1CreatedEvent.contractId,
             contract1CreatedEvent.createdEventBlob,
             env.daId.logical.toProtoPrimitive,
+            Some(TrailingNone.TEMPLATE_ID_WITH_PACKAGE_ID).toJava,
+            Some(contract1CreatedEvent.contractId).toJava,
           )
         ),
       )
@@ -593,10 +594,10 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
         Seq(exerciseRepeatOnCycleContract),
         disclosedContracts = Seq(
           new DisclosedContract(
-            Cycle.TEMPLATE_ID_WITH_PACKAGE_ID,
-            cycleCreated.contractId,
             cycleCreated.createdEventBlob,
             daId.logical.toProtoPrimitive,
+            Some(Cycle.TEMPLATE_ID_WITH_PACKAGE_ID).toJava,
+            Some(cycleCreated.contractId).toJava,
           )
         ),
       )

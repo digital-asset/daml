@@ -82,8 +82,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
-    packageDependencyResolver: PackageDependencyResolver,
-    contractAuthenticator: ContractAuthenticator,
+    packageDependencyResolver: PackageDependencyResolver.Impl,
+    contractValidator: ContractValidator,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -216,13 +216,14 @@ final class RepairService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
     for {
-      _ <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          contractAuthenticator.legacyAuthenticate(repairContract.contract)
-        )
-        .leftMap(e =>
-          log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")
-        )
+      _ <-
+        contractValidator
+          .authenticate(repairContract.contract, repairContract.representativePackageId)
+          .leftMap(e =>
+            log(
+              s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e"
+            )
+          )
       contractToAdd <- contractToAdd(
         repairContract,
         ignoreAlreadyAdded = ignoreAlreadyAdded,
@@ -745,9 +746,15 @@ final class RepairService(
       contracts: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      // All referenced templates known and vetted
+      // Each contract must have a known package that it can be type-checked against
       _packagesVetted <- contracts
-        .map(_.contract.templateId.packageId)
+        .map(contractToAdd =>
+          // Primarily, the package that must be known is the representative package id
+          // If this is not populated (i.e. the contract was exported in Canton 3.3)
+          // then check the contract's original package-id
+          Option(contractToAdd.representativePackageId)
+            .getOrElse(contractToAdd.contract.templateId.packageId)
+        )
         .distinct
         .parTraverse_(packageKnown)
 

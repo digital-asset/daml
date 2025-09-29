@@ -326,6 +326,7 @@ object ApiServices {
         userManagementStore,
         new IdentityProviderExists(identityProviderConfigStore),
         partyManagementServiceConfig.maxPartiesPageSize,
+        partyManagementServiceConfig.maxSelfAllocatedParties,
         partyRecordStore,
         syncService,
         managementServiceTimeout,
@@ -333,6 +334,7 @@ object ApiServices {
         partyAllocationTracker = partyAllocationTracker,
         submissionIdGenerator =
           ApiPartyManagementService.CreateSubmissionId.forParticipant(participantId),
+        participantId = participantId,
         loggerFactory = loggerFactory,
       )
 
@@ -365,8 +367,7 @@ object ApiServices {
         loggerFactory = loggerFactory,
       )
       val updateServices = new CommandServiceImpl.UpdateServices(
-        getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
-        getUpdateById = ledgerApiUpdateService.getUpdateById,
+        getUpdateById = ledgerApiUpdateService.getUpdateById
       )
       val apiCommandService = CommandServiceImpl.createApiService(
         commandsValidator = commandsValidator,

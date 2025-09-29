@@ -18,21 +18,28 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.sequencer.admin.v30.OnboardingStateRequest.Request
 import com.digitalasset.canton.sequencer.admin.v30.{
   OnboardingStateResponse,
+  OnboardingStateV2Request,
+  OnboardingStateV2Response,
   SetTrafficPurchasedRequest,
   SetTrafficPurchasedResponse,
 }
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector
-import com.digitalasset.canton.synchronizer.sequencer.{OnboardingStateForSequencer, Sequencer}
+import com.digitalasset.canton.synchronizer.sequencer.{
+  OnboardingStateForSequencer,
+  OnboardingStateForSequencerV2,
+  Sequencer,
+  SequencerSnapshot,
+}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.TopologyStore
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
+import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TopologyStore}
 import com.digitalasset.canton.topology.transaction.SequencerSynchronizerState
 import com.digitalasset.canton.topology.{
   Member,
@@ -42,8 +49,12 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
+import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
 import java.io.OutputStream
 import scala.concurrent.{ExecutionContext, Future}
@@ -57,7 +68,8 @@ class GrpcSequencerAdministrationService(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
-    executionContext: ExecutionContext
+    executionContext: ExecutionContext,
+    materializer: Materializer,
 ) extends v30.SequencerAdministrationServiceGrpc.SequencerAdministrationService
     with NamedLogging {
 
@@ -152,29 +164,104 @@ class GrpcSequencerAdministrationService(
       responseObserver: StreamObserver[OnboardingStateResponse],
   ): Unit =
     GrpcStreamingUtils.streamToClient(
-      (out: OutputStream) => onboardingState(request, out),
+      (out: OutputStream) => {
+        implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+        val res =
+          for {
+            memberOrTimestamp <- memberOrTimestamp(
+              request.request.sequencerUid,
+              request.request.timestamp,
+            )
+            seqSnapshotAndSource <- onboardingStateSource(memberOrTimestamp)
+            (sequencerSnapshot, snapshotSource) = seqSnapshotAndSource
+            storedTransactions <- EitherT
+              .right[RpcError](snapshotSource.runWith(Sink.seq))
+              .mapK(FutureUnlessShutdown.outcomeK)
+          } yield {
+            val onboardingState = OnboardingStateForSequencer(
+              StoredTopologyTransactions(storedTransactions),
+              staticSynchronizerParameters,
+              sequencerSnapshot,
+            )
+            onboardingState.toByteString.writeTo(out)
+          }
+        mapErrNewEUS(res)
+      },
       responseObserver,
       byteString => OnboardingStateResponse(byteString),
     )
 
-  private def onboardingState(
-      request: v30.OnboardingStateRequest,
-      out: OutputStream,
-  ): Future[Unit] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val parseMemberOrTimestamp = request.request match {
-      case Request.Empty => Left(FieldNotSet("sequencer_id"): ProtoDeserializationError)
-      case Request.SequencerUid(sequencerUid) =>
-        UniqueIdentifier
-          .fromProtoPrimitive(sequencerUid, "sequencer_id")
-          .map(SequencerId(_))
-          .map(Left(_))
+  override def onboardingStateV2(
+      request: OnboardingStateV2Request,
+      responseObserver: StreamObserver[OnboardingStateV2Response],
+  ): Unit =
+    GrpcStreamingUtils.streamToClient(
+      (out: OutputStream) => {
+        implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+        val res = for {
+          memberOrTimestamp <- memberOrTimestamp(
+            request.request.sequencerUid,
+            request.request.timestamp,
+          )
+          seqSnapshotAndSource <- onboardingStateSource(memberOrTimestamp)
+          (sequencerSnapshot, snapshotSource) = seqSnapshotAndSource
 
-      case Request.Timestamp(referenceEffectiveTime) =>
-        CantonTimestamp.fromProtoTimestamp(referenceEffectiveTime).map(Right(_))
-    }
-    val res = for {
-      memberOrTimestamp <- wrapErrUS(parseMemberOrTimestamp)
+          nonTopologyOnboardingState = OnboardingStateForSequencerV2(
+            None,
+            Some(staticSynchronizerParameters),
+            Some(sequencerSnapshot),
+            staticSynchronizerParameters.protocolVersion,
+          )
+          _ = nonTopologyOnboardingState.writeDelimitedTo(out)
+          _ <- EitherT
+            .right[RpcError](
+              snapshotSource.runWith(
+                Sink.foreachAsync(1)(stored =>
+                  mapErrNewEUS(
+                    wrapErrUS(
+                      OnboardingStateForSequencerV2(
+                        Some(stored),
+                        None,
+                        None,
+                        staticSynchronizerParameters.protocolVersion,
+                      )
+                        .writeDelimitedTo(out)
+                        .leftMap(
+                          ProtoDeserializationError.ValueConversionError("onboarding_state", _)
+                        )
+                    )
+                  )
+                )
+              )
+            )
+            .mapK(FutureUnlessShutdown.outcomeK)
+        } yield ()
+        mapErrNewEUS(res)
+      },
+      responseObserver,
+      byteString => OnboardingStateV2Response(byteString),
+    )
+
+  private def memberOrTimestamp(memberP: Option[String], timestampP: Option[Timestamp])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, RpcError, Either[SequencerId, CantonTimestamp]] = {
+    val sequencerId = memberP.map(
+      UniqueIdentifier.fromProtoPrimitive(_, "sequencer_uid").map(uid => Left(SequencerId(uid)))
+    )
+    val timestamp = timestampP.map(CantonTimestamp.fromProtoTimestamp(_).map(Right(_)))
+
+    val resultE = sequencerId.orElse(timestamp).getOrElse(Left(FieldNotSet("sequencer_uid")))
+    wrapErrUS(resultE)
+  }
+
+  private def onboardingStateSource(
+      memberOrTimestamp: Either[SequencerId, CantonTimestamp]
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    RpcError,
+    (SequencerSnapshot, Source[GenericStoredTopologyTransaction, NotUsed]),
+  ] =
+    for {
       referenceEffective <- memberOrTimestamp match {
         case Left(sequencerId) =>
           EitherT(
@@ -237,23 +324,14 @@ class GrpcSequencerAdministrationService(
         .awaitSnapshot(sequencerSnapshotTimestamp)
         .leftMap(_.toCantonRpcError)
 
-      topologySnapshot <- EitherT
-        .right[RpcError](
-          topologyStore.findEssentialStateAtSequencedTime(
-            asOfInclusive = SequencedTime(sequencerSnapshot.lastTs),
-            // we need to include the rejected transactions as well, because they might have an impact on the TopologyTimestampPlusEpsilonTracker
-            includeRejected = true,
-          )
+    } yield {
+      sequencerSnapshot -> topologyStore
+        .findEssentialStateAtSequencedTime(
+          asOfInclusive = SequencedTime(sequencerSnapshot.lastTs),
+          // we need to include the rejected transactions as well, because they might have an impact on the TopologyTimestampPlusEpsilonTracker
+          includeRejected = true,
         )
-    } yield OnboardingStateForSequencer(
-      topologySnapshot,
-      staticSynchronizerParameters,
-      sequencerSnapshot,
-      staticSynchronizerParameters.protocolVersion,
-    ).toByteString.writeTo(out)
-
-    mapErrNewEUS(res)
-  }
+    }
 
   override def disableMember(
       requestP: v30.DisableMemberRequest

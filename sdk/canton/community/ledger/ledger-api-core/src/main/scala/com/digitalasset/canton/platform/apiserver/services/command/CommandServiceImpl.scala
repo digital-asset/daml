@@ -14,12 +14,7 @@ import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommands
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFormat, UpdateFormat}
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionByIdRequest,
-  GetTransactionTreeResponse,
-  GetUpdateByIdRequest,
-  GetUpdateResponse,
-}
+import com.daml.ledger.api.v2.update_service.{GetUpdateByIdRequest, GetUpdateResponse}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
@@ -50,7 +45,6 @@ import io.grpc.{Context, Deadline, Status}
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -144,25 +138,6 @@ private[apiserver] final class CommandServiceImpl private[services] (
                   )
               )
           }
-    }
-
-  // TODO(#23504) remove
-  @nowarn("cat=deprecation")
-  def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest
-  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionTreeResponse] =
-    withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
-      submitAndWaitInternal(request.commands)(errorLogger, traceContext).flatMap { resp =>
-        val effectiveActAs = CommandsValidator.effectiveSubmitters(request.getCommands).actAs
-        val txRequest = GetTransactionByIdRequest(
-          updateId = resp.completion.updateId,
-          requestingParties = effectiveActAs.toList,
-          transactionFormat = None,
-        )
-        updateServices
-          .getTransactionTreeById(txRequest)
-          .map(resp => SubmitAndWaitForTransactionTreeResponse.of(resp.transaction))
-      }
     }
 
   private def submitAndWaitInternal(
@@ -349,11 +324,8 @@ private[apiserver] object CommandServiceImpl {
       loggerFactory = loggerFactory,
     )
 
-  // TODO(#23504) remove getTransactionTreeById
-  @nowarn("cat=deprecation")
   final class UpdateServices(
-      val getTransactionTreeById: GetTransactionByIdRequest => Future[GetTransactionTreeResponse],
-      val getUpdateById: GetUpdateByIdRequest => Future[GetUpdateResponse],
+      val getUpdateById: GetUpdateByIdRequest => Future[GetUpdateResponse]
   )
 
   private[apiserver] def validateRequestTimeout(

@@ -43,7 +43,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil}
+import com.digitalasset.canton.util.{ContractValidator, EitherTUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -56,7 +56,7 @@ private[reassignment] class AssignmentProcessingSteps(
     reassignmentCoordination: ReassignmentCoordination,
     targetCrypto: SynchronizerCryptoClient,
     seedGenerator: SeedGenerator,
-    override protected val contractAuthenticator: ContractAuthenticator,
+    override protected val contractValidator: ContractValidator,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     val protocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
@@ -94,7 +94,7 @@ private[reassignment] class AssignmentProcessingSteps(
     staticSynchronizerParameters,
     participantId,
     reassignmentCoordination,
-    contractAuthenticator,
+    contractValidator,
     loggerFactory,
   )
 

@@ -93,6 +93,7 @@ final class AvailabilityModule[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
     disseminationProtocolState: DisseminationProtocolState = new DisseminationProtocolState(),
     outputFetchProtocolState: MainOutputFetchProtocolState = new MainOutputFetchProtocolState(),
+    checkTags: Boolean = true,
 )(
     // Only passed in tests
     private var messageAuthorizer: MessageAuthorizer = initialMembership.orderingTopology,
@@ -1411,7 +1412,7 @@ final class AvailabilityModule[E <: Env[E]](
       }
 
       _ <- Either.cond(
-        batch.requests.map(_.value).forall(_.isTagValid),
+        !checkTags || batch.requests.map(_.value).forall(_.isTagValid),
         (), {
           emitInvalidMessage(metrics, from)
           s"Batch $batchId from '$from' contains requests with invalid tags, valid tags are: (${OrderingRequest.ValidTags

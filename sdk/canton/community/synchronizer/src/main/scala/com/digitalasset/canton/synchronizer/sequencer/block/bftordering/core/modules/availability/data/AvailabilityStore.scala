@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data
 
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
@@ -63,6 +63,7 @@ object AvailabilityStore {
   object NumberOfRecords { val empty = NumberOfRecords(0L) }
 
   def apply(
+      batchAggregatorConfig: BatchAggregatorConfig,
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -71,6 +72,8 @@ object AvailabilityStore {
       case _: MemoryStorage =>
         new InMemoryAvailabilityStore()
       case dbStorage: DbStorage =>
-        new DbAvailabilityStore(dbStorage, timeouts, loggerFactory)(executionContext)
+        new DbAvailabilityStore(batchAggregatorConfig, dbStorage, timeouts, loggerFactory)(
+          executionContext
+        )
     }
 }

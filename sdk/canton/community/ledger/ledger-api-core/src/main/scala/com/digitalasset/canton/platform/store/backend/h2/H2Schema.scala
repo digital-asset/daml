@@ -29,15 +29,6 @@ private[h2] object H2Schema {
         fields: (String, Field[FROM, _, _])*
     ): Table[FROM] =
       Table.batchedInsert(tableName)(fields*)
-
-    override def idempotentInsert[FROM](
-        tableName: String,
-        keyFieldIndex: Int,
-        ordering: Ordering[FROM],
-    )(
-        fields: (String, Field[FROM, _, _])*
-    ): Table[FROM] =
-      H2Table.idempotentBatchedInsert(tableName, keyFieldIndex, ordering)(fields*)
   }
 
   val schema: Schema[DbDto] = AppendOnlySchema(H2FieldStrategy)
