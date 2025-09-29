@@ -2,29 +2,29 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Tests scenarios prevented by the authentication of v >= 12 contract IDs
-module InvalidUpgrades (main) where
+module AuthenticationErrors (main) where
 
 import UpgradeTestLib
 import PackageIds
 
-import qualified V1.InvalidUpgrades as V1
-import qualified V2.InvalidUpgrades as V2
+import qualified V1.AuthenticationErrors as V1
+import qualified V2.AuthenticationErrors as V2
 import qualified V1.Iface as Iface
 import qualified V1.Client as Client
 
 {- PACKAGE
-name: invalid-upgrades-iface
+name: authentication-errors-iface
 versions: 1
 -}
 
 {- MODULE
-package: invalid-upgrades-iface
+package: authentication-errors-iface
 contents: |
   module Iface where
 
   data MyUnit = MyUnit {}
 
-  interface InvalidUpgradesIface where
+  interface AuthenticationErrorsIface where
 
     viewtype MyUnit
 
@@ -37,15 +37,15 @@ contents: |
 -}
 
 {- PACKAGE
-name: invalid-upgrades
+name: authentication-errors
 versions: 2
-depends: invalid-upgrades-iface-1.0.0
+depends: authentication-errors-iface-1.0.0
 -}
 
 {- MODULE
-package: invalid-upgrades
+package: authentication-errors
 contents: |
-  module InvalidUpgrades where
+  module AuthenticationErrors where
 
   import qualified V1.Iface as Iface
 
@@ -64,7 +64,7 @@ contents: |
         do
           pure ()
 
-      interface instance Iface.InvalidUpgradesIface for FieldRenamingTemplate where
+      interface instance Iface.AuthenticationErrorsIface for FieldRenamingTemplate where
         view = Iface.MyUnit
 
   ---- Templates for testing invalid template name renamings ----
@@ -110,7 +110,7 @@ contents: |
         do
           pure ()
 
-      interface instance Iface.InvalidUpgradesIface for VariantRankChangeTemplate where
+      interface instance Iface.AuthenticationErrorsIface for VariantRankChangeTemplate where
         view = Iface.MyUnit
         
   ---- Templates and datatypes for testing invalid enum rank modification ----
@@ -131,27 +131,27 @@ contents: |
         do
           pure ()
 
-      interface instance Iface.InvalidUpgradesIface for EnumRankChangeTemplate where
+      interface instance Iface.AuthenticationErrorsIface for EnumRankChangeTemplate where
         view = Iface.MyUnit
 -}
 
 {- PACKAGE
-name: invalid-upgrades-client
+name: authentication-errors-client
 versions: 1
 depends: |
-  invalid-upgrades-iface-1.0.0
-  invalid-upgrades-1.0.0
-  invalid-upgrades-2.0.0
+  authentication-errors-iface-1.0.0
+  authentication-errors-1.0.0
+  authentication-errors-2.0.0
 -}
 
 {- MODULE
-package: invalid-upgrades-client
+package: authentication-errors-client
 contents: |
   module Client where
 
   import qualified V1.Iface as Iface
-  import qualified V1.InvalidUpgrades as V1
-  import qualified V2.InvalidUpgrades as V2
+  import qualified V1.AuthenticationErrors as V1
+  import qualified V2.AuthenticationErrors as V2
 
   template ClientTemplate
     with
@@ -195,7 +195,7 @@ contents: |
         controller sig
         do
           v1Cid <- create V1.FieldRenamingTemplate { sig = sig, originalLabel = True }
-          let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.InvalidUpgradesIface v1Cid
+          let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.AuthenticationErrorsIface v1Cid
           _ <- exercise iCid Iface.IfaceChoice { ctl = sig }
           pure ()
 
@@ -235,7 +235,7 @@ contents: |
         controller sig
         do
           cid1 <- create V1.VariantRankChangeTemplate { sig = sig, variant = V1.A True }
-          let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.InvalidUpgradesIface cid1
+          let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.AuthenticationErrorsIface cid1
           _ <- exercise iCid Iface.IfaceChoice { ctl = sig }
           pure ()
 
@@ -275,13 +275,13 @@ contents: |
         controller sig
         do
           cid1 <- create V1.EnumRankChangeTemplate { sig = sig, enum = V1.C }
-          let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.InvalidUpgradesIface cid1
+          let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.AuthenticationErrorsIface cid1
           _ <- exercise iCid Iface.IfaceChoice { ctl = sig }
           pure ()
 
       choice ExerciseIface : ()
         with
-          cid: ContractId Iface.InvalidUpgradesIface
+          cid: ContractId Iface.AuthenticationErrorsIface
         controller sig
         do
           _ <- exercise cid Iface.IfaceChoice { ctl = sig }
@@ -385,8 +385,8 @@ main = tests
 
 --- Utils ---
 
-invalidUpgradesV2 : PackageId
-invalidUpgradesV2 = getPackageId "invalid-upgrades-2.0.0"
+authenticationErrorsV2 : PackageId
+authenticationErrorsV2 = getPackageId "authentication-errors-2.0.0"
 
 setupCommandTest : Script Party
 setupCommandTest = allocatePartyOn "alice" participant0
@@ -439,9 +439,9 @@ fieldRenamingExerciseInterfaceChoiceBody : Test
 fieldRenamingExerciseInterfaceChoiceBody = test $ do
   (alice, clientCid) <- setUpChoiceBodyTest
   v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
-  let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.InvalidUpgradesIface v1Cid
+  let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.AuthenticationErrorsIface v1Cid
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
   assertIsAuthenticationError res
 
@@ -449,7 +449,7 @@ fieldRenamingExerciseInterfaceLocal : Test
 fieldRenamingExerciseInterfaceLocal = test $ do
   (alice, clientCid) <- setUpChoiceBodyTest
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd clientCid (Client.ExerciseIfaceFieldRenamingLocal))
   assertIsAuthenticationError res
 
@@ -465,9 +465,9 @@ fieldRenamingExerciseInterfaceCommand : Test
 fieldRenamingExerciseInterfaceCommand = test $ do
   alice <- setupCommandTest
   v1Cid <- alice `submit` createExactCmd V1.FieldRenamingTemplate { sig = alice, originalLabel = True }
-  let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.InvalidUpgradesIface v1Cid
+  let iCid = coerceContractId @V1.FieldRenamingTemplate @Iface.AuthenticationErrorsIface v1Cid
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
   assertIsAuthenticationError res
 
@@ -505,9 +505,9 @@ variantRankChangeExerciseInterfaceChoiceBody : Test
 variantRankChangeExerciseInterfaceChoiceBody = test $ do
   (alice, clientCid) <- setUpChoiceBodyTest
   v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
-  let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.AuthenticationErrorsIface v1Cid
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
   assertIsAuthenticationError res
 
@@ -515,7 +515,7 @@ variantRankChangeExerciseInterfaceLocal : Test
 variantRankChangeExerciseInterfaceLocal = test $ do
   (alice, clientCid) <- setUpChoiceBodyTest
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd clientCid (Client.ExerciseIfaceVariantRankChangeLocal))
   assertIsAuthenticationError res
 
@@ -531,9 +531,9 @@ variantRankChangeExerciseInterfaceCommand : Test
 variantRankChangeExerciseInterfaceCommand = test $ do
   alice <- setupCommandTest
   v1Cid <- alice `submit` createExactCmd V1.VariantRankChangeTemplate { sig = alice, variant = V1.A True }
-  let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  let iCid = coerceContractId @V1.VariantRankChangeTemplate @Iface.AuthenticationErrorsIface v1Cid
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
   assertIsAuthenticationError res
 
@@ -571,9 +571,9 @@ enumRankChangeExerciseInterfaceChoiceBody : Test
 enumRankChangeExerciseInterfaceChoiceBody = test $ do
   (alice, clientCid) <- setUpChoiceBodyTest
   v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
-  let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.AuthenticationErrorsIface v1Cid
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd clientCid (Client.ExerciseIface with cid = iCid))
   assertIsAuthenticationError res
 
@@ -581,7 +581,7 @@ enumRankChangeExerciseInterfaceLocal : Test
 enumRankChangeExerciseInterfaceLocal = test $ do
   (alice, clientCid) <- setUpChoiceBodyTest
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd clientCid (Client.ExerciseIfaceEnumRankChangeLocal))
   assertIsAuthenticationError res
 
@@ -597,9 +597,9 @@ enumRankChangeExerciseInterfaceCommand : Test
 enumRankChangeExerciseInterfaceCommand = test $ do
   alice <- setupCommandTest
   v1Cid <- alice `submit` createExactCmd V1.EnumRankChangeTemplate { sig = alice, enum = V1.C }
-  let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.InvalidUpgradesIface v1Cid
+  let iCid = coerceContractId @V1.EnumRankChangeTemplate @Iface.AuthenticationErrorsIface v1Cid
   res <- trySubmit
-    (actAs alice <> packagePreference [invalidUpgradesV2])
+    (actAs alice <> packagePreference [authenticationErrorsV2])
     (exerciseCmd iCid (Iface.IfaceChoice with ctl = alice))
   assertIsAuthenticationError res
 
