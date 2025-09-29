@@ -2777,28 +2777,30 @@ private[lf] object SBuiltinFun {
       authenticator: Hash => Boolean,
       coid: V.ContractId,
       contractInfo: ContractInfo,
-  )(k: () => Control[Question.Update]) = if (
-    authenticator(
-      SValueHash.assertHashContractInstance(
-        contractInfo.packageName,
-        contractInfo.templateId.qualifiedName,
-        contractInfo.value,
+  )(k: () => Control[Question.Update]) =
+    if (
+      authenticator(
+        SValueHash.assertHashContractInstance(
+          contractInfo.packageName,
+          contractInfo.templateId.qualifiedName,
+          contractInfo.value,
+        )
       )
-    )
-  )
-    k()
-  else
-    Control.Error(
-      IE.Dev(
-        NameOf.qualifiedNameOfCurrentFunc,
-        IE.Dev
-          .AuthenticationError(
-            coid,
-            contractInfo.value.toNormalizedValue,
-            s"failed to authenticate contract",
-          ),
+    ) {
+      k()
+    } else {
+      Control.Error(
+        IE.Dev(
+          NameOf.qualifiedNameOfCurrentFunc,
+          IE.Dev
+            .AuthenticationError(
+              coid,
+              contractInfo.value.toNormalizedValue,
+              s"failed to authenticate contract",
+            ),
+        )
       )
-    )
+    }
 
   /** Checks that the metadata of [original] and [recomputed] are the same, fails with a [Control.Error] if not. */
   private def checkContractUpgradable(
