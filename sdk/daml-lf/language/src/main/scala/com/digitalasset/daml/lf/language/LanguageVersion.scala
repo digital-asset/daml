@@ -83,7 +83,6 @@ object LanguageVersion {
 
   object Features {
     val default = v2_1
-    val exceptions = v2_1
     val packageUpgrades = v2_1
     val persistedPackageVersion = v2_dev
 

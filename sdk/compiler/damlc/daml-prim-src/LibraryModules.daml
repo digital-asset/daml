@@ -28,9 +28,7 @@ import GHC.Stack.Types
 import GHC.Tuple
 import GHC.Types
 
-#ifdef DAML_EXCEPTIONS
 import DA.Exception.GeneralError
 import DA.Exception.ArithmeticError
 import DA.Exception.AssertionFailed
 import DA.Exception.PreconditionFailed
-#endif

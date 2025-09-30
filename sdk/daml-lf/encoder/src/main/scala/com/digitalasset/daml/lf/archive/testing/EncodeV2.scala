@@ -737,7 +737,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case ETypeRep(ty) =>
           builder.setTypeRep(ty)
         case EThrow(retTy, excTy, exc) =>
-          assertSince(LV.Features.exceptions, "Expr.Throw")
           builder.setThrow(
             PLF.Expr.Throw
               .newBuilder()
@@ -746,10 +745,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
               .setExceptionExpr(exc)
           )
         case EToAnyException(ty, body) =>
-          assertSince(LV.Features.exceptions, "Expr.ToAnyException")
           builder.setToAnyException(PLF.Expr.ToAnyException.newBuilder().setType(ty).setExpr(body))
         case EFromAnyException(ty, body) =>
-          assertSince(LV.Features.exceptions, "Expr.FromAnyException")
           builder.setFromAnyException(
             PLF.Expr.FromAnyException.newBuilder().setType(ty).setExpr(body)
           )
