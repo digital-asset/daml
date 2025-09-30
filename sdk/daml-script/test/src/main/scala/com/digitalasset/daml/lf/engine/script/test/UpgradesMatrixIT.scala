@@ -301,11 +301,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         result shouldBe a[Right[_, _]]
       case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error should (
-            be(a[SubmitError.UpgradeError.ValidationFailed]) or
-              be(a[SubmitError.UpgradeError.DowngradeDropDefinedField]) or
-              be(a[SubmitError.UpgradeError.DowngradeFailed])
-          )
+          error shouldBe a[SubmitError.UpgradeError.ValidationFailed]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>

@@ -27,11 +27,10 @@ data UpgradeErrorType
         signatories : [Party]
         observers : [Party]
         keyOpt : Optional (AnyContractKey, [Party])
-  | DowngradeDropDefinedField with
-        expectedType : Text
-        fieldIndex : Int
-  | DowngradeFailed with
-        expectedType : Text
+  -- We will add new constructors soon. In the meantime we need a dummy constructor so that the compile doesn't confuse
+  -- UpgradeErrorType for a record, which would force us to rename ValidationFailed to UpgradeErrorType.
+  -- TODO(https://github.com/digital-asset/daml/issues/21667): remove
+  | Dummy
 
 -- | MOVE Daml.Script
 -- Daml Crypto (Secp256k1) related submission errors
@@ -238,7 +237,5 @@ instance Show UpgradeErrorType where
   show err = case err of
     ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->
       "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
-    DowngradeDropDefinedField expectedType rank ->
-      "Cannot drop Some field at position " <> show rank <> " in record to downgrade to " <> show expectedType
-    DowngradeFailed expectedType ->
-      "Could not downgrade from new variant/enum constructor to " <> show expectedType
+    Dummy -> error "This should never happen"
+

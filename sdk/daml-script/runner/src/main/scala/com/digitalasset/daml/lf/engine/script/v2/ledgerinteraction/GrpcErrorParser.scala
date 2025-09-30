@@ -308,26 +308,6 @@ object GrpcErrorParser {
               message,
             )
         }
-      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_DROP_DEFINED_FIELD" =>
-        caseErr {
-          case Seq(
-                (ErrorResource.ExpectedType, expectedType),
-                (ErrorResource.FieldIndex, fieldIndex),
-              ) =>
-            SubmitError.UpgradeError.DowngradeDropDefinedField(
-              expectedType,
-              fieldIndex.toLong,
-              message,
-            )
-        }
-
-      case "INTERPRETATION_UPGRADE_ERROR_DOWNGRADE_FAILED" =>
-        caseErr {
-          case Seq(
-                (ErrorResource.ExpectedType, expectedType)
-              ) =>
-            SubmitError.UpgradeError.DowngradeFailed(expectedType, message)
-        }
 
       case "DAML_FAILURE" => {
         // Fields added automatically by canton, and not by the user
