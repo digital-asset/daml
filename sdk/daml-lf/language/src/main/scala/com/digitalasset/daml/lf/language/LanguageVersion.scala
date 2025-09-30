@@ -203,6 +203,14 @@ object LanguageVersion {
     }
   }
 
+  /** Version range including the passed one */
+  def allUpToVersion(version: LanguageVersion): VersionRange[LanguageVersion] = {
+    version.major match {
+      case Major.V2 => VersionRange(v2_1, version)
+      case _ => notSupported(version.major)
+    }
+  }
+
   // This refers to the default output LF version in the compiler
   val default: LanguageVersion = defaultOrLatestStable(Major.V2)
 }
