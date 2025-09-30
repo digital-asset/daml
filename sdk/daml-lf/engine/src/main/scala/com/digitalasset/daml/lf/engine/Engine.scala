@@ -909,7 +909,7 @@ class Engine(val config: EngineConfig) {
       hashingMethod: Hash.HashingMethod,
       idValidator: Hash => Boolean,
   )(implicit loggingContext: LoggingContext): Result[Either[IError, Unit]] = {
-    val coinst = instance.mapCid(contractIdSubstitution)
+    val substitutedInstance = instance.mapCid(contractIdSubstitution)
 
     def internalError(msg: String): Result[Either[IError, Unit]] =
       ResultError(Error.Interpretation.Internal(NameOf.qualifiedNameOfCurrentFunc, msg, None))
@@ -922,10 +922,12 @@ class Engine(val config: EngineConfig) {
         case SResult.SResultQuestion(question) =>
           question match {
             case Update.NeedContract(contractId, _, callback) =>
-              if (contractId != coinst.contractId)
-                internalError(s"expected contract id ${coinst.contractId}, got $contractId")
+              if (contractId != substitutedInstance.contractId)
+                internalError(
+                  s"expected contract id ${substitutedInstance.contractId}, got $contractId"
+                )
               else {
-                discard(callback(coinst, hashingMethod, idValidator))
+                discard(callback(substitutedInstance, hashingMethod, idValidator))
                 interpret(machine, abort)
               }
             case Update.NeedPackage(pkgId, context, callback) =>
@@ -961,8 +963,8 @@ class Engine(val config: EngineConfig) {
         updateSE = SEMakeClo(
           ArraySeq.empty,
           1,
-          SBFetchTemplate(TypeConId(targetPackageId, coinst.templateId.qualifiedName))(
-            SEValue(SContractId(coinst.contractId))
+          SBFetchTemplate(TypeConId(targetPackageId, substitutedInstance.templateId.qualifiedName))(
+            SEValue(SContractId(substitutedInstance.contractId))
           ),
         ),
         committers = Set.empty,
