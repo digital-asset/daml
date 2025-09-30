@@ -43,19 +43,19 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   lazy val pkg: Parser[Package] =
     metadata ~ rep(mod) ^^ { case metadata ~ modules =>
-      val packageIds = modules.iterator
+      val mentionedPackageIds = modules.iterator
         .flatMap(AstUtil.collectIdentifiers)
         .map(_.packageId)
         .toSet - parameters.defaultPackageId
       val languageVersion = parameters.languageVersion
       Package.build(
         modules = modules,
-        directDeps = packageIds,
+        directDeps = mentionedPackageIds,
         languageVersion = parameters.languageVersion,
         metadata = metadata,
         imports =
           if (languageVersion >= LV.Features.explicitPkgImports)
-            Right(packageIds.diff(StablePackages.ids(LV.allUpToVersion(languageVersion))))
+            Right(mentionedPackageIds.diff(StablePackages.ids(LV.allUpToVersion(languageVersion))))
           else
             Left("LF too low, package created by com.digitalasset.daml.lf.testing.parser:ModParser"),
       )
