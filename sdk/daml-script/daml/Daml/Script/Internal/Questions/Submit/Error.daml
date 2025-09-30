@@ -231,11 +231,11 @@ instance Show SubmitError where
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
-    Dummy -> error "This should never happen"
 
 -- | MOVE Daml.Script
 instance Show UpgradeErrorType where
   show err = case err of
     ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->
       "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
+    Dummy -> error "This should never happen"
 
