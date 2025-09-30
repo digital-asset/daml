@@ -7,7 +7,7 @@ package engine
 import com.digitalasset.daml.lf.crypto.Hash.HashingMethod
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.{Compiler, SValue}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -36,7 +36,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
   val pkg = {
     p""" metadata ( 'test-pkg' : '1.0.0' )
         module M {
-          record @serializable T = { p: Party };
+          record @serializable T = { p: Party, cid : ContractId M:T };
           template (this : T) = {
             precondition True;
             signatories Cons @Party [M:T {p} this] (Nil @Party);
@@ -56,36 +56,57 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
   val alice = Party.assertFromString("Party")
   val packageName = Ref.PackageName.assertFromString("-test-pkg-")
   val templateId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("M:T"))
-  val createArg = V.ValueRecord(None, ImmArray(None -> V.ValueParty(alice)))
+  val cid0 = newSuffixedCid
+  val cid1 = newSuffixedCid
+  def createArg(cidInContractArg: V.ContractId) =
+    V.ValueRecord(
+      None,
+      ImmArray(None -> V.ValueParty(alice), None -> V.ValueContractId(cidInContractArg)),
+    )
   val createNode = Node.Create(
     coid = TransactionBuilder.newCid,
     packageName = Ref.PackageName.assertFromString("-test-pkg-"),
     templateId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("M:T")),
-    arg = createArg,
+    arg = createArg(cid0),
     signatories = Set(alice),
     stakeholders = Set(alice),
     keyOpt = None,
     version = TransactionVersion.minVersion,
   )
+  val cidMapping = Map(cid0 -> cid1).withDefault(identity)
 
   "hashCreateNode" should {
 
     "compute the expected hash for HashingMethod.Legacy" in {
       val expectedHash = Hash
-        .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
+        .hashContractInstance(
+          templateId,
+          createArg(cid1),
+          packageName,
+          upgradeFriendly = false,
+        )
         .value
 
-      newEngine.hashCreateNode(createNode, HashingMethod.Legacy).consume() shouldBe Right(
+      newEngine
+        .hashCreateNode(createNode, cidMapping, HashingMethod.Legacy)
+        .consume() shouldBe Right(
         expectedHash
       )
     }
 
     "compute the expected hash for HashingMethod.UpgradeFriendly" in {
       val expectedHash = Hash
-        .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
+        .hashContractInstance(
+          templateId,
+          createArg(cid1),
+          packageName,
+          upgradeFriendly = true,
+        )
         .value
 
-      newEngine.hashCreateNode(createNode, HashingMethod.UpgradeFriendly).consume() shouldBe Right(
+      newEngine
+        .hashCreateNode(createNode, cidMapping, HashingMethod.UpgradeFriendly)
+        .consume() shouldBe Right(
         expectedHash
       )
     }
@@ -97,27 +118,38 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
           templateId.qualifiedName,
           SValue.SRecord(
             templateId,
-            ImmArray(Ref.Name.assertFromString("p")),
-            ArraySeq(SValue.SParty(alice)),
+            ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("cid")),
+            ArraySeq(SValue.SParty(alice), SValue.SContractId(cid1)),
           ),
         )
         .value
 
       newEngine
-        .hashCreateNode(createNode, HashingMethod.TypedNormalForm)
+        .hashCreateNode(createNode, cidMapping, HashingMethod.TypedNormalForm)
         .consume(pkgs = Map(pkgId -> pkg)) shouldBe Right(expectedHash)
     }
 
     "ill-typed contract is reported as a SResultError" in {
       newEngine
-        .hashCreateNode(createNode.copy(arg = V.ValueUnit), HashingMethod.TypedNormalForm)
+        .hashCreateNode(
+          createNode.copy(arg = V.ValueUnit),
+          cidMapping,
+          HashingMethod.TypedNormalForm,
+        )
         .consume(pkgs = Map(pkgId -> pkg)) shouldBe a[Left[_, _]]
     }
 
     "missing package is reported as a SResultError" in {
       newEngine
-        .hashCreateNode(createNode, HashingMethod.TypedNormalForm)
+        .hashCreateNode(createNode, cidMapping, HashingMethod.TypedNormalForm)
         .consume(pkgs = Map.empty) shouldBe a[Left[_, _]]
     }
   }
+
+  private def newSuffixedCid: V.ContractId = TransactionBuilder.newCid
+    .suffixCid(
+      _ => Bytes.assertFromString("00"),
+      _ => Bytes.assertFromString("00"),
+    )
+    .value
 }

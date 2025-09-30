@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
 
@@ -21,6 +22,7 @@ trait LfContractHasher {
 
   def hash(
       create: LfNodeCreate,
+      contractIdSubstitution: ContractId => ContractId,
       hashingMethod: Hash.HashingMethod,
   )(implicit
       ec: ExecutionContext,
@@ -34,6 +36,7 @@ trait LfContractValidation extends LfContractHasher {
   def validate(
       instance: FatContractInstance,
       targetPackageId: LfPackageId,
+      contractIdSubstitution: ContractId => ContractId,
       hashingMethod: Hash.HashingMethod,
       idValidator: Hash => Boolean,
   )(implicit
@@ -59,6 +62,7 @@ object LfContractValidation {
     override def validate(
         instance: FatContractInstance,
         targetPackageId: PackageId,
+        contractIdSubstitution: ContractId => ContractId,
         hashingMethod: Hash.HashingMethod,
         idValidator: Hash => Boolean,
     )(implicit
@@ -70,6 +74,7 @@ object LfContractValidation {
         delegate.validateContractInstance(
           instance,
           targetPackageId,
+          contractIdSubstitution,
           hashingMethod,
           idValidator = idValidator,
         )
@@ -77,12 +82,13 @@ object LfContractValidation {
 
     override def hash(
         create: LfNodeCreate,
+        contractIdSubstitution: ContractId => ContractId,
         hashingMethod: Hash.HashingMethod,
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
     ): EitherT[FutureUnlessShutdown, String, Hash] = {
-      consume(delegate.hashCreateNode(create, hashingMethod))
+      consume(delegate.hashCreateNode(create, contractIdSubstitution, hashingMethod))
     }
   }
 
