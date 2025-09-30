@@ -838,38 +838,10 @@ Data Types
          - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-downgradedropdefinedfield-50092:
+  .. _constr-daml-script-internal-questions-submit-error-dummy-93243:
 
-  `DowngradeDropDefinedField <constr-daml-script-internal-questions-submit-error-downgradedropdefinedfield-50092_>`_
+  `Dummy <constr-daml-script-internal-questions-submit-error-dummy-93243_>`_
 
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - expectedType
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-       * - fieldIndex
-         - `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
-         -
-
-  .. _constr-daml-script-internal-questions-submit-error-downgradefailed-38019:
-
-  `DowngradeFailed <constr-daml-script-internal-questions-submit-error-downgradefailed-38019_>`_
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - expectedType
-         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
 
 .. _type-daml-script-internal-questions-transactiontree-created-98301:
 

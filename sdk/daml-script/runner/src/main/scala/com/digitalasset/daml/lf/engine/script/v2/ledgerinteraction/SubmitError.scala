@@ -463,43 +463,6 @@ object SubmitError {
         )
       }
     }
-
-    sealed case class DowngradeDropDefinedField(
-        expectedType: String,
-        fieldIndex: Long,
-        message: String,
-    ) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "DowngradeDropDefinedField",
-          1,
-          ("expectedType", SText(expectedType)),
-          ("fieldIndex", SInt64(fieldIndex)),
-        )
-        SubmitErrorConverters(env).damlScriptError(
-          "UpgradeError",
-          ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
-        )
-      }
-    }
-
-    sealed case class DowngradeFailed(expectedType: String, message: String) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "DowngradeFailed",
-          2,
-          ("expectedType", SText(expectedType)),
-        )
-        SubmitErrorConverters(env).damlScriptError(
-          "UpgradeError",
-          ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
-        )
-      }
-    }
   }
 
   final case class FailureStatusError(

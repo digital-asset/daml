@@ -153,12 +153,6 @@ private[lf] object Pretty {
                   text("recomputed maintainers are") & prettyParties(key.maintainers) /
                     text("recomputed key is") & prettyValue(verbose = false)(key.value)
               })
-          case Upgrade.DowngradeDropDefinedField(_, fieldIndex, _) =>
-            text(s"An optional contract field (field offset $fieldIndex)") /
-              text("with a value of Some may not be dropped during downgrading")
-          case Upgrade.DowngradeFailed(expectedType, actualValue) =>
-            text("Attempt to downgrade ") & prettyValue(false)(actualValue) /
-              text(s" to the variant or enum constructor type ${expectedType.pretty}")
         }
       case Crypto(error) =>
         error match {

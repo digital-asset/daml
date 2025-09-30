@@ -377,17 +377,8 @@ observers :: UpgradeErrorType -> [Party]
 
 keyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-downgradedropdefinedfield-50092
-DowngradeDropDefinedField :: Text -> Int -> UpgradeErrorType
-
-expectedType :: UpgradeErrorType -> Text
-
-fieldIndex :: UpgradeErrorType -> Int
-
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-downgradefailed-38019
-DowngradeFailed :: Text -> UpgradeErrorType
-
-expectedType :: UpgradeErrorType -> Text
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-dummy-93243
+Dummy :: UpgradeErrorType
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-created-98301
 data Created
