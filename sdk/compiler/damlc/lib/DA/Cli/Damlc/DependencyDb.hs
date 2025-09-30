@@ -226,7 +226,7 @@ checkSdkVersions releaseVersion depsExtracted = do
         fail $
         "Package dependencies from different SDK versions: " ++ intercalate ", " uniqSdkVersions ++ "\n" ++
         "Own version: " ++ thisReleaseVer ++ "\n" ++
-        "Dep versions: " ++ ((\e -> show (takeFileName $ ZipArchive.eRelativePath $ edMain e, edSdkVersions e)) <$> depsExtracted)
+        "Dep versions: " ++ unlines ((\e -> show (takeFileName $ ZipArchive.eRelativePath $ edMain e, edSdkVersions e)) <$> depsExtracted)
 
 -- Install a dar dependency
 installDar :: FilePath -> Bool -> ExtractedDar -> IO ()
