@@ -63,7 +63,7 @@ class RemoteMediatorInitializationTest extends CommunityIntegrationTest with Sha
           synchronizerThreshold = PositiveInt.one,
           sequencers = Seq(sequencer1),
           mediators = Seq(m1),
-        )
+        )(env)
       )
     )(env).bootstrap()
   }

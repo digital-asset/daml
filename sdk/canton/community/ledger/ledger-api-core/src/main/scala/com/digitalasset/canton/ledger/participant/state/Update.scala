@@ -327,7 +327,6 @@ object Update {
         */
       case object SameAsContractPackageId extends RepresentativePackageIds
 
-      // TODO(#27872): Not used at the moment, but will be used by ACS import
       final case class DedicatedRepresentativePackageIds(
           representativePackageIds: Map[Value.ContractId, Ref.PackageId]
       ) extends RepresentativePackageIds

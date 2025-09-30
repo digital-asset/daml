@@ -354,6 +354,7 @@ private[backend] trait StorageBackendTestsCompletions
     val publicationTime = Timestamp.now()
     val recordTime = Timestamp.now().addMicros(15)
     val submissionId = UUID.randomUUID().toString
+    val synchronizerId = SynchronizerId.tryFromString("x::synchronizer1")
     val dtos = Vector(
       dtoCompletion(
         offset(1)
@@ -364,7 +365,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         userId = "userid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = synchronizerId,
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = true,
@@ -375,7 +376,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         userId = "userid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = synchronizerId,
         messageUuid = Some(messageUuid.toString),
         publicationTime = publicationTime,
         isTransaction = false,
@@ -386,7 +387,7 @@ private[backend] trait StorageBackendTestsCompletions
         commandId = commandId,
         userId = "userid1",
         submissionId = Some(submissionId),
-        synchronizerId = "x::synchronizer1",
+        synchronizerId = synchronizerId,
         recordTime = recordTime,
         messageUuid = None,
         updateId = None,

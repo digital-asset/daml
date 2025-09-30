@@ -32,7 +32,6 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsStateService(
@@ -77,16 +76,16 @@ class JsStateService(
 
   private def getConnectedSynchronizers(
       callerContext: CallerContext
-  ): TracedInput[(String, Option[String], Option[String])] => Future[
+  ): TracedInput[(Option[String], Option[String], Option[String])] => Future[
     Either[JsCantonError, state_service.GetConnectedSynchronizersResponse]
   ] = req =>
     stateServiceClient(callerContext.token())(req.traceContext)
       .getConnectedSynchronizers(
         state_service
           .GetConnectedSynchronizersRequest(
-            party = req.in._1,
+            party = req.in._1.getOrElse(""),
             participantId = req.in._2.getOrElse(""),
-            identityProviderId = req.in._2.getOrElse(""),
+            identityProviderId = req.in._3.getOrElse(""),
           )
       )
       .resultToRight
@@ -146,8 +145,6 @@ class JsStateService(
           .asGrpcError
       case (Some(_), None, false) =>
         state_service.GetActiveContractsRequest(
-          filter = None,
-          verbose = false,
           activeAtOffset = req.activeAtOffset,
           eventFormat = req.eventFormat,
         )
@@ -159,8 +156,6 @@ class JsStateService(
           .asGrpcError
       case (None, Some(filter), verbose) =>
         state_service.GetActiveContractsRequest(
-          filter = None,
-          verbose = false,
           activeAtOffset = req.activeAtOffset,
           eventFormat = Some(
             EventFormat(
@@ -208,7 +203,7 @@ object JsStateService extends DocumentationEndpoints {
 
   val getConnectedSynchronizersEndpoint = state.get
     .in(sttp.tapir.stringToPath("connected-synchronizers"))
-    .in(query[String]("party"))
+    .in(query[Option[String]]("party"))
     .in(query[Option[String]]("participantId"))
     .in(query[Option[String]]("identityProviderId"))
     .out(jsonBody[state_service.GetConnectedSynchronizersResponse])
@@ -264,8 +259,6 @@ final case class JsGetActiveContractsResponse(
     contractEntry: JsContractEntry,
 )
 
-// TODO(#23504) remove deprecation suppression
-@nowarn("cat=deprecation")
 object JsStateServiceCodecs {
 
   import JsSchema.*
@@ -293,6 +286,7 @@ object JsStateServiceCodecs {
   implicit val getConnectedSynchronizersResponseRW
       : Codec[state_service.GetConnectedSynchronizersResponse] =
     deriveRelaxedCodec
+
   implicit val connectedSynchronizerRW
       : Codec[state_service.GetConnectedSynchronizersResponse.ConnectedSynchronizer] =
     deriveRelaxedCodec

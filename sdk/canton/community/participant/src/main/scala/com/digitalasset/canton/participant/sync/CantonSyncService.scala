@@ -16,7 +16,7 @@ import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
+import com.digitalasset.canton.crypto.{CryptoPureApi, HashOps, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   Offset,
@@ -105,6 +105,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -304,7 +305,6 @@ class CantonSyncService(
 
   private val transactionRoutingProcessor = TransactionRoutingProcessor(
     connectedSynchronizersLookup = connectedSynchronizersLookup,
-    cryptoPureApi = syncCrypto.pureCrypto,
     synchronizerConnectionConfigStore = synchronizerConnectionConfigStore,
     participantId = participantId,
     parameters = parameters,
@@ -317,13 +317,18 @@ class CantonSyncService(
     }
   }
 
-  private val contractAuthenticator = ContractAuthenticator(syncCrypto.pureCrypto)
+  private val contractValidator = ContractValidator(
+    cryptoOps = syncCrypto.pureCrypto,
+    engine = engine,
+    packageResolver =
+      packageId => traceContext => packageService.getPackage(packageId)(traceContext),
+  )
 
   val repairService: RepairService = new RepairService(
     participantId,
     syncCrypto,
     packageService.packageDependencyResolver,
-    contractAuthenticator,
+    contractValidator,
     participantNodePersistentState.map(_.contractStore),
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
@@ -626,10 +631,18 @@ class CantonSyncService(
     }
   }
 
+  override def protocolVersionForSynchronizerId(
+      synchronizerId: SynchronizerId
+  ): Option[ProtocolVersion] =
+    connectedSynchronizersLookup
+      .get(synchronizerId)
+      .map(_.synchronizerHandle.staticParameters.protocolVersion)
+
   override def allocateParty(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerIdO: Option[SynchronizerId],
+      externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SubmissionResult] = {
@@ -670,7 +683,7 @@ class CantonSyncService(
       specifiedSynchronizer.getOrElse(onlyConnectedSynchronizer)
 
     synchronizerIdOrDetectionError
-      .map(partyAllocation.allocate(hint, rawSubmissionId, _))
+      .map(partyAllocation.allocate(hint, rawSubmissionId, _, externalPartyOnboardingDetails))
       .leftMap(FutureUnlessShutdown.pure)
       .merge
   }
@@ -1240,17 +1253,25 @@ class CantonSyncService(
       /* @param synchronizer For unassignment this should be the source synchronizer, for assignment this is the target synchronizer
        */
       def doReassignment[E <: ReassignmentProcessorError, T](
-          synchronizerId: SynchronizerId
+          psid: PhysicalSynchronizerId
       )(
-          reassign: ConnectedSynchronizer => EitherT[Future, E, FutureUnlessShutdown[T]]
+          reassign: (
+              ConnectedSynchronizer,
+              TopologySnapshot,
+          ) => EitherT[Future, E, FutureUnlessShutdown[T]]
       )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
         for {
           connectedSynchronizer <- EitherT.fromOption[Future](
-            readyConnectedSynchronizerById(synchronizerId),
+            readyConnectedSynchronizerById(psid.logical),
             ifNone = RequestValidationErrors.InvalidArgument
-              .Reject(s"Synchronizer id not found: $synchronizerId"): RpcError,
+              .Reject(s"Synchronizer id not found: $psid"): RpcError,
           )
-          _ <- reassign(connectedSynchronizer)
+          topologySnapshot <- EitherT.fromOption[Future](
+            syncCrypto.ips.forSynchronizer(psid).map(_.currentSnapshotApproximation),
+            ifNone = RequestValidationErrors.InvalidArgument
+              .Reject(s"Synchronizer id not found: $psid"): RpcError,
+          )
+          _ <- reassign(connectedSynchronizer, topologySnapshot)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
@@ -1265,14 +1286,32 @@ class CantonSyncService(
         .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))
         .merge
 
+      def lookupPSId(
+          synchronizerId: SynchronizerId
+      ): Either[RequestValidationErrors.InvalidArgument.Reject, PhysicalSynchronizerId] =
+        connectedSynchronizersLookup
+          .psidFor(synchronizerId)
+          .toRight(
+            RequestValidationErrors.InvalidArgument
+              .Reject(s"Unable to resolve $synchronizerId to a connected physical synchronizer id")
+          )
+
+      def lookupPSIds(source: Source[SynchronizerId], target: Target[SynchronizerId]): Either[
+        RequestValidationErrors.InvalidArgument.Reject,
+        (Source[PhysicalSynchronizerId], Target[PhysicalSynchronizerId]),
+      ] = for {
+        sourcePSId <- lookupPSId(source.unwrap).map(Source(_))
+        targetPSId <- lookupPSId(target.unwrap).map(Target(_))
+      } yield (sourcePSId, targetPSId)
+
       ReassignmentCommandsBatch.create(reassignmentCommands) match {
         case Right(unassigns: ReassignmentCommandsBatch.Unassignments) =>
-          connectedSynchronizersLookup.psidFor(unassigns.target.unwrap) match {
-            case Some(targetPSId) =>
+          lookupPSIds(unassigns.source, unassigns.target) match {
+            case Right((sourcePSId, targetPSId)) =>
               doReassignment(
-                synchronizerId = unassigns.source.unwrap
-              )(
-                _.submitUnassignments(
+                psid = sourcePSId.unwrap
+              ) { case (sourceSynchronizer, sourceTopology) =>
+                sourceSynchronizer.submitUnassignments(
                   submitterMetadata = ReassignmentSubmitterMetadata(
                     submitter = submitter,
                     userId = userId,
@@ -1282,34 +1321,35 @@ class CantonSyncService(
                     workflowId = workflowId,
                   ),
                   contractIds = unassigns.contractIds,
-                  targetSynchronizer = Target(targetPSId),
+                  targetSynchronizer = targetPSId,
+                  sourceTopology = Source(sourceTopology),
                 )
-              )
+              }
 
-            case None =>
-              Future.failed(
-                RequestValidationErrors.InvalidArgument
-                  .Reject(s"Unable to resolve ${unassigns.target} to a connected synchronizer id")
-                  .asGrpcError
-              )
+            case Left(err) => Future.failed(err.asGrpcError)
           }
 
         case Right(assigns: ReassignmentCommandsBatch.Assignments) =>
-          doReassignment(
-            synchronizerId = assigns.target.unwrap
-          )(
-            _.submitAssignments(
-              submitterMetadata = ReassignmentSubmitterMetadata(
-                submitter = submitter,
-                userId = userId,
-                submittingParticipant = participantId,
-                commandId = commandId,
-                submissionId = submissionId,
-                workflowId = workflowId,
-              ),
-              reassignmentId = assigns.reassignmentId,
-            )
-          )
+          lookupPSId(assigns.target.unwrap) match {
+            case Right(targetPSId) =>
+              doReassignment(
+                psid = targetPSId
+              ) { case (targetSynchronizer, targetTopology) =>
+                targetSynchronizer.submitAssignments(
+                  submitterMetadata = ReassignmentSubmitterMetadata(
+                    submitter = submitter,
+                    userId = userId,
+                    submittingParticipant = participantId,
+                    commandId = commandId,
+                    submissionId = submissionId,
+                    workflowId = workflowId,
+                  ),
+                  reassignmentId = assigns.reassignmentId,
+                  targetTopology = Target(targetTopology),
+                )
+              }
+            case Left(err) => Future.failed(err.asGrpcError)
+          }
         case Left(invalidBatch) =>
           Future.failed(
             RequestValidationErrors.InvalidArgument
@@ -1344,18 +1384,34 @@ class CantonSyncService(
         case (synchronizerAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
             topology <- getSnapshot(synchronizerAlias, synchronizerId)
-            partyWithAttributes <- topology.hostedOn(
-              Set(request.party),
-              participantId = request.participantId.getOrElse(participantId),
+            // Find the attributes for the party if one is passed in, and if we can find it in topology
+            attributesO <- request.party.parFlatTraverse(party =>
+              topology
+                .hostedOn(
+                  Set(party),
+                  participantId = request.participantId.getOrElse(participantId),
+                )
+                .map(
+                  _.get(party)
+                )
             )
-          } yield partyWithAttributes
-            .get(request.party)
+          } yield attributesO
             .map(attributes =>
               ConnectedSynchronizerResponse.ConnectedSynchronizer(
                 synchronizerAlias,
                 synchronizerId,
-                attributes.permission,
+                Some(attributes.permission),
               )
+            )
+            .orElse(
+              // Return the connected synchronizer without party information only when no party was requested
+              Option.when(request.party.isEmpty) {
+                ConnectedSynchronizerResponse.ConnectedSynchronizer(
+                  synchronizerAlias,
+                  synchronizerId,
+                  None,
+                )
+              }
             )
       }.toSeq
 
@@ -1474,6 +1530,9 @@ class CantonSyncService(
 
     routingState
   }
+
+  override def hashOps: HashOps = this.syncCrypto.pureCrypto
+
 }
 
 object CantonSyncService {

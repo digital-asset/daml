@@ -162,10 +162,11 @@ getCantonBootstrap :: SandboxConfig -> String
 getCantonBootstrap conf = unlines $ domainBootstrap <> (upload <$> dars conf)
   where
     domainBootstrap =
-        [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
+        [ "import com.digitalasset.canton.config.NonNegativeFiniteDuration"
+        , "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
         , "import com.digitalasset.canton.version.ProtocolVersion"
         , ""
-        , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, " <> protocolVersion <> ")"
+        , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, " <> protocolVersion <> ", topologyChangeDelay = NonNegativeFiniteDuration.Zero)"
         , "val synchronizerOwners = Seq(sequencer1, mediator1)"
         , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
         , "`" <> getParticipantName conf <> "`.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"

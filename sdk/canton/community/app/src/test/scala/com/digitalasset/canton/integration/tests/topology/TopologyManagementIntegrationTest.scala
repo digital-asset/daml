@@ -245,7 +245,7 @@ trait TopologyManagementIntegrationTest
         )
       }
 
-      val snapshot = participant1.topology.transactions.export_topology_snapshot(daId)
+      val snapshot = participant1.topology.transactions.export_topology_snapshotV2(daId)
 
       // ignores duplicate transaction
       loggerFactory.assertLogsSeq(
@@ -254,7 +254,7 @@ trait TopologyManagementIntegrationTest
       )(
         {
           participant1.topology.transactions.load(Seq(tx), daId)
-          participant1.topology.transactions.import_topology_snapshot(snapshot, daId)
+          participant1.topology.transactions.import_topology_snapshotV2(snapshot, daId)
         },
         { logEntries =>
           logEntries should not be empty

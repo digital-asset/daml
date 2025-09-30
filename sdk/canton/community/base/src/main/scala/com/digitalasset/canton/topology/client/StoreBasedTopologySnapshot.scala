@@ -42,7 +42,7 @@ import scala.reflect.ClassTag
 class StoreBasedTopologySnapshot(
     val timestamp: CantonTimestamp,
     store: TopologyStore[TopologyStoreId],
-    packageDependencyResolver: PackageDependencyResolverUS,
+    packageDependencyResolver: PackageDependencyResolver,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
     extends TopologySnapshotLoader
@@ -106,29 +106,38 @@ class StoreBasedTopologySnapshot(
       .getOrElse(FutureUnlessShutdown.pure(Map.empty))
 
   override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
-      participant: ParticipantId,
+      participantId: ParticipantId,
       packageId: PackageId,
       ledgerTime: CantonTimestamp,
       vettedPackagesLoader: VettedPackagesLoader,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Set[PackageId]] =
+  ): FutureUnlessShutdown[UnknownOrUnvettedPackages] =
     for {
-      vetted <- vettedPackagesLoader.loadVettedPackages(participant)
+      vetted <- vettedPackagesLoader.loadVettedPackages(participantId)
       validAtLedgerTime = (pkg: PackageId) => vetted.get(pkg).exists(_.validAt(ledgerTime))
       // check that the main package is vetted
       res <-
         if (!validAtLedgerTime(packageId))
           // main package is not vetted
-          FutureUnlessShutdown.pure(Set(packageId))
+          FutureUnlessShutdown.pure(UnknownOrUnvettedPackages.unvetted(participantId, packageId))
         else {
           // check which of the dependencies aren't vetted
           packageDependencyResolver
             .packageDependencies(packageId)
-            .map(dependencies => dependencies.filter(dependency => !validAtLedgerTime(dependency)))
-            .leftMap(Set(_))
-            .merge
-
+            .value
+            .map {
+              case Left((unknown, unknownTo)) =>
+                UnknownOrUnvettedPackages.unknown(
+                  unknownTo,
+                  unknown,
+                )
+              case Right(dependencies) =>
+                UnknownOrUnvettedPackages.unvetted(
+                  participantId,
+                  dependencies.filter(dependency => !validAtLedgerTime(dependency)),
+                )
+            }
         }
     } yield res
 

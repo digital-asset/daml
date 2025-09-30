@@ -260,7 +260,10 @@ final class LfValueTranslation(
         )
       )
       Ref.QualifiedChoiceId(interfaceId, choiceName) =
-        Ref.QualifiedChoiceId.assertFromString(rawExercisedEvent.exerciseChoice)
+        Ref.QualifiedChoiceId(
+          rawExercisedEvent.exerciseChoiceInterface,
+          rawExercisedEvent.exerciseChoice,
+        )
       // Convert Daml-LF values to ledger API values.
       // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
       choiceArgument <- toApiValue(
@@ -401,10 +404,13 @@ final class LfValueTranslation(
           rawCreatedEvent.createArgument,
         )
       )
+      representativeTemplateId = rawCreatedEvent.templateId.copy(pkgId =
+        rawCreatedEvent.representativePackageId
+      )
       apiContractData <- toApiContractData(
         value = createArgument,
         key = createKey,
-        templateId = rawCreatedEvent.templateId,
+        representativeTemplateId = representativeTemplateId,
         witnesses = rawCreatedEvent.witnessParties,
         eventProjectionProperties = eventProjectionProperties,
         fatContractInstance = getFatContractInstance(createArgument, createKey),
@@ -433,7 +439,7 @@ final class LfValueTranslation(
   def toApiContractData(
       value: LfValue,
       key: Option[VersionedValue],
-      templateId: FullIdentifier,
+      representativeTemplateId: FullIdentifier,
       witnesses: Set[String],
       eventProjectionProperties: EventProjectionProperties,
       fatContractInstance: => Either[String, FatContractInstance],
@@ -442,13 +448,13 @@ final class LfValueTranslation(
       loggingContext: LoggingContextWithTrace,
   ): Future[ApiContractData] = {
     val renderResult =
-      eventProjectionProperties.render(witnesses, templateId.toNameTypeConRef)
+      eventProjectionProperties.render(witnesses, representativeTemplateId.toNameTypeConRef)
     val verbose = eventProjectionProperties.verbose
     def asyncContractArguments =
       enrichAsync(
         verbose,
         value.unversioned,
-        enricher.enrichContractValue(templateId.toIdentifier, _),
+        enricher.enrichContractValue(representativeTemplateId.toIdentifier, _),
       )
         .map(toContractArgumentApi(verbose))
     @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
@@ -456,7 +462,7 @@ final class LfValueTranslation(
       enrichAsync(
         verbose,
         key.get.unversioned,
-        enricher.enrichContractKey(templateId.toIdentifier, _),
+        enricher.enrichContractKey(representativeTemplateId.toIdentifier, _),
       )
         .map(toContractKeyApi(verbose))
     )
@@ -464,7 +470,7 @@ final class LfValueTranslation(
       MonadUtil.sequentialTraverse(renderResult.interfaces.toList)(interfaceId =>
         for {
           upgradedInstanceIdentifierResultE <- eventProjectionProperties.interfaceViewPackageUpgrade
-            .upgrade(interfaceId.toIdentifier, templateId.toIdentifier)
+            .upgrade(interfaceId.toIdentifier, representativeTemplateId.toIdentifier)
           viewResult <- upgradedInstanceIdentifierResultE.fold(
             failureStatus => Future.successful(Left(failureStatus)),
             upgradedInstanceIdentifier =>

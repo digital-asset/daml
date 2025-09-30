@@ -39,8 +39,7 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
 
   override type ContractsCreatedAtTime = CreationTime.CreatedAt
 
-  /** Stores contracts created by a request. Assumes the contract data has been authenticated
-    * against the contract id using [[com.digitalasset.canton.util.ContractAuthenticator]].
+  /** Stores contracts created by a request.
     *
     * @param contracts
     *   The created contracts to be stored

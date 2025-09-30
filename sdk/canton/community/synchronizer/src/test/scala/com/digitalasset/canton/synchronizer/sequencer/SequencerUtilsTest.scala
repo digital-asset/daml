@@ -36,7 +36,6 @@ class SequencerUtilsTest extends AnyWordSpec with BaseTest with Matchers {
       confirmationResponseTimeout: NonNegativeFiniteDuration = defaults.confirmationResponseTimeout,
   ): DynamicSynchronizerParametersWithValidity = {
     val parameters = DynamicSynchronizerParameters.tryInitialValues(
-      topologyChangeDelay = NonNegativeFiniteDuration.Zero,
       protocolVersion = testedProtocolVersion,
       sequencerAggregateSubmissionTimeout = sequencerAggregateSubmissionTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,

@@ -349,7 +349,6 @@ object Crypto {
       publicKeyConversionCacheConfig: CacheConfig,
       storage: Storage,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
-      kmsFactory: KmsFactory,
       releaseProtocolVersion: ReleaseProtocolVersion,
       futureSupervisor: FutureSupervisor,
       clock: Clock,
@@ -386,7 +385,7 @@ object Crypto {
             for {
               kmsConfig <- config.kms.toRight("Missing KMS configuration for KMS crypto provider")
               cryptoSchemes <- CryptoSchemes.fromConfig(config)
-              kms <- kmsFactory
+              kms <- KmsFactory
                 .create(
                   kmsConfig,
                   timeouts,

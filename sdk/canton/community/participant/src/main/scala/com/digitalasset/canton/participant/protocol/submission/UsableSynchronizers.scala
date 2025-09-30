@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.data.EitherT
+import cats.implicits.toFoldableOps
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
@@ -13,6 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.protocol.{LfActionNode, LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.store.UnknownOrUnvettedPackages
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, LfTransactionUtil}
@@ -166,13 +168,10 @@ object UsableSynchronizers {
   private def unknownPackages(snapshot: TopologySnapshot, ledgerTime: CantonTimestamp)(
       participantIdAndRequiredPackages: (ParticipantId, Set[LfPackageId])
   )(implicit
-      ec: ExecutionContext,
-      tc: TraceContext,
-  ): FutureUnlessShutdown[List[PackageUnknownTo]] = {
+      tc: TraceContext
+  ): FutureUnlessShutdown[UnknownOrUnvettedPackages] = {
     val (participantId, required) = participantIdAndRequiredPackages
-    snapshot
-      .findUnvettedPackagesOrDependencies(participantId, required, ledgerTime)
-      .map(notVetted => notVetted.map(PackageUnknownTo(_, participantId)).toList)
+    snapshot.findUnvettedPackagesOrDependencies(participantId, required, ledgerTime)
   }
 
   private def resolveParticipants(
@@ -239,9 +238,12 @@ object UsableSynchronizers {
   ): EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
     EitherT(
       requiredPackages.toList
-        .parFlatTraverse(unknownPackages(snapshot, ledgerTime))
-        .map(NonEmpty.from(_).toLeft(()))
-    ).leftMap(unknownTo => UnknownPackage(synchronizerId, unknownTo))
+        .parTraverse(unknownPackages(snapshot, ledgerTime))
+        .map(_.combineAll.unknownOrUnvetted.toList.flatMap { case (participantId, packageIds) =>
+          packageIds.toSeq.map(packageId => PackageUnknownTo(packageId, participantId))
+        })
+        .map(u => NonEmpty.from(u).map(UnknownPackage(synchronizerId, _)).toLeft(()))
+    )
 
   private def checkProtocolVersion(
       synchronizerId: PhysicalSynchronizerId,

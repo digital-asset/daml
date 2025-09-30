@@ -16,7 +16,6 @@ import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServ
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,
-  TransactionTreeStreamsConfig,
   UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, DbConfig}
@@ -104,7 +103,8 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
       )
       contractLoader <- ContractLoader.create(
         contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
-          stringInterningView
+          stringInterningView,
+          ledgerEndCache,
         ),
         dbDispatcher = dbSupport.dbDispatcher,
         metrics = metrics,
@@ -147,7 +147,6 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           contractProcessingParallelism = eventsProcessingParallelism,
         ),
         updatesStreamsConfig = UpdatesStreamsConfig.default,
-        transactionTreeStreamsConfig = TransactionTreeStreamsConfig.default,
         globalMaxEventIdQueries = 20,
         globalMaxEventPayloadQueries = 10,
         tracer = OpenTelemetry.noop().getTracer("test"),

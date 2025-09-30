@@ -1,0 +1,25 @@
+module DvpOffer where
+
+import qualified Assets
+
+template DvpOffer
+  with
+    buyer : Party
+    seller : Party
+    registry : Party
+    company : Text
+    iouId : ContractId Assets.Iou
+  where
+    signatory buyer
+    observer seller
+    choice Accept : (ContractId Assets.Iou, ContractId Assets.Share)
+      with shareId : ContractId Assets.Share
+      controller seller
+        do
+          share <- fetch shareId
+          iou <- fetch iouId
+          assert $ share.company == company && share.registry == registry && iou.owner == buyer
+
+          newShareId <- exercise shareId Assets.TransferShare with newHolder = buyer
+          newIouId   <- exercise iouId   Assets.TransferIou   with newOwner  = seller
+          pure $ (newIouId, newShareId)

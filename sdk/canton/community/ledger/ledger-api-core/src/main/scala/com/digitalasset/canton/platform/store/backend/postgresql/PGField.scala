@@ -25,6 +25,15 @@ private[postgresql] final case class PGStringArray[FROM](
   override def convert: Iterable[String] => String = convertBase
 }
 
+private[postgresql] final case class PGSmallint[FROM](
+    extract: StringInterning => FROM => Int
+) extends Field[FROM, Int, java.lang.Integer] {
+  override def selectFieldExpression(inputFieldName: String): String =
+    s"$inputFieldName::smallint"
+
+  override def convert: Int => Integer = Int.box
+}
+
 private[postgresql] final case class PGSmallintOptional[FROM](
     extract: StringInterning => FROM => Option[Int]
 ) extends Field[FROM, Option[Int], java.lang.Integer] {

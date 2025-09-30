@@ -45,7 +45,6 @@ import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.{
   ExternalParty,
   ForceFlags,
@@ -128,7 +127,7 @@ trait BaseInteractiveSubmissionTest
       // In practice, participant operators are expected to inspect the transaction here before authorizing it
       val transactionHash = partyToParticipantProposal.context.transactionHash
       hp.topology.transactions.authorize[PartyToParticipant](
-        TxHash(Hash.fromByteString(transactionHash).value),
+        transactionHash,
         mustBeFullyAuthorized = false,
         store = synchronizerId,
       )

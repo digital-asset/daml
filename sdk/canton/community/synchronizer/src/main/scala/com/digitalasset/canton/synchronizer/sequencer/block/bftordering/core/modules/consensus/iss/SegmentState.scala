@@ -80,6 +80,8 @@ class SegmentState(
   private var inViewChange: Boolean = false
   private var strongQuorumReachedForCurrentView: Boolean = false
 
+  private val rehydratedFutureViewMessages = mutable.Queue[SignedMessage[PbftNormalCaseMessage]]()
+
   private val futureViewMessagesQueue =
     new FairBoundedQueue[SignedMessage[PbftNormalCaseMessage]](
       config.consensusQueueMaxSize,
@@ -129,14 +131,16 @@ class SegmentState(
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processEvent(
-      event: PbftEvent
+      event: PbftEvent,
+      rehydrated: Boolean = false,
   )(implicit traceContext: TraceContext): Seq[ProcessResult] =
     event match {
       case PbftSignedNetworkMessage(signedMessage) =>
         signedMessage.message match {
           case _: PbftNormalCaseMessage =>
             processNormalCaseMessage(
-              signedMessage.asInstanceOf[SignedMessage[PbftNormalCaseMessage]]
+              signedMessage.asInstanceOf[SignedMessage[PbftNormalCaseMessage]],
+              rehydrated,
             )
           case _: PbftViewChangeMessage =>
             processViewChangeNetworkMessage(
@@ -321,7 +325,8 @@ class SegmentState(
 
   // Normal Case: PrePrepare, Prepare, Commit
   private def processNormalCaseMessage(
-      msg: SignedMessage[PbftNormalCaseMessage]
+      msg: SignedMessage[PbftNormalCaseMessage],
+      rehydrated: Boolean,
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
     var result = Seq.empty[ProcessResult]
     if (msg.message.viewNumber < currentViewNumber) {
@@ -331,20 +336,34 @@ class SegmentState(
       )
       discardedViewMessagesCount += 1
     } else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
-      logger.info(
-        s"Segment received early PbftNormalCaseMessage; peer = ${msg.from}, " +
-          s"message view = ${msg.message.viewNumber}, " +
-          s"current view = $currentViewNumber, inViewChange = $inViewChange"
-      )
-      futureViewMessagesQueue.enqueue(msg.from, msg) match {
-        case EnqueueResult.PerNodeQuotaExceeded(nodeId) =>
-          logger.trace(s"Node `$nodeId` exceeded its future view message queue quota")
-        case EnqueueResult.TotalCapacityExceeded =>
-          logger.trace("Future view message queue total capacity has been exceeded")
-        case EnqueueResult.Duplicate(nodeId) =>
-          logger.trace(s"Duplicate future view message for node `$nodeId` has been dropped")
-        case EnqueueResult.Success =>
-          logger.trace("Successfully postponed PbftNormalCaseMessage")
+      if (rehydrated) {
+        logger.debug(
+          s"Segment received rehydrated PbftNormalCaseMessage; peer = ${msg.from} " +
+            s"message view = ${msg.message.viewNumber}, " +
+            s"current view = $currentViewNumber, inViewChange = $inViewChange"
+        )
+        // As rehydrated messages come from the storage, and don't provide the actual sender, use a separate (unbounded)
+        //  queue that cannot be overflown (without overflowing the memory).
+        rehydratedFutureViewMessages.enqueue(msg)
+      } else {
+        val actualSender = msg.message.actualSender.getOrElse(
+          abort("actualSender needs to be provided for PBFT messages sent over network")
+        )
+        logger.info(
+          s"Segment received early PbftNormalCaseMessage; peer = ${msg.from}, actual sender = $actualSender" +
+            s"message view = ${msg.message.viewNumber}, " +
+            s"current view = $currentViewNumber, inViewChange = $inViewChange"
+        )
+        futureViewMessagesQueue.enqueue(actualSender, msg) match {
+          case EnqueueResult.PerNodeQuotaExceeded(nodeId) =>
+            logger.trace(s"Node `$nodeId` exceeded its future view message queue quota")
+          case EnqueueResult.TotalCapacityExceeded =>
+            logger.trace("Future view message queue total capacity has been exceeded")
+          case EnqueueResult.Duplicate(nodeId) =>
+            logger.trace(s"Duplicate future view message for node `$nodeId` has been dropped")
+          case EnqueueResult.Success =>
+            logger.trace("Successfully postponed PbftNormalCaseMessage")
+        }
       }
     } else
       result = processPbftNormalCaseMessage(msg, msg.message.blockMetadata.blockNumber)
@@ -704,7 +723,8 @@ class SegmentState(
     // during rehydration we can first process previously stored prepares and thus avoid that new conflicting prepares
     // are created as a result of rehydrating the new-view message's pre-prepares.
     val queuedMessages =
-      futureViewMessagesQueue.dequeueAll(_.message.viewNumber == currentViewNumber)
+      rehydratedFutureViewMessages.dequeueAll(_.message.viewNumber == currentViewNumber) ++
+        futureViewMessagesQueue.dequeueAll(_.message.viewNumber == currentViewNumber)
     val futureMessageQueueResults =
       for {
         pbftMessage <- queuedMessages

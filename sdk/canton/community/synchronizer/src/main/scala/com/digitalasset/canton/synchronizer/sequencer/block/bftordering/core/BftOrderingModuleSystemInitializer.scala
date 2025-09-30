@@ -103,6 +103,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
     requestInspector: RequestInspector =
       OutputModule.DefaultRequestInspector, // Only set by simulation tests
     epochChecker: EpochChecker = EpochChecker.DefaultEpochChecker, // Only set by simulation tests
+    outputPreviousStoredBlock: OutputModule.PreviousStoredBlock =
+      new OutputModule.PreviousStoredBlock,
 )(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext, tracer: Tracer)
     extends SystemInitializer[
       E,
@@ -181,6 +183,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             config.maxRequestsInBatch,
             config.minRequestsInBatch,
             config.maxBatchCreationInterval,
+            checkTags = config.standalone.isEmpty,
           )
           new MempoolModule(
             cfg,
@@ -246,6 +249,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             dependencies,
             loggerFactory,
             timeouts,
+            // In standalone mode don't check tag, as they are used for request IDs
+            checkTags = config.standalone.isEmpty,
           )()
         },
         consensus = (p2pNetworkOutRef, availabilityRef, outputRef) => {
@@ -292,6 +297,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
             timeouts,
             requestInspector,
             epochChecker,
+            previousStoredBlock = outputPreviousStoredBlock,
           ),
         pruning = () =>
           new PruningModule(

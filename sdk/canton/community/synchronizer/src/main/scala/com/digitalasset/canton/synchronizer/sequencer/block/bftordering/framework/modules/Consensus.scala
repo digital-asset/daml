@@ -61,12 +61,9 @@ object Consensus {
   sealed trait ConsensusMessage extends ProtocolMessage
   object ConsensusMessage {
     final case class PbftUnverifiedNetworkMessage(
-        // The actual sender will differ from the underlying message's original sender in cases a node
-        // retransmits another node's old messages.
-        actualSender: BftNodeId,
         underlyingNetworkMessage: SignedMessage[
           ConsensusSegment.ConsensusMessage.PbftNetworkMessage
-        ],
+        ]
     ) extends ConsensusMessage
 
     final case class PbftVerifiedNetworkMessage(
@@ -152,7 +149,7 @@ object Consensus {
       ): ParsingResult[RetransmissionResponse] =
         for {
           commitCertificates <- protoRetransmissionResponse.commitCertificates.traverse(
-            CommitCertificate.fromProto
+            CommitCertificate.fromProto(_, actualSender = Some(from))
           )
         } yield RetransmissionResponse(from, commitCertificates)
     }
@@ -297,7 +294,9 @@ object Consensus {
           originalByteString: ByteString
       ): ParsingResult[BlockTransferResponse] =
         for {
-          commitCert <- protoResponse.commitCertificate.map(CommitCertificate.fromProto).sequence
+          commitCert <- protoResponse.commitCertificate
+            .map(CommitCertificate.fromProto(_, actualSender = Some(from)))
+            .sequence
           rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
         } yield BlockTransferResponse(commitCert, from)(rpv, Some(originalByteString))
 

@@ -15,17 +15,8 @@ import com.daml.ledger.api.v2.reassignment.{
   UnassignedEvent as ApiUnassignedEvent,
 }
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
-import com.daml.ledger.api.v2.transaction.{
-  Transaction as FlatTransaction,
-  TransactionTree,
-  TreeEvent,
-}
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionTreeResponse,
-  GetUpdateResponse,
-  GetUpdateTreesResponse,
-  GetUpdatesResponse,
-}
+import com.daml.ledger.api.v2.transaction.Transaction as FlatTransaction
+import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.data.Offset
@@ -42,7 +33,6 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
   CreatedEvent,
   ExercisedEvent,
 }
-import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.{
   InternalTransactionFormat,
   InternalUpdateFormat,
@@ -64,7 +54,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.google.protobuf.ByteString
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
@@ -475,250 +464,6 @@ private[events] object TransactionLogUpdatesConversions {
       }
   }
 
-  // TODO(i23504) remove
-  @nowarn("cat=deprecation")
-  object ToTransactionTree {
-    def filter(
-        requestingParties: Option[Set[Party]]
-    ): TransactionLogUpdate => Option[TransactionLogUpdate] = {
-      case transaction: TransactionLogUpdate.TransactionAccepted =>
-        val filteredForVisibility =
-          transaction.events.filter(transactionTreePredicate(requestingParties))
-
-        Option.when(filteredForVisibility.nonEmpty)(
-          transaction.copy(events = filteredForVisibility)(transaction.traceContext)
-        )
-      case _: TransactionLogUpdate.TransactionRejected => None
-      case u: TransactionLogUpdate.ReassignmentAccepted =>
-        Option.when(
-          requestingParties.fold(true)(u.stakeholders.exists(_))
-        )(u)
-      case _: TransactionLogUpdate.TopologyTransactionEffective => None
-    }
-
-    def toGetTransactionResponse(
-        transactionLogUpdate: TransactionLogUpdate,
-        requestingParties: Set[Party],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
-    )(implicit
-        loggingContext: LoggingContextWithTrace,
-        executionContext: ExecutionContext,
-    ): Future[Option[GetTransactionTreeResponse]] =
-      filter(Some(requestingParties))(transactionLogUpdate)
-        .collect { case tx: TransactionLogUpdate.TransactionAccepted =>
-          toTransactionTree(
-            transactionAccepted = tx,
-            Some(requestingParties),
-            eventProjectionProperties = eventProjectionProperties,
-            lfValueTranslation = lfValueTranslation,
-            traceContext = tx.traceContext,
-          )
-        }
-        .map(_.map(transactionTree => Some(GetTransactionTreeResponse(Some(transactionTree)))))
-        .getOrElse(Future.successful(None))
-
-    def toGetTransactionTreesResponse(
-        requestingParties: Option[Set[Party]],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
-    )(implicit
-        loggingContext: LoggingContextWithTrace,
-        executionContext: ExecutionContext,
-    ): TransactionLogUpdate => Future[GetUpdateTreesResponse] = {
-      case transactionAccepted: TransactionLogUpdate.TransactionAccepted =>
-        toTransactionTree(
-          transactionAccepted,
-          requestingParties,
-          eventProjectionProperties,
-          lfValueTranslation,
-          transactionAccepted.traceContext,
-        )
-          .map(txTree =>
-            GetUpdateTreesResponse(GetUpdateTreesResponse.Update.TransactionTree(txTree))
-              .withPrecomputedSerializedSize()
-          )
-      case reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted =>
-        toReassignment(
-          reassignmentAccepted,
-          requestingParties,
-          eventProjectionProperties,
-          lfValueTranslation,
-          reassignmentAccepted.traceContext,
-        )
-          .map(reassignment =>
-            GetUpdateTreesResponse(GetUpdateTreesResponse.Update.Reassignment(reassignment))
-              .withPrecomputedSerializedSize()
-          )
-
-      case illegal => throw new IllegalStateException(s"$illegal is not expected here")
-    }
-
-    private def toTransactionTree(
-        transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-        requestingParties: Option[Set[Party]],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
-        traceContext: TraceContext,
-    )(implicit
-        loggingContext: LoggingContextWithTrace,
-        executionContext: ExecutionContext,
-    ): Future[TransactionTree] =
-      Future.delegate {
-        MonadUtil
-          .sequentialTraverse(transactionAccepted.events)(event =>
-            toTransactionTreeEvent(
-              requestingParties,
-              eventProjectionProperties,
-              lfValueTranslation,
-            )(event)
-          )
-          .map { treeEvents =>
-            val eventsById = treeEvents.iterator
-              .map(e => e.nodeId -> e)
-              .toMap
-
-            TransactionTree(
-              updateId = transactionAccepted.updateId,
-              commandId = getCommandId(transactionAccepted.events, requestingParties),
-              workflowId = transactionAccepted.workflowId,
-              effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
-              offset = transactionAccepted.offset.unwrap,
-              eventsById = eventsById,
-              synchronizerId = transactionAccepted.synchronizerId,
-              traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
-              recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
-            )
-          }
-      }
-
-    private def toTransactionTreeEvent(
-        requestingParties: Option[Set[Party]],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
-    )(event: TransactionLogUpdate.Event)(implicit
-        loggingContext: LoggingContextWithTrace,
-        executionContext: ExecutionContext,
-    ): Future[TreeEvent] =
-      event match {
-        case createdEvent: TransactionLogUpdate.CreatedEvent =>
-          createdToApiCreatedEvent(
-            requestingParties,
-            eventProjectionProperties,
-            lfValueTranslation,
-            createdEvent,
-            _.treeEventWitnesses,
-          ).map(apiCreatedEvent => TreeEvent(TreeEvent.Kind.Created(apiCreatedEvent)))
-
-        case exercisedEvent: TransactionLogUpdate.ExercisedEvent =>
-          exercisedToTransactionTreeEvent(
-            requestingParties,
-            eventProjectionProperties,
-            lfValueTranslation,
-            exercisedEvent,
-          )
-      }
-
-    private def exercisedToTransactionTreeEvent(
-        requestingParties: Option[Set[Party]],
-        eventProjectionProperties: EventProjectionProperties,
-        lfValueTranslation: LfValueTranslation,
-        exercisedEvent: ExercisedEvent,
-    )(implicit
-        loggingContext: LoggingContextWithTrace,
-        executionContext: ExecutionContext,
-    ) = {
-      val choiceArgumentEnricher = (value: Value) =>
-        lfValueTranslation.enricher
-          .enrichChoiceArgument(
-            exercisedEvent.templateId,
-            exercisedEvent.interfaceId,
-            Ref.Name.assertFromString(exercisedEvent.choice),
-            value.unversioned,
-          )
-
-      val eventualChoiceArgument = lfValueTranslation.toApiValue(
-        exercisedEvent.exerciseArgument,
-        eventProjectionProperties.verbose,
-        "exercise argument",
-        choiceArgumentEnricher,
-      )
-
-      val eventualExerciseResult = exercisedEvent.exerciseResult
-        .map { exerciseResult =>
-          val choiceResultEnricher = (value: Value) =>
-            lfValueTranslation.enricher.enrichChoiceResult(
-              exercisedEvent.templateId,
-              exercisedEvent.interfaceId,
-              Ref.Name.assertFromString(exercisedEvent.choice),
-              value.unversioned,
-            )
-
-          lfValueTranslation
-            .toApiValue(
-              value = exerciseResult,
-              verbose = eventProjectionProperties.verbose,
-              attribute = "exercise result",
-              enrich = choiceResultEnricher,
-            )
-            .map(Some(_))
-        }
-        .getOrElse(Future.successful(None))
-
-      for {
-        choiceArgument <- eventualChoiceArgument
-        maybeExerciseResult <- eventualExerciseResult
-        witnessParties = requestingParties
-          .fold(exercisedEvent.treeEventWitnesses)(
-            _.filter(exercisedEvent.treeEventWitnesses)
-          )
-          .toSeq
-        flatEventWitnesses = requestingParties
-          .fold(exercisedEvent.treeEventWitnesses)(
-            _.filter(exercisedEvent.treeEventWitnesses)
-          )
-          .toSeq
-      } yield TreeEvent(
-        TreeEvent.Kind.Exercised(
-          apiEvent.ExercisedEvent(
-            offset = exercisedEvent.eventOffset.unwrap,
-            nodeId = exercisedEvent.nodeId,
-            contractId = exercisedEvent.contractId.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
-            packageName = exercisedEvent.packageName,
-            interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
-            choice = exercisedEvent.choice,
-            choiceArgument = Some(choiceArgument),
-            actingParties = exercisedEvent.actingParties.toSeq,
-            consuming = exercisedEvent.consuming,
-            witnessParties = witnessParties,
-            lastDescendantNodeId = exercisedEvent.lastDescendantNodeId,
-            exerciseResult = maybeExerciseResult,
-            implementedInterfaces =
-              if (exercisedEvent.consuming)
-                lfValueTranslation.implementedInterfaces(
-                  eventProjectionProperties,
-                  witnessParties.toSet,
-                  exercisedEvent.templateId.toFullIdentifier(exercisedEvent.packageName),
-                )
-              else Nil,
-            acsDelta = flatEventWitnesses.nonEmpty,
-          )
-        )
-      )
-    }
-
-    private def transactionTreePredicate(
-        requestingPartiesO: Option[Set[Party]]
-    ): TransactionLogUpdate.Event => Boolean = {
-      case createdEvent: CreatedEvent =>
-        requestingPartiesO.fold(true)(_.exists(createdEvent.treeEventWitnesses))
-      case exercised: ExercisedEvent =>
-        requestingPartiesO.fold(true)(_.exists(exercised.treeEventWitnesses))
-      case _ => false
-    }
-  }
-
   private def createdToApiCreatedEvent(
       requestingPartiesO: Option[Set[Party]],
       eventProjectionProperties: EventProjectionProperties,
@@ -789,11 +534,14 @@ private[events] object TransactionLogUpdatesConversions {
     val acsDelta =
       requestingPartiesO.fold(flatEventWitnesses.view)(_.view.filter(flatEventWitnesses)).nonEmpty
 
+    val representativeTemplateId =
+      create.templateId.copy(pkg = representativePackageId).toFullIdentifier(create.packageName)
+
     lfValueTranslation
       .toApiContractData(
         value = Versioned(create.version, create.arg),
         key = create.keyOpt.map(k => Versioned(create.version, k.value)),
-        templateId = create.templateId.toFullIdentifier(create.packageName),
+        representativeTemplateId = representativeTemplateId,
         witnesses = witnesses,
         eventProjectionProperties = eventProjectionProperties,
         fatContractInstance = getFatContractInstance,

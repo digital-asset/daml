@@ -3,16 +3,17 @@
 
 package com.digitalasset.canton.synchronizer.mediator.service
 
-import cats.Monad
 import cats.syntax.functor.*
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.pekko.ServerAdapter
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, TransactionView}
+import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30 as mediatorV30
-import com.digitalasset.canton.mediator.admin.v30.{VerdictsRequest, VerdictsResponse}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.synchronizer.mediator.FinalizedResponse
@@ -22,6 +23,8 @@ import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureUtil
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
@@ -51,7 +54,7 @@ class GrpcMediatorInspectionService(
     watermarkTracker: TimeAwaiter,
     batchSize: PositiveInt,
     override protected val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext, esf: ExecutionSequencerFactory, materializer: Materializer)
     extends mediatorV30.MediatorInspectionServiceGrpc.MediatorInspectionService
     with NamedLogging {
 
@@ -61,8 +64,8 @@ class GrpcMediatorInspectionService(
     * i.e. the sequencing timestamp of the response that resulted in a finalized response.
     */
   override def verdicts(
-      request: VerdictsRequest,
-      responseObserver: StreamObserver[VerdictsResponse],
+      request: mediatorV30.VerdictsRequest,
+      responseObserver: StreamObserver[mediatorV30.VerdictsResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
@@ -95,25 +98,52 @@ class GrpcMediatorInspectionService(
     */
   def loadBatchesAndRespond(
       queryRange: QueryRange,
-      responseObserver: ServerCallStreamObserver[VerdictsResponse],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    Monad[FutureUnlessShutdown]
-      .iterateUntilM(queryRange) { case QueryRange(fromRequestTime, toRequestTime) =>
-        logger.debug(
-          s"Loading verdicts between ]$fromRequestTime, $toRequestTime]"
-        )
-        finalizedResponseStore
-          .readFinalizedVerdicts(
-            fromRequestTime,
-            toRequestTime,
-            batchSize,
+      responseObserver: ServerCallStreamObserver[mediatorV30.VerdictsResponse],
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val sink = ServerAdapter.toSink(
+      responseObserver,
+      throwable =>
+        MediatorError.InternalError
+          .Reject(
+            cause = "Error during MediatorInspectionService.verdicts",
+            throwableO = Some(throwable),
           )
-          .flatMap { finalizedResponses =>
-            respondIfNonEmpty(finalizedResponses, responseObserver)
-            determineNextTimestamps(finalizedResponses, toRequestTime)
-          }
-      }(_ => responseObserver.isCancelled)
-      .map(_ => ())
+          .asGrpcError,
+    )
+
+    val doneF = Source
+      .unfoldAsync(
+        QueryRange(CantonTimestamp.MinValue, queryRange.fromRequestExclusive) -> Seq
+          .empty[FinalizedResponse]
+      ) { case (queryRange, previousResponses) =>
+        val resultFUS = for {
+          nextTimeStamps <- determineNextTimestamps(
+            previousResponses,
+            queryRange.toRequestInclusive,
+          )
+          QueryRange(fromRequestTime, toRequestTime) = nextTimeStamps
+          _ = logger.debug(
+            s"Loading verdicts between ]$fromRequestTime, $toRequestTime]"
+          )
+
+          finalizedResponses <- finalizedResponseStore
+            .readFinalizedVerdicts(
+              fromRequestTime,
+              toRequestTime,
+              batchSize,
+            )
+        } yield {
+          val verdicts = buildVerdictResponses(finalizedResponses)
+          Some((nextTimeStamps, finalizedResponses) -> verdicts)
+        }
+
+        resultFUS.onShutdown(None)
+      }
+      .mapConcat(identity)
+      .runWith(sink)
+
+    FutureUnlessShutdown.outcomeF(doneF)
+  }
 
   private def determineNextTimestamps(
       finalizedResponses: Seq[FinalizedResponse],
@@ -126,68 +156,59 @@ class GrpcMediatorInspectionService(
     // we properly advance the time window that needs to be checked in the finalized response store
     // and avoid loading data again and again just to discard it afterwards
 
-    val mostRecentTimestamps = finalizedResponses
+    val mostRecentTimestamp = finalizedResponses
       .maxByOption(r => r.requestId.unwrap)
       .map(r => r.requestId.unwrap)
     // Use the timestamp from the most recent verdict loaded from the database.
     // If no verdicts were found, use currentToInclusive as the next starting point, because we know
     // that there won't be any verdicts before this timestamp
+    val nextFromExclusive = mostRecentTimestamp.getOrElse(currentToInclusive)
 
-    mostRecentTimestamps match {
-      case Some(nextFromRequestTime) =>
-        FutureUnlessShutdown.pure(
-          QueryRange(
-            fromRequestExclusive = nextFromRequestTime,
-            toRequestInclusive = watermarkTracker.getCurrentKnownTime(),
-          )
-        )
-      case None =>
-        val newWatermark = watermarkTracker.getCurrentKnownTime()
-        val possiblyWaitForNextObservedTimestamp = if (newWatermark <= currentToInclusive) {
-          logger.debug(
-            s"Waiting to observe a time later than the current watermark $newWatermark"
-          )
-          watermarkTracker
-            .awaitKnownTimestamp(newWatermark.immediateSuccessor)
-            // if there is a race and in the meantime a sequenced time > `newWatermark` was observed, we just continue
-            .getOrElse(FutureUnlessShutdown.unit)
-        } else {
-          // no need to wait, since the watermark has moved since last we queried the store
-          FutureUnlessShutdown.unit
-        }
-
-        possiblyWaitForNextObservedTimestamp
-          // fact: there is no verdict until currentToInclusive, because no responses were found.
-          // Therefore, use `(currentToInclusive, CantonTimestamp.MaxValue)` as the starting point for the next batch lookup.
-          // Since we don't actually have a most recent response available, use CantonTimestamp.MaxValue as the lower bound,
-          // so that the next verdict found has at least `currentToInclusive.immediateSuccessor`.
-          .map(_ =>
-            QueryRange(
-              fromRequestExclusive = currentToInclusive,
-              toRequestInclusive = watermarkTracker.getCurrentKnownTime(),
-            )
-          )
+    val newWatermark = watermarkTracker.getCurrentKnownTime()
+    val possiblyWaitForNextObservedTimestamp = if (newWatermark <= nextFromExclusive) {
+      logger.debug(
+        s"Waiting to observe a time later than the current watermark $newWatermark"
+      )
+      watermarkTracker
+        .awaitKnownTimestamp(newWatermark.immediateSuccessor)
+        // if there is a race and in the meantime a sequenced time > `newWatermark` was observed, we just continue
+        .getOrElse(FutureUnlessShutdown.unit)
+    } else {
+      // no need to wait, since the watermark has moved since last we queried the store
+      FutureUnlessShutdown.unit
     }
+
+    possiblyWaitForNextObservedTimestamp
+      // fact: there is no verdict until nextFromExclusive, because no responses were found.
+      // Therefore, use `nextFromExclusive` as the starting point for the next batch lookup.
+      .map(_ =>
+        QueryRange(
+          fromRequestExclusive = nextFromExclusive,
+          toRequestInclusive = watermarkTracker.getCurrentKnownTime(),
+        )
+      )
+
   }
 
-  /** Converts the responses to inspection api verdicts and responds on the stream observer
+  /** Converts the responses to inspection api verdicts
     */
-  private def respondIfNonEmpty(
-      finalizedResponses: Seq[FinalizedResponse],
-      responseObserver: StreamObserver[mediatorV30.VerdictsResponse],
-  )(implicit traceContext: TraceContext): Unit =
-    NonEmpty.from(convertResponses(finalizedResponses)).foreach { protoResponses =>
-      // we're using the latest timestamp from the responses loaded from the database (even though
-      // they might contain verdicts for irrelevant requests, e.g. reassignments), so that
-      // we can log the full range of the time window considered
-      val timestamps = finalizedResponses.map(r => r.requestId.unwrap)
-      val minRequestTime = timestamps.headOption
-      val maxRequestTime = timestamps.lastOption
-      logger.debug(
-        s"Responding with ${protoResponses.size} verdicts between [$minRequestTime, $maxRequestTime]"
-      )
-      protoResponses.foreach(responseObserver.onNext)
-    }
+  private def buildVerdictResponses(
+      finalizedResponses: Seq[FinalizedResponse]
+  )(implicit traceContext: TraceContext): Seq[mediatorV30.VerdictsResponse] =
+    NonEmpty
+      .from(convertResponses(finalizedResponses))
+      .fold(Seq.empty[mediatorV30.VerdictsResponse]) { verdicts =>
+        // we're using the latest timestamp from the responses loaded from the database (even though
+        // they might contain verdicts for irrelevant requests, e.g. reassignments), so that
+        // we can log the full range of the time window considered
+        val timestamps = finalizedResponses.map(r => r.requestId.unwrap)
+        val minRequestTime = timestamps.headOption
+        val maxRequestTime = timestamps.lastOption
+        logger.debug(
+          s"Responding with ${verdicts.size} verdicts between [$minRequestTime, $maxRequestTime]"
+        )
+        verdicts
+      }
 
   /** Filters for verdicts for relevant requests (currently only InformeeMessage aka Daml
     * transactions) and convert to the mediator inspection api value.

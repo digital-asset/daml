@@ -55,6 +55,7 @@ trait PackageOps extends NamedLogging {
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: DarDescription,
+      forceFlags: ForceFlags,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, Unit]
@@ -171,7 +172,7 @@ class PackageOpsImpl(
           val actuallyNewPackages =
             VettedPackage.unbounded(packages).toSet -- existingAndUpdatedPackages
           existingAndUpdatedPackages ++ actuallyNewPackages
-        }
+        }(ForceFlags.none)
         // only synchronize with the connected synchronizers if a new VettedPackages transaction was actually issued
         _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
           synchronizeVetting.sync(packages.toSet).mapK(FutureUnlessShutdown.outcomeK)
@@ -184,12 +185,13 @@ class PackageOpsImpl(
       mainPkg: LfPackageId,
       packages: List[LfPackageId],
       darDescriptor: DarDescription,
+      forceFlags: ForceFlags,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     vettingExecutionQueue.executeEUS(
       {
         val packagesToUnvet = packages.toSet
 
-        modifyVettedPackages(_.filterNot(vp => packagesToUnvet(vp.packageId)))
+        modifyVettedPackages(_.filterNot(vp => packagesToUnvet(vp.packageId)))(forceFlags)
           .leftWiden[RpcError]
           .void
       },
@@ -231,7 +233,12 @@ class PackageOpsImpl(
         // Fails if a new topology change is submitted between getVettedPackages
         // above and this call to setVettedPackages, since currentSerial will no
         // longer be valid.
-        setVettedPackages(currentPackages, newAllPackages, currentSerial)
+        setVettedPackages(
+          currentPackages,
+          newAllPackages,
+          currentSerial,
+          ForceFlags(ForceFlag.AllowUnvetPackage),
+        )
       }
     } yield (
       currentPackages,
@@ -278,7 +285,7 @@ class PackageOpsImpl(
     */
   private def modifyVettedPackages(
       action: Seq[VettedPackage] => Seq[VettedPackage]
-  )(implicit
+  )(forceFlags: ForceFlags)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
     for {
@@ -287,13 +294,19 @@ class PackageOpsImpl(
       currentSerial = currentPackagesAndSerial.map(_._2)
 
       newVettedPackagesState = action(currentPackages)
-      result <- setVettedPackages(currentPackages, newVettedPackagesState, currentSerial)
+      result <- setVettedPackages(
+        currentPackages,
+        newVettedPackagesState,
+        currentSerial,
+        forceFlags,
+      )
     } yield result
 
   private def setVettedPackages(
       currentPackages: Seq[VettedPackage],
       newVettedPackagesState: Seq[VettedPackage],
       currentSerial: Option[PositiveInt],
+      forceFlags: ForceFlags,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
@@ -321,7 +334,7 @@ class PackageOpsImpl(
               signingKeys = Seq.empty,
               protocolVersion = initialProtocolVersion,
               expectFullAuthorization = true,
-              forceChanges = ForceFlags(ForceFlag.AllowUnvetPackage),
+              forceChanges = forceFlags,
               waitToBecomeEffective = None,
             )
             .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)

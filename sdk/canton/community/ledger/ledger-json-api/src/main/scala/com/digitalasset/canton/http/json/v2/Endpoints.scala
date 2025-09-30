@@ -319,15 +319,29 @@ trait Endpoints extends NamedLogging {
       Left(
         (
           sre.getStatus.getCode.asSttpStatus,
-          JsCantonError.fromDecodedCantonError(
-            DecodedCantonError
-              .fromStatusRuntimeException(sre)
-              .getOrElse(
-                throw new RuntimeException(
-                  "Failed to convert response to JsCantonError."
-                )
+          DecodedCantonError
+            .fromStatusRuntimeException(sre)
+            .map(JsCantonError.fromDecodedCantonError)
+            .getOrElse {
+              // TODO (#27556) we should log these errors / locations and clean all of them up
+              //   CantonErrors are logged on creation (normally ...).
+              logger.info(
+                s"Request failed with legacy error ${sre.getStatus} / ${sre.getMessage}",
+                sre.getCause,
               )
-          ),
+              JsCantonError(
+                code = sre.getStatus.getDescription,
+                cause = sre.getMessage,
+                correlationId = None,
+                traceId = None,
+                context = Map(),
+                resources = Seq(),
+                errorCategory = -1,
+                grpcCodeValue = Some(sre.getStatus.getCode.value()),
+                retryInfo = None,
+                definiteAnswer = None,
+              )
+            },
         )
       )
     case unexpected: UnexpectedFieldsException =>

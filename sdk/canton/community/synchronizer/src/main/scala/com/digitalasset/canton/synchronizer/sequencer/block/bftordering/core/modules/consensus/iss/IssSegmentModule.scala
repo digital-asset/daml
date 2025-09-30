@@ -127,14 +127,14 @@ class IssSegmentModule[E <: Env[E]](
         def processOldViewEvent(event: ConsensusSegment.ConsensusMessage.PbftEvent): Unit =
           // we don't want to send or store any messages as part of rehydrating old views
           // the main purpose here is simply to populate prepare certificates that may be used in future view changes
-          segmentState.processEvent(event).discard
+          segmentState.processEvent(event, rehydrated = true).discard
 
         def processCurrentViewMessages(
             pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent
         ): Unit =
           // for the latest view, we don't want to store again messages as part of rehydration,
           // but we do want to make sure we send (this could potentially resend but that's OK)
-          processPbftEvent(pbftEvent, storeMessages = false)
+          processPbftEvent(pbftEvent, storeMessages = false, rehydrated = true)
 
         def rehydrateMessages(
             messages: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]],
@@ -426,11 +426,12 @@ class IssSegmentModule[E <: Env[E]](
   private def processPbftEvent(
       pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent,
       storeMessages: Boolean = storePbftMessages,
+      rehydrated: Boolean = false,
   )(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
       traceContext: TraceContext,
   ): Unit = {
-    val processResults = segmentState.processEvent(pbftEvent)
+    val processResults = segmentState.processEvent(pbftEvent, rehydrated)
 
     def handleStore(store: StoreResult, sendMsg: () => Unit): Unit = store match {
       case StorePrePrepare(prePrepare) =>
@@ -530,7 +531,7 @@ class IssSegmentModule[E <: Env[E]](
             s"Sending PBFT message to $nodes: $pbftMessage"
           )
           pbftMessage.message match {
-            case PrePrepare(BlockMetadata(_, blockNumber), _, _, _, _) =>
+            case PrePrepare(BlockMetadata(_, blockNumber), _, _, _, _, _) =>
               runningBlocks.put(blockNumber, Instant.now()).discard
             case _ =>
           }

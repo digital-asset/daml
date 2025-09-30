@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data
 
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
@@ -153,6 +153,7 @@ object EpochStore {
   )
 
   def apply(
+      batchAggregatorConfig: BatchAggregatorConfig,
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -161,7 +162,7 @@ object EpochStore {
       case _: MemoryStorage =>
         new InMemoryEpochStore()
       case dbStorage: DbStorage =>
-        new DbEpochStore(dbStorage, timeouts, loggerFactory)(ec)
+        new DbEpochStore(batchAggregatorConfig, dbStorage, timeouts, loggerFactory)(ec)
     }
 
   final case class NumberOfRecords(

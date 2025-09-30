@@ -10,11 +10,16 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ReassignmentSubmitterMetadata
 import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.error.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
-import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, SynchronizerRank}
+import com.digitalasset.canton.ledger.participant.state.{
+  RoutingSynchronizerState,
+  SubmitterInfo,
+  SynchronizerRank,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizersLookup
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -30,12 +35,14 @@ private[routing] class ContractsReassigner(
   def reassign(
       synchronizerRankTarget: SynchronizerRank,
       submitterInfo: SubmitterInfo,
+      synchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     if (synchronizerRankTarget.reassignments.nonEmpty) {
+      val targetPSId = synchronizerRankTarget.synchronizerId
       logger.info(
-        s"Automatic transaction reassignment to synchronizer ${synchronizerRankTarget.synchronizerId}"
+        s"Automatic transaction reassignment to synchronizer $targetPSId"
       )
 
       def getStakeholders(
@@ -74,20 +81,31 @@ private[routing] class ContractsReassigner(
           ((LfPartyId, PhysicalSynchronizerId, Stakeholders), Iterable[LfContractId])
         ])
           .parTraverse_ { case ((lfParty, sourceSynchronizerId, _), cids) =>
-            perform(
-              Source(sourceSynchronizerId),
-              Target(synchronizerRankTarget.synchronizerId),
-              ReassignmentSubmitterMetadata(
-                submitter = lfParty,
-                submittingParticipant,
-                submitterInfo.commandId,
-                submitterInfo.submissionId,
-                submitterInfo.userId,
-                workflowId = None,
-              ),
-              cids.toSeq,
-            )
-              .mapK(FutureUnlessShutdown.outcomeK)
+            for {
+              sourceTopology <- EitherT.fromEither[FutureUnlessShutdown](
+                synchronizerState.getTopologySnapshotFor(sourceSynchronizerId)
+              )
+              targetTopology <- EitherT.fromEither[FutureUnlessShutdown](
+                synchronizerState.getTopologySnapshotFor(targetPSId)
+              )
+
+              _ <- perform(
+                Source(sourceSynchronizerId),
+                Source(sourceTopology),
+                Target(targetPSId),
+                Target(targetTopology),
+                ReassignmentSubmitterMetadata(
+                  submitter = lfParty,
+                  submittingParticipant,
+                  submitterInfo.commandId,
+                  submitterInfo.submissionId,
+                  submitterInfo.userId,
+                  workflowId = None,
+                ),
+                cids.toSeq,
+              )
+                .mapK(FutureUnlessShutdown.outcomeK)
+            } yield ()
           }
       } yield ()
     } else {
@@ -96,7 +114,9 @@ private[routing] class ContractsReassigner(
 
   private def perform(
       sourceSynchronizerId: Source[PhysicalSynchronizerId],
+      sourceTopology: Source[TopologySnapshot],
       targetSynchronizerId: Target[PhysicalSynchronizerId],
+      targetTopology: Target[TopologySnapshot],
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractIds: Seq[LfContractId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
@@ -121,7 +141,12 @@ private[routing] class ContractsReassigner(
         )
 
       unassignmentResult <- sourceSynchronizer
-        .submitUnassignments(submitterMetadata, contractIds, targetSynchronizerId)
+        .submitUnassignments(
+          submitterMetadata,
+          contractIds,
+          targetSynchronizerId,
+          sourceTopology,
+        )
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)
         .leftMap(_.toString)
@@ -144,6 +169,7 @@ private[routing] class ContractsReassigner(
         .submitAssignments(
           submitterMetadata,
           unassignmentResult.reassignmentId,
+          targetTopology,
         )
         .leftMap[String](err => s"Assignment failed with error $err")
         .flatMap { s =>

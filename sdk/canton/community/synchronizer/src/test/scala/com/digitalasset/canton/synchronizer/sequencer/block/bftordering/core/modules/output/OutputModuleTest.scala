@@ -1254,33 +1254,6 @@ class OutputModuleTest
       )(any[TraceContext], any[MetricsContext])
       succeed
     }
-
-    "return the most recent known block BFT time" when {
-      "asked for it" in {
-        val output = createOutputModule[ProgrammableUnitTestEnv]()()
-        implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
-          new ProgrammableUnitTestContext(resolveAwaits = true)
-
-        var bftTime: Option[Option[CantonTimestamp]] = None
-        val timeRequest = Output.GetCurrentBftTime(time => bftTime = Some(time))
-
-        // Pre-start
-        output.receive(timeRequest)
-        bftTime shouldBe None // Time request not processed yet
-
-        // Pre-init
-        output.receive(Output.Start)
-        bftTime shouldBe Some(None) // Time request processed but no blocks processed yet
-
-        // Cleanup
-        bftTime = None
-
-        // Previous block updated
-        output.previousStoredBlock.update(BlockNumber(1), aTimestamp)
-        output.receive(timeRequest)
-        bftTime shouldBe Some(Some(aTimestamp))
-      }
-    }
   }
 
   "adjust time for a state-transferred block based on the previous BFT time" in {

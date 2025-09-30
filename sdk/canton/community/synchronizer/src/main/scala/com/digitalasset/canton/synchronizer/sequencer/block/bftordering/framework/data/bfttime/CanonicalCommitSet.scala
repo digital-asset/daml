@@ -42,7 +42,9 @@ object CanonicalCommitSet {
   def fromProto(canonicalCommitSet: v30.CanonicalCommitSet): ParsingResult[CanonicalCommitSet] =
     canonicalCommitSet.canonicalCommits
       .traverse(
-        SignedMessage.fromProto(v30.ConsensusMessage)(Commit.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v30.ConsensusMessage)(
+          Commit.fromProtoConsensusMessage(actualSender = None, _)
+        )
       )
       .map(x => CanonicalCommitSet(SortedSet.from(x)))
 }

@@ -28,6 +28,22 @@ private[backend] class IngestionStorageBackendTemplate(
     List(
       SQL"DELETE FROM lapi_command_completions WHERE ${QueryStrategy
           .offsetIsGreater("completion_offset", ledgerOffset)}",
+      SQL"DELETE FROM lapi_events_activate_contract WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_filter_activate_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_filter_activate_witness WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_events_deactivate_contract WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_filter_deactivate_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_filter_deactivate_witness WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_events_various_witnessed WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_filter_various_witness WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
       SQL"DELETE FROM lapi_events_create WHERE ${QueryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_consuming_exercise WHERE ${QueryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
@@ -37,7 +53,7 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM lapi_events_assign WHERE ${QueryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_party_entries WHERE ${QueryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_party_to_participant WHERE ${QueryStrategy
-          .offsetIsGreater("event_offset", ledgerOffset)}",
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
       lastStringInterningIdO match {
         case None => SQL"DELETE FROM lapi_string_interning"
         case Some(lastStringInterningId) =>

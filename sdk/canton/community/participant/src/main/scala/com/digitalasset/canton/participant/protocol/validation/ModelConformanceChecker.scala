@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.Eval
 import cats.data.EitherT
+import cats.implicits.toFoldableOps
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
@@ -42,7 +43,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.collection.MapsUtil
-import com.digitalasset.canton.util.{ContractAuthenticator, ErrorUtil}
+import com.digitalasset.canton.util.{ContractValidator, ErrorUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
@@ -63,7 +64,7 @@ class ModelConformanceChecker(
     reinterpreter: HasReinterpret,
     transactionTreeFactory: TransactionTreeFactory,
     participantId: ParticipantId,
-    contractAuthenticator: ContractAuthenticator,
+    contractValidator: ContractValidator,
     packageResolver: PackageResolver,
     hashOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -251,7 +252,7 @@ class ModelConformanceChecker(
       lfTxAndMetadata <- reinterpreter
         .reinterpret(
           contractAndKeyLookup,
-          contractAuthenticator.authenticate,
+          contractValidator.authenticateHash,
           authorizers,
           cmd,
           ledgerTime,
@@ -386,12 +387,11 @@ class ModelConformanceChecker(
         .parTraverse(p =>
           snapshot
             .findUnvettedPackagesOrDependencies(p, packageIds, ledgerTime)
-            .map(p -> _)
         )
 
     } yield {
-      val unvettedPackages = unvetted.filter { case (_, packageIds) => packageIds.nonEmpty }
-      Either.cond(unvettedPackages.isEmpty, (), UnvettedPackages(unvettedPackages.toMap))
+      val combined = unvetted.combineAll.unknownOrUnvetted
+      Either.cond(combined.isEmpty, (), UnvettedPackages(combined))
     })
   }
 
@@ -402,7 +402,7 @@ object ModelConformanceChecker {
   def apply(
       damlE: DAMLe,
       transactionTreeFactory: TransactionTreeFactory,
-      contractAuthenticator: ContractAuthenticator,
+      contractValidator: ContractValidator,
       participantId: ParticipantId,
       packageResolver: PackageResolver,
       hashOps: HashOps & HmacOps,
@@ -412,7 +412,7 @@ object ModelConformanceChecker {
       damlE,
       transactionTreeFactory,
       participantId,
-      contractAuthenticator,
+      contractValidator,
       packageResolver,
       hashOps,
       loggerFactory,

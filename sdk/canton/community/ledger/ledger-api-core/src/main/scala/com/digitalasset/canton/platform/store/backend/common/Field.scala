@@ -98,6 +98,9 @@ private[backend] final case class BigintOptional[FROM](
   override def convert: Option[Long] => java.lang.Long = _.map(Long.box).orNull
 }
 
+private[backend] final case class Smallint[FROM](extract: StringInterning => FROM => Int)
+    extends TrivialField[FROM, Int]
+
 private[backend] final case class SmallintOptional[FROM](
     extract: StringInterning => FROM => Option[Int]
 ) extends Field[FROM, Option[Int], java.lang.Integer] {

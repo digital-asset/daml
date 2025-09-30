@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
@@ -31,7 +32,7 @@ import scala.concurrent.ExecutionContext
 import scala.math.Ordering.Implicits.*
 
 object TopologyMappingChecks {
-  type PendingChangesLookup = Map[MappingHash, GenericSignedTopologyTransaction]
+  type PendingChangesLookup = scala.collection.Map[MappingHash, MaybePending]
 }
 
 trait TopologyMappingChecks {
@@ -230,17 +231,21 @@ class ValidatingTopologyMappingChecks(
   private def checkNoOngoingSynchronizerUpgrade(
       effective: EffectiveTime,
       toValidate: GenericSignedTopologyTransaction,
-      pendingChangesLookup: PendingChangesLookup,
+      pendingChanges: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
+    val pendingSynchronizerAnnouncements = store.storeId.forSynchronizer.flatMap { synchronizerId =>
+      pendingChanges.get(SynchronizerUpgradeAnnouncement.uniqueKey(synchronizerId.logical))
+    }
+
     Monad[EitherT[FutureUnlessShutdown, TopologyTransactionRejection, *]].whenA(
       store.storeId.isSynchronizerStore
     )(for {
       results <- loadFromStore(
         effective,
         Set(Code.SynchronizerUpgradeAnnouncement),
-        pendingChangesLookup,
+        pendingSynchronizerAnnouncements.toList,
       )
       announcements = NonEmpty.from(
         results.flatMap(_.selectMapping[SynchronizerUpgradeAnnouncement].toList)
@@ -256,6 +261,7 @@ class ValidatingTopologyMappingChecks(
           )
       }
     } yield {})
+  }
 
   private def loadHistoryFromStore(
       effectiveTime: EffectiveTime,
@@ -284,8 +290,9 @@ class ValidatingTopologyMappingChecks(
         .map { storedTxs =>
           val pending = pendingChangesLookup.values
             .filter(pendingTx =>
-              !pendingTx.isProposal && pendingTx.transaction.mapping.code == code
+              !pendingTx.currentTx.isProposal && pendingTx.currentTx.transaction.mapping.code == code
             )
+            .map(_.currentTx)
           val allTransactions = (storedTxs.result.map(_.transaction) ++ pending)
           // only look at the >history< of the mapping (up to exclusive the max serial), because
           // otherwise it would be looking also at the future, which could lead to the wrong conclusion
@@ -298,7 +305,7 @@ class ValidatingTopologyMappingChecks(
   private[transaction] def loadFromStore(
       effective: EffectiveTime,
       codes: Set[Code],
-      pendingChangesLookup: PendingChangesLookup,
+      pendingChanges: Iterable[MaybePending],
       filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]] = None,
       filterNamespace: Option[NonEmpty[Seq[Namespace]]] = None,
   )(implicit
@@ -323,19 +330,20 @@ class ValidatingTopologyMappingChecks(
             // we need to proactively look up the pending changes that match the filter,
             // because there might be a pending transaction that isn't in the store yet (eg. serial=1)
             val pendingChangesMatchingFilter =
-              pendingChangesLookup.values.filter { tx =>
-                // proposals shouldn't end up in PendingChangesLookup, but better to emulate what the store filter does
-                !tx.isProposal &&
-                codes.contains(tx.mapping.code) &&
-                filterNamespace.forall(_.exists(_ == tx.mapping.namespace)) &&
-                filterUid.forall(uids => tx.mapping.maybeUid.exists(uids.contains(_)))
-              }
+              pendingChanges.view
+                .filter { maybePending =>
+                  val tx = maybePending.currentTx
+                  // proposals shouldn't end up in PendingChangesLookup, but better to emulate what the store filter does
+                  !tx.isProposal &&
+                  codes.contains(tx.mapping.code) &&
+                  filterNamespace.forall(_.exists(_ == tx.mapping.namespace)) &&
+                  filterUid.forall(uids => tx.mapping.maybeUid.exists(uids.contains(_)))
+                }
+                .map(_.currentTx)
+                .toSeq
 
             TopologyTransactions
-              .collectLatestByUniqueKey(
-                Seq.empty[GenericSignedTopologyTransaction] ++
-                  latestStored ++ pendingChangesMatchingFilter
-              )
+              .collectLatestByUniqueKey(latestStored ++ pendingChangesMatchingFilter)
               .flatMap(_.selectOp[TopologyChangeOp.Replace])
           }
       )
@@ -349,7 +357,7 @@ class ValidatingTopologyMappingChecks(
       storedPartyToParticipantMappings <- loadFromStore(
         effective,
         Set(Code.PartyToParticipant),
-        pendingChangesLookup,
+        pendingChangesLookup.values,
       )
       participantHostsParties = storedPartyToParticipantMappings.view
         .flatMap(_.selectMapping[PartyToParticipant])
@@ -386,11 +394,16 @@ class ValidatingTopologyMappingChecks(
 
   private def loadSynchronizerParameters(
       effective: EffectiveTime,
+      synchronizerId: SynchronizerId,
       pendingChangesLookup: PendingChangesLookup,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, DynamicSynchronizerParameters] =
-    loadFromStore(effective, Set(Code.SynchronizerParametersState), pendingChangesLookup)
+    loadFromStore(
+      effective,
+      Set(Code.SynchronizerParametersState),
+      pendingChangesLookup.get(SynchronizerParametersState.uniqueKey(synchronizerId)).toList,
+    )
       .subflatMap { synchronizerParamCandidates =>
         val params = synchronizerParamCandidates.view
           .flatMap(_.selectMapping[SynchronizerParametersState])
@@ -424,7 +437,8 @@ class ValidatingTopologyMappingChecks(
 
     def loadOnboardingRestriction()
         : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, OnboardingRestriction] =
-      loadSynchronizerParameters(effective, pendingChangesLookup).map(_.onboardingRestriction)
+      loadSynchronizerParameters(effective, toValidate.mapping.synchronizerId, pendingChangesLookup)
+        .map(_.onboardingRestriction)
 
     def checkSynchronizerIsNotLocked(restriction: OnboardingRestriction) =
       EitherTUtil.condUnitET[FutureUnlessShutdown](
@@ -455,7 +469,14 @@ class ValidatingTopologyMappingChecks(
         loadFromStore(
           effective,
           Set(Code.ParticipantSynchronizerPermission),
-          pendingChangesLookup,
+          pendingChangesLookup
+            .get(
+              ParticipantSynchronizerPermission.uniqueKey(
+                toValidate.mapping.synchronizerId,
+                toValidate.mapping.participantId,
+              )
+            )
+            .toList,
           filterUid = Some(NonEmpty(Seq, toValidate.mapping.participantId.uid)),
         ).subflatMap { storedPermissions =>
           val isAllowlisted = storedPermissions.view
@@ -500,7 +521,7 @@ class ValidatingTopologyMappingChecks(
       ptps <- loadFromStore(
         effective,
         Set(Code.PartyToParticipant),
-        pendingChangesLookup,
+        pendingChangesLookup.get(PartyToParticipant.uniqueKey(participantId.adminParty)).toList,
         filterUid = Some(NonEmpty(Seq, participantId.uid)),
       )
       conflictingPartyIdO = ptps
@@ -558,7 +579,16 @@ class ValidatingTopologyMappingChecks(
         participantTransactions <- loadFromStore(
           effective,
           Set(Code.SynchronizerTrustCertificate, Code.OwnerToKeyMapping),
-          pendingChangesLookup,
+          (newParticipants.toSeq.map(_.uid) :+ mapping.partyId.uid).flatMap { uid =>
+            val pid = ParticipantId(uid)
+            val otks = pendingChangesLookup.get(OwnerToKeyMapping.uniqueKey(pid)).toList
+            val dtcs = store.storeId.forSynchronizer.flatMap { synchronizerId =>
+              pendingChangesLookup.get(
+                SynchronizerTrustCertificate.uniqueKey(pid, synchronizerId.logical)
+              )
+            }
+            otks ++ dtcs
+          }.toList,
           filterUid = Some(NonEmpty(Seq, mapping.partyId.uid) ++ newParticipants.toSeq.map(_.uid)),
         )
 
@@ -677,7 +707,7 @@ class ValidatingTopologyMappingChecks(
         result <- loadFromStore(
           effectiveTime,
           Set(Code.MediatorSynchronizerState),
-          pendingChangesLookup,
+          pendingChangesLookup.values,
         )
         mediatorsAlreadyAssignedToGroups = result
           .flatMap(_.selectMapping[MediatorSynchronizerState])
@@ -799,7 +829,14 @@ class ValidatingTopologyMappingChecks(
       loadFromStore(
         effective,
         Set(Code.NamespaceDelegation),
-        pendingChangesLookup,
+        pendingChangesLookup
+          .get(
+            NamespaceDelegation.uniqueKey(
+              toValidate.mapping.namespace,
+              toValidate.mapping.namespace.fingerprint,
+            )
+          )
+          .toList,
         filterUid = None,
         filterNamespace = Some(NonEmpty(Seq, toValidate.mapping.namespace)),
       ).flatMap { namespaceDelegations =>
@@ -815,7 +852,9 @@ class ValidatingTopologyMappingChecks(
       loadFromStore(
         effective,
         Set(Code.NamespaceDelegation),
-        pendingChangesLookup,
+        toValidate.mapping.owners.forgetNE.flatMap(ns =>
+          pendingChangesLookup.get(NamespaceDelegation.uniqueKey(ns, ns.fingerprint))
+        ),
         filterUid = None,
         filterNamespace = Some(toValidate.mapping.owners.toSeq),
       ).flatMap { namespaceDelegations =>
@@ -856,7 +895,11 @@ class ValidatingTopologyMappingChecks(
       loadFromStore(
         effective,
         Set(Code.DecentralizedNamespaceDefinition),
-        pendingChangesLookup,
+        pendingChangesLookup
+          .get(
+            DecentralizedNamespaceDefinition.uniqueKey(toValidate.mapping.namespace)
+          )
+          .toList,
         filterUid = None,
         filterNamespace = Some(NonEmpty(Seq, toValidate.mapping.namespace)),
       ).flatMap { dns =>

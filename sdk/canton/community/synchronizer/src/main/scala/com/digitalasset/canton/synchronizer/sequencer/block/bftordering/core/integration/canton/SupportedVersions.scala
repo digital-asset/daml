@@ -24,5 +24,7 @@ object SupportedVersions {
   //  protocol versions that use the same protobuf data version are designated via a representative
   //  Canton protocol version.
   // TODO(#25269): support multiple protobuf data versions
+  // It's fine to fully support multiple versions once we have another version, because only nodes with a new version
+  //  will need the support.
   val ProtoData: ProtoVersion = ProtoVersion(30)
 }

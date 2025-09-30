@@ -4,11 +4,10 @@
 package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.String300
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoPureApi}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
@@ -25,9 +24,11 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
 }
 import com.digitalasset.canton.version.ProtocolVersionValidation
+import com.digitalasset.canton.{FailOnShutdown, HasActorSystem}
 
 abstract class InitialTopologySnapshotValidatorTest
     extends TopologyTransactionHandlingBase
+    with HasActorSystem
     with FailOnShutdown {
 
   import Factory.*
@@ -41,7 +42,7 @@ abstract class InitialTopologySnapshotValidatorTest
     val validator = new InitialTopologySnapshotValidator(
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
-      DefaultProcessingTimeouts.testing,
+      validateInitialSnapshot = true,
       loggerFactory,
     )
     (validator, store)
@@ -227,7 +228,9 @@ abstract class InitialTopologySnapshotValidatorTest
           )
         ) :+ StoredTopologyTransaction(
           SequencedTime(ts(1)),
-          EffectiveTime(ts(1).plus((dmp1_k1.mapping.parameters.topologyChangeDelay.duration))),
+          EffectiveTime(
+            ts(1).plus((StaticSynchronizerParameters.defaultTopologyChangeDelay.unwrap))
+          ),
           validUntil = None,
           okmS1k7_without_k7_signature,
           None,

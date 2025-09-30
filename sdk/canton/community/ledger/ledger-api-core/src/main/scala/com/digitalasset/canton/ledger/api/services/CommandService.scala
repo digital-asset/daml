@@ -8,13 +8,11 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
   SubmitAndWaitResponse,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 trait CommandService {
@@ -29,10 +27,4 @@ trait CommandService {
   def submitAndWaitForReassignment(
       request: SubmitAndWaitForReassignmentRequest
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForReassignmentResponse]
-
-  // TODO(#23504) remove when submitAndWaitForTransactionTree is removed from the API
-  @nowarn("cat=deprecation")
-  def submitAndWaitForTransactionTree(
-      request: SubmitAndWaitRequest
-  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionTreeResponse]
 }

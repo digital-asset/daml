@@ -221,6 +221,16 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
           e.warningMessage should include regex
             "Detected late processing \\(or clock skew\\) of batch with timestamp .* after sequencing"
         },
+        LogEntryOptionality.OptionalMany -> { e =>
+          e.loggerName should include("SequencerBasedRegisterTopologyTransactionHandle")
+          e.warningMessage should include(
+            "Failed broadcasting topology transactions: RequestFailed(No connection available)"
+          )
+        },
+        LogEntryOptionality.OptionalMany -> { e =>
+          e.loggerName should include("QueueBasedSynchronizerOutbox")
+          e.warningMessage should include regex "synchronizer outbox flusher The synchronizer Synchronizer '.*?' failed the following topology transactions".r
+        },
       )
   }
 

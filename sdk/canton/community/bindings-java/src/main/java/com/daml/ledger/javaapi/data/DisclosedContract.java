@@ -10,8 +10,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class DisclosedContract {
-  public final Identifier templateId;
-  public final String contractId;
+  public final Optional<Identifier> templateId;
+  public final Optional<String> contractId;
   public final ByteString createdEventBlob;
   public final Optional<String> synchronizerId;
 
@@ -22,17 +22,34 @@ public final class DisclosedContract {
    */
   @Deprecated
   public DisclosedContract(Identifier templateId, String contractId, ByteString createdEventBlob) {
-    this.templateId = templateId;
-    this.contractId = contractId;
+    this.templateId = Optional.of(templateId);
+    this.contractId = Optional.of(contractId);
     this.createdEventBlob = createdEventBlob;
     this.synchronizerId = Optional.empty();
   }
 
+  /**
+   * Constructor that requires the contract-id and template-id.
+   *
+   * @deprecated since 3.4.0. It will be removed in a future release
+   */
+  @Deprecated
   public DisclosedContract(
       Identifier templateId,
       String contractId,
       ByteString createdEventBlob,
       String synchronizerId) {
+    this.templateId = Optional.of(templateId);
+    this.contractId = Optional.of(contractId);
+    this.createdEventBlob = createdEventBlob;
+    this.synchronizerId = Optional.of(synchronizerId);
+  }
+
+  public DisclosedContract(
+      ByteString createdEventBlob,
+      String synchronizerId,
+      Optional<Identifier> templateId,
+      Optional<String> contractId) {
     this.templateId = templateId;
     this.contractId = contractId;
     this.createdEventBlob = createdEventBlob;
@@ -42,9 +59,10 @@ public final class DisclosedContract {
   public CommandsOuterClass.DisclosedContract toProto() {
     CommandsOuterClass.DisclosedContract.Builder builder =
         CommandsOuterClass.DisclosedContract.newBuilder()
-            .setTemplateId(this.templateId.toProto())
-            .setContractId(this.contractId)
             .setCreatedEventBlob(this.createdEventBlob);
+
+    contractId.ifPresent(builder::setContractId);
+    templateId.ifPresent(id -> builder.setTemplateId(id.toProto()));
     synchronizerId.ifPresent(builder::setSynchronizerId);
     return builder.build();
   }

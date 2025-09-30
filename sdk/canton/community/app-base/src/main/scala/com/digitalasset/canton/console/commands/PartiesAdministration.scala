@@ -36,7 +36,7 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
 }
 import com.digitalasset.canton.crypto.SigningKeyUsage
-import com.digitalasset.canton.data.OnboardingTransactions
+import com.digitalasset.canton.data.{CantonTimestamp, OnboardingTransactions}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -792,7 +792,7 @@ class ParticipantPartiesAdministrationGroup(
       |- targetParticipantId: Unique identifier of the target participant where the party
       |                       will be replicated.
       |- beginOffsetExclusive: Exclusive ledger offset used as starting point fo find the party's
-      |                        most recent activation on the target participant.
+      |                        activation on the target participant.
       |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
       |- waitForActivationTimeout: The maximum duration the service will wait to find the topology
       |                            transaction that activates the party on the target participant.
@@ -855,6 +855,53 @@ class ParticipantPartiesAdministrationGroup(
       reference.adminCommand(
         ParticipantAdminCommands.PartyManagement.ImportPartyAcs(
           ByteString.copyFrom(File(importFilePath).loadBytes)
+        )
+      )
+    }
+
+  @Help.Summary(
+    "Finalize the party onboarding"
+  )
+  @Help.Description(
+    """Finalizes a party's onboarding by having the target participant unilaterally remove
+      |the onboarding flag on the party to participant topology mapping.
+      |
+      |The successful removal depends on the change history of the dynamic synchronizer's
+      |confirmation response timeout and the mediator reaction timeout parameters.
+      |
+      |Returns a tuple with a boolean and a timestamp:
+      |- True if the party onboarding was successfully finalized, false otherwise.
+      |- If onboarding finalization failed, then the timestamp suggests the earliest time to retry
+      |  the call.
+      |
+      |The arguments are:
+      |- party: The party being onboarded, it must already be active on the target participant.
+      |- synchronizerId: Restricts the party onboarding to the given synchronizer.
+      |- targetParticipantId: Unique identifier of the target participant where the party
+      |                       has been onboarded.
+      |- beginOffsetExclusive: Exclusive ledger offset used as starting point fo find the party's
+      |                        activation on the target participant.
+      |- waitForActivationTimeout: The maximum duration the service will wait to find the topology
+      |                            transaction that activates the party on the target participant.
+      """
+  )
+  def complete_party_onboarding(
+      party: PartyId,
+      synchronizerId: SynchronizerId,
+      targetParticipantId: ParticipantId,
+      beginOffsetExclusive: Long,
+      waitForActivationTimeout: Option[config.NonNegativeFiniteDuration] = Some(
+        config.NonNegativeFiniteDuration.ofMinutes(2)
+      ),
+  ): (Boolean, Option[CantonTimestamp]) =
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.CompletePartyOnboarding(
+          party,
+          synchronizerId,
+          targetParticipantId,
+          NonNegativeLong.tryCreate(beginOffsetExclusive),
+          waitForActivationTimeout,
         )
       )
     }

@@ -28,7 +28,7 @@ import org.apache.pekko.util
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, streamBinaryBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, SchemaType, path, query, streamBinaryBody}
 
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
@@ -224,6 +224,25 @@ object JsPackageCodecs {
       : Schema[package_management_service.VettedPackagesChange.Operation] =
     Schema.oneOfWrapped
 
+  implicit val topologySerial: Codec[package_reference.PriorTopologySerial] =
+    deriveRelaxedCodec
+
+  implicit val topologySerialSerial: Codec[package_reference.PriorTopologySerial.Serial] =
+    deriveConfiguredCodec
+
+  implicit val topologySerialSerialPriorOneOf
+      : Codec[package_reference.PriorTopologySerial.Serial.Prior] =
+    deriveRelaxedCodec
+
+  implicit val topologySerialSerialNoPriorOneOf
+      : Codec[package_reference.PriorTopologySerial.Serial.NoPrior] =
+    Codec.from(
+      Decoder.decodeUnit.map(_ =>
+        package_reference.PriorTopologySerial.Serial.NoPrior(com.google.protobuf.empty.Empty())
+      ),
+      Encoder.encodeUnit.contramap[package_reference.PriorTopologySerial.Serial.NoPrior](_ => ()),
+    )
+
   implicit val vettedPackagesChange: Codec[package_management_service.VettedPackagesChange] =
     deriveRelaxedCodec
   implicit val updateVettedPackagesRequest
@@ -257,5 +276,16 @@ object JsPackageCodecs {
     Schema.oneOfWrapped
 
   implicit val packageStatusSchema: Schema[package_service.PackageStatus] = stringSchemaForEnum()
+
+  implicit val topologySerialSerialNoPriorSchema
+      : Schema[package_reference.PriorTopologySerial.Serial.NoPrior] =
+    Schema(
+      schemaType =
+        SchemaType.SProduct[package_reference.PriorTopologySerial.Serial.NoPrior](List.empty),
+      name = Some(Schema.SName("NoPrior")),
+    )
+
+  implicit val topologySerialSerialSchema: Schema[package_reference.PriorTopologySerial.Serial] =
+    Schema.oneOfWrapped
 
 }

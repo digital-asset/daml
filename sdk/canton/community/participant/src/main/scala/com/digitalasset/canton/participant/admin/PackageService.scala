@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.foldable.*
@@ -16,7 +15,9 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.{
   EnrichedVettedPackage,
   ListVettedPackagesOpts,
+  SinglePackageTargetVetting,
   UpdateVettedPackagesOpts,
+  VettedPackagesRef,
 }
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.ledger.participant.state.PackageDescription
@@ -30,6 +31,10 @@ import com.digitalasset.canton.participant.admin.CantonPackageServiceError.Packa
   PackageRemovalError,
   PackageVetted,
 }
+import com.digitalasset.canton.participant.admin.CantonPackageServiceError.Vetting.{
+  VettingReferenceEmpty,
+  VettingReferenceMoreThanOne,
+}
 import com.digitalasset.canton.participant.admin.PackageService.*
 import com.digitalasset.canton.participant.admin.data.UploadDarData
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -40,8 +45,10 @@ import com.digitalasset.canton.participant.store.memory.{
 }
 import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.transaction.VettedPackage
+import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId, ProtoDeserializationError}
@@ -88,7 +95,7 @@ trait DarService {
 }
 
 class PackageService(
-    val packageDependencyResolver: PackageDependencyResolver,
+    val packageDependencyResolver: PackageDependencyResolver.Impl,
     protected val loggerFactory: NamedLoggerFactory,
     metrics: ParticipantMetrics,
     packageOps: PackageOps,
@@ -102,7 +109,7 @@ class PackageService(
   private val packageLoader = new DeduplicatingPackageLoader()
   private val packagesDarsStore = packageDependencyResolver.damlPackageStore
 
-  def getPackageMetadataView: PackageMetadataView = packageUploader.getPackageMetadataView
+  def getPackageMetadataView: PackageMetadataView = packageUploader.packageMetadataView
 
   def getLfArchive(packageId: PackageId)(implicit
       traceContext: TraceContext
@@ -188,6 +195,49 @@ class PackageService(
       revokeVettingForDar(mainPkg, packages, descriptor)
     }(ifNotExistsOperationFailed = "DAR archive unvetting")
 
+  def resolveTargetVettingReferences(
+      targetState: SinglePackageTargetVetting[VettedPackagesRef],
+      snapshot: PackageMetadata,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[
+    FutureUnlessShutdown,
+    RpcError,
+    List[SinglePackageTargetVetting[PackageId]],
+  ] =
+    targetState.ref.findMatchingPackages(snapshot) match {
+      // When vetting, we expect every reference to give exactly one package.
+      // With unvetting we are more lenient to allow the use case where a
+      // app developer provides a script that unvets an old, deprecated package
+      // "just in case".
+      case Left(msg) =>
+        val err = VettingReferenceEmpty.Reject(msg, targetState.ref)
+        if (targetState.isUnvetting) {
+          logger.debug(err.cause)
+          EitherT.rightT[FutureUnlessShutdown, RpcError](List())
+        } else {
+          EitherT.leftT[FutureUnlessShutdown, List[SinglePackageTargetVetting[PackageId]]](
+            err
+          )
+        }
+
+      // When vetting, we expect every reference to give exactly one package in
+      // order to rule out the case where two versions of the same package are
+      // vetted. On the other hand, when unvetting, it is safe to unvet all
+      // versions of a package.
+      case Right(matchingPackages) =>
+        val pkgsSeq: List[PackageId] = matchingPackages.iterator.toList
+        if (targetState.isVetting && pkgsSeq.lengthIs >= 2) {
+          EitherT.leftT[FutureUnlessShutdown, List[SinglePackageTargetVetting[PackageId]]](
+            VettingReferenceMoreThanOne.Reject(targetState.ref)
+          )
+        } else {
+          EitherT.rightT[FutureUnlessShutdown, RpcError](pkgsSeq.map { (pkgId: PackageId) =>
+            SinglePackageTargetVetting(pkgId, targetState.bounds)
+          })
+        }
+    }
+
   def updateVettedPackages(
       opts: UpdateVettedPackagesOpts
   )(implicit
@@ -199,16 +249,18 @@ class PackageService(
   ] = {
     val snapshot = getPackageMetadataView.getSnapshot
     val targetStates = opts.toTargetStates
-    val resolvedTargetStates = targetStates.flatMap(_.findMatchingPackages(snapshot))
-    packageOps
-      // TODO(#27750): all requests are of the authorized store instead of a synchronizer
-      .updateVettedPackages(resolvedTargetStates, opts.dryRun)
-      .leftWiden[RpcError]
-      .map { case (pre, post) =>
-        val enrichedPre = pre.map(enrichVettedPackage)
-        val enrichedPost = post.map(enrichVettedPackage)
-        (enrichedPre, enrichedPost)
-      }
+    for {
+      resolvedTargetStates <- targetStates.parTraverse(resolveTargetVettingReferences(_, snapshot))
+      preAndPost <- packageOps
+        // TODO(#27750): all requests are of the authorized store instead of a synchronizer
+        .updateVettedPackages(resolvedTargetStates.flatten, opts.dryRun)
+        .leftWiden[RpcError]
+    } yield {
+      val (pre, post) = preAndPost
+      val enrichedPre = pre.map(enrichVettedPackage)
+      val enrichedPost = post.map(enrichVettedPackage)
+      (enrichedPre, enrichedPost)
+    }
   }
 
   def listVettedPackages(
@@ -367,7 +419,17 @@ class PackageService(
             )
           )
         else
-          packageOps.revokeVettingForPackages(mainPkg, packages, darDescriptor).leftWiden
+          packageOps
+            .revokeVettingForPackages(
+              mainPkg,
+              packages,
+              darDescriptor,
+              // Unvetting a DAR requires AllowUnvettedDependencies because it is going to unvet all
+              // packages from the DAR, even the utility packages. UnvetDar is an experimental
+              // operation that requires expert-level knowledge.
+              ForceFlags(ForceFlag.AllowUnvetPackage, ForceFlag.AllowUnvettedDependencies),
+            )
+            .leftWiden
       }
 
   /** Performs the upload DAR flow:
@@ -532,11 +594,11 @@ object PackageService {
   def apply(
       clock: Clock,
       engine: Engine,
-      packageDependencyResolver: PackageDependencyResolver,
+      mutablePackageMetadataView: MutablePackageMetadataView,
+      packageDependencyResolver: PackageDependencyResolver.Impl,
       enableStrictDarValidation: Boolean,
       loggerFactory: NamedLoggerFactory,
       metrics: ParticipantMetrics,
-      mutablePackageMetadataView: Eval[MutablePackageMetadataView],
       packageOps: PackageOps,
       timeouts: ProcessingTimeout,
   )(implicit
