@@ -49,14 +49,13 @@ class TransactionCoderSpec
         case (createNode, (nodeVersion, txVersion)) =>
           try {
             val versionedNode = normalizeCreate(createNode.updateVersion(nodeVersion))
-            val Right(encodedNode) = TransactionCoder
-              .encodeNode(
-                enclosingVersion = txVersion,
-                nodeId = NodeId(0),
-                node = versionedNode,
-              )
+            val Right(encodedNode) = TransactionCoder.internal.encodeNode(
+              enclosingVersion = txVersion,
+              nodeId = NodeId(0),
+              node = versionedNode,
+            )
 
-            TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+            TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
               (NodeId(0), versionedNode)
             )
           } catch {
@@ -73,7 +72,7 @@ class TransactionCoderSpec
         case (fetchNode, (nodeVersion, txVersion)) =>
           val versionedNode = normalizeFetch(fetchNode.updateVersion(nodeVersion))
           val encodedNode =
-            TransactionCoder
+            TransactionCoder.internal
               .encodeNode(
                 enclosingVersion = txVersion,
                 nodeId = NodeId(0),
@@ -81,7 +80,7 @@ class TransactionCoderSpec
               )
               .toOption
               .get
-          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+          TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
             (NodeId(0), versionedNode)
           )
       }
@@ -92,13 +91,13 @@ class TransactionCoderSpec
         case (exerciseNode, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeExe(exerciseNode.updateVersion(nodeVersion))
           val Right(encodedNode) =
-            TransactionCoder
+            TransactionCoder.internal
               .encodeNode(
                 enclosingVersion = txVersion,
                 nodeId = NodeId(0),
                 node = normalizedNode,
               )
-          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+          TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
             (NodeId(0), normalizedNode)
           )
       }
@@ -109,13 +108,13 @@ class TransactionCoderSpec
         forEvery(transactionVersions) { txVersion =>
           val normalizedNode = normalizeNode(node)
           val Right(encodedNode) =
-            TransactionCoder
+            TransactionCoder.internal
               .encodeNode(
                 enclosingVersion = txVersion,
                 nodeId = NodeId(0),
                 node = normalizedNode,
               )
-          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+          TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
             (NodeId(0), normalizedNode)
           )
         }
@@ -129,12 +128,7 @@ class TransactionCoderSpec
           tx.nodes.transform((_, node) => normalizeNode(node)),
           tx.roots,
         )
-        inside(
-          TransactionCoder
-            .encodeTransactionWithCustomVersion(
-              transaction = tx2
-            )
-        ) {
+        inside(TransactionCoder.encodeTransaction(tx2)) {
           case Left(EncodeError(msg)) =>
             // fuzzy sort of "failed because of the version override" test
             msg should include(tx2.version.pretty)
@@ -152,8 +146,8 @@ class TransactionCoderSpec
           whenever(TransactionVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
-                .encodeTransactionWithCustomVersion(
-                  transaction = VersionedTransaction(
+                .encodeTransaction(
+                  VersionedTransaction(
                     TransactionVersion.VDev,
                     tx.nodes.view.mapValues(updateVersion(_, TransactionVersion.VDev)).toMap,
                     tx.roots,
@@ -220,7 +214,7 @@ class TransactionCoderSpec
         case ((nodeId, node), (txVersion, nodeVersion)) =>
           val normalizedNode = updateVersion(node, nodeVersion)
 
-          TransactionCoder
+          TransactionCoder.internal
             .encodeNode(
               enclosingVersion = txVersion,
               nodeId = nodeId,
@@ -243,14 +237,16 @@ class TransactionCoderSpec
       forAll(gen, minSuccessful(5)) { case ((nodeVersion, txVersion), (nodeId, node)) =>
         val normalizedNode = updateVersion(node, nodeVersion)
 
-        val Right(encoded) = TransactionCoder
+        val Right(encoded) = TransactionCoder.internal
           .encodeNode(
             enclosingVersion = nodeVersion,
             nodeId = nodeId,
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNode(txVersion, encoded) shouldBe Right((nodeId, normalizedNode))
+        TransactionCoder.internal.decodeNode(txVersion, encoded) shouldBe Right(
+          (nodeId, normalizedNode)
+        )
       }
     }
 
@@ -263,14 +259,14 @@ class TransactionCoderSpec
       ) { case ((nodeId, node), (v1, v2)) =>
         val normalizedNode = updateVersion(node, v2)
 
-        val Right(encoded) = TransactionCoder
+        val Right(encoded) = TransactionCoder.internal
           .encodeNode(
             enclosingVersion = v2,
             nodeId = nodeId,
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNode(v1, encoded) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.decodeNode(v1, encoded) shouldBe a[Left[_, _]]
       }
     }
 
@@ -308,7 +304,7 @@ class TransactionCoderSpec
         assert(reencoded != encoded)
         inside(TransactionCoder.decodeVersioned(reencoded)) {
           case Left(DecodeError(errorMessage)) =>
-            errorMessage should include("unexpected field(s)")
+            errorMessage should include("unknown field")
         }
       }
     }
@@ -377,7 +373,7 @@ class TransactionCoderSpec
         val bytes = hackProto(instance, addUnknownField(_, i, extraBytes))
         inside(TransactionCoder.decodeFatContractInstance(bytes)) {
           case Left(DecodeError(errorMessage)) =>
-            errorMessage should include("unexpected field(s)")
+            errorMessage should include("unknown field")
         }
       }
     }
@@ -399,7 +395,8 @@ class TransactionCoderSpec
             CreationTime.CreatedAt(time),
             data.Bytes.fromByteString(salt),
           )
-          val Right(protoKey) = TransactionCoder.encodeKeyWithMaintainers(create.version, key)
+          val Right(protoKey) =
+            TransactionCoder.internal.encodeKeyWithMaintainers(create.version, key)
           val bytes = hackProto(
             instance,
             _.setContractKeyWithMaintainers(protoKey.toBuilder.clearMaintainers()).build(),
@@ -444,7 +441,7 @@ class TransactionCoderSpec
         key: GlobalKeyWithMaintainers,
         f: TransactionOuterClass.KeyWithMaintainers.Builder => TransactionOuterClass.KeyWithMaintainers.Builder,
     ): TransactionOuterClass.KeyWithMaintainers = {
-      val Right(encoded) = TransactionCoder.encodeKeyWithMaintainers(version, key)
+      val Right(encoded) = TransactionCoder.internal.encodeKeyWithMaintainers(version, key)
       f(encoded.toBuilder).build()
     }
 
@@ -595,14 +592,14 @@ class TransactionCoderSpec
       forAll(gen) { case ((txVersion, nodeVersion), (nodeId, node)) =>
         val normalizedNode = updateVersion(node, nodeVersion)
 
-        val Right(encoded) = TransactionCoder
+        val Right(encoded) = TransactionCoder.internal
           .encodeNode(
             enclosingVersion = nodeVersion,
             nodeId = nodeId,
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNode(txVersion, encoded) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.decodeNode(txVersion, encoded) shouldBe a[Left[_, _]]
       }
     }
   }
@@ -621,8 +618,9 @@ class TransactionCoderSpec
       forAll(Gen.listOf(party)) { parties =>
         val sortedParties = parties.sorted.distinct
         val proto = toProto(sortedParties)
-        inside(TransactionCoder.toPartyTreeSet(proto)) { case Right(decoded: TreeSet[Party]) =>
-          decoded shouldBe TreeSet.from(sortedParties)
+        inside(TransactionCoder.internal.toPartyTreeSet(proto)) {
+          case Right(decoded: TreeSet[Party]) =>
+            decoded shouldBe TreeSet.from(sortedParties)
         }
       }
     }
@@ -638,7 +636,7 @@ class TransactionCoderSpec
         val nonSortedParties =
           Iterator.iterate(parties)(shuffle(_)).filterNot(_ == sortedParties).next()
         val proto = toProto(nonSortedParties)
-        TransactionCoder.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
       }
     }
 
@@ -646,7 +644,7 @@ class TransactionCoderSpec
       forAll(party, Gen.listOf(party)) { (party, parties) =>
         val partiesWithDuplicate = (party :: party :: parties).sorted
         val proto = toProto(partiesWithDuplicate)
-        TransactionCoder.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
       }
     }
   }
