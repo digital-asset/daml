@@ -73,7 +73,7 @@ object ContractValidator {
         result <- lfContractValidation.validate(
           contract,
           targetPackageId,
-          cid => cid,
+          Predef.identity,
           contractIdVersion.contractHashingMethod,
           hash => authenticateHashInternal(contract, hash, contractIdVersion).isRight,
         )
