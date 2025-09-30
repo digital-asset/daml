@@ -2813,6 +2813,10 @@ private[lf] object SBuiltinFun {
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
 
+    println(
+      s"ORIGINAL: $original, RECOMPUTED: $recomputed, SRC: $srcTemplateId, DST: $recomputedTemplateId"
+    )
+
     def check[T](getter: ContractMetadata => T, desc: String): Option[String] =
       Option.when(getter(recomputed) != getter(original))(
         s"$desc mismatch: $original vs $recomputed"
@@ -2829,14 +2833,16 @@ private[lf] object SBuiltinFun {
       case errors =>
         Control.Error(
           IE.Upgrade(
-            // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
               srcTemplateId = srcTemplateId,
               dstTemplateId = recomputedTemplateId,
-              signatories = recomputed.signatories,
-              observers = recomputed.observers,
-              keyOpt = recomputed.keyOpt,
+              originalSignatories = original.signatories,
+              originalObservers = original.observers,
+              originalKeyOpt = original.keyOpt,
+              recomputedSignatories = recomputed.signatories,
+              recomputedObservers = recomputed.observers,
+              recomputedKeyOpt = recomputed.keyOpt,
               msg = errors.mkString("['", "', '", "']"),
             )
           )

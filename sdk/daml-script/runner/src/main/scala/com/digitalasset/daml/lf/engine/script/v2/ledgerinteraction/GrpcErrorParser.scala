@@ -262,20 +262,30 @@ object GrpcErrorParser {
           SubmitError.ContractIdComparability(cid)
         }
       case "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED" =>
+        // There are four cases:
+        //   1. No contract key on either original or recomputed
+        //   2. Contract key only on original
+        //   3. Contract key only on recomputed
+        //   4. Contract key on both original and recomputed
         caseErr {
           case Seq(
                 (ErrorResource.ContractId, coid),
                 (ErrorResource.TemplateId, srcTemplateId),
                 (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, signatories),
-                (ErrorResource.Parties, observers),
+                (ErrorResource.Parties, originalSignatories),
+                (ErrorResource.Parties, originalObservers),
+                (ErrorResource.Parties, recomputedSignatories),
+                (ErrorResource.Parties, recomputedObservers),
               ) =>
             SubmitError.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
               Identifier.assertFromString(srcTemplateId),
               Identifier.assertFromString(dstTemplateId),
-              parseParties(signatories),
-              parseParties(observers),
+              parseParties(originalSignatories),
+              parseParties(originalObservers),
+              None,
+              parseParties(recomputedSignatories),
+              parseParties(recomputedObservers),
               None,
               message,
             )
@@ -283,26 +293,106 @@ object GrpcErrorParser {
                 (ErrorResource.ContractId, coid),
                 (ErrorResource.TemplateId, srcTemplateId),
                 (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, signatories),
-                (ErrorResource.Parties, observers),
-                (ErrorResource.ContractKey, decodeValue.unlift(globalKey)),
-                (ErrorResource.PackageName, pn),
-                (ErrorResource.Parties, maintainers),
+                (ErrorResource.Parties, originalSignatories),
+                (ErrorResource.Parties, originalObservers),
+                (ErrorResource.ContractKey, decodeValue.unlift(originalGlobalKey)),
+                (ErrorResource.PackageName, originalPn),
+                (ErrorResource.Parties, originalMaintainers),
+                (ErrorResource.Parties, recomputedSignatories),
+                (ErrorResource.Parties, recomputedObservers),
               ) =>
+            val srcTid = Identifier.assertFromString(srcTemplateId)
             val dstTid = Identifier.assertFromString(dstTemplateId)
-            val packageName = PackageName.assertFromString(pn)
             SubmitError.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
               Identifier.assertFromString(srcTemplateId),
               dstTid,
-              parseParties(signatories),
-              parseParties(observers),
+              parseParties(originalSignatories),
+              parseParties(originalObservers),
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  srcTid,
+                  originalGlobalKey,
+                  parseParties(originalMaintainers),
+                  PackageName.assertFromString(originalPn),
+                )
+              ),
+              parseParties(recomputedSignatories),
+              parseParties(recomputedObservers),
+              None,
+              message,
+            )
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.Parties, originalSignatories),
+                (ErrorResource.Parties, originalObservers),
+                (ErrorResource.Parties, recomputedSignatories),
+                (ErrorResource.Parties, recomputedObservers),
+                (ErrorResource.ContractKey, decodeValue.unlift(recomputedGlobalKey)),
+                (ErrorResource.PackageName, recomputedPn),
+                (ErrorResource.Parties, recomputedMaintainers),
+              ) =>
+            val dstTid = Identifier.assertFromString(dstTemplateId)
+            SubmitError.UpgradeError.ValidationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              dstTid,
+              parseParties(originalSignatories),
+              parseParties(originalObservers),
+              None,
+              parseParties(recomputedSignatories),
+              parseParties(recomputedObservers),
               Some(
                 GlobalKeyWithMaintainers.assertBuild(
                   dstTid,
-                  globalKey,
-                  parseParties(maintainers),
-                  packageName,
+                  recomputedGlobalKey,
+                  parseParties(recomputedMaintainers),
+                  PackageName.assertFromString(recomputedPn),
+                )
+              ),
+              message,
+            )
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.Parties, originalSignatories),
+                (ErrorResource.Parties, originalObservers),
+                (ErrorResource.ContractKey, decodeValue.unlift(originalGlobalKey)),
+                (ErrorResource.PackageName, originalPn),
+                (ErrorResource.Parties, originalMaintainers),
+                (ErrorResource.Parties, recomputedSignatories),
+                (ErrorResource.Parties, recomputedObservers),
+                (ErrorResource.ContractKey, decodeValue.unlift(recomputedGlobalKey)),
+                (ErrorResource.PackageName, recomputedPn),
+                (ErrorResource.Parties, recomputedMaintainers),
+              ) =>
+            val srcTid = Identifier.assertFromString(srcTemplateId)
+            val dstTid = Identifier.assertFromString(dstTemplateId)
+            SubmitError.UpgradeError.ValidationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              dstTid,
+              parseParties(originalSignatories),
+              parseParties(originalObservers),
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  srcTid,
+                  originalGlobalKey,
+                  parseParties(originalMaintainers),
+                  PackageName.assertFromString(originalPn),
+                )
+              ),
+              parseParties(recomputedSignatories),
+              parseParties(recomputedObservers),
+              Some(
+                GlobalKeyWithMaintainers.assertBuild(
+                  dstTid,
+                  recomputedGlobalKey,
+                  parseParties(recomputedMaintainers),
+                  PackageName.assertFromString(recomputedPn),
                 )
               ),
               message,

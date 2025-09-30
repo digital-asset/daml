@@ -166,9 +166,12 @@ object Error {
         coid: ContractId,
         srcTemplateId: TypeConId,
         dstTemplateId: TypeConId,
-        signatories: Set[Party],
-        observers: Set[Party],
-        keyOpt: Option[GlobalKeyWithMaintainers],
+        originalSignatories: Set[Party],
+        originalObservers: Set[Party],
+        originalKeyOpt: Option[GlobalKeyWithMaintainers],
+        recomputedSignatories: Set[Party],
+        recomputedObservers: Set[Party],
+        recomputedKeyOpt: Option[GlobalKeyWithMaintainers],
         msg: String,
     ) extends Error
   }

@@ -85,6 +85,7 @@ object SubmitError {
   }
 
   def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue = {
+    println(s"KEY: $key")
     val ty = env.lookupKeyTy(key.templateId).toOption.get
     val sValue = env.translateValue(ty, key.key).toOption.get
     fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))
@@ -431,9 +432,12 @@ object SubmitError {
         coid: ContractId,
         srcTemplateId: Identifier,
         dstTemplateId: Identifier,
-        signatories: Set[Party],
-        observers: Set[Party],
-        optKey: Option[GlobalKeyWithMaintainers],
+        originalSignatories: Set[Party],
+        originalObservers: Set[Party],
+        originalOptKey: Option[GlobalKeyWithMaintainers],
+        recomputedSignatories: Set[Party],
+        recomputedObservers: Set[Party],
+        recomputedOptKey: Option[GlobalKeyWithMaintainers],
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
@@ -445,11 +449,27 @@ object SubmitError {
             ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
             ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
             ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
-            ("signatories", SList(signatories.toList.map(SParty).to(FrontStack))),
-            ("observers", SList(observers.toList.map(SParty).to(FrontStack))),
             (
-              "optKey",
-              SOptional(optKey.map(key => {
+              "originalSignatories",
+              SList(originalSignatories.toList.map(SParty).to(FrontStack)),
+            ),
+            ("originalObservers", SList(originalObservers.toList.map(SParty).to(FrontStack))),
+            (
+              "originalOptKey",
+              SOptional(originalOptKey.map(key => {
+                val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
+                val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
+                makeTuple(globalKey, maintainers)
+              })),
+            ),
+            (
+              "recomputedSignatories",
+              SList(recomputedSignatories.toList.map(SParty).to(FrontStack)),
+            ),
+            ("recomputedObservers", SList(recomputedObservers.toList.map(SParty).to(FrontStack))),
+            (
+              "recomputedOptKey",
+              SOptional(recomputedOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
                 val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
                 makeTuple(globalKey, maintainers)
