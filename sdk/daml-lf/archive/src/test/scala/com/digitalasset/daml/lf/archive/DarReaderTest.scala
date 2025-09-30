@@ -5,7 +5,8 @@ package com.digitalasset.daml.lf.archive
 
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.{DamlLf1, DamlLf2}
+import com.daml.crypto.MessageDigestPrototype
+import com.google.protobuf
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -182,6 +183,66 @@ class DarReaderTest
       internedDotted(n).getSegmentsInternedStrList.asScala
         .map(i => internedStrings(i))
         .mkString(".")
+    }
+  }
+
+  private def addUnknownField(
+      msg: protobuf.Message,
+      i: Int,
+      content: protobuf.ByteString,
+  ): protobuf.Message = {
+    require(!content.isEmpty)
+    val builder = msg.toBuilder
+    def norm(i: Int) = (i % 536870911).abs + 1 // valid proto field index are 1 to 536870911
+    val knownFieldIndex = builder.getDescriptorForType.getFields.asScala.map(_.getNumber).toSet
+    val j = Iterator.iterate(norm(i))(i => norm(i + 1)).filterNot(knownFieldIndex).next()
+    val field = protobuf.UnknownFieldSet.Field.newBuilder().addLengthDelimited(content).build()
+    val extraFields = protobuf.UnknownFieldSet.newBuilder().addField(j, field).build()
+    builder.setUnknownFields(extraFields).build()
+  }
+
+  val extraData = protobuf.ByteString.fromHex("0123456789abcdef")
+
+  s"should reject Archive with unknown fields" in {
+    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+    val Right(dar) = DarParser.readArchiveFromFile(darFile)
+    val archive: DamlLf.Archive = dar.main
+
+    ArchiveParser.fromByteString(archive.toByteString) shouldBe a[Right[_, _]]
+
+    val mutatedArchive = addUnknownField(archive, 42, extraData)
+    inside(ArchiveParser.fromByteString(mutatedArchive.toByteString)) {
+      case Left(Error.Parsing(err)) =>
+        err should include("Archive contains unknown field")
+    }
+  }
+
+  private def toProto(archivePayload: protobuf.ByteString): DamlLf.Archive = {
+    val hash = MessageDigestPrototype.Sha256.newDigest
+      .digest(archivePayload.toByteArray)
+      .map("%02x" format _)
+      .mkString
+    DamlLf.Archive
+      .newBuilder()
+      .setHashFunction(DamlLf.HashFunction.SHA256)
+      .setPayload(archivePayload)
+      .setHash(hash)
+      .build()
+  }
+
+  s"should reject ArchivPayloade with unknown fields" in {
+
+    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+    val Right(dar) = DarParser.readArchiveFromFile(darFile)
+    val archive = dar.main
+    val payload: DamlLf.ArchivePayload = DamlLf.ArchivePayload.parseFrom(archive.getPayload)
+
+    Reader.readArchive(toProto(payload.toByteString)) shouldBe a[Right[_, _]]
+
+    val mutatedPayload1 = addUnknownField(payload, 12, extraData)
+    inside(Reader.readArchive(toProto(mutatedPayload1.toByteString))) {
+      case Left(Error.Parsing(err)) =>
+        err
     }
   }
 
