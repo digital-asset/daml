@@ -185,7 +185,6 @@ class TestEngine(
       packagePreference = engineCommands.packagePreferenceSet,
       submitters = Set(Ref.Party.assertFromString(actAs)),
       cmds = engineCommands.commands,
-      disclosures = engineCommands.disclosedContracts.map(_.fatContractInstance),
       participantId = participantId,
       submissionSeed = randomHash(),
       readAs = Set.empty,

@@ -1,0 +1,17 @@
+module IBaz where
+
+data EmptyView = EmptyView {}
+
+interface IBaz
+  where
+    viewtype EmptyView
+
+    owner: Party
+    choiceBody: Party -> Update ()
+
+    nonconsuming choice IBaz_Exe: ()
+      with
+        subInformee: Party
+      observer subInformee
+      controller owner this
+      do choiceBody this subInformee

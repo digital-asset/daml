@@ -20,6 +20,7 @@ service TopologyManagerWriteService {
   rpc AddTransactions(AddTransactionsRequest) returns (AddTransactionsResponse);
 
   rpc ImportTopologySnapshot(stream ImportTopologySnapshotRequest) returns (ImportTopologySnapshotResponse);
+  rpc ImportTopologySnapshotV2(stream ImportTopologySnapshotV2Request) returns (ImportTopologySnapshotV2Response);
 
   rpc SignTransactions(SignTransactionsRequest) returns (SignTransactionsResponse);
 
@@ -170,6 +171,17 @@ message ImportTopologySnapshotRequest {
   google.protobuf.Duration wait_to_become_effective = 3;
 }
 message ImportTopologySnapshotResponse {}
+
+/**
+ * Same message as AddTransactionsRequest, except that transactions are encoded in a byte string
+ */
+message ImportTopologySnapshotV2Request {
+  bytes topology_snapshot = 1;
+  StoreId store = 2;
+  /** Optional timeout to wait for the transaction to become effective in the store. */
+  google.protobuf.Duration wait_to_become_effective = 3;
+}
+message ImportTopologySnapshotV2Response {}
 
 message SignTransactionsRequest {
   /** The transactions to be signed, but will not be stored in the authorized store */

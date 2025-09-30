@@ -42,10 +42,9 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionTestFactory,
 }
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
-  StoredTopologyTransactions,
   TopologyStateForInitializationService,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -53,6 +52,7 @@ import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.{ProtocolVersion, VersionedMessage}
 import com.digitalasset.canton.{
   BaseTest,
+  HasActorSystem,
   HasExecutionContext,
   ProtocolVersionChecksFixtureAsyncWordSpec,
 }
@@ -61,6 +61,8 @@ import io.grpc.Status.Code.*
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import io.grpc.{StatusException, StatusRuntimeException}
 import monocle.macros.syntax.lens.*
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import org.mockito.{ArgumentMatchers, Mockito}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.FixtureAsyncWordSpec
@@ -77,7 +79,8 @@ class GrpcSequencerServiceTest
     extends FixtureAsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksFixtureAsyncWordSpec
-    with HasExecutionContext {
+    with HasExecutionContext
+    with HasActorSystem {
   type Subscription = GrpcManagedSubscription[?]
 
   import GrpcSequencerServiceTest.*
@@ -142,21 +145,19 @@ class GrpcSequencerServiceTest
         override def initialSnapshot(member: Member)(implicit
             executionContext: ExecutionContext,
             traceContext: TraceContext,
-        ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = FutureUnlessShutdown.pure(
-          StoredTopologyTransactions(
-            // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
-            List
-              .fill(maxItemsInTopologyBatch * numBatches)(factory.ns1k1_k1)
-              .map(
-                StoredTopologyTransaction(
-                  SequencedTime.MinValue,
-                  EffectiveTime.MinValue,
-                  None,
-                  _,
-                  None,
-                )
+        ): Source[GenericStoredTopologyTransaction, NotUsed] = Source(
+          // As we don't expect the actual transactions in this test, we can repeat the same transaction a bunch of times
+          List
+            .fill(maxItemsInTopologyBatch * numBatches)(factory.ns1k1_k1)
+            .map(
+              StoredTopologyTransaction(
+                SequencedTime.MinValue,
+                EffectiveTime.MinValue,
+                None,
+                _,
+                None,
               )
-          )
+            )
         )
       }
 
@@ -780,7 +781,7 @@ class GrpcSequencerServiceTest
 
   "downloadTopologyStateForInit" should {
     "stream batches of topology transactions" in { env =>
-      val observer = new MockStreamObserver[v30.DownloadTopologyStateForInitResponse]()
+      val observer = new MockServerStreamObserver[v30.DownloadTopologyStateForInitResponse]()
       env.service.downloadTopologyStateForInit(
         TopologyStateForInitRequest(participant, testedProtocolVersion).toProtoV30,
         observer,

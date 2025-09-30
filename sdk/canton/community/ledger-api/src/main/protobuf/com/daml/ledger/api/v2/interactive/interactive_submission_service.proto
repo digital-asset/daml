@@ -124,7 +124,8 @@ message PrepareSubmissionRequest {
   repeated DisclosedContract disclosed_contracts = 7;
 
   // Must be a valid synchronizer id
-  // Required
+  // If not set, a suitable synchronizer that this node is connected to will be chosen
+  // Optional
   string synchronizer_id = 8;
 
   // The package-id selection preference of the client for resolving

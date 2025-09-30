@@ -102,8 +102,8 @@ class P2PNetworkInModule[E <: Env[E]](
         metrics.p2p.receive.labels.source.values.Availability(from)
       case Message.ConsensusMessage(consensusMessage) =>
         IssConsensusModule
-          .parseNetworkMessage(consensusMessage)
-          .map(msg => Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(from, msg))
+          .parseNetworkMessage(consensusMessage, actualSender = from)
+          .map(msg => Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(msg))
           .fold(
             errorMessage =>
               logger.warn(

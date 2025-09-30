@@ -107,6 +107,18 @@ final class GeneratorsSequencer(
       topologySnapshot,
       staticSynchronizerParameters,
       sequencerSnapshot,
+    )
+  )
+
+  implicit val onboardingStateForSequencerV2: Arbitrary[OnboardingStateForSequencerV2] = Arbitrary(
+    for {
+      topologySnapshotO <- Gen.option(Arbitrary.arbitrary[GenericStoredTopologyTransaction])
+      staticSynchronizerParametersO <- Gen.option(Arbitrary.arbitrary[StaticSynchronizerParameters])
+      sequencerSnapshotO <- Gen.option(Arbitrary.arbitrary[SequencerSnapshot])
+    } yield OnboardingStateForSequencerV2(
+      topologySnapshotO,
+      staticSynchronizerParametersO,
+      sequencerSnapshotO,
       protocolVersion,
     )
   )

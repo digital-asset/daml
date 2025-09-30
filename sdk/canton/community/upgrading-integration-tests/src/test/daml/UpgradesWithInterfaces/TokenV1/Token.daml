@@ -1,0 +1,8 @@
+module Token where
+
+template Token
+  with
+    owner: Party
+    assetId: Text
+  where
+    signatory owner

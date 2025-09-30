@@ -84,6 +84,7 @@ private[participant] object AutomaticAssignment {
               workflowId = None,
             ),
             id,
+            targetTopology,
           )(TraceContext.empty)
           .mapK(FutureUnlessShutdown.outcomeK)
         AssignmentProcessingSteps.SubmissionResult(completionF) = submissionResult

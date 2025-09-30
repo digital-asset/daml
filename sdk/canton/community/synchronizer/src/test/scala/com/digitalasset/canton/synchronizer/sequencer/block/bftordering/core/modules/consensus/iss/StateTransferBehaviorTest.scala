@@ -385,7 +385,7 @@ class StateTransferBehaviorTest
           stateTransferBehavior.postponedConsensusMessages
             .enqueue(
               otherId,
-              Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(otherId, signedMessage),
+              Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage),
             )
 
           stateTransferBehavior.receive(
@@ -448,15 +448,13 @@ class StateTransferBehaviorTest
 
       // PbftUnverifiedNetworkMessage
       val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+      when(underlyingMessage.actualSender).thenReturn(Some(otherId))
       when(underlyingMessage.from).thenThrow(
         new RuntimeException("should have used an actual sender")
       )
       val signedMessage = underlyingMessage.fakeSign
       val pbftUnverifiedNetworkMessage =
-        Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(
-          actualSender = otherId,
-          signedMessage,
-        )
+        Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage)
       stateTransferBehavior.receive(pbftUnverifiedNetworkMessage)
 
       // PbftVerifiedNetworkMessage

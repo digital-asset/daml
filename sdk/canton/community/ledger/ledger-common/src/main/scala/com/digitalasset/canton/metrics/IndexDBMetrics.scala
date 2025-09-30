@@ -440,6 +440,9 @@ class MainIndexDBMetrics(
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"
   )
+  val lookupLastActivationsDbMetrics: DatabaseMetrics = createDbMetrics(
+    "lookup_last_activations"
+  )
 
   val lookupPointwiseUpdateFetchEventIds: DatabaseMetrics = createDbMetrics(
     "fetch_event_ids"
@@ -450,11 +453,17 @@ class MainIndexDBMetrics(
   )
   val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
-  val getActiveContractIdsForCreated: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_ids_for_created"
+  val getActiveContractIdRangesForCreated: DatabaseMetrics = createDbMetrics(
+    "get_active_contract_id_ranges_for_created"
   )
-  val getActiveContractIdsForAssigned: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_ids_for_assigned"
+  val getFilteredActiveContractIdsForCreated: DatabaseMetrics = createDbMetrics(
+    "get_filtered_active_contract_ids_for_created"
+  )
+  val getActiveContractIdRangesForAssigned: DatabaseMetrics = createDbMetrics(
+    "get_active_contract_id_ranges_for_assigned"
+  )
+  val getFilteredActiveContractIdsForAssigned: DatabaseMetrics = createDbMetrics(
+    "get_filtered_active_contract_ids_for_assigned"
   )
   val getActiveContractBatchForCreated: DatabaseMetrics = createDbMetrics(
     "get_active_contract_batch_for_created"

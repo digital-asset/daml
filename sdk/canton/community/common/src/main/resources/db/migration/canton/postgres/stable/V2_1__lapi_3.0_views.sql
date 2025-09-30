@@ -65,6 +65,27 @@ $$
   immutable
   returns null on null input;
 
+-- convert the byte event_type representation to textual
+create or replace function debug.lapi_event_type(smallint) returns varchar as
+$$
+select
+  case
+    when $1 = 1 then 'Activate-Create'
+    when $1 = 2 then 'Activate-Assign'
+    when $1 = 3 then 'Deactivate-Consuming-Exercise'
+    when $1 = 4 then 'Deactivate-Unassign'
+    when $1 = 5 then 'Witnessed-Non-Consuming-Exercise'
+    when $1 = 6 then 'Witnessed-Create'
+    when $1 = 7 then 'Witnessed-Consuming-Exercise'
+    when $1 = 8 then 'Topology-PartyToParticipant'
+    when $1 is null then 'None'
+    else $1::text
+  end;
+$$
+  language sql
+  immutable
+  called on null input;
+
 -- resolve a ledger api interned string
 create or replace function debug.resolve_lapi_interned_string(integer) returns varchar as
 $$
@@ -136,6 +157,152 @@ create or replace view debug.lapi_command_completions as
     lower(encode(trace_context, 'hex')) as trace_context
   from lapi_command_completions;
 
+create or replace view debug.lapi_events_activate_contract as
+  select
+    -- update related columns
+    event_offset,
+    lower(encode(update_id, 'hex')) as update_id,
+    workflow_id,
+    command_id,
+    debug.resolve_lapi_interned_strings(submitters) as submitters,
+    debug.canton_timestamp(record_time) as record_time,
+    debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
+    lower(encode(trace_context, 'hex')) as trace_context,
+    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash,
+
+    -- event related columns
+    debug.lapi_event_type(event_type) as event_type,
+    event_sequential_id,
+    node_id,
+    debug.resolve_lapi_interned_strings(additional_witnesses) as additional_witnesses,
+    debug.resolve_lapi_interned_string(source_synchronizer_id) as source_synchronizer_id,
+    reassignment_counter,
+    lower(encode(reassignment_id, 'hex')) as reassignment_id,
+    debug.resolve_lapi_interned_string(representative_package_id) as representative_package_id,
+
+    -- contract related columns
+    internal_contract_id,
+    create_key_hash
+  from lapi_events_activate_contract;
+
+create or replace view debug.lapi_filter_activate_stakeholder as
+  select
+    event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
+  from lapi_filter_activate_stakeholder;
+
+create or replace view debug.lapi_filter_activate_witness as
+  select
+    event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
+  from lapi_filter_activate_witness;
+
+create or replace view debug.lapi_events_deactivate_contract as
+  select
+    -- update related columns
+    event_offset,
+    lower(encode(update_id, 'hex')) as update_id,
+    workflow_id,
+    command_id,
+    debug.resolve_lapi_interned_strings(submitters) as submitters,
+    debug.canton_timestamp(record_time) as record_time,
+    debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
+    lower(encode(trace_context, 'hex')) as trace_context,
+    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash,
+
+    -- event related columns
+    debug.lapi_event_type(event_type) as event_type,
+    event_sequential_id,
+    node_id,
+    deactivated_event_sequential_id,
+    debug.resolve_lapi_interned_strings(additional_witnesses) as additional_witnesses,
+    debug.resolve_lapi_interned_string(exercise_choice) as exercise_choice,
+    debug.resolve_lapi_interned_string(exercise_choice_interface) as exercise_choice_interface,
+    lower(encode(exercise_argument, 'hex')) as exercise_argument,
+    lower(encode(exercise_result, 'hex')) as exercise_result,
+    debug.resolve_lapi_interned_strings(exercise_actors) as exercise_actors,
+    exercise_last_descendant_node_id,
+    debug.lapi_compression(exercise_argument_compression) as exercise_argument_compression,
+    debug.lapi_compression(exercise_result_compression) as exercise_result_compression,
+    lower(encode(reassignment_id, 'hex')) as reassignment_id,
+    assignment_exclusivity,
+    debug.resolve_lapi_interned_string(target_synchronizer_id) as target_synchronizer_id,
+    reassignment_counter,
+
+    -- contract related columns
+    lower(encode(contract_id, 'hex')) as contract_id,
+    internal_contract_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(package_id) as package_id,
+    debug.resolve_lapi_interned_strings(stakeholders) as stakeholders,
+    debug.canton_timestamp(ledger_effective_time) as ledger_effective_time
+  from lapi_events_deactivate_contract;
+
+create or replace view debug.lapi_filter_deactivate_stakeholder as
+  select
+    event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
+  from lapi_filter_deactivate_stakeholder;
+
+create or replace view debug.lapi_filter_deactivate_witness as
+  select
+    event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
+  from lapi_filter_deactivate_witness;
+
+create or replace view debug.lapi_events_various_witnessed as
+  select
+    -- update related columns
+    event_offset,
+    lower(encode(update_id, 'hex')) as update_id,
+    workflow_id,
+    command_id,
+    debug.resolve_lapi_interned_strings(submitters) as submitters,
+    debug.canton_timestamp(record_time) as record_time,
+    debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
+    lower(encode(trace_context, 'hex')) as trace_context,
+    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash,
+
+    -- event related columns
+    debug.lapi_event_type(event_type) as event_type,
+    event_sequential_id,
+    node_id,
+    debug.resolve_lapi_interned_strings(additional_witnesses) as additional_witnesses,
+    consuming,
+    debug.resolve_lapi_interned_string(exercise_choice) as exercise_choice,
+    debug.resolve_lapi_interned_string(exercise_choice_interface) as exercise_choice_interface,
+    lower(encode(exercise_argument, 'hex')) as exercise_argument,
+    lower(encode(exercise_result, 'hex')) as exercise_result,
+    debug.resolve_lapi_interned_strings(exercise_actors) as exercise_actors,
+    exercise_last_descendant_node_id,
+    debug.lapi_compression(exercise_argument_compression) as exercise_argument_compression,
+    debug.lapi_compression(exercise_result_compression) as exercise_result_compression,
+    debug.resolve_lapi_interned_string(representative_package_id) as representative_package_id,
+
+    -- contract related columns
+    lower(encode(contract_id, 'hex')) as contract_id,
+    internal_contract_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(package_id) as package_id,
+    debug.canton_timestamp(ledger_effective_time) as ledger_effective_time
+  from lapi_events_various_witnessed;
+
+create or replace view debug.lapi_filter_various_witness as
+  select
+    event_sequential_id,
+    debug.resolve_lapi_interned_string(template_id) as template_id,
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    first_per_sequential_id
+  from lapi_filter_various_witness;
+
 create or replace view debug.lapi_events_assign as
   select
     event_sequential_id,
@@ -183,7 +350,8 @@ create or replace view debug.lapi_events_consuming_exercise as
     debug.resolve_lapi_interned_string(package_id) as package_id,
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_strings(tree_event_witnesses) as tree_event_witnesses,
-    exercise_choice,
+    debug.resolve_lapi_interned_string(exercise_choice) as exercise_choice,
+    debug.resolve_lapi_interned_string(exercise_choice_interface) as exercise_choice_interface,
     lower(encode(exercise_argument, 'hex')) as exercise_argument,
     lower(encode(exercise_result, 'hex')) as exercise_result,
     debug.resolve_lapi_interned_strings(exercise_actors) as exercise_actors,
@@ -193,7 +361,8 @@ create or replace view debug.lapi_events_consuming_exercise as
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     lower(encode(trace_context, 'hex')) as trace_context,
     debug.canton_timestamp(record_time) as record_time,
-    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash
+    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash,
+   deactivated_event_sequential_id
   from lapi_events_consuming_exercise;
 
 create or replace view debug.lapi_events_create as
@@ -241,7 +410,8 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(package_id) as package_id,
     debug.resolve_lapi_interned_strings(tree_event_witnesses) as tree_event_witnesses,
-    exercise_choice,
+    debug.resolve_lapi_interned_string(exercise_choice) as exercise_choice,
+    debug.resolve_lapi_interned_string(exercise_choice_interface) as exercise_choice_interface,
     lower(encode(exercise_argument, 'hex')) as exercise_argument,
     lower(encode(exercise_result, 'hex')) as exercise_result,
     debug.resolve_lapi_interned_strings(exercise_actors) as exercise_actors,
@@ -274,7 +444,8 @@ create or replace view debug.lapi_events_unassign as
     reassignment_counter,
     assignment_exclusivity,
     lower(encode(trace_context, 'hex')) as trace_context,
-    debug.canton_timestamp(record_time) as record_time
+    debug.canton_timestamp(record_time) as record_time,
+    deactivated_event_sequential_id
   from lapi_events_unassign;
 
 create or replace view debug.lapi_events_party_to_participant as

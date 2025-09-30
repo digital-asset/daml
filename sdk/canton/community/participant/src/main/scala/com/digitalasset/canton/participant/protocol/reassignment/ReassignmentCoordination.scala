@@ -81,7 +81,6 @@ class ReassignmentCoordination(
       ReassignmentProcessorError,
       ReassignmentStore,
     ],
-    recentTimeProofFor: RecentTimeProofProvider,
     reassignmentSubmissionFor: PhysicalSynchronizerId => Option[ReassignmentSubmissionHandle],
     pendingUnassignments: Source[SynchronizerId] => Option[ReassignmentSynchronizer],
     staticSynchronizerParametersGetter: StaticSynchronizerParametersGetter,
@@ -186,6 +185,7 @@ class ReassignmentCoordination(
       targetSynchronizerId: Target[PhysicalSynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
+      targetTopology: Target[TopologySnapshot],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, AssignmentProcessingSteps.SubmissionResult] = {
@@ -201,6 +201,7 @@ class ReassignmentCoordination(
         .submitAssignments(
           submitterMetadata,
           reassignmentId,
+          targetTopology,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)
@@ -210,12 +211,13 @@ class ReassignmentCoordination(
 
   private[reassignment] def getStaticSynchronizerParameter[T[_]: SingletonTraverse](
       psid: T[PhysicalSynchronizerId]
-  ): EitherT[FutureUnlessShutdown, UnknownPhysicalSynchronizer, T[StaticSynchronizerParameters]] =
+  ): Either[UnknownPhysicalSynchronizer, T[StaticSynchronizerParameters]] =
     psid.traverseSingleton { (_, synchronizerId) =>
-      EitherT.fromOption[FutureUnlessShutdown](
-        staticSynchronizerParametersGetter.staticSynchronizerParameters(synchronizerId),
-        UnknownPhysicalSynchronizer(synchronizerId, "getting static synchronizer parameters"),
-      )
+      staticSynchronizerParametersGetter
+        .staticSynchronizerParameters(synchronizerId)
+        .toRight(
+          UnknownPhysicalSynchronizer(synchronizerId, "getting static synchronizer parameters")
+        )
     }
 
   /** Returns a [[crypto.SynchronizerSnapshotSyncCryptoApi]] for the given `synchronizer` at the
@@ -276,6 +278,16 @@ class ReassignmentCoordination(
       )
     } yield snapshot
 
+  private def getRecentTopologyTimestamp[T[X] <: ReassignmentTag[X]
+    : SameReassignmentType: SingletonTraverse](
+      psid: T[PhysicalSynchronizerId]
+  )(implicit
+      traceContext: TraceContext
+  ): Either[UnknownPhysicalSynchronizer, T[CantonTimestamp]] = for {
+    staticSynchronizerParameters <- getStaticSynchronizerParameter(psid)
+    topoClient <- getTopologyClient(psid, staticSynchronizerParameters)
+  } yield topoClient.map(_.currentSnapshotApproximation.ipsSnapshot.timestamp)
+
   override def maybeAwaitTopologySnapshot(
       targetPSId: Target[PhysicalSynchronizerId],
       requestedTimestamp: Target[CantonTimestamp],
@@ -286,12 +298,14 @@ class ReassignmentCoordination(
     ReassignmentProcessorError,
     Option[Target[TopologySnapshot]],
   ] = for {
-    staticSynchronizerParameters <- getStaticSynchronizerParameter(targetPSId)
-
-    localTimestamp <- EitherT.fromEither[FutureUnlessShutdown](
-      getTopologyClient(targetPSId, staticSynchronizerParameters).map(_.unwrap.approximateTimestamp)
+    staticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
+      getStaticSynchronizerParameter(targetPSId)
     )
-    timestampUpperBound = Target(localTimestamp + targetTimestampForwardTolerance)
+
+    recentTimestamp <- EitherT.fromEither[FutureUnlessShutdown](
+      getRecentTopologyTimestamp(targetPSId)
+    )
+    timestampUpperBound = recentTimestamp.map(_ + targetTimestampForwardTolerance)
     topology <-
       if (requestedTimestamp <= timestampUpperBound) {
         awaitTimestampAndGetTaggedCryptoSnapshot(
@@ -301,7 +315,7 @@ class ReassignmentCoordination(
         ).map(_.map(_.ipsSnapshot)).map(Some(_))
       } else {
         logger.info(
-          s"Not loading target topology at timestamp $requestedTimestamp because it is more than $targetTimestampForwardTolerance ahead of our local target timestamp of $localTimestamp."
+          s"Not loading target topology at timestamp $requestedTimestamp because it is more than $targetTimestampForwardTolerance ahead of our local target timestamp of $recentTimestamp."
         )
         EitherT.right[ReassignmentProcessorError](FutureUnlessShutdown.pure(None))
       }
@@ -329,12 +343,14 @@ class ReassignmentCoordination(
     Target[TopologySnapshot],
   ] =
     for {
-      timeProof <- recentTimeProofFor.get(targetSynchronizerId, staticSynchronizerParameters)
+      timestamp <- EitherT.fromEither[FutureUnlessShutdown](
+        getRecentTopologyTimestamp(targetSynchronizerId)
+      )
       // Since events are stored before they are processed, we wait just to be sure.
       targetCrypto <- awaitTimestampAndGetTaggedCryptoSnapshot(
         targetSynchronizerId,
         staticSynchronizerParameters,
-        Target(timeProof.timestamp),
+        timestamp,
       )
     } yield targetCrypto.map(_.ipsSnapshot)
 
@@ -400,16 +416,8 @@ object ReassignmentCoordination {
         .reassignmentStore(synchronizerId.unwrap)
         .toRight(UnknownSynchronizer(synchronizerId.unwrap, "looking for reassignment store"))
 
-    val recentTimeProofProvider = new RecentTimeProofProvider(
-      submissionHandles,
-      syncCryptoApi,
-      loggerFactory,
-      reassignmentsConfig.timeProofFreshnessProportion,
-    )
-
     new ReassignmentCoordination(
       reassignmentStoreFor = reassignmentStoreFor,
-      recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = submissionHandles,
       pendingUnassignments = pendingUnassignments,
       staticSynchronizerParametersGetter = syncPersistentStateManager,
@@ -428,6 +436,7 @@ trait ReassignmentSubmissionHandle {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractIds: Seq[LfContractId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
+      sourceTopology: Source[TopologySnapshot],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
@@ -437,6 +446,7 @@ trait ReassignmentSubmissionHandle {
   def submitAssignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
+      targetTopology: Target[TopologySnapshot],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[

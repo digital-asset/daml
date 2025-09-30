@@ -29,7 +29,6 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
         reduceSequencerClientAcknowledgementInterval,
         increaseParticipant3AcknowledgementInterval,
         reduceSequencerAcknowledgementConflateWindow,
-        ConfigTransforms.useStaticTime,
       ),
       loggerFactory,
     )

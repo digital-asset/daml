@@ -4,8 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
-import com.digitalasset.canton.crypto.store.CommunityCryptoPrivateStoreFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.NodeFactoryArguments
 import com.digitalasset.canton.resource.StorageSingleFactory
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -48,17 +47,16 @@ object CommunitySequencerNodeBootstrapFactory extends SequencerNodeBootstrapFact
     arguments
       .toCantonNodeBootstrapCommonArguments(
         new StorageSingleFactory(arguments.config.storage),
-        new CommunityCryptoPrivateStoreFactory(
+        new CryptoPrivateStoreFactory(
           arguments.config.crypto.provider,
           arguments.config.crypto.kms,
-          CommunityKmsFactory,
           arguments.config.parameters.caching.kmsMetadataCache,
           arguments.config.crypto.privateKeyStore,
+          replicaManager = None,
           arguments.futureSupervisor,
           arguments.clock,
           arguments.executionContext,
         ),
-        CommunityKmsFactory,
       )
       .map { bootstrapCommonArguments =>
         new SequencerNodeBootstrap(bootstrapCommonArguments, CommunitySequencerFactory)

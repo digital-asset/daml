@@ -72,6 +72,9 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       interactiveSubmissionFolder / "com",
       interactiveSubmissionFolder / "google",
       interactiveSubmissionFolder / "scalapb",
+      File("canton_ports.json"),
+      File("private_key.der"),
+      File("public_key.der"),
     ).foreach(_.delete(swallowIOExceptions = true))
   }
 
@@ -292,6 +295,21 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       "Invalid unique identifier `invalid_Store` with missing namespace",
     )
   }
+
+  "run external party onboarding via ledger api" in { implicit env =>
+    setupTest
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "./external_party_onboarding.sh"
+        ),
+        cwd = interactiveSubmissionFolder.toJava,
+      ),
+      processLogger,
+    )
+
+  }
+
 }
 
 final class InteractiveSubmissionDemoExampleIntegrationTestH2

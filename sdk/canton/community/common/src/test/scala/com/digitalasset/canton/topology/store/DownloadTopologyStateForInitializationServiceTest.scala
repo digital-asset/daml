@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.store
 
 import cats.syntax.option.*
-import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -13,12 +12,16 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.{FailOnShutdown, HasActorSystem}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait DownloadTopologyStateForInitializationServiceTest
     extends AsyncWordSpec
     with TopologyStoreTestBase
-    with FailOnShutdown {
+    with FailOnShutdown
+    with HasActorSystem {
 
   protected def mkStore(
       synchronizerId: PhysicalSynchronizerId
@@ -91,6 +94,9 @@ trait DownloadTopologyStateForInitializationServiceTest
       .map(_ => store)
   }
 
+  private def toFuture[A](source: Source[A, NotUsed]): FutureUnlessShutdown[Seq[A]] =
+    FutureUnlessShutdown.outcomeF(source.runWith(Sink.seq[A]))
+
   "DownloadTopologyStateForInitializationService" should {
     "return a valid topology state" when {
       "there's only one SynchronizerTrustCertificate" in {
@@ -101,9 +107,8 @@ trait DownloadTopologyStateForInitializationServiceTest
             sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
-          storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
+          result <- toFuture(service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId))
         } yield {
-          import storedTxs.result
           // all transactions should be valid and not expired
           result.foreach(_.validUntil shouldBe empty)
           result.map(_.transaction) shouldBe Seq(dnd_p1seq, ptp_fred_p1, dtc_p2_synchronizer1)
@@ -117,9 +122,8 @@ trait DownloadTopologyStateForInitializationServiceTest
             sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
-          storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
+          result <- toFuture(service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId))
         } yield {
-          import storedTxs.result
           // all transactions should be valid and not expired
           result.foreach(_.validUntil shouldBe empty)
           result.map(_.transaction) shouldBe Seq(dnd_p1seq, ptp_fred_p1, dtc_p2_synchronizer1)
@@ -135,9 +139,8 @@ trait DownloadTopologyStateForInitializationServiceTest
             sequencingTimeLowerBoundExclusive = Some(ts6),
             loggerFactory,
           )
-          storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
+          result <- toFuture(service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId))
         } yield {
-          import storedTxs.result
           // all transactions should have a validUntil <= ts6
           forAll(result)(_.validUntil.map(_.value) should be <= Option(ts6))
           result shouldBe bootstrapTransactionsWithUpdates
@@ -155,9 +158,8 @@ trait DownloadTopologyStateForInitializationServiceTest
             sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
-          storedTxs <- service.initialSnapshot(med1Id)
+          result <- toFuture(service.initialSnapshot(med1Id))
         } yield {
-          import storedTxs.result
           // all transactions should be valid and not expired
           result.foreach(_.validUntil shouldBe empty)
           result.map(_.transaction) shouldBe Seq(
@@ -177,9 +179,8 @@ trait DownloadTopologyStateForInitializationServiceTest
             sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
-          storedTxs <- service.initialSnapshot(med1Id)
+          result <- toFuture(service.initialSnapshot(med1Id))
         } yield {
-          import storedTxs.result
           // all transactions should be valid and not validUntil capped at ts6
           result.foreach(_.validUntil.foreach(_.value should be <= ts6))
           result.map(_.transaction) shouldBe Seq(
@@ -225,9 +226,8 @@ trait DownloadTopologyStateForInitializationServiceTest
           sequencingTimeLowerBoundExclusive = None,
           loggerFactory,
         )
-        storedTxs <- service.initialSnapshot(p2Id)
+        result <- toFuture(service.initialSnapshot(p2Id))
       } yield {
-        import storedTxs.result
         // all transactions should be valid and not expired
         result.foreach(_.validUntil.foreach(_.value should be < ts6))
         result

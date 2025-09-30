@@ -32,7 +32,6 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesAcsDelta
-import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.UpdateReader.endSpanOnTermination
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
@@ -157,60 +156,61 @@ class ACSReader(
     )
 
     def fetchCreateIds(filter: DecomposedFilter): Source[Long, NotUsed] =
-      paginatingAsyncStream.streamIdsFromSeekPagination(
+      paginatingAsyncStream.streamIdsFromSeekPaginationWithIdFilter(
+        idStreamName = s"ActiveContractIds for create events $filter",
         idPageSizing = idQueryPageSizing,
         idPageBufferSize = config.maxPagesPerIdPagesBuffer,
         initialFromIdExclusive = 0L,
-      )((state: IdPaginationState) =>
-        createIdQueriesLimiter.execute(
-          globalIdQueriesLimiter.execute(
-            dispatcher.executeSql(metrics.index.db.getActiveContractIdsForCreated) { connection =>
-              val ids =
-                eventStorageBackend.updateStreamingQueries
-                  .fetchIdsOfCreateEventsForStakeholder(
-                    stakeholderO = filter.party,
-                    templateIdO = filter.templateId,
-                    startExclusive = state.fromIdExclusive,
-                    endInclusive = activeAtEventSeqId,
-                    limit = state.pageSize,
-                  )(connection)
-              logger.debug(
-                s"ActiveContractIds for create events $filter returned #${ids.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              ids
-            }
-          )
+        initialEndInclusive = activeAtEventSeqId,
+      )(
+        eventStorageBackend.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+          stakeholderO = filter.party,
+          templateIdO = filter.templateId,
+          activeAtEventSeqId = activeAtEventSeqId,
         )
+      )(
+        executeLastIdQuery = f =>
+          createIdQueriesLimiter.execute(
+            globalIdQueriesLimiter.execute(
+              dispatcher.executeSql(metrics.index.db.getActiveContractIdRangesForCreated)(f)
+            )
+          ),
+        idFilterQueryParallelism = config.idFilterQueryParallelism,
+        executeIdFilterQuery = f =>
+          createIdQueriesLimiter.execute(
+            globalIdQueriesLimiter.execute(
+              dispatcher.executeSql(metrics.index.db.getFilteredActiveContractIdsForCreated)(f)
+            )
+          ),
       )
 
     def fetchAssignIds(filter: DecomposedFilter): Source[Long, NotUsed] =
-      paginatingAsyncStream.streamIdsFromSeekPagination(
+      paginatingAsyncStream.streamIdsFromSeekPaginationWithIdFilter(
+        idStreamName = s"ActiveContractIds for assign events $filter",
         idPageSizing = idQueryPageSizing,
         idPageBufferSize = config.maxPagesPerIdPagesBuffer,
         initialFromIdExclusive = 0L,
-      )((state: IdPaginationState) =>
-        assignIdQueriesLimiter.execute(
-          globalIdQueriesLimiter.execute(
-            dispatcher.executeSql(metrics.index.db.getActiveContractIdsForAssigned) { connection =>
-              val ids =
-                eventStorageBackend.fetchAssignEventIdsForStakeholder(
-                  stakeholderO = filter.party,
-                  templateId = filter.templateId,
-                  startExclusive = state.fromIdExclusive,
-                  endInclusive = activeAtEventSeqId,
-                  limit = state.pageSize,
-                )(connection)
-              logger.debug(
-                s"ActiveContractIds for assign events $filter returned #${ids.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              ids
-            }
-          )
+        initialEndInclusive = activeAtEventSeqId,
+      )(
+        eventStorageBackend.updateStreamingQueries.fetchActiveIdsOfAssignEventsForStakeholder(
+          stakeholderO = filter.party,
+          templateIdO = filter.templateId,
+          activeAtEventSeqId = activeAtEventSeqId,
         )
+      )(
+        executeLastIdQuery = f =>
+          assignIdQueriesLimiter.execute(
+            globalIdQueriesLimiter.execute(
+              dispatcher.executeSql(metrics.index.db.getActiveContractIdRangesForAssigned)(f)
+            )
+          ),
+        idFilterQueryParallelism = config.idFilterQueryParallelism,
+        executeIdFilterQuery = f =>
+          assignIdQueriesLimiter.execute(
+            globalIdQueriesLimiter.execute(
+              dispatcher.executeSql(metrics.index.db.getFilteredActiveContractIdsForAssigned)(f)
+            )
+          ),
       )
 
     def fetchActiveCreatePayloads(

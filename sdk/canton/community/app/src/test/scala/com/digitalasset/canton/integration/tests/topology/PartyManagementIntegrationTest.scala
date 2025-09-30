@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.topology
 
-import com.digitalasset.canton.admin.api.client.data.PartyDetails
+import com.digitalasset.canton.admin.api.client.data.parties.PartyDetails
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure

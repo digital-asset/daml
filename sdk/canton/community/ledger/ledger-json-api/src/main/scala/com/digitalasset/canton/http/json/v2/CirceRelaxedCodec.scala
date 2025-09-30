@@ -7,6 +7,7 @@ import io.circe.Decoder.Result
 import io.circe.generic.extras.codec.ConfiguredAsObjectCodec
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.{Codec, HCursor, Json, JsonObject}
+import net.logstash.logback.composite.loggingevent.JsonMessageJsonProvider
 import shapeless.Lazy
 
 import scala.reflect.runtime.universe.*
@@ -22,6 +23,18 @@ import scala.reflect.runtime.universe.*
   *     - for JS mirrors of gRPC classes
   *     - for proto base lib classes (not generated), (they have default value)
   *     - for gRPC scalaPb generated roots of ADT
+  *
+  * For scalar types that should have default values, you can use the extension
+  * deriveRelaxedCodedWithDefaults which takes a map of default values.
+  *
+  * DO NOT USE deriveRelaxedCodec FOR Protobuf ENUM.
+  *
+  * You will likely get: 'JSON decoding to CNil should never happen'. In this case, create separate
+  * Encoder / Decoder using stringDecoderForEnum / stringEncoderForEnum.
+  *
+  * Do not forget to also create a Schema for the openapi.yml encoding. Otherwise, your enum will be
+  * translated into objects and you will likely end up with inconsistencies between Tapir and the
+  * openapi.yml.
   */
 object CirceRelaxedCodec {
 
@@ -30,7 +43,6 @@ object CirceRelaxedCodec {
       c: Lazy[ConfiguredAsObjectCodec[T]]
   ): Codec.AsObject[T] = {
     val codec = deriveConfiguredCodec[T]
-
     new Codec.AsObject[T] {
       override def encodeObject(value: T): JsonObject = codec.encodeObject(value)
 
@@ -62,7 +74,6 @@ object CirceRelaxedCodec {
       }
 
       override def apply(c: HCursor): Result[T] = {
-
         val updatedJson = c.value.mapObject { jsonObj =>
           val objMap: Map[String, Json] = jsonObj.toMap
           val resultMap = initiallyEmptyProperties ++ objMap
@@ -72,4 +83,22 @@ object CirceRelaxedCodec {
       }
     }
   }
+
+  /** derived codec that supports using default scalar values */
+  def deriveRelaxedCodecWithDefaults[T: TypeTag](defaults: Map[String, Json])(implicit
+      c: Lazy[ConfiguredAsObjectCodec[T]]
+  ): Codec.AsObject[T] = {
+    val codec = deriveRelaxedCodec[T]
+    new Codec.AsObject[T] {
+      override def encodeObject(value: T): JsonObject = codec.encodeObject(value)
+      override def apply(c: HCursor): Result[T] =
+        codec.decodeJson(c.value.mapObject { jsonObj =>
+          val objMap = jsonObj.toMap
+          val resultMap = defaults ++ objMap
+          JsonObject.fromMap(resultMap)
+        })
+    }
+
+  }
+
 }

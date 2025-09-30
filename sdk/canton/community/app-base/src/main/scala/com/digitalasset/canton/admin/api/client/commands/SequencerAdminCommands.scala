@@ -161,6 +161,47 @@ object SequencerAdminCommands {
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
+  final case class InitializeFromOnboardingStateV2(onboardingState: ByteString)
+      extends GrpcAdminCommand[
+        proto.InitializeSequencerFromOnboardingStateV2Request,
+        proto.InitializeSequencerFromOnboardingStateV2Response,
+        InitializeSequencerResponse,
+      ] {
+    override type Svc =
+      proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
+
+    override def createService(
+        channel: ManagedChannel
+    ): proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
+      proto.SequencerInitializationServiceGrpc.stub(channel)
+
+    override protected def submitRequest(
+        service: proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
+        request: proto.InitializeSequencerFromOnboardingStateV2Request,
+    ): Future[proto.InitializeSequencerFromOnboardingStateV2Response] =
+      GrpcStreamingUtils.streamToServer(
+        service.initializeSequencerFromOnboardingStateV2,
+        (onboardingState: Array[Byte]) =>
+          proto.InitializeSequencerFromOnboardingStateV2Request(
+            ByteString.copyFrom(onboardingState)
+          ),
+        request.onboardingState,
+      )
+
+    override protected def createRequest()
+        : Either[String, proto.InitializeSequencerFromOnboardingStateV2Request] =
+      Right(
+        proto.InitializeSequencerFromOnboardingStateV2Request(onboardingState)
+      )
+
+    override protected def handleResponse(
+        response: proto.InitializeSequencerFromOnboardingStateV2Response
+    ): Either[String, InitializeSequencerResponse] =
+      Right(InitializeSequencerResponse(response.replicated))
+
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+  }
+
   final case class InitializeFromGenesisState(
       topologySnapshot: ByteString,
       synchronizerParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
@@ -255,6 +296,53 @@ object SequencerAdminCommands {
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
+  final case class InitializeFromGenesisStateV2(
+      topologySnapshot: ByteString,
+      synchronizerParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
+  ) extends GrpcAdminCommand[
+        proto.InitializeSequencerFromGenesisStateV2Request,
+        proto.InitializeSequencerFromGenesisStateV2Response,
+        InitializeSequencerResponse,
+      ] {
+    override type Svc =
+      proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
+
+    override def createService(
+        channel: ManagedChannel
+    ): proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
+      proto.SequencerInitializationServiceGrpc.stub(channel)
+
+    override protected def submitRequest(
+        service: proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
+        request: proto.InitializeSequencerFromGenesisStateV2Request,
+    ): Future[proto.InitializeSequencerFromGenesisStateV2Response] =
+      GrpcStreamingUtils.streamToServer(
+        service.initializeSequencerFromGenesisStateV2,
+        (topologySnapshot: Array[Byte]) =>
+          proto.InitializeSequencerFromGenesisStateV2Request(
+            topologySnapshot = ByteString.copyFrom(topologySnapshot),
+            Some(synchronizerParameters.toProtoV30),
+          ),
+        request.topologySnapshot,
+      )
+
+    override protected def createRequest()
+        : Either[String, proto.InitializeSequencerFromGenesisStateV2Request] =
+      Right(
+        proto.InitializeSequencerFromGenesisStateV2Request(
+          topologySnapshot = topologySnapshot,
+          Some(synchronizerParameters.toProtoV30),
+        )
+      )
+
+    override protected def handleResponse(
+        response: proto.InitializeSequencerFromGenesisStateV2Response
+    ): Either[String, InitializeSequencerResponse] =
+      Right(InitializeSequencerResponse(response.replicated))
+
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+  }
+
   final case class Snapshot(timestamp: CantonTimestamp)
       extends BaseSequencerAdministrationCommand[
         proto.SnapshotRequest,
@@ -317,6 +405,45 @@ object SequencerAdminCommands {
     ): Future[CancellableContext] = {
       val context = Context.current().withCancellation()
       context.run(() => service.onboardingState(request, observer))
+      Future.successful(context)
+    }
+
+    override protected def handleResponse(
+        response: CancellableContext
+    ): Either[String, CancellableContext] =
+      Right(response)
+
+    //  command will potentially take a long time
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+  }
+
+  final case class OnboardingStateV2(
+      observer: StreamObserver[proto.OnboardingStateV2Response],
+      sequencerOrTimestamp: Either[SequencerId, CantonTimestamp],
+  ) extends BaseSequencerAdministrationCommand[
+        proto.OnboardingStateV2Request,
+        CancellableContext,
+        CancellableContext,
+      ] {
+    override protected def createRequest(): Either[String, proto.OnboardingStateV2Request] =
+      Right(
+        proto.OnboardingStateV2Request(request =
+          sequencerOrTimestamp.fold[proto.OnboardingStateV2Request.Request](
+            sequencer =>
+              proto.OnboardingStateV2Request.Request
+                .SequencerUid(sequencer.uid.toProtoPrimitive),
+            timestamp =>
+              proto.OnboardingStateV2Request.Request.Timestamp(timestamp.toProtoTimestamp),
+          )
+        )
+      )
+
+    override protected def submitRequest(
+        service: proto.SequencerAdministrationServiceGrpc.SequencerAdministrationServiceStub,
+        request: proto.OnboardingStateV2Request,
+    ): Future[CancellableContext] = {
+      val context = Context.current().withCancellation()
+      context.run(() => service.onboardingStateV2(request, observer))
       Future.successful(context)
     }
 

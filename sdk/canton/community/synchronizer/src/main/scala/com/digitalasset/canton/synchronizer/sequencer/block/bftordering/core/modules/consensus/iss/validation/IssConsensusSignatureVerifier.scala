@@ -142,6 +142,7 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
           block,
           canonicalCommitSet,
           _,
+          _,
         ) =>
       implicit val cryptoProvider: CryptoProvider[E] = topologyInfo.currentCryptoProvider
       // Canonical commit sets are validated in more detail later in the process

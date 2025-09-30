@@ -5,21 +5,18 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
-  CumulativeFilter as ProtoCumulativeFilter,
   EventFormat as ProtoEventFormat,
   Filters,
   InterfaceFilter as ProtoInterfaceFilter,
   ParticipantAuthorizationTopologyFormat as ProtoParticipantAuthorizationTopologyFormat,
   TemplateFilter as ProtoTemplateFilter,
   TopologyFormat as ProtoTopologyFormat,
-  TransactionFilter as ProtoTransactionFilter,
   TransactionFormat as ProtoTransactionFormat,
   TransactionShape as ProtoTransactionShape,
   UpdateFormat as ProtoUpdateFormat,
   WildcardFilter,
 }
 import com.daml.ledger.api.v2.value.Identifier
-import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -41,66 +38,10 @@ import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
-import scala.annotation.nowarn
-
 object FormatValidator {
 
   import FieldValidator.*
   import ValidationErrors.*
-
-  // TODO(i23504) Cleanup
-  @nowarn("cat=deprecation")
-  def validate(
-      txFilter: ProtoTransactionFilter,
-      verbose: Boolean,
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, EventFormat] =
-    validate(ProtoEventFormat(txFilter.filtersByParty, txFilter.filtersForAnyParty, verbose))
-
-  // TODO(i23504) Cleanup
-  @nowarn("cat=deprecation")
-  def validateLegacyToUpdateFormat(
-      txFilter: ProtoTransactionFilter,
-      verbose: Boolean,
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, UpdateFormat] =
-    for {
-      eventFormat <- FormatValidator.validate(txFilter, verbose)
-    } yield UpdateFormat(
-      includeTransactions =
-        Some(TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)),
-      includeReassignments = Some(eventFormat),
-      includeTopologyEvents = None,
-    )
-
-  // TODO(i23504) Cleanup
-  @nowarn("cat=deprecation")
-  def validateLegacyToTransactionFormat(
-      requestingParties: Seq[String]
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, TransactionFormat] = {
-    val txFilter = ProtoTransactionFilter(
-      filtersByParty = requestingParties
-        .map(
-          _ -> Filters(
-            Seq(
-              ProtoCumulativeFilter(
-                ProtoCumulativeFilter.IdentifierFilter
-                  .WildcardFilter(WildcardFilter(includeCreatedEventBlob = false))
-              )
-            )
-          )
-        )
-        .toMap,
-      filtersForAnyParty = None,
-    )
-    for {
-      eventFormat <- FormatValidator.validate(txFilter = txFilter, verbose = true)
-    } yield TransactionFormat(eventFormat = eventFormat, transactionShape = AcsDelta)
-  }
 
   def validate(eventFormat: ProtoEventFormat)(implicit
       errorLoggingContext: ErrorLoggingContext

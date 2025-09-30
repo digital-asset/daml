@@ -919,7 +919,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_CANNOT_VET_DUE_TO_MISSING_PACKAGES",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Missing(packages: Ref.PackageId)(implicit
+      final case class Missing(packages: Set[Ref.PackageId])(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause = "Package vetting failed due to packages not existing on the local node"

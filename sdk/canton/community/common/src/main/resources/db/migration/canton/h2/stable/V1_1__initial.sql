@@ -388,12 +388,11 @@ create table seq_block_height (
 );
 
 create table mediator_deduplication_store (
-    mediator_id varchar not null,
     uuid varchar not null,
     request_time bigint not null,
     expire_after bigint not null
 );
-create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(mediator_id, expire_after);
+create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after);
 
 create type pruning_phase as enum ('started', 'completed');
 
@@ -735,6 +734,24 @@ create table common_topology_transactions (
 );
 
 create index idx_common_topology_transactions on common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
+
+-- for:
+-- - DbTopologyStore.findProposalsByTxHash
+-- - DbTopologyStore.findLatestTransactionsAndProposalsByTxHash
+create index idx_common_topology_transactions_by_tx_hash
+  on common_topology_transactions (store_id, tx_hash, is_proposal, valid_from, valid_until, rejection_reason);
+
+-- for:
+-- - DbTopologyStore.findEffectiveStateChanges
+create index idx_common_topology_transactions_effective_changes
+  on common_topology_transactions (store_id, is_proposal, valid_from, valid_until, rejection_reason);
+
+
+-- for:
+-- - DbTopologyStore.update, updating the valid_until column for past transactions
+create index idx_common_topology_transactions_for_valid_until_update
+  on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from);
+
 
 -- Stores the traffic balance updates
 create table seq_traffic_control_balance_updates (

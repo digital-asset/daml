@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.{
   HasCloseContext,
   LifeCycle,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -82,8 +82,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
-    packageDependencyResolver: PackageDependencyResolver,
-    contractAuthenticator: ContractAuthenticator,
+    packageDependencyResolver: PackageDependencyResolver.Impl,
+    contractValidator: ContractValidator,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -214,15 +214,18 @@ final class RepairService(
       ignoreAlreadyAdded: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
+  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = {
+    implicit val loggingContext = LoggingContextUtil.createLoggingContext(loggerFactory)(identity)
+
     for {
-      _ <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          contractAuthenticator.legacyAuthenticate(repairContract.contract)
-        )
-        .leftMap(e =>
-          log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")
-        )
+      _ <-
+        contractValidator
+          .authenticate(repairContract.contract, repairContract.representativePackageId)
+          .leftMap(e =>
+            log(
+              s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e"
+            )
+          )
       contractToAdd <- contractToAdd(
         repairContract,
         ignoreAlreadyAdded = ignoreAlreadyAdded,
@@ -230,6 +233,7 @@ final class RepairService(
         storedContract = storedContract,
       )
     } yield contractToAdd
+  }
 
   // The repair request gets inserted at the reprocessing starting point.
   // We use the prenextTimestamp such that a regular request is always the first request for a given timestamp.
@@ -745,9 +749,9 @@ final class RepairService(
       contracts: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      // All referenced templates known and vetted
-      _packagesVetted <- contracts
-        .map(_.contract.templateId.packageId)
+      // Check that the representative package-id is known
+      _ <- contracts
+        .map(_.representativePackageId)
         .distinct
         .parTraverse_(packageKnown)
 

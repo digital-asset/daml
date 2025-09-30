@@ -43,6 +43,7 @@ final class TimeBasedInteractiveIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
+      .addConfigTransform(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
         participants.all.dars.upload(CantonExamplesPath)
@@ -50,7 +51,6 @@ final class TimeBasedInteractiveIntegrationTest
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
-      .addConfigTransform(ConfigTransforms.useStaticTime)
 
   private var aliceE: ExternalParty = _
 

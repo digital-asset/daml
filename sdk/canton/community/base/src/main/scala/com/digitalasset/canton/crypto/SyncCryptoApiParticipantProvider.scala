@@ -5,7 +5,6 @@ package com.digitalasset.canton.crypto
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import cats.syntax.flatMap.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
@@ -20,10 +19,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.{
-  DynamicSynchronizerParameters,
-  StaticSynchronizerParameters,
-}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -36,7 +32,7 @@ import com.digitalasset.canton.topology.client.{
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.LoggerUtil
-import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
+import com.digitalasset.canton.version.HasToByteString
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
@@ -185,48 +181,33 @@ object SyncCryptoClient {
       client: SyncCryptoClient[SyncCryptoApi],
       desiredTimestamp: CantonTimestamp,
       previousTimestampO: Option[CantonTimestamp],
-      protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean = true,
   )(implicit
-      executionContext: ExecutionContext,
-      loggingContext: ErrorLoggingContext,
+      loggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[SyncCryptoApi] = {
     val traceContext: TraceContext = loggingContext.traceContext
 
-    def lookupDynamicSynchronizerParameters(
-        timestamp: CantonTimestamp
-    ): FutureUnlessShutdown[DynamicSynchronizerParameters] =
-      for {
-        snapshot <- client.awaitSnapshotUSSupervised(
-          s"searching for topology change delay at $timestamp for desired timestamp $desiredTimestamp and known until ${client.topologyKnownUntilTimestamp}"
-        )(timestamp)
-        synchronizerParams <-
-          snapshot.ipsSnapshot.findDynamicSynchronizerParametersOrDefault(
-            protocolVersion = protocolVersion,
-            warnOnUsingDefault = false,
-          )(traceContext)
-      } yield synchronizerParams
-
-    computeTimestampForValidation(
+    val timestamp = computeTimestampForValidation(
       desiredTimestamp,
       previousTimestampO,
       client.topologyKnownUntilTimestamp,
       client.approximateTimestamp,
       warnIfApproximate,
-    )(lookupDynamicSynchronizerParameters).flatMap { timestamp =>
-      if (timestamp <= client.topologyKnownUntilTimestamp) {
-        loggingContext.debug(
-          s"Getting topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
-        )
-        client.hypotheticalSnapshot(timestamp, desiredTimestamp)(traceContext)
-      } else {
-        loggingContext.debug(
-          s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
-        )
-        client.awaitSnapshotUSSupervised(
-          s"requesting topology snapshot at $timestamp; desired=$desiredTimestamp, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}"
-        )(timestamp)
-      }
+      client.staticSynchronizerParameters,
+    )
+
+    if (timestamp <= client.topologyKnownUntilTimestamp) {
+      loggingContext.debug(
+        s"Getting topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+      )
+      client.hypotheticalSnapshot(timestamp, desiredTimestamp)(traceContext)
+    } else {
+      loggingContext.debug(
+        s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
+      )
+      client.awaitSnapshotUSSupervised(
+        s"requesting topology snapshot at $timestamp; desired=$desiredTimestamp, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}"
+      )(timestamp)
     }
   }
 
@@ -236,16 +217,12 @@ object SyncCryptoClient {
       topologyKnownUntilTimestamp: CantonTimestamp,
       currentApproximateTimestamp: CantonTimestamp,
       warnIfApproximate: Boolean,
-  )(
-      synchronizerParamsLookup: CantonTimestamp => FutureUnlessShutdown[
-        DynamicSynchronizerParameters
-      ]
+      staticSynchronizerParameters: StaticSynchronizerParameters,
   )(implicit
-      loggingContext: ErrorLoggingContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[CantonTimestamp] =
+      loggingContext: ErrorLoggingContext
+  ): CantonTimestamp =
     if (desiredTimestamp <= topologyKnownUntilTimestamp) {
-      FutureUnlessShutdown.pure(desiredTimestamp)
+      desiredTimestamp
     } else {
       previousTimestampO match {
         case None =>
@@ -253,23 +230,22 @@ object SyncCryptoClient {
             if (warnIfApproximate) Level.WARN else Level.INFO,
             s"Using approximate topology snapshot at $currentApproximateTimestamp for desired timestamp $desiredTimestamp",
           )
-          FutureUnlessShutdown.pure(currentApproximateTimestamp)
+          currentApproximateTimestamp
         case Some(previousTimestamp) =>
           if (desiredTimestamp <= previousTimestamp.immediateSuccessor)
-            FutureUnlessShutdown.pure(desiredTimestamp)
+            desiredTimestamp
           else {
             import scala.Ordered.orderingToOrdered
-            synchronizerParamsLookup(previousTimestamp).map { previousSynchronizerParams =>
-              val delay = previousSynchronizerParams.topologyChangeDelay
-              val diff = desiredTimestamp - previousTimestamp
-              val snapshotTimestamp =
-                if (diff > delay.unwrap) {
-                  // `desiredTimestamp` is larger than `previousTimestamp` plus the `delay`,
-                  // so timestamps cannot overflow here
-                  checked(previousTimestamp.plus(delay.unwrap).immediateSuccessor)
-                } else desiredTimestamp
-              snapshotTimestamp
-            }
+
+            val delay = staticSynchronizerParameters.topologyChangeDelay
+            val diff = desiredTimestamp - previousTimestamp
+            val snapshotTimestamp =
+              if (diff > delay.unwrap) {
+                // `desiredTimestamp` is larger than `previousTimestamp` plus the `delay`,
+                // so timestamps cannot overflow here
+                checked(previousTimestamp.plus(delay.unwrap).immediateSuccessor)
+              } else desiredTimestamp
+            snapshotTimestamp
           }
       }
     }
@@ -280,6 +256,7 @@ object SyncCryptoClient {
   */
 class SynchronizerCryptoClient private (
     val member: Member,
+    val staticSynchronizerParameters: StaticSynchronizerParameters,
     val psid: PhysicalSynchronizerId,
     val ips: SynchronizerTopologyClient,
     val crypto: SynchronizerCrypto,
@@ -408,6 +385,7 @@ object SynchronizerCryptoClient {
     )
     new SynchronizerCryptoClient(
       member,
+      staticSynchronizerParameters,
       PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
       ips,
       synchronizerCrypto,
@@ -457,6 +435,7 @@ object SynchronizerCryptoClient {
     )
     new SynchronizerCryptoClient(
       member,
+      staticSynchronizerParameters,
       synchronizerId,
       ips,
       synchronizerCrypto,

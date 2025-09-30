@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import com.daml.logging.LoggingContext
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -14,7 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, MonadUtil, ReassignmentTag}
+import com.digitalasset.canton.util.{ContractValidator, EitherTUtil, MonadUtil, ReassignmentTag}
 
 import scala.concurrent.ExecutionContext
 
@@ -64,37 +65,46 @@ object ReassignmentValidation {
       )
     } yield ()
 
-  def checkMetadata(
-      contractAuthenticator: ContractAuthenticator,
+  def authenticateContractAndStakeholders(
+      contractValidator: ContractValidator,
       reassignmentRequest: FullReassignmentViewTree,
   )(implicit
-      ec: ExecutionContext
+      ec: ExecutionContext,
+      traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] = {
     val declaredViewStakeholders = reassignmentRequest.stakeholders
     val declaredContractStakeholders = reassignmentRequest.contracts.stakeholders
 
-    EitherT.fromEither(for {
-      _ <- Either.cond(
-        declaredViewStakeholders == declaredContractStakeholders,
-        (),
-        ReassignmentValidationError.StakeholdersMismatch(
-          reassignmentRequest.reassignmentRef,
-          declaredViewStakeholders = declaredViewStakeholders,
-          expectedStakeholders = declaredContractStakeholders,
-        ),
+    for {
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        Either.cond(
+          declaredViewStakeholders == declaredContractStakeholders,
+          (),
+          ReassignmentValidationError.StakeholdersMismatch(
+            reassignmentRequest.reassignmentRef,
+            declaredViewStakeholders = declaredViewStakeholders,
+            expectedStakeholders = declaredContractStakeholders,
+          ): ReassignmentValidationError,
+        )
       )
-      _ <- MonadUtil.sequentialTraverse(reassignmentRequest.contracts.contracts) { reassign =>
-        contractAuthenticator
-          .legacyAuthenticate(reassign.contract.inst)
-          .leftMap(error =>
-            ReassignmentValidationError.ContractIdAuthenticationFailure(
-              reassignmentRequest.reassignmentRef,
-              error,
-              reassign.contract.contractId,
+
+      _ <- MonadUtil.sequentialTraverse(reassignmentRequest.contracts.contracts.forgetNE) {
+        reassign =>
+          contractValidator
+            .authenticate(reassign.contract.inst, reassign.contract.templateId.packageId)(
+              ec,
+              traceContext,
+              LoggingContext.empty,
             )
-          )
+            .leftMap { reason =>
+              ReassignmentValidationError.ContractAuthenticationFailure(
+                reassignmentRequest.reassignmentRef,
+                reason,
+                reassign.contract.contractId,
+              ): ReassignmentValidationError
+            }
       }
-    } yield ())
+    } yield ()
   }
 
   def ensureMediatorActive(

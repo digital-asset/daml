@@ -560,7 +560,6 @@ create or replace view debug.sequencer_synchronizer_configuration as
 
 create or replace view debug.mediator_deduplication_store as
   select
-    mediator_id,
     uuid,
     debug.canton_timestamp(request_time) as request_time,
     debug.canton_timestamp(expire_after) as expire_after

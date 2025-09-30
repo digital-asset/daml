@@ -275,8 +275,6 @@ class LedgerApiStreamingTest extends CommunityIntegrationTest with SharedEnviron
                   GetUpdatesRequest(
                     beginExclusive = 0L,
                     endInclusive = Some(twoHundredTxLedgerEnd),
-                    filter = None,
-                    verbose = false,
                     updateFormat = Some(
                       UpdateFormat(
                         includeTransactions = Some(

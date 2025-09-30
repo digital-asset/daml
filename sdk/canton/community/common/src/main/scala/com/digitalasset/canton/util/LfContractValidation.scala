@@ -87,9 +87,8 @@ object LfContractValidation {
     )(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
-    ): EitherT[FutureUnlessShutdown, String, Hash] = {
+    ): EitherT[FutureUnlessShutdown, String, Hash] =
       consume(delegate.hashCreateNode(create, contractIdSubstitution, hashingMethod))
-    }
   }
 
 }
