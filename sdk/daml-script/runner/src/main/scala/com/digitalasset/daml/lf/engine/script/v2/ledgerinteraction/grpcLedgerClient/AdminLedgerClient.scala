@@ -139,6 +139,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
       forceChanges = Seq(
         ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE,
         ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS,
+        ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES,
       ),
       signedBy = Seq.empty,
       store = Some(
