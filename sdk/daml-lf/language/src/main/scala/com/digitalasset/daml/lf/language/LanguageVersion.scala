@@ -101,9 +101,6 @@ object LanguageVersion {
 
     val contractKeys = v2_dev
 
-    val crypto = v2_1
-    val cryptoAdditions = v2_1
-
     val flatArchive = v2_dev
     val kindInterning = flatArchive
     val exprInterning = flatArchive
@@ -156,7 +153,6 @@ object LanguageVersion {
       * feature flag once the decision to add them permanently has been made.
       */
     val unstable = v1_dev
-
   }
 
   private[lf] def notSupported(majorLanguageVersion: LanguageMajorVersion) =

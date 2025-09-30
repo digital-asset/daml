@@ -184,14 +184,6 @@ featureContractKeys = Feature
     , featureCppFlag = Just "DAML_CONTRACT_KEYS"
     }
 
-featureCryptoAdditions :: Feature
-featureCryptoAdditions = Feature
-    { featureName = "Daml Crypto additions"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_CRYPTO_ADDITIONS"
-    }
-
 featureFlatArchive :: Feature
 featureFlatArchive = Feature
     { featureName = "Flat Archive"
@@ -243,7 +235,6 @@ allFeatures =
     , featureContractKeys
     , featureUnstable
     , featureExperimental
-    , featureCryptoAdditions
     ]
 
 -- | A map from feature CPP flags to features.
