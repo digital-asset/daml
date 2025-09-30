@@ -1276,6 +1276,7 @@ object Ast {
         { case ids => ids },
       )
 
+      // only iff package is not stable itself
       baseImports.union(
         if (withStablePackages) stableIds else Set.empty
       )
