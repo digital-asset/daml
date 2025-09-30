@@ -224,7 +224,9 @@ checkSdkVersions releaseVersion depsExtracted = do
     let depsSdkVersions = map edSdkVersions depsExtracted
     unless (all (\ver -> ver == thisSdkVer || ver == thisReleaseVer) depsSdkVersions) $
         fail $
-        "Package dependencies from different SDK versions: " ++ intercalate ", " uniqSdkVersions
+        "Package dependencies from different SDK versions: " ++ intercalate ", " uniqSdkVersions ++ "\n" ++
+        "Own version: " ++ thisReleaseVer ++ "\n" ++
+        "Dep versions: " ++ ((\e -> show (takeFileName $ ZipArchive.eRelativePath $ edMain e, edSdkVersions e)) <$> depsExtracted)
 
 -- Install a dar dependency
 installDar :: FilePath -> Bool -> ExtractedDar -> IO ()
