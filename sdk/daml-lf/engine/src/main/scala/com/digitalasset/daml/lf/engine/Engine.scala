@@ -829,6 +829,8 @@ class Engine(val config: EngineConfig) {
     * the engine.
     *
     * @param create the Create node for which the hash is computed
+    * @param contractIdSubstitution a substitution for contract IDs to be applied by the engine to the create argument
+    *                               before hashing
     * @param hashingMethod the hashing method to use
     * @return a Result containing the computed hash. When [hashingMethod] is
     *         [[HashingMethod.TypedNormalForm]], returns a [[ResultError]]
@@ -836,6 +838,7 @@ class Engine(val config: EngineConfig) {
     */
   def hashCreateNode(
       create: Node.Create,
+      contractIdSubstitution: ContractId => ContractId,
       hashingMethod: Hash.HashingMethod,
   ): Result[Hash] = {
     import Engine.Syntax._
@@ -844,7 +847,7 @@ class Engine(val config: EngineConfig) {
     val location = NameOf.qualifiedNameOfCurrentFunc
     val templateId = create.templateId
     val pkgId = templateId.packageId
-    val createArg = create.arg
+    val createArg = create.arg.mapCid(contractIdSubstitution)
     val packageName = create.packageName
 
     hashingMethod match {
@@ -892,6 +895,8 @@ class Engine(val config: EngineConfig) {
     *
     * @param instance the contract instance to validate
     * @param targetPackageId the target package id against which the instance is validated
+    * @param contractIdSubstitution a substitution for contract IDs to be applied by the engine to the contract
+    *                                instance before validation
     * @param hashingMethod the hash type to use for validation
     * @param idValidator a function that checks whether a given hash is valid
     * @return a Result containing a [Right(())] on success and a [Left(_)] when validation fails. On other errors
@@ -900,9 +905,12 @@ class Engine(val config: EngineConfig) {
   def validateContractInstance(
       instance: FatContractInstance,
       targetPackageId: PackageId,
+      contractIdSubstitution: ContractId => ContractId,
       hashingMethod: Hash.HashingMethod,
       idValidator: Hash => Boolean,
   )(implicit loggingContext: LoggingContext): Result[Either[IError, Unit]] = {
+    val coinst = instance.mapCid(contractIdSubstitution)
+
     def internalError(msg: String): Result[Either[IError, Unit]] =
       ResultError(Error.Interpretation.Internal(NameOf.qualifiedNameOfCurrentFunc, msg, None))
 
@@ -914,10 +922,10 @@ class Engine(val config: EngineConfig) {
         case SResult.SResultQuestion(question) =>
           question match {
             case Update.NeedContract(contractId, _, callback) =>
-              if (contractId != instance.contractId)
-                internalError(s"expected contract id ${instance.contractId}, got $contractId")
+              if (contractId != coinst.contractId)
+                internalError(s"expected contract id ${coinst.contractId}, got $contractId")
               else {
-                discard(callback(instance, hashingMethod, idValidator))
+                discard(callback(coinst, hashingMethod, idValidator))
                 interpret(machine, abort)
               }
             case Update.NeedPackage(pkgId, context, callback) =>
@@ -953,8 +961,8 @@ class Engine(val config: EngineConfig) {
         updateSE = SEMakeClo(
           ArraySeq.empty,
           1,
-          SBFetchTemplate(TypeConId(targetPackageId, instance.templateId.qualifiedName))(
-            SEValue(SContractId(instance.contractId))
+          SBFetchTemplate(TypeConId(targetPackageId, coinst.templateId.qualifiedName))(
+            SEValue(SContractId(coinst.contractId))
           ),
         ),
         committers = Set.empty,

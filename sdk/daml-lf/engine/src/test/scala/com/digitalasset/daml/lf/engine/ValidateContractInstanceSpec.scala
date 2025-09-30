@@ -58,7 +58,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '1.0.0' )
         module M {
-          record @serializable T = { p1: Party, p2: Party };
+          record @serializable T = { p1: Party, p2: Party, cid: ContractId M:T };
           template (this : T) = {
             precondition True;
             signatories Cons @Party [M:T {p1} this] (Nil @Party);
@@ -75,7 +75,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p1: Party, p2: Party, extra: Option Int64 };
+          record @serializable T = { p1: Party, p2: Party, cid: ContractId M:T, extra: Option Int64 };
           template (this : T) = {
             precondition True;
             signatories Cons @Party [M:T {p1} this] (Nil @Party);
@@ -92,7 +92,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p1: Party, p2: Party, extra: Int64 };
+          record @serializable T = { p1: Party, p2: Party, cid: ContractId M:T, extra: Int64 };
           template (this : T) = {
             precondition True;
             signatories Cons @Party [M:T {p1} this] (Nil @Party);
@@ -109,7 +109,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p1: Party, p2: Party };
+          record @serializable T = { p1: Party, p2: Party, cid: ContractId M:T };
           template (this : T) = {
             precondition False;
             signatories Cons @Party [M:T {p1} this] (Nil @Party);
@@ -126,7 +126,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p1: Party, p2: Party };
+          record @serializable T = { p1: Party, p2: Party, cid: ContractId M:T };
           template (this : T) = {
             precondition False;
             signatories Cons @Party [M:T {p2} this] (Nil @Party);
@@ -143,7 +143,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     )
     p""" metadata ( 'test-pkg' : '2.0.0' )
         module M {
-          record @serializable T = { p1: Party, p2: Party };
+          record @serializable T = { p1: Party, p2: Party, cid: ContractId M:T };
           template (this : T) = {
             precondition False;
             signatories Cons @Party [M:T {p1} this] (Nil @Party);
@@ -164,13 +164,22 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
   val bob = Party.assertFromString("bob")
   val packageName = Ref.PackageName.assertFromString("test-pkg")
   val templateId = Ref.Identifier(pkgId1, Ref.QualifiedName.assertFromString("M:T"))
-  val createArg =
-    V.ValueRecord(None, ImmArray(None -> V.ValueParty(alice), None -> V.ValueParty(bob)))
+  val cid0 = newSuffixedCid
+  val cid1 = newSuffixedCid
+  def createArg(cidInContractArg: V.ContractId) =
+    V.ValueRecord(
+      None,
+      ImmArray(
+        None -> V.ValueParty(alice),
+        None -> V.ValueParty(bob),
+        None -> V.ValueContractId(cidInContractArg),
+      ),
+    )
   val createNode = Node.Create(
     coid = TransactionBuilder.newCid,
     packageName = packageName,
     templateId = Ref.Identifier(pkgId1, Ref.QualifiedName.assertFromString("M:T")),
-    arg = createArg,
+    arg = createArg(cid0),
     signatories = Set(alice),
     stakeholders = Set(alice),
     keyOpt = None,
@@ -181,12 +190,13 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     CreationTime.CreatedAt(Time.Timestamp.now()),
     Bytes.Empty,
   )
+  val cidMapping = Map(cid0 -> cid1).withDefault(identity)
 
   val expectedLegacyHash = Hash
-    .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
+    .hashContractInstance(templateId, createArg(cid1), packageName, upgradeFriendly = false)
     .value
   val expectedUpgradeFriendlyHash = Hash
-    .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
+    .hashContractInstance(templateId, createArg(cid1), packageName, upgradeFriendly = true)
     .value
   val expectedTypedNormalFormHash = SValueHash
     .hashContractInstance(
@@ -194,8 +204,12 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
       templateId.qualifiedName,
       SValue.SRecord(
         templateId,
-        ImmArray(Ref.Name.assertFromString("p1"), Ref.Name.assertFromString("p2")),
-        ArraySeq(SValue.SParty(alice), SValue.SParty(bob)),
+        ImmArray(
+          Ref.Name.assertFromString("p1"),
+          Ref.Name.assertFromString("p2"),
+          Ref.Name.assertFromString("cid"),
+        ),
+        ArraySeq(SValue.SParty(alice), SValue.SParty(bob), SValue.SContractId(cid1)),
       ),
     )
     .value
@@ -224,6 +238,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
             .validateContractInstance(
               contractInstance,
               targetPackageId,
+              cidMapping,
               hashingMethod,
               idValidator = { h =>
                 idValidatorCalledWithExpectedHash = (h == expectedHash)
@@ -259,6 +274,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
             .validateContractInstance(
               contractInstance,
               targetPackageId,
+              cidMapping,
               hashingMethod,
               idValidator = _ => false, // We pretend that the authentication always fails
             )
@@ -285,6 +301,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
           .validateContractInstance(
             contractInstance,
             pkgId3, // This package cannot type-check contractInstance
+            cidMapping,
             hashingMethod,
             idValidator = _ => true,
           )
@@ -310,6 +327,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
           .validateContractInstance(
             contractInstance,
             pkgId4, // The precondition of template T evaluates to false in pkg4
+            cidMapping,
             hashingMethod,
             idValidator = _ => true,
           )
@@ -335,6 +353,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
           .validateContractInstance(
             contractInstance,
             pkgId5, // The signatories differ from those of contractInstance
+            cidMapping,
             hashingMethod,
             idValidator = _ => true,
           )
@@ -360,6 +379,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
           .validateContractInstance(
             contractInstance,
             pkgId6, // The observers differ from those of contractInstance
+            cidMapping,
             hashingMethod,
             idValidator = _ => true,
           )
@@ -385,6 +405,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
           .validateContractInstance(
             contractInstance,
             pkgId1,
+            cidMapping,
             hashingMethod,
             idValidator = _ => true,
           )
@@ -394,4 +415,11 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
+
+  private def newSuffixedCid: V.ContractId = TransactionBuilder.newCid
+    .suffixCid(
+      _ => Bytes.assertFromString("00"),
+      _ => Bytes.assertFromString("00"),
+    )
+    .value
 }
