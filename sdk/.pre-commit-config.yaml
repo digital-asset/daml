@@ -64,3 +64,10 @@ repos:
       pass_filenames: true
       entry: "dade-check-main-only-files"
       types: [text]
+    - id: security-scan
+      name: security scan
+      description: Basic security vulnerability scan
+      language: system
+      pass_filenames: false
+      entry: "bash -c 'if command -v npm audit >/dev/null 2>&1; then npm audit --audit-level=moderate; fi'"
+      types: [text]
