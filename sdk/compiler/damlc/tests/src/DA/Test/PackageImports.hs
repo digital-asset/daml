@@ -86,13 +86,13 @@ verifyImports darname = testCase darname $ do
   let deps = edDalfs dar
   let bss :: [BS.ByteString]
       bss = map (BSL.toStrict . ZipArchive.fromEntry) deps
-  let ps :: [(PackageId, Package)]
-      ps = map (fromRight (error "decoding error") . Archive.decodeArchive Archive.DecodeAsMain) bss
-  let ps' :: [(PackageId, PackageIds)]
-      ps' = map (fmap $ fromRight (error "decoding error") . importedPackages) ps
+  let pkgIdDepGraph :: [(PackageId, Package)]
+      pkgIdDepGraph = map (fromRight (error "decoding error") . Archive.decodeArchive Archive.DecodeAsMain) bss
+  let pkgIdDepGraph' :: [(PackageId, PackageIds)]
+      pkgIdDepGraph' = map (fmap $ fromRight (error "decoding error") . importedPackages) pkgIdDepGraph
 
-  let mentioned = transitiveClosure (M.fromList ps') (fst p')
-  let included = (fromList $ map fst ps') `difference` stablePkgs
+  let mentioned = transitiveClosure (M.fromList pkgIdDepGraph') (fst p')
+  let included = (fromList $ map fst pkgIdDepGraph') `difference` stablePkgs
 
   assertBool (printf "Included but not mentioned: %s" $ show $ included `difference` mentioned) $ included `difference` mentioned == empty
   assertBool (printf "Mentioned but not included: %s" $ show $ mentioned `difference` included) $ mentioned `difference` included == empty

@@ -712,48 +712,49 @@ class Engine(val config: EngineConfig) {
     * preloaded.
     */
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
-    val darPackages = dar.all.toMap
-    val mainPackageId = dar.main._1
-    val mainPackageDependencies = dar.main._2.directDeps
 
-    sealed abstract class PackageClassification
-    final case class ExtraPackage(pkgId: PackageId, pkg: Package) extends PackageClassification
-    final case class DependentPackage(pkgId: PackageId) extends PackageClassification
-    final case class MissingPackage(pkgId: PackageId) extends PackageClassification
+    /*
+     * Computes the transitive closure for a starting node in a graph.
+     * The graph is represented as a map from a node to a set of its direct neighbors.
+     *
+     * @param graph The graph, represented as an adjacency map.
+     * @param startNode The node from which to start the traversal.
+     * @tparam A The type of the nodes in the graph.
+     * @return A set containing all nodes reachable from the startNode (inclusive).
+     */
+    def transitiveClosure[A](graph: Map[A, Set[A]], startNode: A): Set[A] = {
 
-    @tailrec
-    def calculateDependencyInformation(
-        pkgIds: Set[PackageId],
-        pkgClassification: Map[PackageId, PackageClassification],
-    ): (Set[PackageId], Set[PackageId], Set[PackageId]) = {
-      val unclassifiedPkgIds = pkgIds.collect {
-        case id
-            if !pkgClassification.contains(id) || pkgClassification(id)
-              .isInstanceOf[ExtraPackage] =>
-          id
+      @tailrec
+      def go(toVisit: Set[A], visited: Set[A]): Set[A] = {
+        if (toVisit.isEmpty) {
+          visited
+        } else {
+          val current = toVisit.head
+          val restToVisit = toVisit.tail
+
+          if (visited.contains(current)) {
+            go(restToVisit, visited)
+          } else {
+            val neighbors = graph.getOrElse(current, Set.empty[A])
+            val newToVisit = restToVisit ++ neighbors
+            val newVisited = visited + current
+            go(newToVisit, newVisited)
+          }
+        }
       }
-
-      if (unclassifiedPkgIds.isEmpty) {
-        val result = pkgClassification.values.toSet
-        val knownDeps = result.collect { case DependentPackage(id) => id }
-        val missingDeps = result.collect { case MissingPackage(id) => id }
-        val extraDeps = result.collect { case ExtraPackage(id, _) => id }
-
-        (knownDeps, missingDeps, extraDeps)
-      } else {
-        val (knownPkgIds, missingPkdIds) =
-          unclassifiedPkgIds.partition(id => pkgClassification.contains(id))
-        val missingDeps = missingPkdIds.map(id => id -> MissingPackage(id)).toMap
-        val knownDeps = knownPkgIds.map(id => id -> DependentPackage(id)).toMap
-        // There is no point in searching through missing package Ids!
-        val directDeps =
-          knownPkgIds.flatMap(id => pkgClassification(id).asInstanceOf[ExtraPackage].pkg.directDeps)
-
-        calculateDependencyInformation(directDeps, pkgClassification ++ knownDeps ++ missingDeps)
-      }
+      go(Set(startNode), Set.empty[A])
     }
 
+    val pkgIdDepGraph: Map[PackageId, Set[PackageId]] =
+      dar.all.toMap.view.mapValues(_.imports.pkgIds).toMap
+    val mainPackageId: PackageId = dar.main._1
+
+    val mentioned = transitiveClosure(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
+    val included = pkgIdDepGraph.keys.toSet.diff(stablePackageIds)
+    val darPackages = dar.all.toMap
+
     for {
+      // first do Version check, copied as-is from validateDar pre-imports-rework
       _ <- darPackages
         .collectFirst {
           case (pkgId, pkg)
@@ -766,18 +767,21 @@ class Engine(val config: EngineConfig) {
             )
         }
         .toLeft(())
-      // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
-      (transitiveDeps, missingDeps, unusedDeps) = calculateDependencyInformation(
-        mainPackageDependencies,
-        darPackages.map { case (id, pkg) => id -> ExtraPackage(id, pkg) },
-      )
-      // extraDeps are unused Dar manifest package IDs that are not stable packages and not the main package ID
-      extraDeps = unusedDeps.diff(Set(mainPackageId) union stablePackageIds)
+
+      // meat of the package checks, to check if included = mentioned
       _ <- Either.cond(
-        missingDeps.isEmpty && extraDeps.isEmpty,
+        included.equals(mentioned),
         (),
-        Error.Package.DarSelfConsistency(mainPackageId, transitiveDeps, missingDeps, extraDeps),
+        // we set transitiveDependencies to Set.empty because our logic does not generate it anymore
+        Error.Package.DarSelfConsistency(
+          mainPackageId = mainPackageId,
+          transitiveDependencies = Set.empty,
+          missingDependencies = mentioned.diff(included),
+          extraDependencies = included.diff(mentioned),
+        ),
       )
+
+      // rest of copied check from validateDar pre-imports-rework
       pkgInterface = PackageInterface(darPackages)
       _ <- {
         darPackages.iterator

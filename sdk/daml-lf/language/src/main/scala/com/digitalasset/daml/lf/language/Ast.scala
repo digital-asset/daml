@@ -1277,13 +1277,11 @@ object Ast {
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Ref.PackageVersion = metadata.version
 
-    def toImports(withStablePackages: Boolean): Set[PackageId] = {
+    def importsWithStablePkgs: Set[PackageId] = {
       // TODO[RB]: when we have our bazel-maintained stable packages list, we
       // use it here to filter the stablepackages by lf version (right now it is
       // ok since all stable packages are 2.1)
-      imports.pkgIds.union(
-        if (withStablePackages) stableIds else Set.empty
-      )
+      imports.pkgIds.union(stableIds)
     }
 
     private val stableIds: Set[PackageId] =
