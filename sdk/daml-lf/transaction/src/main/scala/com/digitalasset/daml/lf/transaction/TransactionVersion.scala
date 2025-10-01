@@ -56,11 +56,9 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   val maxVersion: TransactionVersion = All.max
 
-  private[lf] val minContractKeys = LanguageVersion.Features.contractKeys
+  private[lf] def minContractKeys = LanguageVersion.Features.contractKeys
 
-  private[lf] val minChoiceAuthorizers = LanguageVersion.Features.choiceAuthority
-
-  private[lf] val minPackageVersion = LanguageVersion.Features.persistedPackageVersion
+  private[lf] def minChoiceAuthorizers = LanguageVersion.Features.choiceAuthority
 
   val VDev = LanguageVersion.v2_dev
 

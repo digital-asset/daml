@@ -78,13 +78,9 @@ object LanguageVersion {
       Some(FeaturesV1.packageUpgrades.minor),
     )
 
-  def supportsPersistedPackageVersion(lv: LanguageVersion): Boolean =
-    supportsV1AndV2(lv, Some(Features.persistedPackageVersion.minor), None)
-
   object Features {
     val default = v2_1
     val packageUpgrades = v2_1
-    val persistedPackageVersion = v2_dev
 
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
