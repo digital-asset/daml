@@ -2218,7 +2218,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         }
     """
 
-  val txVersion = pkg.languageVersion
+  val txVersion = SerializationVersion.assign(pkg.languageVersion)
   val pkgName = Ref.PackageName.assertFromString("-sbuiltin-test-")
 
   val compiledPackages: PureCompiledPackages =
@@ -2359,7 +2359,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       fields.map(Ref.Name.assertFromString),
       svalues,
     )
-    val txVersion = pkg.languageVersion
+    val txVersion = SerializationVersion.assign(pkg.languageVersion)
     val keyOpt =
       if (withKey)
         Some(

@@ -30,7 +30,7 @@ class SynchronizersFilterTest
     val ledgerTime = CantonTimestamp.now()
 
     val filter = SynchronizersFilterForTx(
-      Transactions.Create.tx(fixtureTransactionVersion),
+      Transactions.Create.tx(fixtureSerializationVersion),
       ledgerTime,
       testedProtocolVersion,
     )
@@ -144,7 +144,7 @@ class SynchronizersFilterTest
 
   "SynchronizersFilter (simple exercise by interface)" should {
     import SimpleTopology.*
-    val exerciseByInterface = Transactions.ExerciseByInterface(fixtureTransactionVersion)
+    val exerciseByInterface = Transactions.ExerciseByInterface(fixtureSerializationVersion)
 
     val ledgerTime = CantonTimestamp.now()
     val filter = SynchronizersFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)

@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction private[lf] (
-    version: TransactionVersion,
+    version: SerializationVersion,
     nodes: Map[NodeId, Node],
     override val roots: ImmArray[NodeId],
 ) extends HasTxNodes

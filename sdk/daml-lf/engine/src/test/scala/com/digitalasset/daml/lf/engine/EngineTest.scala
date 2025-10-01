@@ -19,12 +19,12 @@ import com.digitalasset.daml.lf.transaction.{
   NodeId,
   Normalization,
   ReplayMismatch,
+  SerializationVersion,
   SubmittedTransaction,
   Transaction,
   Validation,
   VersionedTransaction,
   Transaction => Tx,
-  TransactionVersion => TxVersions,
 }
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import Value._
@@ -1303,7 +1303,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         observers: Iterable[Party],
     ) =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, tid),
         arg = ValueRecord(None /* Identifier(basicTestsPkgId, tid) */, targs),
@@ -1453,7 +1453,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
     val fetchedContract =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetchedStrTid),
         arg = ValueRecord(
@@ -1502,7 +1502,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
         arg =
@@ -1747,7 +1747,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
       val fetcherInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
         arg =
@@ -1817,7 +1817,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
     val fetcherInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = defaultLangVersion,
+      version = defaultSerializationVersion,
       packageName = basicTestsPkg.pkgName,
       template = fetcherId,
       arg = ValueRecord(
@@ -1994,7 +1994,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("1")
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
@@ -2155,7 +2155,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("1")
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
@@ -2244,7 +2244,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val cid = toContractId("1")
     val contracts = Map(
       cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = defaultLangVersion,
+        version = defaultSerializationVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
@@ -2396,7 +2396,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Map(
         cid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             arg = ValueRecord(
@@ -2408,7 +2408,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ),
         fetcherCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
@@ -2491,7 +2491,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Map(
         cid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             // ill-formed argument: values imported by the engine cannot contain labels
@@ -2504,7 +2504,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ),
         fetcherCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
@@ -2591,7 +2591,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       Map(
         simpleCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = simpleId,
             arg = createArg,
@@ -2600,7 +2600,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ),
         fetcherCid ->
           TransactionBuilder.fatContractInstanceWithDummyDefaults(
-            version = defaultLangVersion,
+            version = defaultSerializationVersion,
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
@@ -2769,7 +2769,8 @@ class EngineTestHelpers(
     contractIdVersion: ContractIdVersion,
 ) {
 
-  val defaultLangVersion = majorLanguageVersion.maxStableVersion
+  val defaultSerializationVersion =
+    SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
 
   import Matchers._
 
@@ -2823,7 +2824,7 @@ class EngineTestHelpers(
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      defaultLangVersion,
+      defaultSerializationVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
@@ -2851,7 +2852,7 @@ class EngineTestHelpers(
     Map(
       toContractId("BasicTests:Simple:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = defaultLangVersion,
+          version = defaultSerializationVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
@@ -2863,7 +2864,7 @@ class EngineTestHelpers(
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = defaultLangVersion,
+          version = defaultSerializationVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
@@ -3015,7 +3016,7 @@ class EngineTestHelpers(
 
     finalState.map(state =>
       (
-        TxVersions.asVersionedTransaction(
+        SerializationVersion.asVersionedTransaction(
           Tx(state.nodes, state.roots.toImmArray)
         ),
         Tx.Metadata(
@@ -3075,7 +3076,7 @@ class EngineTestHelpers(
       arg: SValue,
       keyOpt: Option[Value] = None,
   ) = {
-    val version = pkg.languageVersion
+    val version = SerializationVersion.assign(pkg.languageVersion)
     DisclosedContract(
       FatContractInstance.fromCreateNode(
         Node.Create(

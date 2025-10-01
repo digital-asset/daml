@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
-import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
+import com.digitalasset.daml.lf.transaction.SerializationVersion.VDev
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._

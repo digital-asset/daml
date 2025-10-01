@@ -27,7 +27,6 @@ da_scala_library(
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/data-scalacheck",
-        "//daml-lf/language",
         "//daml-lf/transaction",
         "@maven//:com_google_protobuf_protobuf_java",
     ],

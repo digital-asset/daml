@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.speedy.{Compiler, SValue}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{Node, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{Node, SerializationVersion}
 import com.digitalasset.daml.lf.value.{Value => V}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -71,7 +71,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
     signatories = Set(alice),
     stakeholders = Set(alice),
     keyOpt = None,
-    version = TransactionVersion.minVersion,
+    version = SerializationVersion.minVersion,
   )
   val cidMapping = Map(cid0 -> cid1).withDefault(identity)
 

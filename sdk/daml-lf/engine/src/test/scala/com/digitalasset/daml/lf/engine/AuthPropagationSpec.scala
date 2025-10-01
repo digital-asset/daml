@@ -25,7 +25,7 @@ import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   SubmittedTransaction,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
@@ -78,7 +78,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private def t1InstanceFor(party: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = TransactionVersion.VDev,
+      version = SerializationVersion.VDev,
       packageName = pkg.pkgName,
       template = "T1",
       arg = ValueRecord(
@@ -90,7 +90,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private def x1InstanceFor(party: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      TransactionVersion.VDev,
+      SerializationVersion.VDev,
       pkg.pkgName,
       "X1",
       ValueRecord(

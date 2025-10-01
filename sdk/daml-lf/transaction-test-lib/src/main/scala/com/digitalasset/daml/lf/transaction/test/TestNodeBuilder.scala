@@ -7,7 +7,7 @@ package test
 
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
-  CreateTransactionVersion,
+  CreateSerializationVersion,
 }
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -15,22 +15,22 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 trait TestNodeBuilder {
 
-  def transactionVersion(packageId: PackageId): Option[TransactionVersion] = None
+  def serializationVersion(packageId: PackageId): Option[SerializationVersion] = None
 
-  private def assertPackageVersion(packageId: PackageId): TransactionVersion =
-    transactionVersion(packageId).getOrElse(
+  private def assertPackageVersion(packageId: PackageId): SerializationVersion =
+    serializationVersion(packageId).getOrElse(
       throw new IllegalArgumentException(s"Could not lookup transaction version for $packageId")
     )
 
-  private[this] def contractTransactionVersion(contract: Node.Create): TransactionVersion =
-    transactionVersion(contract.templateId.packageId).getOrElse(contract.version)
+  private[this] def contractSerializationVersion(contract: Node.Create): SerializationVersion =
+    serializationVersion(contract.templateId.packageId).getOrElse(contract.version)
 
   val defaultPackageName: Ref.PackageName =
     Ref.PackageName.assertFromString("-default-package-name-")
@@ -44,13 +44,13 @@ trait TestNodeBuilder {
       key: CreateKey = CreateKey.NoKey,
       // TODO https://github.com/digital-asset/daml/issues/17995
       packageName: PackageName = defaultPackageName,
-      version: CreateTransactionVersion = CreateTransactionVersion.StableMax,
+      version: CreateSerializationVersion = CreateSerializationVersion.StableMax,
   ): Node.Create = {
 
-    val transactionVersion = version match {
-      case CreateTransactionVersion.StableMax => TransactionVersion.StableVersions.max
-      case CreateTransactionVersion.FromPackage => assertPackageVersion(templateId.packageId)
-      case CreateTransactionVersion.Version(version) => version
+    val serializationVersion = version match {
+      case CreateSerializationVersion.StableMax => SerializationVersion.StableVersions.max
+      case CreateSerializationVersion.FromPackage => assertPackageVersion(templateId.packageId)
+      case CreateSerializationVersion.Version(version) => version
     }
 
     val keyOpt = key match {
@@ -76,7 +76,7 @@ trait TestNodeBuilder {
       signatories = signatories ++ maintainers,
       stakeholders = signatories ++ observers ++ maintainers,
       keyOpt = keyOpt,
-      version = transactionVersion,
+      version = serializationVersion,
     )
   }
 
@@ -109,7 +109,7 @@ trait TestNodeBuilder {
       exerciseResult = result,
       keyOpt = contract.keyOpt,
       byKey = byKey,
-      version = contractTransactionVersion(contract),
+      version = contractSerializationVersion(contract),
     )
 
   def fetch(
@@ -125,7 +125,7 @@ trait TestNodeBuilder {
       stakeholders = contract.stakeholders,
       keyOpt = contract.keyOpt,
       byKey = byKey,
-      version = contractTransactionVersion(contract),
+      version = contractSerializationVersion(contract),
       interfaceId = None,
     )
 
@@ -139,7 +139,7 @@ trait TestNodeBuilder {
         )
       ),
       result = if (found) Some(contract.coid) else None,
-      version = contractTransactionVersion(contract),
+      version = contractSerializationVersion(contract),
     )
 
   def rollback(children: ImmArray[NodeId] = ImmArray.empty): Node.Rollback =
@@ -156,11 +156,11 @@ object TestNodeBuilder extends TestNodeBuilder {
     final case class KeyWithMaintainers(value: Value, maintainers: Set[Party]) extends CreateKey
   }
 
-  sealed trait CreateTransactionVersion
-  object CreateTransactionVersion {
-    case object StableMax extends CreateTransactionVersion
-    case object FromPackage extends CreateTransactionVersion
-    final case class Version(version: TransactionVersion) extends CreateTransactionVersion
+  sealed trait CreateSerializationVersion
+  object CreateSerializationVersion {
+    case object StableMax extends CreateSerializationVersion
+    case object FromPackage extends CreateSerializationVersion
+    final case class Version(version: SerializationVersion) extends CreateSerializationVersion
   }
 
 }

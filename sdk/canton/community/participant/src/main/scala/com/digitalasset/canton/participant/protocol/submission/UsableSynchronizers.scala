@@ -12,7 +12,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
-import com.digitalasset.canton.protocol.{LfActionNode, LfLanguageVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{LfActionNode, LfSerializationVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.UnknownOrUnvettedPackages
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
@@ -25,7 +25,6 @@ import com.digitalasset.canton.version.{
 }
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -71,7 +70,7 @@ object UsableSynchronizers {
   ): EitherT[FutureUnlessShutdown, SynchronizerNotUsedReason, Unit] = {
 
     val requiredPackagesPerParty = Blinding.partyPackages(transaction)
-    val transactionVersion = transaction.version
+    val SerializationVersion = transaction.version
 
     val packageVetted: EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
       checkPackagesVetted(
@@ -87,7 +86,7 @@ object UsableSynchronizers {
       checkConfirmingParties(synchronizerId, transaction, snapshot)
     val compatibleProtocolVersion
         : EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] =
-      checkProtocolVersion(synchronizerId, transactionVersion)
+      checkProtocolVersion(synchronizerId, SerializationVersion)
     val compatibleInteractiveSubmissionVersion
         : EitherT[FutureUnlessShutdown, SynchronizerNotUsedReason, Unit] =
       checkInteractiveSubmissionVersion(synchronizerId, interactiveSubmissionVersionO)
@@ -247,13 +246,13 @@ object UsableSynchronizers {
 
   private def checkProtocolVersion(
       synchronizerId: PhysicalSynchronizerId,
-      transactionVersion: TransactionVersion,
+      serializationVersion: LfSerializationVersion,
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] = {
     val minimumPVForTransaction =
       DamlLfVersionToProtocolVersions.getMinimumSupportedProtocolVersion(
-        transactionVersion
+        serializationVersion
       )
 
     EitherTUtil.condUnitET(
@@ -261,7 +260,7 @@ object UsableSynchronizers {
       UnsupportedMinimumProtocolVersion(
         synchronizerId,
         minimumPVForTransaction,
-        transactionVersion,
+        serializationVersion,
       ),
     )
   }
@@ -292,7 +291,7 @@ object UsableSynchronizers {
   final case class UnsupportedMinimumProtocolVersion(
       synchronizerId: PhysicalSynchronizerId,
       requiredPV: ProtocolVersion,
-      lfVersion: LfLanguageVersion,
+      lfVersion: LfSerializationVersion,
   ) extends SynchronizerNotUsedReason {
     val currentPV: ProtocolVersion = synchronizerId.protocolVersion
 

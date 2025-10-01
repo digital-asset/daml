@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -346,7 +346,7 @@ private[lf] object Pretty {
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
-        ) & str(rtx.transaction.version.pretty) /
+        ) & str(rtx.transaction.version) /
           children
       case IdeLedger.PassTime(dt) =>
         "pass" &: str(dt)
@@ -454,10 +454,10 @@ private[lf] object Pretty {
     )
   }
 
-  def prettyOptVersion(opt: Option[TxVersion]) = {
+  def prettyOptVersion(opt: Option[SerializationVersion]) = {
     opt match {
       case Some(v) =>
-        text("version:") & str(v.pretty)
+        text("version:") & str(v)
       case None =>
         text("no-version")
     }

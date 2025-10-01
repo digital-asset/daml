@@ -48,7 +48,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   val templateId: Ref.TypeConId = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
   val pkgName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
-  val txVersion: TransactionVersion = TransactionVersion.maxVersion
+  val txVersion: SerializationVersion = SerializationVersion.maxVersion
   val unit: Value = Value.ValueUnit
 
   implicit def contractIdFromInt(coid: Int): ContractId = cid(coid)

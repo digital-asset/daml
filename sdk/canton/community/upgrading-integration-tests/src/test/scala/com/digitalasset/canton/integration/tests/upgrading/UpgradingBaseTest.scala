@@ -68,7 +68,7 @@ object UpgradingBaseTest extends ShouldVerb {
   /** The DARs above are used to test interface fetches that, at time of writing, is a 2.dev
     * feature. For this reason only tests running a dev version of canton can use them.
     *
-    * Once TransactionVersion.minFetchInterfaceId is a final LF version this can be removed
+    * Once SerializationVersion.minFetchInterfaceId is a final LF version this can be removed
     */
   def testedPV(testedProtocolVersion: ProtocolVersion): Boolean =
     testedProtocolVersion >= ProtocolVersion.dev

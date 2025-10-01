@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.{
   Node,
   NodeId,
   Transaction,
-  TransactionVersion,
+  SerializationVersion,
   Versioned,
   VersionedTransaction,
 }
@@ -21,7 +21,6 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf.ByteString
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -291,7 +290,7 @@ object ValueGenerators {
     for {
       value <- valueGen()
       minVersion = TransactionBuilder.assertAssignVersion(value)
-      version <- transactionVersionGen(minVersion)
+      version <- SerializationVersionGen(minVersion)
     } yield Versioned(version, value)
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
@@ -323,10 +322,10 @@ object ValueGenerators {
     * 2. key's maintainers may not be a subset of signatories
     */
   def malformedCreateNodeGen(
-      minVersion: TransactionVersion = TransactionVersion.minVersion
+      minVersion: SerializationVersion = SerializationVersion.minVersion
   ): Gen[Node.Create] = {
     for {
-      version <- transactionVersionGen(minVersion)
+      version <- SerializationVersionGen(minVersion)
       node <- malformedCreateNodeGenWithVersion(version)
     } yield node
   }
@@ -337,7 +336,7 @@ object ValueGenerators {
     * 2. key's maintainers may not be a subset of signatories
     */
   def malformedCreateNodeGenWithVersion(
-      version: TransactionVersion
+      version: SerializationVersion
   ): Gen[Node.Create] =
     for {
       coid <- coidGen
@@ -347,7 +346,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <-
-        if (version < LanguageVersion.Features.contractKeys)
+        if (version < SerializationVersion.minContractKeys)
           Gen.const(Option.empty[GlobalKeyWithMaintainers])
         else Gen.option(keyWithMaintainersGen(templateId, packageName))
     } yield Node.Create(
@@ -363,11 +362,11 @@ object ValueGenerators {
 
   val fetchNodeGen: Gen[Node.Fetch] =
     for {
-      version <- transactionVersionGen()
+      version <- SerializationVersionGen()
       node <- fetchNodeGenWithVersion(version)
     } yield node
 
-  def fetchNodeGenWithVersion(version: TransactionVersion): Gen[Node.Fetch] =
+  def fetchNodeGenWithVersion(version: SerializationVersion): Gen[Node.Fetch] =
     for {
       coid <- coidGen
       pkgName <- pkgNameGen
@@ -376,11 +375,11 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <-
-        if (version < LanguageVersion.Features.contractKeys)
+        if (version < SerializationVersion.minContractKeys)
           Gen.const(Option.empty[GlobalKeyWithMaintainers])
         else Gen.option(keyWithMaintainersGen(templateId, pkgName))
       byKey <-
-        if (version < LanguageVersion.Features.contractKeys) Gen.const(false)
+        if (version < SerializationVersion.minContractKeys) Gen.const(false)
         else Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
@@ -408,13 +407,13 @@ object ValueGenerators {
   /** Makes exercise nodes with the given version and some random child IDs. */
   val danglingRefExerciseNodeGen: Gen[Node.Exercise] =
     for {
-      version <- transactionVersionGen()
+      version <- SerializationVersionGen()
       node <- danglingRefExerciseNodeGenWithVersion(version)
     } yield node
 
   /** Makes exercise nodes with the given version and some random child IDs. */
   def danglingRefExerciseNodeGenWithVersion(
-      version: TransactionVersion
+      version: SerializationVersion
   ): Gen[Node.Exercise] =
     for {
       targetCoid <- coidGen
@@ -429,7 +428,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
       choiceAuthorizersList <-
-        if (version < LanguageVersion.Features.choiceAuthority) Gen.const(Set.empty[Party])
+        if (version < SerializationVersion.minChoiceAuthorizers) Gen.const(Set.empty[Party])
         else genMaybeEmptyParties
       choiceAuthorizers = if (choiceAuthorizersList.isEmpty) None else Some(choiceAuthorizersList)
       children <- Gen
@@ -438,11 +437,11 @@ object ValueGenerators {
         .map(_.to(ImmArray))
       exerciseResult <- Gen.option(valueGen())
       key <-
-        if (version < LanguageVersion.Features.contractKeys)
+        if (version < SerializationVersion.minContractKeys)
           Gen.const(Option.empty[GlobalKeyWithMaintainers])
         else Gen.option(keyWithMaintainersGen(templateId, pkgName))
       byKey <-
-        if (version < LanguageVersion.Features.contractKeys) Gen.const(false)
+        if (version < SerializationVersion.minContractKeys) Gen.const(false)
         else Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
@@ -466,7 +465,7 @@ object ValueGenerators {
 
   val lookupNodeGen: Gen[Node.LookupByKey] =
     for {
-      version <- transactionVersionGen()
+      version <- SerializationVersionGen()
       targetCoid <- coidGen
       pkgName <- pkgNameGen
       templateId <- idGen
@@ -486,7 +485,7 @@ object ValueGenerators {
   def danglingRefGenActionNode: Gen[(NodeId, Node.Action)] = {
     for {
       id <- Arbitrary.arbInt.arbitrary.map(NodeId(_))
-      version <- transactionVersionGen()
+      version <- SerializationVersionGen()
       create = malformedCreateNodeGenWithVersion(version)
       exe = danglingRefExerciseNodeGenWithVersion(version)
       fetch = fetchNodeGenWithVersion(version)
@@ -498,7 +497,7 @@ object ValueGenerators {
     * `malformedGenTransaction` should they be incorporated into a transaction.
     */
   def danglingRefGenNode = for {
-    version <- transactionVersionGen()
+    version <- SerializationVersionGen()
     node <- danglingRefGenNodeWithVersion(version)
   } yield node
 
@@ -512,7 +511,7 @@ object ValueGenerators {
     *    Note that this only ensures that the node can be normalized to the given version.
     *    It does not normalize the node itself.
     */
-  def danglingRefGenActionNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] =
+  def danglingRefGenActionNodeWithVersion(version: SerializationVersion): Gen[(NodeId, Node)] =
     refGenNode(
       Gen.oneOf(
         malformedCreateNodeGenWithVersion(version),
@@ -521,7 +520,7 @@ object ValueGenerators {
       )
     )
 
-  def danglingRefGenNodeWithVersion(version: TransactionVersion): Gen[(NodeId, Node)] =
+  def danglingRefGenNodeWithVersion(version: SerializationVersion): Gen[(NodeId, Node)] =
     Gen.frequency(
       3 -> danglingRefGenActionNodeWithVersion(version),
       1 -> refGenNode(danglingRefRollbackNodeGen),
@@ -620,7 +619,7 @@ object ValueGenerators {
   val noDanglingRefGenVersionedTransaction: Gen[VersionedTransaction] = {
     for {
       tx <- noDanglingRefGenTransaction
-      txVer <- transactionVersionGen()
+      txVer <- SerializationVersionGen()
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, Node])) { case (acc, (nodeId, node)) =>
         for {
           hashMap <- acc
@@ -640,11 +639,11 @@ object ValueGenerators {
     Gen.frequency((1, Gen.const("")), (10, g))
   }
 
-  def transactionVersionGen(
-      minVersion: TransactionVersion = TransactionVersion.minVersion, // inclusive
-      maxVersion: Option[TransactionVersion] = None, // exclusive if defined
-  ): Gen[TransactionVersion] =
-    Gen.oneOf(TransactionVersion.All.filter(v => minVersion <= v && maxVersion.forall(v < _)))
+  def SerializationVersionGen(
+      minVersion: SerializationVersion = SerializationVersion.minVersion, // inclusive
+      maxVersion: Option[SerializationVersion] = None, // exclusive if defined
+  ): Gen[SerializationVersion] =
+    Gen.oneOf(SerializationVersion.All.filter(v => minVersion <= v && maxVersion.forall(v < _)))
 
   object Implicits {
     implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)

@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
-  CreateTransactionVersion,
+  CreateSerializationVersion,
 }
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
@@ -39,7 +39,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
    with a low protocol version, then some filter will reject the transaction (because high transaction
    version needs high protocol version).
    */
-  lazy val fixtureTransactionVersion: LfLanguageVersion =
+  lazy val fixtureSerializationVersion: LfLanguageVersion =
     DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions.collect {
       case (txVersion, protocolVersion) if protocolVersion <= BaseTest.testedProtocolVersion =>
         txVersion
@@ -101,7 +101,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
         signatories = List(signatory),
         observers = List(observer),
         key = CreateKey.NoKey,
-        version = CreateTransactionVersion.Version(version),
+        version = CreateSerializationVersion.Version(version),
       )
 
       TestNodeBuilder.exercise(
@@ -133,7 +133,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
             signatories = Seq(signatory),
             observers = Seq(observer),
             key = CreateKey.NoKey,
-            version = CreateTransactionVersion.Version(version),
+            version = CreateSerializationVersion.Version(version),
           )
         )
       }

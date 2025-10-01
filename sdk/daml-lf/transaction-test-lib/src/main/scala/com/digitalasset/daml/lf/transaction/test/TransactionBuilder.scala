@@ -71,7 +71,7 @@ object TransactionBuilder {
   // not valid transactions.
   val Empty: VersionedTransaction =
     VersionedTransaction(
-      TransactionVersion.minVersion, // A normalized empty tx is V10
+      SerializationVersion.minVersion, // A normalized empty tx is V10
       HashMap.empty,
       ImmArray.Empty,
     )
@@ -80,13 +80,13 @@ object TransactionBuilder {
 
   def assignVersion[Cid](
       v0: Value,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.StableVersions,
-  ): Either[String, TransactionVersion] = {
+      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.StableVersions,
+  ): Either[String, SerializationVersion] = {
     @tailrec
     def go(
-        currentVersion: TransactionVersion,
+        currentVersion: SerializationVersion,
         values0: FrontStack[Value],
-    ): Either[String, TransactionVersion] = {
+    ): Either[String, SerializationVersion] = {
       import Value._
       if (currentVersion >= supportedVersions.max) {
         Right(currentVersion)
@@ -129,20 +129,20 @@ object TransactionBuilder {
   @throws[IllegalArgumentException]
   def assertAssignVersion(
       v0: Value,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): TransactionVersion =
+      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.DevVersions,
+  ): SerializationVersion =
     data.assertRight(assignVersion(v0, supportedVersions))
 
   def asVersionedContract(
       contract: ThinContractInstance,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.DevVersions,
   ): Either[String, VersionedThinContractInstance] =
     assignVersion(contract.arg, supportedVersions)
       .map(Versioned(_, contract))
 
   def assertAsVersionedContract(
       contract: ThinContractInstance,
-      supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
+      supportedVersions: VersionRange[SerializationVersion] = SerializationVersion.DevVersions,
   ): VersionedThinContractInstance =
     data.assertRight(asVersionedContract(contract, supportedVersions))
 
@@ -226,7 +226,7 @@ object TransactionBuilder {
     * only.
     */
   def fatContractInstanceWithDummyDefaults(
-      version: TransactionVersion,
+      version: SerializationVersion,
       packageName: Ref.PackageName,
       template: Ref.Identifier,
       arg: Value,

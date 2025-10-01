@@ -32,7 +32,7 @@ import com.digitalasset.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   IncompleteTransaction => IncompleteTx,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
@@ -156,7 +156,7 @@ private[lf] object Speedy {
   }
 
   final case class ContractInfo(
-      version: TxVersion,
+      version: SerializationVersion,
       packageName: Ref.PackageName,
       templateId: Ref.TypeConId,
       value: SValue,
@@ -930,7 +930,7 @@ private[lf] object Speedy {
       envBase = 0
     }
 
-    final def tmplId2TxVersion(tmplId: TypeConId): TxVersion =
+    final def tmplId2TxVersion(tmplId: TypeConId): SerializationVersion =
       Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
     final def tmplId2PackageName(tmplId: TypeConId): PackageName =
@@ -1368,8 +1368,8 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): TxVersion =
-      pkgInterface.packageLanguageVersion(tmplId.packageId)
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =
+      SerializationVersion.assign(pkgInterface.packageLanguageVersion(tmplId.packageId))
 
     def tmplId2PackageName(
         pkgInterface: PackageInterface,

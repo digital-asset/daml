@@ -13,7 +13,7 @@ import com.digitalasset.canton.platform.apiserver.FatContractInstanceHelper
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
   ContractAuthenticationDataV1,
-  LfTransactionVersion,
+  LfSerializationVersion,
   SerializableContract,
   UnicumGenerator,
 }
@@ -52,7 +52,7 @@ private[participant] trait CreatesActiveContracts {
       signatories = Set(signatory.toLf),
       stakeholders = Set(signatory.toLf),
       keyOpt = None,
-      version = LfTransactionVersion.minVersion,
+      version = LfSerializationVersion.minVersion,
     )
 
     val contractId = valueOrFail(

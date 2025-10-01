@@ -21,7 +21,6 @@ import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
 import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.Order
@@ -83,9 +82,9 @@ object Hash {
     final case class MissingNodeSeed(message: String) extends NodeHashingError(message)
     final case class IncompleteTransactionTree(nodeId: NodeId)
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
-    final case class UnsupportedLanguageVersion(
+    final case class UnsupportedSerializationVersion(
         nodeHashVersion: NodeHashVersion,
-        version: TransactionVersion,
+        version: SerializationVersion,
     ) extends NodeHashingError(
           s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping
               .getOrElse(nodeHashVersion, Set.empty)
@@ -345,9 +344,9 @@ object Hash {
 
   private object NodeBuilder {
     private[lf] val HashingVersionToSupportedLFVersionMapping
-        : Map[NodeHashVersion, Set[LanguageVersion]] =
+        : Map[NodeHashVersion, Set[SerializationVersion]] =
       Map(
-        NodeHashVersion.V1 -> Set(LanguageVersion.v2_1)
+        NodeHashVersion.V1 -> Set(SerializationVersion.V1)
       )
 
     private[crypto] sealed abstract class NodeTag(val tag: Byte)
@@ -361,7 +360,7 @@ object Hash {
 
     @throws[NodeHashingError]
     private[lf] def assertHashingVersionSupportsLfVersion(
-        version: LanguageVersion,
+        version: SerializationVersion,
         nodeHashVersion: NodeHashVersion,
     ): Unit = {
       if (
@@ -372,7 +371,7 @@ object Hash {
             throw NodeHashingError.UnsupportedHashingVersion(nodeHashVersion),
           )
           .contains(version)
-      ) throw NodeHashingError.UnsupportedLanguageVersion(nodeHashVersion, version)
+      ) throw NodeHashingError.UnsupportedSerializationVersion(nodeHashVersion, version)
     }
   }
 
@@ -415,7 +414,7 @@ object Hash {
           ) =>
         if (keyOpt.isDefined) notSupported("keyOpt in Create node") // 2.dev feature
         addContext("Create Node")
-          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .withContext("Node Version")(_.addString(SerializationVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
           .withContext("Node Seed")(
             _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
@@ -445,7 +444,7 @@ object Hash {
         if (byKey == true) notSupported("byKey in Fetch node") // 2.dev feature
         if (interfaceId.nonEmpty) notSupported("interfaceId in Fetch node") // 2.dev feature
         addContext("Fetch Node")
-          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .withContext("Node Version")(_.addString(SerializationVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
           .withContext("Contract Id")(_.addCid(coid))
           .withContext("Package Name")(_.addString(packageName))
@@ -484,7 +483,7 @@ object Hash {
         if (keyOpt.nonEmpty) notSupported("keyOpt in Exercise node") // 2.dev feature
         if (byKey == true) notSupported("byKey in Exercise node") // 2.dev feature
         addContext("Exercise Node")
-          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .withContext("Node Version")(_.addString(SerializationVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
           .withContext("Node Seed")(_.addHash(nodeSeed, "seed"))
           .withContext("Contract Id")(_.addCid(targetCoid))
@@ -561,7 +560,7 @@ object Hash {
   ): Hash = {
     new NodeBuilderV1(Purpose.TransactionHash, hashTracer, enforceNodeSeedForCreateNodes = true)
       .withContext("Transaction Version")(
-        _.addString(TransactionVersion.toProtoValue(versionedTransaction.version))
+        _.addString(SerializationVersion.toProtoValue(versionedTransaction.version))
       )
       .withContext("Root Nodes")(
         _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes, nodeSeeds)

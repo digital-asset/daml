@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.ValueCoder
@@ -28,7 +28,7 @@ object GrpcErrorParser {
       value <-
         ValueCoder
           .decodeValue(
-            TransactionVersion.VDev,
+            SerializationVersion.VDev,
             ByteString.copyFrom(bytes),
           )
           .toOption

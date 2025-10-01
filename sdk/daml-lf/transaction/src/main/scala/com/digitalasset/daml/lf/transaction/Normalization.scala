@@ -56,7 +56,7 @@ class Normalization {
           .copy(keyOpt = old.keyOpt.map(normKWM(old.version)))
 
       case old: Node.Fetch =>
-        (if (old.version >= TransactionVersion.minContractKeys) {
+        (if (old.version >= SerializationVersion.minContractKeys) {
            old
          } else {
            old.copy(byKey = false)
@@ -66,7 +66,7 @@ class Normalization {
           )
 
       case old: Node.Exercise =>
-        (if (old.version >= TransactionVersion.minContractKeys) {
+        (if (old.version >= SerializationVersion.minContractKeys) {
            old
          } else {
            old.copy(byKey = false)
@@ -87,11 +87,11 @@ class Normalization {
     }
   }
 
-  private def normValue(version: TransactionVersion)(x: Val): Val = {
+  private def normValue(version: SerializationVersion)(x: Val): Val = {
     Util.assertNormalizeValue(x, version)
   }
 
-  private def normKWM(version: TransactionVersion)(x: KWM): KWM = {
+  private def normKWM(version: SerializationVersion)(x: KWM): KWM = {
     x match {
       case GlobalKeyWithMaintainers(key, maintainers) =>
         GlobalKeyWithMaintainers(

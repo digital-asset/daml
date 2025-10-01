@@ -307,7 +307,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
           archivedInSubviews = Set(otherAbsoluteId),
           resolvedKeys = Map(
             ExampleTransactionFactory.defaultGlobalKey ->
-              LfVersioned(ExampleTransactionFactory.transactionVersion, AssignedKey(absoluteId))
+              LfVersioned(ExampleTransactionFactory.SerializationVersion, AssignedKey(absoluteId))
           ),
         ).value
 

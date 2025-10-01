@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.transaction.SerializationVersion
 import com.digitalasset.daml.lf.transaction.{NodeId, Transaction}
 import com.digitalasset.daml.lf.value.{Value => V}
 
@@ -301,7 +301,7 @@ object NormalizeRollbackSpec {
       signatories = Set.empty,
       stakeholders = Set.empty,
       keyOpt = None,
-      version = TransactionVersion.minVersion,
+      version = SerializationVersion.minVersion,
     )
 
   private def dummyExerciseNode(
@@ -327,6 +327,6 @@ object NormalizeRollbackSpec {
       exerciseResult = None,
       keyOpt = None,
       byKey = false,
-      version = TransactionVersion.minVersion,
+      version = SerializationVersion.minVersion,
     )
 }

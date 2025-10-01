@@ -72,7 +72,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
     val clientLocalContract: FatContractInstance =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
+        version = cases.serializationVersion,
         packageName = cases.clientLocalPkg.pkgName,
         template = testHelper.clientLocalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
@@ -81,7 +81,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
 
     val clientGlobalContract: FatContractInstance =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
+        version = cases.serializationVersion,
         packageName = cases.clientGlobalPkg.pkgName,
         template = testHelper.clientGlobalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
@@ -89,7 +89,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       )
 
     val globalContract: FatContractInstance = FatContractInstanceImpl(
-      version = cases.langVersion,
+      version = cases.serializationVersion,
       contractId = setupData.globalContractId,
       packageName = cases.templateDefsPkgName,
       templateId = testHelper.v1TplId,

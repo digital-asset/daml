@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.version
 
-import com.digitalasset.canton.protocol.LfLanguageVersion
+import com.digitalasset.canton.protocol.LfSerializationVersion
 
 import scala.collection.immutable.SortedMap
 import scala.math.Ordered.orderingToOrdered
@@ -11,20 +11,20 @@ import scala.math.Ordered.orderingToOrdered
 object DamlLfVersionToProtocolVersions {
 
   /** This Map links the Daml Lf-version to the minimum protocol version that supports it. */
-  val damlLfVersionToMinimumProtocolVersions: SortedMap[LfLanguageVersion, ProtocolVersion] =
+  val damlLfVersionToMinimumProtocolVersions: SortedMap[LfSerializationVersion, ProtocolVersion] =
     SortedMap(
-      LfLanguageVersion.v2_1 -> ProtocolVersion.v34,
-      LfLanguageVersion.v2_dev -> ProtocolVersion.dev,
+      LfSerializationVersion.V1 -> ProtocolVersion.v34,
+      LfSerializationVersion.VDev -> ProtocolVersion.dev,
     )
 
   def getMinimumSupportedProtocolVersion(
-      transactionVersion: LfLanguageVersion
+      serializationVersion: LfSerializationVersion
   ): ProtocolVersion = {
     assert(
-      transactionVersion >= LfLanguageVersion.v2_1,
-      s"Canton only supports transaction versions more recent or equal to ${LfLanguageVersion.v2_1}",
+      serializationVersion >= LfSerializationVersion.V1,
+      s"Canton only supports transaction versions more recent or equal to ${LfSerializationVersion.V1}",
     )
-    damlLfVersionToMinimumProtocolVersions(transactionVersion)
+    damlLfVersionToMinimumProtocolVersions(serializationVersion)
   }
 
 }

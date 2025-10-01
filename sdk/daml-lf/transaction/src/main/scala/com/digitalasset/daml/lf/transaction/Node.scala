@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.value._
   */
 sealed abstract class Node extends Product with Serializable with CidContainer[Node] {
 
-  def optVersion: Option[TransactionVersion] = this match {
+  def optVersion: Option[SerializationVersion] = this match {
     case node: Node.Action => Some(node.version)
     case _: Node.Rollback => None
   }
@@ -32,9 +32,9 @@ object Node {
   /** action nodes parametrized over identifier type */
   sealed abstract class Action extends Node with CidContainer[Action] {
 
-    def version: TransactionVersion
+    def version: SerializationVersion
 
-    private[lf] def updateVersion(version: TransactionVersion): Node
+    private[lf] def updateVersion(version: SerializationVersion): Node
 
     def packageName: PackageName
 
@@ -88,7 +88,7 @@ object Node {
       stakeholders: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
       // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      override val version: SerializationVersion,
   ) extends LeafOnlyAction
       with CidContainer[Create] {
 
@@ -97,7 +97,7 @@ object Node {
 
     override def byKey: Boolean = false
 
-    override private[lf] def updateVersion(version: TransactionVersion): Node.Create =
+    override private[lf] def updateVersion(version: SerializationVersion): Node.Create =
       copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Create =
@@ -152,13 +152,13 @@ object Node {
       override val byKey: Boolean,
       val interfaceId: Option[TypeConId],
       // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      override val version: SerializationVersion,
   ) extends LeafOnlyAction
       with CidContainer[Fetch] {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
-    override private[lf] def updateVersion(version: TransactionVersion): Node.Fetch =
+    override private[lf] def updateVersion(version: SerializationVersion): Node.Fetch =
       copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
@@ -194,7 +194,7 @@ object Node {
       keyOpt: Option[GlobalKeyWithMaintainers],
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      override val version: SerializationVersion,
   ) extends Action
       with CidContainer[Exercise] {
 
@@ -203,7 +203,7 @@ object Node {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
-    override private[lf] def updateVersion(version: TransactionVersion): Node.Exercise =
+    override private[lf] def updateVersion(version: SerializationVersion): Node.Exercise =
       copy(version = version, keyOpt = keyOpt.map(rehash))
 
     override def mapCid(f: ContractId => ContractId): Node.Exercise = copy(
@@ -238,7 +238,7 @@ object Node {
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.
-      override val version: TransactionVersion,
+      override val version: SerializationVersion,
   ) extends LeafOnlyAction
       with CidContainer[LookupByKey] {
 
@@ -253,7 +253,7 @@ object Node {
 
     override def byKey: Boolean = true
 
-    override private[lf] def updateVersion(version: TransactionVersion): Node.LookupByKey =
+    override private[lf] def updateVersion(version: SerializationVersion): Node.LookupByKey =
       copy(version = version, key = rehash(key))
 
     override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)

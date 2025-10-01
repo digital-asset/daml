@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -229,7 +230,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           SValue.SParty(maintainer),
         ),
       )
-    val txVersion = pkg.languageVersion
+    val txVersion = SerializationVersion.assign(pkg.languageVersion)
     val disclosedContract = DisclosedContract(
       FatContractInstance.fromCreateNode(
         Node.Create(

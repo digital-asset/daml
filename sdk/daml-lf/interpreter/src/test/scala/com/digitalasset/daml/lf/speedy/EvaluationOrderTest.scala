@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
@@ -58,6 +58,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside {
+
+  val serializationVersion = SerializationVersion.assign(languageVersion)
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -373,7 +375,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private val testTxVersion: TransactionVersion = languageVersion
+  private val testTxVersion: SerializationVersion = serializationVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
