@@ -838,9 +838,9 @@ Data Types
          - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-dummy-93243:
+  .. _constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037:
 
-  `Dummy <constr-daml-script-internal-questions-submit-error-dummy-93243_>`_
+  `DummyUpgradeError <constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037_>`_
 
 
 .. _type-daml-script-internal-questions-transactiontree-created-98301:

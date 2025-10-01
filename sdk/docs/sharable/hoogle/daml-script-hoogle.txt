@@ -377,8 +377,8 @@ observers :: UpgradeErrorType -> [Party]
 
 keyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-dummy-93243
-Dummy :: UpgradeErrorType
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037
+DummyUpgradeError :: UpgradeErrorType
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-transactiontree-created-98301
 data Created
