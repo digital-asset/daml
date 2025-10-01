@@ -43,7 +43,7 @@ object ContractHasher {
         ec: ExecutionContext,
         traceContext: TraceContext,
     ): EitherT[FutureUnlessShutdown, String, Hash] =
-      consume(delegate.hashCreateNode(create, hashingMethod))
+      consume(delegate.hashCreateNode(create, identity, hashingMethod))
   }
 
 }
