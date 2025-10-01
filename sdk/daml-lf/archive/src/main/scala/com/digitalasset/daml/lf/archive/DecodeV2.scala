@@ -42,8 +42,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         internedStrings,
       )
 
-    val dependencyTracker = new PackageDependencyTracker(packageId)
-
     val metadata: PackageMetadata = {
       if (!lfPackage.hasMetadata)
         throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
@@ -51,6 +49,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     val imports = decodePackageImports(lfPackage)
+
+    val dependencyTracker = new PackageDependencyTracker(packageId)
 
     val env0 = Env(
       packageId = packageId,
@@ -68,8 +68,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
 
-    val importsSet =
-      imports.map(xs => xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+    val packageImports = imports match {
+      case Right(xs) =>
+        DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+      case Left(str) =>
+        GeneratedImports(
+          reason = str,
+          pkgIds = dependencyTracker.getDependencies.diff(Set.from(stableIds)),
+        )
+    }
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -77,7 +84,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
-      imports = importsSet,
+      imports = packageImports,
     )
 
   }
@@ -198,24 +205,25 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[archive] def decodePackageImports(
       lfPackage: PLF.Package
   ): Either[String, collection.IndexedSeq[String]] = {
-    val imports = lfPackage.getImportsSumCase
-    imports match {
+    lfPackage.getImportsSumCase match {
       case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
         Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
       case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
+        val imports = lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq
         if (languageVersion < LV.Features.explicitPkgImports)
           throw Error.Parsing(
-            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq.toString()}"
+            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${imports}"
           )
         else
-          Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
+          Right(imports)
       case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
+        val reason = lfPackage.getNoImportedPackagesReason
         if (languageVersion < LV.Features.explicitPkgImports)
           throw Error.Parsing(
-            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${lfPackage.getNoImportedPackagesReason.toString}"
+            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${reason}"
           )
         else
-          Left(lfPackage.getNoImportedPackagesReason)
+          Left(reason)
     }
   }
 
@@ -241,7 +249,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       onlySerializableDataDefs: Boolean = false,
       currentInternedExprId: Option[Int] = None,
       imports: Either[String, collection.IndexedSeq[String]] = Left(
-        "com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
+        "package made in com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
       ),
   ) {
 
