@@ -104,6 +104,7 @@ object CantonRunner {
          |        ${authConfig}
          |        ${tls}
          |      }
+         |      http-ledger-api.enabled = false
          |      storage.type = memory
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
