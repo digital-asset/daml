@@ -3,15 +3,6 @@
 
 {-# LANGUAGE CPP #-}
 
-#ifndef DAML_EXCEPTIONS
-
--- | HIDE
-module DA.Exception
-  {-# WARNING "Your target Daml-LF version is too old for exceptions. You need Daml-LF 1.14 or newer" #-}
-  where
-
-#else
-
 -- | Exception handling in Daml.
 -- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 module DA.Exception
@@ -19,5 +10,3 @@ module DA.Exception
   ( module X ) where
 
 import DA.Internal.Exception as X hiding (DamlException)
-
-#endif
