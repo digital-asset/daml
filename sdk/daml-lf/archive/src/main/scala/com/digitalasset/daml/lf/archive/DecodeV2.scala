@@ -32,62 +32,67 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       packageId: PackageId,
       lfPackage: PLF.Package,
       onlySerializableDataDefs: Boolean,
-  ): Either[Error, Package] = attempt(NameOf.qualifiedNameOfCurrentFunc) {
+      patchVersion: Int,
+  ): Either[Error, Package] =
+    if (patchVersion != 0)
+      Left(Error.Parsing(s"Unknown patch version $patchVersion for LF $languageVersion"))
+    else
+      attempt(NameOf.qualifiedNameOfCurrentFunc) {
 
-    val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
+        val internedStrings = lfPackage.getInternedStringsList.asScala.to(ImmArraySeq)
 
-    val internedDottedNames =
-      decodeInternedDottedNames(
-        lfPackage.getInternedDottedNamesList.asScala,
-        internedStrings,
-      )
+        val internedDottedNames =
+          decodeInternedDottedNames(
+            lfPackage.getInternedDottedNamesList.asScala,
+            internedStrings,
+          )
 
-    val metadata: PackageMetadata = {
-      if (!lfPackage.hasMetadata)
-        throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
-      decodePackageMetadata(lfPackage.getMetadata, internedStrings)
-    }
+        val metadata: PackageMetadata = {
+          if (!lfPackage.hasMetadata)
+            throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
+          decodePackageMetadata(lfPackage.getMetadata, internedStrings)
+        }
 
-    val imports = decodePackageImports(lfPackage)
+        val imports = decodePackageImports(lfPackage)
 
-    val dependencyTracker = new PackageDependencyTracker(packageId)
+        val dependencyTracker = new PackageDependencyTracker(packageId)
 
-    val env0 = Env(
-      packageId = packageId,
-      internedStrings = internedStrings,
-      internedDottedNames = internedDottedNames,
-      optDependencyTracker = Some(dependencyTracker),
-      onlySerializableDataDefs = onlySerializableDataDefs,
-      imports = imports,
-    )
-
-    val internedKinds = decodeKindsTable(env0, lfPackage)
-    val env1 = env0.copy(internedKinds = internedKinds)
-    val internedTypes = decodeTypesTable(env1, lfPackage)
-    val env2 = env1.copy(internedTypes = internedTypes)
-    val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
-    val env = env2.copy(internedExprs = internedExprs)
-
-    val packageImports = imports match {
-      case Right(xs) =>
-        DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
-      case Left(str) =>
-        GeneratedImports(
-          reason = str,
-          pkgIds = dependencyTracker.getDependencies.diff(Set.from(stableIds)),
+        val env0 = Env(
+          packageId = packageId,
+          internedStrings = internedStrings,
+          internedDottedNames = internedDottedNames,
+          optDependencyTracker = Some(dependencyTracker),
+          onlySerializableDataDefs = onlySerializableDataDefs,
+          imports = imports,
         )
-    }
 
-    val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
-    Package.build(
-      modules = modules,
-      directDeps = dependencyTracker.getDependencies,
-      languageVersion = languageVersion,
-      metadata = metadata,
-      imports = packageImports,
-    )
+        val internedKinds = decodeKindsTable(env0, lfPackage)
+        val env1 = env0.copy(internedKinds = internedKinds)
+        val internedTypes = decodeTypesTable(env1, lfPackage)
+        val env2 = env1.copy(internedTypes = internedTypes)
+        val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
+        val env = env2.copy(internedExprs = internedExprs)
 
-  }
+        val packageImports = imports match {
+          case Right(xs) =>
+            DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+          case Left(str) =>
+            GeneratedImports(
+              reason = str,
+              pkgIds = dependencyTracker.getDependencies.diff(Set.from(stableIds)),
+            )
+        }
+
+        val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
+        Package.build(
+          modules = modules,
+          directDeps = dependencyTracker.getDependencies,
+          languageVersion = languageVersion,
+          metadata = metadata,
+          imports = packageImports,
+        )
+
+      }
 
   private[archive] def decodePackageMetadata(
       metadata: PLF.PackageMetadata,

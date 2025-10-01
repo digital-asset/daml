@@ -15,13 +15,14 @@ object Decode {
       onlySerializableDataDefs: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     payload match {
-      case ArchivePayload.Lf2(pkgId, protoPkg, minor)
+      case ArchivePayload.Lf2(pkgId, protoPkg, minor, patch)
           if LanguageMajorVersion.V2.supportedMinorVersions.contains(minor) =>
         new DecodeV2(minor)
           .decodePackage(
             pkgId,
             protoPkg,
             onlySerializableDataDefs,
+            patch,
           )
           .map(payload.pkgId -> _)
       case ArchivePayload.Lf1(pkgId, protoPkg, minor)
