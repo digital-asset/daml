@@ -147,7 +147,7 @@ class Context(
             extSignatures.keySet,
             languageVersion,
             packageMetadata,
-            Left("package made in com.digitalasset.daml.lf.script.Context"),
+            Left(("package made in com.digitalasset.daml.lf.script.Context", Set.empty)),
           )
         ),
       )
@@ -182,7 +182,7 @@ class Context(
               extSignatures.keySet,
               languageVersion,
               packageMetadata,
-              Left("package made in com.digitalasset.daml.lf.script.Context"),
+              Left(("package made in com.digitalasset.daml.lf.script.Context", Set.empty)),
             ),
           )
       }

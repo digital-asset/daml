@@ -2744,7 +2744,7 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
           PackageVersion.assertFromString("0.0.0"),
           None,
         ),
-        Left("package made in com.digitalasset.daml.lf.engine.EngineTestAllVersions"),
+        Left(("package made in com.digitalasset.daml.lf.engine.EngineTestAllVersions", Set.empty)),
       )
 
     "reject disallowed packages" in {

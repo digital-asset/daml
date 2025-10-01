@@ -97,7 +97,18 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
         submissionSeed = crypto.Hash.hashPrivateKey(getClass.getName + time.toString),
         prefetchKeys = Seq.empty,
       )
-      .consume(pcs = contracts, pkgs = packages)
+      .consume(pcs = contracts, pkgs = packages) match {
+      case Right(x) =>
+        println(s"Right encountered: $x")
+        Right(x)
+      case Left(error) =>
+        // Failure: print the error and potentially throw an exception
+        // or return a default/sentinel value if appropriate for the type.
+        // Since you only want to proceed on Right, throwing is often
+        // the clearest way to stop execution.
+        println(s"Error encountered (Left): $error")
+        throw new RuntimeException(s"Expression was Left: $error")
+    }
 
   val nodeSeeds = metaData.nodeSeeds.iterator.toMap
 
