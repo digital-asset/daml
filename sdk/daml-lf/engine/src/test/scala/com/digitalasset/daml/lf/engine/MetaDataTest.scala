@@ -173,7 +173,10 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
         Ref.PackageVersion.assertFromString("0.0.0"),
         None,
       ),
-      Left(("package made in com.digitalasset.daml.lf.engine.MetaDataTest", Set.empty)),
+      language.Ast.GeneratedImports(
+        reason = "package made in com.digitalasset.daml.lf.engine.MetaDataTest",
+        pkgIds = Set.empty,
+      ),
     )
 
   // For the sake of simplicity we load the engine with empty packages where only the directDeps is set.

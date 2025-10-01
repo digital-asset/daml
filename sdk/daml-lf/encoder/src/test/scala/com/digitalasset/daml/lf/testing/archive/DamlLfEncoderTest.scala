@@ -112,8 +112,6 @@ class DamlLfEncoderTest
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
-        println(s"Findmodules: {$findModules}, expectedModules: ${expectedModules}")
-
         (findModules diff expectedModules) diff stableModules shouldBe Set()
         (expectedModules diff findModules) diff stableModules shouldBe Set()
 

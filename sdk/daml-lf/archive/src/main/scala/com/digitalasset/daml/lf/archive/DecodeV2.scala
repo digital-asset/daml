@@ -67,9 +67,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
 
-    val importsSet = imports match {
-      case Right(xs) => Right(xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
-      case Left(str) => Left((str, dependencyTracker.getDependencies.diff(Set.from(stableIds))))
+    val packageImports = imports match {
+      case Right(xs) =>
+        DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+      case Left(str) =>
+        GeneratedImports(
+          reason = str,
+          pkgIds = dependencyTracker.getDependencies.diff(Set.from(stableIds)),
+        )
     }
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
@@ -78,7 +83,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
-      imports = importsSet,
+      imports = packageImports,
     )
 
   }

@@ -180,8 +180,9 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
         directDeps = Set.empty,
         languageVersion = LanguageVersion.default,
         metadata = Ast.PackageMetadata(name, version, None),
-        imports = Left(
-          ("package made in com.digitalasset.daml.lf.typesig.reader.SignatureReaderSpec", Set.empty)
+        imports = Ast.GeneratedImports(
+          reason = "package made in com.digitalasset.daml.lf.typesig.reader.SignatureReaderSpec",
+          pkgIds = Set.empty,
         ),
       )
     SignatureReader.readPackageSignature(() => \/-((packageId, pkg)))._2.metadata shouldBe

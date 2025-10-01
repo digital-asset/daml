@@ -48,7 +48,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         .flatMap(AstUtil.collectIdentifiers)
         .map(_.packageId)
         .toSet - parameters.defaultPackageId
-      val filteredMentionedPackageIds =
+      val mentionedPackageIdsMinusStablePackages =
         mentionedPackageIds.diff(StablePackages.ids(LV.allUpToVersion(languageVersion)))
       Package.build(
         modules = modules,
@@ -57,13 +57,12 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
         metadata = metadata,
         imports =
           if (languageVersion >= LV.Features.explicitPkgImports)
-            Right(filteredMentionedPackageIds)
+            DeclaredImports(pkgIds = mentionedPackageIdsMinusStablePackages)
           else
-            Left(
-              (
+            GeneratedImports(
+              reason =
                 "LF too low, package created by com.digitalasset.daml.lf.testing.parser:ModParser",
-                filteredMentionedPackageIds,
-              )
+              mentionedPackageIdsMinusStablePackages,
             ),
       )
     }
