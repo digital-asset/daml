@@ -77,15 +77,6 @@ object ValueGenerators {
         .map(s => PackageName.assertFromString(s.mkString))
     } yield pkgName
 
-  def pkgVerGen(txVer: TransactionVersion): Gen[Option[PackageVersion]] =
-    if (txVer <= TransactionVersion.minPackageVersion)
-      None
-    else
-      Gen
-        .nonEmptyListOf(Gen.choose(0, Int.MaxValue))
-        .flatMap(l => Ref.PackageVersion.fromInts(l).toOption)
-        .filter(_.nonEmpty)
-
   // generate a junk identifier
   val idGen: Gen[Identifier] = for {
     n <- Gen.choose(1, 64)
