@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -23,7 +22,6 @@ private[backend] trait StorageBackendTestsContracts
   it should "correctly find an active contract" in {
     val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")
-    val observer = Ref.Party.assertFromString("observer")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
@@ -49,7 +47,7 @@ private[backend] trait StorageBackendTestsContracts
       backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
     val activeCreateIds = executeSql(
-      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
         stakeholderO = Some(signatory),
         templateIdO = None,
         activeAtEventSeqId = 1000,
@@ -68,12 +66,7 @@ private[backend] trait StorageBackendTestsContracts
       )
     )
 
-    createdContracts.contains(contractId) shouldBe true
-    createdContracts.get(contractId).foreach { c =>
-      c.templateId shouldBe someTemplateId.toString
-      c.createArgumentCompression shouldBe None
-      c.flatEventWitnesses shouldBe Set(signatory, observer)
-    }
+    createdContracts should contain(contractId)
     archivedContracts shouldBe empty
     activeCreateIds shouldBe Vector(1L)
     lastActivations shouldBe Map(
@@ -115,7 +108,7 @@ private[backend] trait StorageBackendTestsContracts
       backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
     val activeCreateIds = executeSql(
-      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
         stakeholderO = Some(signatory),
         templateIdO = None,
         activeAtEventSeqId = 1000,
@@ -148,8 +141,6 @@ private[backend] trait StorageBackendTestsContracts
     val contractId1 = hashCid("#1")
     val contractId2 = hashCid("#2")
     val contractId3 = hashCid("#3")
-    val signatory = Ref.Party.assertFromString("signatory")
-    val observer = Ref.Party.assertFromString("observer")
     val observer2 = Ref.Party.assertFromString("observer2")
 
     val dtos: Vector[DbDto] = Vector(
@@ -173,35 +164,16 @@ private[backend] trait StorageBackendTestsContracts
         .assignedContracts(Seq(contractId1, contractId2, contractId3), offset(2))
     )
     assignedContracts1.size shouldBe 2
-    assignedContracts1.contains(contractId1) shouldBe true
-    assignedContracts1.get(contractId1).foreach { raw =>
-      raw.templateId shouldBe someTemplateId.toString
-      raw.createArgumentCompression shouldBe Some(123)
-      raw.flatEventWitnesses shouldBe Set(signatory, observer)
-      raw.signatories shouldBe Set(signatory)
-    }
-    assignedContracts1.contains(contractId2) shouldBe true
-    assignedContracts1.get(contractId2).foreach { raw =>
-      raw.templateId shouldBe someTemplateId.toString
-      raw.createArgumentCompression shouldBe Some(123)
-      raw.flatEventWitnesses shouldBe Set(signatory, observer)
-      raw.signatories shouldBe Set(signatory)
-    }
+    assignedContracts1 should contain(contractId1)
+    assignedContracts1 should contain(contractId2)
     assignedContracts2.size shouldBe 1
-    assignedContracts2.contains(contractId1) shouldBe true
-    assignedContracts2.get(contractId1).foreach { raw =>
-      raw.templateId shouldBe someTemplateId.toString
-      raw.createArgumentCompression shouldBe Some(123)
-      raw.flatEventWitnesses shouldBe Set(signatory, observer)
-      raw.signatories shouldBe Set(signatory)
-    }
+    assignedContracts2 should contain(contractId1)
     assignedContracts2.contains(contractId2) shouldBe false
   }
 
   it should "not find an archived contract" in {
     val contractId = hashCid("#1")
     val signatory = Ref.Party.assertFromString("signatory")
-    val observer = Ref.Party.assertFromString("observer")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
@@ -236,7 +208,7 @@ private[backend] trait StorageBackendTestsContracts
       backend.contract.archivedContracts(contractId :: Nil, offset(2))
     )
     val activeCreateIds = executeSql(
-      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+      backend.event.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
         stakeholderO = Some(signatory),
         templateIdO = None,
         activeAtEventSeqId = 1000,
@@ -255,23 +227,10 @@ private[backend] trait StorageBackendTestsContracts
       )
     )
 
-    createdContracts1.contains(contractId) shouldBe true
-    createdContracts1.get(contractId).foreach { c =>
-      c.templateId shouldBe someTemplateId.toString
-      c.createArgumentCompression shouldBe None
-      c.flatEventWitnesses shouldBe Set(signatory, observer)
-    }
-    archivedContracts1.get(contractId) shouldBe None
-    createdContracts2.contains(contractId) shouldBe true
-    createdContracts2.get(contractId).foreach { c =>
-      c.templateId shouldBe someTemplateId.toString
-      c.createArgumentCompression shouldBe None
-      c.flatEventWitnesses shouldBe Set(signatory, observer)
-    }
-    archivedContracts2.contains(contractId) shouldBe true
-    archivedContracts2.get(contractId).foreach { c =>
-      c.flatEventWitnesses shouldBe Set(signatory)
-    }
+    createdContracts1 should contain(contractId)
+    archivedContracts1 should not contain contractId
+    createdContracts2 should contain(contractId)
+    archivedContracts2 should contain(contractId)
     activeCreateIds shouldBe Vector.empty
     lastActivations shouldBe Map(
       (someSynchronizerId, contractId) -> 1L
@@ -334,7 +293,6 @@ private[backend] trait StorageBackendTestsContracts
     val contractId4 = hashCid("#4")
     val contractId5 = hashCid("#5")
     val signatory = Ref.Party.assertFromString("signatory")
-    val observer = Ref.Party.assertFromString("observer")
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create nodes
@@ -378,28 +336,15 @@ private[backend] trait StorageBackendTestsContracts
       )
     )
 
-    createdContracts.keySet shouldBe Set(
+    createdContracts shouldBe Set(
       contractId1,
       contractId2,
       contractId3,
       contractId4,
     )
-    def assertContract(
-        contractId: ContractId,
-        witnesses: Set[Ref.Party] = Set(signatory, observer),
-    ) = {
-      createdContracts(contractId).templateId shouldBe someTemplateId.toString
-      createdContracts(contractId).createArgumentCompression shouldBe None
-      createdContracts(contractId).flatEventWitnesses shouldBe witnesses
-    }
-    assertContract(contractId1)
-    assertContract(contractId2)
-    assertContract(contractId3)
-    assertContract(contractId4)
-    archivedContracts.keySet shouldBe Set(
+    archivedContracts shouldBe Set(
       contractId1
     )
-    archivedContracts(contractId1).flatEventWitnesses shouldBe Set(signatory)
   }
 
   it should "be able to query with 1000 contract ids" in {
@@ -420,7 +365,7 @@ private[backend] trait StorageBackendTestsContracts
       )
     )
 
-    createdContracts shouldBe Map.empty
-    archivedContracts shouldBe Map.empty
+    createdContracts shouldBe empty
+    archivedContracts shouldBe empty
   }
 }

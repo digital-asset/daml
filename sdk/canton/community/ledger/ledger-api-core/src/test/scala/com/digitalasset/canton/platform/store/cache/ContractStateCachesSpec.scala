@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
@@ -56,9 +57,9 @@ class ContractStateCachesSpec
     val batch = NonEmptyVector.of(create1, create2, archive1, archivedPrevious)
 
     val expectedContractStateUpdates = Map(
-      create1.contractId -> contractArchived(create1),
-      create2.contractId -> contractActive(create2),
-      previousCreate.contractId -> contractArchived(previousCreate),
+      create1.contractId -> ContractStateStatus.Archived,
+      create2.contractId -> ContractStateStatus.Active,
+      previousCreate.contractId -> ContractStateStatus.Archived,
     )
     val expectedKeyStateUpdates = Map(
       create2.globalKey.value -> keyAssigned(create2),
@@ -74,7 +75,7 @@ class ContractStateCachesSpec
     val create1 = createEvent(offset = offset(2), withKey = false)
 
     val batch = NonEmptyVector.of(create1)
-    val expectedContractStateUpdates = Map(create1.contractId -> contractActive(create1))
+    val expectedContractStateUpdates = Map(create1.contractId -> ContractStateStatus.Active)
 
     contractStateCaches.push(batch)
     verify(contractStateCache).putBatch(offset(2), expectedContractStateUpdates)
@@ -105,8 +106,8 @@ class ContractStateCachesSpec
 
     val keyStateCache: StateCache[Key, ContractKeyStateValue] =
       mock[StateCache[Key, ContractKeyStateValue]]
-    val contractStateCache: StateCache[ContractId, ContractStateValue] =
-      mock[StateCache[ContractId, ContractStateValue]]
+    val contractStateCache: StateCache[ContractId, ContractStateStatus] =
+      mock[StateCache[ContractId, ContractStateStatus]]
 
     val contractStateCaches = new ContractStateCaches(
       keyStateCache,
@@ -172,12 +173,6 @@ class ContractStateCachesSpec
         eventOffset = offset,
       )
   }
-
-  private def contractActive(create: ContractStateEvent.Created) =
-    ContractStateValue.Active(create.contract)
-
-  private def contractArchived(create: ContractStateEvent.Created) =
-    ContractStateValue.Archived(create.contract.stakeholders)
 
   private def keyAssigned(create: ContractStateEvent.Created) =
     ContractKeyStateValue.Assigned(

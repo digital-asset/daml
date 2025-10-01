@@ -52,9 +52,10 @@ sealed trait ContractStateStatus extends Product with Serializable {
   }
 }
 object ContractStateStatus {
-  case object Active extends ContractStateStatus
-  case object Archived extends ContractStateStatus
   case object NotFound extends ContractStateStatus
+  sealed trait ExistingContractStatus extends ContractStateStatus
+  case object Archived extends ExistingContractStatus
+  case object Active extends ExistingContractStatus
 }
 
 object ContractState {

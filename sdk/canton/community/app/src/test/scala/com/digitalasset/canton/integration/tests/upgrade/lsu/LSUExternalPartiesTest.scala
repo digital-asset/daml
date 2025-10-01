@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.daml.ledger.javaapi.data.DisclosedContract
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -127,8 +126,6 @@ abstract class LSUExternalPartiesIntegrationTest extends LSUBase {
   }
 }
 
-// TODO(#27960) flaky test
-@UnstableTest
 final class LSUExternalPartiesReferenceIntegrationTest extends LSUExternalPartiesIntegrationTest {
   registerPlugin(
     new UseReferenceBlockSequencer[DbConfig.Postgres](

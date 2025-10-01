@@ -55,7 +55,6 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-// TODO(#23504) remove TransactionTree related tests
 trait LedgerApiOtelITBase
     extends CantonFixture
     with CreatesParties

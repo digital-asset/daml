@@ -6,9 +6,10 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.RowParser
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawArchivedEvent,
-  RawCreatedEvent,
-  RawFlatEvent,
+  RawAcsDeltaEvent,
+  RawAcsDeltaEventLegacy,
+  RawArchivedEventLegacy,
+  RawCreatedEventLegacy,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
@@ -32,7 +33,16 @@ class EventReaderQueries(stringInterning: StringInterning) {
       endEventSequentialId: EventSequentialId,
   )(
       connection: Connection
-  ): Vector[Entry[RawFlatEvent]] = {
+  ): Vector[Entry[RawAcsDeltaEvent]] =
+    ??? // TODO(#28002): Implement
+
+  def fetchContractIdEventsLegacy(
+      contractId: ContractId,
+      requestingParties: Option[Set[Party]],
+      endEventSequentialId: EventSequentialId,
+  )(
+      connection: Connection
+  ): Vector[Entry[RawAcsDeltaEventLegacy]] = {
 
     val witnessesColumn = "flat_event_witnesses"
 
@@ -93,12 +103,12 @@ class EventReaderQueries(stringInterning: StringInterning) {
       maxIterations: Int,
   )(
       conn: Connection
-  ): (Option[Entry[RawCreatedEvent]], Option[EventSequentialId]) = {
+  ): (Option[Entry[RawCreatedEventLegacy]], Option[EventSequentialId]) = {
 
     @tailrec def go(
         endExclusiveSeqId: EventSequentialId,
         iterations: Int,
-    ): (Option[Entry[RawCreatedEvent]], Option[EventSequentialId]) = {
+    ): (Option[Entry[RawCreatedEventLegacy]], Option[EventSequentialId]) = {
       val query =
         SQL"""
         WITH max_event AS (
@@ -128,7 +138,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
 
   private def selectArchivedEvent(contractId: Array[Byte], requestingParties: Set[Party])(
       conn: Connection
-  ): Option[Entry[RawArchivedEvent]] = {
+  ): Option[Entry[RawArchivedEventLegacy]] = {
     val query =
       SQL"""
           SELECT  #$selectColumnsForFlatTransactionsExercise,
@@ -148,7 +158,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
       maxIterations: Int,
   )(
       conn: Connection
-  ): (Option[RawCreatedEvent], Option[RawArchivedEvent], Option[EventSequentialId]) = {
+  ): (Option[RawCreatedEventLegacy], Option[RawArchivedEventLegacy], Option[EventSequentialId]) = {
 
     val (createEvent, continuationToken) = selectLatestKeyCreateEvent(
       keyHash,
@@ -167,7 +177,7 @@ class EventReaderQueries(stringInterning: StringInterning) {
 
   private def eventParser(
       requestingParties: Option[Set[Party]]
-  ): RowParser[Entry[RawFlatEvent]] =
+  ): RowParser[Entry[RawAcsDeltaEventLegacy]] =
     rawAcsDeltaEventParser(
       requestingParties,
       stringInterning,

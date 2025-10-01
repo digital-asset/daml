@@ -10,13 +10,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Sequen
   Ids,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  RawCreatedEvent,
-  RawFlatEvent,
-  RawTreeEvent,
+  RawAcsDeltaEventLegacy,
+  RawCreatedEventLegacy,
+  RawLedgerEffectsEventLegacy,
 }
 import com.digitalasset.canton.platform.store.backend.common.{
-  EventPayloadSourceForUpdatesAcsDelta,
-  EventPayloadSourceForUpdatesLedgerEffects,
+  EventPayloadSourceForUpdatesAcsDeltaLegacy,
+  EventPayloadSourceForUpdatesLedgerEffectsLegacy,
 }
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.google.protobuf.ByteString
@@ -96,13 +96,13 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
     val someParty = Ref.Party.assertFromString(signatory)
     val filterParties = Some(Set(someParty))
-    def flatTransactionEvents(target: EventPayloadSourceForUpdatesAcsDelta) = executeSql(
-      backend.event.fetchEventPayloadsAcsDelta(
+    def flatTransactionEvents(target: EventPayloadSourceForUpdatesAcsDeltaLegacy) = executeSql(
+      backend.event.fetchEventPayloadsAcsDeltaLegacy(
         target
       )(eventSequentialIds = Ids(Seq(1L, 2L, 3L, 4L)), filterParties)
     )
-    def transactionTreeEvents(target: EventPayloadSourceForUpdatesLedgerEffects) = executeSql(
-      backend.event.fetchEventPayloadsLedgerEffects(
+    def transactionTreeEvents(target: EventPayloadSourceForUpdatesLedgerEffectsLegacy) = executeSql(
+      backend.event.fetchEventPayloadsLedgerEffectsLegacy(
         target
       )(eventSequentialIds = Ids(Seq(1L, 2L, 3L, 4L)), filterParties)
     )
@@ -111,31 +111,31 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
     val expectedHash = hash.map(byteArrayToHash)
 
-    flatTransactionEvents(EventPayloadSourceForUpdatesAcsDelta.Create)
+    flatTransactionEvents(EventPayloadSourceForUpdatesAcsDeltaLegacy.Create)
       .map(
         _.externalTransactionHash
       )
       .loneElement
       .map(byteArrayToHash) shouldBe expectedHash
-    flatTransactionEvents(EventPayloadSourceForUpdatesAcsDelta.Consuming)
+    flatTransactionEvents(EventPayloadSourceForUpdatesAcsDeltaLegacy.Consuming)
       .map(
         _.externalTransactionHash
       )
       .loneElement
       .map(byteArrayToHash) shouldBe expectedHash
-    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffects.Create)
+    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create)
       .map(
         _.externalTransactionHash
       )
       .loneElement
       .map(byteArrayToHash) shouldBe expectedHash
-    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffects.Consuming)
+    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffectsLegacy.Consuming)
       .map(
         _.externalTransactionHash
       )
       .loneElement
       .map(byteArrayToHash) shouldBe expectedHash
-    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffects.NonConsuming)
+    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffectsLegacy.NonConsuming)
       .map(
         _.externalTransactionHash
       )
@@ -174,17 +174,16 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       flatTransactionEventsRange,
       transactionTreeEvents,
       transactionTreeEventsRange,
-      _transactionTree,
       acs,
     ) = fetch(Some(Set(someParty)))
 
     flatTransactionEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    flatTransactionEvents.map(_.event).collect { case created: RawCreatedEvent =>
+    flatTransactionEvents.map(_.event).collect { case created: RawCreatedEventLegacy =>
       created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
     transactionTreeEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    transactionTreeEvents.map(_.event).collect { case created: RawCreatedEvent =>
+    transactionTreeEvents.map(_.event).collect { case created: RawCreatedEventLegacy =>
       created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
@@ -201,17 +200,16 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       flatTransactionEventsSuperReaderRange,
       transactionTreeEventsSuperReader,
       transactionTreeEventsSuperReaderRange,
-      _,
       acsSuperReader,
     ) = fetch(None)
 
     flatTransactionEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    flatTransactionEventsSuperReader.map(_.event).collect { case created: RawCreatedEvent =>
+    flatTransactionEventsSuperReader.map(_.event).collect { case created: RawCreatedEventLegacy =>
       created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
     transactionTreeEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    transactionTreeEventsSuperReader.map(_.event).collect { case created: RawCreatedEvent =>
+    transactionTreeEventsSuperReader.map(_.event).collect { case created: RawCreatedEventLegacy =>
       created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4)
 
@@ -233,38 +231,33 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
   private def fetch(filterParties: Option[Set[Ref.Party]]) = {
 
     val flatTransactionEvents = executeSql(
-      backend.event.fetchEventPayloadsAcsDelta(
-        EventPayloadSourceForUpdatesAcsDelta.Create
+      backend.event.fetchEventPayloadsAcsDeltaLegacy(
+        EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
       )(eventSequentialIds = Ids(Seq(1L, 2L, 3L, 4L)), filterParties)
     )
     val flatTransactionEventsRange = executeSql(
-      backend.event.fetchEventPayloadsAcsDelta(
-        EventPayloadSourceForUpdatesAcsDelta.Create
+      backend.event.fetchEventPayloadsAcsDeltaLegacy(
+        EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
       )(eventSequentialIds = IdRange(1L, 4L), filterParties)
     )
     val transactionTreeEvents = executeSql(
-      backend.event.fetchEventPayloadsLedgerEffects(
-        EventPayloadSourceForUpdatesLedgerEffects.Create
+      backend.event.fetchEventPayloadsLedgerEffectsLegacy(
+        EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create
       )(eventSequentialIds = Ids(Seq(1L, 2L, 3L, 4L)), filterParties)
     )
     val transactionTreeEventsRange = executeSql(
-      backend.event.fetchEventPayloadsLedgerEffects(
-        EventPayloadSourceForUpdatesLedgerEffects.Create
+      backend.event.fetchEventPayloadsLedgerEffectsLegacy(
+        EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create
       )(eventSequentialIds = IdRange(1L, 4L), filterParties)
     )
-    val transactionTree = executeSql(
-      backend.event.updatePointwiseQueries
-        .fetchTreeTransactionEvents(1L, 1L, filterParties)
-    )
     val acs = executeSql(
-      backend.event.activeContractCreateEventBatch(Seq(1L, 2L, 3L, 4L), filterParties, 4L)
+      backend.event.activeContractCreateEventBatchLegacy(Seq(1L, 2L, 3L, 4L), filterParties, 4L)
     )
     (
       flatTransactionEvents,
       flatTransactionEventsRange,
       transactionTreeEvents,
       transactionTreeEventsRange,
-      transactionTree,
       acs,
     )
   }
@@ -278,22 +271,16 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       flatTransactionEventsRange,
       transactionTreeEvents,
       transactionTreeEventsRange,
-      transactionTree,
       acs,
     ) = fetch(partiesO)
 
-    extractCreatedAtFrom[RawCreatedEvent, RawFlatEvent](
+    extractCreatedAtFrom[RawCreatedEventLegacy, RawAcsDeltaEventLegacy](
       in = flatTransactionEvents,
       createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 
-    extractCreatedAtFrom[RawCreatedEvent, RawTreeEvent](
+    extractCreatedAtFrom[RawCreatedEventLegacy, RawLedgerEffectsEventLegacy](
       in = transactionTreeEvents,
-      createdAt = _.ledgerEffectiveTime,
-    ) shouldBe expectedCreatedAt
-
-    extractCreatedAtFrom[RawCreatedEvent, RawTreeEvent](
-      in = transactionTree,
       createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 

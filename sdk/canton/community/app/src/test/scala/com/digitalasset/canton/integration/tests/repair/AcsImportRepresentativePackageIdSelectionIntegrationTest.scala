@@ -368,13 +368,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       .from(
         scheme = "http",
         host = "localhost",
-        port = participantRef.config.httpLedgerApi
-          .valueOrFail(
-            s"HTTP JSON API not configured for participant $participantRef"
-          )
-          .server
-          .port
-          .unwrap,
+        port = participantRef.config.httpLedgerApi.server.port.unwrap,
       )
       .withPath(Uri.Path("/v2/state/active-contracts"))
 

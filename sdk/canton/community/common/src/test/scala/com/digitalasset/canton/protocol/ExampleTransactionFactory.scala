@@ -48,7 +48,7 @@ import com.digitalasset.canton.util.LfTransactionUtil.{
   metadataFromExercise,
   metadataFromFetch,
 }
-import com.digitalasset.canton.util.{LfTransactionBuilder, LfTransactionUtil}
+import com.digitalasset.canton.util.{LegacyContractHash, LfTransactionBuilder, LfTransactionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
@@ -92,6 +92,12 @@ object ExampleTransactionFactory {
 
   private def versionedValueCapturing(coid: List[LfContractId]): Value.VersionedValue =
     LfVersioned(transactionVersion, valueCapturing(coid))
+
+  def useUpgradeFriendlyHashing(cantonContractIdVersion: CantonContractIdVersion): Boolean =
+    cantonContractIdVersion match {
+      case v: CantonContractIdV1Version => v.useUpgradeFriendlyHashing
+      case _: CantonContractIdV2Version => true
+    }
 
   def contractInstance(
       capturedIds: Seq[LfContractId] = Seq.empty,
@@ -138,9 +144,15 @@ object ExampleTransactionFactory {
       version = instance.version,
     )
 
+    val contractHash =
+      LegacyContractHash.tryThinContractHash(
+        unsuffixedCreateNode.coinst,
+        upgradeFriendly = useUpgradeFriendlyHashing(contractIdVersion),
+      )
+
     val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
       contractIdSuffixer
-        .relativeSuffixForLocalContract(contractSalt, createdAt, unsuffixedCreateNode)
+        .relativeSuffixForLocalContract(contractSalt, createdAt, unsuffixedCreateNode, contractHash)
         .valueOr(err =>
           throw new IllegalArgumentException(s"Failed to compute suffix for contract: $err")
         )
@@ -671,6 +683,11 @@ class ExampleTransactionFactory(
       metadata.stakeholders,
       metadata.maybeKeyWithMaintainers,
     )
+    val contractHash =
+      LegacyContractHash.tryThinContractHash(
+        unsuffixedCreateNode.coinst,
+        useUpgradeFriendlyHashing(cantonContractIdVersion),
+      )
     val ContractIdSuffixer.RelativeSuffixResult(
       relativeCreateNode,
       _,
@@ -682,6 +699,7 @@ class ExampleTransactionFactory(
           contractSalt,
           relativeCreateTime,
           unsuffixedCreateNode,
+          contractHash,
         )
         .valueOr(err =>
           throw new IllegalArgumentException(s"Cannot compute suffix for contract: $err")

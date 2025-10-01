@@ -100,8 +100,7 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       val chopperE = participant1.parties.external.enable("chopperE", synchronizer = daName)
 
-      // TODO(#27835) Add multi-synchronizer support
-      // participant1.parties.enable("chopper", synchronizer = acmeName)
+      participant1.parties.external.also_enable(chopperE, synchronizer = acmeName)
 
       def changeTopology(
           newThreshold: PositiveInt,
@@ -135,6 +134,42 @@ final class PartyToParticipantDeclarativeIntegrationTest
         PositiveInt.one,
         Set((participant1, Confirmation), (participant2, Submission)),
       )
+    }
+
+    "support party replication in multi-synchronizer scenario (external)" in { implicit env =>
+      import env.*
+
+      val donaldE = participant1.parties.external.enable("donaldE", synchronizer = daName)
+
+      participant1.parties.external.also_enable(donaldE, synchronizer = acmeName)
+
+      val targetHosting: (PositiveInt, Set[(ParticipantId, ParticipantPermission)]) = (
+        PositiveInt.one,
+        Set(
+          (participant1, Confirmation),
+          (participant2, Confirmation),
+        ),
+      )
+
+      PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(
+        owningParticipants = Map(),
+        externalParties = Set(donaldE),
+        targetTopology = Map(
+          donaldE.partyId -> Map(
+            daId -> targetHosting,
+            acmeId -> targetHosting,
+          )
+        ),
+      )
+
+      forAll(Seq(daId, acmeId)) { synchronizer =>
+        participant1.topology.party_to_participant_mappings
+          .list(synchronizer, filterParty = donaldE.filterString)
+          .flatMap(_.item.participants.map(_.participantId)) should contain theSameElementsAs Seq(
+          participant1.id,
+          participant2.id,
+        )
+      }
     }
 
     "allow party offboarding from synchronizer (local)" in { implicit env =>

@@ -1229,7 +1229,6 @@ class RichSequencerClientImpl(
           val sequencerSubscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
             sequencerSubscriptionFactory,
             subscriptionHandlerFactory,
-            clock,
             timeouts,
             loggerFactory,
           )

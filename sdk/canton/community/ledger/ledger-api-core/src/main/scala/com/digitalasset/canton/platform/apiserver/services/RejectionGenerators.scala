@@ -156,6 +156,16 @@ object RejectionGenerators {
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
             .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.DowngradeDropDefinedField
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.DowngradeDropDefinedField
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Upgrade(
+              error: LfInterpretationError.Upgrade.DowngradeFailed
+            ) =>
+          CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
+            .Reject(renderedMessage, error)
         case LfInterpretationError.Crypto(
               error: LfInterpretationError.Crypto.MalformedByteEncoding
             ) =>

@@ -1041,7 +1041,7 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port) ++
-      config.httpLedgerApi.map(conf => "json" -> conf.server.port)
+      Option.when(config.httpLedgerApi.enabled)("json" -> config.httpLedgerApi.server.port)
     val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 

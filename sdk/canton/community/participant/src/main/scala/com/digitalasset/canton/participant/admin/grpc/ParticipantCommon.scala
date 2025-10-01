@@ -206,6 +206,7 @@ private[admin] object ParticipantCommon {
             loggerFactory,
             sync.syncPersistentStateManager,
             sync.pureCryptoApi,
+            sync.contractHasher,
             contractImportMode,
           )(contractsWithOverriddenRpId)
         (activeContractsWithValidContractIds, contractIdRemapping) =

@@ -697,20 +697,6 @@ object IndexServiceImpl {
       } yield source
     )
 
-  // TODO(#23504) cleanup
-  private[index] def withValidatedFilter[T](
-      apiEventFormat: EventFormat,
-      metadata: PackageMetadata,
-  )(
-      source: => Source[T, NotUsed]
-  )(implicit errorLogger: ErrorLoggingContext): Source[T, NotUsed] =
-    foldToSource(
-      for {
-        _ <- checkUnknownIdentifiers(apiEventFormat, metadata)(errorLogger).left
-          .map(_.asGrpcError)
-      } yield source
-    )
-
   private[index] def validatedAcsActiveAtOffset[T](
       activeAt: Option[Offset],
       ledgerEnd: Option[Offset],
@@ -779,32 +765,6 @@ object IndexServiceImpl {
             includeTopologyEvents = topologyEvents,
           )
         )
-  }
-
-  // TODO(#23504) cleanup
-  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
-  private[index] def memoizedTransactionFilterProjection(
-      getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
-      eventFormat: EventFormat,
-      interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
-  )(implicit
-      contextualizedErrorLogger: ErrorLoggingContext
-  ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
-    @volatile var metadata: PackageMetadata = null
-    @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
-    () =>
-      val currentMetadata = getPackageMetadataSnapshot(contextualizedErrorLogger)
-      if (metadata ne currentMetadata) {
-        metadata = currentMetadata
-        filters = eventFormatProjection(
-          eventFormat,
-          metadata,
-          interfaceViewPackageUpgrade,
-        ).map(internalEventFormat =>
-          (internalEventFormat.templatePartiesFilter, internalEventFormat.eventProjectionProperties)
-        )
-      }
-      filters
   }
 
   private def eventFormatProjection(

@@ -32,19 +32,24 @@ private[backend] object SimpleSqlExtensions {
     @throws[Throwable]
     def asVectorOf[A](parser: RowParser[A])(implicit conn: Connection): Vector[A] = {
 
+      val resultBuilder = Vector.newBuilder[A]
+
       @annotation.tailrec
-      def go(results: Vector[A])(cursor: Option[Cursor]): Try[Vector[A]] =
+      def go(cursor: Option[Cursor]): Try[Vector[A]] =
         cursor match {
           case Some(cursor) =>
             cursor.row.as(parser) match {
-              case Success(value) => go(results :+ value)(cursor.next)
+              case Success(value) =>
+                resultBuilder.addOne(value)
+                go(cursor.next)
+
               case Failure(f) => Failure(f)
             }
-          case _ => Try(results)
+          case _ => Try(resultBuilder.result())
         }
 
       sql
-        .withResult(go(Vector.empty))
+        .withResult(go)
         .fold(
           _.headOption.fold(throw new NoSuchElementException("empty list of errors"))(throw _),
           _.fold(throw _, identity),

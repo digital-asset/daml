@@ -50,13 +50,13 @@ object ContractValidator {
       engine: Engine,
       packageResolver: PackageResolver,
   ): ContractValidator =
-    new ContractValidatorImpl(
+    new Impl(
       new UnicumGenerator(cryptoOps),
       LfContractValidation(engine, packageResolver),
     )
 
   // TODO(#23971) add support for V2 contract ids
-  private class ContractValidatorImpl(
+  private class Impl(
       unicumGenerator: UnicumGenerator,
       lfContractValidation: LfContractValidation,
   ) extends ContractValidator {
@@ -73,7 +73,6 @@ object ContractValidator {
         result <- lfContractValidation.validate(
           contract,
           targetPackageId,
-          Predef.identity,
           contractIdVersion.contractHashingMethod,
           hash => authenticateHashInternal(contract, hash, contractIdVersion).isRight,
         )

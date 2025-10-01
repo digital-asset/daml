@@ -12,10 +12,10 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawAssignEvent,
-  RawEvent,
-  RawReassignmentEvent,
-  RawUnassignEvent,
+  RawAssignEventLegacy,
+  RawEventLegacy,
+  RawReassignmentEventLegacy,
+  RawUnassignEventLegacy,
 }
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 import com.digitalasset.canton.platform.{InternalEventFormat, Party, TemplatePartiesFilter}
@@ -40,22 +40,22 @@ final class ReassignmentPointwiseReader(
       requestingParties: Option[Set[Party]],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Vector[Entry[RawReassignmentEvent]]] = for {
-    assignEvents: Vector[Entry[RawReassignmentEvent]] <-
+  ): Future[Vector[Entry[RawReassignmentEventLegacy]]] = for {
+    assignEvents: Vector[Entry[RawReassignmentEventLegacy]] <-
       dbDispatcher.executeSql(
-        dbMetrics.reassignmentPointwise.fetchEventAssignPayloads
+        dbMetrics.reassignmentPointwise.fetchEventAssignPayloadsLegacy
       )(
-        eventStorageBackend.assignEventBatch(
+        eventStorageBackend.assignEventBatchLegacy(
           eventSeqIdRange,
           requestingParties,
         )
       )
 
-    unassignEvents: Vector[Entry[RawReassignmentEvent]] <-
+    unassignEvents: Vector[Entry[RawReassignmentEventLegacy]] <-
       dbDispatcher.executeSql(
-        dbMetrics.reassignmentPointwise.fetchEventUnassignPayloads
+        dbMetrics.reassignmentPointwise.fetchEventUnassignPayloadsLegacy
       )(
-        eventStorageBackend.unassignEventBatch(
+        eventStorageBackend.unassignEventBatchLegacy(
           eventSeqIdRange,
           requestingParties,
         )
@@ -66,7 +66,7 @@ final class ReassignmentPointwiseReader(
   }
 
   private def toApiAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEntries: Seq[Entry[RawAssignEvent]]
+      rawAssignEntries: Seq[Entry[RawAssignEventLegacy]]
   )(implicit lc: LoggingContextWithTrace): Future[Option[Reassignment]] =
     Timed.future(
       future = Future.delegate {
@@ -80,7 +80,7 @@ final class ReassignmentPointwiseReader(
   def entriesToReassignment(
       eventProjectionProperties: EventProjectionProperties
   )(
-      rawReassignmentEntries: Seq[Entry[RawReassignmentEvent]]
+      rawReassignmentEntries: Seq[Entry[RawReassignmentEventLegacy]]
   )(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
@@ -88,21 +88,21 @@ final class ReassignmentPointwiseReader(
     assignO <- toApiAssigned(eventProjectionProperties)(
       rawReassignmentEntries.collect(entry =>
         entry.event match {
-          case rawAssign: RawAssignEvent => entry.copy(event = rawAssign)
+          case rawAssign: RawAssignEventLegacy => entry.copy(event = rawAssign)
         }
       )
     )
     unassignO = UpdateReader.toApiUnassigned(
       rawReassignmentEntries.collect(entry =>
         entry.event match {
-          case rawUnassign: RawUnassignEvent => entry.copy(event = rawUnassign)
+          case rawUnassign: RawUnassignEventLegacy => entry.copy(event = rawUnassign)
         }
       )
     )
 
   } yield assignO.orElse(unassignO)
 
-  private def fetchAndFilterEvents[T <: RawEvent](
+  private def fetchAndFilterEvents[T <: RawEventLegacy](
       fetchRawEvents: Future[Vector[Entry[T]]],
       templatePartiesFilter: TemplatePartiesFilter,
       toResponse: Seq[Entry[T]] => Future[Option[Reassignment]],
@@ -129,7 +129,7 @@ final class ReassignmentPointwiseReader(
     val templatePartiesFilter = internalEventFormat.templatePartiesFilter
     val (firstEventSeqId, lastEventSeqId) = eventSeqIdRange
 
-    fetchAndFilterEvents[RawReassignmentEvent](
+    fetchAndFilterEvents[RawReassignmentEventLegacy](
       fetchRawEvents = fetchRawReassignmentEvents(
         eventSeqIdRange = IdRange(firstEventSeqId, lastEventSeqId),
         requestingParties = requestingParties,

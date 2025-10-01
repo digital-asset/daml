@@ -104,6 +104,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
@@ -317,12 +318,12 @@ class CantonSyncService(
     }
   }
 
-  private val contractValidator = ContractValidator(
-    cryptoOps = syncCrypto.pureCrypto,
-    engine = engine,
-    packageResolver =
-      packageId => traceContext => packageService.getPackage(packageId)(traceContext),
-  )
+  private val packageResolver: PackageResolver = packageId =>
+    traceContext => packageService.getPackage(packageId)(traceContext)
+
+  private val contractValidator = ContractValidator(syncCrypto.pureCrypto, engine, packageResolver)
+
+  val contractHasher = ContractHasher(engine, packageResolver)
 
   val repairService: RepairService = new RepairService(
     participantId,

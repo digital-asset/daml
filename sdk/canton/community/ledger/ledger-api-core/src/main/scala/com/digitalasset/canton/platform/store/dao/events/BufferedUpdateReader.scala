@@ -12,7 +12,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
-import com.digitalasset.canton.platform.store.dao.events.TransactionLogUpdatesConversions.ToFlatTransaction
+import com.digitalasset.canton.platform.store.dao.events.TransactionLogUpdatesConversions
 import com.digitalasset.canton.platform.store.dao.{
   BufferedStreamsReader,
   BufferedUpdatePointwiseReader,
@@ -50,9 +50,9 @@ private[events] class BufferedUpdateReader(
         startInclusive = startInclusive,
         endInclusive = endInclusive,
         persistenceFetchArgs = internalUpdateFormat,
-        bufferFilter = ToFlatTransaction
+        bufferFilter = TransactionLogUpdatesConversions
           .filter(internalUpdateFormat),
-        toApiResponse = ToFlatTransaction
+        toApiResponse = TransactionLogUpdatesConversions
           .toGetUpdatesResponse(internalUpdateFormat, lfValueTranslation)(
             loggingContext,
             directEC,
@@ -135,7 +135,7 @@ private[platform] object BufferedUpdateReader {
             queryParam: (LookupKey, InternalUpdateFormat),
             loggingContext: LoggingContextWithTrace,
         ) =>
-          ToFlatTransaction.toGetUpdateResponse(
+          TransactionLogUpdatesConversions.toGetUpdateResponse(
             transactionLogUpdate,
             queryParam._2,
             lfValueTranslation,

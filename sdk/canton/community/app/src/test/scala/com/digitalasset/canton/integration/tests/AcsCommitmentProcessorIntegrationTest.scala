@@ -657,9 +657,6 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         // participant1 will eventually disconnect from this synchronizer.
         // Wait for this disconnection to happen.
         eventually() {
-          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-          simClock.advance(JDuration.ofSeconds(1))
-
           participant1.synchronizers.is_connected(
             initializedSynchronizers(daName).synchronizerId
           ) shouldBe false
@@ -721,9 +718,6 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           change = TopologyChangeOp.Remove,
         )
         eventually() {
-          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-          simClock.advance(JDuration.ofSeconds(1))
-
           participant2.synchronizers.is_connected(
             initializedSynchronizers(acmeName).synchronizerId
           ) shouldBe false

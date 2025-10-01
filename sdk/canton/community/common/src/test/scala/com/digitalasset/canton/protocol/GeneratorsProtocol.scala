@@ -25,6 +25,7 @@ import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
   SynchronizerId,
 }
+import com.digitalasset.canton.util.LegacyContractHash
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{GeneratorsLf, LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
@@ -265,6 +266,8 @@ final class GeneratorsProtocol(
               salt,
               relativeLedgerCreateTime,
               unsuffixedCreateNode,
+              LegacyContractHash
+                .tryCreateNodeHash(unsuffixedCreateNode, contractIdSuffixer.hashingMethod),
             )
             .valueOr(err => throw new IllegalArgumentException(s"Failed to suffix contract: $err"))
         relativeFci = FatContractInstance.fromCreateNode(

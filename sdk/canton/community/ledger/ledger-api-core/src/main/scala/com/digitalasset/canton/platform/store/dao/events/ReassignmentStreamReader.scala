@@ -15,8 +15,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawAssignEvent,
-  RawUnassignEvent,
+  RawAssignEventLegacy,
+  RawUnassignEventLegacy,
   SequentialIdBatch,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
@@ -160,31 +160,31 @@ class ReassignmentStreamReader(
         streamName = "assigned events",
         maxParallelIdQueriesLimiter = assignedEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadAssignQueries + 1,
-        metric = dbMetrics.reassignmentStream.fetchEventAssignIdsStakeholder,
-        idDbQuery = eventStorageBackend.fetchAssignEventIdsForStakeholder,
+        metric = dbMetrics.reassignmentStream.fetchEventAssignIdsStakeholderLegacy,
+        idDbQuery = eventStorageBackend.fetchAssignEventIdsForStakeholderLegacy,
       )
     val idsUnassign =
       fetchIds(
         streamName = "unassigned events",
         maxParallelIdQueriesLimiter = unassignedEventIdQueriesLimiter,
         maxOutputBatchCount = maxParallelPayloadUnassignQueries + 1,
-        metric = dbMetrics.reassignmentStream.fetchEventUnassignIdsStakeholder,
-        idDbQuery = eventStorageBackend.fetchUnassignEventIdsForStakeholder,
+        metric = dbMetrics.reassignmentStream.fetchEventUnassignIdsStakeholderLegacy,
+        idDbQuery = eventStorageBackend.fetchUnassignEventIdsForStakeholderLegacy,
       )
     val payloadsAssign =
       fetchPayloads(
         ids = idsAssign,
         maxParallelPayloadQueries = maxParallelPayloadAssignQueries,
-        dbMetric = dbMetrics.reassignmentStream.fetchEventAssignPayloads,
-        payloadDbQuery = eventStorageBackend.assignEventBatch,
+        dbMetric = dbMetrics.reassignmentStream.fetchEventAssignPayloadsLegacy,
+        payloadDbQuery = eventStorageBackend.assignEventBatchLegacy,
         deserialize = toApiAssigned(eventProjectionProperties),
       )
     val payloadsUnassign =
       fetchPayloads(
         ids = idsUnassign,
         maxParallelPayloadQueries = maxParallelPayloadUnassignQueries,
-        dbMetric = dbMetrics.reassignmentStream.fetchEventUnassignPayloads,
-        payloadDbQuery = eventStorageBackend.unassignEventBatch,
+        dbMetric = dbMetrics.reassignmentStream.fetchEventUnassignPayloadsLegacy,
+        payloadDbQuery = eventStorageBackend.unassignEventBatchLegacy,
         deserialize = toApiUnassigned,
       )
 
@@ -194,7 +194,7 @@ class ReassignmentStreamReader(
   }
 
   private def toApiUnassigned(
-      rawUnassignEntries: Seq[Entry[RawUnassignEvent]]
+      rawUnassignEntries: Seq[Entry[RawUnassignEventLegacy]]
   ): Future[Option[Reassignment]] =
     Timed.future(
       future = Future.successful(UpdateReader.toApiUnassigned(rawUnassignEntries)),
@@ -202,7 +202,7 @@ class ReassignmentStreamReader(
     )
 
   private def toApiAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEntries: Seq[Entry[RawAssignEvent]]
+      rawAssignEntries: Seq[Entry[RawAssignEventLegacy]]
   )(implicit lc: LoggingContextWithTrace): Future[Option[Reassignment]] =
     Timed.future(
       future = Future.delegate {

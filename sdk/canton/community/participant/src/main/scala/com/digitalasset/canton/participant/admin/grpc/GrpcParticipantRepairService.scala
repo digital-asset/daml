@@ -526,6 +526,7 @@ final class GrpcParticipantRepairService(
           loggerFactory,
           sync.syncPersistentStateManager,
           sync.pureCryptoApi,
+          sync.contractHasher,
           contractImportMode,
         )(repairContracts)
       (activeContractsWithValidContractIds, contractIdRemapping) =

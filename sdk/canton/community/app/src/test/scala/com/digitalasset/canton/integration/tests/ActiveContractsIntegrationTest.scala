@@ -51,6 +51,7 @@ import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsoluti
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.util.LegacyContractHash
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.CreationTime
@@ -207,9 +208,16 @@ class ActiveContractsIntegrationTest
       createIndex = 0,
       viewPosition = ViewPosition(List.empty),
     )
+    val contractHash =
+      LegacyContractHash.tryCreateNodeHash(unsuffixedCreateNode, contractIdSuffixer.hashingMethod)
     val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
       contractIdSuffixer
-        .relativeSuffixForLocalContract(contractSalt, ledgerCreateTime, unsuffixedCreateNode)
+        .relativeSuffixForLocalContract(
+          contractSalt,
+          ledgerCreateTime,
+          unsuffixedCreateNode,
+          contractHash,
+        )
         .valueOr(err => fail("Failed to create contract suffix: " + err))
     val suffixedFci = LfFatContractInst
       .fromCreateNode(suffixedCreateNode, ledgerCreateTime, authenticationData.toLfBytes)

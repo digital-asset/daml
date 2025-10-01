@@ -57,8 +57,6 @@ trait LedgerApiParticipantPruningTest
         .replace(1)
         .focus(_.ledgerApi.indexService.updatesStreams.maxPayloadsPerPayloadsPage)
         .replace(1)
-        .focus(_.ledgerApi.indexService.transactionTreeStreams.maxPayloadsPerPayloadsPage)
-        .replace(1)
     )
 
   private val confirmationRequestsMaxRate = NonNegativeInt.tryCreate(2 * largeTransactionBatchSize)

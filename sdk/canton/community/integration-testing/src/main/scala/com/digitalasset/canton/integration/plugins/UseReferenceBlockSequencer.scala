@@ -18,13 +18,8 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.{
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
-import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.CircuitBreakerConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.{
-  BlockSequencerConfig,
-  BlockSequencerStreamInstrumentationConfig,
-  SequencerConfig,
-}
+import com.digitalasset.canton.synchronizer.sequencer.{BlockSequencerConfig, SequencerConfig}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.{
   ReferenceSequencerDriver,
   ReferenceSequencerDriverFactory,
@@ -86,35 +81,39 @@ class UseReferenceBlockSequencer[StorageConfigT <: StorageConfig](
   ): Map[InstanceName, SequencerConfig] = {
     implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext.forClass(loggerFactory, getClass)
-    config.sequencers.keys.map { sequencerName =>
-      sequencerName -> SequencerConfig.External(
-        driverFactory.name,
-        BlockSequencerConfig(
-          circuitBreaker = config.sequencers(sequencerName).sequencer match {
-            case external: SequencerConfig.External => external.block.circuitBreaker
-            case _ => CircuitBreakerConfig()
-          },
-          streamInstrumentation = config.sequencers(sequencerName).sequencer match {
-            case external: SequencerConfig.External => external.block.streamInstrumentation
-            case _ => BlockSequencerStreamInstrumentationConfig()
-          },
-        ),
-        ConfigCursor(
-          driverFactory
-            .configWriter(confidential = false)
-            .to(
-              ReferenceSequencerDriver
-                .Config(
-                  storageConfigs.getOrElse(
-                    sequencerName,
-                    ErrorUtil.invalidState(s"Missing storage config for $sequencerName"),
-                  )
+    config.sequencers.map { case (sequencerName, originalConfig) =>
+      val driverConfigCursor = ConfigCursor(
+        driverFactory
+          .configWriter(confidential = false)
+          .to(
+            ReferenceSequencerDriver
+              .Config(
+                storageConfigs.getOrElse(
+                  sequencerName,
+                  ErrorUtil.invalidState(s"Missing storage config for $sequencerName"),
                 )
-            ),
-          List(),
-        ),
+              )
+          ),
+        List(),
       )
-    }.toMap
+
+      sequencerName ->
+        (originalConfig.sequencer match {
+          case external: SequencerConfig.External =>
+            // Here we preserve any settings coming from the original config, i.e. from ConfigTransforms
+            external.copy(
+              sequencerType = driverFactory.name,
+              config = driverConfigCursor,
+            )
+
+          case _ =>
+            SequencerConfig.External(
+              driverFactory.name,
+              BlockSequencerConfig(),
+              driverConfigCursor,
+            )
+        })
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

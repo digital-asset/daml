@@ -9,14 +9,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Sequen
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawCreatedEvent,
+  RawCreatedEventLegacy,
   UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -63,7 +62,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -76,7 +75,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1, 2)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty2),
         templateId = None,
       )(_)(
@@ -89,7 +88,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = None,
       )(_)(
@@ -102,7 +101,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1, 2)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -115,7 +114,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
       )(_)(
@@ -128,7 +127,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId2),
       )(_)(
@@ -141,7 +140,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(2)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
       )(_)(
@@ -154,7 +153,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = Some(someTemplateId),
       )(_)(
@@ -167,7 +166,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = Some(someTemplateId2),
       )(_)(
@@ -208,7 +207,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -221,7 +220,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1, 2)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty2),
         templateId = None,
       )(_)(
@@ -234,7 +233,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = None,
       )(_)(
@@ -247,7 +246,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1, 2)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -260,7 +259,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
       )(_)(
@@ -273,7 +272,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -286,7 +285,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1, 2)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId2),
       )(_)(
@@ -299,7 +298,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(2)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = Some(someTemplateId2),
       )(_)(
@@ -312,7 +311,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(2)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = Some(someTemplateId),
       )(_)(
@@ -325,7 +324,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = Some(someTemplateId),
       )(_)(
@@ -338,7 +337,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     ) shouldBe Vector(1)
 
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = None,
         templateId = Some(someTemplateId),
       )(_)(
@@ -376,7 +375,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     val result = executeSql(
-      backend.event.assignEventBatch(
+      backend.event.assignEventBatchLegacy(
         eventSequentialIds = Ids(List(1L, 2L)),
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
@@ -388,22 +387,20 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           commandId = Some("command id 1"),
           workflowId = Some("workflow_id"),
           offset = 1,
+          nodeId = 24,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
           updateId = offset(1).toDecimalString,
           eventSequentialId = 0L,
-          ledgerEffectiveTime = Timestamp.MinValue,
+          ledgerEffectiveTime = None,
           synchronizerId = "x::targetsynchronizer",
-          event = EventStorageBackend.RawAssignEvent(
+          event = EventStorageBackend.RawAssignEventLegacy(
             sourceSynchronizerId = "x::sourcesynchronizer",
             targetSynchronizerId = "x::targetsynchronizer",
             reassignmentId = "123456789",
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
-            rawCreatedEvent = RawCreatedEvent(
-              updateId = offset(1).toDecimalString,
-              offset = 1,
-              nodeId = 24,
+            rawCreatedEvent = RawCreatedEventLegacy(
               contractId = hashCid("#1"),
               templateId = someTemplateIdFull,
               witnessParties = Set("signatory"),
@@ -427,22 +424,20 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           commandId = Some("command id 2"),
           workflowId = Some("workflow_id"),
           offset = 2,
+          nodeId = 42,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
           updateId = offset(2).toDecimalString,
           eventSequentialId = 0L,
-          ledgerEffectiveTime = Timestamp.MinValue,
+          ledgerEffectiveTime = None,
           synchronizerId = "x::targetsynchronizer",
-          event = EventStorageBackend.RawAssignEvent(
+          event = EventStorageBackend.RawAssignEventLegacy(
             sourceSynchronizerId = "x::sourcesynchronizer",
             targetSynchronizerId = "x::targetsynchronizer",
             reassignmentId = "123456789",
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
-            rawCreatedEvent = RawCreatedEvent(
-              updateId = offset(2).toDecimalString,
-              offset = 2,
-              nodeId = 42,
+            rawCreatedEvent = RawCreatedEventLegacy(
               contractId = hashCid("#2"),
               templateId = someTemplateIdFull,
               witnessParties = Set("signatory"),
@@ -466,7 +461,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     )
 
     val resultRange = executeSql(
-      backend.event.assignEventBatch(
+      backend.event.assignEventBatchLegacy(
         eventSequentialIds = IdRange(1L, 2L),
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
@@ -498,7 +493,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(2), 2L))
 
     val result = executeSql(
-      backend.event.unassignEventBatch(
+      backend.event.unassignEventBatchLegacy(
         eventSequentialIds = Ids(List(1L, 2L)),
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
@@ -513,13 +508,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         commandId = Some("command id 1"),
         workflowId = Some("workflow_id"),
         offset = 1,
+        nodeId = 24,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
         updateId = offset(1).toDecimalString,
         eventSequentialId = 0L,
-        ledgerEffectiveTime = Timestamp.MinValue,
+        ledgerEffectiveTime = None,
         synchronizerId = "x::sourcesynchronizer",
-        event = EventStorageBackend.RawUnassignEvent(
+        event = EventStorageBackend.RawUnassignEventLegacy(
           sourceSynchronizerId = "x::sourcesynchronizer",
           targetSynchronizerId = "x::targetsynchronizer",
           reassignmentId = "123456789",
@@ -529,7 +525,6 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           templateId = someTemplateIdFull,
           witnessParties = Set("signatory"),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
-          nodeId = 24,
         ),
         externalTransactionHash = None,
       ),
@@ -537,13 +532,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         commandId = Some("command id 2"),
         workflowId = Some("workflow_id"),
         offset = 2,
+        nodeId = 42,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
         updateId = offset(2).toDecimalString,
         eventSequentialId = 0L,
-        ledgerEffectiveTime = Timestamp.MinValue,
+        ledgerEffectiveTime = None,
         synchronizerId = "x::sourcesynchronizer",
-        event = EventStorageBackend.RawUnassignEvent(
+        event = EventStorageBackend.RawUnassignEventLegacy(
           sourceSynchronizerId = "x::sourcesynchronizer",
           targetSynchronizerId = "x::targetsynchronizer",
           reassignmentId = "123456789",
@@ -553,14 +549,13 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           templateId = someTemplateIdFull,
           witnessParties = Set("signatory"),
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
-          nodeId = 42,
         ),
         externalTransactionHash = None,
       ),
     )
 
     val resultRange = executeSql(
-      backend.event.unassignEventBatch(
+      backend.event.unassignEventBatchLegacy(
         eventSequentialIds = IdRange(1L, 2L),
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
@@ -599,7 +594,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       executeSql(updateLedgerEnd(offset(2), 2L))
 
       val assignments = executeSql(
-        backend.event.assignEventBatch(
+        backend.event.assignEventBatchLegacy(
           eventSequentialIds = Ids(List(1L, 2L)),
           allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
         )
@@ -634,7 +629,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       executeSql(updateLedgerEnd(offset(2), 2L))
 
       val unassignments = executeSql(
-        backend.event.unassignEventBatch(
+        backend.event.unassignEventBatchLegacy(
           eventSequentialIds = Ids(List(1L, 2L)),
           allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
         )
@@ -698,7 +693,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(11), 11L))
 
     executeSql(
-      backend.event.activeContractCreateEventBatch(
+      backend.event.activeContractCreateEventBatchLegacy(
         eventSequentialIds = List(1, 2),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 6,
@@ -712,14 +707,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         )
       )
     ) shouldBe Vector(
-      EventStorageBackend.RawActiveContract(
+      EventStorageBackend.RawActiveContractLegacy(
         workflowId = Some("workflow_id"),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 0L,
-        rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(1).toDecimalString,
-          offset = 1,
-          nodeId = 0,
+        offset = 1,
+        rawCreatedEvent = RawCreatedEventLegacy(
           contractId = hashCid("#1"),
           templateId = someTemplateIdFull,
           witnessParties = Set("observer"),
@@ -737,15 +730,15 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           representativePackageId = someTemplateIdFull.pkgId,
         ),
         eventSequentialId = 1L,
+        nodeId = 0,
       ),
-      EventStorageBackend.RawActiveContract(
+      EventStorageBackend.RawActiveContractLegacy(
         workflowId = Some("workflow_id"),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 0L,
-        rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(2).toDecimalString,
-          offset = 2,
-          nodeId = 0,
+        offset = 2,
+        nodeId = 0,
+        rawCreatedEvent = RawCreatedEventLegacy(
           contractId = hashCid("#2"),
           templateId = someTemplateIdFull,
           witnessParties = Set("observer"),
@@ -765,33 +758,6 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 2L,
       ),
     )
-
-    // same query as first to double check equality predicate
-    executeSql(
-      backend.event.activeContractCreateEventBatch(
-        eventSequentialIds = List(1, 2),
-        allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
-        endInclusive = 6,
-      )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
-
-    // archive in the same synchronizer renders it inactive, but batch returns all regardless (filtering moved to ID filters)
-    executeSql(
-      backend.event.activeContractCreateEventBatch(
-        eventSequentialIds = List(1, 2),
-        allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
-        endInclusive = 10,
-      )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
-
-    // unassignment in the same synchronizer renders it inactive
-    executeSql(
-      backend.event.activeContractCreateEventBatch(
-        eventSequentialIds = List(1, 2),
-        allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
-        endInclusive = 11,
-      )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(1L, 2L).map(x => offset(x).toDecimalString)
   }
 
   it should "return the correct active contracts from assign events, and only if not archived/unassigned" in {
@@ -849,7 +815,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(11), 11L))
 
     executeSql(
-      backend.event.activeContractAssignEventBatch(
+      backend.event.activeContractAssignEventBatchLegacy(
         eventSequentialIds = List(2, 3),
         allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
         endInclusive = 6,
@@ -863,14 +829,13 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         )
       )
     ) shouldBe Vector(
-      EventStorageBackend.RawActiveContract(
+      EventStorageBackend.RawActiveContractLegacy(
         workflowId = Some("workflow_id"),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 1000L,
-        rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(2).toDecimalString,
-          offset = 2,
-          nodeId = 0,
+        offset = 2,
+        nodeId = 0,
+        rawCreatedEvent = RawCreatedEventLegacy(
           contractId = hashCid("#1"),
           templateId = someTemplateIdFull,
           witnessParties = Set("observer"),
@@ -889,14 +854,13 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         ),
         eventSequentialId = 2L,
       ),
-      EventStorageBackend.RawActiveContract(
+      EventStorageBackend.RawActiveContractLegacy(
         workflowId = Some("workflow_id"),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         reassignmentCounter = 1000L,
-        rawCreatedEvent = RawCreatedEvent(
-          updateId = offset(3).toDecimalString,
-          offset = 3,
-          nodeId = 0,
+        offset = 3,
+        nodeId = 0,
+        rawCreatedEvent = RawCreatedEventLegacy(
           contractId = hashCid("#2"),
           templateId = someTemplateIdFull,
           witnessParties = Set("observer"),
@@ -916,33 +880,6 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         eventSequentialId = 3L,
       ),
     )
-
-    // same query as first to double check equality predicate
-    executeSql(
-      backend.event.activeContractAssignEventBatch(
-        eventSequentialIds = List(2, 3),
-        allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
-        endInclusive = 6,
-      )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
-
-    // archive in the same synchronizer renders it inactive, but we populate all of them with the batch query
-    executeSql(
-      backend.event.activeContractAssignEventBatch(
-        eventSequentialIds = List(2, 3),
-        allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
-        endInclusive = 10,
-      )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
-
-    // unassignment in the same synchronizer renders it inactive, but we populate all of them with the batch query
-    executeSql(
-      backend.event.activeContractAssignEventBatch(
-        eventSequentialIds = List(2, 3),
-        allFilterParties = Some(Set(Ref.Party.assertFromString("observer"))),
-        endInclusive = 11,
-      )
-    ).map(_.rawCreatedEvent.updateId) shouldBe List(2L, 3L).map(x => offset(x).toDecimalString)
   }
 
   behavior of "incomplete lookup related event_sequential_id lookup queries"
@@ -1058,7 +995,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(updateLedgerEnd(offset(16), 16L))
 
     executeSql(
-      backend.event.lookupAssignSequentialIdByOffset(
+      backend.event.lookupAssignSequentialIdByOffsetLegacy(
         List(
           1L,
           5L,
@@ -1068,14 +1005,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       )
     ) shouldBe Vector(5L, 6L)
     executeSql(
-      backend.event.lookupUnassignSequentialIdByOffset(
+      backend.event.lookupUnassignSequentialIdByOffsetLegacy(
         List(
           1L, 4L, 6L, 7L, 11L,
         )
       )
     ) shouldBe Vector(4L, 11L)
     executeSql(
-      backend.event.lookupAssignSequentialIdBy(
+      backend.event.lookupAssignSequentialIdByLegacy(
         List(
           // (contractId, synchronizerId, sequentialId)
           (1, 2, 16L), // not found
@@ -1088,7 +1025,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     // check that the last assign event is preferred over the earlier
     executeSql(
-      backend.event.lookupAssignSequentialIdBy(
+      backend.event.lookupAssignSequentialIdByLegacy(
         List(
           // (contractId, synchronizerId, sequentialId)
           (1, 2, 16L), // not found
@@ -1104,7 +1041,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       ).map { case (tuple, id) => (toDbValues(tuple), id) }
     // check that sequential id is taken into account
     executeSql(
-      backend.event.lookupAssignSequentialIdBy(
+      backend.event.lookupAssignSequentialIdByLegacy(
         List(
           // (contractId, synchronizerId, sequentialId)
           (2, 2, 15L), // last <15 found at 13
@@ -1119,7 +1056,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     executeSql(
       // test that we will not find the create event if we use the correct contract id but a wrong synchronizer id
-      backend.event.lookupCreateSequentialIdByContractId(
+      backend.event.lookupCreateSequentialIdByContractIdLegacy(
         List(
           1, // found at 1
           2, // found at 2
@@ -1129,10 +1066,10 @@ private[backend] trait StorageBackendTestsReassignmentEvents
   }
 
   def rawCreatedEventHasExpectedCreateArgumentAndAuthenticationData(
-      rawCreatedEvent: RawCreatedEvent,
+      rawCreatedEvent: RawCreatedEventLegacy,
       createArgument: Array[Byte],
       authenticationData: Array[Byte],
-  ): RawCreatedEvent = {
+  ): RawCreatedEventLegacy = {
     rawCreatedEvent.createArgument.toList shouldBe createArgument.toList
     rawCreatedEvent.authenticationData.toList shouldBe authenticationData.toList
     rawCreatedEvent.copy(
@@ -1142,8 +1079,8 @@ private[backend] trait StorageBackendTestsReassignmentEvents
   }
 
   private def sanitize(
-      original: Entry[EventStorageBackend.RawAssignEvent]
-  ): Entry[EventStorageBackend.RawAssignEvent] =
+      original: Entry[EventStorageBackend.RawAssignEventLegacy]
+  ): Entry[EventStorageBackend.RawAssignEventLegacy] =
     original.copy(
       event = original.event.copy(
         rawCreatedEvent = rawCreatedEventHasExpectedCreateArgumentAndAuthenticationData(

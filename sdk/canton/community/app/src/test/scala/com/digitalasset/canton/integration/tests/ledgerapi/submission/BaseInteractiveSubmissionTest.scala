@@ -42,16 +42,8 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.interactive.ExternalPartyUtils
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
-import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{
-  ExternalParty,
-  ForceFlags,
-  PartyId,
-  PhysicalSynchronizerId,
-  SynchronizerId,
-}
+import com.digitalasset.canton.topology.{ExternalParty, PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
 import monocle.Monocle.toAppliedFocusOps
@@ -144,34 +136,6 @@ trait BaseInteractiveSubmissionTest
           .nonEmpty
       )
     }
-  }
-
-  // TODO(#27680) Extract into PartyToParticipantDeclarative
-  protected def offboardParty(
-      party: ExternalParty,
-      participant: LocalParticipantReference,
-      synchronizerId: SynchronizerId,
-  )(implicit env: TestConsoleEnvironment): Unit = {
-    import env.*
-
-    val partyToParticipantTx = participant.topology.party_to_participant_mappings
-      .list(synchronizerId, filterParty = party.toProtoPrimitive)
-      .loneElement
-    val partyToParticipantMapping = partyToParticipantTx.item
-    val removeTopologyTx = TopologyTransaction(
-      TopologyChangeOp.Remove,
-      partyToParticipantTx.context.serial.increment,
-      partyToParticipantMapping,
-      testedProtocolVersion,
-    )
-
-    val removeCharlieSignedTopologyTx =
-      global_secret.sign(removeTopologyTx, party, testedProtocolVersion)
-    participant.topology.transactions.load(
-      Seq(removeCharlieSignedTopologyTx),
-      TopologyStoreId.Synchronizer(synchronizerId),
-      forceFlags = ForceFlags(DisablePartyWithActiveContracts),
-    )
   }
 
   protected def exec(

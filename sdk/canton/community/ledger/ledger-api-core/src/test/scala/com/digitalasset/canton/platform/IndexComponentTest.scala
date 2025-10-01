@@ -12,7 +12,9 @@ import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.platform.IndexComponentTest.TestServices
+import com.digitalasset.canton.platform.LedgerApiServerInternals
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.config.{IndexServiceConfig, ServerRole}
 import com.digitalasset.canton.platform.index.IndexServiceOwner
@@ -81,6 +83,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
   protected def index: IndexService = testServices.index
 
+  protected def cantonContractStore: InMemoryContractStore = testServices.cantonContractStore
+
   protected def sequentialPostProcessor: Update => Unit = _ => ()
 
   override protected def beforeAll(): Unit = {
@@ -94,6 +98,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)
     val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
+    val cantonContractStore = new InMemoryContractStore(timeouts, loggerFactory)
 
     val indexResourceOwner =
       for {
@@ -184,6 +189,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
               _: String,
               _: LoggingContextWithTrace,
           ) => FutureUnlessShutdown.pure(Left("not used")),
+          cantonContractStore = cantonContractStore,
         )
       } yield indexService -> indexer
 
@@ -195,6 +201,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         indexResource = indexResource,
         index = index,
         indexer = indexer,
+        cantonContractStore = cantonContractStore,
       )
     )
   }
@@ -218,5 +225,6 @@ object IndexComponentTest {
       indexResource: Resource[Any],
       index: IndexService,
       indexer: FutureQueue[Update],
+      cantonContractStore: InMemoryContractStore,
   )
 }

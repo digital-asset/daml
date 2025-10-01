@@ -20,6 +20,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
 import com.digitalasset.canton.platform.config.IndexServiceConfig
@@ -66,6 +67,7 @@ final class IndexServiceOwner(
     lfValueTranslation: LfValueTranslation,
     queryExecutionContext: ExecutionContextExecutorService,
     commandExecutionContext: ExecutionContextExecutorService,
+    cantonContractStore: ContractStore,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -88,6 +90,7 @@ final class IndexServiceOwner(
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
+        contractStore = cantonContractStore,
       )(commandExecutionContext)
 
       bufferedTransactionsReader = BufferedUpdateReader(

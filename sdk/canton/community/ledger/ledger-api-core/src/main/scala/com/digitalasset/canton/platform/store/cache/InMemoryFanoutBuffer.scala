@@ -156,23 +156,6 @@ class InMemoryFanoutBuffer(
     }
   }
 
-  // TODO(#23504) remove
-  /** Lookup the accepted transaction update by transaction offset. */
-  def lookupTransaction(
-      offset: Offset
-  ): Option[TransactionLogUpdate.TransactionAccepted] = {
-    val vectorSnapshot = _bufferLog
-
-    val searchResult = vectorSnapshot.view.map(_._1).search(offset)
-
-    val foundUpdate = searchResult match {
-      case Found(idx) => Some(vectorSnapshot(idx)._2)
-      case _ => None
-    }
-
-    foundUpdate.collect { case tx: TransactionLogUpdate.TransactionAccepted => tx }
-  }
-
   /** Removes entries starting from the buffer head up until `endInclusive`.
     *
     * @param endInclusive
