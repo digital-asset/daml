@@ -42,7 +42,7 @@ object TransactionCoder {
   /** Reads a [[VersionedTransaction]] from protobuf and checks if
     * [[SerializationVersion]] passed in the protobuf is currently supported.
     *
-    * Supported transaction versions configured in [[SerializationVersion]].
+    * Supported serialization versions configured in [[SerializationVersion]].
     *
     * @param protoTx protobuf encoded transaction
     * @return decoded transaction
@@ -395,10 +395,10 @@ object TransactionCoder {
       * @return decoded GenNode
       */
     private[lf] def decodeVersionedNode(
-        SerializationVersion: SerializationVersion,
+        serializationVersion: SerializationVersion,
         protoNode: TransactionOuterClass.Node,
     ): Either[DecodeError, (NodeId, Node)] =
-      decodeNode(SerializationVersion, protoNode)
+      decodeNode(serializationVersion, protoNode)
 
     private[lf] def decodeNode(
         txVersion: SerializationVersion,

@@ -70,7 +70,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
   }
 
   "SerializableContract.fromFatContract" when {
-    val SerializationVersion = LfLanguageVersion.v2_dev
+    val serializationVersion = LfLanguageVersion.v2_dev
 
     val createdAt = LfTimestamp.Epoch
     val contractSalt = TestSalt.generateSalt(0)
@@ -96,7 +96,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      version = SerializationVersion,
+      version = serializationVersion,
     )
 
     val disclosedContract =
@@ -115,7 +115,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
           rawContractInstance = SerializableRawContractInstance
             .create(
               LfVersioned(
-                SerializationVersion,
+                serializationVersion,
                 LfValue.ThinContractInstance(
                   packageName = pkgName,
                   template = templateId,

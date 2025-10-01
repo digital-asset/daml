@@ -559,7 +559,7 @@ object Hash {
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
     new NodeBuilderV1(Purpose.TransactionHash, hashTracer, enforceNodeSeedForCreateNodes = true)
-      .withContext("Transaction Version")(
+      .withContext("Serialization Version")(
         _.addString(SerializationVersion.toProtoValue(versionedTransaction.version))
       )
       .withContext("Root Nodes")(

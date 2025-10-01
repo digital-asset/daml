@@ -41,10 +41,10 @@ object SerializationVersion {
   private[this] val toIntMapping = fromIntMapping.map { case (k, v) => v -> k }
 
   def fromString(vs: String): Either[String, SerializationVersion] =
-    fromStringMapping.get(vs).toRight(s"Unsupported transaction version '$vs'")
+    fromStringMapping.get(vs).toRight(s"Unsupported serialization version '$vs'")
 
   private[lf] def fromInt(i: Int): Either[String, SerializationVersion] =
-    fromIntMapping.get(i).toRight(s"Unsupported transaction version '$i'")
+    fromIntMapping.get(i).toRight(s"Unsupported serialization version '$i'")
 
   private[digitalasset] def toProtoValue(ver: SerializationVersion): String =
     toStringMapping

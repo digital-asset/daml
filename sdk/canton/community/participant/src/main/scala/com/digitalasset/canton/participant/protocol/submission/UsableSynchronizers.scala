@@ -19,7 +19,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, LfTransactionUtil}
 import com.digitalasset.canton.version.{
-  DamlLfVersionToProtocolVersions,
+  LfSerializationVersionToProtocolVersions,
   HashingSchemeVersion,
   ProtocolVersion,
 }
@@ -70,7 +70,7 @@ object UsableSynchronizers {
   ): EitherT[FutureUnlessShutdown, SynchronizerNotUsedReason, Unit] = {
 
     val requiredPackagesPerParty = Blinding.partyPackages(transaction)
-    val SerializationVersion = transaction.version
+    val serializationVersion = transaction.version
 
     val packageVetted: EitherT[FutureUnlessShutdown, UnknownPackage, Unit] =
       checkPackagesVetted(
@@ -86,7 +86,7 @@ object UsableSynchronizers {
       checkConfirmingParties(synchronizerId, transaction, snapshot)
     val compatibleProtocolVersion
         : EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] =
-      checkProtocolVersion(synchronizerId, SerializationVersion)
+      checkProtocolVersion(synchronizerId, serializationVersion)
     val compatibleInteractiveSubmissionVersion
         : EitherT[FutureUnlessShutdown, SynchronizerNotUsedReason, Unit] =
       checkInteractiveSubmissionVersion(synchronizerId, interactiveSubmissionVersionO)
@@ -251,7 +251,7 @@ object UsableSynchronizers {
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, UnsupportedMinimumProtocolVersion, Unit] = {
     val minimumPVForTransaction =
-      DamlLfVersionToProtocolVersions.getMinimumSupportedProtocolVersion(
+      LfSerializationVersionToProtocolVersions.getMinimumSupportedProtocolVersion(
         serializationVersion
       )
 

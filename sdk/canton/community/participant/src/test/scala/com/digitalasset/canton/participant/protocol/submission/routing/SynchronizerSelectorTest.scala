@@ -31,7 +31,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
+import com.digitalasset.canton.version.{LfSerializationVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
@@ -151,13 +151,13 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
     "take minimum protocol version into account" ignore {
       val oldPV = ProtocolVersion.v34
 
-      val SerializationVersion = LfLanguageVersion.v2_dev
-      val newPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
-        .get(SerializationVersion)
+      val serializationVersion = LfLanguageVersion.v2_dev
+      val newPV = LfSerializationVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
+        .get(serializationVersion)
         .value
 
       val selectorOldPV = selectorForExerciseByInterface(
-        SerializationVersion = SerializationVersion, // requires protocol version dev
+        serializationVersion = serializationVersion, // requires protocol version dev
         connectedSynchronizers = Set(da.copy(protocolVersion = oldPV)),
         admissibleSynchronizers = NonEmpty.mk(Set, da.copy(protocolVersion = oldPV)),
       )
@@ -166,7 +166,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       val expectedError = UnsupportedMinimumProtocolVersion(
         synchronizerId = da,
         requiredPV = newPV,
-        lfVersion = SerializationVersion,
+        lfVersion = serializationVersion,
       )
 
       selectorOldPV.forSingleSynchronizer.leftOrFailShutdown(
@@ -184,7 +184,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
       // Happy path
       val selectorNewPV = selectorForExerciseByInterface(
-        SerializationVersion = LfLanguageVersion.v2_dev, // requires protocol version dev
+        serializationVersion = LfLanguageVersion.v2_dev, // requires protocol version dev
         connectedSynchronizers = Set(da.copy(protocolVersion = newPV)),
         admissibleSynchronizers = NonEmpty.mk(Set, da.copy(protocolVersion = newPV)),
       )
@@ -521,7 +521,7 @@ private[routing] object SynchronizerSelectorTest {
         admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]] =
           defaultAdmissibleSynchronizers,
         prescribedSynchronizerId: Option[PhysicalSynchronizerId] = defaultPrescribedSynchronizerId,
-        SerializationVersion: LfLanguageVersion = fixtureSerializationVersion,
+        serializationVersion: LfSerializationVersion = fixtureSerializationVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
     )(implicit

@@ -36,7 +36,7 @@ object ValueCoder {
 
   object DecodeError extends (String => DecodeError) {
     private[lf] def apply(version: SerializationVersion, isTooOldFor: String): DecodeError =
-      DecodeError(s"transaction version $version is too old to support $isTooOldFor")
+      DecodeError(s"serialization version $version is too old to support $isTooOldFor")
   }
 
   /** Error type for signalling errors occurring during encoding values
@@ -46,7 +46,7 @@ object ValueCoder {
 
   object EncodeError extends (String => EncodeError) {
     private[lf] def apply(version: SerializationVersion, isTooOldFor: String): EncodeError =
-      EncodeError(s"transaction version $version is too old to support $isTooOldFor")
+      EncodeError(s"serialization version $version is too old to support $isTooOldFor")
   }
 
   /** Simple encoding to wire of identifiers
@@ -203,12 +203,12 @@ object ValueCoder {
       @scala.annotation.nowarn("cat=unused")
       def assertSince(minVersion: SerializationVersion, description: => String) =
         if (version < minVersion)
-          throw Err(s"$description is not supported by transaction version $version")
+          throw Err(s"$description is not supported by serialization version $version")
 
       @scala.annotation.nowarn("cat=unused")
       def assertUntil(minVersion: SerializationVersion, description: => String) =
         if (version >= minVersion)
-          throw Err(s"$description is not supported by transaction version $version")
+          throw Err(s"$description is not supported by serialization version $version")
 
       def go(nesting: Int, protoValue: proto.Value): Value = {
         if (nesting > MAXIMUM_NESTING) {

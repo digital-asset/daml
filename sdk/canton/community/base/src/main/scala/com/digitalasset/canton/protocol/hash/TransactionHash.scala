@@ -78,7 +78,7 @@ object TransactionHash {
       hashTracer,
       enforceNodeSeedForCreateNodes = true,
     ).addPurpose
-      .withContext("Transaction Version")(
+      .withContext("Serialization Version")(
         _.add(SerializationVersion.toProtoValue(versionedTransaction.version))
       )
       .withContext("Root Nodes")(

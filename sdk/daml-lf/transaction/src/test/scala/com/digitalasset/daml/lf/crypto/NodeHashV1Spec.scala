@@ -1065,7 +1065,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
           defaultNodeSeedsMap,
           hashTracer = hashTracer,
         )
-        hashTracer.result shouldBe s"""# Transaction Version
+        hashTracer.result shouldBe s"""# Serialization Version
                                       |'00000003' # 3 (int)
                                       |'322e31' # 2.1 (string)
                                       |# Root Nodes

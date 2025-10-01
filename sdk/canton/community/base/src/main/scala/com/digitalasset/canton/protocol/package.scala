@@ -48,7 +48,7 @@ package object protocol {
   type LfSerializationVersion = SerializationVersion
   val LfSerializationVersion: SerializationVersion.type = SerializationVersion
 
-  val DummySerializationVersion: LfLanguageVersion = LanguageVersion.v2_dev
+  val DummySerializationVersion: LfSerializationVersion = LfSerializationVersion.VDev
 
   // Ledger transaction statistics based on lf transaction nodes
   type LedgerTransactionNodeStatistics = TransactionNodeStatistics

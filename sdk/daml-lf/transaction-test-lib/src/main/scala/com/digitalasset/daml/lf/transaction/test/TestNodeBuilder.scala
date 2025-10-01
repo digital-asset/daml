@@ -26,7 +26,7 @@ trait TestNodeBuilder {
 
   private def assertPackageVersion(packageId: PackageId): SerializationVersion =
     serializationVersion(packageId).getOrElse(
-      throw new IllegalArgumentException(s"Could not lookup transaction version for $packageId")
+      throw new IllegalArgumentException(s"Could not lookup serialization version for $packageId")
     )
 
   private[this] def contractSerializationVersion(contract: Node.Create): SerializationVersion =

@@ -537,8 +537,6 @@ object ValueGenerators {
     *    associated invariants will probably fail; a create node with that ID
     *    may not exist, and even if it does, the stakeholders and signatories
     *    may not match up.
-    *
-    * This list is complete as of transaction version 5. -SC
     */
   val malformedGenTransaction: Gen[Transaction] = {
     for {

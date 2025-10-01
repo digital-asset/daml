@@ -8,7 +8,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.version.DamlLfVersionToProtocolVersions
+import com.digitalasset.canton.version.LfSerializationVersionToProtocolVersions
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId, LfValue}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -35,12 +35,12 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
     )
 
   /*
-   We cannot take the maximum transaction version available. The reason is that if the test is run
+   We cannot take the maximum serialization version available. The reason is that if the test is run
    with a low protocol version, then some filter will reject the transaction (because high transaction
    version needs high protocol version).
    */
-  lazy val fixtureSerializationVersion: LfLanguageVersion =
-    DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions.collect {
+  lazy val fixtureSerializationVersion: LfSerializationVersion =
+    LfSerializationVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions.collect {
       case (txVersion, protocolVersion) if protocolVersion <= BaseTest.testedProtocolVersion =>
         txVersion
     }.last

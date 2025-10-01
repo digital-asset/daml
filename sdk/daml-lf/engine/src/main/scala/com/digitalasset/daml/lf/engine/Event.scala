@@ -61,7 +61,7 @@ final case class CreateEvent(
   *  @param children consequence events. note that they're paired with the NodeId of the transaction that originated the event.
   *  @param stakeholders the stakeholders of the target contract -- must be a subset of witnesses.
   *  @param witnesses additional witnesses induced by parent exercises
-  *  @param exerciseResult result of exercise of the choice. Optional since this feature was introduced in transaction version 6.
+  *  @param exerciseResult result of exercise of the choice, none for aborted exercise.
   */
 final case class ExerciseEvent(
     contractId: ContractId,

@@ -39,8 +39,8 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  private[this] val SerializationVersions =
-    Table("transaction version", SerializationVersion.All: _*)
+  private[this] val serializationVersions =
+    Table("serialization version", SerializationVersion.All: _*)
 
   "encode-decode" should {
 
@@ -105,7 +105,7 @@ class TransactionCoderSpec
 
     "do Node.Rollback" in {
       forAll(danglingRefRollbackNodeGen) { node =>
-        forEvery(SerializationVersions) { txVersion =>
+        forEvery(serializationVersions) { txVersion =>
           val normalizedNode = normalizeNode(node)
           val Right(encodedNode) =
             TransactionCoder.internal
@@ -140,7 +140,7 @@ class TransactionCoderSpec
         }
       }
 
-    "transactions decoding should fail when unsupported transaction version received" in
+    "transactions decoding should fail when unsupported serialization version received" in
       forAll(noDanglingRefGenTransaction, minSuccessful(30)) { tx =>
         forAll(stringVersionGen, minSuccessful(10)) { badTxVer =>
           whenever(SerializationVersion.fromString(badTxVer).isLeft) {
@@ -160,7 +160,7 @@ class TransactionCoderSpec
             TransactionCoder.decodeTransaction(
               protoTx = encodedTxWithBadTxVer
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version '$badTxVer'")
+              DecodeError(s"Unsupported serialization version '$badTxVer'")
             )
           }
         }
@@ -180,7 +180,7 @@ class TransactionCoderSpec
           version = version,
         )
 
-      forEvery(SerializationVersions) { version =>
+      forEvery(serializationVersions) { version =>
         val versionedNode = node.updateVersion(version)
         val roots = ImmArray.ImmArraySeq.range(0, 10000).map(NodeId(_)).toImmArray
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
@@ -226,7 +226,7 @@ class TransactionCoderSpec
 
   "decodeNode" should {
 
-    "succeed as expected when the node is encoded with a version older than the transaction version" in {
+    "succeed as expected when the node is encoded with a version older than the serialization version" in {
 
       val gen = for {
         ver <- versionInIncreasingOrder(SerializationVersion.All)
@@ -250,7 +250,7 @@ class TransactionCoderSpec
       }
     }
 
-    "fail when the node is encoded with a version newer than the transaction version" in {
+    "fail when the node is encoded with a version newer than the serialization version" in {
 
       forAll(
         danglingRefGenActionNode,

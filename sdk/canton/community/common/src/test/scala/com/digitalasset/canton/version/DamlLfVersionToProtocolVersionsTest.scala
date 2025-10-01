@@ -19,7 +19,7 @@ class DamlLfVersionToProtocolVersionsTest extends AnyWordSpec with BaseTest {
       s"find the minimum protocol version for $version" in {
         assert(
           Try(
-            DamlLfVersionToProtocolVersions.getMinimumSupportedProtocolVersion(version)
+            LfSerializationVersionToProtocolVersions.getMinimumSupportedProtocolVersion(version)
           ).isSuccess,
           s"Add $version to damlLfVersionToProtocolVersions Map",
         )
