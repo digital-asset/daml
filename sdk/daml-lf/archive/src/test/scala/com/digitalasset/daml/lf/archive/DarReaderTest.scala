@@ -202,18 +202,26 @@ class DarReaderTest
 
   val extraData = protobuf.ByteString.fromHex("0123456789abcdef")
 
-  s"should reject Archive with unknown fields" in {
-    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
-    val Right(dar) = DarParser.readArchiveFromFile(darFile)
-    val archive: DamlLf.Archive = dar.main
+  def testRejectUnknownFields(
+      messageName: String
+  )(testCases: DamlLf.Archive => (protobuf.ByteString, protobuf.ByteString)) =
+    s"should reject $messageName with unknown fields" in {
+      val darFile = resource("daml-lf/archive/DarReaderTest.dar")
+      val Right(dar) = DarParser.readArchiveFromFile(darFile)
+      val archive: DamlLf.Archive = dar.main
 
+      val (negativeTestCase, positiveTestCase) = testCases(archive)
+
+      ArchiveReader.fromByteString(negativeTestCase) shouldBe a[Right[_, _]]
+      inside(ArchiveReader.fromByteString(positiveTestCase)) { case Left(Error.Parsing(err)) =>
+        err should include(s"$messageName contains unknown field")
+      }
+    }
+
+  testRejectUnknownFields("Archive") { archive =>
     val negativeTestCase = archive.toByteString
     val positiveTestCase = addUnknownField(archive, 42, extraData).toByteString
-
-    ArchiveParser.fromByteString(negativeTestCase).left.map(_.msg) shouldBe a[Right[_, _]]
-    inside(ArchiveParser.fromByteString(positiveTestCase)) { case Left(Error.Parsing(err)) =>
-      err should include("Archive contains unknown field")
-    }
+    (negativeTestCase, positiveTestCase)
   }
 
   private def toProto(archivePayload: protobuf.ByteString): DamlLf.Archive = {
@@ -229,27 +237,19 @@ class DarReaderTest
       .build()
   }
 
-  s"should reject ArchivePayload with unknown fields" in {
+  testRejectUnknownFields("ArchivePayload") { archive =>
+    val payload: DamlLf.ArchivePayload = DamlLf.ArchivePayload.parseFrom(archive.getPayload)
 
-    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
-    val Right(dar) = DarParser.readArchiveFromFile(darFile)
-    val payload: DamlLf.ArchivePayload = DamlLf.ArchivePayload.parseFrom(dar.main.getPayload)
-
-    val negativeTestCase = toProto(payload.toByteString).toByteString
+    val negativeTestCase =
+      toProto(payload.toByteString).toByteString
     val positiveTestCase =
       toProto(addUnknownField(payload, 12, extraData).toByteString).toByteString
 
-    ArchiveParser.fromByteString(negativeTestCase).left.map(_.msg) shouldBe a[Right[_, _]]
-    inside(ArchiveReader.fromByteString(positiveTestCase)) { case Left(Error.Parsing(err)) =>
-      err should include("ArchivePayload contains unknown field")
-    }
+    (negativeTestCase, positiveTestCase)
   }
 
-  s"should reject Package with unknown fields" in {
-
-    val darFile = resource("daml-lf/archive/DarReaderTest.dar")
-    val Right(dar) = DarParser.readArchiveFromFile(darFile)
-    val payload: DamlLf.ArchivePayload = DamlLf.ArchivePayload.parseFrom(dar.main.getPayload)
+  testRejectUnknownFields("Package") { archive =>
+    val payload: DamlLf.ArchivePayload = DamlLf.ArchivePayload.parseFrom(archive.getPayload)
     val pkg = DamlLf2.Package.parseFrom(payload.getDamlLf2)
 
     val negativeTestCase = toProto(payload.toByteString).toByteString
@@ -259,10 +259,7 @@ class DarReaderTest
       toProto(mutatedPayload.toByteString).toByteString
     }
 
-    ArchiveReader.fromByteString(negativeTestCase).left.map(_.msg) shouldBe a[Right[_, _]]
-    inside(ArchiveReader.fromByteString(positiveTestCase)) { case Left(Error.Parsing(err)) =>
-      err should include("Package contains unknown field")
-    }
+    (negativeTestCase, positiveTestCase)
   }
 
 }
