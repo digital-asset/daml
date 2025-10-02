@@ -6,10 +6,10 @@ package com.digitalasset.canton.participant.store
 import cats.instances.list.*
 import cats.syntax.foldable.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.store.db.DbContractStore
 import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
@@ -128,20 +128,22 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
 object ContractStore {
   def create(
       storage: Storage,
-      parameters: ParticipantNodeParameters,
+      processingTimeouts: ProcessingTimeout,
+      cachingConfigs: CachingConfigs,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ContractStore =
     storage match {
       case _: MemoryStorage =>
-        new InMemoryContractStore(parameters.processingTimeouts, loggerFactory)
+        new InMemoryContractStore(processingTimeouts, loggerFactory)
 
       case dbStorage: DbStorage =>
         new DbContractStore(
           dbStorage,
-          cacheConfig = parameters.cachingConfigs.contractStore,
-          dbQueryBatcherConfig = parameters.batchingConfig.contractStoreAggregator,
-          insertBatchAggregatorConfig = parameters.batchingConfig.aggregator,
-          parameters.processingTimeouts,
+          cacheConfig = cachingConfigs.contractStore,
+          dbQueryBatcherConfig = batchingConfig.contractStoreAggregator,
+          insertBatchAggregatorConfig = batchingConfig.aggregator,
+          processingTimeouts,
           loggerFactory,
         )
     }

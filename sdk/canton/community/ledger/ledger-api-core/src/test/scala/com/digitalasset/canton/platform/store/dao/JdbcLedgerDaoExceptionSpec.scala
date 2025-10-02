@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.Active
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.digitalasset.daml.lf.transaction.test.{
   TestIdFactory,
@@ -50,7 +50,7 @@ private[dao] trait JdbcLedgerDaoExceptionSpec
       result2 <- contractsReader.lookupContractState(cid2, offset)
     } yield {
       result1 shouldBe None
-      result2.value shouldBe a[LedgerDaoContractsReader.ActiveContract]
+      result2.value shouldBe Active
     }
   }
 }

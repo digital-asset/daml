@@ -639,10 +639,8 @@ class SequencerReaderTest
             _ <- store
               .saveLowerBound(ts(10), ts(9).some)
               .valueOrFail("saveLowerBound")
-            error <- loggerFactory.assertLogs(
-              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read"),
-              _.errorMessage shouldBe expectedMessage,
-            )
+            error <-
+              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read")
           } yield inside(error) {
             case CreateSubscriptionError.EventsUnavailableForTimestamp(None, message) =>
               message should include(expectedMessage)
@@ -674,14 +672,9 @@ class SequencerReaderTest
           _ <- store
             .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
-          error <- loggerFactory.assertLogs(
-            leftOrFail(
-              reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
-            )(
-              "read succeeded"
-            ),
-            _.errorMessage shouldBe expectedMessage,
-          )
+          error <- leftOrFail(
+            reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
+          )("read succeeded")
         } yield inside(error) {
           case CreateSubscriptionError.EventsUnavailableForTimestamp(Some(timestamp), message) =>
             timestamp shouldBe ts0.plusSeconds(10)

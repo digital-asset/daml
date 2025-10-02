@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.error.JsonApiErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.PackagePreferenceBackend
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*

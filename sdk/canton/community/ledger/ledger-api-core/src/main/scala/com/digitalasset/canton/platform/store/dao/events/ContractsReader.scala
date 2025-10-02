@@ -4,27 +4,16 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.metrics.Timed
-import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.ExistingContractStatus
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
-  RawArchivedContract,
-  RawCreatedContract,
-}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
-import com.digitalasset.canton.platform.store.dao.events.ContractsReader.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
-import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
-import com.digitalasset.daml.lf.data.Bytes
-import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
-import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKeyWithMaintainers, Node}
-import com.digitalasset.daml.lf.value.Value.VersionedValue
 
-import java.io.{ByteArrayInputStream, InputStream}
 import scala.concurrent.{ExecutionContext, Future}
 
 private[dao] sealed class ContractsReader(
@@ -78,74 +67,10 @@ private[dao] sealed class ContractsReader(
 
   override def lookupContractState(contractId: ContractId, notEarlierThanOffset: Offset)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[ContractState]] =
+  ): Future[Option[ExistingContractStatus]] =
     Timed.future(
       metrics.index.db.lookupActiveContract,
-      contractLoader.contracts
-        .load(contractId -> notEarlierThanOffset)
-        .map(_.map {
-          case raw: RawCreatedContract =>
-            val decompressionTimer =
-              metrics.index.db.lookupCreatedContractsDbMetrics.compressionTimer
-            val deserializationTimer =
-              metrics.index.db.lookupCreatedContractsDbMetrics.translationTimer
-
-            val packageId = PackageId.assertFromString(raw.packageId)
-            val templateId = NameTypeConRef.assertFromString(raw.templateId)
-            val createArg = {
-              val argCompression = Compression.Algorithm.assertLookup(raw.createArgumentCompression)
-              val decompressed = decompress(raw.createArgument, argCompression, decompressionTimer)
-              deserializeValue(
-                decompressed,
-                deserializationTimer,
-                s"Failed to deserialize create argument for contract ${contractId.coid}",
-              )
-            }
-
-            val keyOpt: Option[KeyWithMaintainers] = (raw.createKey, raw.keyMaintainers) match {
-              case (None, None) =>
-                None
-              case (Some(key), Some(maintainers)) =>
-                val keyCompression = Compression.Algorithm.assertLookup(raw.createKeyCompression)
-                val decompressed = decompress(key, keyCompression, decompressionTimer)
-                val value = deserializeValue(
-                  decompressed,
-                  deserializationTimer,
-                  s"Failed to deserialize create key for contract ${contractId.coid}",
-                )
-                Some(
-                  GlobalKeyWithMaintainers.assertBuild(
-                    templateId = templateId.copy(pkg = packageId),
-                    value = value.unversioned,
-                    maintainers = maintainers,
-                    packageName = templateId.pkg.name,
-                  )
-                )
-              case (keyOpt, _) =>
-                val msg =
-                  s"contract ${contractId.coid} has " +
-                    (if (keyOpt.isDefined) "a key but no maintainers" else "maintainers but no key")
-                logger.error(msg)(loggingContext.traceContext)
-                sys.error(msg)
-            }
-            ActiveContract(
-              FatContract.fromCreateNode(
-                Node.Create(
-                  coid = contractId,
-                  packageName = templateId.pkg.name,
-                  templateId = templateId.copy(pkg = packageId),
-                  arg = createArg.unversioned,
-                  signatories = raw.signatories,
-                  stakeholders = raw.flatEventWitnesses,
-                  keyOpt = keyOpt,
-                  version = createArg.version,
-                ),
-                createTime = CreationTime.CreatedAt(raw.ledgerEffectiveTime),
-                authenticationData = Bytes.fromByteArray(raw.authenticationData),
-              )
-            )
-          case raw: RawArchivedContract => ArchivedContract(raw.flatEventWitnesses)
-        }),
+      contractLoader.contracts.load(contractId -> notEarlierThanOffset),
     )
 }
 
@@ -164,26 +89,6 @@ private[dao] object ContractsReader {
       dispatcher = dispatcher,
       metrics = metrics,
       loggerFactory = loggerFactory,
-    )
-
-  private def decompress(
-      data: Array[Byte],
-      algorithm: Compression.Algorithm,
-      timer: Timer,
-  ): InputStream =
-    Timed.value(
-      timer,
-      value = algorithm.decompress(new ByteArrayInputStream(data)),
-    )
-
-  private def deserializeValue(
-      decompressed: InputStream,
-      timer: Timer,
-      errorContext: String,
-  ): VersionedValue =
-    Timed.value(
-      timer,
-      value = ValueSerializer.deserializeValue(decompressed, errorContext),
     )
 
 }

@@ -75,6 +75,11 @@ class ReplayingEventsSequencerClientTransport(
   ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
     EitherT.pure(GetTrafficStateForMemberResponse(None, protocolVersion))
 
+  override def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+    EitherT.rightT(None)
+
   /** Replays all events in `replayPath` to the handler. */
   override def subscribe[E](request: SubscriptionRequest, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext

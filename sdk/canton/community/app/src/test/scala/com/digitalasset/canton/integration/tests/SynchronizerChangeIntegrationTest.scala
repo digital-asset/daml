@@ -13,7 +13,7 @@ import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedIncompleteUnassigned
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{
   DbConfig,
   NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
@@ -333,13 +333,6 @@ abstract class SynchronizerChangeSimClockIntegrationTest
       )
     )
     with SecurityTestSuite {
-
-  override protected def additionalConfigTransforms: Seq[ConfigTransform] = Seq(
-    ConfigTransforms.updateAllParticipantConfigs_(
-      _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-        .replace(NonNegativeInt.zero)
-    )
-  )
 
   // Workaround to avoid false errors reported by IDEA.
   implicit def tagToContainer(tag: EvidenceTag): Tag = new TagContainer(tag)

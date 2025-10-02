@@ -25,6 +25,7 @@ import com.digitalasset.canton.participant.topology.ParticipantTopologyValidatio
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
@@ -194,6 +195,7 @@ class DbPhysicalSyncPersistentState(
     override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
+        dryRunSnapshot: Option[PackageMetadata],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
@@ -202,6 +204,7 @@ class DbPhysicalSyncPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageMetadataView,
+        dryRunSnapshot,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,

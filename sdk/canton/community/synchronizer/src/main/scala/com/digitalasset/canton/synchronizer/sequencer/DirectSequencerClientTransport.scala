@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{
@@ -171,6 +172,11 @@ class DirectSequencerClientTransport(
       close()
     }
   }
+
+  override def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+    EitherT.right[String](sequencer.sequencingTime)
 
   override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     // unlikely there will be any errors with this direct transport implementation

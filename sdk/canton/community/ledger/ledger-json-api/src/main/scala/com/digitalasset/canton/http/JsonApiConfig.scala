@@ -13,7 +13,8 @@ import scala.concurrent.duration.*
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
 final case class JsonApiConfig(
-    server: HttpServerConfig,
+    enabled: Boolean = true,
+    server: HttpServerConfig = HttpServerConfig(),
     websocketConfig: Option[WebsocketConfig] = None,
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,

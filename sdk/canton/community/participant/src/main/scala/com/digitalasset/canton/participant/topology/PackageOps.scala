@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.admin.PackageService.DarDescription
 import com.digitalasset.canton.participant.admin.PackageVettingSynchronization
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction
@@ -62,7 +63,7 @@ trait PackageOps extends NamedLogging {
 
   def updateVettedPackages(
       targetStates: Seq[SinglePackageTargetVetting[PackageId]],
-      dryRun: Boolean,
+      dryRunSnapshot: Option[PackageMetadata],
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -200,7 +201,7 @@ class PackageOpsImpl(
 
   override def updateVettedPackages(
       targetStates: Seq[SinglePackageTargetVetting[PackageId]],
-      dryRun: Boolean,
+      dryRunSnapshot: Option[PackageMetadata],
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -229,17 +230,28 @@ class PackageOpsImpl(
           _.toFreshVettedPackageChange
         )
       newAllPackages = updateInstructions.flatMap(_.newState)
-      _ <- EitherTUtil.ifThenET(!dryRun) {
-        // Fails if a new topology change is submitted between getVettedPackages
-        // above and this call to setVettedPackages, since currentSerial will no
-        // longer be valid.
-        setVettedPackages(
-          currentPackages,
-          newAllPackages,
-          currentSerial,
-          ForceFlags(ForceFlag.AllowUnvetPackage),
-        )
-      }
+      _ <-
+        if (dryRunSnapshot.isDefined) {
+          topologyManager
+            .validatePackageVetting(
+              currentlyVettedPackages = currentPackages.map(_.packageId).toSet,
+              nextPackageIds = newAllPackages.map(_.packageId).toSet,
+              dryRunSnapshot = dryRunSnapshot,
+              forceFlags = ForceFlags(ForceFlag.AllowUnvetPackage),
+            )
+            .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
+            .map(_ => ())
+        } else {
+          // Fails if a new topology change is submitted between getVettedPackages
+          // above and this call to setVettedPackages, since currentSerial will no
+          // longer be valid.
+          setVettedPackages(
+            currentPackages,
+            newAllPackages,
+            currentSerial,
+            ForceFlags(ForceFlag.AllowUnvetPackage),
+          )
+        }
     } yield (
       currentPackages,
       newAllPackages,
@@ -337,8 +349,7 @@ class PackageOpsImpl(
               forceChanges = forceFlags,
               waitToBecomeEffective = None,
             )
-            .leftMap(IdentityManagerParentError(_): ParticipantTopologyManagerError)
-            .map(_ => ())
+            .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
         )
       }
     } yield newVettedPackagesState != currentPackages

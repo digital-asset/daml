@@ -340,7 +340,7 @@ object JsCommandService extends DocumentationEndpoints {
     .in(jsonBody[JsCommands])
     .out(jsonBody[JsSubmitAndWaitForTransactionTreeResponse])
     .description(
-      "Submit a batch of commands and wait for the transaction trees response (deprecated: use submit-and-wait-for-transaction instead)"
+      "Submit a batch of commands and wait for the transaction trees response. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use submit-and-wait-for-transaction instead."
     )
 
   val submitAndWait = commands.post

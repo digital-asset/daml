@@ -3,19 +3,14 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{byteArray, int, long}
+import anorm.SqlParser.long
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
-  RawArchivedContract,
-  RawCreatedContract,
-}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   OffsetToStatement,
   contractId,
   parties,
-  timestampFromMicros,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
@@ -72,87 +67,40 @@ class ContractStorageBackendTemplate(
       .getOrElse(KeyUnassigned)
   }
 
-  private val archivedContractRowParser: RowParser[(ContractId, RawArchivedContract)] =
-    (contractId("contract_id") ~ parties(stringInterning)("flat_event_witnesses"))
-      .map { case coid ~ flatEventWitnesses =>
-        coid -> RawArchivedContract(
-          flatEventWitnesses = flatEventWitnesses.toSet
-        )
-      }
+  private val contractIdRowParser: RowParser[ContractId] =
+    contractId("contract_id")
 
   override def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
-  ): Map[ContractId, RawArchivedContract] =
-    if (contractIds.isEmpty) Map.empty
+  ): Set[ContractId] =
+    if (contractIds.isEmpty) Set.empty
     else {
       SQL"""
-       SELECT contract_id, flat_event_witnesses
+       SELECT contract_id
        FROM lapi_events_consuming_exercise
        WHERE
          contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
          AND event_offset <= $before
          AND length(flat_event_witnesses) > 1 -- exclude participant divulgence and transients"""
-        .as(archivedContractRowParser.*)(connection)
-        .toMap
+        .as(contractIdRowParser.*)(connection)
+        .toSet
     }
-
-  private val rawCreatedContractRowParser
-      : RowParser[(ContractId, ContractStorageBackend.RawCreatedContract)] =
-    (contractId("contract_id")
-      ~ int("template_id")
-      ~ int("package_id")
-      ~ parties(stringInterning)("flat_event_witnesses")
-      ~ byteArray("create_argument")
-      ~ int("create_argument_compression").?
-      ~ timestampFromMicros("ledger_effective_time")
-      ~ parties(stringInterning)("create_signatories")
-      ~ byteArray("create_key_value").?
-      ~ int("create_key_value_compression").?
-      ~ parties(stringInterning)("create_key_maintainers").?
-      ~ byteArray("authentication_data"))
-      .map {
-        case coid ~ internedTemplateId ~ internedPackageId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ authenticationData =>
-          coid -> RawCreatedContract(
-            templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
-            packageId = stringInterning.packageId.unsafe.externalize(internedPackageId),
-            flatEventWitnesses = flatEventWitnesses.toSet,
-            createArgument = createArgument,
-            createArgumentCompression = createArgumentCompression,
-            ledgerEffectiveTime = ledgerEffectiveTime,
-            signatories = signatories.toSet,
-            createKey = createKey,
-            createKeyCompression = createKeyCompression,
-            keyMaintainers = keyMaintainers.map(_.toSet),
-            authenticationData = authenticationData,
-          )
-      }
 
   override def createdContracts(contractIds: Seq[ContractId], before: Offset)(
       connection: Connection
-  ): Map[ContractId, RawCreatedContract] =
-    if (contractIds.isEmpty) Map.empty
+  ): Set[ContractId] =
+    if (contractIds.isEmpty) Set.empty
     else {
       SQL"""
          SELECT
-           contract_id,
-           template_id,
-           package_id,
-           flat_event_witnesses,
-           create_argument,
-           create_argument_compression,
-           ledger_effective_time,
-           create_signatories,
-           create_key_value,
-           create_key_value_compression,
-           create_key_maintainers,
-           authentication_data
+           contract_id
          FROM lapi_events_create
          WHERE
            contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
            AND event_offset <= $before
            AND length(flat_event_witnesses) > 1 -- exclude participant divulgence and transients"""
-        .as(rawCreatedContractRowParser.*)(connection)
-        .toMap
+        .as(contractIdRowParser.*)(connection)
+        .toSet
     }
 
   override def assignedContracts(
@@ -160,8 +108,8 @@ class ContractStorageBackendTemplate(
       before: Offset,
   )(
       connection: Connection
-  ): Map[ContractId, RawCreatedContract] =
-    if (contractIds.isEmpty) Map.empty
+  ): Set[ContractId] =
+    if (contractIds.isEmpty) Set.empty
     else {
       SQL"""
          WITH min_event_sequential_ids_of_assign AS (
@@ -173,23 +121,12 @@ class ContractStorageBackendTemplate(
              GROUP BY contract_id
            )
          SELECT
-           contract_id,
-           template_id,
-           package_id,
-           flat_event_witnesses,
-           create_argument,
-           create_argument_compression,
-           ledger_effective_time,
-           create_signatories,
-           create_key_value,
-           create_key_value_compression,
-           create_key_maintainers,
-           authentication_data
+           contract_id
          FROM lapi_events_assign, min_event_sequential_ids_of_assign
          WHERE
            event_sequential_id = min_event_sequential_ids_of_assign.min_event_sequential_id"""
-        .as(rawCreatedContractRowParser.*)(connection)
-        .toMap
+        .as(contractIdRowParser.*)(connection)
+        .toSet
     }
 
   override def lastActivations(

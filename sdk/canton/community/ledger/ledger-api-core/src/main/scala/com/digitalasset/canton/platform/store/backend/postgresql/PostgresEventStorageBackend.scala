@@ -27,7 +27,7 @@ class PostgresEventStorageBackend(
       loggerFactory = loggerFactory,
     ) {
 
-  override def lookupAssignSequentialIdBy(
+  override def lookupAssignSequentialIdByLegacy(
       unassignProperties: Iterable[UnassignProperties]
   )(connection: Connection): Map[UnassignProperties, Long] =
     if (unassignProperties.isEmpty) Map.empty

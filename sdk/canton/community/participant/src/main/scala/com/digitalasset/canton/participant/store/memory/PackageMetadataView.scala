@@ -15,8 +15,8 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SimpleExecutionQueue
@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
 
 /** In-memory view of Daml-related package metadata (see
-  * [[com.digitalasset.canton.platform.store.packagemeta.PackageMetadata]]) for all packages stored
-  * on the current participant.
+  * [[com.digitalasset.canton.store.packagemeta.PackageMetadata]]) for all packages stored on the
+  * current participant.
   */
 trait PackageMetadataView extends AutoCloseable {
   def getSnapshot(implicit errorLoggingContext: ErrorLoggingContext): PackageMetadata

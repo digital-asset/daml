@@ -102,8 +102,9 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-transaction-tree:
     post:
-      description: 'Submit a batch of commands and wait for the transaction trees
-        response (deprecated: use submit-and-wait-for-transaction instead)'
+      description: Submit a batch of commands and wait for the transaction trees response.
+        Provided for backwards compatibility, it will be removed in the Canton version
+        3.5.0, use submit-and-wait-for-transaction instead.
       operationId: postV2CommandsSubmit-and-wait-for-transaction-tree
       requestBody:
         content:
@@ -980,7 +981,7 @@ paths:
   /v2/updates/flats:
     post:
       description: |-
-        Query flat transactions update list (blocking call, deprecated: use v2/updates instead)
+        Query flat transactions update list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -1039,7 +1040,7 @@ paths:
   /v2/updates/trees:
     post:
       description: |-
-        Query update transactions tree list (blocking call, deprecated: use v2/updates instead)
+        Query update transactions tree list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead.
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -1097,8 +1098,9 @@ paths:
       - apiKeyAuth: []
   /v2/updates/transaction-tree-by-offset/{offset}:
     get:
-      description: 'Get transaction tree by offset (deprecated: use v2/updates/update-by-offset
-        instead)'
+      description: Get transaction tree by offset. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset
+        instead.
       operationId: getV2UpdatesTransaction-tree-by-offsetOffset
       parameters:
       - name: offset
@@ -1139,8 +1141,9 @@ paths:
       - apiKeyAuth: []
   /v2/updates/transaction-by-offset:
     post:
-      description: 'Get transaction by offset (deprecated: use v2/updates/update-by-offset
-        instead)'
+      description: Get transaction by offset. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset
+        instead.
       operationId: postV2UpdatesTransaction-by-offset
       requestBody:
         content:
@@ -1204,8 +1207,8 @@ paths:
       - apiKeyAuth: []
   /v2/updates/transaction-by-id:
     post:
-      description: 'Get transaction by id (deprecated: use v2/updates/update-by-id
-        instead)'
+      description: Get transaction by id. Provided for backwards compatibility, it
+        will be removed in the Canton version 3.5.0, use v2/updates/update-by-id instead.
       operationId: postV2UpdatesTransaction-by-id
       requestBody:
         content:
@@ -1269,8 +1272,9 @@ paths:
       - apiKeyAuth: []
   /v2/updates/transaction-tree-by-id/{update-id}:
     get:
-      description: 'Get transaction tree by id (deprecated: use v2/updates/update-by-id
-        instead)'
+      description: Get transaction tree by id. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates/update-by-id
+        instead.
       operationId: getV2UpdatesTransaction-tree-by-idUpdate-id
       parameters:
       - name: update-id

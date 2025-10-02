@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
-import com.digitalasset.canton.platform.store.backend.common.EventIdSource
+import com.digitalasset.canton.platform.store.backend.common.EventIdSourceLegacy
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.daml.lf.data.Ref
@@ -292,22 +292,22 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             )
           val assignedEvents =
             executeSql(
-              backend.event.assignEventBatch(IdRange(1L, 100L), Some(Set.empty))
+              backend.event.assignEventBatchLegacy(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.rawCreatedEvent.contractId)
           val unassignedEvents =
             executeSql(
-              backend.event.unassignEventBatch(IdRange(1L, 100L), Some(Set.empty))
+              backend.event.unassignEventBatchLegacy(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.contractId)
           val topologyPartyEvents =
             executeSql(
               backend.event.topologyPartyEventBatch(IdRange(1L, 100L))
             ).map(_.partyId)
-          contractsCreated.get(hashCid("#101")) should not be empty
-          contractsCreated.get(hashCid("#201")) should not be empty
-          contractsArchived.get(hashCid("#101")) shouldBe empty
-          contractsArchived.get(hashCid("#201")) shouldBe empty
-          contractsAssigned.get(hashCid("#103")) should not be empty
-          contractsAssigned.get(hashCid("#203")) should not be empty
+          contractsCreated should contain(hashCid("#101"))
+          contractsCreated should contain(hashCid("#201"))
+          contractsArchived should not contain hashCid("#101")
+          contractsArchived should not contain hashCid("#201")
+          contractsAssigned should contain(hashCid("#103"))
+          contractsAssigned should contain(hashCid("#203"))
           assignedEvents shouldBe List(
             hashCid("#103"),
             hashCid("#203"),
@@ -361,22 +361,22 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             )
           val assignedEvents =
             executeSql(
-              backend.event.assignEventBatch(IdRange(1L, 100L), Some(Set.empty))
+              backend.event.assignEventBatchLegacy(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.rawCreatedEvent.contractId)
           val unassignedEvents =
             executeSql(
-              backend.event.unassignEventBatch(IdRange(1L, 100L), Some(Set.empty))
+              backend.event.unassignEventBatchLegacy(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.contractId)
           val topologyPartyEvents =
             executeSql(
               backend.event.topologyPartyEventBatch(IdRange(1L, 100L))
             ).map(_.partyId)
-          contractsCreated.get(hashCid("#101")) should not be empty
-          contractsCreated.get(hashCid("#201")) shouldBe empty
-          contractsArchived.get(hashCid("#101")) shouldBe empty
-          contractsArchived.get(hashCid("#201")) shouldBe empty
-          contractsAssigned.get(hashCid("#103")) should not be empty
-          contractsAssigned.get(hashCid("#203")) shouldBe empty
+          contractsCreated should contain(hashCid("#101"))
+          contractsCreated should not contain hashCid("#201")
+          contractsArchived should not contain hashCid("#101")
+          contractsArchived should not contain hashCid("#201")
+          contractsAssigned should contain(hashCid("#103"))
+          contractsAssigned should not contain hashCid("#203")
           assignedEvents shouldBe List(hashCid("#103")) // not constrained by ledger end
           unassignedEvents shouldBe List(hashCid("#103")) // not constrained by ledger end
           topologyPartyEvents shouldBe List(
@@ -422,19 +422,19 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             )
           val assignedEvents =
             executeSql(
-              backend.event.assignEventBatch(IdRange(1L, 100L), Some(Set.empty))
+              backend.event.assignEventBatchLegacy(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.rawCreatedEvent.contractId)
           val unassignedEvents =
             executeSql(
-              backend.event.unassignEventBatch(IdRange(1L, 100L), Some(Set.empty))
+              backend.event.unassignEventBatchLegacy(IdRange(1L, 100L), Some(Set.empty))
             ).map(_.event.contractId)
           val topologyPartyEvents =
             executeSql(
               backend.event.topologyPartyEventBatch(IdRange(1L, 100L))
             ).map(_.partyId)
-          contractsCreated.get(hashCid("#101")) shouldBe None
-          contractsAssigned.get(hashCid("#103")) shouldBe empty
-          contractsAssigned.get(hashCid("#203")) shouldBe empty
+          contractsCreated should not contain hashCid("#101")
+          contractsAssigned should not contain hashCid("#103")
+          contractsAssigned should not contain hashCid("#203")
           assignedEvents shouldBe empty
           unassignedEvents shouldBe empty
           topologyPartyEvents shouldBe empty
@@ -459,8 +459,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsNonConsuming(): Vector[Long] =
     executeSql(
-      backend.event.updateStreamingQueries.fetchEventIds(
-        EventIdSource.NonConsumingInformee
+      backend.event.updateStreamingQueries.fetchEventIdsLegacy(
+        EventIdSourceLegacy.NonConsumingInformee
       )(
         stakeholderO = Some(someParty),
         templateIdO = None,
@@ -476,7 +476,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsConsumingNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.updateStreamingQueries
-        .fetchEventIds(EventIdSource.ConsumingNonStakeholder)(
+        .fetchEventIdsLegacy(EventIdSourceLegacy.ConsumingNonStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
         )(_)(
@@ -491,7 +491,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsConsumingStakeholder(): Vector[Long] =
     executeSql(
       backend.event.updateStreamingQueries
-        .fetchEventIds(EventIdSource.ConsumingStakeholder)(
+        .fetchEventIdsLegacy(EventIdSourceLegacy.ConsumingStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
         )(_)(
@@ -506,7 +506,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsCreateNonStakeholder(): Vector[Long] =
     executeSql(
       backend.event.updateStreamingQueries
-        .fetchEventIds(EventIdSource.CreateNonStakeholder)(
+        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateNonStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
         )(_)(
@@ -521,7 +521,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   private def fetchIdsCreateStakeholder(): Vector[Long] =
     executeSql(
       backend.event.updateStreamingQueries
-        .fetchEventIds(EventIdSource.CreateStakeholder)(
+        .fetchEventIdsLegacy(EventIdSourceLegacy.CreateStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
         )(_)(
@@ -535,7 +535,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsAssignStakeholder(): Vector[Long] =
     executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -549,7 +549,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsUnassignStakeholder(): Vector[Long] =
     executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(

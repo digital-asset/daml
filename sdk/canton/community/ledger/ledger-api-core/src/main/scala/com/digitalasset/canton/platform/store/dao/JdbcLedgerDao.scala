@@ -194,7 +194,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
-        readStorageBackend.eventStorageBackend.pruneEvents(
+        readStorageBackend.eventStorageBackend.pruneEventsLegacy(
           pruneUpToInclusive,
           incompleteReassignmentOffsets,
         )(

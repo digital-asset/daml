@@ -4,17 +4,31 @@
 package com.digitalasset.canton.ledger.api.benchtool.metrics
 
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.metrics.LogReporter
 import io.opentelemetry.api.metrics.MeterProvider
+import io.opentelemetry.sdk.metrics.SdkMeterProvider
+import io.opentelemetry.sdk.metrics.`export`.PeriodicMetricReader
 
-class MetricRegistryOwner() extends ResourceOwner[MeterProvider] {
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.Duration
+
+class MetricRegistryOwner(reportingInterval: Duration, loggerFactory: NamedLoggerFactory)
+    extends ResourceOwner[MeterProvider] {
   override def acquire()(implicit
       context: ResourceContext
   ): Resource[MeterProvider] =
     ResourceOwner.forCloseable(() => metricOwner).acquire()
 
-  private def metricOwner =
-    throw new NotImplementedError(
-      "LogReporter only exists in canton, not in observablilty. Need to move it up first"
-    )
+  private def metricOwner = {
+    val loggingMetricReader = PeriodicMetricReader
+      .builder(new LogReporter(logAsInfo = true, loggerFactory))
+      .setInterval(reportingInterval.toMillis, TimeUnit.MILLISECONDS)
+      .build()
+    val meterProviderBuilder = SdkMeterProvider
+      .builder()
+    meterProviderBuilder.registerMetricReader(loggingMetricReader)
+    meterProviderBuilder.build()
+  }
 
 }

@@ -484,6 +484,11 @@ class ReplayingSendsSequencerClientTransportImpl(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     EitherT.pure(())
 
+  override def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+    EitherT.rightT(None)
+
   override def subscribe[E](request: SubscriptionRequest, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {

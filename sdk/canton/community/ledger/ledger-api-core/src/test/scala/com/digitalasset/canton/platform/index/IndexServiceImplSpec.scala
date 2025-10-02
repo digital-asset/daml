@@ -27,17 +27,17 @@ import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
   Projection,
   UseOriginalViewPackageId,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
-  LocalPackagePreference,
-  PackageResolution,
-}
 import com.digitalasset.canton.platform.{
   InternalEventFormat,
   InternalTransactionFormat,
   InternalUpdateFormat,
   TemplatePartiesFilter,
+}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.{
+  LocalPackagePreference,
+  PackageResolution,
 }
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{

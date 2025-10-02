@@ -55,8 +55,8 @@ class PackageUploaderTest
         )
         .futureValueUS
 
-      val darMainPackageId = DarMainPackageId.tryCreate(cantonExamplesMainPkgId)
-      validationResult.value shouldBe darMainPackageId
+      validationResult.value._1 shouldBe cantonExamplesMainPkgId
+      validationResult.value._2.size shouldBe 31
 
       // Assert not persisted
       packageStore.listPackages().futureValueUS shouldBe empty

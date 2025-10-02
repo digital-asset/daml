@@ -49,36 +49,36 @@ channels:
       ws:
         method: GET
   /v2/updates/flats:
-    description: 'Get flat transactions update stream (deprecated: use v2/updates
-      instead)'
+    description: Get flat transactions update stream. Provided for backwards compatibility,
+      it will be removed in the Canton version 3.5.0, use v2/updates instead.
     subscribe:
       operationId: onV2UpdatesFlats
-      description: 'Get flat transactions update stream (deprecated: use v2/updates
-        instead)'
+      description: Get flat transactions update stream. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/Either_JsCantonError_JsGetUpdatesResponse'
     publish:
       operationId: sendV2UpdatesFlats
-      description: 'Get flat transactions update stream (deprecated: use v2/updates
-        instead)'
+      description: Get flat transactions update stream. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/GetUpdatesRequest'
     bindings:
       ws:
         method: GET
   /v2/updates/trees:
-    description: 'Get update transactions tree stream (deprecated: use v2/updates
-      instead)'
+    description: Get update transactions tree stream. Provided for backwards compatibility,
+      it will be removed in the Canton version 3.5.0, use v2/updates instead.
     subscribe:
       operationId: onV2UpdatesTrees
-      description: 'Get update transactions tree stream (deprecated: use v2/updates
-        instead)'
+      description: Get update transactions tree stream. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/Either_JsCantonError_JsGetUpdateTreesResponse'
     publish:
       operationId: sendV2UpdatesTrees
-      description: 'Get update transactions tree stream (deprecated: use v2/updates
-        instead)'
+      description: Get update transactions tree stream. Provided for backwards compatibility,
+        it will be removed in the Canton version 3.5.0, use v2/updates instead.
       message:
         $ref: '#/components/messages/GetUpdatesRequest'
     bindings:

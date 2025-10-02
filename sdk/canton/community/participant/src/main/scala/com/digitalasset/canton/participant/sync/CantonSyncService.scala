@@ -87,13 +87,13 @@ import com.digitalasset.canton.participant.sync.SynchronizerConnectionsManager.{
 import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.Schedulers
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
@@ -104,6 +104,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
@@ -317,12 +318,12 @@ class CantonSyncService(
     }
   }
 
-  private val contractValidator = ContractValidator(
-    cryptoOps = syncCrypto.pureCrypto,
-    engine = engine,
-    packageResolver =
-      packageId => traceContext => packageService.getPackage(packageId)(traceContext),
-  )
+  private val packageResolver: PackageResolver = packageId =>
+    traceContext => packageService.getPackage(packageId)(traceContext)
+
+  private val contractValidator = ContractValidator(syncCrypto.pureCrypto, engine, packageResolver)
+
+  val contractHasher = ContractHasher(engine, packageResolver)
 
   val repairService: RepairService = new RepairService(
     participantId,

@@ -6,6 +6,7 @@ package com.digitalasset.canton
 import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{AdminServerConfig, CryptoConfig, StorageConfig}
+import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.participant.config.{ParticipantInitConfig, ParticipantNodeConfig}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
@@ -20,7 +21,7 @@ object ConfigStubs {
       ParticipantInitConfig(),
       CryptoConfig(),
       null,
-      None,
+      JsonApiConfig(),
       adminApi,
       StorageConfig.Memory(),
     )

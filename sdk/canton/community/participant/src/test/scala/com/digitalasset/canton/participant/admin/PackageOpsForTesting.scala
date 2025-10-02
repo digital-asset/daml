@@ -12,6 +12,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
 import com.digitalasset.canton.participant.topology.{PackageOps, ParticipantTopologyManagerError}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.topology.{ForceFlags, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -63,7 +64,7 @@ class PackageOpsForTesting(
 
   override def updateVettedPackages(
       targetStates: Seq[SinglePackageTargetVetting[PackageId]],
-      dryRun: Boolean,
+      dryRunSnapshot: Option[PackageMetadata],
   )(implicit
       tc: TraceContext
   ): EitherT[

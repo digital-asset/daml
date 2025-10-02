@@ -4,7 +4,8 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
-import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesLedgerEffects
+import com.digitalasset.canton.platform.store.backend.common.EventIdSourceLegacy.CreateStakeholder
+import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesLedgerEffectsLegacy
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -87,13 +88,13 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     def events =
       executeSql(
-        backend.event.fetchEventPayloadsLedgerEffects(
-          EventPayloadSourceForUpdatesLedgerEffects.Create
+        backend.event.fetchEventPayloadsLedgerEffectsLegacy(
+          EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create
         )(Ids(List(1L)), Some(Set.empty))
       ) ++
         executeSql(
-          backend.event.fetchEventPayloadsLedgerEffects(
-            EventPayloadSourceForUpdatesLedgerEffects.Consuming
+          backend.event.fetchEventPayloadsLedgerEffectsLegacy(
+            EventPayloadSourceForUpdatesLedgerEffectsLegacy.Consuming
           )(Ids(List(2L)), Some(Set.empty))
         )
 
@@ -104,7 +105,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     )
 
     def filterIds = executeSql(
-      backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
+      backend.event.updateStreamingQueries.fetchEventIdsLegacy(CreateStakeholder)(
         stakeholderO = Some(someParty),
         templateIdO = None,
       )(_)(
@@ -117,21 +118,21 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     )
 
     def assignEvents = executeSql(
-      backend.event.assignEventBatch(
+      backend.event.assignEventBatchLegacy(
         eventSequentialIds = Ids(List(4)),
         allFilterParties = Some(Set.empty),
       )
     )
 
     def unassignEvents = executeSql(
-      backend.event.unassignEventBatch(
+      backend.event.unassignEventBatchLegacy(
         eventSequentialIds = Ids(List(5)),
         allFilterParties = Some(Set.empty),
       )
     )
 
     def assignIds = executeSql(
-      backend.event.fetchAssignEventIdsForStakeholder(
+      backend.event.fetchAssignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(
@@ -144,7 +145,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     )
 
     def reassignmentIds = executeSql(
-      backend.event.fetchUnassignEventIdsForStakeholder(
+      backend.event.fetchUnassignEventIdsForStakeholderLegacy(
         stakeholderO = Some(someParty),
         templateId = None,
       )(_)(

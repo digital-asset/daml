@@ -29,7 +29,7 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
   SequencerConnectionXPoolHealth,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, WallClock}
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.collection.SeqUtil
@@ -58,6 +58,11 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     extends SequencerConnectionXPool {
 
   import SequencerConnectionXPoolImpl.*
+
+  /** Use a wall clock for scheduling restart delays, so that the pool can make progress even in
+    * tests that use static time without explicitly advancing the time
+    */
+  private val wallClock = new WallClock(timeouts, loggerFactory)
 
   /** Reference to the currently active configuration */
   private val configRef = new AtomicReference[SequencerConnectionXPoolConfig](initialConfig)
@@ -143,7 +148,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     }
 
     FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      clock.scheduleAfter(_ => signalTimeout(), initializationTimeout.asJavaApproximation),
+      wallClock.scheduleAfter(_ => signalTimeout(), initializationTimeout.asJavaApproximation),
       s"connection-pool-initialization-timeout",
     )
   }
@@ -232,7 +237,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
           s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(delay.duration)}"
         )
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-          clock.scheduleAfter(_ => restart(), delay.asJava),
+          wallClock.scheduleAfter(_ => restart(), delay.asJava),
           s"restart-connection-${connection.name}",
         )
       }

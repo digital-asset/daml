@@ -140,6 +140,7 @@ private[admin] object ParticipantCommon {
       representativePackageIdOverride = representativePackageIdOverride,
       knownPackages = packageMetadataSnapshot.packages.keySet,
       packageNameMap = packageMetadataSnapshot.packageNameMap,
+      contractImportMode = contractImportMode,
       loggerFactory = loggerFactory,
     )
     val importer = new AcsImporter(
@@ -206,6 +207,7 @@ private[admin] object ParticipantCommon {
             loggerFactory,
             sync.syncPersistentStateManager,
             sync.pureCryptoApi,
+            sync.contractHasher,
             contractImportMode,
           )(contractsWithOverriddenRpId)
         (activeContractsWithValidContractIds, contractIdRemapping) =

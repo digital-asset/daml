@@ -29,7 +29,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   ProgrammableSequencerPolicies,
   SendDecision,
 }
-import monocle.macros.syntax.lens.*
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
@@ -67,12 +66,6 @@ abstract class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgram
         new NetworkBootstrapper(S1M1)
       }
       .addConfigTransforms(configTransforms*)
-      // Set a connection pool timeout larger than the duration between the initial time of the test
-      // and the upgrade time, otherwise it may trigger when we advance the simclock
-      .addConfigTransform(
-        _.focus(_.parameters.timeouts.processing.sequencerInfo)
-          .replace(config.NonNegativeDuration.ofSeconds(40))
-      )
       .withSetup { implicit env =>
         import env.*
 

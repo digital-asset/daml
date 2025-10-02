@@ -93,6 +93,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, 
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{
+  ContractHasher,
   ContractValidator,
   ErrorUtil,
   FutureUnlessShutdownUtil,
@@ -176,19 +177,22 @@ class ConnectedSynchronizer(
   private val seedGenerator =
     new SeedGenerator(synchronizerCrypto.crypto.pureCrypto)
 
+  private val packageResolver: PackageResolver = pkgId =>
+    traceContext => packageService.getPackage(pkgId)(traceContext)
+
+  private val contractHasher = ContractHasher(engine, packageResolver)
+
   private[canton] val requestGenerator =
     TransactionConfirmationRequestFactory(
       participantId,
       psid,
     )(
       synchronizerCrypto.crypto.pureCrypto,
+      contractHasher,
       seedGenerator,
       parameters.loggingConfig,
       loggerFactory,
     )
-
-  private val packageResolver: PackageResolver = pkgId =>
-    traceContext => packageService.getPackage(pkgId)(traceContext)
 
   private val damle =
     new DAMLe(

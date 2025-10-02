@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
@@ -133,6 +134,7 @@ class InMemoryPhysicalSyncPersistentState(
     override def validatePackageVetting(
         currentlyVettedPackages: Set[LfPackageId],
         nextPackageIds: Set[LfPackageId],
+        dryRunSnapshot: Option[PackageMetadata],
         forceFlags: ForceFlags,
     )(implicit
         traceContext: TraceContext
@@ -141,6 +143,7 @@ class InMemoryPhysicalSyncPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageMetadataView,
+        dryRunSnapshot,
         acsInspections =
           () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,

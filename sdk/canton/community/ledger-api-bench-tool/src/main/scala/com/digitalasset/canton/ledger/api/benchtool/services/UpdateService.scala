@@ -17,9 +17,11 @@ import com.digitalasset.canton.ledger.api.benchtool.AuthorizationHelper
 import com.digitalasset.canton.ledger.api.benchtool.config.WorkflowConfig
 import com.digitalasset.canton.ledger.api.benchtool.util.ObserverWithResult
 import io.grpc.Channel
+import io.grpc.stub.StreamObserver
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 final class UpdateService(
     channel: Channel,
@@ -33,19 +35,28 @@ final class UpdateService(
       config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,
       observer: ObserverWithResult[GetUpdatesResponse, Result],
   ): Future[Result] =
-    getUpdatesRequest(
-      filters = config.filters,
-      transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
-      beginOffsetExclusive = config.beginOffsetExclusive,
-      endOffsetInclusive = config.endOffsetInclusive,
-    ) match {
-      case Right(request) =>
-        service.getUpdates(request, observer)
-        logger.info("Started fetching transactions")
-        observer.result
-      case Left(error) =>
-        Future.failed(new RuntimeException(error))
+    transactionsWithoutResult(config, observer) match {
+      case Failure(exception) => Future.failed(exception)
+      case Success(()) => observer.result
     }
+
+  def transactionsWithoutResult(
+      config: WorkflowConfig.StreamConfig.TransactionsStreamConfig,
+      observer: StreamObserver[GetUpdatesResponse],
+  ): Try[Unit] = getUpdatesRequest(
+    filters = config.filters,
+    transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+    beginOffsetExclusive = config.beginOffsetExclusive,
+    endOffsetInclusive = config.endOffsetInclusive,
+  ) match {
+    case Right(request) =>
+      service.getUpdates(request, observer)
+      logger.info("Started fetching transactions")
+      Success(())
+    case Left(error) =>
+      Failure(new RuntimeException(error))
+  }
+
   def transactionsLedgerEffects[Result](
       config: WorkflowConfig.StreamConfig.TransactionLedgerEffectsStreamConfig,
       observer: ObserverWithResult[

@@ -7,10 +7,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.integration.ConfigTransforms.{
-  updateAllParticipantConfigs_,
-  zeroReassignmentTimeProofFreshnessProportion,
-}
+import com.digitalasset.canton.integration.ConfigTransforms.updateAllParticipantConfigs_
 import com.digitalasset.canton.integration.plugins.*
 import com.digitalasset.canton.integration.plugins.UseLedgerApiTestTool.LAPITTVersion
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -103,7 +100,6 @@ class LedgerApiConformanceMultiSynchronizerTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
-      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
       .withSetup(setupLedgerApiConformanceEnvironment)
 
   // ensure ledger api conformance tests have less noisy neighbours

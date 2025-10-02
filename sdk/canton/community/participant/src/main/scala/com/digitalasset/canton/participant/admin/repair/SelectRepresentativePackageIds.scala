@@ -5,11 +5,13 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.implicits.toTraverseOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.data.ContractImportMode.Validation
 import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
   RepairContract,
   RepresentativePackageIdOverride,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPackageName}
 
@@ -28,6 +30,7 @@ private[admin] class SelectRepresentativePackageIds(
     representativePackageIdOverride: RepresentativePackageIdOverride,
     knownPackages: Set[LfPackageId],
     packageNameMap: Map[LfPackageName, PackageResolution],
+    contractImportMode: ContractImportMode,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -84,6 +87,15 @@ private[admin] class SelectRepresentativePackageIds(
       .toRight(
         show"Could not select a representative package-id for contract with id ${repairContract.contract.contractId}. No package in store for the contract's package-name '${repairContract.contract.packageName}'."
       )
+      .flatMap { selectedPkgId =>
+        Either.cond(
+          selectedPkgId == repairContract.representativePackageId || contractImportMode == Validation || contractImportMode == ContractImportMode.Recomputation,
+          selectedPkgId,
+          show"Contract import mode is '$contractImportMode' but the selected representative package-id $selectedPkgId " +
+            show"for contract with id ${repairContract.contract.contractId} differs from the exported representative package-id ${repairContract.representativePackageId}. " +
+            show"Please use contract import mode '${ContractImportMode.Validation}' or '${ContractImportMode.Recomputation}' to change the representative package-id.",
+        )
+      }
       .map(selectedRPId => repairContract.copy(representativePackageId = selectedRPId))
   }
 

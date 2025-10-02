@@ -1369,6 +1369,11 @@ final class SequencerClientTest
       Set.empty
     )
 
+    override def getTime(timeout: Duration)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+      EitherT.rightT(None)
+
     override def logout()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, Status, Unit] = {
@@ -1550,6 +1555,10 @@ final class SequencerClientTest
     override def logout()(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, Status, Unit] = ???
+
+    override def getTime(timeout: Duration)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] = ???
 
     override def downloadTopologyStateForInit(
         request: TopologyStateForInitRequest,

@@ -25,7 +25,10 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.participant.admin.data.RepresentativePackageIdOverride
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.PartyId
@@ -201,6 +204,38 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       )
     }
 
+    s"should fail on with import mode ${ContractImportMode.Accept} if the selected representative ID differs from the exported representative package ID" in {
+      implicit env =>
+        import env.*
+
+        val party = createUniqueParty(participant1, daName)
+
+        // Both participants have both versions of Foo
+        // Create a contract on P1
+        val contractId = createContract(participant1, party)
+
+        // Check the initial rp-id of the contract is the same as the original template-id (Foo V2)
+        expectRpId(contractId, party, participant1, FooV2PkgId)
+
+        exportAndImportOn(
+          participant3,
+          party,
+          contractOverride = Map(contractId -> FooV1PkgId),
+          contractImportMode = ContractImportMode.Accept,
+          handleImport = f =>
+            assertThrowsAndLogsCommandFailures(
+              f(),
+              entry => {
+                entry.shouldBeCantonErrorCode(ImportAcsError)
+                entry.message should include(
+                  show"Contract import mode is 'Accept' but the selected representative package-id ${LfPackageId
+                      .assertFromString(FooV1PkgId)} for contract with id $contractId differs from the exported representative package-id ${LfPackageId.assertFromString(FooV2PkgId)}. Please use contract import mode 'Validation' or 'Recomputation' to change the representative package-id."
+                )
+              },
+            ),
+        )
+    }
+
     // TODO(#28075): Test vetting-based override when implemented
   }
 
@@ -368,13 +403,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       .from(
         scheme = "http",
         host = "localhost",
-        port = participantRef.config.httpLedgerApi
-          .valueOrFail(
-            s"HTTP JSON API not configured for participant $participantRef"
-          )
-          .server
-          .port
-          .unwrap,
+        port = participantRef.config.httpLedgerApi.server.port.unwrap,
       )
       .withPath(Uri.Path("/v2/state/active-contracts"))
 
@@ -410,6 +439,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       contractOverride: Map[ContractId, LfPackageId] = Map.empty,
       packageIdOverride: Map[LfPackageId, LfPackageId] = Map.empty,
       packageNameOverride: Map[LfPackageName, LfPackageId] = Map.empty,
+      contractImportMode: ContractImportMode = ContractImportMode.Validation,
       handleImport: (() => Unit) => Unit = (f: () => Unit) => f(),
   )(implicit env: FixtureParam): Unit = {
     import env.*
@@ -433,6 +463,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
                 packageIdOverride = packageIdOverride,
                 packageNameOverride = packageNameOverride,
               ),
+              contractImportMode = contractImportMode,
             )
             .discard
         } finally {

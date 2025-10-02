@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
@@ -111,9 +110,6 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
 
       eventually() {
         participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
-
-        // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-        environment.simClock.value.advance(Duration.ofSeconds(1))
       }
 
       oldSynchronizerNodes.all.stop()
@@ -155,8 +151,6 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
   }
 }
 
-// TODO(#27960) flaky test
-@UnstableTest
 final class LSUPruningReferenceIntegrationTest extends LSUPruningIntegrationTest {
   registerPlugin(
     new UseReferenceBlockSequencer[DbConfig.Postgres](
@@ -166,8 +160,6 @@ final class LSUPruningReferenceIntegrationTest extends LSUPruningIntegrationTest
   )
 }
 
-// TODO(#27960) flaky test
-@UnstableTest
 final class LSUPruningBftOrderingIntegrationTest extends LSUPruningIntegrationTest {
   registerPlugin(
     new UseBftSequencer(

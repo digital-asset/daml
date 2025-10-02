@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.multisynchronizer
 
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalSequencerReference}
 import com.digitalasset.canton.data.ReassignmentRef
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.{BaseTest, config}
-import monocle.macros.syntax.lens.*
 
 sealed trait ReassignmentSubmissionIntegrationTest
     extends CommunityIntegrationTest
@@ -52,15 +51,6 @@ sealed trait ReassignmentSubmissionIntegrationTest
     EnvironmentDefinition.P2_S1M1_S1M1
       // We want to trigger time out
       .addConfigTransforms(ConfigTransforms.useStaticTime)
-      .addConfigTransform(
-        ConfigTransforms.updateAllParticipantConfigs_(
-          // Make sure that unassignment picks a recent target synchronizer topology snapshot
-          // TODO(#25110): Remove this configuration once the correct snapshot is used in computing
-          //               the vetting checks for the target synchronizer
-          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-            .replace(NonNegativeInt.zero)
-        )
-      )
       .withSetup { implicit env =>
         import env.*
 

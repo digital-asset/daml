@@ -52,8 +52,8 @@ class JsonDamlDefinitionsServiceTest
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition.addConfigTransform(
       ConfigTransforms.updateAllParticipantConfigs_(
-        _.focus(_.httpLedgerApi)
-          .modify(_.map(_.focus(_.damlDefinitionsServiceEnabled).replace(true)))
+        _.focus(_.httpLedgerApi.damlDefinitionsServiceEnabled)
+          .replace(true)
       )
     )
 

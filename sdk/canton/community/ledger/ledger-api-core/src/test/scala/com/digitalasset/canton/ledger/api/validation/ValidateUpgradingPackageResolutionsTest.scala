@@ -6,8 +6,8 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
 }

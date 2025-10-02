@@ -16,6 +16,7 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesRequest,
   UpdateVettedPackagesResponse,
   UploadDarFileRequest,
+  ValidateDarFileRequest,
 }
 import com.daml.ledger.api.v2.admin.participant_pruning_service.PruneResponse
 import com.daml.ledger.api.v2.admin.party_management_service.*
@@ -102,6 +103,9 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def time(): Future[Instant]
   def setTime(currentTime: Instant, newTime: Instant): Future[Unit]
   def listKnownPackages(): Future[Seq[PackageDetails]]
+  def validateDarFile(bytes: ByteString): Future[Unit] =
+    validateDarFile(ValidateDarFileRequest(bytes, ""))
+  def validateDarFile(request: ValidateDarFileRequest): Future[Unit]
   def uploadDarFile(bytes: ByteString): Future[Unit] =
     uploadDarFile(
       UploadDarFileRequest(

@@ -71,7 +71,7 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
         participant1.parties.external
           .onboarding_transactions(
             "Alice",
-            confirming = Seq(participant2),
+            additionalConfirming = Seq(participant2),
             observing = Seq(participant3),
             confirmationThreshold = PositiveInt.two,
           )

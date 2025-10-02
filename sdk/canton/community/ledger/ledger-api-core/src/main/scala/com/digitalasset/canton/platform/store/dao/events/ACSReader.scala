@@ -25,13 +25,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawActiveContract,
-  RawAssignEvent,
-  RawCreatedEvent,
-  RawUnassignEvent,
+  RawActiveContractLegacy,
+  RawAssignEventLegacy,
+  RawCreatedEventLegacy,
+  RawUnassignEventLegacy,
   UnassignProperties,
 }
-import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesAcsDelta
+import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesAcsDeltaLegacy
 import com.digitalasset.canton.platform.store.dao.events.UpdateReader.endSpanOnTermination
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
@@ -163,7 +163,7 @@ class ACSReader(
         initialFromIdExclusive = 0L,
         initialEndInclusive = activeAtEventSeqId,
       )(
-        eventStorageBackend.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholder(
+        eventStorageBackend.updateStreamingQueries.fetchActiveIdsOfCreateEventsForStakeholderLegacy(
           stakeholderO = filter.party,
           templateIdO = filter.templateId,
           activeAtEventSeqId = activeAtEventSeqId,
@@ -172,14 +172,16 @@ class ACSReader(
         executeLastIdQuery = f =>
           createIdQueriesLimiter.execute(
             globalIdQueriesLimiter.execute(
-              dispatcher.executeSql(metrics.index.db.getActiveContractIdRangesForCreated)(f)
+              dispatcher.executeSql(metrics.index.db.getActiveContractIdRangesForCreatedLegacy)(f)
             )
           ),
         idFilterQueryParallelism = config.idFilterQueryParallelism,
         executeIdFilterQuery = f =>
           createIdQueriesLimiter.execute(
             globalIdQueriesLimiter.execute(
-              dispatcher.executeSql(metrics.index.db.getFilteredActiveContractIdsForCreated)(f)
+              dispatcher.executeSql(
+                metrics.index.db.getFilteredActiveContractIdsForCreatedLegacy
+              )(f)
             )
           ),
       )
@@ -192,7 +194,7 @@ class ACSReader(
         initialFromIdExclusive = 0L,
         initialEndInclusive = activeAtEventSeqId,
       )(
-        eventStorageBackend.updateStreamingQueries.fetchActiveIdsOfAssignEventsForStakeholder(
+        eventStorageBackend.updateStreamingQueries.fetchActiveIdsOfAssignEventsForStakeholderLegacy(
           stakeholderO = filter.party,
           templateIdO = filter.templateId,
           activeAtEventSeqId = activeAtEventSeqId,
@@ -201,27 +203,29 @@ class ACSReader(
         executeLastIdQuery = f =>
           assignIdQueriesLimiter.execute(
             globalIdQueriesLimiter.execute(
-              dispatcher.executeSql(metrics.index.db.getActiveContractIdRangesForAssigned)(f)
+              dispatcher.executeSql(metrics.index.db.getActiveContractIdRangesForAssignedLegacy)(f)
             )
           ),
         idFilterQueryParallelism = config.idFilterQueryParallelism,
         executeIdFilterQuery = f =>
           assignIdQueriesLimiter.execute(
             globalIdQueriesLimiter.execute(
-              dispatcher.executeSql(metrics.index.db.getFilteredActiveContractIdsForAssigned)(f)
+              dispatcher.executeSql(
+                metrics.index.db.getFilteredActiveContractIdsForAssignedLegacy
+              )(f)
             )
           ),
       )
 
     def fetchActiveCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[RawActiveContract]] =
+    ): Future[Vector[RawActiveContractLegacy]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreated) {
+          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreatedLegacy) {
             implicit connection =>
               val result = withValidatedActiveAt(
-                eventStorageBackend.activeContractCreateEventBatch(
+                eventStorageBackend.activeContractCreateEventBatchLegacy(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
                   endInclusive = activeAtEventSeqId,
@@ -239,13 +243,13 @@ class ACSReader(
 
     def fetchActiveAssignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[RawActiveContract]] =
+    ): Future[Vector[RawActiveContractLegacy]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssigned) {
+          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssignedLegacy) {
             implicit connection =>
               val result = withValidatedActiveAt(
-                eventStorageBackend.activeContractAssignEventBatch(
+                eventStorageBackend.activeContractAssignEventBatchLegacy(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
                   endInclusive = activeAtEventSeqId,
@@ -268,7 +272,7 @@ class ACSReader(
         dispatcher.executeSql(metrics.index.db.getAssingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupAssignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
+              .lookupAssignSequentialIdByOffsetLegacy(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Assign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -285,7 +289,7 @@ class ACSReader(
         dispatcher.executeSql(metrics.index.db.getUnassingIdsForOffsets) { connection =>
           val ids =
             eventStorageBackend
-              .lookupUnassignSequentialIdByOffset(offsets.map(_.unwrap))(connection)
+              .lookupUnassignSequentialIdByOffsetLegacy(offsets.map(_.unwrap))(connection)
           logger.debug(
             s"Unassign Ids for offsets returned #${ids.size} (from ${offsets.size}) ${ids.lastOption
                 .map(last => s"until $last")
@@ -297,16 +301,16 @@ class ACSReader(
 
     def fetchAssignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[Entry[RawAssignEvent]]] =
+    ): Future[Vector[Entry[RawAssignEventLegacy]]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         localPayloadQueriesLimiter.execute(
           globalPayloadQueriesLimiter.execute(
             dispatcher.executeSql(
-              metrics.index.db.reassignmentStream.fetchEventAssignPayloads
+              metrics.index.db.reassignmentStream.fetchEventAssignPayloadsLegacy
             ) { implicit connection =>
               val result = withValidatedActiveAt(
-                eventStorageBackend.assignEventBatch(
+                eventStorageBackend.assignEventBatchLegacy(
                   eventSequentialIds = Ids(ids),
                   allFilterParties = allFilterParties,
                 )(connection)
@@ -323,14 +327,14 @@ class ACSReader(
 
     def fetchUnassignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[Entry[RawUnassignEvent]]] =
+    ): Future[Vector[Entry[RawUnassignEventLegacy]]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
           dispatcher.executeSql(
-            metrics.index.db.reassignmentStream.fetchEventUnassignPayloads
+            metrics.index.db.reassignmentStream.fetchEventUnassignPayloadsLegacy
           ) { implicit connection =>
             val result = withValidatedActiveAt(
-              eventStorageBackend.unassignEventBatch(
+              eventStorageBackend.unassignEventBatchLegacy(
                 eventSequentialIds = Ids(ids),
                 allFilterParties = allFilterParties,
               )(connection)
@@ -349,9 +353,9 @@ class ACSReader(
         contractIds: Iterable[ContractId]
     ): Future[Vector[Long]] =
       globalIdQueriesLimiter.execute(
-        dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIds) { connection =>
+        dispatcher.executeSql(metrics.index.db.getCreateIdsForContractIdsLegacy) { connection =>
           val ids =
-            eventStorageBackend.lookupCreateSequentialIdByContractId(contractIds)(
+            eventStorageBackend.lookupCreateSequentialIdByContractIdLegacy(contractIds)(
               connection
             )
           logger.debug(
@@ -369,9 +373,9 @@ class ACSReader(
       if (unassignPropertiesSeq.isEmpty) Future.successful(Map.empty)
       else
         globalIdQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getAssignIdsForContractIds) { connection =>
+          dispatcher.executeSql(metrics.index.db.getAssignIdsForContractIdsLegacy) { connection =>
             val idForUnassignProperties: Map[UnassignProperties, Long] =
-              eventStorageBackend.lookupAssignSequentialIdBy(
+              eventStorageBackend.lookupAssignSequentialIdByLegacy(
                 unassignPropertiesSeq
               )(connection)
             logger.debug(
@@ -383,16 +387,16 @@ class ACSReader(
 
     def fetchCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[Entry[RawCreatedEvent]]] =
+    ): Future[Vector[Entry[RawCreatedEventLegacy]]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
           dispatcher
-            .executeSql(metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloads) {
+            .executeSql(metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloadsLegacy) {
               implicit connection =>
                 val result = withValidatedActiveAt(
-                  eventStorageBackend.fetchEventPayloadsAcsDelta(
-                    EventPayloadSourceForUpdatesAcsDelta.Create
+                  eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(
+                    EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
                   )(
                     eventSequentialIds = Ids(ids),
                     requestingParties = allFilterParties,
@@ -405,18 +409,20 @@ class ACSReader(
                 )
                 result.view.collect { entry =>
                   entry.event match {
-                    case created: RawCreatedEvent =>
+                    case created: RawCreatedEventLegacy =>
                       entry.copy(event = created)
                   }
                 }.toVector
             }
         )
 
-    def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEvent]]): Future[
-      Seq[(Entry[RawUnassignEvent], RawCreatedEvent)]
+    def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEventLegacy]]): Future[
+      Seq[(Entry[RawUnassignEventLegacy], Entry[RawCreatedEventLegacy])]
     ] = {
 
-      def extractUnassignProperties(unassignEntry: Entry[RawUnassignEvent]): UnassignProperties =
+      def extractUnassignProperties(
+          unassignEntry: Entry[RawUnassignEventLegacy]
+      ): UnassignProperties =
         UnassignProperties(
           contractId = unassignEntry.event.contractId,
           synchronizerId = unassignEntry.event.sourceSynchronizerId,
@@ -434,18 +440,18 @@ class ACSReader(
         unassignPropertiesToAssignedIds: Map[UnassignProperties, Long] <- fetchAssignIdsFor(
           unassignPropertiesSeq
         )
-        assignedPayloads: Seq[Entry[RawAssignEvent]] <- fetchAssignPayloads(
+        assignedPayloads: Seq[Entry[RawAssignEventLegacy]] <- fetchAssignPayloads(
           unassignPropertiesToAssignedIds.values
         )
-        assignedIdsToPayloads: Map[Long, Entry[RawAssignEvent]] = assignedPayloads
+        assignedIdsToPayloads: Map[Long, Entry[RawAssignEventLegacy]] = assignedPayloads
           .map(payload => payload.eventSequentialId -> payload)
           .toMap
         // map the requested unassign event properties to the returned raw created events using the assign sequential id
-        rawCreatedFromAssignedResults: Map[UnassignProperties, RawCreatedEvent] =
+        rawCreatedFromAssignedResults: Map[UnassignProperties, Entry[RawCreatedEventLegacy]] =
           unassignPropertiesToAssignedIds.flatMap { case (params, assignedId) =>
             assignedIdsToPayloads
               .get(assignedId)
-              .map(assignEntry => (params, assignEntry.event.rawCreatedEvent))
+              .map(assignEntry => (params, assignEntry.map(_.rawCreatedEvent)))
           }
 
         // if not found in the assigned events, search the created events
@@ -457,7 +463,7 @@ class ACSReader(
           .distinct
         createdIds <- fetchCreateIdsForContractIds(missingContractIds)
         createdPayloads <- fetchCreatePayloads(createdIds)
-        rawCreatedFromCreatedResults: Map[ContractId, Vector[Entry[RawCreatedEvent]]] =
+        rawCreatedFromCreatedResults: Map[ContractId, Vector[Entry[RawCreatedEventLegacy]]] =
           createdPayloads.groupBy(_.event.contractId)
       } yield batch.flatMap { rawUnassignEntry =>
         val unassignProperties = extractUnassignProperties(rawUnassignEntry)
@@ -475,7 +481,6 @@ class ACSReader(
                     // the created event should match the synchronizer id of the unassign entry and have a lower sequential id than it
                     createdEntry.synchronizerId == unassignProperties.synchronizerId && createdEntry.eventSequentialId < unassignProperties.sequentialId
                   )
-                  .map(_.event)
               }
           }
           .orElse {
@@ -503,12 +508,12 @@ class ACSReader(
         }
       )
 
-    def unassignMeetsConstraints(rawUnassignEntry: Entry[RawUnassignEvent]): Boolean =
+    def unassignMeetsConstraints(rawUnassignEntry: Entry[RawUnassignEventLegacy]): Boolean =
       eventMeetsConstraints(
         rawUnassignEntry.event.templateId,
         rawUnassignEntry.event.witnessParties,
       )
-    def assignMeetsConstraints(rawAssignEntry: Entry[RawAssignEvent]): Boolean =
+    def assignMeetsConstraints(rawAssignEntry: Entry[RawAssignEventLegacy]): Boolean =
       eventMeetsConstraints(
         rawAssignEntry.event.rawCreatedEvent.templateId,
         rawAssignEntry.event.rawCreatedEvent.witnessParties,
@@ -607,15 +612,17 @@ class ACSReader(
   }
 
   private def toApiResponseActiveContract(
-      rawActiveContract: RawActiveContract,
+      rawActiveContract: RawActiveContractLegacy,
       eventProjectionProperties: EventProjectionProperties,
   )(implicit lc: LoggingContextWithTrace): Future[GetActiveContractsResponse] =
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
-          .deserializeRaw(
-            eventProjectionProperties,
-            rawActiveContract.rawCreatedEvent,
+          .deserializeRawCreated(
+            eventProjectionProperties = eventProjectionProperties,
+            rawCreatedEvent = rawActiveContract.rawCreatedEvent,
+            offset = rawActiveContract.offset,
+            nodeId = rawActiveContract.nodeId,
           )
           .map(createdEvent =>
             GetActiveContractsResponse(
@@ -634,14 +641,16 @@ class ACSReader(
     )
 
   private def toApiResponseIncompleteAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEntry: Entry[RawAssignEvent]
+      rawAssignEntry: Entry[RawAssignEventLegacy]
   )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] =
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
-          .deserializeRaw(
-            eventProjectionProperties,
-            rawAssignEntry.event.rawCreatedEvent,
+          .deserializeRawCreated(
+            eventProjectionProperties = eventProjectionProperties,
+            rawCreatedEvent = rawAssignEntry.event.rawCreatedEvent,
+            offset = rawAssignEntry.offset,
+            nodeId = rawAssignEntry.nodeId,
           )
           .map(createdEvent =>
             rawAssignEntry.offset -> GetActiveContractsResponse(
@@ -660,12 +669,17 @@ class ACSReader(
   private def toApiResponseIncompleteUnassigned(
       eventProjectionProperties: EventProjectionProperties
   )(
-      rawUnassignEntryWithCreate: (Entry[RawUnassignEvent], RawCreatedEvent)
+      rawUnassignEntryWithCreate: (Entry[RawUnassignEventLegacy], Entry[RawCreatedEventLegacy])
   )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] = {
     val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
     Timed.future(
       future = lfValueTranslation
-        .deserializeRaw(eventProjectionProperties, rawCreate)
+        .deserializeRawCreated(
+          eventProjectionProperties = eventProjectionProperties,
+          rawCreatedEvent = rawCreate.event,
+          offset = rawCreate.offset,
+          nodeId = rawCreate.nodeId,
+        )
         .map(createdEvent =>
           rawUnassignEntry.offset -> GetActiveContractsResponse(
             workflowId = rawUnassignEntry.workflowId.getOrElse(""),
@@ -673,7 +687,7 @@ class ACSReader(
               IncompleteUnassigned(
                 createdEvent = Some(createdEvent),
                 unassignedEvent = Some(
-                  UpdateReader.toUnassignedEvent(rawUnassignEntry.offset, rawUnassignEntry.event)
+                  UpdateReader.toUnassignedEvent(rawUnassignEntry.offset, rawUnassignEntry)
                 ),
               )
             ),

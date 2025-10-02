@@ -15,13 +15,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawEvent,
-  RawFlatEvent,
-  RawTreeEvent,
+  RawAcsDeltaEventLegacy,
+  RawEventLegacy,
+  RawLedgerEffectsEventLegacy,
 }
 import com.digitalasset.canton.platform.store.backend.common.{
-  EventPayloadSourceForUpdatesAcsDelta,
-  EventPayloadSourceForUpdatesLedgerEffects,
+  EventPayloadSourceForUpdatesAcsDeltaLegacy,
+  EventPayloadSourceForUpdatesLedgerEffectsLegacy,
 }
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTransaction
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
@@ -43,18 +43,18 @@ final class TransactionPointwiseReader(
 
   val directEC: DirectExecutionContext = DirectExecutionContext(logger)
 
-  private def fetchRawFlatEvents(
+  private def fetchRawAcsDeltaEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Option[Set[Party]],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Vector[EventStorageBackend.Entry[RawFlatEvent]]] = for {
+  ): Future[Vector[EventStorageBackend.Entry[RawAcsDeltaEventLegacy]]] = for {
     createEvents <- dbDispatcher.executeSql(
-      dbMetrics.updatesAcsDeltaPointwise.fetchEventCreatePayloads
+      dbMetrics.updatesAcsDeltaPointwise.fetchEventCreatePayloadsLegacy
     )(
-      eventStorageBackend.fetchEventPayloadsAcsDelta(target =
-        EventPayloadSourceForUpdatesAcsDelta.Create
+      eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(target =
+        EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
       )(
         eventSequentialIds = IdRange(firstEventSequentialId, lastEventSequentialId),
         requestingParties = requestingParties,
@@ -63,10 +63,10 @@ final class TransactionPointwiseReader(
 
     consumingEvents <-
       dbDispatcher.executeSql(
-        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloadsLegacy
       )(
-        eventStorageBackend.fetchEventPayloadsAcsDelta(target =
-          EventPayloadSourceForUpdatesAcsDelta.Consuming
+        eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(target =
+          EventPayloadSourceForUpdatesAcsDeltaLegacy.Consuming
         )(
           eventSequentialIds = (IdRange(firstEventSequentialId, lastEventSequentialId)),
           requestingParties = requestingParties,
@@ -77,19 +77,19 @@ final class TransactionPointwiseReader(
     (createEvents ++ consumingEvents).sortBy(_.eventSequentialId)
   }
 
-  private def fetchRawTreeEvents(
+  private def fetchRawLedgerEffectsEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Option[Set[Party]],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Vector[EventStorageBackend.Entry[RawTreeEvent]]] = for {
+  ): Future[Vector[EventStorageBackend.Entry[RawLedgerEffectsEventLegacy]]] = for {
     createEvents <-
       dbDispatcher.executeSql(
-        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloadsLegacy
       )(
-        eventStorageBackend.fetchEventPayloadsLedgerEffects(target =
-          EventPayloadSourceForUpdatesLedgerEffects.Create
+        eventStorageBackend.fetchEventPayloadsLedgerEffectsLegacy(target =
+          EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create
         )(
           eventSequentialIds = IdRange(firstEventSequentialId, lastEventSequentialId),
           requestingParties = requestingParties,
@@ -98,10 +98,10 @@ final class TransactionPointwiseReader(
 
     consumingEvents <-
       dbDispatcher.executeSql(
-        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloadsLegacy
       )(
-        eventStorageBackend.fetchEventPayloadsLedgerEffects(target =
-          EventPayloadSourceForUpdatesLedgerEffects.Consuming
+        eventStorageBackend.fetchEventPayloadsLedgerEffectsLegacy(target =
+          EventPayloadSourceForUpdatesLedgerEffectsLegacy.Consuming
         )(
           eventSequentialIds = IdRange(firstEventSequentialId, lastEventSequentialId),
           requestingParties = requestingParties,
@@ -110,10 +110,10 @@ final class TransactionPointwiseReader(
 
     nonConsumingEvents <-
       dbDispatcher.executeSql(
-        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloadsLegacy
       )(
-        eventStorageBackend.fetchEventPayloadsLedgerEffects(target =
-          EventPayloadSourceForUpdatesLedgerEffects.NonConsuming
+        eventStorageBackend.fetchEventPayloadsLedgerEffectsLegacy(target =
+          EventPayloadSourceForUpdatesLedgerEffectsLegacy.NonConsuming
         )(
           eventSequentialIds = IdRange(firstEventSequentialId, lastEventSequentialId),
           requestingParties = requestingParties,
@@ -127,22 +127,24 @@ final class TransactionPointwiseReader(
   private def deserializeEntryAcsDelta(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
-  )(entry: Entry[RawFlatEvent])(implicit
+  )(entry: Entry[RawAcsDeltaEventLegacy])(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[Event]] =
-    UpdateReader.deserializeRawFlatEvent(eventProjectionProperties, lfValueTranslation)(entry)
+    UpdateReader.deserializeRawAcsDeltaEvent(eventProjectionProperties, lfValueTranslation)(entry)
 
   private def deserializeEntryLedgerEffects(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
-  )(entry: Entry[RawTreeEvent])(implicit
+  )(entry: Entry[RawLedgerEffectsEventLegacy])(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[Event]] =
-    UpdateReader.deserializeRawTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
+    UpdateReader.deserializeRawLedgerEffectsEvent(eventProjectionProperties, lfValueTranslation)(
+      entry
+    )
 
-  private def fetchAndFilterEvents[T <: RawEvent](
+  private def fetchAndFilterEvents[T <: RawEventLegacy](
       fetchRawEvents: Future[Vector[Entry[T]]],
       templatePartiesFilter: TemplatePartiesFilter,
       deserializeEntry: Entry[T] => Future[Entry[Event]],
@@ -182,7 +184,7 @@ final class TransactionPointwiseReader(
     val events = txShape match {
       case TransactionShape.AcsDelta =>
         fetchAndFilterEvents(
-          fetchRawEvents = fetchRawFlatEvents(
+          fetchRawEvents = fetchRawAcsDeltaEvents(
             firstEventSequentialId = firstEventSeqId,
             lastEventSequentialId = lastEventSeqId,
             requestingParties = requestingParties,
@@ -194,7 +196,7 @@ final class TransactionPointwiseReader(
         )
       case TransactionShape.LedgerEffects =>
         fetchAndFilterEvents(
-          fetchRawEvents = fetchRawTreeEvents(
+          fetchRawEvents = fetchRawLedgerEffectsEvents(
             firstEventSequentialId = firstEventSeqId,
             lastEventSequentialId = lastEventSeqId,
             requestingParties = requestingParties,

@@ -25,6 +25,7 @@ import com.digitalasset.canton.ledger.api.benchtool.submission.*
 import com.digitalasset.canton.ledger.api.benchtool.submission.foo.RandomPartySelecting
 import com.digitalasset.canton.ledger.api.benchtool.util.TypedActorSystemResourceOwner
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import io.grpc.Channel
 import io.grpc.netty.shaded.io.grpc.netty.{NegotiationType, NettyChannelBuilder}
@@ -99,7 +100,7 @@ class LedgerApiBenchTool(
     ] = for {
       servicesForUserId <- apiServicesOwner(config, authorizationHelper)
       system <- TypedActorSystemResourceOwner.owner()
-      meterProvider <- new MetricRegistryOwner()
+      meterProvider <- new MetricRegistryOwner(config.reportingPeriod, NamedLoggerFactory.root)
     } yield (servicesForUserId, system, meterProvider)
 
     resources.use { case (servicesForUserId, actorSystem, meterProvider) =>

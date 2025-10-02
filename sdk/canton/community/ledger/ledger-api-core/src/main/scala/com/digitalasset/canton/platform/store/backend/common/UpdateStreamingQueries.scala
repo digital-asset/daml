@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.long
 import com.digitalasset.canton.platform.Party
+import com.digitalasset.canton.platform.store.backend.PersistentEventType
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
   SqlStringInterpolation,
@@ -24,22 +25,41 @@ import java.sql.Connection
 
 sealed trait EventIdSource
 object EventIdSource {
-  object CreateStakeholder extends EventIdSource
-  object CreateNonStakeholder extends EventIdSource
-  object ConsumingStakeholder extends EventIdSource
-  object ConsumingNonStakeholder extends EventIdSource
-  object NonConsumingInformee extends EventIdSource
+  object ActivateStakeholder extends EventIdSource
+  object ActivateWitnesses extends EventIdSource
+  object DeactivateStakeholder extends EventIdSource
+  object DeactivateWitnesses extends EventIdSource
+  object VariousWitnesses extends EventIdSource
+}
+sealed trait EventIdSourceLegacy
+object EventIdSourceLegacy {
+  object CreateStakeholder extends EventIdSourceLegacy
+  object CreateNonStakeholder extends EventIdSourceLegacy
+  object ConsumingStakeholder extends EventIdSourceLegacy
+  object ConsumingNonStakeholder extends EventIdSourceLegacy
+  object NonConsumingInformee extends EventIdSourceLegacy
 }
 sealed trait EventPayloadSourceForUpdatesAcsDelta
 object EventPayloadSourceForUpdatesAcsDelta {
-  object Create extends EventPayloadSourceForUpdatesAcsDelta
-  object Consuming extends EventPayloadSourceForUpdatesAcsDelta
+  object Activate extends EventPayloadSourceForUpdatesAcsDelta
+  object Deactivate extends EventPayloadSourceForUpdatesAcsDelta
+}
+sealed trait EventPayloadSourceForUpdatesAcsDeltaLegacy
+object EventPayloadSourceForUpdatesAcsDeltaLegacy {
+  object Create extends EventPayloadSourceForUpdatesAcsDeltaLegacy
+  object Consuming extends EventPayloadSourceForUpdatesAcsDeltaLegacy
 }
 sealed trait EventPayloadSourceForUpdatesLedgerEffects
 object EventPayloadSourceForUpdatesLedgerEffects {
-  object Create extends EventPayloadSourceForUpdatesLedgerEffects
-  object Consuming extends EventPayloadSourceForUpdatesLedgerEffects
-  object NonConsuming extends EventPayloadSourceForUpdatesLedgerEffects
+  object Activate extends EventPayloadSourceForUpdatesLedgerEffects
+  object Deactivate extends EventPayloadSourceForUpdatesLedgerEffects
+  object VariousWitnessed extends EventPayloadSourceForUpdatesLedgerEffects
+}
+sealed trait EventPayloadSourceForUpdatesLedgerEffectsLegacy
+object EventPayloadSourceForUpdatesLedgerEffectsLegacy {
+  object Create extends EventPayloadSourceForUpdatesLedgerEffectsLegacy
+  object Consuming extends EventPayloadSourceForUpdatesLedgerEffectsLegacy
+  object NonConsuming extends EventPayloadSourceForUpdatesLedgerEffectsLegacy
 }
 
 class UpdateStreamingQueries(
@@ -49,15 +69,22 @@ class UpdateStreamingQueries(
   def fetchEventIds(target: EventIdSource)(
       stakeholderO: Option[Party],
       templateIdO: Option[NameTypeConRef],
+      eventTypes: Set[PersistentEventType],
+  )(connection: Connection): PaginationInput => Vector[Long] =
+    ??? // TODO(#28002): Implement
+
+  def fetchEventIdsLegacy(target: EventIdSourceLegacy)(
+      stakeholderO: Option[Party],
+      templateIdO: Option[NameTypeConRef],
   )(connection: Connection): PaginationInput => Vector[Long] = target match {
-    case EventIdSource.ConsumingStakeholder =>
+    case EventIdSourceLegacy.ConsumingStakeholder =>
       fetchIdsOfConsumingEventsForStakeholder(
         stakeholder = stakeholderO,
         templateIdO = templateIdO,
       )(
         connection
       )
-    case EventIdSource.ConsumingNonStakeholder =>
+    case EventIdSourceLegacy.ConsumingNonStakeholder =>
       UpdateStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee",
         witnessO = stakeholderO,
@@ -66,14 +93,14 @@ class UpdateStreamingQueries(
         stringInterning = stringInterning,
         hasFirstPerSequentialId = true,
       )(connection)
-    case EventIdSource.CreateStakeholder =>
+    case EventIdSourceLegacy.CreateStakeholder =>
       fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = stakeholderO,
         templateIdO = templateIdO,
       )(
         connection
       )
-    case EventIdSource.CreateNonStakeholder =>
+    case EventIdSourceLegacy.CreateNonStakeholder =>
       UpdateStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_create_id_filter_non_stakeholder_informee",
         witnessO = stakeholderO,
@@ -82,7 +109,7 @@ class UpdateStreamingQueries(
         stringInterning = stringInterning,
         hasFirstPerSequentialId = true,
       )(connection)
-    case EventIdSource.NonConsumingInformee =>
+    case EventIdSourceLegacy.NonConsumingInformee =>
       UpdateStreamingQueries.fetchEventIds(
         tableName = "lapi_pe_non_consuming_id_filter_informee",
         witnessO = stakeholderO,
@@ -93,7 +120,7 @@ class UpdateStreamingQueries(
       )(connection)
   }
 
-  def fetchIdsOfCreateEventsForStakeholder(
+  private def fetchIdsOfCreateEventsForStakeholder(
       stakeholderO: Option[Ref.Party],
       templateIdO: Option[NameTypeConRef],
   )(connection: Connection): PaginationInput => Vector[Long] =
@@ -106,7 +133,14 @@ class UpdateStreamingQueries(
       hasFirstPerSequentialId = true,
     )(connection)
 
-  def fetchActiveIdsOfCreateEventsForStakeholder(
+  def fetchActiveIds(
+      stakeholderO: Option[Ref.Party],
+      templateIdO: Option[NameTypeConRef],
+      activeAtEventSeqId: Long,
+  )(connection: Connection): IdFilterPaginationInput => Vector[Long] =
+    ??? // TODO(#28002): Implement
+
+  def fetchActiveIdsOfCreateEventsForStakeholderLegacy(
       stakeholderO: Option[Ref.Party],
       templateIdO: Option[NameTypeConRef],
       activeAtEventSeqId: Long,
@@ -135,7 +169,7 @@ class UpdateStreamingQueries(
       hasFirstPerSequentialId = true,
     )(connection)
 
-  def fetchActiveIdsOfAssignEventsForStakeholder(
+  def fetchActiveIdsOfAssignEventsForStakeholderLegacy(
       stakeholderO: Option[Ref.Party],
       templateIdO: Option[NameTypeConRef],
       activeAtEventSeqId: Long,

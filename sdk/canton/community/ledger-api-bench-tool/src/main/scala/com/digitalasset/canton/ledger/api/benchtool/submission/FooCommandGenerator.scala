@@ -25,11 +25,11 @@ final class FooCommandGenerator(
     names: Names,
     partySelecting: RandomPartySelecting,
     randomnessProvider: RandomnessProvider,
-) extends CommandGenerator {
+) extends SimpleCommandGenerator {
 
   private val packageRef: Ref.PackageRef = TestDars.benchtoolDarPackageRef
 
-  private val activeContractKeysPool = new ActiveContractKeysPool(randomnessProvider)
+  private val activeContractKeysPool = new ActiveContractKeysPool[Value](randomnessProvider)
 
   private val contractDescriptions = new Distribution[FooSubmissionConfig.ContractDescription](
     weights = config.instanceDistribution.map(_.weight),

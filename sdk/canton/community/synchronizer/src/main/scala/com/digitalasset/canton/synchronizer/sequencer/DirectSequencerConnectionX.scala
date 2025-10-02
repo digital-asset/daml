@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -114,6 +115,11 @@ class DirectSequencerConnectionX(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     // In-process connection is not authenticated
     EitherTUtil.unitUS
+
+  override def getTime(timeout: Duration)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]] =
+    EitherT.right[String](sequencer.sequencingTime)
 
   override def subscribe[E](
       request: SubscriptionRequest,

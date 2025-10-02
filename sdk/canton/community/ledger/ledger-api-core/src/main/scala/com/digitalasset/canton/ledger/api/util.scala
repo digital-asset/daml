@@ -21,9 +21,9 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 }
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}

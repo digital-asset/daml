@@ -16,9 +16,9 @@ import com.digitalasset.canton.participant.sync.StaticSynchronizerParametersGett
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractHasher
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.transaction.Versioned
-import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -97,6 +97,7 @@ object ContractIdsImportProcessor {
   private final class RecomputeContractIdSuffixes(
       staticParametersGetter: StaticSynchronizerParametersGetter,
       cryptoOps: HashOps & HmacOps,
+      hasher: ContractHasher,
       override val loggerFactory: NamedLoggerFactory,
   ) extends ContractIdsImportProcessor(staticParametersGetter) {
 
@@ -142,11 +143,13 @@ object ContractIdsImportProcessor {
               }(_.value.map(contract => contractId -> contract.contract.contractId))
           }
           .map(_.toMap)
-        newThinContractInstance = ThinContractInstance(
-          contract.packageName,
-          contract.templateId,
-          contract.createArg.mapCid(depsRemapping),
+
+        newCreate = contract.toCreateNode.copy(
+          packageName = contract.packageName,
+          templateId = contract.templateId,
+          arg = contract.createArg.mapCid(depsRemapping),
         )
+        newThinContractInstance = newCreate.coinst
         contractIdV1Version <- EitherT.fromEither[Future](contractIdVersion match {
           case v1: CantonContractIdV1Version => Right(v1)
           case _ =>
@@ -170,13 +173,20 @@ object ContractIdsImportProcessor {
               contract.contractKeyWithMaintainers.map(Versioned(contract.version, _)),
           )
         )
+        contractHash <- EitherT.apply({
+          hasher.hash(newCreate, contractIdV1Version.contractHashingMethod).value.unwrap.map {
+            _.onShutdown[Either[String, LfHash]](
+              "Shutdown during contract hashing".asLeft[LfHash]
+            )
+          }
+        })
+
         unicum <- EitherT.fromEither[Future] {
           unicumGenerator.recomputeUnicum(
             authenticationData.salt,
             contract.createdAt,
             metadata,
-            newThinContractInstance,
-            contractIdV1Version,
+            contractHash,
           )
         }
         newContractId = contractIdV1Version.fromDiscriminator(discriminator, unicum)
@@ -275,6 +285,7 @@ object ContractIdsImportProcessor {
       loggerFactory: NamedLoggerFactory,
       staticParametersGetter: StaticSynchronizerParametersGetter,
       cryptoOps: HashOps & HmacOps,
+      hasher: ContractHasher,
       contractImportMode: ContractImportMode,
   )(contracts: Seq[RepairContract])(implicit
       ec: ExecutionContext,
@@ -287,7 +298,7 @@ object ContractIdsImportProcessor {
         new VerifyContractIdSuffixes(staticParametersGetter, loggerFactory)
           .process(contracts)
       case ContractImportMode.Recomputation =>
-        new RecomputeContractIdSuffixes(staticParametersGetter, cryptoOps, loggerFactory)
+        new RecomputeContractIdSuffixes(staticParametersGetter, cryptoOps, hasher, loggerFactory)
           .process(contracts)
     }
 

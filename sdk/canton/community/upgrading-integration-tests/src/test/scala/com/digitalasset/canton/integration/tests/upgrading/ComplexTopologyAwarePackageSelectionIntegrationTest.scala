@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.upgrading
 import com.daml.ledger.javaapi.data.CreatedEvent
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.damltests.appinstall.v2.java.appinstall.{
   AppInstall as AppInstallV2,
@@ -79,15 +78,6 @@ final class ComplexTopologyAwarePackageSelectionIntegrationTest
       .addConfigTransform(
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.ledgerApi.topologyAwarePackageSelection.enabled).replace(true)
-        )
-      )
-      .addConfigTransform(
-        ConfigTransforms.updateAllParticipantConfigs_(
-          // Make sure that unassignment picks a recent target synchronizer topology snapshot
-          // TODO(#25110): Remove this configuration once the correct snapshot is used in computing
-          //               the vetting checks for the target synchronizer
-          _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-            .replace(NonNegativeInt.zero)
         )
       )
       .withSetup { implicit env =>
