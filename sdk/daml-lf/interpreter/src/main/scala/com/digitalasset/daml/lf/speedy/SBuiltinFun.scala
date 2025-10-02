@@ -30,7 +30,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
   TransactionErrors => TxErr,
 }
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -2521,7 +2521,7 @@ private[lf] object SBuiltinFun {
     SBuiltinFun.SBStructCon(contractInfoPositionStruct)
 
   private def extractContractInfo(
-      tmplId2TxVersion: TypeConId => TransactionVersion,
+      tmplId2TxVersion: TypeConId => SerializationVersion,
       tmplId2PackageName: TypeConId => PackageName,
       contractInfoStruct: SValue,
   ): ContractInfo = {

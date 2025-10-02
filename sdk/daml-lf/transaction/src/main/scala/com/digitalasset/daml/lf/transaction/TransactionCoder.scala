@@ -40,9 +40,9 @@ object TransactionCoder {
     internal.encodeContractInstance(coinst)
 
   /** Reads a [[VersionedTransaction]] from protobuf and checks if
-    * [[TransactionVersion]] passed in the protobuf is currently supported.
+    * [[SerializationVersion]] passed in the protobuf is currently supported.
     *
-    * Supported transaction versions configured in [[TransactionVersion]].
+    * Supported serialization versions configured in [[SerializationVersion]].
     *
     * @param protoTx protobuf encoded transaction
     * @return decoded transaction
@@ -52,7 +52,7 @@ object TransactionCoder {
   ): Either[DecodeError, VersionedTransaction] =
     ensuresNoUnknownFieldsThenDecode(protoTx)(internal.decodeTransaction)
 
-  /** Encode a [[Transaction]] to protobuf using [[TransactionVersion]] provided by the libary.
+  /** Encode a [[Transaction]] to protobuf using [[SerializationVersion]] provided by the libary.
     *
     * @param tx the transaction to be encoded
     * @return protobuf encoded transaction
@@ -71,7 +71,7 @@ object TransactionCoder {
     internal.encodeFatContractInstance(contractInstance)
 
   private[transaction] def encodeVersioned(
-      version: TransactionVersion,
+      version: SerializationVersion,
       payload: ByteString,
   ): ByteString =
     internal.encodeVersioned(version, payload)
@@ -91,7 +91,7 @@ object TransactionCoder {
         .fold(_ => Left(DecodeError(s"cannot parse node Id $s")), idx => Right(NodeId(idx)))
 
     def encodeVersionedValue(
-        enclosingVersion: TransactionVersion,
+        enclosingVersion: SerializationVersion,
         value: Value.VersionedValue,
     ): Either[EncodeError, ValueOuterClass.VersionedValue] =
       if (enclosingVersion == value.version)
@@ -104,7 +104,7 @@ object TransactionCoder {
         )
 
     private[this] def encodeValue(
-        nodeVersion: TransactionVersion,
+        nodeVersion: SerializationVersion,
         value: Value,
     ): Either[EncodeError, ByteString] =
       ValueCoder.encodeValue(nodeVersion, value)
@@ -146,20 +146,20 @@ object TransactionCoder {
       } yield value.map(arg => Value.ThinContractInstance(pkgName, id, arg))
 
     private[transaction] def encodeKeyWithMaintainers(
-        version: TransactionVersion,
+        version: SerializationVersion,
         key: GlobalKeyWithMaintainers,
     ): Either[EncodeError, TransactionOuterClass.KeyWithMaintainers] =
-      if (version >= TransactionVersion.minVersion) {
+      if (version >= SerializationVersion.minVersion) {
         val builder = TransactionOuterClass.KeyWithMaintainers.newBuilder()
         TreeSet.from(key.maintainers).foreach(builder.addMaintainers(_))
         ValueCoder
           .encodeValue(valueVersion = version, v0 = key.value)
           .map(builder.setKey(_).build())
       } else
-        Left(EncodeError(s"Contract key are not supported by LF ${version.pretty}"))
+        Left(EncodeError(s"Contract key are not supported by $version"))
 
     private[this] def encodeOptKeyWithMaintainers(
-        version: TransactionVersion,
+        version: SerializationVersion,
         key: Option[GlobalKeyWithMaintainers],
     ): Either[EncodeError, Option[TransactionOuterClass.KeyWithMaintainers]] =
       key match {
@@ -170,7 +170,7 @@ object TransactionCoder {
       }
 
     private[this] def encodeOptionalValue(
-        version: TransactionVersion,
+        version: SerializationVersion,
         valueOpt: Option[Value],
     ): Either[EncodeError, ByteString] =
       valueOpt match {
@@ -188,7 +188,7 @@ object TransactionCoder {
       * @return protocol buffer format node
       */
     private[lf] def encodeNode(
-        enclosingVersion: TransactionVersion,
+        enclosingVersion: SerializationVersion,
         nodeId: NodeId,
         node: Node,
     ) = {
@@ -206,11 +206,11 @@ object TransactionCoder {
           if (enclosingVersion < nodeVersion)
             Left(
               EncodeError(
-                s"A transaction of version ${enclosingVersion.pretty} cannot contain nodes of newer version ($nodeVersion)"
+                s"A transaction of version $enclosingVersion cannot contain nodes of newer version ($nodeVersion)"
               )
             )
           else {
-            discard(nodeBuilder.setVersion(TransactionVersion.toProtoValue(nodeVersion)))
+            discard(nodeBuilder.setVersion(SerializationVersion.toProtoValue(nodeVersion)))
 
             node match {
               case nc: Node.Create =>
@@ -270,9 +270,9 @@ object TransactionCoder {
         _ <-
           if (node.byKey)
             Either.cond(
-              version >= TransactionVersion.minContractKeys,
+              version >= SerializationVersion.minContractKeys,
               discard(builder.setByKey(true)),
-              EncodeError(s"Node field byKey is not supported by LF ${version.pretty}"),
+              EncodeError(s"Node field byKey is not supported by version $version"),
             )
           else
             Right(())
@@ -309,9 +309,9 @@ object TransactionCoder {
         _ = node.choiceObservers.foreach(builder.addObservers)
         _ <- node.choiceAuthorizers match {
           case Some(authorizers) =>
-            if (node.version < TransactionVersion.minChoiceAuthorizers)
+            if (node.version < SerializationVersion.minChoiceAuthorizers)
               Left(
-                EncodeError(s"choice authorizers are not supported by LF ${node.version.pretty}")
+                EncodeError(s"choice authorizers are not supported by version ${node.version}")
               )
             else
               Either.cond(
@@ -330,9 +330,9 @@ object TransactionCoder {
     ): Either[EncodeError, TransactionOuterClass.Node.LookupByKey] =
       for {
         _ <- Either.cond(
-          node.version >= TransactionVersion.minContractKeys,
+          node.version >= SerializationVersion.minContractKeys,
           (),
-          EncodeError(s"Contract keys not supported by LF ${node.version.pretty}"),
+          EncodeError(s"Contract keys not supported by version ${node.version}"),
         )
         builder = TransactionOuterClass.Node.LookupByKey.newBuilder()
         _ = discard(builder.setPackageName(node.packageName))
@@ -342,7 +342,7 @@ object TransactionCoder {
       } yield builder.setKeyWithMaintainers(encodedKey).build()
 
     private[this] def decodeKeyWithMaintainers(
-        version: TransactionVersion,
+        version: SerializationVersion,
         templateId: Ref.TypeConId,
         packageName: Ref.PackageName,
         msg: TransactionOuterClass.KeyWithMaintainers,
@@ -361,7 +361,7 @@ object TransactionCoder {
     }
 
     private[transaction] def strictDecodeKeyWithMaintainers(
-        version: TransactionVersion,
+        version: SerializationVersion,
         templateId: Ref.TypeConId,
         packageName: Ref.PackageName,
         msg: TransactionOuterClass.KeyWithMaintainers,
@@ -375,13 +375,13 @@ object TransactionCoder {
 
     // package private for test, do not use outside TransactionCoder
     private[lf] def decodeValue(
-        version: TransactionVersion,
+        version: SerializationVersion,
         unversionedProto: ByteString,
     ): Either[DecodeError, Value] =
       ValueCoder.decodeValue(version, unversionedProto)
 
     private[lf] def decodeOptionalValue(
-        version: TransactionVersion,
+        version: SerializationVersion,
         unversionedProto: ByteString,
     ): Either[DecodeError, Option[Value]] =
       if (unversionedProto.isEmpty)
@@ -395,13 +395,13 @@ object TransactionCoder {
       * @return decoded GenNode
       */
     private[lf] def decodeVersionedNode(
-        transactionVersion: TransactionVersion,
+        serializationVersion: SerializationVersion,
         protoNode: TransactionOuterClass.Node,
     ): Either[DecodeError, (NodeId, Node)] =
-      decodeNode(transactionVersion, protoNode)
+      decodeNode(serializationVersion, protoNode)
 
     private[lf] def decodeNode(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         msg: TransactionOuterClass.Node,
     ): Either[DecodeError, (NodeId, Node)] =
       for {
@@ -435,7 +435,7 @@ object TransactionCoder {
       } yield Node.Rollback(children)
 
     private[this] def decodeCreate(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         nodeVersionStr: String,
         msg: TransactionOuterClass.FatContractInstance,
     ): Either[DecodeError, Node.Create] =
@@ -456,7 +456,7 @@ object TransactionCoder {
       } yield contract.toCreateNode
 
     private[this] def decodeFetch(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         nodeVersionStr: String,
         msg: TransactionOuterClass.Node.Fetch,
     ): Either[DecodeError, Node.Fetch] = {
@@ -490,9 +490,9 @@ object TransactionCoder {
         byKey <-
           if (msg.getByKey)
             Either.cond(
-              nodeVersion >= TransactionVersion.minContractKeys,
+              nodeVersion >= SerializationVersion.minContractKeys,
               true,
-              DecodeError(s"transaction key is not supported by LF ${nodeVersion.pretty}"),
+              DecodeError(s"transaction key is not supported by version $nodeVersion"),
             )
           else
             Right(false)
@@ -511,7 +511,7 @@ object TransactionCoder {
     }
 
     private[this] def decodeExercise(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         nodeVersionStr: String,
         msg: TransactionOuterClass.Node.Exercise,
     ): Either[DecodeError, Node.Exercise] = {
@@ -532,8 +532,8 @@ object TransactionCoder {
         authorizers <-
           if (msg.getAuthorizersCount == 0)
             Right(None)
-          else if (nodeVersion < TransactionVersion.minChoiceAuthorizers)
-            Left(DecodeError(s"Exercise Authorizer not supported by LF ${nodeVersion.pretty}"))
+          else if (nodeVersion < SerializationVersion.minChoiceAuthorizers)
+            Left(DecodeError(s"Exercise Authorizer not supported by version $nodeVersion"))
           else
             toPartySet(msg.getAuthorizersList).map(Some(_))
       } yield Node.Exercise(
@@ -558,16 +558,16 @@ object TransactionCoder {
     }
 
     private[this] def decodeLookup(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         nodeVersionStr: String,
         msg: TransactionOuterClass.Node.LookupByKey,
     ) =
       for {
         nodeVersion <- decodeActionNodeVersion(txVersion, nodeVersionStr)
         _ <- Either.cond(
-          txVersion >= TransactionVersion.minContractKeys,
+          txVersion >= SerializationVersion.minContractKeys,
           (),
-          DecodeError(s"Contract ket not supported by ${nodeVersion.pretty}"),
+          DecodeError(s"Contract ket not supported by version $nodeVersion"),
         )
         pkgName <- decodePackageName(msg.getPackageName)
         templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
@@ -597,7 +597,7 @@ object TransactionCoder {
     ): Either[EncodeError, TransactionOuterClass.Transaction] = {
       val builder = TransactionOuterClass.Transaction
         .newBuilder()
-        .setVersion(TransactionVersion.toProtoValue(transaction.version))
+        .setVersion(SerializationVersion.toProtoValue(transaction.version))
       transaction.roots.foreach(nid => discard(builder.addRoots(encodeNodeId(nid))))
 
       transaction
@@ -617,22 +617,22 @@ object TransactionCoder {
     }
 
     def decodeActionNodeVersion(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         nodeVersionStr: String,
-    ): Either[DecodeError, TransactionVersion] =
+    ): Either[DecodeError, SerializationVersion] =
       for {
         nodeVersion <- decodeVersion(nodeVersionStr)
         _ <- Either.cond(
           nodeVersion <= txVersion,
           (),
           DecodeError(
-            s"A transaction of version ${txVersion.pretty} cannot contain node of newer version (${nodeVersion.pretty})"
+            s"A transaction of version $txVersion cannot contain node of newer version (version $nodeVersion)"
           ),
         )
       } yield nodeVersion
 
-    def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
-      TransactionVersion.fromString(vs).left.map(DecodeError)
+    def decodeVersion(vs: String): Either[DecodeError, SerializationVersion] =
+      SerializationVersion.fromString(vs).left.map(DecodeError)
 
     def decodeTransaction(
         protoTx: TransactionOuterClass.Transaction
@@ -643,7 +643,7 @@ object TransactionCoder {
       } yield tx
 
     private[this] def decodeTransaction(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         msg: TransactionOuterClass.Transaction,
     ): Either[DecodeError, VersionedTransaction] = for {
       roots <- msg.getRootsList.asScala
@@ -701,11 +701,11 @@ object TransactionCoder {
       Name.fromString(s).left.map(DecodeError)
 
     private[transaction] def encodeVersioned(
-        version: TransactionVersion,
+        version: SerializationVersion,
         payload: ByteString,
     ): ByteString = {
       val builder = TransactionOuterClass.Versioned.newBuilder()
-      discard(builder.setVersion(TransactionVersion.toProtoValue(version)))
+      discard(builder.setVersion(SerializationVersion.toProtoValue(version)))
       discard(builder.setPayload(payload))
       builder.build().toByteString
     }
@@ -724,7 +724,7 @@ object TransactionCoder {
     ): Either[DecodeError, Versioned[ByteString]] =
       for {
         proto <- parseVersioned(bytes)
-        version <- TransactionVersion.fromString(proto.getVersion).left.map(DecodeError)
+        version <- SerializationVersion.fromString(proto.getVersion).left.map(DecodeError)
         payload = proto.getPayload
       } yield Versioned(version, payload)
 
@@ -771,7 +771,7 @@ object TransactionCoder {
       )
 
     private[lf] def decodeFatContractInstance(
-        txVersion: TransactionVersion,
+        txVersion: SerializationVersion,
         msg: TransactionOuterClass.FatContractInstance,
     ): Either[DecodeError, FatContractInstance] =
       for {

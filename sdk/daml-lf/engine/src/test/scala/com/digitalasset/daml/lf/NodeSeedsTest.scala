@@ -50,7 +50,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   )
   val requestContract =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = transaction.TransactionVersion.VDev,
+      version = transaction.SerializationVersion.VDev,
       packageName = mainPkg.pkgName,
       template = requestTmplId,
       arg = Value.ValueRecord(
@@ -66,7 +66,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     "002000000000000000000000000000000000000000000000000000000000000000"
   )
   val roleContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-    version = transaction.TransactionVersion.VDev,
+    version = transaction.SerializationVersion.VDev,
     packageName = mainPkg.pkgName,
     template = roleTmplId,
     arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),

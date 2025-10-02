@@ -4,10 +4,10 @@
 package com.digitalasset.daml.lf
 package transaction
 
-case class Versioned[+X](version: TransactionVersion, unversioned: X) {
+case class Versioned[+X](version: SerializationVersion, unversioned: X) {
 
   def map[Y](f: X => Y): Versioned[Y] = Versioned(version, f(unversioned))
 
-  def setVersion(version: TransactionVersion): Versioned[X] = Versioned(version, unversioned)
+  def setVersion(version: SerializationVersion): Versioned[X] = Versioned(version, unversioned)
 
 }

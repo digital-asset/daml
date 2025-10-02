@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   Node,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 import org.scalatest.{EitherValues, Inside}
@@ -183,7 +183,7 @@ class ValidateContractInstanceSpec(majorLanguageVersion: LanguageMajorVersion)
     signatories = Set(alice),
     stakeholders = Set(alice),
     keyOpt = None,
-    version = TransactionVersion.minVersion,
+    version = SerializationVersion.minVersion,
   )
   val contractInstance = FatContractInstance.fromCreateNode(
     createNode,

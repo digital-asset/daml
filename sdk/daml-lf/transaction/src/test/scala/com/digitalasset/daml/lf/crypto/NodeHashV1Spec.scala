@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError.IncompleteTransactionTree
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageName, Party}
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -65,7 +64,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     stakeholders =
       Set[Party](Ref.Party.assertFromString("alice"), Ref.Party.assertFromString("charlie")),
     keyOpt = None,
-    version = LanguageVersion.v2_1,
+    version = SerializationVersion.V1,
   )
 
   private val createNodeEncoding = """'01' # 01 (Node Encoding Version)
@@ -124,7 +123,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     keyOpt = None,
     byKey = false,
     interfaceId = None,
-    version = LanguageVersion.v2_1,
+    version = SerializationVersion.V1,
   )
 
   private val fetchNodeEncoding = """'01' # 01 (Node Encoding Version)
@@ -188,7 +187,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     exerciseResult = Some(VA.text.inj("result")),
     keyOpt = None,
     byKey = false,
-    version = LanguageVersion.v2_1,
+    version = SerializationVersion.V1,
   )
 
   private val exerciseNodeHash = "5b9af41fe9032a70a772063301907c823e933d2df5bae2b48293f33cf3992611"
@@ -200,7 +199,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     result = Some(
       ContractId.V1.assertFromString(contractId1)
     ),
-    version = LanguageVersion.v2_1,
+    version = SerializationVersion.V1,
   )
 
   private val rollbackNode = Node.Rollback(
@@ -1010,7 +1009,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
   "TransactionBuilder" should {
     val roots = ImmArray(NodeId(0), NodeId(5))
     val transaction = VersionedTransaction(
-      version = LanguageVersion.v2_1,
+      version = SerializationVersion.V1,
       roots = roots,
       nodes = subNodesMap,
     )
@@ -1027,7 +1026,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
       an[IncompleteTransactionTree] shouldBe thrownBy {
         Hash.hashTransactionV1(
           VersionedTransaction(
-            version = LanguageVersion.v2_1,
+            version = SerializationVersion.V1,
             roots = roots,
             nodes = Map.empty,
           ),
@@ -1039,7 +1038,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     "not hash NodeIds" in {
       Hash.hashTransactionV1(
         VersionedTransaction(
-          version = LanguageVersion.v2_1,
+          version = SerializationVersion.V1,
           roots = shiftNodeIds(roots),
           nodes = shiftNodeIds(subNodesMap),
         ),
@@ -1050,7 +1049,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     "not produce collision in children" in {
       Hash.hashTransactionV1(
         VersionedTransaction(
-          version = LanguageVersion.v2_1,
+          version = SerializationVersion.V1,
           roots = roots.reverse,
           nodes = subNodesMap,
         ),
@@ -1066,7 +1065,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
           defaultNodeSeedsMap,
           hashTracer = hashTracer,
         )
-        hashTracer.result shouldBe s"""# Transaction Version
+        hashTracer.result shouldBe s"""# Serialization Version
                                       |'00000003' # 3 (int)
                                       |'322e31' # 2.1 (string)
                                       |# Root Nodes

@@ -9,7 +9,7 @@ import com.daml.SafeProto
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.{
-  TransactionVersion,
+  SerializationVersion,
   Versioned,
   ensuresNoUnknownFields,
   ensuresNoUnknownFieldsThenDecode,
@@ -35,8 +35,8 @@ object ValueCoder {
   final case class DecodeError(errorMessage: String)
 
   object DecodeError extends (String => DecodeError) {
-    private[lf] def apply(version: TransactionVersion, isTooOldFor: String): DecodeError =
-      DecodeError(s"transaction version ${version.pretty} is too old to support $isTooOldFor")
+    private[lf] def apply(version: SerializationVersion, isTooOldFor: String): DecodeError =
+      DecodeError(s"serialization version $version is too old to support $isTooOldFor")
   }
 
   /** Error type for signalling errors occurring during encoding values
@@ -45,8 +45,8 @@ object ValueCoder {
   final case class EncodeError(errorMessage: String)
 
   object EncodeError extends (String => EncodeError) {
-    private[lf] def apply(version: TransactionVersion, isTooOldFor: String): EncodeError =
-      EncodeError(s"transaction version ${version.pretty} is too old to support $isTooOldFor")
+    private[lf] def apply(version: SerializationVersion, isTooOldFor: String): EncodeError =
+      EncodeError(s"serialization version $version is too old to support $isTooOldFor")
   }
 
   /** Simple encoding to wire of identifiers
@@ -89,7 +89,7 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
-  def encodeValue(valueVersion: TransactionVersion, v0: Value): Either[EncodeError, ByteString] =
+  def encodeValue(valueVersion: SerializationVersion, v0: Value): Either[EncodeError, ByteString] =
     internal.encodeValue(valueVersion, v0)
 
   /** Method to read a serialized protobuf value
@@ -99,7 +99,7 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return either error or Value
     */
-  def decodeValue(version: TransactionVersion, bytes: ByteString): Either[DecodeError, Value] =
+  def decodeValue(version: SerializationVersion, bytes: ByteString): Either[DecodeError, Value] =
     internal.decodeValue(version, bytes)
 
   object internal {
@@ -152,8 +152,8 @@ object ValueCoder {
 
       } yield Identifier(pkgId, QualifiedName(module, name))
 
-    def decodeValueVersion(vs: String): Either[DecodeError, TransactionVersion] =
-      TransactionVersion.fromString(vs).left.map(DecodeError)
+    def decodeValueVersion(vs: String): Either[DecodeError, SerializationVersion] =
+      SerializationVersion.fromString(vs).left.map(DecodeError)
 
     def decodeVersionedValue(
         protoValue0: proto.VersionedValue
@@ -183,11 +183,11 @@ object ValueCoder {
           Left(DecodeError("cannot parse proto Value: " + err.getMessage))
       }
 
-    def decodeValue(version: TransactionVersion, bytes: ByteString): Either[DecodeError, Value] =
+    def decodeValue(version: SerializationVersion, bytes: ByteString): Either[DecodeError, Value] =
       parseValue(bytes).flatMap(decodeValue(version, _))
 
     private[this] def decodeValue(
-        version: TransactionVersion,
+        version: SerializationVersion,
         protoValue0: proto.Value,
     ): Either[DecodeError, Value] = {
       case class Err(msg: String) extends Throwable(null, null, true, false)
@@ -201,14 +201,14 @@ object ValueCoder {
           )
 
       @scala.annotation.nowarn("cat=unused")
-      def assertSince(minVersion: TransactionVersion, description: => String) =
+      def assertSince(minVersion: SerializationVersion, description: => String) =
         if (version < minVersion)
-          throw Err(s"$description is not supported by transaction version $version")
+          throw Err(s"$description is not supported by serialization version $version")
 
       @scala.annotation.nowarn("cat=unused")
-      def assertUntil(minVersion: TransactionVersion, description: => String) =
+      def assertUntil(minVersion: SerializationVersion, description: => String) =
         if (version >= minVersion)
-          throw Err(s"$description is not supported by transaction version $version")
+          throw Err(s"$description is not supported by serialization version $version")
 
       def go(nesting: Int, protoValue: proto.Value): Value = {
         if (nesting > MAXIMUM_NESTING) {
@@ -319,24 +319,24 @@ object ValueCoder {
       encodeVersionedValue(versionedValue.version, versionedValue.unversioned)
 
     def encodeVersionedValue(
-        version: TransactionVersion,
+        version: SerializationVersion,
         value: Value,
     ): Either[EncodeError, proto.VersionedValue] =
       for {
         bytes <- encodeValue(version, value)
       } yield {
         val builder = proto.VersionedValue.newBuilder()
-        builder.setVersion(TransactionVersion.toProtoValue(version)).setValue(bytes).build()
+        builder.setVersion(SerializationVersion.toProtoValue(version)).setValue(bytes).build()
       }
 
     def encodeValue(
-        valueVersion: TransactionVersion,
+        valueVersion: SerializationVersion,
         v0: Value,
     ): Either[EncodeError, ByteString] = {
       case class Err(msg: String) extends Throwable(null, null, true, false)
 
       @scala.annotation.nowarn("cat=unused")
-      def assertSince(minVersion: TransactionVersion, description: => String) =
+      def assertSince(minVersion: SerializationVersion, description: => String) =
         if (valueVersion < minVersion)
           throw Err(s"$description is not supported by value version $valueVersion")
 

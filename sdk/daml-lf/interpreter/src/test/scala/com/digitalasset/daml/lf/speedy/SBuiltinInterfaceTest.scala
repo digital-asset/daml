@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -149,7 +149,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     val contracts = Map[Value.ContractId, FatContractInstance](
       cid ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = TransactionVersion.StableVersions.max,
+          version = SerializationVersion.StableVersions.max,
           packageName = implemPkgName,
           template = tplId,
           arg = tplPayload,
@@ -296,7 +296,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
   val contracts = Map[Value.ContractId, FatContractInstance](
     cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = TransactionVersion.StableVersions.max,
+      version = SerializationVersion.StableVersions.max,
       packageName = implemPkgName,
       template = tplV1Id,
       arg = tplV1Payload,
@@ -414,7 +414,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = basePkg.pkgName,
                 template = tplId,
                 arg = tplPayload,
@@ -444,7 +444,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = basePkg.pkgName,
                 template = tplId,
                 arg = tplPayload,
@@ -471,7 +471,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = basePkg.pkgName,
                 template = iouId,
                 arg = iouPayload,
@@ -494,7 +494,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = extraPkg.pkgName,
                 template = extraIouId,
                 arg = iouPayload,
@@ -517,7 +517,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
-                version = TransactionVersion.StableVersions.max,
+                version = SerializationVersion.StableVersions.max,
                 packageName = extraPkg.pkgName,
                 template = extraIouId,
                 arg = iouPayload,

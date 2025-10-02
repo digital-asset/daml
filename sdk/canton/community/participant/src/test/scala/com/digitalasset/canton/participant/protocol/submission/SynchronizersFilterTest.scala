@@ -12,7 +12,7 @@ import com.digitalasset.canton.protocol.{LfLanguageVersion, LfVersionedTransacti
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
+import com.digitalasset.canton.version.{LfSerializationVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
@@ -30,7 +30,7 @@ class SynchronizersFilterTest
     val ledgerTime = CantonTimestamp.now()
 
     val filter = SynchronizersFilterForTx(
-      Transactions.Create.tx(fixtureTransactionVersion),
+      Transactions.Create.tx(fixtureSerializationVersion),
       ledgerTime,
       testedProtocolVersion,
     )
@@ -128,7 +128,7 @@ class SynchronizersFilterTest
         filter
           .split(correctTopology, Transactions.Create.correctPackages)
           .futureValueUS
-      val requiredPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
+      val requiredPV = LfSerializationVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
         .get(LfLanguageVersion.v2_dev)
         .value
       unusableSynchronizers shouldBe List(
@@ -144,7 +144,7 @@ class SynchronizersFilterTest
 
   "SynchronizersFilter (simple exercise by interface)" should {
     import SimpleTopology.*
-    val exerciseByInterface = Transactions.ExerciseByInterface(fixtureTransactionVersion)
+    val exerciseByInterface = Transactions.ExerciseByInterface(fixtureSerializationVersion)
 
     val ledgerTime = CantonTimestamp.now()
     val filter = SynchronizersFilterForTx(exerciseByInterface.tx, ledgerTime, testedProtocolVersion)

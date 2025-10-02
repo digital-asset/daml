@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.{
   ContractAuthenticationDataV1,
   ExampleContractFactory,
   LfFatContractInst,
-  LfTransactionVersion,
+  LfSerializationVersion,
   Unicum,
 }
 import com.digitalasset.canton.{DefaultDamlValues, LfValue}
@@ -345,7 +345,7 @@ object ValidateDisclosedContractsTest {
       signatories = api.signatories,
       stakeholders = api.stakeholders,
       keyOpt = Some(lf.keyWithMaintainers),
-      version = LfTransactionVersion.StableVersions.max,
+      version = LfSerializationVersion.StableVersions.max,
     )
 
     private val dupKeyCreateNode = createNode.copy(ExampleContractFactory.buildContractId())

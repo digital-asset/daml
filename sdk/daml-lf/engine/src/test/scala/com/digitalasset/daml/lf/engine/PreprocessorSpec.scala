@@ -33,7 +33,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstanceImpl,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.speedy.Compiler
@@ -534,7 +534,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
         .ValueInt64(42L),
     )
     FatContractInstanceImpl(
-      version = TransactionVersion.StableVersions.max,
+      version = SerializationVersion.StableVersions.max,
       contractId = contractId,
       packageName = pkgName,
       templateId = templateId,

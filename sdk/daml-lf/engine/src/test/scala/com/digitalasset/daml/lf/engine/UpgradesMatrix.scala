@@ -184,6 +184,8 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       languageVersion = langVersion,
     )
 
+  val serializationVersion = SerializationVersion.assign(langVersion)
+
   def encodeDalfArchive(
       pkgId: PackageId,
       pkgSrc: String,

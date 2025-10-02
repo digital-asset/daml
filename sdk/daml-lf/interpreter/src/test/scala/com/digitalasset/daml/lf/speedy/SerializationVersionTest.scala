@@ -13,7 +13,11 @@ import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  SerializationVersion,
+  SubmittedTransaction,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -23,15 +27,15 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class TransactionVersionTestV2 extends TransactionVersionTest(V2)
+class SerializationVersionTestV2 extends SerializationVersionTest(V2)
 
-class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
+class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
     with Matchers
     with Inside
     with TableDrivenPropertyChecks {
 
-  val helpers = new TransactionVersionTestHelpers(majorLanguageVersion)
+  val helpers = new SerializationVersionTestHelpers(majorLanguageVersion)
   import helpers._
 
   "interface and transaction versioning" - {
@@ -42,13 +46,13 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
         templatePkg.languageVersion,
         interfacesPkg.languageVersion,
         implementsPkg.languageVersion,
-      ) shouldBe Set(commonVersion)
+      ) shouldBe Set(commonLfVersion)
     }
 
     "template version > interface version" in {
-      val oldPkg1 = templatePkg.copy(languageVersion = oldVersion)
-      val oldPkg2 = interfacesPkg.copy(languageVersion = oldVersion)
-      val newPkg1 = implementsPkg.copy(languageVersion = newVersion)
+      val oldPkg1 = templatePkg.copy(languageVersion = oldLfVersion)
+      val oldPkg2 = interfacesPkg.copy(languageVersion = oldLfVersion)
+      val newPkg1 = implementsPkg.copy(languageVersion = newLfVersion)
       val pkgs = SpeedyTestLib.typeAndCompile(
         majorLanguageVersion,
         Map(
@@ -104,9 +108,9 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
   }
 }
 
-private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
-  val (commonVersion, oldVersion, newVersion) = majorLanguageVersion match {
+  val (commonLfVersion, oldLfVersion, newLfVersion) = majorLanguageVersion match {
     case V2 =>
       (
         LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
@@ -117,10 +121,14 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
       throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} is not supported")
   }
 
+  val commonVersion = SerializationVersion.assign(commonLfVersion)
+  val oldVersion = SerializationVersion.assign(oldLfVersion)
+  val newVersion = SerializationVersion.assign(newLfVersion)
+
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(
       Ref.PackageId.assertFromString("-pkg-"),
-      commonVersion,
+      commonLfVersion,
     )
 
   val (templatePkgId, templatePkg) =
@@ -254,7 +262,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         pkgs,
-        transactionSeed = crypto.Hash.hashPrivateKey("TransactionVersionTest"),
+        transactionSeed = crypto.Hash.hashPrivateKey("SerializationVersionTest"),
         updateSE = SEMakeClo(
           ArraySeq.empty,
           1,

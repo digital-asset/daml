@@ -14,7 +14,11 @@ import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  SerializationVersion,
+  SubmittedTransaction,
+  Transaction,
+}
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.EitherValues
 import org.scalatest.Inside._
@@ -75,7 +79,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val contracts = Map(
       cid1 ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = LanguageMajorVersion.V2.minStableVersion,
+          version = SerializationVersion.StableVersions.max,
           packageName = interfacesPkg.pkgName,
           template = idT1,
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
@@ -83,7 +87,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       cid2 ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = LanguageMajorVersion.V2.minStableVersion,
+          version = SerializationVersion.StableVersions.min,
           packageName = interfacesPkg.pkgName,
           template = idT2,
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),

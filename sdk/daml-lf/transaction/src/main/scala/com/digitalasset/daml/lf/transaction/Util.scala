@@ -16,7 +16,7 @@ object Util {
   // - `value0` contains GenMap and version < 1.11
   def normalizeValue(
       value0: Value,
-      version: TransactionVersion,
+      version: SerializationVersion,
   ): Either[String, Value] =
     try {
       Right(assertNormalizeValue(value0, version))
@@ -29,7 +29,7 @@ object Util {
   @nowarn(raw"msg=parameter version in method assertNormalizeValue is never used")
   def assertNormalizeValue(
       value0: Value,
-      version: TransactionVersion,
+      version: SerializationVersion,
   ): Value = {
 
     def handleTypeInfo[X](x: Option[X]) = None
@@ -73,7 +73,7 @@ object Util {
 
   def normalizeKey(
       key: GlobalKeyWithMaintainers,
-      version: TransactionVersion,
+      version: SerializationVersion,
   ): Either[String, GlobalKeyWithMaintainers] =
     normalizeValue(key.globalKey.key, version).map(normalized =>
       key.copy(globalKey =
@@ -83,7 +83,7 @@ object Util {
 
   def normalizeOptKey(
       key: Option[GlobalKeyWithMaintainers],
-      version: TransactionVersion,
+      version: SerializationVersion,
   ): Either[String, Option[GlobalKeyWithMaintainers]] =
     key match {
       case Some(value) => normalizeKey(value, version).map(Some(_))

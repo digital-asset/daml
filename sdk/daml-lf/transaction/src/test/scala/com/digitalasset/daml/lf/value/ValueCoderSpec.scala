@@ -6,7 +6,7 @@ package lf
 package value
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.transaction.{Versioned, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{Versioned, SerializationVersion}
 import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.{Shrink, Arbitrary}
 import org.scalatest.{Assertion, Inside}
@@ -32,7 +32,7 @@ class ValueCoderSpec
   "encode" should {
     "fail gracefully when serialized message exceeding 2GB" in {
 
-      val ver = TransactionVersion.StableVersions.max
+      val ver = SerializationVersion.StableVersions.max
 
       val value0 = ValueText("a" * (1024 * 1024 * 1024))
       val value1 = ValueList(FrontStack(value0, value0))
@@ -44,13 +44,13 @@ class ValueCoderSpec
 
   "encode-decode" should {
     "do Int" in {
-      forAll(Arbitrary.arbLong.arbitrary, transactionVersionGen())((i, v) =>
+      forAll(Arbitrary.arbLong.arbitrary, SerializationVersionGen())((i, v) =>
         testRoundTrip(ValueInt64(i), v)
       )
     }
 
     "do Bool" in {
-      forAll(Arbitrary.arbBool.arbitrary, transactionVersionGen())((b, v) =>
+      forAll(Arbitrary.arbBool.arbitrary, SerializationVersionGen())((b, v) =>
         testRoundTrip(ValueBool(b), v)
       )
     }
@@ -65,11 +65,11 @@ class ValueCoderSpec
             val Right(dec) = Numeric.fromBigDecimal(s, d)
             val value = ValueNumeric(dec)
             val recoveredNumeric = ValueCoder.decodeValue(
-              version = TransactionVersion.minVersion,
+              version = SerializationVersion.minVersion,
               bytes = assertRight(
                 ValueCoder
                   .encodeValue(
-                    valueVersion = TransactionVersion.minVersion,
+                    valueVersion = SerializationVersion.minVersion,
                     v0 = value,
                   )
               ),
@@ -85,57 +85,57 @@ class ValueCoderSpec
     }
 
     "do Text" in {
-      forAll("Text (String) invariant", transactionVersionGen())((t, v) =>
+      forAll("Text (String) invariant", SerializationVersionGen())((t, v) =>
         testRoundTrip(ValueText(t), v)
       )
     }
 
     "do Party" in {
-      forAll(party, transactionVersionGen())((p, v) => testRoundTrip(ValueParty(p), v))
+      forAll(party, SerializationVersionGen())((p, v) => testRoundTrip(ValueParty(p), v))
     }
 
     "do TimeStamp" in {
-      forAll(timestampGen, transactionVersionGen())((t, v) => testRoundTrip(ValueTimestamp(t), v))
+      forAll(timestampGen, SerializationVersionGen())((t, v) => testRoundTrip(ValueTimestamp(t), v))
     }
 
     "do Date" in {
-      forAll(dateGen, transactionVersionGen())((d, v) => testRoundTrip(ValueDate(d), v))
+      forAll(dateGen, SerializationVersionGen())((d, v) => testRoundTrip(ValueDate(d), v))
     }
 
     "do ContractId" in {
-      forAll(coidValueGen, transactionVersionGen())(testRoundTrip)
+      forAll(coidValueGen, SerializationVersionGen())(testRoundTrip)
     }
 
-    "do ContractId V0 in any ValueVersion" in forAll(coidValueGen, transactionVersionGen())(
+    "do ContractId V0 in any ValueVersion" in forAll(coidValueGen, SerializationVersionGen())(
       testRoundTrip
     )
 
     "do lists" in {
-      forAll(valueListGen, transactionVersionGen())(testRoundTrip)
+      forAll(valueListGen, SerializationVersionGen())(testRoundTrip)
     }
 
     "do optionals" in {
-      forAll(valueOptionalGen, transactionVersionGen())(testRoundTrip)
+      forAll(valueOptionalGen, SerializationVersionGen())(testRoundTrip)
     }
 
     "do textMaps" in {
-      forAll(valueTextMapGen, transactionVersionGen())(testRoundTrip)
+      forAll(valueTextMapGen, SerializationVersionGen())(testRoundTrip)
     }
 
     "do genMaps" in {
-      forAll(valueGenMapGen, transactionVersionGen())(testRoundTrip)
+      forAll(valueGenMapGen, SerializationVersionGen())(testRoundTrip)
     }
 
     "do variant" in {
-      forAll(variantGen, transactionVersionGen())(testRoundTrip)
+      forAll(variantGen, SerializationVersionGen())(testRoundTrip)
     }
 
     "do record" in {
-      forAll(recordGen, transactionVersionGen())(testRoundTrip)
+      forAll(recordGen, SerializationVersionGen())(testRoundTrip)
     }
 
     "do unit" in {
-      forAll(transactionVersionGen())(testRoundTrip(ValueUnit, _))
+      forAll(SerializationVersionGen())(testRoundTrip(ValueUnit, _))
     }
 
     "do identifier" in {
@@ -144,7 +144,7 @@ class ValueCoderSpec
       }
     }
 
-    "do identifier with supported override version" in forAll(idGen, transactionVersionGen()) {
+    "do identifier with supported override version" in forAll(idGen, SerializationVersionGen()) {
       (i, _) =>
         val ei = ValueCoder.encodeIdentifier(i)
         ValueCoder.decodeIdentifier(ei) shouldEqual Right(i)
@@ -170,23 +170,23 @@ class ValueCoderSpec
       // We double check that 100 is the maximum
       ValueCoder
         .encodeValue(
-          valueVersion = TransactionVersion.maxVersion,
+          valueVersion = SerializationVersion.maxVersion,
           v0 = toNat(1, n), // 101
         ) shouldBe a[Left[_, _]]
 
       val encoded = assertRight(
         ValueCoder
-          .encodeValue(valueVersion = TransactionVersion.maxVersion, v0 = n)
+          .encodeValue(valueVersion = SerializationVersion.maxVersion, v0 = n)
       )
 
       ValueCoder.decodeValue(
-        version = TransactionVersion.maxVersion,
+        version = SerializationVersion.maxVersion,
         bytes = encoded,
       ) shouldBe Right(n)
     }
   }
 
-  def testRoundTrip(value0: Value, version: TransactionVersion): Assertion = {
+  def testRoundTrip(value0: Value, version: SerializationVersion): Assertion = {
     val normalizedValue = transaction.Util.assertNormalizeValue(value0, version)
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
