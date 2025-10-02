@@ -13,6 +13,8 @@ message ArchivePayload {
   // this is number 3 for historical reasons -- we had
   // Daml-LF v0 and v1 before we had minor versions.
   string minor = 3;
+  int32 patch = 5;
+
   reserved 9999; // for the removed "dev" major version
   reserved 1; // was daml_lf_0
 

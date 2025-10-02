@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.archive
 
 import com.daml.SafeProto
+
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
@@ -1485,7 +1486,7 @@ class DecodeV2Spec
 
   "decodeModuleRef" should {
 
-    lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion)) =
+    lazy val Right(ArchivePayload.Lf2(pkgId, pkgProto, minorVersion, _)) =
       ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
@@ -1520,7 +1521,7 @@ class DecodeV2Spec
 
     "decode resolving the interned package ID" in {
       val decoder = new DecodeV2(minorVersion)
-      inside(decoder.decodePackage(pkgId, pkgProto, false)) { case Right(pkg) =>
+      inside(decoder.decodePackage(pkgId, pkgProto, false, 0)) { case Right(pkg) =>
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
@@ -1641,7 +1642,7 @@ class DecodeV2Spec
         val pkgId = Ref.PackageId.assertFromString(
           "0000000000000000000000000000000000000000000000000000000000000000"
         )
-        inside(decoder.decodePackage(pkgId, DamlLf2.Package.newBuilder().build(), false)) {
+        inside(decoder.decodePackage(pkgId, DamlLf2.Package.newBuilder().build(), false, 0)) {
           case Left(err) => err shouldBe an[Error.Parsing]
         }
       }
@@ -1664,7 +1665,7 @@ class DecodeV2Spec
           .addInternedStrings("0.0.0")
           .setMetadata(metadata)
           .build()
-        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
+        inside(decoder.decodePackage(pkgId, pkg, false, 0)) { case Right(pkg) =>
           pkg.metadata shouldBe
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),
@@ -1794,6 +1795,25 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ < LV.Features.flatArchive) { _ =>
         // explanation for "magic" number: see above
         Decode.decodeArchive(exprToArch(buildLet(498), "1")) shouldBe a[Right[_, _]]
+      }
+    }
+
+    "fail for unknown patch versions" in {
+      val pkgId = Ref.PackageId.assertFromString("-pkgId-")
+
+      forEveryVersion { version =>
+        inside(
+          Decode.decodeArchivePayload(
+            ArchivePayload.Lf2(
+              pkgId = pkgId,
+              proto = DamlLf2.Package.getDefaultInstance,
+              minor = version.minor,
+              patch = 1,
+            )
+          )
+        ) { case Left(err) =>
+          err.msg should include(s"Unknown patch version 1 for LF $version")
+        }
       }
     }
   }

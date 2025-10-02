@@ -124,7 +124,7 @@ class DamlLfEncoderTest
     for {
       payload <- dar.all
       name <- payload match {
-        case ArchivePayload.Lf2(_, pkg, _) => getNonEmptyModules(pkg)
+        case ArchivePayload.Lf2(_, pkg, _, _) => getNonEmptyModules(pkg)
         case _ => throw new RuntimeException(s"Unsupported language version: ${payload.version}")
       }
     } yield name

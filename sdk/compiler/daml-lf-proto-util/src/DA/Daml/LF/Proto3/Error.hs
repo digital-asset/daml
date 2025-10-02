@@ -26,6 +26,7 @@ data Error
   | DuplicateRequires (Qualified TypeConName)
   | DuplicateImplements (Qualified TypeConName)
   | UnsupportedMinorVersion T.Text
+  | UnsupportedPatchVersion MinorVersion Int32
   | BadStringId Int32
   | BadDottedNameId Int32
   | BadExprId Int32
