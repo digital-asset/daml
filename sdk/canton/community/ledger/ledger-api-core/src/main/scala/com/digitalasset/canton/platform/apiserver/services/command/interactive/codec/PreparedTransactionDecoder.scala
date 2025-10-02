@@ -41,6 +41,7 @@ import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   NodeId,
+  SerializationVersion,
   TransactionCoder,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -110,13 +111,8 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
    * Straightforward decoders for simple proto values
    */
   private implicit val languageVersionTransformer
-      : PartialTransformer[String, lf.language.LanguageVersion] =
-    PartialTransformer {
-      case "dev" =>
-        Result.fromValue(lf.language.LanguageVersion.v2_dev)
-      case src =>
-        lf.language.LanguageVersion.fromString(src).toResult
-    }
+      : PartialTransformer[String, SerializationVersion] =
+    PartialTransformer(SerializationVersion.fromString(_).toResult)
 
   private implicit val contractIdTransformer
       : PartialTransformer[String, lf.value.Value.ContractId] =
@@ -210,7 +206,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .traverse(_.transformIntoPartial[lf.value.Value])
           .flatMap(_.toRight("Missing argument value").toResult),
       )
-      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
+      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[SerializationVersion])
       // Fields not supported in V1
       .withFieldConst(_.keyOpt, None)
       .buildTransformer
@@ -220,7 +216,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     ): PartialTransformer[isdv1.Fetch, lf.transaction.Node.Fetch] = Transformer
       .definePartial[isdv1.Fetch, lf.transaction.Node.Fetch]
       .withFieldRenamed(_.contractId, _.coid)
-      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
+      .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[SerializationVersion])
       // Not supported in V1
       .withFieldConst(_.keyOpt, None)
       .withFieldConst(_.byKey, false)
@@ -236,7 +232,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           _.choiceObservers,
           _.choiceObservers.traverse(_.transformIntoPartial[lf.data.Ref.Party]).map(_.toSet),
         )
-        .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
+        .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[SerializationVersion])
         // Fields not supported in V1
         .withFieldConst(_.keyOpt, None)
         .withFieldConst(_.byKey, false)
@@ -288,7 +284,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   ): PartialTransformer[iss.DamlTransaction, lf.transaction.VersionedTransaction] =
     PartialTransformer { src =>
       def lfVersionedConstructor(
-          version: LanguageVersion,
+          version: SerializationVersion,
           nodes: Map[LfNodeId, LfNode],
           roots: ImmArray[LfNodeId],
       ): lf.transaction.VersionedTransaction = lf.transaction.VersionedTransaction(

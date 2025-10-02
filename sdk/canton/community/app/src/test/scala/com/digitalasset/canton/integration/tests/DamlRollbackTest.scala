@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
-  CreateTransactionVersion,
+  CreateSerializationVersion,
 }
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.value.Value as LfValue
@@ -98,7 +98,7 @@ trait DamlRollbackTest
   protected def txBuilderContextFrom[A](tx: LfVersionedTransaction)(code: TbContext => A): A =
     code(
       TbContext(
-        txVersion = CreateTransactionVersion.Version(tx.version),
+        txVersion = CreateSerializationVersion.Version(tx.version),
         contractIds = contractIdsInPreorder(tx),
       )
     )
@@ -163,7 +163,7 @@ trait DamlRollbackTest
 }
 
 object DamlRollbackTest {
-  final case class TbContext(txVersion: CreateTransactionVersion, contractIds: Seq[LfContractId])
+  final case class TbContext(txVersion: CreateSerializationVersion, contractIds: Seq[LfContractId])
 }
 
 trait DamlRollbackTestStableLf extends DamlRollbackTest {

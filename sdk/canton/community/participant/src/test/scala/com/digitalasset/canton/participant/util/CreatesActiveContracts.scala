@@ -46,7 +46,7 @@ private[participant] trait CreatesActiveContracts {
       signatories = Set(signatory.toLf),
       stakeholders = Set(signatory.toLf),
       keyOpt = None,
-      version = LfTransactionVersion.minVersion,
+      version = LfSerializationVersion.minVersion,
     )
 
     val contractId = valueOrFail(

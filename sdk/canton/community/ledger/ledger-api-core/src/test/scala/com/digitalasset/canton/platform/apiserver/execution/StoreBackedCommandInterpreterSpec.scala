@@ -99,7 +99,7 @@ class StoreBackedCommandInterpreterSpec
           packageName,
         )
       ),
-      version = LfTransactionVersion.StableVersions.max,
+      version = LfSerializationVersion.StableVersions.max,
     )
   private val disclosedCreateNode = mkCreateNode()
   private val disclosedContractCreateTime = Time.Timestamp.now()

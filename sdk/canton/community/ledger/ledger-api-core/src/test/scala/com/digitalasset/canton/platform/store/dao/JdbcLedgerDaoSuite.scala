@@ -234,7 +234,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
-      transactionVersion: LanguageVersion = LanguageVersion.v2_1,
+      SerializationVersion: LanguageVersion = LanguageVersion.v2_1,
   ): Node.Create =
     Node.Create(
       coid = absCid,
@@ -244,7 +244,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,
-      version = transactionVersion,
+      version = SerializationVersion,
     )
 
   protected final def exerciseNode(
