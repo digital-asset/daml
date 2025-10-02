@@ -15,6 +15,7 @@ COMPONENT_VERSION=0.0.0
 RELEASE_VERSION=0.0.0
 TO_BUILD=()
 NUKE=0
+SKIP_JARS=0
 REFRESH_EXTERNAL=0
 PROFILING=0
 REMOVE_NON_HEAD=0
@@ -57,6 +58,9 @@ for opt in "$@"; do
     --nuke)
       NUKE=1
       ;;
+    --skip-jars)
+      SKIP_JARS=1
+      ;;
     --refresh-external)
       REFRESH_EXTERNAL=1
       ;;
@@ -80,6 +84,7 @@ for opt in "$@"; do
       echo "  --release-version=<version> Set the release version (sdk-version in daml.yaml) to contain built components, default 0.0.0"
       echo "  --profiling Build Haskell executables with profiling enabled"
       echo "  --nuke Remove DPM from your system entirely (does not build anything)"
+      echo "  --skip-jars  Skip building and installing the JARs."
       echo "  --refresh-external Remove DPM and reinstall from latest public before building components"
       echo "  --remove-non-head After installing head, remove all other installed versions (assemblies only, components remain, this will not save disk space)"
       echo "  --verbose Print bazel build logs as they build live"
@@ -262,6 +267,26 @@ if [[ $REMOVE_NON_HEAD -ne 0 ]]; then
   # Deleting sdk/* rather than sdk with a depth of 2, to avoid accidentally deleting sdk/.lock
   find "$DPM_HOME"/cache/sdk/* ! -name "$RELEASE_VERSION.yaml" -type f -exec rm -f {} +
   echo "$(tput setaf 1)Removed all versions other than $RELEASE_VERSION$(tput sgr 0)"
+fi
+
+if [[ $SKIP_JARS -eq 0 ]]; then
+    echo "$(tput setaf 3)Installing JARs as $COMPONENT_VERSION...$(tput sgr 0)"
+    tmp="$(mktemp -d)"
+    
+    function cleanup() {
+      echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
+      rm -rf $tmp
+    }
+    trap cleanup EXIT
+
+    bazel build ${BAZEL_MODE_FLAGS[@]:-} //release:release
+    RELEASE_ARGS=(--release-dir "$tmp" --install-head-jars --no-ts --no-docs)
+
+    DAML_SDK_RELEASE_VERSION=$COMPONENT_VERSION "${REPO_ROOT}/bazel-bin/release/release" ${RELEASE_ARGS[@]}
+    rm -rf $tmp
+    trap - EXIT
+
+    echo "$(tput setaf 3)Done installing JARs as $COMPONENT_VERSION.$(tput sgr 0)"
 fi
 
 echo "$(tput setaf 2)Installed $RELEASE_VERSION to dpm.$(tput sgr 0)"
