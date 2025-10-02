@@ -28,6 +28,9 @@ steps:
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
     condition: and(succeeded(),
+    env:
+      # Performance optimizations
+      BAZEL_BUILD_OPTS: "--jobs=auto --local_cpu_resources=HOST_CPUS-1"
                    eq(variables.skip, 'false'),
                    or(eq(${{parameters.is_release}}, 'false'),
                       ne(${{parameters.name_exp}}, 'm1')))

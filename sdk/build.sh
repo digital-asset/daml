@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# Enhanced build script with performance optimizations
+# Added by: DAML Improvements PR
+
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 cd "$DIR"

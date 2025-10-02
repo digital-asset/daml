@@ -11,6 +11,11 @@ build --incompatible_remote_results_ignore_disk=true
 # Enable the disk cache in addition to the http cache.
 build:linux --disk_cache=.bazel-cache/disk
 build:darwin --disk_cache=.bazel-cache/disk
+
+# Performance optimizations
+build --jobs=auto
+build --local_cpu_resources=HOST_CPUS-1
+build --local_ram_resources=HOST_RAM*0.8
 # `--repository_cache` must be repeated for all relevant actions.
 # TODO: use `common` starting from Bazel 2.2.0
 # See https://github.com/bazelbuild/bazel/issues/11232
