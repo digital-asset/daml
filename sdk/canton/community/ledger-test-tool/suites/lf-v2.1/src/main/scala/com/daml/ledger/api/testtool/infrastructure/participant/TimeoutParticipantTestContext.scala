@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesRequest,
   UpdateVettedPackagesResponse,
   UploadDarFileRequest,
+  ValidateDarFileRequest,
 }
 import com.daml.ledger.api.v2.admin.participant_pruning_service.PruneResponse
 import com.daml.ledger.api.v2.admin.party_management_service.*
@@ -106,6 +107,10 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   override def listKnownPackages(): Future[Seq[PackageDetails]] = withTimeout(
     "List known packages",
     delegate.listKnownPackages(),
+  )
+  override def validateDarFile(request: ValidateDarFileRequest): Future[Unit] = withTimeout(
+    s"Validate dar file ${request.submissionId}",
+    delegate.validateDarFile(request),
   )
   override def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
     delegate.uploadDarRequest(bytes)

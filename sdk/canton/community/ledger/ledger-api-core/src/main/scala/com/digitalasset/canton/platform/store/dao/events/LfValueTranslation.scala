@@ -19,9 +19,10 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  RawArchivedEvent,
-  RawCreatedEvent,
-  RawExercisedEvent,
+  Entry,
+  RawArchivedEventLegacy,
+  RawCreatedEventLegacy,
+  RawExercisedEventLegacy,
 }
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation.ApiContractData
@@ -233,13 +234,14 @@ final class LfValueTranslation(
       )
     )
 
-  def deserializeRaw(
+  def deserializeRawExercised(
       eventProjectionProperties: EventProjectionProperties,
-      rawExercisedEvent: RawExercisedEvent,
+      rawExercisedEventEntry: Entry[RawExercisedEventLegacy],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
-  ): Future[ExercisedEvent] =
+  ): Future[ExercisedEvent] = {
+    val rawExercisedEvent = rawExercisedEventEntry.event
     for {
       // Deserialize contract argument and contract key
       // This returns the values in Daml-LF format.
@@ -295,8 +297,8 @@ final class LfValueTranslation(
         case None => Future.successful(None)
       }
     } yield ExercisedEvent(
-      offset = rawExercisedEvent.offset,
-      nodeId = rawExercisedEvent.nodeId,
+      offset = rawExercisedEventEntry.offset,
+      nodeId = rawExercisedEventEntry.nodeId,
       contractId = rawExercisedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId.toIdentifier)
@@ -322,14 +324,16 @@ final class LfValueTranslation(
         else Nil,
       acsDelta = rawExercisedEvent.flatEventWitnesses.nonEmpty,
     )
+  }
 
-  def deserializeRaw(
+  def deserializeRawArchived(
       eventProjectionProperties: EventProjectionProperties,
-      rawArchivedEvent: RawArchivedEvent,
-  ): ArchivedEvent =
+      rawArchivedEventEntry: Entry[RawArchivedEventLegacy],
+  ): ArchivedEvent = {
+    val rawArchivedEvent = rawArchivedEventEntry.event
     ArchivedEvent(
-      offset = rawArchivedEvent.offset,
-      nodeId = rawArchivedEvent.nodeId,
+      offset = rawArchivedEventEntry.offset,
+      nodeId = rawArchivedEventEntry.nodeId,
       contractId = rawArchivedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId.toIdentifier)
@@ -342,10 +346,13 @@ final class LfValueTranslation(
         rawArchivedEvent.templateId,
       ),
     )
+  }
 
-  def deserializeRaw(
+  def deserializeRawCreated(
       eventProjectionProperties: EventProjectionProperties,
-      rawCreatedEvent: RawCreatedEvent,
+      rawCreatedEvent: RawCreatedEventLegacy,
+      offset: Long,
+      nodeId: Int,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
@@ -416,8 +423,8 @@ final class LfValueTranslation(
         fatContractInstance = getFatContractInstance(createArgument, createKey),
       )
     } yield CreatedEvent(
-      offset = rawCreatedEvent.offset,
-      nodeId = rawCreatedEvent.nodeId,
+      offset = offset,
+      nodeId = nodeId,
       contractId = rawCreatedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId.toIdentifier)

@@ -42,7 +42,7 @@ import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   TestingTimeServiceConfig,
 }
-import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
+import com.digitalasset.canton.participant.store.{ContractStore, ParticipantNodePersistentState}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.{
   LedgerApiServerBootstrapUtils,
@@ -94,7 +94,7 @@ import scala.concurrent.Future
 
 class LedgerApiServer(
     serverConfig: LedgerApiServerConfig,
-    jsonApiConfig: Option[JsonApiConfig],
+    jsonApiConfig: JsonApiConfig,
     participantId: LedgerParticipantId,
     adminParty: Party,
     adminTokenConfig: AdminTokenConfig,
@@ -103,6 +103,7 @@ class LedgerApiServer(
     cantonParameterConfig: ParticipantNodeParameters,
     testingTimeService: Option[TimeServiceBackend],
     adminTokenDispenser: CantonAdminTokenDispenser,
+    cantonContractStore: ContractStore,
     enableCommandInspection: Boolean,
     tracerProvider: TracerProvider,
     grpcApiMetrics: LedgerApiServerMetrics,
@@ -256,6 +257,7 @@ class LedgerApiServer(
             )(
               loggingContext
             ),
+        cantonContractStore = cantonContractStore,
       )
       _ = timedSyncService.registerInternalIndexService(new InternalIndexService {
         override def activeContracts(
@@ -497,34 +499,34 @@ class LedgerApiServer(
       authInterceptor: AuthInterceptor,
       packagePreferenceBackend: PackagePreferenceBackend,
   ): ResourceOwner[Unit] =
-    jsonApiConfig
-      .fold(ResourceOwner.unit) { jsonApiConfig =>
-        for {
-          channel <- ResourceOwner
-            .forReleasable(() =>
-              InProcessChannelBuilder
-                .forName(InProcessGrpcName.forPort(serverConfig.clientConfig.port))
-                .executor(executionContext.execute(_))
-                .build()
-            )(channel =>
-              Future(
-                new FastCloseableChannel(channel, logger, "JSON-API").close()
-              )
+    if (!jsonApiConfig.enabled)
+      ResourceOwner.unit
+    else
+      for {
+        channel <- ResourceOwner
+          .forReleasable(() =>
+            InProcessChannelBuilder
+              .forName(InProcessGrpcName.forPort(serverConfig.clientConfig.port))
+              .executor(executionContext.execute(_))
+              .build()
+          )(channel =>
+            Future(
+              new FastCloseableChannel(channel, logger, "JSON-API").close()
             )
-            .afterReleased(noTracingLogger.info("JSON-API gRPC channel is released"))
-          _ <- HttpApiServer(
-            jsonApiConfig,
-            serverConfig.tls,
-            channel,
-            packageSyncService,
-            loggerFactory,
-            authInterceptor,
-            packagePreferenceBackend = packagePreferenceBackend,
-          )(
-            jsonApiMetrics
-          ).afterReleased(noTracingLogger.info("JSON-API HTTP Server is released"))
-        } yield ()
-      }
+          )
+          .afterReleased(noTracingLogger.info("JSON-API gRPC channel is released"))
+        _ <- HttpApiServer(
+          jsonApiConfig,
+          serverConfig.tls,
+          channel,
+          packageSyncService,
+          loggerFactory,
+          authInterceptor,
+          packagePreferenceBackend = packagePreferenceBackend,
+        )(
+          jsonApiMetrics
+        ).afterReleased(noTracingLogger.info("JSON-API HTTP Server is released"))
+      } yield ()
 }
 
 object LedgerApiServer {
@@ -578,6 +580,7 @@ object LedgerApiServer {
       cantonParameterConfig = parameters,
       testingTimeService = ledgerTestingTimeService,
       adminTokenDispenser = adminTokenDispenser,
+      cantonContractStore = participantNodePersistentState.map(_.contractStore).value,
       enableCommandInspection = config.ledgerApi.enableCommandInspection,
       tracerProvider = tracerProvider,
       grpcApiMetrics = metrics,

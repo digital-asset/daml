@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReass
 import com.digitalasset.canton.participant.store.memory.PackageMetadataView
 import com.digitalasset.canton.participant.store.{AcsInspection, ReassignmentStore}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError.*
 import com.digitalasset.canton.topology.transaction.HostingParticipant
@@ -38,6 +38,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
       currentlyVettedPackages: Set[LfPackageId],
       nextPackageIds: Set[LfPackageId],
       packageMetadataView: PackageMetadataView,
+      dryRunSnapshot: Option[PackageMetadata],
       acsInspections: () => Map[SynchronizerId, AcsInspection],
       forceFlags: ForceFlags,
       disableUpgradeValidation: Boolean,
@@ -47,7 +48,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
     val toBeAdded = nextPackageIds -- currentlyVettedPackages
     val toBeDeleted = currentlyVettedPackages -- nextPackageIds
-    val packageMetadataSnapshot = packageMetadataView.getSnapshot
+    val packageMetadataSnapshot = dryRunSnapshot.getOrElse(packageMetadataView.getSnapshot)
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         checkPackageDependencies(

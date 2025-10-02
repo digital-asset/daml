@@ -31,6 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
+import com.digitalasset.canton.util.LegacyContractHash
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfVersioned,
@@ -826,13 +827,22 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               stakeholders = Set(alice.toLf),
               key = Some(keyWithMaintainers.unversioned),
             )
+            val contractHash = LegacyContractHash.tryCreateNodeHash(
+              unsuffixedCreateNode,
+              contractIdSuffixer.hashingMethod,
+            )
             val ContractIdSuffixer.RelativeSuffixResult(
               suffixedCreateNode,
               _,
               _,
               authenticationData,
             ) = contractIdSuffixer
-              .relativeSuffixForLocalContract(contractSalt, creationTime, unsuffixedCreateNode)
+              .relativeSuffixForLocalContract(
+                contractSalt,
+                creationTime,
+                unsuffixedCreateNode,
+                contractHash,
+              )
               .valueOr(err => fail(s"Failed to generate contract suffix: $err"))
 
             val suffixedContractInstance = LfFatContractInst.fromCreateNode(

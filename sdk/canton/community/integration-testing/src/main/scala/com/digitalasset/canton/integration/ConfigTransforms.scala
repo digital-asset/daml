@@ -253,8 +253,8 @@ object ConfigTransforms {
         .replace(nextPort.some)
         .focus(_.adminApi.internalPort)
         .replace(nextPort.some)
-        .focus(_.httpLedgerApi)
-        .modify(_.map(_.focus(_.server.internalPort).replace(nextPort.some)))
+        .focus(_.httpLedgerApi.server.internalPort)
+        .replace(nextPort.some)
         .focus(_.monitoring.grpcHealthServer)
         .modify(_.map(_.copy(internalPort = nextPort.some)))
     )
@@ -864,14 +864,6 @@ object ConfigTransforms {
   def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
     _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 
-  def zeroReassignmentTimeProofFreshnessProportion: ConfigTransform =
-    ConfigTransforms.updateAllParticipantConfigs_(
-      // Always send time proofs for reassignments to avoid using outdated topology snapshots.
-      // We don't want to change the default to avoid potential time proof flooding in production.
-      _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-        .replace(NonNegativeInt.zero)
-    )
-
   def disableConnectionPool: ConfigTransform = setConnectionPool(false)
 
   /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.
@@ -887,7 +879,7 @@ object ConfigTransforms {
 
   /** Must be applied before the default config transformers */
   def enableHttpLedgerApi: ConfigTransform = updateAllParticipantConfigs_(
-    _.copy(httpLedgerApi = Some(JsonApiConfig(server = HttpServerConfig())))
+    _.copy(httpLedgerApi = JsonApiConfig(server = HttpServerConfig()))
   )
 
   /** Must be applied before the default config transformers */
@@ -898,13 +890,11 @@ object ConfigTransforms {
   ): ConfigTransform =
     updateParticipantConfig(participantName)(config =>
       config.copy(httpLedgerApi =
-        Some(
-          JsonApiConfig(
-            server = HttpServerConfig(
-              pathPrefix = pathPrefix
-            ),
-            websocketConfig = websocketConfig,
-          )
+        JsonApiConfig(
+          server = HttpServerConfig(
+            pathPrefix = pathPrefix
+          ),
+          websocketConfig = websocketConfig,
         )
       )
     )

@@ -300,6 +300,7 @@ class SequencerWriterSourceTest
         )(
           for {
             registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
+            _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch)
             deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
               registeredAlice.memberId,
               messageId1,
@@ -346,6 +347,7 @@ class SequencerWriterSourceTest
         )(
           for {
             registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
+            _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch)
             deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
               registeredAlice.memberId,
               messageId1,
@@ -400,6 +402,7 @@ class SequencerWriterSourceTest
 
       for {
         registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch)
+        _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch)
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
           registeredAlice.memberId,
           messageId1,
@@ -458,6 +461,7 @@ class SequencerWriterSourceTest
 
       for {
         registeredAlice <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
+        _ <- store.registerMember(sequencerMember, CantonTimestamp.Epoch).failOnShutdown
         deliver1 = DeliverStoreEvent.ensureSenderReceivesEvent(
           registeredAlice.memberId,
           messageId1,

@@ -65,6 +65,7 @@ import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.topology.*
@@ -256,6 +257,7 @@ class ParticipantNodeBootstrap(
       override def validatePackageVetting(
           currentlyVettedPackages: Set[LfPackageId],
           nextPackageIds: Set[LfPackageId],
+          dryRunSnapshot: Option[PackageMetadata],
           forceFlags: ForceFlags,
       )(implicit
           traceContext: TraceContext
@@ -264,6 +266,7 @@ class ParticipantNodeBootstrap(
           currentlyVettedPackages,
           nextPackageIds,
           packageMetadataView,
+          dryRunSnapshot,
           acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
           disableUpgradeValidation = parameters.disableUpgradeValidation,
@@ -1041,7 +1044,7 @@ class ParticipantNode(
 
   override def status: ParticipantStatus = {
     val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port) ++
-      config.httpLedgerApi.map(conf => "json" -> conf.server.port)
+      Option.when(config.httpLedgerApi.enabled)("json" -> config.httpLedgerApi.server.port)
     val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 

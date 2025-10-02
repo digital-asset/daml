@@ -45,7 +45,7 @@ import com.digitalasset.canton.participant.store.memory.{
 }
 import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
@@ -249,11 +249,12 @@ class PackageService(
   ] = {
     val snapshot = getPackageMetadataView.getSnapshot
     val targetStates = opts.toTargetStates
+    val dryRunSnapshot = Option.when(opts.dryRun)(snapshot)
     for {
       resolvedTargetStates <- targetStates.parTraverse(resolveTargetVettingReferences(_, snapshot))
       preAndPost <- packageOps
         // TODO(#27750): all requests are of the authorized store instead of a synchronizer
-        .updateVettedPackages(resolvedTargetStates.flatten, opts.dryRun)
+        .updateVettedPackages(resolvedTargetStates.flatten, dryRunSnapshot)
         .leftWiden[RpcError]
     } yield {
       val (pre, post) = preAndPost
@@ -555,8 +556,26 @@ class PackageService(
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
-    packageUploader.validateDar(payload, darName)
+  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] = {
+    import cats.implicits.catsSyntaxSemigroup
+    import PackageMetadata.Implicits.packageMetadataSemigroup
+    for {
+      darPkgs <- packageUploader.validateDar(payload, darName)
+      (mainPackageId, allPackages) = darPkgs
+      targetVettingState = allPackages.map { case (packageId, _) =>
+        SinglePackageTargetVetting(packageId, bounds = Some((None, None)))
+      }
+      dryRunSnapshot =
+        allPackages
+          .map { case (packageId, packageAst) => PackageMetadata.from(packageId, packageAst) }
+          .foldLeft(getPackageMetadataView.getSnapshot)(_ |+| _)
+
+      // TODO(#27750): all requests are of the authorized store instead of a synchronizer
+      _ <- packageOps
+        .updateVettedPackages(targetVettingState, Some(dryRunSnapshot))
+        .leftWiden[RpcError]
+    } yield DarMainPackageId.tryCreate(mainPackageId)
+  }
 
   override def getDar(mainPackageId: DarMainPackageId)(implicit
       traceContext: TraceContext

@@ -10,7 +10,6 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
-import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.util.EntitySyntax
@@ -33,8 +32,7 @@ sealed trait RollbackUnassignmentIntegrationTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
-        ConfigTransforms.enableAdvancedCommands(FeatureFlag.Repair),
-        zeroReassignmentTimeProofFreshnessProportion,
+        ConfigTransforms.enableAdvancedCommands(FeatureFlag.Repair)
       )
       .withSetup { implicit env =>
         import env.*

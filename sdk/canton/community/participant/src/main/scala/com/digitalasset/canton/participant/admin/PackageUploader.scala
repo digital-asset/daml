@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.admin.PackageService.{
 }
 import com.digitalasset.canton.participant.store.memory.MutablePackageMetadataView
 import com.digitalasset.canton.participant.store.{DamlPackageStore, PackageInfo}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
@@ -51,7 +51,7 @@ class PackageUploader(
       darName: String,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
+  ): EitherT[FutureUnlessShutdown, RpcError, (LfPackageId, List[(LfPackageId, Ast.Package)])] =
     synchronizeWithClosing("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
@@ -63,7 +63,7 @@ class PackageUploader(
         )
         lfDar = LfDar(mainPackage, dependencies)
         _ <- validateLfDarPackages(lfDar)
-      } yield DarMainPackageId.tryCreate(mainPackage._1)
+      } yield (mainPackage._1, mainPackage +: dependencies)
     }
 
   /** Uploads dar into dar store

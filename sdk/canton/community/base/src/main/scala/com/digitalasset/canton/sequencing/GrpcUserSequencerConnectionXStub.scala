@@ -4,10 +4,11 @@
 package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
-import cats.implicits.catsSyntaxEither
+import cats.implicits.{catsSyntaxEither, toTraverseOps}
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
@@ -116,7 +117,7 @@ class GrpcUserSequencerConnectionXStub(
   override def getTrafficStateForMember(
       request: GetTrafficStateForMemberRequest,
       timeout: Duration,
-      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      retryPolicy: GrpcError => Boolean,
       logPolicy: CantonGrpcUtil.GrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
@@ -143,6 +144,36 @@ class GrpcUserSequencerConnectionXStub(
       )
     )
   } yield response
+
+  override def getTime(
+      timeout: Duration,
+      retryPolicy: GrpcError => Boolean,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Option[CantonTimestamp]] =
+    for {
+      response <- connection
+        .sendRequest(
+          requestDescription = s"get-time",
+          stubFactory = sequencerSvcFactory,
+          retryPolicy = retryPolicy,
+          logPolicy = logPolicy,
+          timeout = timeout,
+        )(_.getTime(com.digitalasset.canton.sequencer.api.v30.GetTimeRequest()))
+        .leftMap[SequencerConnectionXStubError](
+          SequencerConnectionXStubError.ConnectionError.apply
+        )
+      timestampO <- EitherT.fromEither[FutureUnlessShutdown](
+        response.sequencingTimestamp
+          .traverse(CantonTimestamp.fromProtoPrimitive)
+          .leftMap(err =>
+            SequencerConnectionXStubError.DeserializationError(
+              err.message
+            ): SequencerConnectionXStubError
+          )
+      )
+    } yield timestampO
 
   override def downloadTopologyStateForInit(
       request: TopologyStateForInitRequest,

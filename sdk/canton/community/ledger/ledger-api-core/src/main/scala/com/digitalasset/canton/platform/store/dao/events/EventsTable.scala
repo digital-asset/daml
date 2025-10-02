@@ -79,7 +79,16 @@ object EventsTable {
       ApiTransaction(
         updateId = first.updateId,
         commandId = first.commandId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
+        effectiveAt = Some(
+          first.event.event.created
+            .flatMap(_.createdAt)
+            .orElse(first.ledgerEffectiveTime.map(TimestampConversion.fromLf))
+            .getOrElse(
+              throw new IllegalStateException(
+                "Either newly created contracts or the Entry for exercises should provide the ledgerEffectiveTime."
+              )
+            )
+        ),
         workflowId = first.workflowId.getOrElse(""),
         offset = first.offset,
         events = events,

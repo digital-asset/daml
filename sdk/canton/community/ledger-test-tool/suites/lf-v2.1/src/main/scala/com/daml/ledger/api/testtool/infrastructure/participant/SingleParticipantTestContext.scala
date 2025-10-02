@@ -30,6 +30,7 @@ import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesRequest,
   UpdateVettedPackagesResponse,
   UploadDarFileRequest,
+  ValidateDarFileRequest,
 }
 import com.daml.ledger.api.v2.admin.participant_pruning_service.{PruneRequest, PruneResponse}
 import com.daml.ledger.api.v2.admin.party_management_service.*
@@ -209,6 +210,9 @@ final class SingleParticipantTestContext private[participant] (
     services.packageManagement
       .listKnownPackages(new ListKnownPackagesRequest)
       .map(_.packageDetails)
+
+  override def validateDarFile(request: ValidateDarFileRequest): Future[Unit] =
+    services.packageManagement.validateDarFile(request).map(_ => ())
 
   override def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
     new UploadDarFileRequest(

@@ -210,7 +210,6 @@ trait ConnectionPoolTestHelpers {
     val subscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
       sequencerSubscriptionFactory = new TestSequencerSubscriptionXFactory(timeouts, loggerFactory),
       subscriptionHandlerFactory = TestSubscriptionHandlerXFactory,
-      clock = wallClock,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )

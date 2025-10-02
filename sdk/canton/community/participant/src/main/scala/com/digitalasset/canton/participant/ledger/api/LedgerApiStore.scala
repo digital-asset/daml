@@ -211,8 +211,8 @@ class LedgerApiStore(
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[Set[LfContractId]] =
-    executeSqlUS(metrics.index.db.archivals)(
-      eventStorageBackend.archivals(fromExclusive, toInclusive)
+    executeSqlUS(metrics.index.db.archivalsLegacy)(
+      eventStorageBackend.archivalsLegacy(fromExclusive, toInclusive)
     )
 
   private[api] def initializeInMemoryState(implicit

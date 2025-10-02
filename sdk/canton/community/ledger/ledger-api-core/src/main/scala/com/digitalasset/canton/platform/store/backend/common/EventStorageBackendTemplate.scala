@@ -19,14 +19,14 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawActiveContract,
-  RawArchivedEvent,
-  RawAssignEvent,
-  RawCreatedEvent,
-  RawExercisedEvent,
-  RawFlatEvent,
-  RawTreeEvent,
-  RawUnassignEvent,
+  RawAcsDeltaEventLegacy,
+  RawActiveContractLegacy,
+  RawArchivedEventLegacy,
+  RawAssignEventLegacy,
+  RawCreatedEventLegacy,
+  RawExercisedEventLegacy,
+  RawLedgerEffectsEventLegacy,
+  RawUnassignEventLegacy,
   SequentialIdBatch,
   SynchronizerOffset,
   UnassignProperties,
@@ -187,7 +187,7 @@ object EventStorageBackendTemplate {
   private[common] def createdEventParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawCreatedEvent]] =
+  ): RowParser[Entry[RawCreatedEventLegacy]] =
     createdEventRow(stringInterning) map {
       case offset ~
           updateId ~
@@ -218,15 +218,13 @@ object EventStorageBackendTemplate {
           representativePackageId =>
         Entry(
           offset = offset,
+          nodeId = nodeId,
           updateId = updateId,
           eventSequentialId = eventSequentialId,
-          ledgerEffectiveTime = ledgerEffectiveTime,
+          ledgerEffectiveTime = Some(ledgerEffectiveTime),
           commandId = filteredCommandId(commandId, submitters, allQueryingPartiesO),
           workflowId = workflowId,
-          event = RawCreatedEvent(
-            updateId = updateId,
-            offset = offset,
-            nodeId = nodeId,
+          event = RawCreatedEventLegacy(
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
@@ -263,7 +261,7 @@ object EventStorageBackendTemplate {
   private[common] def archivedEventParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawArchivedEvent]] =
+  ): RowParser[Entry[RawArchivedEventLegacy]] =
     archivedEventRow(stringInterning) map {
       case eventOffset ~
           updateId ~
@@ -283,9 +281,10 @@ object EventStorageBackendTemplate {
           externalTransactionHash =>
         Entry(
           offset = eventOffset,
+          nodeId = nodeId,
           updateId = updateId,
           eventSequentialId = eventSequentialId,
-          ledgerEffectiveTime = ledgerEffectiveTime,
+          ledgerEffectiveTime = Some(ledgerEffectiveTime),
           commandId = filteredCommandId(
             commandId,
             submitters,
@@ -297,10 +296,7 @@ object EventStorageBackendTemplate {
           traceContext = traceContext,
           recordTime = recordTime,
           externalTransactionHash = externalTransactionHash,
-          event = RawArchivedEvent(
-            updateId = updateId,
-            offset = eventOffset,
-            nodeId = nodeId,
+          event = RawArchivedEventLegacy(
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
@@ -316,14 +312,16 @@ object EventStorageBackendTemplate {
   def rawAcsDeltaEventParser(
       allQueryingParties: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawFlatEvent]] =
-    (createdEventParser(allQueryingParties, stringInterning): RowParser[Entry[RawFlatEvent]]) |
+  ): RowParser[Entry[RawAcsDeltaEventLegacy]] =
+    (createdEventParser(allQueryingParties, stringInterning): RowParser[
+      Entry[RawAcsDeltaEventLegacy]
+    ]) |
       archivedEventParser(allQueryingParties, stringInterning)
 
   private def exercisedEventParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawExercisedEvent]] =
+  ): RowParser[Entry[RawExercisedEventLegacy]] =
     exercisedEventRow(stringInterning) map {
       case eventOffset ~
           updateId ~
@@ -353,9 +351,10 @@ object EventStorageBackendTemplate {
           flatEventWitnesses =>
         Entry(
           offset = eventOffset,
+          nodeId = nodeId,
           updateId = updateId,
           eventSequentialId = eventSequentialId,
-          ledgerEffectiveTime = ledgerEffectiveTime,
+          ledgerEffectiveTime = Some(ledgerEffectiveTime),
           commandId = filteredCommandId(
             commandId,
             submitters,
@@ -367,10 +366,7 @@ object EventStorageBackendTemplate {
           traceContext = traceContext,
           recordTime = recordTime,
           externalTransactionHash = externalTransactionHash,
-          event = RawExercisedEvent(
-            updateId = updateId,
-            offset = eventOffset,
-            nodeId = nodeId,
+          event = RawExercisedEventLegacy(
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
@@ -398,11 +394,13 @@ object EventStorageBackendTemplate {
         )
     }
 
-  def rawTreeEventParser(
+  def rawLedgerEffectsEventParser(
       allQueryingParties: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawTreeEvent]] =
-    (createdEventParser(allQueryingParties, stringInterning): RowParser[Entry[RawTreeEvent]]) |
+  ): RowParser[Entry[RawLedgerEffectsEventLegacy]] =
+    (createdEventParser(allQueryingParties, stringInterning): RowParser[
+      Entry[RawLedgerEffectsEventLegacy]
+    ]) |
       exercisedEventParser(allQueryingParties, stringInterning)
 
   val selectColumnsForTransactionTreeCreate: String = Seq(
@@ -552,7 +550,7 @@ object EventStorageBackendTemplate {
   private def assignEventParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawAssignEvent]] =
+  ): RowParser[Entry[RawAssignEventLegacy]] =
     assignEventRow(stringInterning) map {
       case commandId ~
           workflowId ~
@@ -587,9 +585,10 @@ object EventStorageBackendTemplate {
         )
         Entry(
           offset = offset,
+          nodeId = nodeId,
           updateId = updateId,
           eventSequentialId = eventSequentialId,
-          ledgerEffectiveTime = Timestamp.MinValue, // Not applicable
+          ledgerEffectiveTime = None, // Not applicable
           commandId = filteredCommandId(
             commandId,
             submitter.map(s => Seq(stringInterning.party.externalize(s))),
@@ -599,7 +598,7 @@ object EventStorageBackendTemplate {
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
           traceContext = traceContext,
           recordTime = recordTime,
-          event = RawAssignEvent(
+          event = RawAssignEventLegacy(
             sourceSynchronizerId =
               stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
             targetSynchronizerId =
@@ -607,10 +606,7 @@ object EventStorageBackendTemplate {
             reassignmentId = reassignmentId,
             submitter = submitter.map(stringInterning.party.unsafe.externalize),
             reassignmentCounter = reassignmentCounter,
-            rawCreatedEvent = RawCreatedEvent(
-              updateId = updateId,
-              offset = offset,
-              nodeId = nodeId,
+            rawCreatedEvent = RawCreatedEventLegacy(
               contractId = contractId,
               templateId = stringInterning.templateId
                 .externalize(templateId)
@@ -659,7 +655,7 @@ object EventStorageBackendTemplate {
   private def unassignEventParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[Entry[RawUnassignEvent]] =
+  ): RowParser[Entry[RawUnassignEventLegacy]] =
     unassignEventRow(stringInterning) map {
       case commandId ~
           workflowId ~
@@ -681,9 +677,10 @@ object EventStorageBackendTemplate {
           nodeId =>
         Entry(
           offset = offset,
+          nodeId = nodeId,
           updateId = updateId,
           eventSequentialId = eventSequentialId,
-          ledgerEffectiveTime = Timestamp.MinValue, // Not applicable
+          ledgerEffectiveTime = None, // Not applicable
           commandId = filteredCommandId(
             commandId,
             submitter.map(s => Seq(stringInterning.party.externalize(s))),
@@ -693,7 +690,7 @@ object EventStorageBackendTemplate {
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
           traceContext = traceContext,
           recordTime = recordTime,
-          event = RawUnassignEvent(
+          event = RawUnassignEventLegacy(
             sourceSynchronizerId =
               stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
             targetSynchronizerId =
@@ -710,7 +707,6 @@ object EventStorageBackendTemplate {
               flatEventWitnesses,
             ),
             assignmentExclusivity = assignmentExclusivity,
-            nodeId = nodeId,
           ),
           // TODO(i26562) Unassignments are not externally signed
           externalTransactionHash = None,
@@ -743,7 +739,7 @@ object EventStorageBackendTemplate {
   private def assignActiveContractParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[RawActiveContract] =
+  ): RowParser[RawActiveContractLegacy] =
     assignActiveContractRow(stringInterning) map {
       case workflowId ~
           targetSynchronizerId ~
@@ -770,14 +766,11 @@ object EventStorageBackendTemplate {
           allQueryingPartiesO,
           flatEventWitnesses,
         )
-        RawActiveContract(
+        RawActiveContractLegacy(
           workflowId = workflowId,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
           reassignmentCounter = reassignmentCounter,
-          rawCreatedEvent = RawCreatedEvent(
-            updateId = updateId,
-            offset = offset,
-            nodeId = nodeId,
+          rawCreatedEvent = RawCreatedEventLegacy(
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
@@ -798,6 +791,8 @@ object EventStorageBackendTemplate {
             authenticationData = authenticationData,
           ),
           eventSequentialId = eventSequentialId,
+          nodeId = nodeId,
+          offset = offset,
         )
     }
 
@@ -827,7 +822,7 @@ object EventStorageBackendTemplate {
   private def createActiveContractParser(
       allQueryingPartiesO: Option[Set[Party]],
       stringInterning: StringInterning,
-  ): RowParser[RawActiveContract] =
+  ): RowParser[RawActiveContractLegacy] =
     createActiveContractRow(stringInterning) map {
       case workflowId ~
           targetSynchronizerId ~
@@ -854,14 +849,11 @@ object EventStorageBackendTemplate {
           allQueryingPartiesO,
           flatEventWitnesses,
         )
-        RawActiveContract(
+        RawActiveContractLegacy(
           workflowId = workflowId,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
           reassignmentCounter = 0L, // zero for create
-          rawCreatedEvent = RawCreatedEvent(
-            updateId = updateId,
-            offset = offset,
-            nodeId = nodeId,
+          rawCreatedEvent = RawCreatedEventLegacy(
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
@@ -882,6 +874,8 @@ object EventStorageBackendTemplate {
             authenticationData = authenticationData,
           ),
           eventSequentialId = eventSequentialId,
+          nodeId = nodeId,
+          offset = offset,
         )
     }
 
@@ -949,15 +943,10 @@ abstract class EventStorageBackendTemplate(
   import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
 
   override def updatePointwiseQueries: UpdatePointwiseQueries =
-    new UpdatePointwiseQueries(
-      ledgerEndCache = ledgerEndCache,
-      stringInterning = stringInterning,
-    )
+    new UpdatePointwiseQueries(ledgerEndCache)
 
   override def updateStreamingQueries: UpdateStreamingQueries =
-    new UpdateStreamingQueries(
-      stringInterning = stringInterning
-    )
+    new UpdateStreamingQueries(stringInterning)
 
   override def eventReaderQueries: EventReaderQueries =
     new EventReaderQueries(stringInterning)
@@ -979,7 +968,7 @@ abstract class EventStorageBackendTemplate(
     *   1. all non-consuming events,
     *   1. transaction meta entries for which there exists at least one create event.
     */
-  override def pruneEvents(
+  override def pruneEventsLegacy(
       pruneUpToInclusive: Offset,
       incompleteReassignmentOffsets: Vector[Offset],
   )(implicit connection: Connection, traceContext: TraceContext): Unit = {
@@ -1346,10 +1335,10 @@ abstract class EventStorageBackendTemplate(
       ) - 1
   }
 
-  override def assignEventBatch(
+  override def assignEventBatchLegacy(
       eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawAssignEvent]] =
+  )(connection: Connection): Vector[Entry[RawAssignEventLegacy]] =
     SQL"""
         SELECT *
         FROM lapi_events_assign assign_evs
@@ -1359,10 +1348,10 @@ abstract class EventStorageBackendTemplate(
       .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(assignEventParser(allFilterParties, stringInterning))(connection)
 
-  override def unassignEventBatch(
+  override def unassignEventBatchLegacy(
       eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Party]],
-  )(connection: Connection): Vector[Entry[RawUnassignEvent]] =
+  )(connection: Connection): Vector[Entry[RawUnassignEventLegacy]] =
     SQL"""
           SELECT *
           FROM lapi_events_unassign unassign_evs
@@ -1372,11 +1361,11 @@ abstract class EventStorageBackendTemplate(
       .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(unassignEventParser(allFilterParties, stringInterning))(connection)
 
-  override def activeContractAssignEventBatch(
+  override def activeContractAssignEventBatchLegacy(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
       endInclusive: Long,
-  )(connection: Connection): Vector[RawActiveContract] =
+  )(connection: Connection): Vector[RawActiveContractLegacy] =
     SQL"""
         SELECT *
         FROM lapi_events_assign assign_evs
@@ -1387,11 +1376,11 @@ abstract class EventStorageBackendTemplate(
       .withFetchSize(Some(eventSequentialIds.size))
       .asVectorOf(assignActiveContractParser(allFilterParties, stringInterning))(connection)
 
-  override def activeContractCreateEventBatch(
+  override def activeContractCreateEventBatchLegacy(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
       endInclusive: Long,
-  )(connection: Connection): Vector[RawActiveContract] =
+  )(connection: Connection): Vector[RawActiveContractLegacy] =
     SQL"""
         SELECT *
         FROM lapi_events_create create_evs
@@ -1402,7 +1391,7 @@ abstract class EventStorageBackendTemplate(
       .withFetchSize(Some(eventSequentialIds.size))
       .asVectorOf(createActiveContractParser(allFilterParties, stringInterning))(connection)
 
-  override def fetchAssignEventIdsForStakeholder(
+  override def fetchAssignEventIdsForStakeholderLegacy(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
   )(connection: Connection): PaginationInput => Vector[Long] =
@@ -1415,7 +1404,7 @@ abstract class EventStorageBackendTemplate(
       hasFirstPerSequentialId = true,
     )(connection)
 
-  override def fetchUnassignEventIdsForStakeholder(
+  override def fetchUnassignEventIdsForStakeholderLegacy(
       stakeholderO: Option[Party],
       templateId: Option[NameTypeConRef],
   )(connection: Connection): PaginationInput => Vector[Long] =
@@ -1428,7 +1417,7 @@ abstract class EventStorageBackendTemplate(
       hasFirstPerSequentialId = true,
     )(connection)
 
-  override def lookupAssignSequentialIdByOffset(
+  override def lookupAssignSequentialIdByOffsetLegacy(
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
@@ -1440,7 +1429,7 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
-  override def lookupUnassignSequentialIdByOffset(
+  override def lookupUnassignSequentialIdByOffsetLegacy(
       offsets: Iterable[Long]
   )(connection: Connection): Vector[Long] =
     SQL"""
@@ -1456,7 +1445,7 @@ abstract class EventStorageBackendTemplate(
   // it finds the sequential id of the assign that has the same contract and synchronizer ids and has the largest
   // sequential id < sequential id given
   // it returns the mapping from the tuple of the search parameters to the corresponding sequential id (if exists)
-  override def lookupAssignSequentialIdBy(
+  override def lookupAssignSequentialIdByLegacy(
       unassignProperties: Iterable[UnassignProperties]
   )(connection: Connection): Map[UnassignProperties, Long] =
     unassignProperties.flatMap {
@@ -1480,7 +1469,7 @@ abstract class EventStorageBackendTemplate(
         }
     }.toMap
 
-  override def lookupCreateSequentialIdByContractId(
+  override def lookupCreateSequentialIdByContractIdLegacy(
       contractIds: Iterable[ContractId]
   )(connection: Connection): Vector[Long] =
     SQL"""
@@ -1679,7 +1668,7 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  override def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
+  override def archivalsLegacy(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId] = {
     val fromExclusiveSeqId =
@@ -1746,7 +1735,7 @@ abstract class EventStorageBackendTemplate(
       selectColumns: String,
       eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawFlatEvent]] =
+  )(connection: Connection): Vector[Entry[RawAcsDeltaEventLegacy]] =
     SQL"""
         SELECT
           #$selectColumns,
@@ -1762,19 +1751,19 @@ abstract class EventStorageBackendTemplate(
       .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(rawAcsDeltaEventParser(allFilterParties, stringInterning))(connection)
 
-  override def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
+  override def fetchEventPayloadsAcsDeltaLegacy(target: EventPayloadSourceForUpdatesAcsDeltaLegacy)(
       eventSequentialIds: SequentialIdBatch,
       requestingParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawFlatEvent]] =
+  )(connection: Connection): Vector[Entry[RawAcsDeltaEventLegacy]] =
     target match {
-      case EventPayloadSourceForUpdatesAcsDelta.Consuming =>
+      case EventPayloadSourceForUpdatesAcsDeltaLegacy.Consuming =>
         fetchAcsDeltaEvents(
           tableName = "lapi_events_consuming_exercise",
           selectColumns = selectColumnsForFlatTransactionsExercise,
           eventSequentialIds = eventSequentialIds,
           allFilterParties = requestingParties,
         )(connection)
-      case EventPayloadSourceForUpdatesAcsDelta.Create =>
+      case EventPayloadSourceForUpdatesAcsDeltaLegacy.Create =>
         fetchAcsDeltaEvents(
           tableName = "lapi_events_create",
           selectColumns = selectColumnsForFlatTransactionsCreate,
@@ -1788,7 +1777,7 @@ abstract class EventStorageBackendTemplate(
       selectColumns: String,
       eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawTreeEvent]] =
+  )(connection: Connection): Vector[Entry[RawLedgerEffectsEventLegacy]] =
     SQL"""
         SELECT
           #$selectColumns,
@@ -1802,14 +1791,16 @@ abstract class EventStorageBackendTemplate(
           event_sequential_id
       """
       .withFetchSize(Some(fetchSize(eventSequentialIds)))
-      .asVectorOf(rawTreeEventParser(allFilterParties, stringInterning))(connection)
+      .asVectorOf(rawLedgerEffectsEventParser(allFilterParties, stringInterning))(connection)
 
-  override def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
+  override def fetchEventPayloadsLedgerEffectsLegacy(
+      target: EventPayloadSourceForUpdatesLedgerEffectsLegacy
+  )(
       eventSequentialIds: SequentialIdBatch,
       requestingParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[Entry[RawTreeEvent]] =
+  )(connection: Connection): Vector[Entry[RawLedgerEffectsEventLegacy]] =
     target match {
-      case EventPayloadSourceForUpdatesLedgerEffects.Consuming =>
+      case EventPayloadSourceForUpdatesLedgerEffectsLegacy.Consuming =>
         fetchLedgerEffectsEvents(
           tableName = "lapi_events_consuming_exercise",
           selectColumns =
@@ -1818,7 +1809,7 @@ abstract class EventStorageBackendTemplate(
           eventSequentialIds = eventSequentialIds,
           allFilterParties = requestingParties,
         )(connection)
-      case EventPayloadSourceForUpdatesLedgerEffects.Create =>
+      case EventPayloadSourceForUpdatesLedgerEffectsLegacy.Create =>
         fetchLedgerEffectsEvents(
           tableName = "lapi_events_create",
           selectColumns =
@@ -1826,7 +1817,7 @@ abstract class EventStorageBackendTemplate(
           eventSequentialIds = eventSequentialIds,
           allFilterParties = requestingParties,
         )(connection)
-      case EventPayloadSourceForUpdatesLedgerEffects.NonConsuming =>
+      case EventPayloadSourceForUpdatesLedgerEffectsLegacy.NonConsuming =>
         fetchLedgerEffectsEvents(
           tableName = "lapi_events_non_consuming_exercise",
           selectColumns =

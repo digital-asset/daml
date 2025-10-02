@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.EnvironmentDefinition
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.examples.IouSyntax.testIou
@@ -36,7 +35,6 @@ sealed trait OfflinePartyReplicationOnboardingCompletetionIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition
-      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
       .withSetup { implicit env =>
         import env.*
         source = participant1

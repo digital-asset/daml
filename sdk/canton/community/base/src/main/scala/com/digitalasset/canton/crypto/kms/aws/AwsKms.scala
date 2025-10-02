@@ -63,7 +63,10 @@ class AwsKms(
   override protected def initialHealthState: ComponentHealthState = ComponentHealthState.Ok()
 
   private val errorMessagesToRetry =
-    Set("Unable to execute HTTP request: The connection was closed during the request.")
+    Set(
+      "Unable to execute HTTP request: The connection was closed during the request.",
+      "Unable to execute HTTP request: connection timed out",
+    )
 
   private def errorHandler(
       err: Throwable,

@@ -12,7 +12,6 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
-import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
@@ -52,7 +51,6 @@ trait OfflinePartyReplicationIntegrationTestBase
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
-      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
       .withSetup { implicit env =>
         import env.*
         participants.local.synchronizers.connect_local(sequencer1, daName)

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.config
 
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
 
 /** Configuration relating to reassignments.
@@ -28,23 +27,14 @@ import com.digitalasset.canton.config.semiauto.CantonConfigValidatorDerivation
   * participant may consume more resources waiting to catch up before validating an unassignment.
   * Lower values mean that the participant is more likely to opt-out of validating unassignments if
   * other participants are running ahead of this one.
-  * @param timeProofFreshnessProportion
-  *   Proportion of the target synchronizer exclusivity timeout that is used as a freshness bound
-  *   when requesting a time proof. Setting to 3 means we'll take a 1/3 of the target synchronizer
-  *   exclusivity timeout and potentially we reuse a recent timeout if one exists within that bound,
-  *   otherwise a new time proof will be requested. Setting to zero will disable reusing recent time
-  *   proofs and will instead always fetch a new proof.
   */
 final case class ReassignmentsConfig(
     targetTimestampForwardTolerance: NonNegativeFiniteDuration =
-      NonNegativeFiniteDuration.ofSeconds(5),
-    timeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
+      NonNegativeFiniteDuration.ofSeconds(5)
 ) extends UniformCantonConfigValidation
 
 object ReassignmentsConfig {
   implicit val reassignmentsConfigCantonConfigValidator
-      : CantonConfigValidator[ReassignmentsConfig] = {
-    import CantonConfigValidatorInstances.nonNegativeNumericCantonConfigValidator
+      : CantonConfigValidator[ReassignmentsConfig] =
     CantonConfigValidatorDerivation[ReassignmentsConfig]
-  }
 }

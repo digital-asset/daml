@@ -80,7 +80,7 @@ final case class ParticipantNodeConfig(
     override val init: ParticipantInitConfig = ParticipantInitConfig(),
     override val crypto: CryptoConfig = CryptoConfig(),
     ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
-    httpLedgerApi: Option[JsonApiConfig] = None,
+    httpLedgerApi: JsonApiConfig = JsonApiConfig(),
     override val adminApi: AdminServerConfig = AdminServerConfig(),
     override val storage: StorageConfig = StorageConfig.Memory(),
     testingTime: Option[TestingTimeServiceConfig] = None,
@@ -110,10 +110,10 @@ final case class ParticipantNodeConfig(
       .modify(ports.ledgerApiPort.setDefaultPort)
       .focus(_.adminApi.internalPort)
       .modify(ports.participantAdminApiPort.setDefaultPort)
-      .focus(_.httpLedgerApi)
-      .modify(_.map(_.focus(_.server.internalPort).modify(ports.httpLedgerApiPort.setDefaultPort)))
       .focus(_.replication)
       .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+      .focus(_.httpLedgerApi.server.internalPort)
+      .modify(ports.jsonLedgerApiPort.setDefaultPort)
 }
 
 object ParticipantNodeConfig {

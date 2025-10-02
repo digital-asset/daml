@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.platform.IndexComponentTest
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ExampleContractFactory, ReassignmentId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -33,13 +33,40 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
   it should "successfully look up contract, even if only the assigned event is visible" in {
     val party = Ref.Party.assertFromString("party1")
 
+    val c1 =
+      ExampleContractFactory.build(
+        stakeholders = Set(party),
+        signatories = Set(party),
+        templateId = Ref.Identifier.assertFromString("P:M:T"),
+        argument = Value.ValueUnit,
+      )
+    val c2 =
+      ExampleContractFactory.build(
+        stakeholders = Set(party),
+        signatories = Set(party),
+        templateId = Ref.Identifier.assertFromString("P:M:T"),
+        argument = Value.ValueUnit,
+      )
     val (reassignmentAccepted1, cn1) =
-      mkReassignmentAccepted(party, "UpdateId1", withAcsChange = false)
+      mkReassignmentAccepted(
+        party,
+        "UpdateId1",
+        createNode = c1.inst.toCreateNode,
+        withAcsChange = false,
+      )
     val (reassignmentAccepted2, cn2) =
-      mkReassignmentAccepted(party, "UpdateId2", withAcsChange = true)
+      mkReassignmentAccepted(
+        party,
+        "UpdateId2",
+        createNode = c2.inst.toCreateNode,
+        withAcsChange = true,
+      )
     ingestUpdates(reassignmentAccepted1, reassignmentAccepted2)
 
     (for {
+      _ <- cantonContractStore
+        .storeContracts(Seq(c1, c2))
+        .failOnShutdown("failed to store contracts")
       activeContractO1 <- index.lookupActiveContract(Set(party), cn1.coid)
       activeContractO2 <- index.lookupActiveContract(Set(party), cn2.coid)
     } yield {
@@ -64,19 +91,10 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
       party: Ref.Party,
       updateIdS: String,
       withAcsChange: Boolean,
+      createNode: Node.Create,
   ): (Update.ReassignmentAccepted, Node.Create) = {
     val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
     val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
-    val builder = TxBuilder()
-    val contractId = builder.newCid
-    val createNode = builder
-      .create(
-        id = contractId,
-        templateId = Ref.Identifier.assertFromString("P:M:T"),
-        argument = Value.ValueUnit,
-        signatories = Set(party),
-        observers = Set.empty,
-      )
     val updateId = Ref.TransactionId.assertFromString(updateIdS)
     val recordTime = Time.Timestamp.now()
     (

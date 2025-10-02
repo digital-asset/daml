@@ -26,7 +26,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientSubscriptionError,
   SubscriptionCloseReason,
 }
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil}
@@ -42,13 +42,17 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     subscriptionHandlerFactory: SubscriptionHandlerXFactory,
     pool: SequencerConnectionXPool,
     member: Member,
-    clock: Clock,
     private val initialSubscriptionEventO: Option[ProcessingSerializedEvent],
     subscriptionStartProvider: SubscriptionStartProvider,
     protected override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends SequencerSubscriptionPool {
+
+  /** Use a wall clock for scheduling restart delays, so that the pool can make progress even in
+    * tests that use static time without explicitly advancing the time
+    */
+  private val wallClock = new WallClock(timeouts, loggerFactory)
 
   /** Reference to the currently active configuration */
   private val configRef = new AtomicReference[SequencerSubscriptionPoolConfig](initialConfig)
@@ -167,7 +171,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
             logger.debug(
               s"Scheduling new check in ${LoggerUtil.roundDurationForHumans(delay.duration)}"
             )
-            clock.scheduleAfter(_ => adjustInternal(), delay.asJava)
+            wallClock.scheduleAfter(_ => adjustInternal(), delay.asJava)
           },
           "adjustConnectionsIfNeeded",
         )
@@ -377,7 +381,6 @@ object SequencerSubscriptionPoolImpl {
 class SequencerSubscriptionPoolFactoryImpl(
     sequencerSubscriptionFactory: SequencerSubscriptionXFactory,
     subscriptionHandlerFactory: SubscriptionHandlerXFactory,
-    clock: Clock,
     timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends SequencerSubscriptionPoolFactory
@@ -397,7 +400,6 @@ class SequencerSubscriptionPoolFactoryImpl(
       subscriptionHandlerFactory,
       connectionPool,
       member,
-      clock,
       initialSubscriptionEventO,
       subscriptionStartProvider,
       timeouts,

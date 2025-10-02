@@ -33,8 +33,8 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{ContractValidator, LegacyContractHasher}
 import com.digitalasset.canton.{
   BaseTest,
   LfCommand,
@@ -170,6 +170,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         factory.psid,
         factory.cantonContractIdVersion,
         factory.cryptoOps,
+        LegacyContractHasher,
         loggerFactory,
       )
 

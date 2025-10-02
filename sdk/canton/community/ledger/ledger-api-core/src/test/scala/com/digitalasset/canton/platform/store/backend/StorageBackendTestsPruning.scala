@@ -37,7 +37,7 @@ private[backend] trait StorageBackendTestsPruning
   ): Unit =
     executeSql { conn =>
       conn.setAutoCommit(false)
-      backend.event.pruneEvents(
+      backend.event.pruneEventsLegacy(
         pruneUpToInclusive,
         incompleteReassignmentOffsets,
       )(

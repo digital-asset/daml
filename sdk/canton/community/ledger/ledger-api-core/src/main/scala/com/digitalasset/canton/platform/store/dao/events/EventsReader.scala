@@ -16,9 +16,9 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InternalEventFormat
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawArchivedEvent,
-  RawCreatedEvent,
-  RawFlatEvent,
+  RawAcsDeltaEventLegacy,
+  RawArchivedEventLegacy,
+  RawCreatedEventLegacy,
 }
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
@@ -53,22 +53,24 @@ private[dao] sealed class EventsReader(
       .map { internalEventFormat =>
         for {
           rawEvents <- dbDispatcher.executeSql(dbMetrics.getEventsByContractId)(
-            eventStorageBackend.eventReaderQueries.fetchContractIdEvents(
+            eventStorageBackend.eventReaderQueries.fetchContractIdEventsLegacy(
               contractId,
               requestingParties = internalEventFormat.templatePartiesFilter.allFilterParties,
               endEventSequentialId = ledgerEndCache().map(_.lastEventSeqId).getOrElse(0L),
             )
           )
-          rawCreatedEvent: Option[Entry[RawCreatedEvent]] = rawEvents.view.collectFirst { entry =>
-            entry.event match {
-              case created: RawCreatedEvent =>
-                entry.copy(event = created)
-            }
+          rawCreatedEvent: Option[Entry[RawCreatedEventLegacy]] = rawEvents.view.collectFirst {
+            entry =>
+              entry.event match {
+                case created: RawCreatedEventLegacy =>
+                  entry.copy(event = created)
+              }
           }
-          rawArchivedEvent: Option[Entry[RawArchivedEvent]] = rawEvents.view.collectFirst { entry =>
-            entry.event match {
-              case archived: RawArchivedEvent => entry.copy(event = archived)
-            }
+          rawArchivedEvent: Option[Entry[RawArchivedEventLegacy]] = rawEvents.view.collectFirst {
+            entry =>
+              entry.event match {
+                case archived: RawArchivedEventLegacy => entry.copy(event = archived)
+              }
           }
 
           rawEventsRestoredWitnesses = restoreWitnessesForTransient(
@@ -78,7 +80,7 @@ private[dao] sealed class EventsReader(
 
           rawCreatedEventRestoredWitnesses = rawEventsRestoredWitnesses.view
             .map(_.event)
-            .collectFirst { case created: RawCreatedEvent =>
+            .collectFirst { case created: RawCreatedEventLegacy =>
               created
             }
 
@@ -87,7 +89,7 @@ private[dao] sealed class EventsReader(
               directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
             MonadUtil.sequentialTraverse(rawEventsRestoredWitnesses) { event =>
               UpdateReader
-                .deserializeRawFlatEvent(
+                .deserializeRawAcsDeltaEvent(
                   internalEventFormat.eventProjectionProperties,
                   lfValueTranslation,
                 )(event)
@@ -140,17 +142,17 @@ private[dao] sealed class EventsReader(
 
   // transient events have empty witnesses, so we need to restore them from the created event
   private def restoreWitnessesForTransient(
-      createdEventO: Option[Entry[RawCreatedEvent]],
-      archivedEventO: Option[Entry[RawArchivedEvent]],
-  ): Seq[Entry[RawFlatEvent]] =
+      createdEventO: Option[Entry[RawCreatedEventLegacy]],
+      archivedEventO: Option[Entry[RawArchivedEventLegacy]],
+  ): Seq[Entry[RawAcsDeltaEventLegacy]] =
     (createdEventO, archivedEventO) match {
       case (Some(created), Some(archived)) if created.offset == archived.offset =>
         val witnesses = created.event.signatories ++ created.event.observers
         val newCreated = created.copy(event = created.event.copy(witnessParties = witnesses))
         val newArchived = archived.copy(event = archived.event.copy(witnessParties = witnesses))
 
-        Seq(newCreated: Entry[RawFlatEvent], newArchived)
-      case _ => (createdEventO.toList: Seq[Entry[RawFlatEvent]]) ++ archivedEventO.toList
+        Seq(newCreated: Entry[RawAcsDeltaEventLegacy], newArchived)
+      case _ => (createdEventO.toList: Seq[Entry[RawAcsDeltaEventLegacy]]) ++ archivedEventO.toList
     }
 
   // TODO(i16065): Re-enable getEventsByContractKey tests

@@ -341,7 +341,7 @@ class TransactionProcessingSteps(
             disclosedContracts
               .get(contractId)
               .map(contract =>
-                EitherT.rightT[Future, TransactionTreeFactory.ContractLookupError](
+                EitherT.rightT[FutureUnlessShutdown, TransactionTreeFactory.ContractLookupError](
                   contract: GenContractInstance
                 )
               )

@@ -23,6 +23,7 @@ import com.digitalasset.canton.protocol.{
   StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.sequencing.AsyncResult
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.TopologyManagerError.{
@@ -318,6 +319,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
   def validatePackageVetting(
       @unused currentlyVettedPackages: Set[LfPackageId],
       @unused nextPackageIds: Set[LfPackageId],
+      @unused dryRunSnapshot: Option[PackageMetadata],
       @unused forceFlags: ForceFlags,
   )(implicit
       traceContext: TraceContext
@@ -932,7 +934,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         }
       _ <- checkPackageVettingRevocation(currentlyVettedPackages, newPackageIds, forceChanges)
       _ <- checkTransactionIsForCurrentNode(participantId, forceChanges, topologyMappingCode)
-      _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, forceChanges)
+      _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, None, forceChanges)
     } yield ()
 
   private def checkPackageVettingRevocation(
@@ -944,9 +946,9 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
     val removed = currentlyVettedPackages -- nextPackageIds
     val force = forceChanges.permits(ForceFlag.AllowUnvetPackage)
-    val changeIdDangerous = removed.nonEmpty
+    val changeIsDangerous = removed.nonEmpty
     EitherT.cond(
-      !changeIdDangerous || force,
+      !changeIsDangerous || force,
       (),
       ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce.Reject(),
     )

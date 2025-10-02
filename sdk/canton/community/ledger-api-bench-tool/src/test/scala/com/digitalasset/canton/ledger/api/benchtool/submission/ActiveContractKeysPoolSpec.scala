@@ -10,16 +10,16 @@ import org.scalatest.matchers.should.Matchers
 class ActiveContractKeysPoolSpec extends AnyFlatSpec with Matchers {
 
   it should "put and pop from a pool" in {
-    val tested = new ActiveContractKeysPool(RandomnessProvider.forSeed(0))
+    val tested = new ActiveContractKeysPool[Value](RandomnessProvider.forSeed(0))
     intercept[NoSuchElementException](tested.getAndRemoveContractKey(templateName = "t1"))
-    tested.addContractKey(templateName = "t1", key = makeValue("1"))
+    tested.addContractKey(templateName = "t1", value = makeValue("1"))
     intercept[NoSuchElementException](tested.getAndRemoveContractKey(templateName = "t2"))
     tested.getAndRemoveContractKey("t1") shouldBe makeValue("1")
     intercept[NoSuchElementException](tested.getAndRemoveContractKey(templateName = "t1"))
-    tested.addContractKey(templateName = "t1", key = makeValue("1"))
-    tested.addContractKey(templateName = "t1", key = makeValue("2"))
-    tested.addContractKey(templateName = "t1", key = makeValue("3"))
-    tested.addContractKey(templateName = "t2", key = makeValue("1"))
+    tested.addContractKey(templateName = "t1", value = makeValue("1"))
+    tested.addContractKey(templateName = "t1", value = makeValue("2"))
+    tested.addContractKey(templateName = "t1", value = makeValue("3"))
+    tested.addContractKey(templateName = "t2", value = makeValue("1"))
     tested.getAndRemoveContractKey("t1") shouldBe makeValue("3")
     tested.getAndRemoveContractKey("t1") shouldBe makeValue("1")
     tested.getAndRemoveContractKey("t2") shouldBe makeValue("1")

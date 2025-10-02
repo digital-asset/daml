@@ -196,9 +196,9 @@ import com.digitalasset.canton.http.json.v2.{
   TranscodePackageIdResolver,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NoLogging}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.{DarParser, Decode}
 import io.grpc.health.v1.health.HealthGrpc

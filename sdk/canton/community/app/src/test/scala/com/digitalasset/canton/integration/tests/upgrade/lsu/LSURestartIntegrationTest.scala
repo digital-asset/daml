@@ -39,11 +39,6 @@ abstract class LSURestartIntegrationTest extends LSUBase {
         new NetworkBootstrapper(S1M1)
       }
       .addConfigTransforms(configTransforms*)
-      // Set a connection pool timeout larger than the upgrade time, otherwise it may trigger when we advance the simclock
-      .addConfigTransform(
-        _.focus(_.parameters.timeouts.processing.sequencerInfo)
-          .replace(config.NonNegativeDuration.ofSeconds(40))
-      )
       .withSetup { implicit env =>
         import env.*
 

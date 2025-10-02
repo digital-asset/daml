@@ -1890,6 +1890,7 @@ class TopologyAdministrationGroup(
     private[canton] def sign_and_remove(
         party: ExternalParty,
         synchronizer: Synchronizer,
+        forceFlags: ForceFlags = ForceFlags.none,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1915,6 +1916,7 @@ class TopologyAdministrationGroup(
             Seq(consoleEnvironment.global_secret.sign(transaction, party, psid.protocolVersion)),
             psid,
             synchronize = synchronize,
+            forceFlags = forceFlags,
           )
 
         case None =>

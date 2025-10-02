@@ -126,8 +126,6 @@ final case class BytesPayload(id: PayloadId, content: ByteString) extends Payloa
   }
 }
 
-final case class FilteredBatch(id: PayloadId, batch: Batch[ClosedEnvelope]) extends Payload
-
 /** Sequencer events in a structure suitable for persisting in our events store. The payload type is
   * parameterized to allow specifying either a full payload or just a id referencing a payload.
   */
@@ -565,7 +563,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   /** In case of single instance sequencer we can use in-memory fanout buffer for events */
   final def bufferEvents(
-      events: NonEmpty[Seq[Sequenced[BytesPayload]]]
+      events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
   ): Unit =
     if (eventsBufferEnabled) eventsBuffer.bufferEvents(events)
 
@@ -662,6 +660,12 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]]
 
+  def bufferPayload(
+      payload: BytesPayload
+  )(implicit
+      traceContext: TraceContext
+  ): Unit = ()
+
   /** For a given member and timestamp, return the latest timestamp of a potential topology change,
     * that reached both the sequencer and the member. To be used by the topology snapshot awaiting,
     * should there be a topology change expected to need to be taken into account for
@@ -705,9 +709,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     fromExclusiveO match {
       case Some(fromExclusive) =>
         cache.headOption match {
+          // If the buffer starts before or at the `fromExclusive` timestamp (last event that a reader already consumed)
+          // we can serve the request from the buffer without missing any events
           case Some(earliestEvent) if earliestEvent.timestamp <= fromExclusive =>
-            // If the buffer has events that are newer than the requested timestamp, we can use the buffer
-            val start = SequencerStore.binarySearch[Sequenced[BytesPayload], CantonTimestamp](
+            val start = SequencerStore.binarySearch[Sequenced[IdOrPayload], CantonTimestamp](
               cache,
               _.timestamp,
               fromExclusive,

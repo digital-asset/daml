@@ -1,12 +1,12 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.store.packagemeta
+package com.digitalasset.canton.store.packagemeta
 
 import cats.implicits.catsSyntaxSemigroup
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
 }

@@ -35,7 +35,7 @@ import com.digitalasset.canton.console.{
   Helpful,
   ParticipantReference,
 }
-import com.digitalasset.canton.crypto.SigningKeyUsage
+import com.digitalasset.canton.crypto.{Fingerprint, SigningKeyUsage}
 import com.digitalasset.canton.data.{CantonTimestamp, OnboardingTransactions}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.FileStreamObserver
@@ -48,6 +48,7 @@ import com.digitalasset.canton.topology.transaction.{TopologyTransaction, *}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias, config}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -282,7 +283,7 @@ class ParticipantPartiesAdministrationGroup(
       *   Name of the party to be enabled
       * @param synchronizer
       *   Synchronizer
-      * @param confirming
+      * @param additionalConfirming
       *   Other confirming participants
       * @param observing
       *   Observing participants
@@ -291,7 +292,7 @@ class ParticipantPartiesAdministrationGroup(
     def onboarding_transactions(
         name: String,
         synchronizer: Option[SynchronizerAlias] = None,
-        confirming: Seq[ParticipantId] = Seq.empty,
+        additionalConfirming: Seq[ParticipantId] = Seq.empty,
         observing: Seq[ParticipantId] = Seq.empty,
         confirmationThreshold: PositiveInt = PositiveInt.one,
         keysCount: PositiveInt = PositiveInt.one,
@@ -334,7 +335,7 @@ class ParticipantPartiesAdministrationGroup(
           protocolVersion,
         )
 
-        hybridParticipants = confirming.intersect(observing)
+        hybridParticipants = additionalConfirming.intersect(observing)
         _ <- EitherT.fromEither[FutureUnlessShutdown](
           NonEmpty
             .from(hybridParticipants)
@@ -349,7 +350,7 @@ class ParticipantPartiesAdministrationGroup(
           "reference participant should not be observing",
         )
 
-        hostingConfirming = (reference.id +: confirming).map(
+        hostingConfirming = (reference.id +: additionalConfirming).map(
           HostingParticipant(_, ParticipantPermission.Confirmation)
         )
 
@@ -368,31 +369,248 @@ class ParticipantPartiesAdministrationGroup(
           protocolVersion,
         )
 
-        transactionHashes = NonEmpty.mk(
-          Set,
-          namespaceDelegationTx.hash,
-          partyToParticipantTx.hash,
-          partyToKeyTx.hash,
+        onboardingTransactions <- bundle_onboarding_transactions(
+          partyId = partyId,
+          protocolSigningKeys = protocolSigningKeys.map(_.fingerprint),
+          protocolVersion = protocolVersion,
+          namespaceDelegationTx = namespaceDelegationTx,
+          partyToKeyTx = partyToKeyTx,
+          partyToParticipantTx = partyToParticipantTx,
         )
-        combinedMultiTxHash = MultiTransactionSignature.computeCombinedHash(
-          transactionHashes,
-          consoleEnvironment.tryGlobalCrypto.pureCrypto,
+      } yield (
+        onboardingTransactions,
+        ExternalParty(partyId, protocolSigningKeys.map(_.fingerprint)),
+      )
+
+    /** Enable an existing external party hosted on `reference` with confirmation rights. Unlike
+      * `enable`, this command assumes the external party already exists on a different
+      * synchronizer.
+      *
+      * Note: the keys (and threshold) will be the same as on the synchronizer on which the party is
+      * already hosted.
+      *
+      * @param party
+      *   Name of the party to be enabled
+      * @param synchronizer
+      *   Synchronizer
+      * @param synchronizeParticipants
+      *   Participants that need to see activation of the party
+      */
+    @VisibleForTesting // Ensures external parties are created only in tests
+    def also_enable(
+        party: ExternalParty,
+        synchronizer: SynchronizerAlias,
+        synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
+        synchronize: Option[config.NonNegativeDuration] = Some(timeouts.unbounded),
+        // External party specifics
+        confirmationThreshold: PositiveInt = PositiveInt.one,
+    ): Unit = {
+
+      val onboardingET = for {
+        psid <- EitherT
+          .fromEither[FutureUnlessShutdown](lookupOrDetectSynchronizerId(Some(synchronizer)))
+          .leftMap(err => s"Cannot find physical synchronizer id: $err")
+
+        onboardingTxs <- onboarding_transactions_for_existing(
+          party,
+          synchronizer,
+          confirmationThreshold = confirmationThreshold,
         )
 
-        // Sign the multi hash with the namespace key, as it is needed to authorize all transactions
-        namespaceSignature = consoleEnvironment.global_secret.sign(
-          combinedMultiTxHash.getCryptographicEvidence,
-          namespaceKey.fingerprint,
-          NonEmpty.mk(Set, SigningKeyUsage.Namespace: SigningKeyUsage),
+        _ = reference.topology.transactions.load(
+          onboardingTxs.toSeq,
+          psid,
+          synchronize = synchronize,
         )
 
+        // Wait until the proposal is known
+        _ = utils.retry_until_true(
+          reference.topology.party_to_participant_mappings
+            .list(
+              psid,
+              proposals = true,
+              filterParticipant = reference.id.filterString,
+              filterParty = party.filterString,
+            )
+            .nonEmpty
+        )
+
+        _ = reference.topology.transactions.authorize[PartyToParticipant](
+          txHash = onboardingTxs.partyToParticipant.hash,
+          mustBeFullyAuthorized = true,
+          store = psid,
+        )
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          Applicative[Either[String, *]].whenA(synchronize.nonEmpty)(
+            PartiesAdministration.Allocation.waitForPartyKnown(
+              partyId = party.partyId,
+              hostingParticipant = reference,
+              synchronizeParticipants = synchronizeParticipants,
+              synchronizerId = psid.logical,
+            )(consoleEnvironment)
+          )
+        )
+      } yield ()
+
+      consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(onboardingET))
+    }
+
+    /** Compute onboarding transactions for an existing external party.
+      *
+      * Note: the keys (and threshold) will be the same as on the synchronizer on which the party is
+      * already hosted.
+      * @param name
+      *   Name of the party to be enabled
+      * @param synchronizer
+      *   Synchronizer
+      * @param additionalConfirming
+      *   Other confirming participants
+      * @param observing
+      *   Observing participants
+      */
+    @VisibleForTesting // Ensures external parties are used only in tests
+    def onboarding_transactions_for_existing(
+        party: ExternalParty,
+        synchronizer: SynchronizerAlias,
+        additionalConfirming: Seq[ParticipantId] = Seq.empty,
+        observing: Seq[ParticipantId] = Seq.empty,
+        confirmationThreshold: PositiveInt = PositiveInt.one,
+    ): EitherT[FutureUnlessShutdown, String, OnboardingTransactions] = {
+      val knownPSIds = reference.synchronizers.list_registered().collect {
+        case (_, KnownPhysicalSynchronizerId(psid), _) => psid
+      }
+
+      def getUniqueMapping[T](
+          getter: PhysicalSynchronizerId => Seq[T],
+          key: String,
+      ): EitherT[FutureUnlessShutdown, String, T] =
+        knownPSIds.flatMap(getter).toList.distinct match {
+          case Nil => EitherT.leftT[FutureUnlessShutdown, T](s"Unable to $key for $party")
+          case head :: Nil => EitherT.rightT[FutureUnlessShutdown, String](head)
+          case _several => EitherT.leftT[FutureUnlessShutdown, T](s"Found several $key for $party")
+        }
+
+      for {
+        protocolVersion <- EitherT
+          .fromEither[FutureUnlessShutdown](
+            lookupOrDetectSynchronizerId(Some(synchronizer)).map(_.protocolVersion)
+          )
+          .leftMap(err => s"Cannot find protocol version: $err")
+
+        namespaceDelegation <- getUniqueMapping(
+          psid =>
+            reference.topology.namespace_delegations
+              .list(store = psid, filterNamespace = party.namespace.filterString)
+              .map(_.item),
+          "namespace delegation",
+        )
+
+        namespaceDelegationTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          namespaceDelegation,
+          protocolVersion,
+        )
+
+        partyToKey <- getUniqueMapping(
+          psid =>
+            reference.topology.party_to_key_mappings
+              .list(store = psid, filterParty = party.filterString)
+              .map(_.item),
+          "party to key",
+        )
+
+        partyToKeyTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          partyToKey,
+          protocolVersion,
+        )
+
+        hybridParticipants = additionalConfirming.intersect(observing)
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          NonEmpty
+            .from(hybridParticipants)
+            .toLeft(())
+            .leftMap(hybridParticipants =>
+              s"The following participants are indicated as observing and confirming: $hybridParticipants"
+            )
+        )
+
+        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+          !observing.contains(reference.id),
+          "reference participant should not be observing",
+        )
+
+        hostingConfirming = (reference.id +: additionalConfirming).map(
+          HostingParticipant(_, ParticipantPermission.Confirmation)
+        )
+
+        hostingObserving = observing.map(
+          HostingParticipant(_, ParticipantPermission.Observation)
+        )
+
+        partyToParticipantTx = TopologyTransaction(
+          TopologyChangeOp.Replace,
+          serial = PositiveInt.one,
+          PartyToParticipant.tryCreate(
+            partyId = party.partyId,
+            threshold = confirmationThreshold,
+            participants = hostingConfirming ++ hostingObserving,
+          ),
+          protocolVersion,
+        )
+
+        onboardingTransactions <- bundle_onboarding_transactions(
+          partyId = party.partyId,
+          protocolSigningKeys = party.signingFingerprints,
+          protocolVersion = protocolVersion,
+          namespaceDelegationTx = namespaceDelegationTx,
+          partyToKeyTx = partyToKeyTx,
+          partyToParticipantTx = partyToParticipantTx,
+        )
+
+      } yield onboardingTransactions
+    }
+
+    /** Sign the onboarding transactions and build a [[OnboardingTransactions]]
+      */
+    private def bundle_onboarding_transactions(
+        partyId: PartyId,
+        protocolSigningKeys: NonEmpty[Seq[Fingerprint]],
+        protocolVersion: ProtocolVersion,
+        namespaceDelegationTx: TopologyTransaction[TopologyChangeOp.Replace, NamespaceDelegation],
+        partyToKeyTx: TopologyTransaction[TopologyChangeOp.Replace, PartyToKeyMapping],
+        partyToParticipantTx: TopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
+    ): EitherT[FutureUnlessShutdown, String, OnboardingTransactions] = {
+      val transactionHashes = NonEmpty.mk(
+        Set,
+        namespaceDelegationTx.hash,
+        partyToParticipantTx.hash,
+        partyToKeyTx.hash,
+      )
+
+      val combinedMultiTxHash = MultiTransactionSignature.computeCombinedHash(
+        transactionHashes,
+        consoleEnvironment.tryGlobalCrypto.pureCrypto,
+      )
+
+      // Sign the multi hash with the namespace key, as it is needed to authorize all transactions
+      val namespaceSignature = consoleEnvironment.global_secret.sign(
+        combinedMultiTxHash.getCryptographicEvidence,
+        partyId.fingerprint,
+        NonEmpty.mk(Set, SigningKeyUsage.Namespace: SigningKeyUsage),
+      )
+
+      for {
         // The protocol key signature is only needed on the party to key mapping, so we can sign only that
         protocolSignatures <- protocolSigningKeys.toNEF
           .parTraverse { protocolSigningKey =>
             consoleEnvironment.tryGlobalCrypto.privateCrypto
               .sign(
                 partyToKeyTx.hash.hash,
-                protocolSigningKey.fingerprint,
+                protocolSigningKey,
                 NonEmpty.mk(Set, SigningKeyUsage.Protocol),
               )
           }
@@ -437,18 +655,16 @@ class ParticipantPartiesAdministrationGroup(
         ).view.mapValues(_.signatures.map(_.authorizingLongTermKey).mkString(", "))
 
         logger.info(
-          s"Generated onboarding transactions for external party $name with id $partyId: $keys"
+          s"Generated onboarding transactions for external party ${partyId.identifier} with id $partyId: $keys"
         )
 
-        (
-          OnboardingTransactions(
-            signedNamespaceDelegation,
-            signedPartyToParticipant,
-            signedPartyToKey,
-          ),
-          ExternalParty(partyId, protocolSigningKeys.map(_.fingerprint)),
+        OnboardingTransactions(
+          signedNamespaceDelegation,
+          signedPartyToParticipant,
+          signedPartyToKey,
         )
       }
+    }
   }
 
   /** @return
@@ -463,9 +679,11 @@ class ParticipantPartiesAdministrationGroup(
       case Seq() =>
         Left("not connected to any synchronizer")
       case Seq(onlyOneSynchronizer) => Right(onlyOneSynchronizer.physicalSynchronizerId)
-      case _multiple =>
+      case multiple =>
+        val psids = multiple.map(_.physicalSynchronizerId)
+
         Left(
-          "cannot automatically determine synchronizer, because participant is connected to more than 1 synchronizer"
+          s"cannot automatically determine synchronizer, because participant is connected to more than 1 synchronizer: $psids"
         )
     }
     alias

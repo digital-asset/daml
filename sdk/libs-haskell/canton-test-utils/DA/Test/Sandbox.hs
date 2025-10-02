@@ -206,6 +206,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
+                     , "http-ledger-api" Aeson..= Aeson.object [ "enabled" Aeson..= False ]
                      , "parameters" Aeson..= Aeson.object [ "alpha-version-support" Aeson..= True ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]

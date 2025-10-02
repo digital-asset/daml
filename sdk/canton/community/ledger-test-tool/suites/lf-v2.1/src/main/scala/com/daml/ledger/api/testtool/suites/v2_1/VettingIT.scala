@@ -14,6 +14,7 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.testtool.infrastructure.{
   Dars,
   LedgerTestSuite,
+  TestConstraints,
   VettingAltDar,
   VettingDepDar,
   VettingMainDar_1_0_0,
@@ -715,17 +716,13 @@ class VettingIT extends LedgerTestSuite {
         )
       )
 
-      // TODO(#21696) Finish dry run implementation so that this request fails as expected
-      _ <- ledger.updateVettedPackages(
-        vetPkgIdsRequest(
-          pkgIds = Seq(vettingMainPkgIdV2),
-          dryRun = true,
+      // Dry-run vetting without dependencies (should fail)
+      _ <- ledger
+        .updateVettedPackages(vetPkgIdsRequest(pkgIds = Seq(vettingMainPkgIdV2), dryRun = true))
+        .mustFailWith(
+          "Vetting a package without its dependencies in a dry run should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
+          ParticipantTopologyManagerError.DependenciesNotVetted,
         )
-      )
-      //  .mustFailWith(
-      //    "Vetting a package without its dependencies in a dry run should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
-      //    ParticipantTopologyManagerError.DependenciesNotVetted
-      //  )
 
       // Vet without dependencies (should fail)
       _ <- ledger
@@ -768,6 +765,25 @@ class VettingIT extends LedgerTestSuite {
           ParticipantTopologyManagerError.DependenciesNotVetted,
         )
 
+      _ <- unvetAllDARMains(ledger)
+    } yield ()
+  })
+
+  test(
+    "PVValidateDarCheckUpgradeInvariants",
+    "Upgrade invariants are checked, including during validate dar request",
+    allocate(NoParties),
+    runConcurrently = false,
+    limitation = TestConstraints.GrpcOnly(reason = "ValidateDarFile is not available in JSON API"),
+  )(implicit ec => { case Participants(Participant(ledger, _)) =>
+    for {
+      _ <- ledger.uploadDarFile(Dars.read(VettingMainDar_2_0_0.path))
+      _ <- ledger
+        .validateDarFile(Dars.read(VettingMainDar_Split_Lineage_2_0_0.path))
+        .mustFailWith(
+          "Update should fail to vet package with same name and version with KNOWN_PACKAGE_VERSION error",
+          ParticipantTopologyManagerError.UpgradeVersion,
+        )
       _ <- unvetAllDARMains(ledger)
     } yield ()
   })

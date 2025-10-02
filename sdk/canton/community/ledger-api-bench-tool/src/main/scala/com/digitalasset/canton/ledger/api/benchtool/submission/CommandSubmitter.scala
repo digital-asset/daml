@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.benchtool.metrics.MetricsManager
 import com.digitalasset.canton.ledger.api.benchtool.services.LedgerApiServices
 import io.grpc.Status
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.{Materializer, OverflowStrategy}
 import org.slf4j.LoggerFactory
 
@@ -197,14 +197,8 @@ final case class CommandSubmitter(
     materializerOwner()
       .use { implicit materializer =>
         for {
-          _ <- Source
-            .fromIterator(() => (1 to config.numberOfInstances).iterator)
-            .wireTap(i => if (i == 1) progressMeter.start())
-            .mapAsync(commandGenerationParallelism)(index =>
-              Future.fromTry(
-                generator.next().map(cmd => index -> cmd)
-              )
-            )
+          _ <- generator
+            .commandBatchSource(config.numberOfInstances, commandGenerationParallelism)
             .groupedWithin(submissionBatchSize, 1.minute)
             .map(cmds => cmds.head._1 -> cmds.map(_._2).toList)
             .buffer(maxInFlightCommands, OverflowStrategy.backpressure)

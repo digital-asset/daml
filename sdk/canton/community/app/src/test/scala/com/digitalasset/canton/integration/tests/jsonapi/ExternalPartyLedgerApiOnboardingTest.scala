@@ -6,10 +6,8 @@ package com.digitalasset.canton.integration.tests.jsonapi
 import com.daml.ledger.api.v2.admin.party_management_service.GenerateExternalPartyTopologyResponse
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{SignatureFormat, SigningAlgorithmSpec}
-import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
-  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
 }
@@ -22,20 +20,8 @@ import java.security.KeyPairGenerator
 import java.util.Base64
 
 class ExternalPartyLedgerApiOnboardingTest extends CommunityIntegrationTest with SharedEnvironment {
-  import monocle.macros.syntax.lens.*
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1
-      .addConfigTransform(
-        ConfigTransforms.updateParticipantConfig("participant1")(
-          _.focus(
-            _.httpLedgerApi
-          ).replace(
-            Some(
-              JsonApiConfig(server = HttpServerConfig())
-            )
-          )
-        )
-      )
       .withSetup { implicit env =>
         import env.*
 
@@ -73,7 +59,7 @@ class ExternalPartyLedgerApiOnboardingTest extends CommunityIntegrationTest with
     // Send a JSON API request via HttpClient to verify that the JSON API works
     import env.*
     val port =
-      participant1.config.httpLedgerApi.map(_.server.port).valueOrFail("JSON API must be enabled")
+      participant1.config.httpLedgerApi.server.internalPort.valueOrFail("JSON API must be enabled")
 
     val jsonBody =
       """{
