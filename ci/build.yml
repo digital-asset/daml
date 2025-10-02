@@ -9,7 +9,7 @@ jobs:
   displayName: 'Get git SHA'
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -35,7 +35,7 @@ jobs:
   displayName: 'Verify docs synchronized'
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -56,7 +56,7 @@ jobs:
 - job: validate_docs_sphinx_build
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -91,10 +91,10 @@ jobs:
   strategy:
     matrix:
       intel:
-        assignment: default
+        assignment: default-new
         name: linux-intel
       arm:
-        assignment: arm
+        assignment: arm-new
         name: linux-arm
   pool:
     name: 'ubuntu_20_04'
