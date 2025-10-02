@@ -35,6 +35,7 @@ class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
   */
 abstract class UpgradesMatrixUnit(n: Int, k: Int)
     extends UpgradesMatrix[Error, (SubmittedTransaction, Transaction.Metadata)](
+      UpgradesMatrix.IdeLedger,
       UpgradesMatrixCasesV2MaxStable,
       Some((n, k)),
     )
@@ -169,6 +170,11 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
+        }
+      case UpgradesMatrixCases.ExpectAuthenticationError =>
+        inside(result) {
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
+            error shouldBe a[IE.Dev.AuthenticationError]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) {

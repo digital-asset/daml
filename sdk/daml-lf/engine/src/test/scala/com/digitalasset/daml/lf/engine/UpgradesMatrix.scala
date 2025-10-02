@@ -54,6 +54,7 @@ import scala.language.implicitConversions
   * multiple Canton runners.
   */
 abstract class UpgradesMatrix[Err, Res](
+    val underlyingLedger: UpgradesMatrix.UnderlyingLedger,
     val cases: UpgradesMatrixCases,
     nk: Option[(Int, Int)] = None,
 ) extends AsyncFreeSpec
@@ -89,6 +90,7 @@ abstract class UpgradesMatrix[Err, Res](
             for (creationPackageStatus <- cases.creationPackageStatuses) {
               testHelper
                 .makeApiCommands(
+                  underlyingLedger,
                   operation,
                   catchBehavior,
                   entryPoint,
@@ -139,6 +141,12 @@ abstract class UpgradesMatrix[Err, Res](
       }
     }
   }
+}
+
+object UpgradesMatrix {
+  sealed abstract class UnderlyingLedger
+  case object IdeLedger extends UnderlyingLedger
+  case object CantonLedger extends UnderlyingLedger
 }
 
 // Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
@@ -1192,6 +1200,37 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: differently-named field in record used as template parameter, upgrade fails
+  case object DifferentlyNamedFieldInRecordArg
+      extends TestCase("DifferentlyNamedFieldInRecordArg", ExpectAuthenticationError) {
+
+    val recordName = s"${templateName}Record"
+
+    override def v1AdditionalDefinitions: String =
+      s"record @serializable $recordName = { n : Int64 };"
+    override def v2AdditionalDefinitions: String =
+      s"record @serializable $recordName = { nRenamed : Int64 };"
+
+    override def v1AdditionalFields = s", r: Mod:$recordName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedRecordName = s"'$v1PkgId':Mod:$recordName"
+      s", r = $qualifiedRecordName { n = 0 }"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      ImmArray(
+        None /* r */ -> ValueRecord(
+          None /* Mod:$recordName */,
+          ImmArray(
+            None /* n */ -> ValueInt64(0)
+          ),
+        )
+      )
+    }
+  }
+
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional constructor in variant used as template parameter, upgrade succeeds
   case object AdditionalConstructorInVariantArg
       extends TestCase("AdditionalConstructorInVariantArg", ExpectSuccess) {
@@ -1202,6 +1241,38 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       s"variant @serializable $variantName = Ctor1: Int64;"
     override def v2AdditionalDefinitions: String =
       s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+
+    override def v1AdditionalFields = s", v: Mod:$variantName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedVariantName = s"'$v1PkgId':Mod:$variantName"
+      s", v = $qualifiedVariantName:Ctor1 0"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1VariantId =
+        Identifier(v1PkgId, s"Mod:$variantName")
+      ImmArray(
+        None /* v */ -> ValueVariant(
+          Some(v1VariantId),
+          "Ctor1",
+          ValueInt64(0),
+        )
+      )
+    }
+  }
+
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: differently-ranked variant constructor used as template parameter, upgrade fails
+  case object DifferentlyRankedConstructorInVariantArg
+      extends TestCase("DifferentlyRankedConstructorInVariantArg", ExpectAuthenticationError) {
+
+    val variantName = s"${templateName}Variant"
+
+    override def v1AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor1: Int64 | Ctor2: Unit;"
+    override def v2AdditionalDefinitions: String =
+      s"variant @serializable $variantName = Ctor2: Unit | Ctor1: Int64;"
 
     override def v1AdditionalFields = s", v: Mod:$variantName"
     override def v2AdditionalFields = v1AdditionalFields
@@ -1254,10 +1325,53 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     }
   }
 
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: differently-ranked constructor in enum used as template parameter, upgrade fails
+  case object DifferentlyRankedConstructorInEnumArg
+      extends TestCase("DifferentlyRankedConstructorInEnumArg", ExpectAuthenticationError) {
+
+    val enumName = s"${templateName}Enum"
+
+    override def v1AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor1 | Ctor2;"
+    override def v2AdditionalDefinitions: String =
+      s"enum @serializable $enumName = Ctor2 | Ctor1;"
+
+    override def v1AdditionalFields = s", e: Mod:$enumName"
+    override def v2AdditionalFields = v1AdditionalFields
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String = {
+      val qualifiedEnumName = s"'$v1PkgId':Mod:$enumName"
+      s", e = $qualifiedEnumName:Ctor1"
+    }
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId) = {
+      val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
+      ImmArray(
+        None /* e */ -> ValueEnum(
+          Some(v1EnumId),
+          "Ctor1",
+        )
+      )
+    }
+  }
+
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional template parameter, upgrade succeeds
   case object AdditionalTemplateArg extends TestCase("AdditionalTemplateArg", ExpectSuccess) {
     override def v1AdditionalFields = ""
     override def v2AdditionalFields = ", extra: Option Unit"
+  }
+
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: differently-named template parameter, upgrade fails
+  case object DifferentlyNamedTemplateArg
+      extends TestCase("DifferentlyNamedTemplateArg", ExpectAuthenticationError) {
+    override def v1AdditionalFields = ", extra: Unit"
+    override def v2AdditionalFields = ", extraRenamed: Unit"
+
+    override def additionalCreateArgsLf(v1PkgId: PackageId): String =
+      s", extra = ()"
+
+    override def additionalCreateArgsValue(v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+      ImmArray(None /* extra */ -> ValueUnit)
   }
 
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: errors thrown by the choice controllers expression cannot be caught
@@ -1640,10 +1754,14 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     InvalidKeyDowngradeAdditionalField,
     // template arg
     AdditionalFieldInRecordArg,
+    DifferentlyNamedFieldInRecordArg,
     AdditionalConstructorInVariantArg,
+    DifferentlyRankedConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
+    DifferentlyRankedConstructorInEnumArg,
     AdditionalTemplateArg,
     AddingInterfaceInstance,
+    DifferentlyNamedTemplateArg,
     // cases that test that adding unrelated stuff to the package has no impact
     AdditionalChoices,
     AdditionalTemplates,
@@ -1872,6 +1990,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       )
 
     def makeApiCommands(
+        @nowarn("cat=unused") underlyingLedger: UpgradesMatrix.UnderlyingLedger,
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
@@ -1897,6 +2016,18 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
         contractOrigin,
         creationPackageStatus,
       ) match {
+        // TODO(https://github.com/digital-asset/daml/issues/21667):
+        //   restrict this blacklisting to the IDE ledger only once canton uses contract IDs v12
+        case (
+              DifferentlyNamedTemplateArg | DifferentlyNamedFieldInRecordArg |
+              DifferentlyRankedConstructorInVariantArg | DifferentlyRankedConstructorInEnumArg,
+              _,
+              _,
+              _,
+              Global | Disclosed,
+              _,
+            ) /* if underlyingLedger == UpgradesMatrix.IdeLedger */ =>
+          None
         case (_, _, _, _, Local, CreationPackageUnvetted) =>
           None // local contracts cannot be created from unvetted packages
         case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _, _) =>
@@ -2040,6 +2171,8 @@ object UpgradesMatrixCases {
   case object ExpectRuntimeTypeMismatchError
       extends ExpectedOutcome("should fail with a runtime type mismatch error")
   case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
+  case object ExpectAuthenticationError
+      extends ExpectedOutcome("should fail with an authentication error")
   case object ExpectPreprocessingError
       extends ExpectedOutcome("should fail with a preprocessing error")
   case object ExpectUnhandledException
