@@ -50,13 +50,18 @@ versionDefault = version2_1
 version2_1 :: Version
 version2_1 = Version V2 (PointStable 1)
 
+-- | Daml-LF version 2.2
+-- | Staging version!
+version2_2 :: Version
+version2_2 = Version V2 (PointStable 2)
+
 -- | The Daml-LF 2.x development version.
 version2_dev :: Version
 version2_dev = Version V2 PointDev
 
 -- Must be kept in sync with COMPILER_LF_VERSION in daml-lf.bzl.
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version2_1, version2_dev]
+supportedOutputVersions = [version2_1, version2_2, version2_dev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = supportedOutputVersions

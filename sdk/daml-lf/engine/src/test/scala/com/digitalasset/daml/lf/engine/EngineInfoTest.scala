@@ -31,7 +31,7 @@ class EngineInfoTest extends AnyWordSpec with Matchers {
         "Daml-LF Engine supports LF versions: 2.1"
 
       engineInfoV2.show shouldBe
-        "Daml-LF Engine supports LF versions: 2.1, 2.dev"
+        "Daml-LF Engine supports LF versions: 2.1, 2.2, 2.dev"
     }
 
     "toString returns the same value as show" in {

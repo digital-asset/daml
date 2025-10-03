@@ -77,6 +77,7 @@ lf_version_latest = {
 # we bump default.
 lf_version_configuration = {
     "default": "2.1",
+    # latest = latest MAJOR version?
     "latest": lf_version_latest.get("2"),
     # "preview": "",
     # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
@@ -111,11 +112,11 @@ lf_docs_version = lf_version_configuration.get("preview", lf_version_configurati
 ENGINE_LF_DEV_VERSIONS = ["2.dev"]
 
 # All LF versions supported by the engine
-ENGINE_LF_VERSIONS = ["2.1"] + ENGINE_LF_DEV_VERSIONS
+ENGINE_LF_VERSIONS = ["2.1", "2.2"] + ENGINE_LF_DEV_VERSIONS
 
 # The subset of LF versions accepted by the compiler's --target option.
 # Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["2.1"] + ENGINE_LF_DEV_VERSIONS
+COMPILER_LF_VERSIONS = ["2.1", "2.2"] + ENGINE_LF_DEV_VERSIONS
 
 # LF Versions supported by the dar reader
 READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ENGINE_LF_VERSIONS

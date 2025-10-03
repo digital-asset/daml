@@ -31,6 +31,7 @@ object SerializationVersion {
   private[lf] val assign: LanguageVersion => SerializationVersion =
     Map(
       LanguageVersion.v2_1 -> V1,
+      LanguageVersion.v2_2 -> V1,
       LanguageVersion.v2_dev -> VDev,
     )
 
