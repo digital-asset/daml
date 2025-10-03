@@ -92,7 +92,7 @@ function publish_artifact {
     info "Uploading ${artifact_name} to oci registry...\n"
     "${HOME}"/.dpm/bin/dpm \
       repo publish-component \
-        "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
+        "${artifact_name}" "${RELEASE_TAG}" --extra-tags main ${platform_args[@]} \
         --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
 }
