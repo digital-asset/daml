@@ -363,7 +363,7 @@ truncatedErrorMessage :: SubmitError -> Text
 data UpgradeErrorType
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-validationfailed-35370
-ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
+ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
 
 coid :: UpgradeErrorType -> AnyContractId
 
@@ -371,11 +371,17 @@ srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
 dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
-signatories :: UpgradeErrorType -> [Party]
+originalSignatories :: UpgradeErrorType -> [Party]
 
-observers :: UpgradeErrorType -> [Party]
+originalObservers :: UpgradeErrorType -> [Party]
 
-keyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+originalKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
+
+recomputedSignatories :: UpgradeErrorType -> [Party]
+
+recomputedObservers :: UpgradeErrorType -> [Party]
+
+recomputedKeyOpt :: UpgradeErrorType -> Optional (AnyContractKey, [Party])
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037
 DummyUpgradeError :: UpgradeErrorType
