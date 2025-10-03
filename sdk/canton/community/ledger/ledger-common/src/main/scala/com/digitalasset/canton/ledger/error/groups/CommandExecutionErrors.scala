@@ -30,18 +30,21 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       .encodeValue(valueVersion = SerializationVersion.VDev, v0 = v)
       .map(bs => BaseEncoding.base64().encode(bs.toByteArray))
 
+  def tryEncodeValue(v: Value)(implicit loggingContext: ErrorLoggingContext): Option[String] =
+    encodeValue(v).fold(
+      { case ValueCoder.EncodeError(msg) =>
+        loggingContext.error(msg)
+        None
+      },
+      Some(_),
+    )
+
   def withEncodedValue(
       v: Value
   )(
       f: String => Seq[(ErrorResource, String)]
   )(implicit loggingContext: ErrorLoggingContext): Seq[(ErrorResource, String)] =
-    encodeValue(v).fold(
-      { case ValueCoder.EncodeError(msg) =>
-        loggingContext.error(msg)
-        Seq.empty
-      },
-      f,
-    )
+    tryEncodeValue(v).fold(Seq.empty[(ErrorResource, String)])(f)
 
   def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
     Seq((ErrorResource.Parties, parties.mkString(",")))
@@ -829,14 +832,11 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
 
           override def resources: Seq[(ErrorResource, String)] = {
-            def optKeyResources(keyOpt: Option[GlobalKeyWithMaintainers]) =
-              keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
-                withEncodedValue(key.globalKey.key) { encodedKey =>
-                  Seq(
-                    (ErrorResource.ContractKey, encodedKey),
-                    (ErrorResource.PackageName, key.globalKey.packageName),
-                  ) ++ encodeParties(key.maintainers)
-                }
+            def optKeyResources(keyOpt: Option[GlobalKeyWithMaintainers]): Seq[(ErrorResource, String)] =
+              Seq(
+                (ErrorResource.ContractKey.nullable, keyOpt.flatMap(key => tryEncodeValue(key.globalKey.key)).getOrElse("NULL")),
+                (ErrorResource.PackageName.nullable, keyOpt.map(_.globalKey.packageName).getOrElse("NULL")),
+                (ErrorResource.Parties.nullable, keyOpt.map(_.maintainers.mkString(",")).getOrElse("NULL"))
               )
 
             Seq(

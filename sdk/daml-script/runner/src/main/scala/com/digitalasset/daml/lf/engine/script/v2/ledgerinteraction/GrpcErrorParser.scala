@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
@@ -11,18 +12,17 @@ import com.digitalasset.daml.lf.transaction.{
   SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.ValueCoder
-import com.daml.nonempty.NonEmpty
+import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
-import com.google.rpc.status.Status
 import com.google.protobuf.any.Any
+import com.google.rpc.status.Status
 
 import scala.reflect.ClassTag
 import scala.util.Try
 
 object GrpcErrorParser {
-  val decodeValue = (s: String) =>
+  val decodeValue: String => Option[Value] = (s: String) =>
     for {
       bytes <- Try(BaseEncoding.base64().decode(s)).toOption
       value <-
@@ -34,12 +34,21 @@ object GrpcErrorParser {
           .toOption
     } yield value
 
+  val decodeNullableValue: String => Option[Option[Value]] =
+    decodeNullable(decodeValue)
+
+  val decodeNullableString: String => Option[Option[String]] =
+    decodeNullable((s: String) => Some(s))
+
+  def decodeNullable[A](decoder: String => Option[A]): String => Option[Option[A]] = (s: String) =>
+    if (s == "NULL") Some(None) else decoder(s).map(Some(_))
+
   val parseList = (s: String) => s.tail.init.split(", ").toSeq
 
   // Converts a given SubmitError into a SubmitError. Wraps in an UnknownError if its not what we expect, wraps in a TruncatedError if we're missing resources
   def convertStatusRuntimeException(status: Status): SubmitError = {
-    import com.digitalasset.base.error.utils.ErrorDetails._
     import com.digitalasset.base.error.ErrorResource
+    import com.digitalasset.base.error.utils.ErrorDetails._
 
     val details = from(status.details.map(Any.toJavaProto))
     val message = status.message
@@ -71,6 +80,31 @@ object GrpcErrorParser {
         Set.empty
       } else {
         parties.split(",").toSet.map(Party.assertFromString _)
+      }
+    }
+
+    def parseGlobalKeyWithMaintainers(
+        templateId: Identifier,
+        globalKeyOpt: Option[Value],
+        packageNameOpt: Option[String],
+        maintainersOpt: Option[String],
+    ): Option[GlobalKeyWithMaintainers] = {
+      (globalKeyOpt, packageNameOpt, maintainersOpt) match {
+        case (None, None, None) => None
+        case (Some(globalKey), Some(packageName), Some(maintainers)) =>
+          Some(
+            GlobalKeyWithMaintainers.assertBuild(
+              templateId,
+              globalKey,
+              parseParties(maintainers),
+              PackageName.assertFromString(packageName),
+            )
+          )
+        case _ =>
+          throw new IllegalArgumentException(
+            s"""The components of GlobalKeyWithMaintainers should be either all present or all absent:
+               |key=$globalKeyOpt, packageName=$packageNameOpt, maintainers=$maintainersOpt""".stripMargin
+          )
       }
     }
 
@@ -262,11 +296,10 @@ object GrpcErrorParser {
           SubmitError.ContractIdComparability(cid)
         }
       case "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED" =>
-        // There are four cases:
-        //   1. No contract key on either original or recomputed
-        //   2. Contract key only on original
-        //   3. Contract key only on recomputed
-        //   4. Contract key on both original and recomputed
+        val NullableContractKey = ErrorResource.ContractKey.nullable
+        val NullablePackageName = ErrorResource.PackageName.nullable
+        val NullableParties = ErrorResource.Parties.nullable
+
         caseErr {
           case Seq(
                 (ErrorResource.ContractId, coid),
@@ -274,32 +307,14 @@ object GrpcErrorParser {
                 (ErrorResource.TemplateId, dstTemplateId),
                 (ErrorResource.Parties, originalSignatories),
                 (ErrorResource.Parties, originalObservers),
+                (NullableContractKey, decodeNullableValue.unlift(originalGlobalKey)),
+                (NullablePackageName, decodeNullableString.unlift(originalPn)),
+                (NullableParties, decodeNullableString.unlift(originalMaintainers)),
                 (ErrorResource.Parties, recomputedSignatories),
                 (ErrorResource.Parties, recomputedObservers),
-              ) =>
-            SubmitError.UpgradeError.ValidationFailed(
-              ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
-              Identifier.assertFromString(dstTemplateId),
-              parseParties(originalSignatories),
-              parseParties(originalObservers),
-              None,
-              parseParties(recomputedSignatories),
-              parseParties(recomputedObservers),
-              None,
-              message,
-            )
-          case Seq(
-                (ErrorResource.ContractId, coid),
-                (ErrorResource.TemplateId, srcTemplateId),
-                (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, originalSignatories),
-                (ErrorResource.Parties, originalObservers),
-                (ErrorResource.ContractKey, decodeValue.unlift(originalGlobalKey)),
-                (ErrorResource.PackageName, originalPn),
-                (ErrorResource.Parties, originalMaintainers),
-                (ErrorResource.Parties, recomputedSignatories),
-                (ErrorResource.Parties, recomputedObservers),
+                (NullableContractKey, decodeNullableValue.unlift(recomputedGlobalKey)),
+                (NullablePackageName, decodeNullableString.unlift(recomputedPn)),
+                (NullableParties, decodeNullableString.unlift(recomputedMaintainers)),
               ) =>
             val srcTid = Identifier.assertFromString(srcTemplateId)
             val dstTid = Identifier.assertFromString(dstTemplateId)
@@ -309,91 +324,19 @@ object GrpcErrorParser {
               dstTid,
               parseParties(originalSignatories),
               parseParties(originalObservers),
-              Some(
-                GlobalKeyWithMaintainers.assertBuild(
-                  srcTid,
-                  originalGlobalKey,
-                  parseParties(originalMaintainers),
-                  PackageName.assertFromString(originalPn),
-                )
+              parseGlobalKeyWithMaintainers(
+                srcTid,
+                originalGlobalKey,
+                originalPn,
+                originalMaintainers,
               ),
               parseParties(recomputedSignatories),
               parseParties(recomputedObservers),
-              None,
-              message,
-            )
-          case Seq(
-                (ErrorResource.ContractId, coid),
-                (ErrorResource.TemplateId, srcTemplateId),
-                (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, originalSignatories),
-                (ErrorResource.Parties, originalObservers),
-                (ErrorResource.Parties, recomputedSignatories),
-                (ErrorResource.Parties, recomputedObservers),
-                (ErrorResource.ContractKey, decodeValue.unlift(recomputedGlobalKey)),
-                (ErrorResource.PackageName, recomputedPn),
-                (ErrorResource.Parties, recomputedMaintainers),
-              ) =>
-            val dstTid = Identifier.assertFromString(dstTemplateId)
-            SubmitError.UpgradeError.ValidationFailed(
-              ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
-              dstTid,
-              parseParties(originalSignatories),
-              parseParties(originalObservers),
-              None,
-              parseParties(recomputedSignatories),
-              parseParties(recomputedObservers),
-              Some(
-                GlobalKeyWithMaintainers.assertBuild(
-                  dstTid,
-                  recomputedGlobalKey,
-                  parseParties(recomputedMaintainers),
-                  PackageName.assertFromString(recomputedPn),
-                )
-              ),
-              message,
-            )
-          case Seq(
-                (ErrorResource.ContractId, coid),
-                (ErrorResource.TemplateId, srcTemplateId),
-                (ErrorResource.TemplateId, dstTemplateId),
-                (ErrorResource.Parties, originalSignatories),
-                (ErrorResource.Parties, originalObservers),
-                (ErrorResource.ContractKey, decodeValue.unlift(originalGlobalKey)),
-                (ErrorResource.PackageName, originalPn),
-                (ErrorResource.Parties, originalMaintainers),
-                (ErrorResource.Parties, recomputedSignatories),
-                (ErrorResource.Parties, recomputedObservers),
-                (ErrorResource.ContractKey, decodeValue.unlift(recomputedGlobalKey)),
-                (ErrorResource.PackageName, recomputedPn),
-                (ErrorResource.Parties, recomputedMaintainers),
-              ) =>
-            val srcTid = Identifier.assertFromString(srcTemplateId)
-            val dstTid = Identifier.assertFromString(dstTemplateId)
-            SubmitError.UpgradeError.ValidationFailed(
-              ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
-              dstTid,
-              parseParties(originalSignatories),
-              parseParties(originalObservers),
-              Some(
-                GlobalKeyWithMaintainers.assertBuild(
-                  srcTid,
-                  originalGlobalKey,
-                  parseParties(originalMaintainers),
-                  PackageName.assertFromString(originalPn),
-                )
-              ),
-              parseParties(recomputedSignatories),
-              parseParties(recomputedObservers),
-              Some(
-                GlobalKeyWithMaintainers.assertBuild(
-                  dstTid,
-                  recomputedGlobalKey,
-                  parseParties(recomputedMaintainers),
-                  PackageName.assertFromString(recomputedPn),
-                )
+              parseGlobalKeyWithMaintainers(
+                dstTid,
+                recomputedGlobalKey,
+                recomputedPn,
+                recomputedMaintainers,
               ),
               message,
             )

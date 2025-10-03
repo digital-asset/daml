@@ -2813,10 +2813,6 @@ private[lf] object SBuiltinFun {
       k: () => Control[Question.Update]
   ): Control[Question.Update] = {
 
-    println(
-      s"ORIGINAL: $original, RECOMPUTED: $recomputed, SRC: $srcTemplateId, DST: $recomputedTemplateId"
-    )
-
     def check[T](getter: ContractMetadata => T, desc: String): Option[String] =
       Option.when(getter(recomputed) != getter(original))(
         s"$desc mismatch: $original vs $recomputed"

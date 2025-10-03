@@ -85,7 +85,6 @@ object SubmitError {
   }
 
   def globalKeyToAnyContractKey(env: Env, key: GlobalKey): SValue = {
-    println(s"KEY: $key")
     val ty = env.lookupKeyTy(key.templateId).toOption.get
     val sValue = env.translateValue(ty, key.key).toOption.get
     fromAnyContractKey(AnyContractKey(key.templateId, ty, sValue))
