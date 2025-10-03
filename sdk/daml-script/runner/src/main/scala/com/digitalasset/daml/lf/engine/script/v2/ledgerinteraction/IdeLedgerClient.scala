@@ -372,9 +372,12 @@ class IdeLedgerClient(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
-          innerError.signatories,
-          innerError.observers,
-          innerError.keyOpt,
+          innerError.originalSignatories,
+          innerError.originalObservers,
+          innerError.originalKeyOpt,
+          innerError.recomputedSignatories,
+          innerError.recomputedObservers,
+          innerError.recomputedKeyOpt,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>

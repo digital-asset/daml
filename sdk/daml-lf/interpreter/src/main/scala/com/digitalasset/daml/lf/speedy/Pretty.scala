@@ -130,9 +130,12 @@ private[lf] object Pretty {
                 coid,
                 srcTemplateId,
                 dstTemplateId,
-                signatories,
-                observers,
-                keyOpt,
+                originalObservers,
+                originalSignatories,
+                originalKeyOpt,
+                recomputedSignatories,
+                recomputedObservers,
+                recomputedKeyOpt,
                 _,
               ) =>
             text("Validation fails when trying to upgrade the contract") & prettyContractId(
@@ -145,9 +148,17 @@ private[lf] object Pretty {
               text(
                 "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
               ) /
-              text("recomputed signatories are") & prettyParties(signatories) /
-              text("recomputed observers are") & prettyParties(observers) /
-              (keyOpt match {
+              text("original signatories are") & prettyParties(originalSignatories) /
+              text("original observers are") & prettyParties(originalObservers) /
+              (originalKeyOpt match {
+                case None => Doc.empty
+                case Some(key) =>
+                  text("original maintainers are") & prettyParties(key.maintainers) /
+                    text("original key is") & prettyValue(verbose = false)(key.value)
+              }) /
+              text("recomputed signatories are") & prettyParties(recomputedSignatories) /
+              text("recomputed observers are") & prettyParties(recomputedObservers) /
+              (recomputedKeyOpt match {
                 case None => Doc.empty
                 case Some(key) =>
                   text("recomputed maintainers are") & prettyParties(key.maintainers) /

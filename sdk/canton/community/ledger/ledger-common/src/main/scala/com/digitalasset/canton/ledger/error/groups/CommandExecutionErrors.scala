@@ -3,16 +3,7 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.digitalasset.base.error.{
-  DamlErrorWithDefiniteAnswer,
-  ErrorCategory,
-  ErrorCategoryRetry,
-  ErrorCode,
-  ErrorGroup,
-  ErrorResource,
-  Explanation,
-  Resolution,
-}
+import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCategoryRetry, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -21,7 +12,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, SerializationVersion}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, SerializationVersion, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.digitalasset.daml.lf.{VersionRange, language}
@@ -39,18 +30,21 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       .encodeValue(valueVersion = SerializationVersion.VDev, v0 = v)
       .map(bs => BaseEncoding.base64().encode(bs.toByteArray))
 
+  def tryEncodeValue(v: Value)(implicit loggingContext: ErrorLoggingContext): Option[String] =
+    encodeValue(v).fold(
+      { case ValueCoder.EncodeError(msg) =>
+        loggingContext.error(msg)
+        None
+      },
+      Some(_),
+    )
+
   def withEncodedValue(
       v: Value
   )(
       f: String => Seq[(ErrorResource, String)]
   )(implicit loggingContext: ErrorLoggingContext): Seq[(ErrorResource, String)] =
-    encodeValue(v).fold(
-      { case ValueCoder.EncodeError(msg) =>
-        loggingContext.error(msg)
-        Seq.empty
-      },
-      f,
-    )
+    tryEncodeValue(v).fold(Seq.empty[(ErrorResource, String)])(f)
 
   def encodeParties(parties: Set[Ref.Party]): Seq[(ErrorResource, String)] =
     Seq((ErrorResource.Parties, parties.mkString(",")))
@@ -838,20 +832,24 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
 
           override def resources: Seq[(ErrorResource, String)] = {
-            val optKeyResources = err.keyOpt.fold(Seq.empty[(ErrorResource, String)])(key =>
-              withEncodedValue(key.globalKey.key) { encodedKey =>
-                Seq(
-                  (ErrorResource.ContractKey, encodedKey),
-                  (ErrorResource.PackageName, key.globalKey.packageName),
-                ) ++ encodeParties(key.maintainers)
-              }
-            )
+            def optKeyResources(keyOpt: Option[GlobalKeyWithMaintainers]): Seq[(ErrorResource, String)] =
+              Seq(
+                (ErrorResource.ContractKey.nullable, keyOpt.flatMap(key => tryEncodeValue(key.globalKey.key)).getOrElse("NULL")),
+                (ErrorResource.PackageName.nullable, keyOpt.map(_.globalKey.packageName).getOrElse("NULL")),
+                (ErrorResource.Parties.nullable, keyOpt.map(_.maintainers.mkString(",")).getOrElse("NULL"))
+              )
 
             Seq(
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
-            ) ++ encodeParties(err.signatories) ++ encodeParties(err.observers) ++ optKeyResources
+            )
+            ++ encodeParties(err.originalSignatories)
+            ++ encodeParties(err.originalObservers)
+            ++ optKeyResources(err.originalKeyOpt)
+            ++ encodeParties(err.recomputedSignatories)
+            ++ encodeParties(err.recomputedObservers)
+            ++ optKeyResources(err.recomputedKeyOpt)
           }
         }
       }

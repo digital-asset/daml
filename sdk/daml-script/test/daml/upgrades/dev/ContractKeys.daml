@@ -18,6 +18,8 @@ import qualified V1.ChangedMaintainersExpr as V1
 import qualified V2.ChangedMaintainersExpr as V2
 import qualified V1.UpgradedContractKeys as V1
 import qualified V2.UpgradedContractKeys as V2
+import qualified V1.ContractKeyPresence as V1
+import qualified V2.ContractKeyPresence as V2
 import qualified V1.IfaceMod as Iface
 
 {- PACKAGE
@@ -111,6 +113,14 @@ main = tests
       , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUpgraded)
       , ("fetch, src=v1 tgt=v2", fetchKeyUpgraded)
       , ("exerciseByKey, src=v1 tgt=v2", exerciseUpdateKeyUpgraded)
+      ]
+    ]
+  , subtree "Changed key presence"
+    [ subtree "Key in v1, no key in v2"
+      [ ("fetch", fetchTemplateWithUnexpectedKey)
+      ]
+    , subtree "No key in v1, key in v2"
+      [ ("fetch", fetchTemplateWithUnexpectedlyMissingKey)
       ]
     ]
   ]
@@ -656,12 +666,56 @@ exerciseUpdateKeyUpgraded = test $ do
   res <- a `submit` createAndExerciseCmd (V2.UpgradedKeyHelper a) (V2.UpgradedKeyExercise $ V2.UpgradedKeyKey a 1 None)
   res === "V2"
 
+{- MODULE
+package: contract-key-upgrades
+contents: |
+  module ContractKeyPresence where
+
+  data ContractKeyPresenceKey = ContractKeyPresenceKey with
+      p : Party
+    deriving (Eq, Show)
+
+  template ContractKeyPresenceTemplate
+    with
+      party : Party
+    where
+      signatory party
+      key (ContractKeyPresenceKey party) : ContractKeyPresenceKey -- @V 1
+      maintainer key.p -- @V 1
+
+      choice DummyChoice : ()
+        controller party
+        do pure ()
+-}
+
+fetchTemplateWithUnexpectedKey : Test
+fetchTemplateWithUnexpectedKey = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ContractKeyPresenceTemplate a)
+  let v2cid = coerceContractId @_ @V2.ContractKeyPresenceTemplate cid
+  res <- a `trySubmit` exerciseCmd @V2.ContractKeyPresenceTemplate v2cid V2.DummyChoice
+  case res of
+    -- We expect the original key to be present and the recomputed key to be absent.
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ (Some _) _ _ None) _) -> pure ()
+    other -> assertFail ("Expected failure with missing absent key and present recomputed key, but got: " <> show other)
+
+fetchTemplateWithUnexpectedlyMissingKey : Test
+fetchTemplateWithUnexpectedlyMissingKey = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V2.ContractKeyPresenceTemplate a)
+  let v1cid = coerceContractId @_ @V1.ContractKeyPresenceTemplate cid
+  res <- a `trySubmit` exerciseExactCmd @V1.ContractKeyPresenceTemplate v1cid V1.DummyChoice
+  case res of
+    -- We expect the original key to be absent and the recomputed key to be present.
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ None _ _ (Some _)) _) -> pure ()
+    other -> assertFail ("Expected failure with present original key and absent recomputed key, but got: " <> show other)
+
 ------------------------------------------------------------------------------------------------------------------------
 
 expectMetadataChangedError : forall t k a. (HasTemplateTypeRep t, HasFromAnyContractKey t k, Eq k) => k -> [Party] -> Either SubmitError a -> Script ()
 expectMetadataChangedError key maintainers r = case r of
     Right _ -> assertFail "Expected failure but got success"
-    Left (UpgradeError (ValidationFailed _ _ _ _ _ (Some (foundKey, foundMaintainers))) msg)
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ _ _ _ (Some (foundKey, foundMaintainers))) msg)
       | fromAnyContractKey @t foundKey == Some key &&
         sort maintainers == sort foundMaintainers &&
         "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg

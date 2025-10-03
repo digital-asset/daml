@@ -2829,14 +2829,16 @@ private[lf] object SBuiltinFun {
       case errors =>
         Control.Error(
           IE.Upgrade(
-            // TODO(https://github.com/digital-asset/daml/issues/20305): also include the original metadata
             IE.Upgrade.ValidationFailed(
               coid = coid,
               srcTemplateId = srcTemplateId,
               dstTemplateId = recomputedTemplateId,
-              signatories = recomputed.signatories,
-              observers = recomputed.observers,
-              keyOpt = recomputed.keyOpt,
+              originalSignatories = original.signatories,
+              originalObservers = original.observers,
+              originalKeyOpt = original.keyOpt,
+              recomputedSignatories = recomputed.signatories,
+              recomputedObservers = recomputed.observers,
+              recomputedKeyOpt = recomputed.keyOpt,
               msg = errors.mkString("['", "', '", "']"),
             )
           )
