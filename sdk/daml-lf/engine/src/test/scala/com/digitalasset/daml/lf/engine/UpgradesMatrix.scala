@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVer
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Assertion
 import org.scalatest.freespec.AsyncFreeSpec
@@ -1892,6 +1892,8 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.AllVersions(LanguageMajorVersion.V2)
     )
+
+  val contractIdVersion: ContractIdVersion = ContractIdVersion.V1
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(allPackages, engineConfig.getCompilerConfig)

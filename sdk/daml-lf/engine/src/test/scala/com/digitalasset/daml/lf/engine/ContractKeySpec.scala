@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   SerializationVersion,
 }
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   ValueContractId,
@@ -65,6 +65,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   import ContractKeySpec._
 
   private[this] val version = SerializationVersion.minContractKeys
+  private[this] val contractIdVersion = ContractIdVersion.V1
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -199,6 +200,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(pkgs = allPackages, keys = lookupKey)
       result shouldBe a[Right[_, _]]
@@ -228,6 +230,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(pkgs = allPackages, keys = lookupKey)
       result shouldBe a[Left[_, _]]
@@ -260,6 +263,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(pkgs = allPackages, keys = lookupKey)
 
@@ -340,6 +344,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
             ledgerTime = let,
             preparationTime = let,
             seeding = seeding,
+            contractIdVersion = contractIdVersion,
           )
           .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
       }

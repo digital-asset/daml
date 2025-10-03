@@ -10,16 +10,20 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, FileSystems, Path}
 
-class ReplayBenchmarkITV2 extends ReplayBenchmarkIT(LanguageMajorVersion.V2)
+class ReplayBenchmarkITV2_V1
+    extends ReplayBenchmarkIT(LanguageMajorVersion.V2, ContractIdVersion.V1)
 
-class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
-    extends AsyncWordSpec
+class ReplayBenchmarkIT(
+    override val majorLanguageVersion: LanguageMajorVersion,
+    contractIdVersion: ContractIdVersion,
+) extends AsyncWordSpec
     with AbstractScriptTest
     with Matchers
     with BeforeAndAfterEach {
@@ -65,6 +69,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           val exn = intercept[RuntimeException] {
             benchmark.init()
@@ -96,6 +101,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           noException should be thrownBy benchmark.init()
         }
@@ -122,6 +128,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           noException should be thrownBy benchmark.init()
         }
@@ -164,6 +171,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           benchmark.darFile = darPath.toFile.getAbsolutePath
           benchmark.choiceName = "ReplayBenchmark:T:Add"
           benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          benchmark.contractIdVersion = contractIdVersion.toString
 
           noException should be thrownBy benchmark.init()
         }
