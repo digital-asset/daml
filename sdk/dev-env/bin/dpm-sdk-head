@@ -124,11 +124,11 @@ fi
 
 if [ ! -d "$DPM_HOME" ]; then
   echo "$(tput setaf 5)DPM is not installed, installing latest from remote....$(tput sgr 0)"
-  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public/components/dpm:latest"
   # Setup DPM config using private edition
   cat > "${DPM_HOME}/dpm-config.yaml" << EOF
 edition: private
-registry: europe-docker.pkg.dev/da-images-dev/private
+registry: europe-docker.pkg.dev/da-images/public
 EOF
   CONF_FILE=
   case $SHELL in
@@ -226,7 +226,7 @@ update_component() {
 
     # get-dpm script doesn't delete, it only updates
     # use it to pull down a new dpm
-    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public/components/dpm:latest"
     version_line=$("$DPM_HOME/bin/dpm" version --assistant | grep -o 'version: .*')
     DPM_VERSION=${version_line#version: }
 
