@@ -155,8 +155,10 @@ object SequencerConnectionXPool {
     *   for the pool to initialize and start serving connections. After initialization, if the
     *   number of connections in the pool goes below the threshold, the pool's health will
     *   transition to `degraded` (or `failed` if it reaches 0).
-    * @param restartConnectionDelay
-    *   The duration after which a failed connection is restarted.
+    * @param minRestartConnectionDelay
+    *   The minimum duration after which a failed connection is restarted.
+    * @param maxRestartConnectionDelay
+    *   The maximum duration after which a failed connection is restarted.
     * @param expectedPSIdO
     *   If provided, defines the synchronizer to which the connections are expected to connect. If
     *   empty, the synchronizer will be determined as soon as [[trustThreshold]]-many connections
@@ -165,8 +167,8 @@ object SequencerConnectionXPool {
   final case class SequencerConnectionXPoolConfig(
       connections: NonEmpty[Seq[ConnectionXConfig]],
       trustThreshold: PositiveInt,
-      restartConnectionDelay: config.NonNegativeFiniteDuration =
-        config.NonNegativeFiniteDuration.ofMillis(500),
+      minRestartConnectionDelay: config.NonNegativeFiniteDuration,
+      maxRestartConnectionDelay: config.NonNegativeFiniteDuration,
       expectedPSIdO: Option[PhysicalSynchronizerId] = None,
   ) {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
@@ -194,6 +196,11 @@ object SequencerConnectionXPool {
           trustThreshold.unwrap <= connections.size,
           (),
           s"Trust threshold ($trustThreshold) must not exceed the number of connections (${connections.size})",
+        )
+        _ <- Either.cond(
+          minRestartConnectionDelay.duration <= maxRestartConnectionDelay.duration,
+          (),
+          s"Minimum restart connection delay ($minRestartConnectionDelay) must not exceed the maximum ($maxRestartConnectionDelay)",
         )
       } yield ()
 
@@ -261,6 +268,10 @@ object SequencerConnectionXPool {
         connectionsConfig,
         trustThreshold = sequencerConnections.sequencerTrustThreshold,
         expectedPSIdO = expectedPSIdO,
+        minRestartConnectionDelay =
+          sequencerConnections.sequencerConnectionPoolDelays.minRestartDelay,
+        maxRestartConnectionDelay =
+          sequencerConnections.sequencerConnectionPoolDelays.maxRestartDelay,
       )
     }
 

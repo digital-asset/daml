@@ -616,6 +616,7 @@ object EventStorageBackend {
       ledgerEffectiveTime: Timestamp,
       createKeyHash: Option[Hash],
       authenticationData: Array[Byte],
+      internalContractId: Long,
   ) extends RawAcsDeltaEventLegacy
       with RawLedgerEffectsEventLegacy
 

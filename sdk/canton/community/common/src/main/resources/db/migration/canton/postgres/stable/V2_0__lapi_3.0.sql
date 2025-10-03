@@ -50,7 +50,7 @@ CREATE TABLE lapi_command_completions (
     submitters bytea not null,
     command_id varchar collate "C" not null,
     -- The update ID is `NULL` for rejected transactions/reassignments.
-    update_id varchar collate "C",
+    update_id bytea,
     -- The submission ID will be provided by the participant or driver if the user didn't provide one.
     -- Nullable to support historical data.
     submission_id varchar collate "C",
@@ -292,7 +292,7 @@ CREATE TABLE lapi_events_assign (
     event_offset bigint not null,
 
     -- * transaction metadata
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     workflow_id varchar collate "C",
 
     -- * submitter info (only visible on submitting participant)
@@ -326,7 +326,8 @@ CREATE TABLE lapi_events_assign (
 
     create_key_maintainers bytea,
     trace_context bytea not null,
-    record_time bigint not null
+    record_time bigint not null,
+    internal_contract_id bigint not null
 );
 
 -- index for queries resolving contract ID to sequential IDs.
@@ -355,7 +356,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     event_offset bigint not null,
 
     -- * transaction metadata
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     workflow_id varchar collate "C",
 
     -- * submitter info (only visible on submitting participant)
@@ -414,7 +415,7 @@ CREATE TABLE lapi_events_create (
     event_offset bigint not null,
 
     -- * transaction metadata
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     workflow_id varchar collate "C",
 
     -- * submitter info (only visible on submitting participant)
@@ -444,7 +445,8 @@ CREATE TABLE lapi_events_create (
     create_key_maintainers bytea,
     trace_context bytea not null,
     record_time bigint not null,
-    external_transaction_hash bytea
+    external_transaction_hash bytea,
+    internal_contract_id bigint not null
 );
 
 -- lookup by contract_id
@@ -473,7 +475,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     event_offset bigint not null,
 
     -- * transaction metadata
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     workflow_id varchar collate "C",
 
     -- * submitter info (only visible on submitting participant)
@@ -522,7 +524,7 @@ CREATE TABLE lapi_events_unassign (
     event_offset bigint not null,
 
     -- * transaction metadata
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     workflow_id varchar collate "C",
 
     -- * submitter info (only visible on submitting participant)
@@ -569,7 +571,7 @@ CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassig
 CREATE TABLE lapi_events_party_to_participant (
     event_sequential_id bigint not null,
     event_offset bigint not null,
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     party_id integer not null,
     participant_id integer not null,
     participant_permission integer not null,
@@ -637,7 +639,7 @@ CREATE TABLE lapi_party_record_annotations (
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_update_meta (
-    update_id varchar collate "C" not null,
+    update_id bytea not null,
     event_offset bigint not null,
     publication_time bigint not null,
     record_time bigint not null,

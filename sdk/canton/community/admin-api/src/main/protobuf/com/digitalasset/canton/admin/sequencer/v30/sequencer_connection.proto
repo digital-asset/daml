@@ -60,6 +60,9 @@ message SequencerConnections {
   //
   // This value must be non-negative.
   uint32 sequencer_liveness_margin = 4;
+
+  // Configures the various delays used by the sequencer connection pool.
+  SequencerConnectionPoolDelays sequencer_connection_pool_delays = 5;
 }
 
 message SubmissionRequestAmplification {
@@ -72,4 +75,19 @@ message SubmissionRequestAmplification {
   // Determines how long the sequencer client waits for observing the sequencing before it sends the submission request again.
   // This value must be non-negative.
   google.protobuf.Duration patience = 2;
+}
+
+message SequencerConnectionPoolDelays {
+  // Minimum duration after which a failed sequencer connection is restarted.
+  // This value must be non-negative.
+  google.protobuf.Duration min_restart_delay = 1;
+
+  // Maximum duration after which a failed sequencer connection is restarted.
+  // This value must be non-negative.
+  google.protobuf.Duration max_restart_delay = 2;
+
+  // Delay between the attempts to obtain new sequencer connections for the sequencer subscription
+  // pool, when the current number of subscriptions is below `trustThreshold` + `livenessMargin`.
+  // This value must be non-negative.
+  google.protobuf.Duration subscription_request_delay = 3;
 }

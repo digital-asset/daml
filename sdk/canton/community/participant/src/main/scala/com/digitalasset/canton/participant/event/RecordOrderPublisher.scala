@@ -124,7 +124,7 @@ class RecordOrderPublisher private (
       }
     } {
       store.put(
-        updateId = transactionAccepted.updateId,
+        updateId = transactionAccepted.updateId.toHexString,
         lfVersionedTransaction = transactionAccepted.transaction,
       )
     }

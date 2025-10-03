@@ -66,6 +66,9 @@ object ForceFlag {
   case object AllowVetIncompatibleUpgrades
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES)
 
+  case object AllowOutOfBoundsValue
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_OUT_OF_BOUNDS_VALUE)
+
   /** This should only be used internally in situations where
     *   - the caller knows what they are doing
     *   - it's not necessarily clear which specific flags to use, but there also isn't really any
@@ -88,6 +91,7 @@ object ForceFlag {
       AllowInsufficientParticipantPermissionForSignatoryParty,
       AllowInsufficientSignatoryAssigningParticipantsForParty,
       AllowVetIncompatibleUpgrades,
+      AllowOutOfBoundsValue,
     )
       .map(ff => ff.toProtoV30 -> ff)
       .toMap

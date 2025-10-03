@@ -367,17 +367,11 @@ class DAMLe(
         case ResultNeedContract(acoid, resume) =>
           (CantonContractIdVersion.extractCantonContractIdVersion(acoid) match {
             case Right(version) =>
-              val hashingMethod = version match {
-                case v1: CantonContractIdV1Version => v1.contractHashingMethod
-                case _: CantonContractIdV2Version =>
-                  // TODO(#23971) - Add support for transforming the contract argument prior to hashing and switch to TypedNormalForm
-                  LfHash.HashingMethod.UpgradeFriendly
-              }
               contracts.lookupFatContract(acoid).value.map[Response] {
                 case Some(contract) =>
                   Response.ContractFound(
                     contract,
-                    hashingMethod,
+                    version.contractHashingMethod,
                     hash => contractAuthenticator(contract, hash).isRight,
                   )
                 case None => Response.ContractNotFound

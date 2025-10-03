@@ -9,10 +9,11 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
 }
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.UpdateId
 import com.digitalasset.canton.ledger.api.messages.update
+import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.protocol.UpdateId
 import io.grpc.StatusRuntimeException
 
 object UpdateServiceRequestValidator {
@@ -89,12 +90,13 @@ object UpdateServiceRequestValidator {
   ): Result[update.GetUpdateByIdRequest] =
     for {
       _ <- requireNonEmptyString(req.updateId, "update_id")
-      updateId <- requireLedgerString(req.updateId)
+      updateIdStr <- requireLedgerString(req.updateId)
+      updateId <- UpdateId.fromLedgerString(updateIdStr).left.map(e => invalidArgument(e.message))
       updateFormatProto <- requirePresence(req.updateFormat, "update_format")
       updateFormat <- FormatValidator.validate(updateFormatProto)
     } yield {
       update.GetUpdateByIdRequest(
-        updateId = UpdateId(updateId),
+        updateId = updateId,
         updateFormat = updateFormat,
       )
     }

@@ -15,7 +15,11 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   TestDynamicSynchronizerParameterGetter,
 }
 import com.digitalasset.canton.platform.config.CommandServiceConfig
-import com.digitalasset.canton.protocol.{AuthenticatedContractIdVersionV10, LfFatContractInst}
+import com.digitalasset.canton.protocol.{
+  AuthenticatedContractIdVersionV10,
+  AuthenticatedContractIdVersionV11,
+  LfFatContractInst,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.util.{ContractValidator, TestEngine}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
@@ -42,7 +46,10 @@ class DisclosedContractNormalizationTest
     EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(LanguageMajorVersion.V2))
   )
 
-  private val testEngine = new TestEngine(packagePaths = Seq(UpgradingBaseTest.UpgradeV2))
+  private val testEngine = new TestEngine(
+    packagePaths = Seq(UpgradingBaseTest.UpgradeV2),
+    cantonContractIdVersion = AuthenticatedContractIdVersionV11,
+  )
 
   private def buildV11upgrading(
       alice: String,

@@ -373,7 +373,7 @@ object TransactionConfirmationRequestFactory {
         submitterNode,
         synchronizerId,
         // TODO(#23971): Make this dependent on the protocol version when introducing V2 contract IDs
-        AuthenticatedContractIdVersionV11,
+        AuthenticatedContractIdVersionV12,
         cryptoOps,
         hasher,
         loggerFactory,

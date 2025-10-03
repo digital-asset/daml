@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{
@@ -22,12 +21,8 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  FieldConversionError,
-  ReassignmentProcessorError,
-}
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
-import com.digitalasset.canton.protocol.{LfNodeCreate, ReassignmentId, RootHash}
+import com.digitalasset.canton.protocol.{LfNodeCreate, ReassignmentId, RootHash, UpdateId}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -74,7 +69,7 @@ final case class AssignmentValidationResult private[reassignment] (
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, AcsChangeFactory => SequencedUpdate] = {
+  ): AcsChangeFactory => SequencedUpdate = {
     val reassignment = contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
       val contract = reassign.contract
       val contractInst = contract.inst
@@ -96,27 +91,22 @@ final case class AssignmentValidationResult private[reassignment] (
         nodeId = idx,
       )
     }
-    for {
-      updateId <-
-        rootHash.asLedgerTransactionId.leftMap[ReassignmentProcessorError](
-          FieldConversionError(reassignmentId, "Transaction id (root hash)", _)
+    val updateId = rootHash
+    val completionInfo =
+      Option.when(participantId == submitterMetadata.submittingParticipant)(
+        CompletionInfo(
+          actAs = List(submitterMetadata.submitter),
+          userId = submitterMetadata.userId,
+          commandId = submitterMetadata.commandId,
+          optDeduplicationPeriod = None,
+          submissionId = submitterMetadata.submissionId,
         )
-
-      completionInfo =
-        Option.when(participantId == submitterMetadata.submittingParticipant)(
-          CompletionInfo(
-            actAs = List(submitterMetadata.submitter),
-            userId = submitterMetadata.userId,
-            commandId = submitterMetadata.commandId,
-            optDeduplicationPeriod = None,
-            submissionId = submitterMetadata.submissionId,
-          )
-        )
-    } yield (acsChangeFactory: AcsChangeFactory) =>
+      )
+    (acsChangeFactory: AcsChangeFactory) =>
       Update.SequencedReassignmentAccepted(
         optCompletionInfo = completionInfo,
         workflowId = submitterMetadata.workflowId,
-        updateId = updateId,
+        updateId = UpdateId.fromRootHash(updateId),
         reassignmentInfo = ReassignmentInfo(
           sourceSynchronizer = sourcePSId.map(_.logical),
           targetSynchronizer = targetSynchronizer,

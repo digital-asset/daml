@@ -27,6 +27,7 @@ import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeR
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -221,6 +222,7 @@ class SequencerInfoLoader(
         sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerConnections.sequencerLivenessMargin,
         submissionRequestAmplification = sequencerConnections.submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnections.sequencerConnectionPoolDelays,
         sequencerConnectionValidation = sequencerConnectionValidation,
         expectedSynchronizerId = expectedSynchronizerId,
       )
@@ -633,6 +635,7 @@ object SequencerInfoLoader {
       sequencerTrustThreshold: PositiveInt,
       sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
+      sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
       sequencerConnectionValidation: SequencerConnectionValidation,
       expectedSynchronizerId: Option[PhysicalSynchronizerId],
   )(
@@ -674,6 +677,7 @@ object SequencerInfoLoader {
               sequencerTrustThreshold,
               sequencerLivenessMargin,
               submissionRequestAmplification,
+              sequencerConnectionPoolDelays,
             )
             .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers.apply)
             .map(connections =>

@@ -537,13 +537,11 @@ private[reassignment] class AssignmentProcessingSteps(
                   source = assignmentValidationResult.sourcePSId.map(_.logical),
                   target = synchronizerId.map(_.logical),
                 )
-              } else EitherTUtil.unitUS
-            update <- EitherT.fromEither[FutureUnlessShutdown](
-              assignmentValidationResult.createReassignmentAccepted(
-                synchronizerId.map(_.logical),
-                participantId,
-                requestId.unwrap,
-              )
+              } else EitherTUtil.unitUS[ReassignmentProcessorError]
+            update = assignmentValidationResult.createReassignmentAccepted(
+              synchronizerId.map(_.logical),
+              participantId,
+              requestId.unwrap,
             )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetO,

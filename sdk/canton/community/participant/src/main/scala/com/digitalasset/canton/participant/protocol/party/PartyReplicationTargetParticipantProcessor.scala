@@ -35,7 +35,7 @@ import com.digitalasset.canton.protocol.{
   ContractInstance,
   ReassignmentId,
   SerializableContract,
-  TransactionId,
+  UpdateId,
 }
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -290,7 +290,7 @@ class PartyReplicationTargetParticipantProcessor(
             .add(contract.contractId.coid)
         }
         .finish()
-      TransactionId(hash).tryAsLedgerTransactionId
+      UpdateId(hash)
     }
 
     val contractIdCounters = activeContracts.map {

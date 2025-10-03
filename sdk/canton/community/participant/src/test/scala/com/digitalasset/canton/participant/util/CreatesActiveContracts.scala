@@ -10,15 +10,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.participant.admin.data.{ActiveContractOld, RepairContract}
 import com.digitalasset.canton.platform.apiserver.FatContractInstanceHelper
-import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV11,
-  ContractAuthenticationDataV1,
-  LfSerializationVersion,
-  SerializableContract,
-  UnicumGenerator,
-}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, PhysicalSynchronizerId}
-import com.digitalasset.canton.util.LegacyContractHash
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.canton.{BaseTest, NeedsNewLfContractIds, ReassignmentCounter}
 import com.digitalasset.daml.lf
 
@@ -34,7 +28,7 @@ private[participant] trait CreatesActiveContracts {
 
     // 1. Create the prerequisites for coming up with an authenticated LAPI active contract.
     val cidUnauthenticated = newLfContractId()
-    val contractIdV1Version = AuthenticatedContractIdVersionV11
+    val contractIdV1Version = CantonContractIdVersion.maxV1
     val unicumGenerator = new UnicumGenerator(testSymbolicCrypto)
     val signatory = DefaultTestIdentities.party1
 
@@ -47,12 +41,12 @@ private[participant] trait CreatesActiveContracts {
       argument = lf.value.Value.ValueNil,
       createdAt = CantonTimestamp.Epoch.underlying,
       authenticationData = ContractAuthenticationDataV1(TestSalt.generateSalt(0))(
-        AuthenticatedContractIdVersionV11
+        contractIdV1Version
       ).toLfBytes,
       signatories = Set(signatory.toLf),
       stakeholders = Set(signatory.toLf),
       keyOpt = None,
-      version = LfSerializationVersion.minVersion,
+      version = LfTransactionVersion.minVersion,
     )
 
     val contractId = valueOrFail(
@@ -60,9 +54,9 @@ private[participant] trait CreatesActiveContracts {
         .recomputeUnicum(
           contractInstance = unauthenticatedLfFatContract,
           cantonContractIdVersion = contractIdV1Version,
-          contractHash = LegacyContractHash.tryFatContractHash(
-            unauthenticatedLfFatContract,
-            contractIdV1Version.useUpgradeFriendlyHashing,
+          contractHash = TestContractHasher.Sync.hash(
+            unauthenticatedLfFatContract.toCreateNode,
+            contractIdV1Version.contractHashingMethod,
           ),
         )
         .map(contractIdV1Version.fromDiscriminator(cidUnauthenticated.discriminator, _))

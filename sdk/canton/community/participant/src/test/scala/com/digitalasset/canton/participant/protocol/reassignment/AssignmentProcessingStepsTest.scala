@@ -543,6 +543,7 @@ final class AssignmentProcessingStepsTest
       val viewWithMetadata = (
         WithRecipients(parsedRequest.fullViewTree, parsedRequest.recipients),
         parsedRequest.signatureO,
+        (),
       )
       for {
         result <-

@@ -443,7 +443,7 @@ private[platform] object InMemoryStateUpdater {
         val contractId = create.coid
         TransactionLogUpdate.CreatedEvent(
           eventOffset = offset,
-          updateId = txAccepted.updateId,
+          updateId = txAccepted.updateId.toHexString,
           nodeId = nodeId.index,
           eventSequentialId = 0L,
           contractId = contractId,
@@ -491,7 +491,7 @@ private[platform] object InMemoryStateUpdater {
       case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>
         TransactionLogUpdate.ExercisedEvent(
           eventOffset = offset,
-          updateId = txAccepted.updateId,
+          updateId = txAccepted.updateId.toHexString,
           nodeId = nodeId.index,
           eventSequentialId = 0L,
           contractId = exercise.targetCoid,
@@ -543,7 +543,7 @@ private[platform] object InMemoryStateUpdater {
       }
 
     TransactionLogUpdate.TransactionAccepted(
-      updateId = txAccepted.updateId,
+      updateId = txAccepted.updateId.toHexString,
       commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
       workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
@@ -608,7 +608,7 @@ private[platform] object InMemoryStateUpdater {
       }
 
     TransactionLogUpdate.ReassignmentAccepted(
-      updateId = u.updateId,
+      updateId = u.updateId.toHexString,
       commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = u.workflowId.getOrElse(""),
       offset = offset,
@@ -625,7 +625,7 @@ private[platform] object InMemoryStateUpdater {
       u: Update.TopologyTransactionEffective,
   ) =
     TransactionLogUpdate.TopologyTransactionEffective(
-      updateId = u.updateId,
+      updateId = u.updateId.toHexString,
       offset = offset,
       effectiveTime = u.effectiveTime.toLf,
       synchronizerId = u.synchronizerId.toProtoPrimitive,

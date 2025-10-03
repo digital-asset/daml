@@ -86,6 +86,8 @@ class TestProcessingSteps(
   override type RequestType = TestPendingRequestDataType
   override val requestType = TestPendingRequestDataType
 
+  override type ViewAbsoluteLedgerEffects = Unit
+  override type FullViewAbsoluteLedgerEffects = Unit
   override type ParsedRequestType = TestParsedRequest
 
   override def embedRequestError(
@@ -190,16 +192,35 @@ class TestProcessingSteps(
     )
   }
 
+  override def absolutizeLedgerEffects(
+      viewsWithCorrectRootHashAndRecipientsAndSignature: Seq[
+        (WithRecipients[DecryptedView], Option[Signature])
+      ]
+  ): (
+      Seq[(WithRecipients[DecryptedView], Option[Signature], Unit)],
+      Seq[ProtocolProcessor.MalformedPayload],
+  ) = (
+    viewsWithCorrectRootHashAndRecipientsAndSignature.map { case (view, sig) => (view, sig, ()) },
+    Seq.empty,
+  )
+
   override def computeFullViews(
-      decryptedViewsWithSignatures: Seq[(WithRecipients[DecryptedView], Option[Signature])]
-  ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[ProtocolProcessor.MalformedPayload]) =
+      decryptedViewsWithSignatures: Seq[
+        (WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)
+      ]
+  ): (
+      Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)],
+      Seq[ProtocolProcessor.MalformedPayload],
+  ) =
     (decryptedViewsWithSignatures, Seq.empty)
 
   override def computeParsedRequest(
       rc: RequestCounter,
       ts: CantonTimestamp,
       sc: SequencerCounter,
-      rootViewsWithMetadata: NonEmpty[Seq[(WithRecipients[FullView], Option[Signature])]],
+      rootViewsWithMetadata: NonEmpty[
+        Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)]
+      ],
       submitterMetadataO: Option[ViewSubmitterMetadata],
       isFreshOwnTimelyRequest: Boolean,
       malformedPayloads: Seq[ProtocolProcessor.MalformedPayload],

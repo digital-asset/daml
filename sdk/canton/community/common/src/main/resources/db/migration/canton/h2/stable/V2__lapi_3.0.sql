@@ -72,7 +72,7 @@ CREATE TABLE lapi_command_completions (
     submitters BINARY LARGE OBJECT NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The update ID is `NULL` for rejected transactions/reassignments.
-    update_id VARCHAR,
+    update_id BINARY VARYING,
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
     submission_id VARCHAR,
@@ -314,7 +314,7 @@ CREATE TABLE lapi_events_create (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
@@ -347,7 +347,8 @@ CREATE TABLE lapi_events_create (
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
-    external_transaction_hash  BINARY LARGE OBJECT
+    external_transaction_hash  BINARY LARGE OBJECT,
+    internal_contract_id BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -376,7 +377,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
@@ -435,7 +436,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
@@ -489,7 +490,7 @@ CREATE TABLE lapi_events_unassign (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
@@ -542,7 +543,7 @@ CREATE TABLE lapi_events_assign (
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
@@ -576,7 +577,8 @@ CREATE TABLE lapi_events_assign (
     authentication_data BINARY LARGE OBJECT NOT NULL,
 
     trace_context BINARY LARGE OBJECT NOT NULL,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    internal_contract_id BIGINT NOT NULL
 );
 
 -- sequential_id index for paging
@@ -597,7 +599,7 @@ CREATE INDEX lapi_events_assign_event_contract_id_synchronizer_id_seq_id_idx ON 
 CREATE TABLE lapi_events_party_to_participant (
     event_sequential_id BIGINT NOT NULL,
     event_offset BIGINT NOT NULL,
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     party_id INTEGER NOT NULL,
     participant_id INTEGER NOT NULL,
     participant_permission INTEGER NOT NULL,
@@ -713,7 +715,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx   ON lapi_pe_non_con
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_update_meta(
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     event_offset BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     record_time BIGINT NOT NULL,

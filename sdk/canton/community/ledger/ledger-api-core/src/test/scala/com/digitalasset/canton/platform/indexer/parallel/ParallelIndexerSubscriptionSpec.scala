@@ -40,6 +40,7 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.backend.{DbDto, DbDtoEq, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
@@ -80,6 +81,7 @@ class ParallelIndexerSubscriptionSpec
     classOf[ParallelIndexerSubscriptionSpec].getSimpleName
   )
   implicit val materializer: Materializer = Materializer(actorSystem)
+  val emptyByteArray = new Array[Byte](0)
 
   private val someParty = DbDto.PartyEntry(
     ledger_offset = 1,
@@ -106,6 +108,9 @@ class ParallelIndexerSubscriptionSpec
     submissionId = Some(Ref.SubmissionId.assertFromString("abc")),
   )
 
+  private val updateId = TestUpdateId("mock_hash")
+  private val updateIdByteArray = updateId.toProtoPrimitive.toByteArray
+
   private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
   private val metrics = LedgerApiServerMetrics.ForTesting
@@ -114,7 +119,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someEventActivate = DbDto.EventActivate(
     event_offset = 1,
-    update_id = "",
+    update_id = updateIdByteArray,
     workflow_id = None,
     command_id = None,
     submitters = None,
@@ -137,7 +142,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someEventDeactivate = DbDto.EventDeactivate(
     event_offset = 1,
-    update_id = "",
+    update_id = updateIdByteArray,
     workflow_id = None,
     command_id = None,
     submitters = None,
@@ -172,7 +177,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someEventWitnessed = DbDto.EventVariousWitnessed(
     event_offset = 1,
-    update_id = "",
+    update_id = updateIdByteArray,
     workflow_id = None,
     command_id = None,
     submitters = None,
@@ -203,7 +208,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someEventCreated = DbDto.EventCreate(
     event_offset = 1,
-    update_id = "",
+    update_id = emptyByteArray,
     ledger_effective_time = 15,
     command_id = None,
     workflow_id = None,
@@ -230,12 +235,13 @@ class ParallelIndexerSubscriptionSpec
     trace_context = serializableTraceContext,
     record_time = 0,
     external_transaction_hash = None,
+    internal_contract_id = 1,
   )
 
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
     event_offset = 1,
-    update_id = "",
+    update_id = emptyByteArray,
     ledger_effective_time = 15,
     command_id = None,
     workflow_id = None,
@@ -265,7 +271,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someEventAssign = DbDto.EventAssign(
     event_offset = 1,
-    update_id = "",
+    update_id = emptyByteArray,
     command_id = None,
     workflow_id = None,
     submitter = None,
@@ -291,11 +297,12 @@ class ParallelIndexerSubscriptionSpec
     reassignment_counter = 0,
     trace_context = serializableTraceContext,
     record_time = 0,
+    internal_contract_id = 1,
   )
 
   private val someEventUnassign = DbDto.EventUnassign(
     event_offset = 1,
-    update_id = "",
+    update_id = emptyByteArray,
     command_id = None,
     workflow_id = None,
     submitter = None,
@@ -460,20 +467,20 @@ class ParallelIndexerSubscriptionSpec
           DbDto.IdFilterNonConsumingInformee(0L, "", "", first_per_sequential_id = true),
           someEventCreated,
           someEventCreated,
-          DbDto.TransactionMeta("", 1, 0L, 0L, someSynchronizerId, 0L, 0L),
+          DbDto.TransactionMeta(emptyByteArray, 1, 0L, 0L, someSynchronizerId, 0L, 0L),
           someParty,
           someEventExercise,
-          DbDto.TransactionMeta("", 1, 0L, 0L, someSynchronizerId, 0L, 0L),
+          DbDto.TransactionMeta(emptyByteArray, 1, 0L, 0L, someSynchronizerId, 0L, 0L),
           someParty,
           someEventAssign,
           DbDto.IdFilterAssignStakeholder(0L, "", "", first_per_sequential_id = true),
           DbDto.IdFilterAssignStakeholder(0L, "", "", first_per_sequential_id = false),
-          DbDto.TransactionMeta("", 1, 0L, 0L, someSynchronizerId, 0L, 0L),
+          DbDto.TransactionMeta(emptyByteArray, 1, 0L, 0L, someSynchronizerId, 0L, 0L),
           someParty,
           someEventUnassign,
           DbDto.IdFilterUnassignStakeholder(0L, "", "", first_per_sequential_id = true),
           DbDto.IdFilterUnassignStakeholder(0L, "", "", first_per_sequential_id = false),
-          DbDto.TransactionMeta("", 1, 0L, 0L, someSynchronizerId, 0L, 0L),
+          DbDto.TransactionMeta(emptyByteArray, 1, 0L, 0L, someSynchronizerId, 0L, 0L),
           someParty,
           someCompletion,
           someEventActivate,
@@ -1992,7 +1999,7 @@ class ParallelIndexerSubscriptionSpec
         optByKeyNodes = None,
       ),
       transaction = CommittedTransaction(TransactionBuilder.Empty),
-      updateId = Ref.TransactionId.fromLong(15000),
+      updateId = TestUpdateId("15000"),
       contractAuthenticationData = Map.empty,
       representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
@@ -2002,7 +2009,7 @@ class ParallelIndexerSubscriptionSpec
 
   def floatingUpdate(recordTime: CantonTimestamp): Update =
     TopologyTransactionEffective(
-      updateId = Ref.TransactionId.fromLong(16000),
+      updateId = TestUpdateId("16000"),
       events = Set.empty,
       synchronizerId = SynchronizerId.tryFromString("x::synchronizer"),
       effectiveTime = recordTime,

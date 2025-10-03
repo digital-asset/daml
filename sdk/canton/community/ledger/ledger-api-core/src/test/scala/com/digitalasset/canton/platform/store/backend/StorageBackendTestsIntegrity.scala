@@ -504,25 +504,25 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(1),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(1))),
+        udpateId = Some(updateIdArrayFromOffset(offset(1))),
       ),
       dtoTransactionMeta(
         offset(2),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(2))),
+        udpateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoTransactionMeta(
         offset(3),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(2))),
+        udpateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoTransactionMeta(
         offset(4),
         1L,
         4L,
-        udpateId = Some(updateIdFromOffset(offset(4))),
+        udpateId = Some(updateIdArrayFromOffset(offset(4))),
       ),
     )
 
@@ -531,8 +531,9 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     executeSql(updateLedgerEnd(offset(5), 4L))
     val failure =
       intercept[RuntimeException](executeSql(backend.integrity.verifyIntegrity()))
+    val hashForOffset2 = updateIdFromOffset(offset(2)).toHexString
     failure.getMessage should include(
-      "occurrence of duplicate update ID [2] found for offsets Offset(2), Offset(3)"
+      s"occurrence of duplicate update ID [$hashForOffset2] found for offsets Offset(2), Offset(3)"
     )
   }
 
@@ -568,13 +569,13 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
     )
 
@@ -598,14 +599,14 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid1",
         submissionId = Some("submissionid1"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
         messageUuid = messageUuid,
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(3))),
+        updateId = Some(updateIdArrayFromOffset(offset(3))),
         messageUuid = messageUuid,
       ),
     )
@@ -629,13 +630,13 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        updateId = Some(updateIdFromOffset(offset(2))),
+        updateId = Some(updateIdArrayFromOffset(offset(2))),
         synchronizerId = SynchronizerId.tryFromString("x::othersynchronizerid"),
       ),
     )

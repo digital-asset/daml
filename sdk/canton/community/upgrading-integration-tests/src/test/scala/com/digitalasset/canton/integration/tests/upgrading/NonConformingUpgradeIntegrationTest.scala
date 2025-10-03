@@ -278,30 +278,31 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
   }
 
   // Ignore contract key based tests
-  "Non CK Conformance" when {
+  if (testedProtocolVersion.isDev) {
+    "Non CK Conformance" when {
 
-    "In no-change mode (0) upgrade is allowed" ignore { implicit env =>
-      testNonConformingCKInMode(0)
+      "In no-change mode (0) upgrade is allowed" ignore { implicit env =>
+        testNonConformingCKInMode(0)
+      }
+
+      "In key change mode (1) upgrade is forbidden" ignore { implicit env =>
+        loggerFactory.suppressErrors(
+          testNonConformingCKInMode(1)
+        )
+      }
+
+      "In maintainer change mode (2) upgrade is forbidden" ignore { implicit env =>
+        loggerFactory.suppressErrors(
+          testNonConformingCKInMode(2)
+        )
+      }
+
     }
-
-    "In key change mode (1) upgrade is forbidden" ignore { implicit env =>
-      loggerFactory.suppressErrors(
-        testNonConformingCKInMode(1)
-      )
-    }
-
-    "In maintainer change mode (2) upgrade is forbidden" ignore { implicit env =>
-      loggerFactory.suppressErrors(
-        testNonConformingCKInMode(2)
-      )
-    }
-
   }
 
   "Change of template party order" when {
 
-    // TODO(#23876) - ignored as this test should not pass once we switch to a minimal type hash based validation
-    "party order is switched" ignore { implicit env =>
+    "party order is switched" in { implicit env =>
       import env.*
 
       participant1.ledger_api.javaapi.commands.submit(
@@ -339,7 +340,8 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
           .get()
           .getValue
 
-      val v1Payee = getPayee(
+      // V1 works
+      getPayee(
         cidV1.exerciseBankTransfer_GetPayee(),
         v1.nonconforming.BankTransfer.PACKAGE_ID,
       )
@@ -347,13 +349,15 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
       val cidV2: v2.nonconforming.BankTransfer.ContractId =
         new v2.nonconforming.BankTransfer.ContractId(cidV1.contractId)
 
-      val v2Payee = getPayee(
-        cidV2.exerciseBankTransfer_GetPayee(),
-        v2.nonconforming.BankTransfer.PACKAGE_ID,
+      // V2 fails
+      assertThrowsAndLogsCommandFailures(
+        getPayee(
+          cidV2.exerciseBankTransfer_GetPayee(),
+          v2.nonconforming.BankTransfer.PACKAGE_ID,
+        ),
+        e =>
+          e.errorMessage should include regex raw"(?s)FAILED_PRECONDITION/INTERPRETATION_DEV_ERROR.*Authentication error for contract.*${cidV2.contractId}",
       )
-
-      v1Payee shouldBe alice.toProtoPrimitive
-      v2Payee shouldBe bob.toProtoPrimitive
 
     }
   }

@@ -28,7 +28,9 @@ import com.digitalasset.canton.integration.plugins.{
   UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizer
 import com.digitalasset.canton.topology.{
   ForceFlag,
@@ -92,7 +94,7 @@ object SynchronizerParametersFixture {
   }
 }
 
-trait SynchronizerParametersChangeIntegrationTest
+sealed trait SynchronizerParametersChangeIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with SynchronizerParametersFixture
@@ -482,6 +484,113 @@ trait SynchronizerParametersChangeIntegrationTest
       )
 
       getCurrentSynchronizerParameters(daSynchronizer) shouldBe newParams
+    }
+
+    "require force to set out of bounds values" in { implicit env =>
+      val id = daSynchronizer.synchronizerId
+      val sequencer = daSynchronizer.sequencer
+
+      def runTest(
+          setter: (
+              config.NonNegativeFiniteDuration,
+              ConsoleDynamicSynchronizerParameters,
+          ) => ConsoleDynamicSynchronizerParameters,
+          getter: ConsoleDynamicSynchronizerParameters => config.NonNegativeFiniteDuration,
+          boundsInternal: (NonNegativeFiniteDuration, NonNegativeFiniteDuration),
+          name: String,
+      ) = {
+        val (minInternal, maxInternal) = boundsInternal
+        val min = config.NonNegativeFiniteDuration.tryFromJavaDuration(minInternal.duration)
+        val belowMin =
+          config.NonNegativeFiniteDuration.tryFromJavaDuration(minInternal.duration.minusNanos(1))
+        val max = config.NonNegativeFiniteDuration.tryFromJavaDuration(maxInternal.duration)
+        val aboveMax =
+          config.NonNegativeFiniteDuration.tryFromJavaDuration(maxInternal.duration.plusNanos(1))
+
+        // Ensure changing to min does something
+        getter(sequencer.topology.synchronizer_parameters.latest(id)) should not be min
+
+        // change to min should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(min, parameters),
+          )
+
+        // change to belowMin should fail
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          sequencer.topology.synchronizer_parameters
+            .propose_update(
+              daSynchronizer.synchronizerId,
+              parameters => setter(belowMin, parameters),
+            ),
+          _.errorMessage should (include(
+            TopologyManagerError.ValueOutOfBounds
+              .Error(belowMin.toInternal, name, minInternal, maxInternal)
+              .cause
+          )),
+        )
+
+        // change to belowMin with force should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(belowMin, parameters),
+            force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
+          )
+
+        // change to max should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(max, parameters),
+          )
+
+        // change to aboveMax should fail
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          sequencer.topology.synchronizer_parameters
+            .propose_update(
+              daSynchronizer.synchronizerId,
+              parameters => setter(aboveMax, parameters),
+            ),
+          _.errorMessage should (include(
+            TopologyManagerError.ValueOutOfBounds
+              .Error(aboveMax.toInternal, name, minInternal, maxInternal)
+              .cause
+          )),
+        )
+
+        // change to aboveMax with force should succeed
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(aboveMax, parameters),
+            force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
+          )
+
+        // reset to valid value
+        sequencer.topology.synchronizer_parameters
+          .propose_update(
+            daSynchronizer.synchronizerId,
+            parameters => setter(max, parameters),
+            force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
+          )
+      }
+
+      runTest(
+        (v, p) => p.update(confirmationResponseTimeout = v),
+        _.confirmationResponseTimeout,
+        DynamicSynchronizerParameters.confirmationResponseTimeoutBounds,
+        "confirmation response timeout",
+      )
+
+      runTest(
+        (v, p) => p.update(mediatorReactionTimeout = v),
+        _.mediatorReactionTimeout,
+        DynamicSynchronizerParameters.mediatorReactionTimeoutBounds,
+        "mediator reaction timeout",
+      )
+
     }
   }
 

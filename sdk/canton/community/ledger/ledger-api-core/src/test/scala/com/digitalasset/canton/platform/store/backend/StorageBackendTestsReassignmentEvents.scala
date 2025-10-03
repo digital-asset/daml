@@ -13,6 +13,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -360,6 +361,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#1"),
         commandId = "command id 1",
         nodeId = 24,
+        internalContractId = 42L,
       ),
       dtoAssign(
         offset = offset(2),
@@ -367,6 +369,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#2"),
         commandId = "command id 2",
         nodeId = 42,
+        internalContractId = 43L,
       ),
     )
 
@@ -390,7 +393,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           nodeId = 24,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
-          updateId = offset(1).toDecimalString,
+          updateId = TestUpdateId(offset(1).toDecimalString).toHexString,
           eventSequentialId = 0L,
           ledgerEffectiveTime = None,
           synchronizerId = "x::targetsynchronizer",
@@ -416,6 +419,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
               createKeyHash = None,
               authenticationData = someAuthenticationDataBytes,
               representativePackageId = someTemplateIdFull.pkgId,
+              internalContractId = 42L,
             ),
           ),
           externalTransactionHash = None,
@@ -427,7 +431,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           nodeId = 42,
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
-          updateId = offset(2).toDecimalString,
+          updateId = TestUpdateId(offset(2).toDecimalString).toHexString,
           eventSequentialId = 0L,
           ledgerEffectiveTime = None,
           synchronizerId = "x::targetsynchronizer",
@@ -453,6 +457,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
               createKeyHash = None,
               authenticationData = someAuthenticationDataBytes,
               representativePackageId = someTemplateIdFull.pkgId,
+              internalContractId = 43L,
             ),
           ),
           externalTransactionHash = None,
@@ -511,7 +516,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         nodeId = 24,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
-        updateId = offset(1).toDecimalString,
+        updateId = TestUpdateId(offset(1).toDecimalString).toHexString,
         eventSequentialId = 0L,
         ledgerEffectiveTime = None,
         synchronizerId = "x::sourcesynchronizer",
@@ -535,7 +540,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         nodeId = 42,
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
-        updateId = offset(2).toDecimalString,
+        updateId = TestUpdateId(offset(2).toDecimalString).toHexString,
         eventSequentialId = 0L,
         ledgerEffectiveTime = None,
         synchronizerId = "x::sourcesynchronizer",
@@ -650,6 +655,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         commandId = "command id 1",
         synchronizerId = someSynchronizerId,
         authenticationData = someAuthenticationDataBytes,
+        internalContractId = 42L,
       ),
       dtoCreate(
         offset = offset(2),
@@ -659,6 +665,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         synchronizerId = someSynchronizerId,
         authenticationData = someAuthenticationDataBytes,
         representativePackageId = someRepresentativePackageId,
+        internalContractId = 43L,
       ),
       dtoExercise(
         offset = offset(3),
@@ -728,6 +735,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           createKeyHash = None,
           authenticationData = someAuthenticationDataBytes,
           representativePackageId = someTemplateIdFull.pkgId,
+          internalContractId = 42L,
         ),
         eventSequentialId = 1L,
         nodeId = 0,
@@ -754,6 +762,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           createKeyHash = None,
           authenticationData = someAuthenticationDataBytes,
           representativePackageId = someRepresentativePackageId,
+          internalContractId = 43L,
         ),
         eventSequentialId = 2L,
       ),
@@ -774,6 +783,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#1"),
         commandId = "command id 1",
         targetSynchronizerId = someSynchronizerId,
+        internalContractId = 42L,
       ),
       dtoAssign(
         offset = offset(3),
@@ -781,6 +791,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#2"),
         commandId = "command id 2",
         targetSynchronizerId = someSynchronizerId,
+        internalContractId = 43L,
       ),
       dtoExercise(
         offset = offset(4),
@@ -851,6 +862,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           createKeyHash = None,
           authenticationData = someAuthenticationDataBytes,
           representativePackageId = someTemplateIdFull.pkgId,
+          internalContractId = 42L,
         ),
         eventSequentialId = 2L,
       ),
@@ -876,6 +888,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           createKeyHash = None,
           authenticationData = someAuthenticationDataBytes,
           representativePackageId = someTemplateIdFull.pkgId,
+          internalContractId = 43L,
         ),
         eventSequentialId = 3L,
       ),

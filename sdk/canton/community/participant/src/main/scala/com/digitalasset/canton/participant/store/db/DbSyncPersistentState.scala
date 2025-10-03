@@ -86,6 +86,7 @@ class DbLogicalSyncPersistentState(
     acsCounterParticipantConfigStore,
     timeouts,
     loggerFactory,
+    ledgerApiStore.map(_.stringInterningView),
   )
 
   override val acsInspection: AcsInspection =

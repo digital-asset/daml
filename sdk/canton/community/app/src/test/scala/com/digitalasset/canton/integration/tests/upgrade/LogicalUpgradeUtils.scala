@@ -22,7 +22,11 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult}
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver}
-import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
+import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
@@ -149,6 +153,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
             sequencerTrustThreshold,
             sequencerLivenessMargin,
             SubmissionRequestAmplification.NoAmplification,
+            SequencerConnectionPoolDelays.default,
           ),
         )
 

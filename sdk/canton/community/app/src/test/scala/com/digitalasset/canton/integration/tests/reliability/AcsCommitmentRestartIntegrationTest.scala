@@ -31,6 +31,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   ProgrammableSequencer,
 }
 import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
 import com.digitalasset.canton.{LedgerParticipantId, config}
 import monocle.Monocle.toAppliedFocusOps
 
@@ -70,6 +71,7 @@ trait AcsCommitmentRestartIntegrationTest
             sequencerAggregateSubmissionTimeout = config
               .NonNegativeFiniteDuration(confirmationResponseTimeout.plus(mediatorReactionTimeout)),
           ),
+          force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
         )
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)

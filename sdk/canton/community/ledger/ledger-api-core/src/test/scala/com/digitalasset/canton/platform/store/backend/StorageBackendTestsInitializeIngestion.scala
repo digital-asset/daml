@@ -9,6 +9,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Sequen
 import com.digitalasset.canton.platform.store.backend.common.EventIdSourceLegacy
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Inside
 import org.scalatest.compatible.Assertion
@@ -574,14 +575,16 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-  private def fetchIdsFromTransactionMetaUpdateIds(udpateIds: Seq[String]): Set[(Long, Long)] = {
+  private def fetchIdsFromTransactionMetaUpdateIds(
+      updateIds: Seq[Array[Byte]]
+  ): Set[(Long, Long)] = {
     val txPointwiseQueries = backend.event.updatePointwiseQueries
-    udpateIds
-      .map(Ref.TransactionId.assertFromString)
+    updateIds
+      .map(UpdateId.tryFromByteArray)
       .map { updateId =>
         executeSql(
           txPointwiseQueries.fetchIdsFromUpdateMeta(
-            lookupKey = LookupKey.UpdateId(updateId)
+            lookupKey = LookupKey.ByUpdateId(updateId)
           )
         )
       }
@@ -596,7 +599,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       .map { offset =>
         executeSql(
           txPointwiseQueries.fetchIdsFromUpdateMeta(
-            lookupKey = LookupKey.Offset(offset)
+            lookupKey = LookupKey.ByOffset(offset)
           )
         )
       }

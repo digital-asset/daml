@@ -10,7 +10,7 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
 import com.digitalasset.canton.ledger.api.validation.UpdateServiceRequestValidator
-import com.digitalasset.canton.ledger.api.{UpdateFormat, UpdateId, ValidationLogger}
+import com.digitalasset.canton.ledger.api.{UpdateFormat, ValidationLogger}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.index.IndexUpdateService
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -23,11 +23,11 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
-import scalaz.syntax.tag.*
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -108,7 +108,7 @@ final class ApiUpdateService(
           )
           val offset = request.offset
           OptionT(
-            updateService.getUpdateBy(LookupKey.Offset(offset), request.updateFormat)(
+            updateService.getUpdateBy(LookupKey.ByOffset(offset), request.updateFormat)(
               loggingContextWithTrace
             )
           )
@@ -162,10 +162,12 @@ final class ApiUpdateService(
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
   ): Future[GetUpdateResponse] =
-    OptionT(updateService.getUpdateBy(LookupKey.UpdateId(updateId.unwrap), updateFormat))
+    OptionT(updateService.getUpdateBy(LookupKey.ByUpdateId(updateId), updateFormat))
       .getOrElseF(
         Future.failed(
-          RequestValidationErrors.NotFound.Update.RejectWithTxId(updateId.unwrap).asGrpcError
+          RequestValidationErrors.NotFound.Update
+            .RejectWithTxId(updateId.toHexString)
+            .asGrpcError
         )
       )
 

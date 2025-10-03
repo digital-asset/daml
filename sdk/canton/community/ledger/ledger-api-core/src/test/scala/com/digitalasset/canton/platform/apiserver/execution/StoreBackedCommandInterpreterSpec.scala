@@ -74,7 +74,7 @@ class StoreBackedCommandInterpreterSpec
   }
 
   private val salt: Bytes = ContractAuthenticationDataV1(TestSalt.generateSalt(36))(
-    AuthenticatedContractIdVersionV11
+    CantonContractIdVersion.maxV1
   ).toLfBytes
   private val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
@@ -99,7 +99,7 @@ class StoreBackedCommandInterpreterSpec
           packageName,
         )
       ),
-      version = LfSerializationVersion.StableVersions.max,
+      version = LfTransactionVersion.StableVersions.max,
     )
   private val disclosedCreateNode = mkCreateNode()
   private val disclosedContractCreateTime = Time.Timestamp.now()

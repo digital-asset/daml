@@ -92,7 +92,14 @@ trait AcsCommitmentRepairIntegrationTest
     simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
 
     val createdCids =
-      (1 to nContracts.value).map(_ => deployOnP1P2AndCheckContract(synchronizerId, iouContract))
+      (1 to nContracts.value).map(_ =>
+        deployOnTwoParticipantsAndCheckContract(
+          synchronizerId,
+          iouContract,
+          participant1,
+          participant2,
+        )
+      )
 
     val tick1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)

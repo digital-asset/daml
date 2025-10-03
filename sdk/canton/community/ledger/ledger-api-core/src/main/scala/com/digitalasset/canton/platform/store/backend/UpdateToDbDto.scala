@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.data
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
@@ -25,6 +24,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 }
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
@@ -185,7 +185,7 @@ object UpdateToDbDto {
     )
 
     val transactionMeta = DbDto.TransactionMeta(
-      update_id = topologyTransaction.updateId,
+      update_id = topologyTransaction.updateId.toProtoPrimitive.toByteArray,
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = topologyTransaction.recordTime.toMicros,
@@ -201,7 +201,7 @@ object UpdateToDbDto {
           DbDto.EventPartyToParticipant(
             event_sequential_id = 0, // this is filled later
             event_offset = offset.unwrap,
-            update_id = topologyTransaction.updateId,
+            update_id = topologyTransaction.updateId.toProtoPrimitive.toByteArray,
             party_id = party,
             participant_id = participant,
             participant_permission = participantPermissionInt(authorizationEvent),
@@ -258,7 +258,7 @@ object UpdateToDbDto {
     }
 
     val transactionMeta = DbDto.TransactionMeta(
-      update_id = transactionAccepted.updateId,
+      update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = transactionAccepted.recordTime.toMicros,
@@ -360,7 +360,7 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventCreate(
         event_offset = offset.unwrap,
-        update_id = transactionAccepted.updateId,
+        update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
@@ -397,6 +397,8 @@ object UpdateToDbDto {
         record_time = transactionAccepted.recordTime.toMicros,
         external_transaction_hash =
           transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
+        // TODO(#27998) populate with the actual internal contract id from a map that should be in transactionAccepted
+        internal_contract_id = 0,
       )
     ) ++ withFirstMarked(
       flatWitnesses,
@@ -445,7 +447,7 @@ object UpdateToDbDto {
       DbDto.EventExercise(
         consuming = exercise.consuming,
         event_offset = offset.unwrap,
-        update_id = transactionAccepted.updateId,
+        update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
@@ -566,7 +568,7 @@ object UpdateToDbDto {
       )
 
     val transactionMeta = DbDto.TransactionMeta(
-      update_id = reassignmentAccepted.updateId,
+      update_id = reassignmentAccepted.updateId.toProtoPrimitive.toByteArray,
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = reassignmentAccepted.recordTime.toMicros,
@@ -592,7 +594,7 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventUnassign(
         event_offset = offset.unwrap,
-        update_id = reassignmentAccepted.updateId,
+        update_id = reassignmentAccepted.updateId.toProtoPrimitive.toByteArray,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
         submitter = reassignmentAccepted.reassignmentInfo.submitter,
@@ -637,7 +639,7 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventAssign(
         event_offset = offset.unwrap,
-        update_id = reassignmentAccepted.updateId,
+        update_id = reassignmentAccepted.updateId.toProtoPrimitive.toByteArray,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
         submitter = reassignmentAccepted.reassignmentInfo.submitter,
@@ -667,6 +669,8 @@ object UpdateToDbDto {
         reassignment_counter = assign.reassignmentCounter,
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
+        // TODO(#27998) populate with the actual internal contract id from a map that should be in transactionAccepted
+        internal_contract_id = 0,
       )
     ) ++ withFirstMarked(
       flatEventWitnesses,
@@ -697,7 +701,7 @@ object UpdateToDbDto {
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,
-      updateId: Option[data.UpdateId],
+      updateId: Option[UpdateId],
       completionInfo: CompletionInfo,
       synchronizerId: SynchronizerId,
       messageUuid: Option[UUID],
@@ -725,7 +729,7 @@ object UpdateToDbDto {
       user_id = completionInfo.userId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,
-      update_id = updateId,
+      update_id = updateId.map(_.toProtoPrimitive.toByteArray),
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,

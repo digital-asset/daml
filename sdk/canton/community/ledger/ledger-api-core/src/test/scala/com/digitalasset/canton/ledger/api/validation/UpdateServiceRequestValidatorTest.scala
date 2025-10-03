@@ -136,7 +136,7 @@ class UpdateServiceRequestValidatorTest
 
   private val txByIdReq =
     GetUpdateByIdRequest(
-      updateId = updateId,
+      updateId = updateId.toHexString,
       updateFormat = Some(
         UpdateFormat(
           includeTransactions = Some(

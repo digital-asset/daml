@@ -416,7 +416,7 @@ private final class ChangeAssignation(
       )
       Update.RepairReassignmentAccepted(
         workflowId = None,
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+        updateId = randomTransactionId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
@@ -453,7 +453,7 @@ private final class ChangeAssignation(
       )
       Update.RepairReassignmentAccepted(
         workflowId = None,
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+        updateId = randomTransactionId(syncCrypto),
         reassignmentInfo = ReassignmentInfo(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,

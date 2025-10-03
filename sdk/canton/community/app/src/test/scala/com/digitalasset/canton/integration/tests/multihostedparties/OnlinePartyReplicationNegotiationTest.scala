@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.admin.workflows.java.canton.internal 
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -152,6 +153,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
             sequencerTrustThreshold = PositiveInt.three,
             sequencerLivenessMargin = NonNegativeInt.zero,
             submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+            sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
           )
           participant.synchronizers.connect_by_config(
             SynchronizerConnectionConfig(

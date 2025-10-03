@@ -7,6 +7,7 @@ import com.daml.grpc.GrpcStatus
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, InterfaceFilter, TemplateFilter}
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -36,7 +37,7 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues with Eit
   protected val party = Ref.Party.assertFromString("party")
   protected val party2 = Ref.Party.assertFromString("party2")
   protected val verbose = false
-  protected val updateId = "42"
+  protected val updateId = TestUpdateId("42")
   protected val ledgerEnd = Some(Offset.tryFromLong(1000))
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)

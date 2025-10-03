@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.google.common.annotations.VisibleForTesting
 
@@ -186,10 +187,10 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
+      .asSingleOpt(updateId("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
       .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
-          s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
+          s"occurrence of duplicate update ID [${uId.toHexString}] found for offsets $offset1, $offset2"
         )
       }
 
@@ -254,7 +255,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           int("user_id") ~
           byteArray("submitters") ~
           str("command_id") ~
-          str("update_id").? ~
+          updateId("update_id").? ~
           str("submission_id").? ~
           str("message_uuid").? ~
           long("record_time") ~
@@ -357,7 +358,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     */
   @VisibleForTesting
   override def moveLedgerEndBackToScratch()(connection: Connection): Unit = {
-    SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
+    SQL"UPDATE lapi_parameters SET ledger_end = 1, ledger_end_sequential_id = 0"
+      .executeUpdate()(connection)
+      .discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
@@ -368,7 +371,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       userId: Int,
       submitters: List[Int],
       commandId: String,
-      updateId: Option[String],
+      updateId: Option[UpdateId],
       submissionId: Option[String],
       messageUuid: Option[String],
       recordTimeLong: Long,

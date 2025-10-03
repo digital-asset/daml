@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, SerializationVersion}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.digitalasset.daml.lf.{VersionRange, language}
@@ -36,7 +36,7 @@ import scala.concurrent.duration.DurationInt
 object CommandExecutionErrors extends CommandExecutionErrorGroup {
   def encodeValue(v: Value): Either[ValueCoder.EncodeError, String] =
     ValueCoder
-      .encodeValue(valueVersion = SerializationVersion.VDev, v0 = v)
+      .encodeValue(valueVersion = TransactionVersion.VDev, v0 = v)
       .map(bs => BaseEncoding.base64().encode(bs.toByteArray))
 
   def withEncodedValue(

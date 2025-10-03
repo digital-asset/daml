@@ -124,7 +124,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     ),
     DbDto.EventCreate(
       event_offset = 15,
-      update_id = "16",
+      update_id = updateId("16"),
       ledger_effective_time = 1,
       command_id = Some("17"),
       workflow_id = Some("18"),
@@ -151,11 +151,12 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       trace_context = serializableTraceContext,
       record_time = 1,
       external_transaction_hash = Some(externalTransactionHash),
+      internal_contract_id = 101,
     ),
     DbDto.EventExercise(
       consuming = true,
       event_offset = 40,
-      update_id = "41",
+      update_id = updateId("41"),
       ledger_effective_time = 1,
       command_id = Some("42"),
       workflow_id = Some("43"),
@@ -189,7 +190,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       user_id = "65",
       submitters = Set("66", "67", "68"),
       command_id = "69",
-      update_id = Some("70"),
+      update_id = Some(updateId("70")),
       rejection_status_code = Some(1),
       rejection_status_message = Some("71"),
       rejection_status_details = None,
@@ -204,7 +205,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     ),
     DbDto.EventAssign(
       event_offset = 1,
-      update_id = "",
+      update_id = updateId(""),
       command_id = None,
       workflow_id = None,
       submitter = Option("s1"),
@@ -230,10 +231,11 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       reassignment_counter = 0,
       trace_context = serializableTraceContext,
       record_time = 0,
+      internal_contract_id = 102,
     ),
     DbDto.EventUnassign(
       event_offset = 1,
-      update_id = "",
+      update_id = updateId(""),
       command_id = None,
       workflow_id = None,
       submitter = Option("s2"),
@@ -256,7 +258,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     DbDto.EventPartyToParticipant(
       event_sequential_id = 0,
       event_offset = 1,
-      update_id = "",
+      update_id = updateId(""),
       party_id = "97",
       participant_id = "participant1",
       participant_permission = 1,
@@ -269,4 +271,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
 
   private def hashCid(key: String): ContractId =
     ContractId.V1(com.digitalasset.daml.lf.crypto.Hash.hashPrivateKey(key))
+
+  private def updateId(key: String): Array[Byte] = key.getBytes
 }

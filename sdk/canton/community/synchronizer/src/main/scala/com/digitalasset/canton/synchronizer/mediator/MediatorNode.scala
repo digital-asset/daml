@@ -664,10 +664,10 @@ class MediatorNodeBootstrap(
       connectionPoolAndInfo <-
         if (useNewConnectionPool)
           GrpcSequencerConnectionService.waitUntilSequencerConnectionIsValidWithPool(
-            connectionPoolFactory,
-            parameters.tracing,
-            this,
-            getSequencerConnectionFromStore,
+            connectionPoolFactory = connectionPoolFactory,
+            tracingConfig = parameters.tracing,
+            flagCloseable = this,
+            loadConfig = getSequencerConnectionFromStore,
           )
         else
           for {
@@ -679,9 +679,9 @@ class MediatorNodeBootstrap(
             dummyPool <- EitherT.fromEither[FutureUnlessShutdown](
               connectionPoolFactory
                 .createFromOldConfig(
-                  info.sequencerConnections,
+                  sequencerConnections = info.sequencerConnections,
                   expectedPSIdO = None,
-                  parameters.tracing,
+                  tracingConfig = parameters.tracing,
                 )
                 .leftMap(error => error.toString)
             )

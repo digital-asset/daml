@@ -916,8 +916,7 @@ object SequencerReader {
           case None => nextPreviousEventTimestamp
         },
         // set the timestamp to next timestamp from the read events or keep the current timestamp if we got no results
-        nextReadTimestamp = readEvents.nextTimestamp
-          .getOrElse(nextReadTimestamp),
+        nextReadTimestamp = readEvents.nextTimestamp.getOrElse(nextReadTimestamp),
         // did we receive a full batch of events on this update
         // the case > is there as events query can return more events than requested in multi-instance setups
         lastBatchWasFull = readEvents.events.sizeCompare(batchSize) >= 0,

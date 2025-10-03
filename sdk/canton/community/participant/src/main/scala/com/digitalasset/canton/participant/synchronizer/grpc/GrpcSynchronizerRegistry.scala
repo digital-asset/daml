@@ -168,9 +168,9 @@ class GrpcSynchronizerRegistry(
 
     val connectionPoolE = connectionPoolFactory
       .createFromOldConfig(
-        config.sequencerConnections,
-        config.synchronizerId,
-        participantNodeParameters.tracing,
+        sequencerConnections = config.sequencerConnections,
+        expectedPSIdO = config.synchronizerId,
+        tracingConfig = participantNodeParameters.tracing,
       )
       .leftMap[SynchronizerRegistryError](error =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(error.toString)
@@ -242,6 +242,7 @@ class GrpcSynchronizerRegistry(
                   config.sequencerConnections.sequencerTrustThreshold,
                   config.sequencerConnections.sequencerLivenessMargin,
                   config.sequencerConnections.submissionRequestAmplification,
+                  config.sequencerConnections.sequencerConnectionPoolDelays,
                 )
                 .leftMap(error =>
                   SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers
@@ -300,6 +301,7 @@ class GrpcSynchronizerRegistry(
             config.sequencerConnections.sequencerTrustThreshold,
             config.sequencerConnections.sequencerLivenessMargin,
             config.sequencerConnections.submissionRequestAmplification,
+            config.sequencerConnections.sequencerConnectionPoolDelays,
           )
           .map(connections => config.copy(sequencerConnections = connections))
 

@@ -23,11 +23,13 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationLevel,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.tracing.{SerializableTraceContextConverter, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.Value
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.Logger
 
 import java.nio.ByteBuffer
@@ -177,6 +179,21 @@ private[backend] object Conversions {
       .?
       .map(_.getOrElse(TraceContext.empty))
   }
+
+  // UpdateId
+
+  implicit object UpdateIdToStatement extends ToStatement[UpdateId] {
+    override def set(s: PreparedStatement, i: Int, v: UpdateId): Unit =
+      s.setBytes(i, v.getCryptographicEvidence.toByteArray)
+  }
+
+  private implicit val columnToUpdateId: Column[UpdateId] =
+    binaryColumnToX(byteArray =>
+      UpdateId.fromProtoPrimitive(ByteString.copyFrom(byteArray)).left.map(_.message)
+    )
+
+  def updateId(columnName: String): RowParser[UpdateId] =
+    SqlParser.get[UpdateId](columnName)(columnToUpdateId)
 
   // AuthorizationEvent
 

@@ -597,12 +597,11 @@ private[reassignment] class UnassignmentProcessingSteps(
                 triggerAssignmentWhenExclusivityTimeoutExceeded(pendingRequestData)
               else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
 
-            reassignmentAccepted <- EitherT.fromEither[FutureUnlessShutdown](
+            reassignmentAccepted =
               unassignmentValidationResult.createReassignmentAccepted(
                 participantId,
                 requestId.unwrap,
               )
-            )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetFO,
             Seq.empty,

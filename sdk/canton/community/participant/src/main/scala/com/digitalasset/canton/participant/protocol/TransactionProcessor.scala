@@ -476,7 +476,7 @@ object TransactionProcessor {
   }
 
   final case class ViewParticipantDataError(
-      transactionId: TransactionId,
+      transactionId: UpdateId,
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {

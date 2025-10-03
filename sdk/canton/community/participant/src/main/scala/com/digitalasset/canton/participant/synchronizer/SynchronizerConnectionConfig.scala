@@ -15,6 +15,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
+  SequencerConnectionPoolDelays,
   SequencerConnections,
   SubmissionRequestAmplification,
 }
@@ -99,6 +100,7 @@ final case class SynchronizerConnectionConfig(
               `sequencerConnections`.sequencerTrustThreshold,
               `sequencerConnections`.`sequencerLivenessMargin`,
               `sequencerConnections`.submissionRequestAmplification,
+              `sequencerConnections`.sequencerConnectionPoolDelays,
             ),
             `manualConnect`,
             otherSynchronizerId,
@@ -156,6 +158,7 @@ final case class SynchronizerConnectionConfig(
             sequencerConnections.sequencerTrustThreshold,
             sequencerConnections.sequencerLivenessMargin,
             sequencerConnections.submissionRequestAmplification,
+            sequencerConnections.sequencerConnectionPoolDelays,
           )
         } yield this.copy(
           synchronizerId = updatedSynchronizerId,
@@ -319,6 +322,8 @@ object SynchronizerConnectionConfig
       sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
       submissionRequestAmplification: SubmissionRequestAmplification =
         SubmissionRequestAmplification.NoAmplification,
+      sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+        SequencerConnectionPoolDelays.default,
   ): SynchronizerConnectionConfig = {
     val sequencerConnections =
       SequencerConnections.tryMany(
@@ -326,6 +331,7 @@ object SynchronizerConnectionConfig
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
 
     SynchronizerConnectionConfig(

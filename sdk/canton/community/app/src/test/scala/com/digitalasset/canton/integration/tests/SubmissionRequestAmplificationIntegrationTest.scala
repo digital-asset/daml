@@ -87,6 +87,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
             PositiveInt.tryCreate(2),
             config.NonNegativeFiniteDuration.Zero,
           ),
+          old.sequencerConnectionPoolDelays,
         )
       }
     )

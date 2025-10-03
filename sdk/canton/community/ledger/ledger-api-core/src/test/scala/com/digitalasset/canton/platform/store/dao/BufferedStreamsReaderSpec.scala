@@ -11,6 +11,7 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReaderSpec.*
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorServiceGeneric}
@@ -41,10 +42,12 @@ class BufferedStreamsReaderSpec
           transactionsBuffer = inMemoryFanoutBuffer,
           startInclusive = offset2,
           endInclusive = offset3,
-          bufferSliceFilter = noFilterBufferSlice(_).filterNot(_.updateId == "tx-3"),
+          bufferSliceFilter = noFilterBufferSlice(_).filterNot(
+            _.updateId == TestUpdateId("tx-3").toHexString
+          ),
         )
         streamElements should contain theSameElementsInOrderAs Seq(
-          offset2 -> "tx-2"
+          offset2 -> TestUpdateId("tx-2").toHexString
         )
       }
     }
@@ -57,8 +60,8 @@ class BufferedStreamsReaderSpec
           endInclusive = offset3,
         )
         streamElements should contain theSameElementsInOrderAs Seq(
-          offset2 -> "tx-2",
-          offset3 -> "tx-3",
+          offset2 -> TestUpdateId("tx-2").toHexString,
+          offset3 -> TestUpdateId("tx-3").toHexString,
         )
       }
     }
@@ -72,8 +75,8 @@ class BufferedStreamsReaderSpec
         )
 
         streamElements should contain theSameElementsInOrderAs Seq(
-          offset2 -> "tx-2",
-          offset3 -> "tx-3",
+          offset2 -> TestUpdateId("tx-2").toHexString,
+          offset3 -> TestUpdateId("tx-3").toHexString,
         )
       }
     }
@@ -106,7 +109,7 @@ class BufferedStreamsReaderSpec
         streamElements should contain theSameElementsInOrderAs Seq(
           offset1 -> anotherResponseForOffset1,
           offset2 -> anotherResponseForOffset2,
-          offset3 -> "tx-3",
+          offset3 -> TestUpdateId("tx-3").toHexString,
         )
       }
 
@@ -127,12 +130,14 @@ class BufferedStreamsReaderSpec
           endInclusive = offset3,
           fetchFromPersistence = fetchFromPersistence,
           persistenceFetchArgs = filterMock,
-          bufferSliceFilter = noFilterBufferSlice(_).filterNot(_.updateId == "tx-3"),
+          bufferSliceFilter = noFilterBufferSlice(_).filterNot(
+            _.updateId == TestUpdateId("tx-3").toHexString
+          ),
         )
 
         streamElements should contain theSameElementsInOrderAs Seq(
           offset1 -> anotherResponseForOffset1,
-          offset2 -> "tx-2",
+          offset2 -> TestUpdateId("tx-2").toHexString,
         )
       }
     }
@@ -446,7 +451,7 @@ object BufferedStreamsReaderSpec {
               result.size shouldBe endInclusiveIdx - startInclusiveIdx + 1
             }
             val expectedElements = (startInclusiveIdx.toLong to endInclusiveIdx.toLong) map { idx =>
-              offset(idx) -> s"tx-$idx"
+              offset(idx) -> TestUpdateId(s"tx-$idx").toHexString
             }
             result should contain theSameElementsInOrderAs expectedElements
           }
@@ -471,7 +476,7 @@ object BufferedStreamsReaderSpec {
 
   private def transaction(i: Long) =
     TransactionLogUpdate.TransactionAccepted(
-      updateId = s"tx-$i",
+      updateId = TestUpdateId(s"tx-$i").toHexString,
       commandId = "",
       workflowId = "",
       effectiveAt = Timestamp.Epoch,
