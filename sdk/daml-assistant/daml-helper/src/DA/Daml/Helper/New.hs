@@ -38,11 +38,11 @@ import DA.Signals (installSignalHandlers)
 runNew :: FilePath -> Maybe String -> IO ()
 runNew targetFolder templateNameM = do
   sdkVersion <- getSdkVersion
-  runNewInternal "daml" sdkVersion targetFolder templateNameM
+  runNewInternal "daml" sdkVersion False targetFolder templateNameM
 
 -- | Called for both Daml Assistant and DPM
-runNewInternal :: String -> String -> FilePath -> Maybe String -> IO ()
-runNewInternal assistantName sdkVersion targetFolder templateNameM = do
+runNewInternal :: String -> String -> Bool -> FilePath -> Maybe String -> IO ()
+runNewInternal assistantName sdkVersion allowExisting targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -58,14 +58,15 @@ runNewInternal assistantName sdkVersion targetFolder templateNameM = do
 
     -- Ensure project directory does not already exist.
     whenM (doesDirectoryExist targetFolder) $ do
-        hPutStr stderr $ unlines
-            [ "Directory " <> show targetFolder <> " already exists."
-            , "Please specify a new directory, or use 'daml init' instead:"
-            , ""
-            , "    " <> showCommandForUser assistantName ["init", targetFolder]
-            , ""
-            ]
-        exitFailure
+        unless allowExisting $ do
+            hPutStr stderr $ unlines
+                [ "Directory " <> show targetFolder <> " already exists."
+                , "Please specify a new directory, or use '" <> assistantName <> " init' instead:"
+                , ""
+                , "    " <> showCommandForUser assistantName ["init", targetFolder]
+                , ""
+                ]
+            exitFailure
 
     -- Ensure user is not confusing template name with project name.
     --
@@ -170,13 +171,24 @@ ociMain = do
             [ Just <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
             , pure Nothing
             ]
-          runNewDpm :: FilePath -> Maybe String -> IO ()
-          runNewDpm targetFolder templateNameM = do
+          runNewDpm :: Bool -> Maybe FilePath -> Maybe String -> IO ()
+          runNewDpm allowExisting oTargetFolder templateNameM = do
             sdkVersion <- getSdkVersionDpm
-            runNewInternal "dpm" sdkVersion targetFolder templateNameM
-      in asum
-        [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
-        , runNewDpm
-            <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-            <*> appTemplateFlag
+            runNewInternal "dpm" sdkVersion allowExisting (fromMaybe "." oTargetFolder) templateNameM
+          commandNewParser :: Parser (IO ())
+          commandNewParser = asum
+            [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
+            , runNewDpm False
+                <$> (Just <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located"))
+                <*> appTemplateFlag
+            ]
+          commandInitParser :: Parser (IO ())
+          commandInitParser =
+            runNewDpm True
+              <$> optional (argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located"))
+              <*> pure (Just "empty-skeleton")
+      in subparser $ fold 
+        [ command "new" (info (commandNewParser <**> helper) idm)
+        , command "init" (info (commandInitParser <**> helper) idm)
         ]
+        
