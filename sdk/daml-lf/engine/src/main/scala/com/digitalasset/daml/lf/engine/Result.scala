@@ -58,8 +58,7 @@ sealed trait Result[+A] extends Product with Serializable {
       pcs: PartialFunction[ContractId, FatContractInstance] = PartialFunction.empty,
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
-      // TODO(https://github.com/digital-asset/daml/issues/21667): change default to TypedNormalForm
-      hashingMethod: ContractId => Hash.HashingMethod = _ => Hash.HashingMethod.UpgradeFriendly,
+      hashingMethod: ContractId => Hash.HashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
       idValidator: (ContractId, Hash) => Boolean = (_, _) => true,
   ): Either[Error, A] = {
     @tailrec
