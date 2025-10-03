@@ -15,6 +15,7 @@ import Data.List.Extra
 import Data.Maybe
 import Options.Applicative
 import System.Directory.Extra
+import System.Environment (withProgName)
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -156,7 +157,7 @@ findAscendantWithFile filename path =
     findM (\p -> doesFileExist (p </> filename)) (ascendants path)
 
 ociMain :: IO ()
-ociMain = do
+ociMain = withProgName "dpm" $ do
     forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
