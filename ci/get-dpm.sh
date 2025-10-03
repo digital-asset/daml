@@ -6,7 +6,7 @@ TEMP_DIR="$(mktemp -d)"
 ORAS_VERSION="1.2.2"
 ORAS="oras"
 # DPM latest url
-DPM_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest}"
+DPM_URL="${1:-europe-docker.pkg.dev/da-images/public/components/dpm:latest}"
 # Get current machine OS type and ARCH
 OS_TYPE="$(uname -s | tr A-Z a-z)"
 if [[ $(uname -m) == 'x86_64' ]]; then
