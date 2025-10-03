@@ -34,9 +34,8 @@ import com.digitalasset.daml.lf.transaction.{
 }
 
 import java.nio.file.{Files, StandardOpenOption}
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value, ValueCoder}
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.daml.lf.language.{
   Ast,
   LanguageMajorVersion,
@@ -155,6 +154,7 @@ class Engine(val config: EngineConfig) {
     * @param cmds the commands to be interpreted
     * @param participantId a unique identifier (of the underlying participant) used to derive node and contractId discriminators
     * @param submissionSeed the master hash used to derive node and contractId discriminators
+    * @param contractIdVersion The contract ID version to use for local contracts
     */
   def submit(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
@@ -164,6 +164,7 @@ class Engine(val config: EngineConfig) {
       cmds: ApiCommands,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
       prefetchKeys: Seq[ApiContractKey],
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
@@ -190,6 +191,7 @@ class Engine(val config: EngineConfig) {
           ledgerTime = cmds.ledgerEffectiveTime,
           preparationTime = preparationTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
+          contractIdVersion = contractIdVersion,
           packageResolution = pkgResolution,
           engineLogger = engineLogger,
           submissionInfo = Some(Engine.SubmissionInfo(participantId, submissionSeed, submitters)),
@@ -210,6 +212,7 @@ class Engine(val config: EngineConfig) {
     *                 The value does not matter for other kind of nodes.
     * @param preparationTime the preparation time used to compute contract IDs
     * @param ledgerEffectiveTime the ledger effective time used as a result of `getTime` during reinterpretation
+    * @param contractIdVersion The contract ID version to use for local contracts
     */
   def reinterpret(
       submitters: Set[Party],
@@ -217,6 +220,7 @@ class Engine(val config: EngineConfig) {
       nodeSeed: Option[crypto.Hash],
       preparationTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
@@ -235,6 +239,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
+        contractIdVersion: ContractIdVersion,
         packageResolution = packageResolution,
         engineLogger = engineLogger,
         submissionInfo = None,
@@ -249,6 +254,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
@@ -259,6 +265,7 @@ class Engine(val config: EngineConfig) {
       participantId,
       preparationTime,
       submissionSeed,
+      contractIdVersion,
       packageResolution,
       engineLogger,
     ).map { case (tx, meta, _) => (tx, meta) }
@@ -270,6 +277,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit
@@ -285,6 +293,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
+        contractIdVersion = contractIdVersion,
         packageResolution = packageResolution,
         engineLogger = engineLogger,
         submissionInfo = None,
@@ -312,6 +321,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
     validateAndCollectMetrics(
       submitters,
@@ -320,6 +330,7 @@ class Engine(val config: EngineConfig) {
       participantId,
       preparationTime,
       submissionSeed,
+      contractIdVersion,
     ).map(_ => ())
   }
 
@@ -330,6 +341,7 @@ class Engine(val config: EngineConfig) {
       participantId: Ref.ParticipantId,
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
+      contractIdVersion: ContractIdVersion,
   )(implicit loggingContext: LoggingContext): Result[Speedy.Metrics] = {
     // reinterpret
     for {
@@ -340,6 +352,7 @@ class Engine(val config: EngineConfig) {
         participantId,
         preparationTime,
         submissionSeed,
+        contractIdVersion,
       )
       (rtx, _, metrics) = result
       validationResult <-
@@ -403,6 +416,7 @@ class Engine(val config: EngineConfig) {
       ledgerTime: Time.Timestamp,
       preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
@@ -422,6 +436,7 @@ class Engine(val config: EngineConfig) {
         ledgerTime,
         preparationTime,
         seeding,
+        contractIdVersion,
         packageResolution,
         engineLogger,
         submissionInfo,
@@ -444,6 +459,7 @@ class Engine(val config: EngineConfig) {
       ledgerTime: Time.Timestamp,
       preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      contractIdVersion: ContractIdVersion,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
@@ -462,7 +478,7 @@ class Engine(val config: EngineConfig) {
       validating = validating,
       traceLog = EngineLogger.toTraceLog(engineLogger),
       contractKeyUniqueness = config.contractKeyUniqueness,
-      contractIdVersion = config.createContractsWithContractIdVersion,
+      contractIdVersion = contractIdVersion,
       packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,

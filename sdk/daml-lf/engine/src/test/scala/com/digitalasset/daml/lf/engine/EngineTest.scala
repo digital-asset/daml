@@ -97,6 +97,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         cmds = ApiCommands(ImmArray(command), let, "test"),
         participantId = participant,
         submissionSeed = submissionSeed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
@@ -129,7 +130,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val submitters = Set(submitter)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, meta.preparationTime, submissionSeed)
+        .validate(
+          submitters,
+          ntx,
+          let,
+          participant,
+          meta.preparationTime,
+          submissionSeed,
+          contractIdVersion,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -193,6 +202,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(cmd), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -228,7 +238,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
         val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
         val validated = suffixLenientEngine
-          .validate(submitters, ntx, let, participant, meta.preparationTime, submissionSeed)
+          .validate(
+            submitters,
+            ntx,
+            let,
+            participant,
+            meta.preparationTime,
+            submissionSeed,
+            contractIdVersion,
+          )
           .consume(lookupContract, lookupPackage, lookupKey)
         validated match {
           case Left(e) =>
@@ -250,6 +268,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             ledgerEffectiveTime = let,
             participantId = participant,
             preparationTime = let,
+            contractIdVersion = contractIdVersion,
             submissionSeed = submissionSeed,
           )
           .consume()
@@ -269,6 +288,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerEffectiveTime = let,
           participantId = participant,
           preparationTime = let,
+          contractIdVersion = contractIdVersion,
           submissionSeed = submissionSeed,
         )
 
@@ -310,6 +330,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = seeding,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -324,6 +345,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -350,7 +372,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed, contractIdVersion)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -375,6 +397,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 ledgerTime = let,
                 preparationTime = let,
                 seeding = seeding,
+                contractIdVersion = contractIdVersion,
               )
               .consume(lookupContract, lookupPackage, lookupKey)
           }
@@ -391,16 +414,33 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
                 ledgerTime = let,
                 preparationTime = let,
                 seeding = seeding,
+                contractIdVersion = contractIdVersion,
               )
               .consume(lookupContract, lookupPackage, lookupKey)
           }
       val Right((_, _, expectedNoCaching)) = interpretResultNoCaching
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validatedWithCaching = sharedEngine
-        .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validateAndCollectMetrics(
+          Set(submitter),
+          ntx,
+          let,
+          participant,
+          let,
+          submissionSeed,
+          contractIdVersion,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
       val validatedNoCaching = freshEngine2
-        .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validateAndCollectMetrics(
+          Set(submitter),
+          ntx,
+          let,
+          participant,
+          let,
+          submissionSeed,
+          contractIdVersion,
+        )
         .consume(lookupContract, lookupPackage, lookupKey)
 
       inside((validatedWithCaching, validatedNoCaching)) {
@@ -442,6 +482,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -495,6 +536,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = seeding,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -508,6 +550,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -537,7 +580,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, let, submissionSeed)
+        .validate(submitters, ntx, let, participant, let, submissionSeed, contractIdVersion)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -584,6 +627,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -623,6 +667,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -767,6 +812,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -802,6 +848,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -850,6 +897,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -906,6 +954,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -941,7 +990,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     "be validated" in {
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .validate(Set(submitter), ntx, let, participant, let, submissionSeed, contractIdVersion)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -1168,6 +1217,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         cmds = ApiCommands(ImmArray(command), let, "test"),
         participantId = participant,
         submissionSeed = submissionSeed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
@@ -1188,6 +1238,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         ledgerTime = let,
         preparationTime = preparationTime,
         seeding = InitialSeeding.TransactionSeed(txSeed),
+        contractIdVersion = contractIdVersion,
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1362,6 +1413,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               ledgerTime = let,
               preparationTime = let,
               seeding = seeding,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
@@ -1432,6 +1484,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.preparationTime,
               let,
+              contractIdVersion = contractIdVersion,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
@@ -1487,7 +1540,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
       val reinterpreted =
         engine
-          .reinterpret(submitters, fetchNode, None, let, let)
+          .reinterpret(submitters, fetchNode, None, let, let, contractIdVersion)
           .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe a[Right[_, _]]
@@ -1549,6 +1602,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
           participantId = participant,
           submissionSeed = seed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1578,6 +1632,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
           participantId = participant,
           submissionSeed = seed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1594,6 +1649,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             nodeSeedMap.get(nid),
             txMeta.preparationTime,
             now,
+            contractIdVersion = contractIdVersion,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1617,6 +1673,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
           participantId = participant,
           submissionSeed = seed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1634,6 +1691,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             nodeSeedMap.get(nid),
             txMeta.preparationTime,
             now,
+            contractIdVersion = contractIdVersion,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -1659,6 +1717,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
@@ -1691,6 +1750,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1727,6 +1787,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
@@ -1793,6 +1854,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = now,
           preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
+          contractIdVersion = contractIdVersion,
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
@@ -1866,6 +1928,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, now, ""),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
@@ -1922,6 +1985,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(ImmArray(command), let, "test"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
@@ -1947,6 +2011,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               participant,
               metaData.preparationTime,
               submissionSeed,
+              contractIdVersion = contractIdVersion,
             )
             .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
             .left
@@ -2043,6 +2108,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = let,
           preparationTime = let,
           seeding = seeding,
+          contractIdVersion = contractIdVersion,
         )
         .consume(contracts, allExceptionsPkgs, lookupKey)
     }
@@ -2204,6 +2270,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = let,
           preparationTime = let,
           seeding = seeding,
+          contractIdVersion = contractIdVersion,
         )
         .consume(contracts, allExceptionsPkgs, lookupKey)
     }
@@ -2300,6 +2367,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ledgerTime = let,
           preparationTime = let,
           seeding = seeding,
+          contractIdVersion = contractIdVersion,
         )
         .consume(
           contracts,
@@ -2429,6 +2497,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("wrongly-typed contract"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
@@ -2525,6 +2594,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("ill-formed contract"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(contracts, lookupPackage, lookupKey)
@@ -2645,6 +2715,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("ill-formed contract"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(
@@ -2919,7 +2990,6 @@ class EngineTestHelpers(
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
         forbidLocalContractIds = requireCidSuffixes,
-        createContractsWithContractIdVersion = contractIdVersion,
       )
     )
 
@@ -2997,6 +3067,7 @@ class EngineTestHelpers(
                 nodeSeedMap.get(nodeId),
                 txMeta.preparationTime,
                 ledgerEffectiveTime,
+                contractIdVersion = contractIdVersion,
               )
               .consume(
                 state.contracts,
