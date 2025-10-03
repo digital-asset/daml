@@ -232,7 +232,7 @@ sealed trait RobustSynchronizerBootstrapIntegrationTest
       mediator.stop()
     }
 
-    "fail if trying to boostrap a synchronizer with a sequencer or mediator already initialized previously with another synchronizer" in {
+    "fail if trying to bootstrap a synchronizer with a sequencer or mediator already initialized previously with another synchronizer" in {
       implicit env =>
         import env.*
 

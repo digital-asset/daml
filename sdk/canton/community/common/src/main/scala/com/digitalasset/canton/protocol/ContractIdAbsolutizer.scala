@@ -83,7 +83,7 @@ class ContractIdAbsolutizer(
       }
       relativeSuffixesInArg = relativeSuffixesInArgBuilder.result()
       absolutizedCid <- absolutizeContractId(fci.contractId)
-      absolutizedCreationTime <- absolutizationData.updateLedgerTime(fci.createdAt)
+      absolutizedCreationTime <- absolutizationData.updateLedgerTime(absolutizedCid, fci.createdAt)
       contractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(fci.contractId)
         .leftMap(err => s"Invalid contract ID version: $err")
@@ -125,7 +125,10 @@ class ContractIdAbsolutizer(
 object ContractIdAbsolutizer {
 
   sealed trait ContractIdAbsolutizationData extends Product with Serializable {
-    def updateLedgerTime(relativeCreationTime: CreationTime): Either[String, CreationTime.CreatedAt]
+    def updateLedgerTime(
+        contractId: LfContractId,
+        relativeCreationTime: CreationTime,
+    ): Either[String, CreationTime.CreatedAt]
     def absolutizeAuthenticationData(
         relativeSuffixesInArg: SortedSet[RelativeContractIdSuffixV2],
         authenticationData: ContractAuthenticationData,
@@ -134,13 +137,16 @@ object ContractIdAbsolutizer {
 
   case object ContractIdAbsolutizationDataV1 extends ContractIdAbsolutizationData {
     override def updateLedgerTime(
-        relativeCreationTime: CreationTime
+        contractId: LfContractId,
+        relativeCreationTime: CreationTime,
     ): Either[String, CreationTime.CreatedAt] =
       relativeCreationTime match {
         case absolute: CreationTime.CreatedAt =>
           Right(absolute)
         case _ =>
-          Left(s"Invalid creation time for V1 contract ID absolutization: $relativeCreationTime")
+          Left(
+            s"Invalid creation time for V1 contract ID $contractId absolutization: $relativeCreationTime"
+          )
       }
 
     override def absolutizeAuthenticationData(
@@ -155,16 +161,17 @@ object ContractIdAbsolutizer {
   }
 
   final case class ContractIdAbsolutizationDataV2(
-      creatingTransactionId: TransactionId,
+      creatingTransactionId: UpdateId,
       ledgerTimeOfTx: CantonTimestamp,
   ) extends ContractIdAbsolutizationData {
     override def updateLedgerTime(
-        relativeCreationTime: CreationTime
+        contractId: LfContractId,
+        relativeCreationTime: CreationTime,
     ): Either[String, CreationTime.CreatedAt] = relativeCreationTime match {
       case CreationTime.Now => Right(CreationTime.CreatedAt(ledgerTimeOfTx.toLf))
       case createdAt: CreationTime.CreatedAt =>
         Left(
-          s"Invalid creation time for V2 contract ID absolutization: $createdAt, expected 'now'"
+          s"Invalid creation time for V2 contract ID $contractId absolutization: $createdAt, expected 'now'"
         )
     }
 
@@ -177,7 +184,7 @@ object ContractIdAbsolutizer {
           _ <-
             v2.creatingTransactionId.traverse_(transactionId =>
               Either.left(
-                s"Cannot absolutize authentication data that already contains a transaction ID ${transactionId.unwrap.toHexString}"
+                s"Cannot absolutize authentication data that already contains a transaction ID ${transactionId.toHexString}"
               )
             )
           _ <- Either.cond(

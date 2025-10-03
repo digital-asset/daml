@@ -16,10 +16,10 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
   UnorderedException,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ReassignmentId, TestUpdateId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag
-import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.data.Time
 import org.scalatest.Succeeded
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers
@@ -545,7 +545,7 @@ class InMemoryFanoutBufferSpec
 
   private def txAccepted(idx: Long, offset: Offset) =
     TransactionLogUpdate.TransactionAccepted(
-      updateId = s"tx-$idx",
+      updateId = TestUpdateId(s"tx-$idx").toHexString,
       workflowId = s"workflow-$idx",
       effectiveAt = Time.Timestamp.Epoch,
       offset = offset,
@@ -569,7 +569,7 @@ class InMemoryFanoutBufferSpec
 
   private def reassignmentAccepted(idx: Long, offset: Offset) =
     TransactionLogUpdate.ReassignmentAccepted(
-      updateId = s"reassignment-$idx",
+      updateId = TestUpdateId(s"reassignment-$idx").toHexString,
       workflowId = s"workflow-$idx",
       offset = offset,
       completionStreamResponse = None,
@@ -588,7 +588,7 @@ class InMemoryFanoutBufferSpec
 
   private def topologyTxAccepted(idx: Long, offset: Offset) =
     TransactionLogUpdate.TopologyTransactionEffective(
-      updateId = s"topology-tx-$idx",
+      updateId = TestUpdateId(s"topology-tx-$idx").toHexString,
       offset = offset,
       effectiveTime = Time.Timestamp.Epoch,
       synchronizerId = someSynchronizerId.toProtoPrimitive,
@@ -602,9 +602,9 @@ class InMemoryFanoutBufferSpec
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
         buffer.lookup(
-          LookupKey.UpdateId(Ref.TransactionId.assertFromString(getUpdateId(tx)))
+          LookupKey.ByUpdateId(getUpdateId(tx))
         ) shouldBe Some(tx)
-        buffer.lookup(LookupKey.Offset(tx.offset)) shouldBe Some(tx)
+        buffer.lookup(LookupKey.ByOffset(tx.offset)) shouldBe Some(tx)
       case (failed, _) => failed
     }
 
@@ -615,19 +615,22 @@ class InMemoryFanoutBufferSpec
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
         buffer.lookup(
-          LookupKey.UpdateId(Ref.TransactionId.assertFromString(getUpdateId(tx)))
+          LookupKey.ByUpdateId(getUpdateId(tx))
         ) shouldBe None
-        buffer.lookup(LookupKey.Offset(tx.offset)) shouldBe None
+        buffer.lookup(LookupKey.ByOffset(tx.offset)) shouldBe None
       case (failed, _) => failed
     }
 
-  private def getUpdateId(tx: TransactionLogUpdate): String = tx match {
-    case txAccepted: TransactionLogUpdate.TransactionAccepted => txAccepted.updateId
-    case _: TransactionLogUpdate.TransactionRejected =>
-      throw new RuntimeException("did not expect a TransactionRejected")
-    case reassignment: TransactionLogUpdate.ReassignmentAccepted => reassignment.updateId
-    case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
-      topologyTransaction.updateId
+  private def getUpdateId(tx: TransactionLogUpdate): UpdateId = {
+    val updateStr = tx match {
+      case txAccepted: TransactionLogUpdate.TransactionAccepted => txAccepted.updateId
+      case _: TransactionLogUpdate.TransactionRejected =>
+        throw new RuntimeException("did not expect a TransactionRejected")
+      case reassignment: TransactionLogUpdate.ReassignmentAccepted => reassignment.updateId
+      case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
+        topologyTransaction.updateId
+    }
+    UpdateId.fromLedgerString(updateStr).valueOrFail("invalid update id")
   }
 
 }

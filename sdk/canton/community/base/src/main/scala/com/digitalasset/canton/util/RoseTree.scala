@@ -35,7 +35,7 @@ final class RoseTree[+A] private (
     */
   def foldl[State, Result](init: RoseTree[A] => State)(finish: State => Result)(
       update: (State, Result) => State
-  ): Result = RoseTree.foldLeft(RoseTree.RoseTreeOps, this)(init)(finish)(update)
+  ): Result = RoseTree.foldLeft(RoseTree.roseTreeOps[A], this)(init)(finish)(update)
 
   /** Tail-recursive implementation equivalent to
     *
@@ -44,7 +44,7 @@ final class RoseTree[+A] private (
     * }}}
     */
   def map[B](f: A => B): RoseTree[B] =
-    RoseTree.foldLeft(RoseTree.RoseTreeOps, this)(
+    RoseTree.foldLeft(RoseTree.roseTreeOps[A], this)(
       init = t => MapState(f(t.root), t.size, List.empty)
     )(finish = { case MapState(mappedRoot, size, reverseVisitedChildren) =>
       new RoseTree(mappedRoot, reverseVisitedChildren.reverse, size)
@@ -75,7 +75,7 @@ final class RoseTree[+A] private (
     * [[scala.util.hashing.MurmurHash3$.productHash(x:Product):Int*]]
     */
   override def hashCode(): Int =
-    RoseTree.foldLeft(RoseTree.RoseTreeOps, this)(
+    RoseTree.foldLeft(RoseTree.roseTreeOps[A], this)(
       init = t => HashCodeState(MurmurHash3.mix(hashCodeInit, t.root.##), 1)
     )(
       finish = { case HashCodeState(h, arity) => MurmurHash3.finalizeHash(h, arity) }
@@ -91,7 +91,7 @@ final class RoseTree[+A] private (
 
   override def toString: String = {
     val builder = new mutable.StringBuilder()
-    RoseTree.foldLeft(RoseTree.RoseTreeOps, this)(
+    RoseTree.foldLeft(RoseTree.roseTreeOps[A], this)(
       init = t => builder.append(", RoseTree(").append(t.root).discard
     )(
       finish = _ => builder.append(")").discard
@@ -150,13 +150,15 @@ object RoseTree {
       new PreorderIterator[A](mutable.ListBuffer(tree), tree.size)
   }
 
-  trait TreeOps[Node[_]] {
-    def children[A]: Node[A] => Iterator[Node[A]]
+  trait TreeOps[Node] {
+    def children(node: Node): Iterator[Node]
   }
 
-  case object RoseTreeOps extends TreeOps[RoseTree] {
-    override def children[A]: RoseTree[A] => Iterator[RoseTree[A]] = _.children.iterator
+  private[this] case object RoseTreeOps extends TreeOps[RoseTree[?]] {
+    override def children(node: RoseTree[?]): Iterator[RoseTree[?]] = node.children.iterator
   }
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  def roseTreeOps[A]: TreeOps[RoseTree[A]] = RoseTreeOps.asInstanceOf[TreeOps[RoseTree[A]]]
 
   /** The `foldLeft` Zipper data structure for an individual node
     * @param state
@@ -164,13 +166,13 @@ object RoseTree {
     * @param unvisitedSiblings
     *   An iterator over the remaining siblings of the current node
     */
-  private final case class FoldlZipperLevel[Node[_], A, B](
+  private final case class FoldlZipperLevel[Node, B](
       state: B,
-      unvisitedSiblings: Iterator[Node[A]],
+      unvisitedSiblings: Iterator[Node],
   )
 
-  def foldLeft[Node[_], A, State, Result](treeOps: TreeOps[Node], tree: Node[A])(
-      init: Node[A] => State
+  def foldLeft[Node, State, Result](treeOps: TreeOps[Node], tree: Node)(
+      init: Node => State
   )(
       finish: State => Result
   )(
@@ -180,8 +182,8 @@ object RoseTree {
     // until we find an unvisited sibling or end at the root.
     @tailrec def moveUp(
         c: Result,
-        parents: List[FoldlZipperLevel[Node, A, State]],
-    ): Either[Result, (Node[A], List[FoldlZipperLevel[Node, A, State]])] =
+        parents: List[FoldlZipperLevel[Node, State]],
+    ): Either[Result, (Node, List[FoldlZipperLevel[Node, State]])] =
       NonEmpty.from(parents) match {
         case None => Left(c)
         case Some(parentsNE) =>
@@ -198,8 +200,8 @@ object RoseTree {
       }
 
     @tailrec def go(
-        current: Node[A],
-        parents: List[FoldlZipperLevel[Node, A, State]],
+        current: Node,
+        parents: List[FoldlZipperLevel[Node, State]],
     ): Result = {
       val state = init(current)
       val childIter = treeOps.children(current)

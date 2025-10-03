@@ -7,7 +7,6 @@ import io.circe.Decoder.Result
 import io.circe.generic.extras.codec.ConfiguredAsObjectCodec
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.{Codec, HCursor, Json, JsonObject}
-import net.logstash.logback.composite.loggingevent.JsonMessageJsonProvider
 import shapeless.Lazy
 
 import scala.reflect.runtime.universe.*

@@ -17,7 +17,7 @@ object DbDto {
   final case class EventActivate(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -47,7 +47,7 @@ object DbDto {
   final case class EventDeactivate(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -89,7 +89,7 @@ object DbDto {
   final case class EventVariousWitnessed(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -159,7 +159,7 @@ object DbDto {
   // TODO(#28008) remove
   final case class EventCreate(
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       ledger_effective_time: Long,
       command_id: Option[String],
       workflow_id: Option[String],
@@ -186,13 +186,14 @@ object DbDto {
       trace_context: Array[Byte],
       record_time: Long,
       external_transaction_hash: Option[Array[Byte]],
+      internal_contract_id: Long,
   ) extends DbDto
 
   // TODO(#28008) remove
   final case class EventExercise(
       consuming: Boolean,
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       ledger_effective_time: Long,
       command_id: Option[String],
       workflow_id: Option[String],
@@ -224,7 +225,7 @@ object DbDto {
   // TODO(#28008) remove
   final case class EventAssign(
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       command_id: Option[String],
       workflow_id: Option[String],
       submitter: Option[String],
@@ -250,12 +251,13 @@ object DbDto {
       reassignment_counter: Long,
       trace_context: Array[Byte],
       record_time: Long,
+      internal_contract_id: Long,
   ) extends DbDto
 
   // TODO(#28008) remove
   final case class EventUnassign(
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       command_id: Option[String],
       workflow_id: Option[String],
       submitter: Option[String],
@@ -278,7 +280,7 @@ object DbDto {
   final case class EventPartyToParticipant(
       event_sequential_id: Long,
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       party_id: String,
       participant_id: String,
       participant_permission: Int,
@@ -305,7 +307,7 @@ object DbDto {
       user_id: String,
       submitters: Set[String],
       command_id: String,
-      update_id: Option[String],
+      update_id: Option[Array[Byte]],
       rejection_status_code: Option[Int],
       rejection_status_message: Option[String],
       rejection_status_details: Option[Array[Byte]],
@@ -386,7 +388,7 @@ object DbDto {
   ) extends DbDto
 
   final case class TransactionMeta(
-      update_id: String,
+      update_id: Array[Byte],
       event_offset: Long,
       publication_time: Long,
       record_time: Long,
@@ -400,7 +402,7 @@ object DbDto {
   def createDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -459,7 +461,7 @@ object DbDto {
   def assignDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -514,7 +516,7 @@ object DbDto {
   def consumingExerciseDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -596,7 +598,7 @@ object DbDto {
   def unassignDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -667,7 +669,7 @@ object DbDto {
   def witnessedCreateDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],
@@ -730,7 +732,7 @@ object DbDto {
   def witnessedExercisedDbDtos(
       // update related columns
       event_offset: Long,
-      update_id: String,
+      update_id: Array[Byte],
       workflow_id: Option[String],
       command_id: Option[String],
       submitters: Option[Set[String]],

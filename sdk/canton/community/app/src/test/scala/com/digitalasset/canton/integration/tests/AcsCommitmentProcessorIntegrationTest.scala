@@ -128,7 +128,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     import env.*
 
     val simClock = environment.simClock.value
-    deployOnP1P2AndCheckContract(daId, iouContract)
+    deployOnTwoParticipantsAndCheckContract(daId, iouContract, participant1, participant2)
 
     val tick1 = tickAfter(simClock.uniqueTime())
     val tick2 = tickAfter(tick1.forgetRefinement)
@@ -481,8 +481,9 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     )
 
     logger.info(s"We deploy the IOU again for following tests.")
-    alreadyDeployedContracts =
-      alreadyDeployedContracts.appended(deployOnP1P2AndCheckContract(daId, iouContract))
+    alreadyDeployedContracts = alreadyDeployedContracts.appended(
+      deployOnTwoParticipantsAndCheckContract(daId, iouContract, participant1, participant2)
+    )
   }
 
   "Periodic synchronizer time proofs trigger commitment computations" in { implicit env =>
@@ -523,7 +524,13 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
     val simClock = environment.simClock.value
 
-    deployOnP1P2AndCheckContract(daId, iouContract, observers = Seq(participant3))
+    deployOnTwoParticipantsAndCheckContract(
+      daId,
+      iouContract,
+      participant1,
+      participant2,
+      observers = Seq(participant3),
+    )
 
     val seq = getProgrammableSequencer(sequencer1.name)
     val p1RevokedP = Promise[Unit]()

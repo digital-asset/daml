@@ -1190,6 +1190,8 @@ class RichSequencerClientImpl(
           val subscriptionPoolConfig = SequencerSubscriptionPoolConfig(
             trustThreshold = sequencerTransports.sequencerTrustThreshold,
             livenessMargin = sequencerTransports.sequencerLivenessMargin,
+            subscriptionRequestDelay =
+              sequencerTransports.sequencerConnectionPoolDelays.subscriptionRequestDelay,
           )
           val eventBatchProcessor = new EventBatchProcessor {
             override def process(
@@ -2243,6 +2245,7 @@ object SequencerClient {
       sequencerTrustThreshold: PositiveInt,
       sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
+      sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
   ) {
     def expectedSequencersO: Option[NonEmpty[Set[SequencerId]]] =
       sequencerToTransportMapO.map(_.map(_._2.sequencerId).toSet)
@@ -2266,6 +2269,7 @@ object SequencerClient {
         sequencerSignatureThreshold: PositiveInt,
         sequencerLivenessMargin: NonNegativeInt,
         submissionRequestAmplification: SubmissionRequestAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
     ): Either[String, SequencerTransports[E]] =
       sequencerTransportsMapO
         .zip(expectedSequencersO)
@@ -2290,6 +2294,7 @@ object SequencerClient {
             sequencerTrustThreshold = sequencerSignatureThreshold,
             sequencerLivenessMargin = sequencerLivenessMargin,
             submissionRequestAmplification = submissionRequestAmplification,
+            sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
           )
         )
 
@@ -2304,6 +2309,7 @@ object SequencerClient {
         sequencerTrustThreshold = PositiveInt.one,
         sequencerLivenessMargin = NonNegativeInt.zero,
         SubmissionRequestAmplification.NoAmplification,
+        SequencerConnectionPoolDelays.default,
       )
     }
 

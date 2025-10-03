@@ -31,7 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.util.LegacyContractHash
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfVersioned,
@@ -827,9 +827,9 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               stakeholders = Set(alice.toLf),
               key = Some(keyWithMaintainers.unversioned),
             )
-            val contractHash = LegacyContractHash.tryCreateNodeHash(
+            val contractHash = TestContractHasher.Sync.hash(
               unsuffixedCreateNode,
-              contractIdSuffixer.hashingMethod,
+              contractIdSuffixer.contractHashingMethod,
             )
             val ContractIdSuffixer.RelativeSuffixResult(
               suffixedCreateNode,

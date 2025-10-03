@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.{Hash as CantonHash, HashPurpose}
-import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
@@ -18,6 +17,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   participantPermissionInt,
 }
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
+import com.digitalasset.canton.protocol.{TestUpdateId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -43,8 +43,10 @@ private[store] object StorageBackendTestValues {
   def offset(x: Long): Offset = Offset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
     ParameterStorageBackend.LedgerEnd(offset(o), e, 0, CantonTimestamp.now())
-  def updateIdFromOffset(x: Offset): Ref.LedgerString =
-    Ref.LedgerString.assertFromString(x.toDecimalString)
+  def updateIdFromOffset(x: Offset): UpdateId = TestUpdateId(x.toDecimalString)
+  def updateIdArrayFromOffset(x: Offset): Array[Byte] = updateIdFromOffset(
+    x
+  ).toProtoPrimitive.toByteArray
 
   def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
   val someTime: Timestamp = timestampFromInstant(Instant.now())
@@ -124,8 +126,9 @@ private[store] object StorageBackendTestValues {
       externalTransactionHash: Option[Array[Byte]] = None,
       emptyFlatEventWitnesses: Boolean = false,
       representativePackageId: Ref.PackageId = somePackageId,
+      internalContractId: Long = 0,
   ): DbDto.EventCreate = {
-    val updateId = updateIdFromOffset(offset)
+    val updateId = updateIdArrayFromOffset(offset)
     val stakeholders = Set(signatory, observer)
     val informees = stakeholders ++ nonStakeholderInformees
     DbDto.EventCreate(
@@ -157,6 +160,7 @@ private[store] object StorageBackendTestValues {
       record_time = recordTime.micros,
       external_transaction_hash = externalTransactionHash,
       representative_package_id = representativePackageId,
+      internal_contract_id = internalContractId,
     )
   }
 
@@ -182,7 +186,7 @@ private[store] object StorageBackendTestValues {
       emptyFlatEventWitnesses: Boolean = false,
       deactivatedEventSeqId: Option[Long] = None,
   ): DbDto.EventExercise = {
-    val updateId = updateIdFromOffset(offset)
+    val updateId = updateIdArrayFromOffset(offset)
     DbDto.EventExercise(
       consuming = consuming,
       event_offset = offset.unwrap,
@@ -229,8 +233,9 @@ private[store] object StorageBackendTestValues {
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
       nodeId: Int = 0,
+      internalContractId: Long = 0,
   ): DbDto.EventAssign = {
-    val updateId = updateIdFromOffset(offset)
+    val updateId = updateIdArrayFromOffset(offset)
     DbDto.EventAssign(
       event_offset = offset.unwrap,
       update_id = updateId,
@@ -259,6 +264,7 @@ private[store] object StorageBackendTestValues {
       reassignment_counter = 1000L,
       trace_context = traceContext,
       record_time = recordTime.micros,
+      internal_contract_id = internalContractId,
     )
   }
 
@@ -276,7 +282,7 @@ private[store] object StorageBackendTestValues {
       nodeId: Int = 0,
       deactivatedEventSeqId: Option[Long] = None,
   ): DbDto.EventUnassign = {
-    val updateId = updateIdFromOffset(offset)
+    val updateId = updateIdArrayFromOffset(offset)
     DbDto.EventUnassign(
       event_offset = offset.unwrap,
       update_id = updateId,
@@ -310,7 +316,7 @@ private[store] object StorageBackendTestValues {
       recordTime: Timestamp = someTime,
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventPartyToParticipant = {
-    val updateId = updateIdFromOffset(offset)
+    val updateId = updateIdArrayFromOffset(offset)
     DbDto.EventPartyToParticipant(
       event_sequential_id = eventSequentialId,
       event_offset = offset.unwrap,
@@ -338,7 +344,7 @@ private[store] object StorageBackendTestValues {
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
       messageUuid: Option[String] = None,
-      updateId: Option[String] = Some(""),
+      updateId: Option[Array[Byte]] = Some(new Array[Byte](0)),
       publicationTime: Timestamp = someTime,
       isTransaction: Boolean = true,
   ): DbDto.CommandCompletion =
@@ -349,7 +355,7 @@ private[store] object StorageBackendTestValues {
       user_id = userId,
       submitters = submitters,
       command_id = commandId,
-      update_id = updateId.filter(_ == "").map(_ => updateIdFromOffset(offset)),
+      update_id = updateId.filter(_.isEmpty).map(_ => updateIdArrayFromOffset(offset)),
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
@@ -368,11 +374,11 @@ private[store] object StorageBackendTestValues {
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
       recordTime: Timestamp = someTime,
-      udpateId: Option[String] = None,
+      udpateId: Option[Array[Byte]] = None,
       synchronizerId: SynchronizerId = someSynchronizerId,
       publicationTime: Timestamp = someTime,
   ): DbDto.TransactionMeta = DbDto.TransactionMeta(
-    update_id = udpateId.getOrElse(updateIdFromOffset(offset)),
+    update_id = udpateId.getOrElse(updateIdArrayFromOffset(offset)),
     event_offset = offset.unwrap,
     publication_time = publicationTime.micros,
     record_time = recordTime.micros,
@@ -402,12 +408,12 @@ private[store] object StorageBackendTestValues {
     externalString = external,
   )
 
-  def dtoTransactionId(dto: DbDto): data.UpdateId =
+  def dtoTransactionId(dto: DbDto): UpdateId =
     dto match {
-      case e: DbDto.EventCreate => Ref.TransactionId.assertFromString(e.update_id)
-      case e: DbDto.EventExercise => Ref.TransactionId.assertFromString(e.update_id)
-      case e: DbDto.EventAssign => Ref.TransactionId.assertFromString(e.update_id)
-      case e: DbDto.EventUnassign => Ref.TransactionId.assertFromString(e.update_id)
+      case e: DbDto.EventCreate => UpdateId.tryFromByteArray(e.update_id)
+      case e: DbDto.EventExercise => UpdateId.tryFromByteArray(e.update_id)
+      case e: DbDto.EventAssign => UpdateId.tryFromByteArray(e.update_id)
+      case e: DbDto.EventUnassign => UpdateId.tryFromByteArray(e.update_id)
       case _ => sys.error(s"$dto does not have a transaction id")
     }
 
@@ -440,7 +446,7 @@ private[store] object StorageBackendTestValues {
     }
 
   def metaFromSingle(dbDto: DbDto): DbDto.TransactionMeta = DbDto.TransactionMeta(
-    update_id = dtoTransactionId(dbDto),
+    update_id = dtoTransactionId(dbDto).toProtoPrimitive.toByteArray,
     event_offset = dtoOffset(dbDto),
     publication_time = someTime.micros,
     record_time = someTime.micros,

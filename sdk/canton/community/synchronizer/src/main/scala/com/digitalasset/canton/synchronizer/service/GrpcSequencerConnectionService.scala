@@ -213,6 +213,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                   newEndpointsInfo.sequencerConnections.sequencerTrustThreshold,
                   newEndpointsInfo.sequencerConnections.sequencerLivenessMargin,
                   newEndpointsInfo.sequencerConnections.submissionRequestAmplification,
+                  newEndpointsInfo.sequencerConnections.sequencerConnectionPoolDelays,
                 )
               )
 

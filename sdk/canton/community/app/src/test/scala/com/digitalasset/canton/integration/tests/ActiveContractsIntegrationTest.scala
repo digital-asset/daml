@@ -51,7 +51,7 @@ import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsoluti
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.util.LegacyContractHash
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.CreationTime
@@ -167,6 +167,7 @@ class ActiveContractsIntegrationTest
   ): ContractData = {
     import env.*
 
+    // TODO(#27612) Test should also pass with V12 contract IDs
     val cantonContractIdVersion = AuthenticatedContractIdVersionV11
 
     val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
@@ -209,7 +210,7 @@ class ActiveContractsIntegrationTest
       viewPosition = ViewPosition(List.empty),
     )
     val contractHash =
-      LegacyContractHash.tryCreateNodeHash(unsuffixedCreateNode, contractIdSuffixer.hashingMethod)
+      TestContractHasher.Sync.hash(unsuffixedCreateNode, contractIdSuffixer.contractHashingMethod)
     val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
       contractIdSuffixer
         .relativeSuffixForLocalContract(

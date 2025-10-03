@@ -143,7 +143,7 @@ create or replace view debug.lapi_command_completions as
     user_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     command_id,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     submission_id,
     deduplication_offset,
     deduplication_duration_seconds,
@@ -307,7 +307,7 @@ create or replace view debug.lapi_events_assign as
   select
     event_sequential_id,
     event_offset,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     workflow_id,
     command_id,
     debug.resolve_lapi_interned_string(submitter) as submitter,
@@ -331,7 +331,8 @@ create or replace view debug.lapi_events_assign as
     lower(encode(authentication_data, 'hex')) as authentication_data,
     debug.resolve_lapi_interned_strings(create_key_maintainers) as create_key_maintainers,
     lower(encode(trace_context, 'hex')) as trace_context,
-    debug.canton_timestamp(record_time) as record_time
+    debug.canton_timestamp(record_time) as record_time,
+    internal_contract_id
   from lapi_events_assign;
 
 
@@ -341,7 +342,7 @@ create or replace view debug.lapi_events_consuming_exercise as
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
     node_id,
     event_offset,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     workflow_id,
     command_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
@@ -371,7 +372,7 @@ create or replace view debug.lapi_events_create as
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
     node_id,
     event_offset,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     workflow_id,
     command_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
@@ -393,7 +394,8 @@ create or replace view debug.lapi_events_create as
     debug.resolve_lapi_interned_strings(create_key_maintainers) as create_key_maintainers,
     lower(encode(trace_context, 'hex')) as trace_context,
     debug.canton_timestamp(record_time) as record_time,
-    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash
+    lower(encode(external_transaction_hash, 'hex')) as external_transaction_hash,
+    internal_contract_id
   from lapi_events_create;
 
 create or replace view debug.lapi_events_non_consuming_exercise as
@@ -402,7 +404,7 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
     node_id,
     event_offset,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     workflow_id,
     command_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
@@ -429,7 +431,7 @@ create or replace view debug.lapi_events_unassign as
   select
     event_sequential_id,
     event_offset,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     workflow_id,
     command_id,
     debug.resolve_lapi_interned_string(submitter) as submitter,
@@ -452,7 +454,7 @@ create or replace view debug.lapi_events_party_to_participant as
 select
     event_sequential_id,
     event_offset,
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     debug.resolve_lapi_interned_string(party_id) as party_id,
     participant_id,
     participant_permission,
@@ -490,7 +492,7 @@ create or replace view debug.lapi_party_record_annotations as
 
 create or replace view debug.lapi_update_meta as
   select
-    update_id,
+    lower(encode(update_id, 'hex')) as update_id,
     event_offset,
     debug.canton_timestamp(publication_time) as publication_time,
     debug.canton_timestamp(record_time) as record_time,

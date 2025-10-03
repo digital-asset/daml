@@ -17,10 +17,12 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   parties,
   timestampFromMicros,
   traceContextOption,
+  updateId,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{Party, UserId}
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -103,9 +105,9 @@ class CompletionStorageBackendTemplate(
   private val acceptedCommandSharedColumns: RowParser[
     Seq[Party] ~ Offset ~ Timestamp ~ String ~ Int ~ Option[
       String
-    ] ~ Int ~ TraceContext ~ String
+    ] ~ Int ~ TraceContext ~ UpdateId
   ] =
-    sharedColumns ~ str("update_id")
+    sharedColumns ~ updateId("update_id")
 
   private val deduplicationOffsetColumn: RowParser[Option[Long]] =
     long("deduplication_offset").?
@@ -190,7 +192,7 @@ class CompletionStorageBackendTemplate(
       offset("completion_offset") ~
       long("publication_time") ~
       str("submission_id").? ~
-      str("update_id").? ~
+      updateId("update_id").? ~
       traceContextOption("trace_context")(noTracingLogger) ~
       bool("is_transaction") map {
         case internedSynchronizerId ~ messageUuidString ~ recordTimeMicros ~ internedUserId ~

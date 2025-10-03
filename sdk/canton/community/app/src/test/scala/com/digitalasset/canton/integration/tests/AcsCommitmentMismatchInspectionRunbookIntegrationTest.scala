@@ -96,7 +96,7 @@ trait AcsCommitmentMismatchInspectionRunbookIntegrationTest
   "Commitment mismatch inspection runbook should work" in { implicit env =>
     import env.*
 
-    deployThreeAndCheck(daId, alreadyDeployedContracts)
+    deployThreeAndCheck(daId, alreadyDeployedContracts, participant1, participant2)
 
     logger.info("Open commitment on local participant")
 
@@ -119,7 +119,8 @@ trait AcsCommitmentMismatchInspectionRunbookIntegrationTest
             .map(_.physicalSynchronizerId) should contain(daId)
         }
 
-        val (_, period, commitment) = deployThreeAndCheck(daId, alreadyDeployedContracts)
+        val (_, period, commitment) =
+          deployThreeAndCheck(daId, alreadyDeployedContracts, participant1, participant2)
 
         val synchronizerId1 = daId
         val mismatchTimestamp = period.toInclusive.forgetRefinement
@@ -329,7 +330,7 @@ trait AcsCommitmentMismatchInspectionRunbookIntegrationTest
             .list_connected()
             .map(_.physicalSynchronizerId) should contain(daId)
         }
-        deployThreeAndCheck(daId, alreadyDeployedContracts)
+        deployThreeAndCheck(daId, alreadyDeployedContracts, participant1, participant2)
       },
       (
         LogEntryOptionality.OptionalMany -> (_.warningMessage should include(

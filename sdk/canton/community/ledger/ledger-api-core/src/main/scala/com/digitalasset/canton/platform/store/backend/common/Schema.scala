@@ -122,7 +122,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_events_activate_contract")(
         // update related columns
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "submitters" -> fieldStrategy.partiesOptional(_.submitters),
@@ -162,7 +162,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_events_deactivate_contract")(
         // update related columns
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "submitters" -> fieldStrategy.partiesOptional(_.submitters),
@@ -226,7 +226,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_events_deactivate_contract")(
         // update related columns
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "submitters" -> fieldStrategy.partiesOptional(_.submitters),
@@ -282,7 +282,7 @@ private[backend] object AppendOnlySchema {
     val eventsCreate: Table[DbDto.EventCreate] =
       fieldStrategy.insert("lapi_events_create")(
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
@@ -319,7 +319,10 @@ private[backend] object AppendOnlySchema {
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
-        "external_transaction_hash" -> fieldStrategy.byteaOptional(_ => _.external_transaction_hash),
+        "external_transaction_hash" -> fieldStrategy.byteaOptional(_ =>
+          _.external_transaction_hash
+        ),
+        "internal_contract_id" -> fieldStrategy.bigint(_ => _.internal_contract_id),
       )
 
     // TODO(#28008) remove
@@ -327,7 +330,7 @@ private[backend] object AppendOnlySchema {
       Vector[(String, Field[DbDto.EventExercise, _, _])](
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "contract_id" -> fieldStrategy.bytea(_ => _.contract_id.toBytes.toByteArray),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "node_id" -> fieldStrategy.int(_ => _.node_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
@@ -389,7 +392,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_events_unassign")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "submitter" -> fieldStrategy.intOptional(stringInterning =>
@@ -425,7 +428,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_events_assign")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "submitter" -> fieldStrategy.intOptional(stringInterning =>
@@ -464,6 +467,7 @@ private[backend] object AppendOnlySchema {
         "authentication_data" -> fieldStrategy.bytea(_ => _.authentication_data),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
+        "internal_contract_id" -> fieldStrategy.bigint(_ => _.internal_contract_id),
       )
 
     val partyEntries: Table[DbDto.PartyEntry] =
@@ -484,7 +488,7 @@ private[backend] object AppendOnlySchema {
       fieldStrategy.insert("lapi_events_party_to_participant")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "party_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.party.unsafe.internalize(dto.party_id)
         ),
@@ -512,7 +516,7 @@ private[backend] object AppendOnlySchema {
         ),
         "submitters" -> fieldStrategy.parties(_.submitters),
         "command_id" -> fieldStrategy.string(_ => _.command_id),
-        "update_id" -> fieldStrategy.stringOptional(_ => _.update_id),
+        "update_id" -> fieldStrategy.byteaOptional(_ => _.update_id),
         "rejection_status_code" -> fieldStrategy.intOptional(_ => _.rejection_status_code),
         "rejection_status_message" -> fieldStrategy.stringOptional(_ => _.rejection_status_message),
         "rejection_status_details" -> fieldStrategy.byteaOptional(_ => _.rejection_status_details),
@@ -647,7 +651,7 @@ private[backend] object AppendOnlySchema {
 
     val transactionMeta: Table[DbDto.TransactionMeta] =
       fieldStrategy.insert("lapi_update_meta")(
-        "update_id" -> fieldStrategy.string(_ => _.update_id),
+        "update_id" -> fieldStrategy.bytea(_ => _.update_id),
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),

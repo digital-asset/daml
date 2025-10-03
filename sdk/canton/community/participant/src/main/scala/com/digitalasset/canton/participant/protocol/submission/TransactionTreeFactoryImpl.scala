@@ -524,7 +524,7 @@ class TransactionTreeFactoryImpl(
         CreationTime.Now
     }
     hasher
-      .hash(createNodeWithSuffixedArg, contractIdSuffixer.hashingMethod)
+      .hash(createNodeWithSuffixedArg, contractIdSuffixer.contractHashingMethod)
       .map { contractHash =>
         val ContractIdSuffixer.RelativeSuffixResult(
           suffixedCreateNode,

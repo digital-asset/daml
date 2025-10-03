@@ -996,7 +996,7 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = repair.transactionId.tryAsLedgerTransactionId,
+      updateId = repair.updateId,
       contractAuthenticationData = Map.empty,
       // No create nodes so no representative package IDs
       representativePackageIds = RepresentativePackageIds.Empty,
@@ -1040,7 +1040,7 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+      updateId = randomTransactionId(syncCrypto),
       contractAuthenticationData = contractAuthenticationData,
       representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,

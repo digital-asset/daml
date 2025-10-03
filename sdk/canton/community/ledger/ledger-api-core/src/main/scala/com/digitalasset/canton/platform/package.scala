@@ -48,8 +48,6 @@ package object platform {
   private[platform] val ModuleName = lfdata.Ref.ModuleName
   private[platform] type LedgerString = lfdata.Ref.LedgerString
   private[platform] val LedgerString = lfdata.Ref.LedgerString
-  private[platform] type UpdateId = lfdata.Ref.LedgerString
-  private[platform] val UpdateId = lfdata.Ref.LedgerString
   private[platform] type WorkflowId = lfdata.Ref.LedgerString
   private[platform] val WorkflowId = lfdata.Ref.LedgerString
   private[platform] type SubmissionId = lfdata.Ref.SubmissionId

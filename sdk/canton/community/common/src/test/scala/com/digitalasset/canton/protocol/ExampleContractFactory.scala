@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestHash, TestSalt}
-import com.digitalasset.canton.util.{LegacyContractHash, LfTransactionBuilder}
+import com.digitalasset.canton.util.{LfTransactionBuilder, TestContractHasher}
 import com.digitalasset.canton.{LfPartyId, protocol}
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -50,7 +50,7 @@ object ExampleContractFactory extends EitherValues {
       stakeholders: Set[Ref.Party] = Set(signatory, observer, extra),
       keyOpt: Option[GlobalKeyWithMaintainers] = None,
       version: LanguageVersion = LanguageVersion.default,
-      cantonContractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11,
+      cantonContractIdVersion: CantonContractIdV1Version = CantonContractIdVersion.maxV1,
       overrideContractId: Option[ContractId] = None,
   ): GenContractInstance { type InstCreatedAtTime <: Time } = {
 
@@ -75,7 +75,7 @@ object ExampleContractFactory extends EitherValues {
   def fromCreate(
       create: protocol.LfNodeCreate,
       createdAt: CreationTime.CreatedAt = CreationTime.CreatedAt(Time.Timestamp.now()),
-      cantonContractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11,
+      cantonContractIdVersion: CantonContractIdV1Version = CantonContractIdVersion.maxV1,
   ): GenContractInstance { type InstCreatedAtTime <: CreationTime.CreatedAt } =
     fromCreateInternal(
       create,
@@ -97,10 +97,8 @@ object ExampleContractFactory extends EitherValues {
       ContractAuthenticationDataV1(salt)(cantonContractIdVersion).toLfBytes,
     )
 
-    val contractHash = LegacyContractHash.tryFatContractHash(
-      unsuffixed,
-      cantonContractIdVersion.useUpgradeFriendlyHashing,
-    )
+    val contractHash =
+      TestContractHasher.Sync.hash(create, cantonContractIdVersion.contractHashingMethod)
 
     val unicum = unicumGenerator
       .recomputeUnicum(unsuffixed, cantonContractIdVersion, contractHash)
@@ -124,7 +122,7 @@ object ExampleContractFactory extends EitherValues {
 
   def buildContractId(
       index: Int = random.nextInt(),
-      cantonContractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11,
+      cantonContractIdVersion: CantonContractIdV1Version = CantonContractIdVersion.maxV1,
   ): ContractId =
     cantonContractIdVersion.fromDiscriminator(lfHash(index), Unicum(TestHash.digest(index)))
 

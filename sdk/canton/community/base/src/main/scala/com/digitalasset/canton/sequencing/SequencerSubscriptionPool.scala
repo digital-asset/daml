@@ -66,15 +66,14 @@ object SequencerSubscriptionPool {
     *   Minimal number of subscriptions needed to satisfy the trust requirements.
     * @param livenessMargin
     *   Number of extra subscriptions to maintain to ensure liveness.
-    * @param connectionRequestDelay
+    * @param subscriptionRequestDelay
     *   Delay between the attempts to obtain new connections, when the current number of
     *   subscriptions is not [[trustThreshold]] + [[livenessMargin]].
     */
   final case class SequencerSubscriptionPoolConfig(
       trustThreshold: PositiveInt,
       livenessMargin: NonNegativeInt,
-      connectionRequestDelay: config.NonNegativeFiniteDuration =
-        config.NonNegativeFiniteDuration.ofSeconds(1),
+      subscriptionRequestDelay: config.NonNegativeFiniteDuration,
   ) {
     lazy val activeThreshold: PositiveInt = trustThreshold + livenessMargin
   }

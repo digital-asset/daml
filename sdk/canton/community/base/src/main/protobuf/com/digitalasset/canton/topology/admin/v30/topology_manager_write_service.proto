@@ -257,4 +257,6 @@ enum ForceFlag {
   FORCE_FLAG_ALLOW_INSUFFICIENT_SIGNATORY_ASSIGNING_PARTICIPANTS_FOR_PARTY = 11;
   /** Required when vetting a package that fails upgrade checking */
   FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES = 12;
+  /** Required when submitting dynamic synchronizer parameters that have out-of-bounds values */
+  FORCE_FLAG_ALLOW_OUT_OF_BOUNDS_VALUE = 13;
 }

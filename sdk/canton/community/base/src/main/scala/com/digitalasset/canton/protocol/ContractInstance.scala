@@ -80,7 +80,6 @@ object ContractInstance {
   ): Either[String, ContractAuthenticationData] =
     CantonContractIdVersion
       .extractCantonContractIdVersion(inst.contractId)
-      .leftMap(_.toString)
       .flatMap(contractAuthenticationData(_, inst))
 
   private[protocol] def contractAuthenticationData(

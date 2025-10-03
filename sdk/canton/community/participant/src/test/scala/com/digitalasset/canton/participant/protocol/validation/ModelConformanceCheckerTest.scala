@@ -34,7 +34,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{ContractValidator, LegacyContractHasher}
+import com.digitalasset.canton.util.{ContractValidator, TestContractHasher}
 import com.digitalasset.canton.{
   BaseTest,
   LfCommand,
@@ -170,7 +170,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         factory.psid,
         factory.cantonContractIdVersion,
         factory.cryptoOps,
-        LegacyContractHasher,
+        TestContractHasher.Async,
         loggerFactory,
       )
 
@@ -195,13 +195,15 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         views: NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
         ips: TopologySnapshot = factory.topologySnapshot,
         reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretationMap = Map.empty,
-    ): EitherT[Future, ErrorWithSubTransaction, Result] = {
+    ): EitherT[Future, ErrorWithSubTransaction[Unit], Result] = {
       val rootViewTrees = views.map(_._1)
       val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)
       val keyResolvers = views.forgetNE.flatMap { case (_, resolvers) => resolvers }.toMap
+      val rootViewTreesWithEffects =
+        rootViewTrees.map(tree => (tree, tree.view.allSubviews.map(_ => ())))
       mcc
         .check(
-          rootViewTrees,
+          rootViewTreesWithEffects,
           keyResolvers,
           ips,
           commonData,

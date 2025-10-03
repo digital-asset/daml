@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -114,5 +115,8 @@ object DirectSequencerConnectionXPool {
   private val directPoolConfig = SequencerConnectionXPoolConfig(
     connections = NonEmpty(Seq, directConnectionDummyConfig),
     trustThreshold = PositiveInt.one,
+    // Not relevant for the direct pool
+    minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+    maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
   )
 }

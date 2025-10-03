@@ -89,7 +89,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
   /** Examine the current number of subscriptions in comparison to the configured trust threshold
     * with liveness margin. If we are under, we request additional connections, and if we can't
     * obtain enough, we reschedule the check later after
-    * [[SequencerSubscriptionPoolConfig.connectionRequestDelay]]. If we are over, we drop some
+    * [[SequencerSubscriptionPoolConfig.subscriptionRequestDelay]]. If we are over, we drop some
     * subscriptions.
     */
   private def adjustConnectionsIfNeeded()(implicit traceContext: TraceContext): Unit = {
@@ -167,7 +167,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
       if (!isClosing) {
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
           {
-            val delay = config.connectionRequestDelay
+            val delay = config.subscriptionRequestDelay
             logger.debug(
               s"Scheduling new check in ${LoggerUtil.roundDurationForHumans(delay.duration)}"
             )

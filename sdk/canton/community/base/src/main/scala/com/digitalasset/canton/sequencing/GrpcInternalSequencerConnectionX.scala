@@ -22,6 +22,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.RetryPolicy
 import com.digitalasset.canton.sequencing.ConnectionX.{ConnectionXConfig, ConnectionXState}
 import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   ConnectionAttributes,
@@ -259,10 +260,12 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
     logger.debug(s"Starting validation of $name")
 
+    // We are not retrying these calls, because the connection pool takes care of restarting connections when they fail,
+    // and in particular if they fail validation
     val resultET = for {
       apiName <- stub
         .getApiName(
-          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          retryPolicy = RetryPolicy.noRetry,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
         )
         .leftMap(SequencerConnectionXInternalError.StubError.apply)
@@ -276,7 +279,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         .performHandshake(
           clientProtocolVersions,
           minimumProtocolVersion,
-          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          retryPolicy = RetryPolicy.noRetry,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
         )
         .leftMap(SequencerConnectionXInternalError.StubError.apply)
@@ -292,7 +295,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
       synchronizerAndSequencerIds <- stub
         .getSynchronizerAndSequencerIds(
-          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          retryPolicy = RetryPolicy.noRetry,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
         )
         .leftMap[SequencerConnectionXInternalError](
@@ -310,7 +313,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
       params <- stub
         .getStaticSynchronizerParameters(
-          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          retryPolicy = RetryPolicy.noRetry,
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
         )
         .leftMap[SequencerConnectionXInternalError](

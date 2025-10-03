@@ -13,7 +13,7 @@ import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, config}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.event.Level.WARN
+import org.slf4j.event.Level.{INFO, WARN}
 
 import scala.concurrent.duration.*
 
@@ -132,6 +132,79 @@ class SequencerConnectionXPoolImplTest
                 .roundDurationForHumans(testTimeout.duration)}"
         }
         listener.shouldStabilizeOn(ComponentHealthState.failed("Component is closed"))
+      }
+    }
+
+    "retry a connection that fails to validate" in {
+      // Test the following scenario involving restarts:
+      //
+      // - start
+      // - getApi -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> OK, getStaticSynchronizerParameters -> KO
+      // - restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> OK, getStaticSynchronizerParameters -> OK
+      // - failure, triggering a restart
+      // - getApi -> OK, performHandshake -> OK, getSynchronizerAndSequencerIds -> OK, getStaticSynchronizerParameters -> OK
+      val testResponses = TestResponses(
+        apiResponses = failureUnavailable +: Seq.fill(5)(correctApiResponse),
+        handshakeResponses = failureUnavailable +: Seq.fill(4)(successfulHandshake),
+        synchronizerAndSeqIdResponses =
+          failureUnavailable +: Seq.fill(3)(correctSynchronizerIdResponse1),
+        staticParametersResponses =
+          failureUnavailable +: Seq.fill(2)(correctStaticParametersResponse),
+      )
+
+      withConnectionPool(
+        nbConnections = PositiveInt.one,
+        trustThreshold = PositiveInt.one,
+        attributesForConnection =
+          index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
+        responsesForConnection = { case 0 => testResponses },
+      ) { (pool, createdConnections, listener, _) =>
+        val minRestartConnectionDelay =
+          sequencerConnectionPoolDelays.minRestartDelay.duration.toMillis
+        val exponentialDelays = (0 until 4).map(minRestartConnectionDelay << _)
+
+        def retryLogEntry(delay: Long) =
+          s"Scheduling restart after $delay millisecond" + (if (delay > 1) "s" else "")
+
+        loggerFactory.assertLogsSeq(
+          SuppressionRule.LevelAndAbove(INFO) && SuppressionRule.LoggerNameContains(
+            "ConnectionHandler"
+          )
+        )(
+          {
+            pool.start().futureValueUS.valueOrFail("initialization")
+            listener.shouldStabilizeOn(ComponentHealthState.Ok())
+          },
+          // 4 retries, due to one failure at each call
+          // The retry delay is exponential
+          _.map(_.message).filter(_.contains("Scheduling restart after"))
+            shouldBe exponentialDelays.map(retryLogEntry),
+        )
+
+        loggerFactory.assertLogsSeq(
+          SuppressionRule.LevelAndAbove(INFO) && SuppressionRule.LoggerNameContains(
+            "ConnectionHandler"
+          )
+        )(
+          {
+            createdConnections(0).fail(reason = "test")
+            listener.shouldStabilizeOn(ComponentHealthState.Ok())
+          },
+          // ... but is reset after the connection has been validated
+          _.map(_.message).filter(_.contains("Scheduling restart after")).loneElement
+            shouldBe retryLogEntry(minRestartConnectionDelay),
+        )
+
+        // Ensure all responses were used, confirming that the proper retries took place.
+        // The test would fail if it were to consume more responses, because they default to failures.
+        testResponses.assertAllResponsesSent()
       }
     }
 

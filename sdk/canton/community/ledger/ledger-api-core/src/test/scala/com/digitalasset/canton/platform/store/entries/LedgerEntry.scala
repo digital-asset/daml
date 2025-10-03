@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.entries
 
 import com.digitalasset.canton.platform.*
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.daml.lf.data.Relation
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId}

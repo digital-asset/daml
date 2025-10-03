@@ -46,6 +46,7 @@ import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -771,6 +772,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
                 sequencerTrustThreshold,
                 sequencerLivenessMargin,
                 mediatorRequestAmplification,
+                SequencerConnectionPoolDelays.default,
               ),
               // if we run bootstrap ourselves, we should have been able to reach the nodes
               // so we don't want the bootstrapping to fail spuriously here in the middle of

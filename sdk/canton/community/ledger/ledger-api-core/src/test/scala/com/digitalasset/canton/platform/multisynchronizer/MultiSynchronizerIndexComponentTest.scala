@@ -12,7 +12,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.platform.IndexComponentTest
-import com.digitalasset.canton.protocol.{ExampleContractFactory, ReassignmentId}
+import com.digitalasset.canton.protocol.{ExampleContractFactory, ReassignmentId, TestUpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -95,7 +95,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
   ): (Update.ReassignmentAccepted, Node.Create) = {
     val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
     val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
-    val updateId = Ref.TransactionId.assertFromString(updateIdS)
+    val updateId = TestUpdateId(updateIdS)
     val recordTime = Time.Timestamp.now()
     (
       if (withAcsChange)

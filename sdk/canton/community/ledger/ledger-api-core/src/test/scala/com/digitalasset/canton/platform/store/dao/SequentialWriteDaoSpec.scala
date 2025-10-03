@@ -267,7 +267,7 @@ object SequentialWriteDaoSpec {
 
   private val someEventCreated = DbDto.EventCreate(
     event_offset = 1,
-    update_id = "",
+    update_id = new Array[Byte](0),
     ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,
@@ -294,12 +294,13 @@ object SequentialWriteDaoSpec {
     trace_context = serializableTraceContext,
     record_time = 0,
     external_transaction_hash = Some(externalTransactionHash),
+    internal_contract_id = 42L,
   )
 
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
     event_offset = 1,
-    update_id = "",
+    update_id = new Array[Byte](0),
     ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,

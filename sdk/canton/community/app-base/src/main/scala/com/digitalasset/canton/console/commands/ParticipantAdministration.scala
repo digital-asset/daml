@@ -182,6 +182,8 @@ private[console] object ParticipantCommands {
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+          SequencerConnectionPoolDelays.default,
     ): SynchronizerConnectionConfig =
       SynchronizerConnectionConfig(
         synchronizerAlias,
@@ -192,6 +194,7 @@ private[console] object ParticipantCommands {
           sequencerTrustThreshold,
           sequencerLivenessMargin,
           submissionRequestAmplification,
+          sequencerConnectionPoolDelays,
         ),
         manualConnect = manualConnect,
         psid,
@@ -1954,6 +1957,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
           sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
+          sequencerConnectionPoolDelays - Define the various delays used by the sequencer connection pool.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def connect_local_bft(
@@ -1970,6 +1974,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+          SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = ParticipantCommands.synchronizers.reference_to_config(
@@ -1982,6 +1988,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
     }
@@ -2000,6 +2007,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
           sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
+          sequencerConnectionPoolDelays - Define the various delays used by the sequencer connection pool.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
     def connect_bft(
@@ -2015,6 +2023,8 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+          SequencerConnectionPoolDelays.default,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
     ): Unit = {
       val config = SynchronizerConnectionConfig.tryGrpc(
@@ -2026,6 +2036,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         sequencerTrustThreshold = sequencerTrustThreshold,
         sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
+        sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
       )
       connect_by_config(config, validation, synchronize)
     }

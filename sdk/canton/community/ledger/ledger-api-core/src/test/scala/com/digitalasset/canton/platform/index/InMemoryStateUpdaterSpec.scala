@@ -48,11 +48,11 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
 }
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ReassignmentId, TestUpdateId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
-import com.digitalasset.canton.{BaseTest, HasExecutorServiceGeneric, TestEssentials, data}
+import com.digitalasset.canton.{BaseTest, HasExecutorServiceGeneric, TestEssentials}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -521,10 +521,10 @@ object InMemoryStateUpdaterSpec {
 
   import TraceContext.Implicits.Empty.*
 
-  private val txId1 = Ref.TransactionId.assertFromString("tx1")
-  private val txId2 = Ref.TransactionId.assertFromString("tx2")
-  private val txId3 = Ref.TransactionId.assertFromString("tx3")
-  private val txId4 = Ref.TransactionId.assertFromString("tx4")
+  private val txId1 = TestUpdateId("tx1")
+  private val txId2 = TestUpdateId("tx2")
+  private val txId3 = TestUpdateId("tx3")
+  private val txId4 = TestUpdateId("tx4")
 
   private val synchronizerId1 = SynchronizerId.tryFromString("x::synchronizerID1")
   private val synchronizerId2 = SynchronizerId.tryFromString("x::synchronizerID2")
@@ -558,7 +558,7 @@ object InMemoryStateUpdaterSpec {
 
     val txLogUpdate1 =
       TransactionLogUpdate.TransactionAccepted(
-        updateId = txId1,
+        updateId = txId1.toHexString,
         commandId = "",
         workflowId = workflowId,
         effectiveAt = Timestamp.Epoch,
@@ -572,7 +572,7 @@ object InMemoryStateUpdaterSpec {
 
     val assignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = txId3,
+        updateId = txId3.toHexString,
         commandId = "",
         workflowId = workflowId,
         offset = offset(17L),
@@ -599,7 +599,7 @@ object InMemoryStateUpdaterSpec {
 
     val unassignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
-        updateId = txId4,
+        updateId = txId4.toHexString,
         commandId = "",
         workflowId = workflowId,
         offset = offset(18L),
@@ -628,7 +628,7 @@ object InMemoryStateUpdaterSpec {
 
     val topologyTransactionLogUpdate =
       TransactionLogUpdate.TopologyTransactionEffective(
-        updateId = txId3,
+        updateId = txId3.toHexString,
         synchronizerId = synchronizerId1.toProtoPrimitive,
         offset = offset(19L),
         effectiveTime = Timestamp.Epoch,
@@ -741,7 +741,7 @@ object InMemoryStateUpdaterSpec {
 
     val tx_accepted_withCompletionStreamResponse: TransactionLogUpdate.TransactionAccepted =
       TransactionLogUpdate.TransactionAccepted(
-        updateId = tx_accepted_updateId,
+        updateId = TestUpdateId(tx_accepted_updateId).toHexString,
         commandId = tx_accepted_commandId,
         workflowId = "wAccepted",
         effectiveAt = Timestamp.assertFromLong(1L),
@@ -751,7 +751,7 @@ object InMemoryStateUpdaterSpec {
             toCreatedEvent(
               genCreateNode,
               tx_accepted_withCompletionStreamResponse_offset,
-              Ref.TransactionId.assertFromString(tx_accepted_updateId),
+              TestUpdateId(tx_accepted_updateId),
               NodeId(i),
             )
           )
@@ -775,7 +775,7 @@ object InMemoryStateUpdaterSpec {
           toCreatedEvent(
             genCreateNode,
             tx_accepted_withFlatEventWitnesses_offset,
-            Ref.TransactionId.assertFromString(tx_accepted_updateId),
+            TestUpdateId(tx_accepted_updateId),
             NodeId(0),
           )
         ),
@@ -788,7 +788,7 @@ object InMemoryStateUpdaterSpec {
           toCreatedEvent(
             genCreateNode,
             tx_accepted_withoutFlatEventWitnesses_offset,
-            Ref.TransactionId.assertFromString(tx_accepted_updateId),
+            TestUpdateId(tx_accepted_updateId),
             NodeId(0),
           ).copy(
             flatEventWitnesses = Set.empty
@@ -871,12 +871,12 @@ object InMemoryStateUpdaterSpec {
   private def toCreatedEvent(
       createdNode: Node.Create,
       txOffset: Offset,
-      updateId: data.UpdateId,
+      updateId: UpdateId,
       nodeId: NodeId,
   ) =
     CreatedEvent(
       eventOffset = txOffset,
-      updateId = updateId,
+      updateId = updateId.toHexString,
       nodeId = nodeId.index,
       eventSequentialId = 0,
       contractId = createdNode.coid,
@@ -910,7 +910,7 @@ object InMemoryStateUpdaterSpec {
             toCreatedEvent(
               genCreateNode,
               Offset.firstOffset,
-              Ref.TransactionId.assertFromString("yolo"),
+              TestUpdateId("yolo"),
               NodeId(0),
             )
           )

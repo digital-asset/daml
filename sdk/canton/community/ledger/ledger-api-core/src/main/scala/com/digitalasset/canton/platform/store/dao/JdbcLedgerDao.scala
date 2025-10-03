@@ -26,6 +26,7 @@ import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -432,9 +433,6 @@ private[platform] object JdbcLedgerDao {
   object Logging {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
-
-    def updateId(id: UpdateId): LoggingEntry =
-      "updateId" -> id
   }
 
   def read(

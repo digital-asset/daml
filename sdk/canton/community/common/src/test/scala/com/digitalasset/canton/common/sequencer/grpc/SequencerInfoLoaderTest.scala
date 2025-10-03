@@ -17,6 +17,7 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SubmissionRequestAmplification,
 }
@@ -308,6 +309,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
         sequencerTrustThreshold = PositiveInt.tryCreate(2),
         sequencerLivenessMargin = NonNegativeInt.zero,
         SubmissionRequestAmplification.NoAmplification,
+        SequencerConnectionPoolDelays.default,
         SequencerConnectionValidation.All,
         None,
       )(mapArgs(args))

@@ -3239,8 +3239,8 @@ class TopologyAdministrationGroup(
       if (
         oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
       ) {
-        val err: RpcError = TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance
-          .PermanentlyInsecure(
+        val err: RpcError =
+          TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance.PermanentlyInsecure(
             newPreparationTimeRecordTimeTolerance.toInternal,
             oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,
           )

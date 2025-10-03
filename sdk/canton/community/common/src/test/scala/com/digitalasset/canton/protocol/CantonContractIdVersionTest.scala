@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class CantonContractIdVersionTest extends AnyWordSpec with BaseTest {
 
-  forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) { underTest =>
+  forEvery(CantonContractIdVersion.allV1) { underTest =>
     s"$underTest" when {
       val discriminator = ExampleTransactionFactory.lfHash(1)
       val unicum = Unicum(TestHash.digest(1))

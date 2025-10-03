@@ -15,12 +15,11 @@ import com.digitalasset.canton.ledger.api.{
   TransactionFormat,
   TransactionShape,
   UpdateFormat,
-  UpdateId,
 }
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.logging.*
 import com.digitalasset.daml.lf.value.Value.ContractId
-import scalaz.syntax.tag.ToTagOps
 
 package object logging {
 
@@ -176,7 +175,7 @@ package object logging {
     "updateId" -> id
 
   private[services] def updateId(id: UpdateId): LoggingEntry =
-    "updateId" -> id.unwrap
+    "updateId" -> id.toHexString
 
   private[services] def workflowId(id: String): LoggingEntry =
     "workflowId" -> id

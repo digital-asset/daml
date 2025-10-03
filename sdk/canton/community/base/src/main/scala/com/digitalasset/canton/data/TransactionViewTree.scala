@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
-import com.digitalasset.canton.protocol.{RootHash, TransactionId, ViewHash}
+import com.digitalasset.canton.protocol.{RootHash, UpdateId, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
@@ -44,7 +44,7 @@ trait TransactionViewTree extends ViewTree {
 
   override def rootHash: RootHash = tree.rootHash
 
-  lazy val transactionId: TransactionId = TransactionId.fromRootHash(rootHash)
+  lazy val transactionId: UpdateId = UpdateId.fromRootHash(rootHash)
 
   override def toBeSigned: Option[RootHash] = if (isTopLevel) Some(rootHash) else None
 

@@ -128,6 +128,7 @@ class SequencerConnectionSuccessorListener(
             activeConfig.config.sequencerConnections.sequencerTrustThreshold,
             activeConfig.config.sequencerConnections.sequencerLivenessMargin,
             activeConfig.config.sequencerConnections.submissionRequestAmplification,
+            activeConfig.config.sequencerConnections.sequencerConnectionPoolDelays,
           )
           .toOption
       )
