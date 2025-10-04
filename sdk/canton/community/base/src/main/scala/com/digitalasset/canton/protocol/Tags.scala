@@ -255,6 +255,12 @@ object ReassignmentId {
         case b => Left(s"invalid version: ${b.toInt}")
       }).leftMap(err => s"cannot parse ReassignmentId bytes: $err")
 
+  def assertFromBytes(bytes: Array[Byte]): ReassignmentId =
+    ReassignmentId.fromBytes(ByteString.copyFrom(bytes)) match {
+      case Left(e) => throw new IllegalArgumentException(s"Cannot convert reassignment id: $e")
+      case Right(id) => id
+    }
+
   def apply(
       source: Source[SynchronizerId],
       target: Target[SynchronizerId],

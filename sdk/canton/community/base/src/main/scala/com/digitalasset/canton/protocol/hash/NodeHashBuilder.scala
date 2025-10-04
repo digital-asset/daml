@@ -9,7 +9,8 @@ import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.protocol.hash.NodeBuilder.NodeEncodingV1
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.{Node, NodeId, SerializationVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.{Node, NodeId, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value
 
 import TransactionHash.*
@@ -71,10 +72,10 @@ private sealed abstract class NodeHashBuilder(
 private object NodeBuilder {
   // Version of the protobuf used to encode nodes defined in the interactive_submission_data.proto
   private[hash] val NodeEncodingV1 = 1
-  private[hash] val HashingVersionToSupportedLFSerializationVersionMapping
-      : Map[HashingSchemeVersion, Set[SerializationVersion]] =
+  private[hash] val HashingVersionToSupportedLFVersionMapping
+      : Map[HashingSchemeVersion, Set[LanguageVersion]] =
     Map(
-      HashingSchemeVersion.V2 -> Set(SerializationVersion.V1)
+      HashingSchemeVersion.V2 -> Set(LanguageVersion.v2_1)
     )
 
   private[hash] sealed abstract class NodeTag(val tag: Byte)
@@ -87,19 +88,19 @@ private object NodeBuilder {
   }
 
   @throws[NodeHashingError]
-  private[hash] def assertHashingVersionSupportsLfSerializationVersion(
-      version: SerializationVersion,
+  private[hash] def assertHashingVersionSupportsLfVersion(
+      version: LanguageVersion,
       nodeHashVersion: HashingSchemeVersion,
   ): Unit =
     if (
-      !HashingVersionToSupportedLFSerializationVersionMapping
+      !HashingVersionToSupportedLFVersionMapping
         // This really shouldn't happen, unless someone removed an entry from the HashingVersionToSupportedLFVersionMapping map
         .getOrElse(
           nodeHashVersion,
           throw NodeHashingError.UnsupportedHashingVersion(nodeHashVersion),
         )
         .contains(version)
-    ) throw NodeHashingError.UnsupportedSerializationVersion(nodeHashVersion, version)
+    ) throw NodeHashingError.UnsupportedLanguageVersion(nodeHashVersion, version)
 }
 
 private class NodeBuilderV1(
@@ -118,7 +119,7 @@ private class NodeBuilderV1(
     node.optVersion
       .foreach(
         NodeBuilder
-          .assertHashingVersionSupportsLfSerializationVersion(_, HashingSchemeVersion.V2)
+          .assertHashingVersionSupportsLfVersion(_, HashingSchemeVersion.V2)
       )
 
     new NodeBuilderV1(purpose, hashTracer, enforceNodeSeedForCreateNodes)
@@ -141,7 +142,7 @@ private class NodeBuilderV1(
         ) =>
       if (keyOpt.isDefined) notSupported("keyOpt in Create node") // 2.dev feature
       addContext("Create Node")
-        .withContext("Node Version")(_.add(SerializationVersion.toProtoValue(version)))
+        .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))
         .addByte(NodeBuilder.NodeTag.CreateTag.tag, _ => "Create Node Tag")
         .withContext("Node Seed")(
           _.addOptional(nodeSeed, builder => seed => builder.addLfHash(seed, "node seed"))
@@ -170,7 +171,7 @@ private class NodeBuilderV1(
       if (keyOpt.nonEmpty) notSupported("keyOpt in Fetch node") // 2.dev feature
       if (byKey == true) notSupported("byKey in Fetch node") // 2.dev feature
       addContext("Fetch Node")
-        .withContext("Node Version")(_.add(SerializationVersion.toProtoValue(version)))
+        .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))
         .addByte(NodeBuilder.NodeTag.FetchTag.tag, _ => "Fetch Node Tag")
         .withContext("Contract Id")(_.addCid(coid))
         .withContext("Package Name")(_.add(packageName))
@@ -210,7 +211,7 @@ private class NodeBuilderV1(
       if (keyOpt.nonEmpty) notSupported("keyOpt in Exercise node") // 2.dev feature
       if (byKey == true) notSupported("byKey in Exercise node") // 2.dev feature
       addContext("Exercise Node")
-        .withContext("Node Version")(_.add(SerializationVersion.toProtoValue(version)))
+        .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))
         .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, _ => "Exercise Node Tag")
         .withContext("Node Seed")(_.addLfHash(nodeSeed, "seed"))
         .withContext("Contract Id")(_.addCid(targetCoid))

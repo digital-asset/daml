@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PartyManagementServiceErrorGroup
 import com.digitalasset.canton.error.{CantonBaseError, CantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 
 sealed trait PartyManagementServiceError extends Product with Serializable with CantonBaseError
 
@@ -31,6 +31,28 @@ object PartyManagementServiceError extends PartyManagementServiceErrorGroup {
       ) {
     final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(reason)
+        with PartyManagementServiceError
+
+    final case class AbortAcsExportForMissingOnboardingFlag(
+        party: PartyId,
+        targetParticipant: ParticipantId,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Aborted to export ACS for party $party. " +
+            s"To enable export, the party must be activated on the target participant $targetParticipant with the onboarding flag set"
+        )
+        with PartyManagementServiceError
+
+    final case class MissingOnboardingFlagCannotCompleteOnboarding(
+        party: PartyId,
+        targetParticipant: ParticipantId,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Aborted to complete party onboarding because the activation for $party on the target participant $targetParticipant is missing the onboarding flag"
+        )
         with PartyManagementServiceError
   }
 

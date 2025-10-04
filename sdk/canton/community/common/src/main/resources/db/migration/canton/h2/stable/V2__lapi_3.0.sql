@@ -508,7 +508,7 @@ CREATE TABLE lapi_events_unassign (
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    reassignment_id VARCHAR NOT NULL,
+    reassignment_id BINARY LARGE OBJECT NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * unassigned specific
@@ -561,7 +561,7 @@ CREATE TABLE lapi_events_assign (
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    reassignment_id VARCHAR NOT NULL,
+    reassignment_id BINARY LARGE OBJECT NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * assigned specific

@@ -239,6 +239,27 @@ class GrpcPartyManagementService(
         .fromEither[FutureUnlessShutdown](findTopologyClient(synchronizerId, sync))
         .leftMap(PartyManagementServiceError.InvalidState.Error(_))
 
+      snapshot <- EitherT.right(
+        client.awaitSnapshot(activationTimestamp.immediateSuccessor)
+      )
+      // TODO(#28208) - Indirection because LAPI topology transaction does not include the onboarding flag
+      activeParticipants <- EitherT.right(
+        snapshot.activeParticipantsOf(party.toLf)
+      )
+      _ <-
+        EitherT.cond[FutureUnlessShutdown](
+          activeParticipants.exists { case (participantId, participantAttributes) =>
+            participantId == targetParticipant &&
+            participantAttributes.onboarding
+          },
+          (),
+          PartyManagementServiceError.InvalidState
+            .AbortAcsExportForMissingOnboardingFlag(
+              party,
+              targetParticipant,
+            ): PartyManagementServiceError,
+        )
+
       partiesHostedByTargetParticipant <- EitherT.right(
         client
           .awaitSnapshot(activationTimestamp)
@@ -253,7 +274,7 @@ class GrpcPartyManagementService(
       otherPartiesHostedByTargetParticipant =
         partiesHostedByTargetParticipant excl party excl targetParticipant.adminParty
 
-      snapshot <- ParticipantCommon
+      _ <- ParticipantCommon
         .writeAcsSnapshot(
           indexService,
           Set(party),
@@ -265,7 +286,7 @@ class GrpcPartyManagementService(
         .leftMap(msg =>
           PartyManagementServiceError.IOStream.Error(msg): PartyManagementServiceError
         )
-    } yield snapshot
+    } yield ()
 
     mapErrNewEUS(res.leftMap(_.toCantonRpcError))
   }
@@ -350,6 +371,7 @@ class GrpcPartyManagementService(
     )
   }
 
+  // TODO(#24065) - There may be multiple party on- and offboarding transactions which may break this method
   private def findSinglePartyActivationTopologyTransaction(
       indexService: InternalIndexService,
       party: PartyId,
@@ -644,15 +666,19 @@ class GrpcPartyManagementService(
       snapshot <- EitherT.right(
         client.awaitSnapshot(activationTimestamp.immediateSuccessor)
       )
-      activeParticipants <- EitherT.right(snapshot.activeParticipantsOf(party.toLf))
+      // TODO(#28208) - Indirection because LAPI topology transaction does not include the onboarding flag
+      activeParticipants <- EitherT.right(
+        snapshot.activeParticipantsOf(party.toLf)
+      )
       _ <- EitherT.cond[FutureUnlessShutdown](
-        activeParticipants.exists { case (parId, parAttr) =>
-          parId == targetParticipant &&
-          parAttr.onboarding
+        activeParticipants.exists { case (participantId, participantAttributes) =>
+          participantId == targetParticipant &&
+          participantAttributes.onboarding
         },
         (),
-        PartyManagementServiceError.InvalidState.Error(
-          s"Missing activation for $party on target participant $targetParticipant having the onboarding flag set"
+        PartyManagementServiceError.InvalidState.MissingOnboardingFlagCannotCompleteOnboarding(
+          party,
+          targetParticipant,
         ): PartyManagementServiceError,
       )
 

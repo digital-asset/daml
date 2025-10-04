@@ -3,11 +3,9 @@
 
 package com.digitalasset.canton.integration.tests.security.kms
 
-import cats.syntax.parallel.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Privacy
 import com.daml.test.evidence.tag.Security.{SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.crypto.kms.{Kms, KmsError, KmsKeyId}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.store.db.{DbCryptoPrivateStore, StoredPrivateKey}
@@ -47,16 +45,8 @@ trait EncryptedCryptoPrivateStoreTestHelpers extends SecurityTestSuite {
   def listAllStoredKeys(store: CryptoPrivateStoreExtended)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Seq[StoredPrivateKey] = {
-    val result = for {
-      purpose <- KeyPurpose.All.toSeq
-      encrypted <- store match {
-        case _: EncryptedCryptoPrivateStore => Seq(true)
-        case _ => Seq(false, true)
-      }
-    } yield store.listPrivateKeys(purpose, encrypted).map(_.toSeq)
-    result.parFlatSequence.valueOrFailShutdown("list keys").futureValue
-  }
+  ): Set[StoredPrivateKey] =
+    retryET()(store.listPrivateKeys()).valueOrFailShutdown("list keys").futureValue
 
   def storeClearKey(nodeName: String)(implicit
       ec: ExecutionContext,
@@ -75,7 +65,7 @@ trait EncryptedCryptoPrivateStoreTestHelpers extends SecurityTestSuite {
 
   def checkAndDecryptKeys(nodeName: String)(implicit
       env: TestConsoleEnvironment
-  ): Seq[StoredPrivateKey] = {
+  ): Set[StoredPrivateKey] = {
     import env.*
 
     val encStore = getEncryptedCryptoStore(nodeName)
@@ -131,7 +121,7 @@ trait EncryptedCryptoPrivateStoreTestHelpers extends SecurityTestSuite {
   def checkAndReturnClearKeys(nodeName: String)(implicit
       ec: ExecutionContext,
       env: TestConsoleEnvironment,
-  ): Seq[StoredPrivateKey] =
+  ): Set[StoredPrivateKey] =
     env.n(nodeName).crypto.cryptoPrivateStore match {
       // check that node's private store is in clear
       case store: DbCryptoPrivateStore =>

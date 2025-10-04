@@ -544,7 +544,7 @@ object WellFormedTransaction {
         preparationTimes.head1,
         s"Different preparation times: ${preparationTimes.mkString(", ")}",
       )
-      version = protocol.maxSerializationVersion(versions)
+      version = protocol.maxTransactionVersion(versions)
       _ <- MonadUtil
         .foldLeftM[Either[String, *], (Int, List[(RollbackSibling, LfNodeId)]), WithRollbackScope[
           WellFormedTransaction[WithAbsoluteSuffixes]

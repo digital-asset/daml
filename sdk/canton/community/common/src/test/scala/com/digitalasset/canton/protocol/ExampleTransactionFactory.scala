@@ -82,7 +82,7 @@ object ExampleTransactionFactory {
   val packageName: PackageName = LfTransactionBuilder.defaultPackageName
   val someOptUsedPackages: Option[Set[LfPackageId]] = Some(Set(packageId))
   val defaultGlobalKey: LfGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val serializationVersion: LfLanguageVersion = LfTransactionBuilder.defaultSerializationVersion
+  val transactionVersion: LfLanguageVersion = LfTransactionBuilder.defaultTransactionVersion
 
   private val random = new Random(0)
 
@@ -92,7 +92,7 @@ object ExampleTransactionFactory {
   }
 
   private def versionedValueCapturing(coid: List[LfContractId]): Value.VersionedValue =
-    LfVersioned(serializationVersion, valueCapturing(coid))
+    LfVersioned(transactionVersion, valueCapturing(coid))
 
   def contractInstance(
       capturedIds: Seq[LfContractId] = Seq.empty,
@@ -163,7 +163,7 @@ object ExampleTransactionFactory {
     deepValue(Value.MAXIMUM_NESTING + 10)
   }
   val veryDeepVersionedValue: VersionedValue =
-    LfVersioned(serializationVersion, veryDeepValue)
+    LfVersioned(transactionVersion, veryDeepValue)
 
   val veryDeepContractInstance: LfThinContractInst =
     LfThinContractInst(
@@ -178,7 +178,7 @@ object ExampleTransactionFactory {
       packageName: LfPackageName = packageName,
   ): Versioned[LfGlobalKey] =
     LfVersioned(
-      serializationVersion,
+      transactionVersion,
       LfGlobalKey.assertBuild(templateId, value, packageName),
     )
 
@@ -186,18 +186,18 @@ object ExampleTransactionFactory {
       key: LfGlobalKey = defaultGlobalKey,
       maintainers: Set[LfPartyId] = Set(signatory),
   ): Versioned[LfGlobalKeyWithMaintainers] =
-    LfVersioned(serializationVersion, LfGlobalKeyWithMaintainers(key, maintainers))
+    LfVersioned(transactionVersion, LfGlobalKeyWithMaintainers(key, maintainers))
 
   def fetchNode(
-                 cid: LfContractId,
-                 actingParties: Set[LfPartyId] = Set.empty,
-                 signatories: Set[LfPartyId] = Set.empty,
-                 observers: Set[LfPartyId] = Set.empty,
-                 key: Option[LfGlobalKeyWithMaintainers] = None,
-                 byKey: Boolean = false,
-                 version: LfLanguageVersion = serializationVersion,
-                 templateId: LfTemplateId = templateId,
-                 interfaceId: Option[LfTemplateId] = None,
+      cid: LfContractId,
+      actingParties: Set[LfPartyId] = Set.empty,
+      signatories: Set[LfPartyId] = Set.empty,
+      observers: Set[LfPartyId] = Set.empty,
+      key: Option[LfGlobalKeyWithMaintainers] = None,
+      byKey: Boolean = false,
+      version: LfLanguageVersion = transactionVersion,
+      templateId: LfTemplateId = templateId,
+      interfaceId: Option[LfTemplateId] = None,
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
@@ -228,7 +228,7 @@ object ExampleTransactionFactory {
       signatories = signatories,
       stakeholders = signatories ++ observers,
       keyOpt = key,
-      version = serializationVersion,
+      version = transactionVersion,
     )
   }
 
@@ -264,7 +264,7 @@ object ExampleTransactionFactory {
       exerciseResult = exerciseResult,
       keyOpt = key,
       byKey = byKey,
-      version = serializationVersion,
+      version = transactionVersion,
     )
 
   def exerciseNodeWithoutChildren(
@@ -297,7 +297,7 @@ object ExampleTransactionFactory {
       packageName = key.packageName,
       key = LfGlobalKeyWithMaintainers(key, maintainers),
       result = resolution,
-      version = serializationVersion,
+      version = transactionVersion,
     )
 
   def nodeId(index: Int): LfNodeId = LfNodeId(index)
@@ -320,10 +320,10 @@ object ExampleTransactionFactory {
       (nodeId(index + startIndex), node)
     }*)
 
-    val version = protocol.maxSerializationVersion(
+    val version = protocol.maxTransactionVersion(
       NonEmpty
         .from(nodesMap.values.toSeq.mapFilter(_.optVersion))
-        .getOrElse(NonEmpty(Seq, serializationVersion))
+        .getOrElse(NonEmpty(Seq, transactionVersion))
     )
 
     LfVersionedTransaction(version, nodesMap, roots)
@@ -652,7 +652,7 @@ class ExampleTransactionFactory(
     val metadata = ContractMetadata.tryCreate(
       signatories,
       signatories ++ observers,
-      maybeKeyWithMaintainers.map(LfVersioned(SerializationVersion, _)),
+      maybeKeyWithMaintainers.map(LfVersioned(transactionVersion, _)),
     )
     val viewParticipantDataSalt = participantDataSalt(viewIndex)
     val contractSalt = cantonContractIdVersion match {
@@ -793,7 +793,7 @@ class ExampleTransactionFactory(
       coreInputContracts,
       createWithSerialization,
       createdInSubviewArchivedInCore,
-      resolvedKeys.fmap(LfVersioned(SerializationVersion, _)),
+      resolvedKeys.fmap(LfVersioned(transactionVersion, _)),
       actionDescription,
       RollbackContext.empty,
       participantDataSalt(viewIndex),
@@ -1060,7 +1060,7 @@ class ExampleTransactionFactory(
 
     override def versionedSuffixedTransaction: LfVersionedTransaction =
       LfVersionedTransaction(
-        version = SerializationVersion,
+        version = transactionVersion,
         roots = ImmArray.empty,
         nodes = HashMap.empty,
       )
@@ -1397,7 +1397,7 @@ class ExampleTransactionFactory(
       interpretedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       relativizedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       fetchedContractInstance: LfThinContractInst = contractInstance(),
-      version: LfLanguageVersion = SerializationVersion,
+      version: LfLanguageVersion = transactionVersion,
       authenticationData: Either[
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),

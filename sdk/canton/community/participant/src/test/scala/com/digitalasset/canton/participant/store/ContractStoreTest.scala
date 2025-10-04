@@ -266,5 +266,29 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         res shouldBe Left(UnknownContracts(Set(contractId2)))
       }
     }
+
+    "store contracts and retrieve them by internal id" in {
+      val store = mk()
+
+      val contracts = Seq(contract, contract2, contract3, contract4)
+      val contractIds = contracts.map(_.contractId)
+
+      for {
+        _ <- store.storeContracts(contracts)
+        internalIdsMap <- store.lookupBatchedNonCachedInternalIds(contractIds)
+        persistedMap <- store.lookupBatchedNonCached(internalIdsMap.values)
+      } yield {
+        internalIdsMap.keys should contain theSameElementsAs contractIds
+        internalIdsMap.foreach { case (contractId, internalId) =>
+          persistedMap.get(internalId) match {
+            case Some(persisted) =>
+              persisted.inst.contractId shouldBe contractId
+            case None =>
+              fail(s"No persisted contract found for internal id $internalId")
+          }
+        }
+        succeed
+      }
+    }
   }
 }

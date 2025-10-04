@@ -338,7 +338,7 @@ object ValidateDisclosedContractsTest {
       signatories = api.signatories,
       stakeholders = api.stakeholders,
       keyOpt = Some(lf.keyWithMaintainers),
-      version = LfSerializationVersion.StableVersions.max,
+      version = LfTransactionVersion.StableVersions.max,
     )
 
     private val dupKeyCreateNode = createNode.copy(ExampleContractFactory.buildContractId())

@@ -32,7 +32,6 @@ final case class ProtoInfo(protoComments: ExtractedProtoComments) {
       )
     // Special case for GetUpdatesRequest, where we want to document the verbose and filter fields
     // and legacy requests for which we want to preserve the documentation
-    // TODO(#27897) document properly deprecated JSON routes
     val getUpdatesRequestName = LegacyDTOs.GetUpdatesRequest.getClass.getSimpleName.replace("$", "")
     val transactionFilterName = LegacyDTOs.TransactionFilter.getClass.getSimpleName.replace("$", "")
     val submitAndWaitForTransactionTreeResponseName =

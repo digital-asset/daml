@@ -84,7 +84,7 @@ trait EncryptedCryptoPrivateStoreIntegrationTest
         // then this check should fail with a decryption error
         // checkAndDecryptKeys(nodeName, kms)
         val encStore = getEncryptedCryptoStore(nodeName)
-        listAllStoredKeys(encStore.store)
+        listAllStoredKeys(encStore.store).toList
           .parTraverse(storedKey => encStore.exportPrivateKey(storedKey.id))
           .leftOrFailShutdown("check encryption")
           .futureValue shouldBe a[FailedToReadKey]

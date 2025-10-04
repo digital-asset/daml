@@ -17,7 +17,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   participantPermissionInt,
 }
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
-import com.digitalasset.canton.protocol.{TestUpdateId, UpdateId}
+import com.digitalasset.canton.protocol.{ReassignmentId, TestUpdateId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -88,6 +88,8 @@ private[store] object StorageBackendTestValues {
       .digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)
   val someExternalTransactionHashBinary: Array[Byte] =
     someExternalTransactionHash.getCryptographicEvidence.toByteArray
+  val reassignmentId: Array[Byte] =
+    ReassignmentId.create("0012345678").toOption.get.toBytes.toByteArray
 
   def dtoPartyEntry(
       offset: Offset,
@@ -260,7 +262,7 @@ private[store] object StorageBackendTestValues {
       authentication_data = authenticationData.toByteArray,
       source_synchronizer_id = sourceSynchronizerId,
       target_synchronizer_id = targetSynchronizerId,
-      reassignment_id = "123456789",
+      reassignment_id = reassignmentId,
       reassignment_counter = 1000L,
       trace_context = traceContext,
       record_time = recordTime.micros,
@@ -297,7 +299,7 @@ private[store] object StorageBackendTestValues {
       event_sequential_id = eventSequentialId,
       source_synchronizer_id = sourceSynchronizerId,
       target_synchronizer_id = targetSynchronizerId,
-      reassignment_id = "123456789",
+      reassignment_id = reassignmentId,
       reassignment_counter = 1000L,
       assignment_exclusivity = Some(11111),
       trace_context = traceContext,

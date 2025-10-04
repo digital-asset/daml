@@ -798,7 +798,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
         hashTracer = hashTracer,
       )
       hashTracer.result shouldBe s"""'00000030' # Hash Purpose
-                                      |# Serialization Version
+                                      |# Transaction Version
                                       |'00000003' # 3 (int)
                                       |'322e31' # 2.1 (string)
                                       |# Root Nodes

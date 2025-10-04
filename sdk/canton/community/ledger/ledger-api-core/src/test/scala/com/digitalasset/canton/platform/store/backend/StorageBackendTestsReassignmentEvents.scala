@@ -400,7 +400,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           event = EventStorageBackend.RawAssignEventLegacy(
             sourceSynchronizerId = "x::sourcesynchronizer",
             targetSynchronizerId = "x::targetsynchronizer",
-            reassignmentId = "123456789",
+            reassignmentId = "0012345678",
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEventLegacy(
@@ -438,7 +438,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           event = EventStorageBackend.RawAssignEventLegacy(
             sourceSynchronizerId = "x::sourcesynchronizer",
             targetSynchronizerId = "x::targetsynchronizer",
-            reassignmentId = "123456789",
+            reassignmentId = "0012345678",
             submitter = Option(someParty),
             reassignmentCounter = 1000L,
             rawCreatedEvent = RawCreatedEventLegacy(
@@ -523,7 +523,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         event = EventStorageBackend.RawUnassignEventLegacy(
           sourceSynchronizerId = "x::sourcesynchronizer",
           targetSynchronizerId = "x::targetsynchronizer",
-          reassignmentId = "123456789",
+          reassignmentId = "0012345678",
           submitter = Option(someParty),
           reassignmentCounter = 1000L,
           contractId = hashCid("#1"),
@@ -547,7 +547,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         event = EventStorageBackend.RawUnassignEventLegacy(
           sourceSynchronizerId = "x::sourcesynchronizer",
           targetSynchronizerId = "x::targetsynchronizer",
-          reassignmentId = "123456789",
+          reassignmentId = "0012345678",
           submitter = Option(someParty),
           reassignmentCounter = 1000L,
           contractId = hashCid("#2"),

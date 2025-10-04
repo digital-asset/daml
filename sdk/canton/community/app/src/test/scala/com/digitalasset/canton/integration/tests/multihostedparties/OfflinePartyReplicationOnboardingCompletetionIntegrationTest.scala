@@ -30,7 +30,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
   *   - Target participant clears the onboarding flag unilaterally
   *   - Assert successful clearing of onboarding flag by the target participant
   */
-sealed trait OfflinePartyReplicationOnboardingCompletetionIntegrationTest
+sealed trait OfflinePartyReplicationOnboardingCompletionIntegrationTest
     extends OfflinePartyReplicationIntegrationTestBase {
 
   override def environmentDefinition: EnvironmentDefinition =
@@ -43,7 +43,7 @@ sealed trait OfflinePartyReplicationOnboardingCompletetionIntegrationTest
 }
 
 final class OffPROnboardingCompletionIntegrationTest
-    extends OfflinePartyReplicationOnboardingCompletetionIntegrationTest {
+    extends OfflinePartyReplicationOnboardingCompletionIntegrationTest {
 
   "Party replication sets and clears the onboarding flag successfully" in { implicit env =>
     import env.*

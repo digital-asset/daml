@@ -142,8 +142,9 @@ class AcsInspection(
               toc,
             )
         } else EitherT.pure[FutureUnlessShutdown, AcsInspectionError](())
-      snapshot <- EitherT
-        .right(activeContractStore.snapshot(toc))
+
+      snapshot <- EitherT.right(activeContractStore.snapshot(toc))
+
       // check after getting the snapshot in case a pruning was happening concurrently
       _ <- TimestampValidation.afterPruning(
         synchronizerId,
@@ -170,15 +171,10 @@ class AcsInspection(
     val maybeSnapshotET: EitherT[FutureUnlessShutdown, AcsInspectionError, MaybeSnapshot] =
       timeOfSnapshotO match {
         case Some(toc) =>
-          getSnapshotAt(synchronizerId)(
-            toc,
-            skipCleanTocCheck = skipCleanTocCheck,
-          )
-            .map(Some(_))
+          getSnapshotAt(synchronizerId)(toc, skipCleanTocCheck = skipCleanTocCheck).map(Some(_))
 
         case None =>
-          EitherT
-            .right[AcsInspectionError](getCurrentSnapshot())
+          EitherT.right[AcsInspectionError](getCurrentSnapshot())
       }
 
     maybeSnapshotET.map(
@@ -188,9 +184,7 @@ class AcsInspection(
             cid -> reassignmentCounter
           }
           .toSeq
-          .grouped(
-            BatchSize.value
-          )
+          .grouped(BatchSize.value)
 
         AcsSnapshot(groupedSnapshot, toc)
       }

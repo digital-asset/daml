@@ -57,9 +57,8 @@ trait RotateWrapperKeyIntegrationTest
 
       val decryptedKeys = checkAndDecryptKeys(participant1.name)
       // compare decrypted result with previously existent keys (e.g. before the rotation)
-      decryptedKeys.map(_.copy(wrapperKeyId = None)).toSet shouldBe initialKeys
+      decryptedKeys.map(_.copy(wrapperKeyId = None)) shouldBe initialKeys
         .map(_.copy(wrapperKeyId = None))
-        .toSet
     } finally {
       if (preDefinedKey.isEmpty)
         encStore.kms.deleteKey(encStore.wrapperKeyId).failOnShutdown.futureValue

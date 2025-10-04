@@ -183,6 +183,15 @@ class InMemoryCryptoPrivateStore(
           )
     }).map(_.toSet)
 
+  @VisibleForTesting
+  private[canton] def listPrivateKeys()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    for {
+      signingPrivateKeys <- listPrivateKeys(Signing)
+      encryptionPrivateKeys <- listPrivateKeys(Encryption)
+    } yield signingPrivateKeys ++ encryptionPrivateKeys
+
   private[crypto] def deletePrivateKey(
       keyId: Fingerprint
   )(implicit
