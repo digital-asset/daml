@@ -28,12 +28,13 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   GlobalKey,
   Node,
   NodeId,
-  SerializationVersion,
+  TransactionVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.google.common.annotations.VisibleForTesting
@@ -56,12 +57,12 @@ final class PreparedTransactionEncoder(
     * for several LF Versions.
     */
   private val nodeTransformers = Map(
-    SerializationVersion.V1 -> v1.nodeTransformer(SerializationVersion.V1),
-    SerializationVersion.VDev -> v1.nodeTransformer(SerializationVersion.VDev),
+    LanguageVersion.v2_1 -> v1.nodeTransformer(LanguageVersion.v2_1),
+    LanguageVersion.v2_dev -> v1.nodeTransformer(LanguageVersion.v2_dev),
   )
 
   private def getEncoderForVersion(
-      version: SerializationVersion
+      version: LanguageVersion
   ): Result[PartialTransformer[lf.transaction.Node, iss.DamlTransaction.Node.VersionedNode]] =
     nodeTransformers
       .get(version)
@@ -108,9 +109,9 @@ final class PreparedTransactionEncoder(
   private implicit val partyVersionTransformer: Transformer[lf.data.Ref.Party, String] =
     Transformer.derive
 
-  private implicit val lfSerializationVersionVersionTransformer
-      : Transformer[lf.transaction.SerializationVersion, String] =
-    SerializationVersion.toProtoValue(_)
+  private implicit val languageVersionTransformer
+      : Transformer[lf.language.LanguageVersion, String] =
+    TransactionVersion.toProtoValue(_)
 
   private implicit val nodeIdTransformer: Transformer[lf.transaction.NodeId, String] =
     _.index.toString
@@ -139,18 +140,18 @@ final class PreparedTransactionEncoder(
    */
   object v1 {
     private implicit def createNodeTransformer(implicit
-        SerializationVersion: SerializationVersion
+        languageVersion: LanguageVersion
     ): PartialTransformer[lf.transaction.Node.Create, isdv1.Create] = Transformer
       .definePartial[lf.transaction.Node.Create, isdv1.Create]
       .withFieldRenamed(_.coid, _.contractId)
       .withFieldRenamed(_.arg, _.argument)
       .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
       .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
-      .withFieldConst(_.lfVersion, SerializationVersion.transformInto[String])
+      .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
     private[interactive] implicit def exerciseTransformer(implicit
-        SerializationVersion: SerializationVersion
+        languageVersion: LanguageVersion
     ): PartialTransformer[lf.transaction.Node.Exercise, isdv1.Exercise] = Transformer
       .definePartial[lf.transaction.Node.Exercise, isdv1.Exercise]
       .withFieldRenamed(_.targetCoid, _.contractId)
@@ -158,18 +159,18 @@ final class PreparedTransactionEncoder(
       .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
       .withFieldComputed(_.actingParties, _.actingParties.toSeq.sorted)
       .withFieldComputed(_.choiceObservers, _.choiceObservers.toSeq.sorted)
-      .withFieldConst(_.lfVersion, SerializationVersion.transformInto[String])
+      .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
     private[interactive] implicit def fetchTransformer(implicit
-        SerializationVersion: SerializationVersion
+        languageVersion: LanguageVersion
     ): PartialTransformer[lf.transaction.Node.Fetch, isdv1.Fetch] = Transformer
       .definePartial[lf.transaction.Node.Fetch, isdv1.Fetch]
       .withFieldRenamed(_.coid, _.contractId)
       .withFieldComputed(_.signatories, _.signatories.toSeq.sorted)
       .withFieldComputed(_.stakeholders, _.stakeholders.toSeq.sorted)
       .withFieldComputed(_.actingParties, _.actingParties.toSeq.sorted)
-      .withFieldConst(_.lfVersion, SerializationVersion.transformInto[String])
+      .withFieldConst(_.lfVersion, languageVersion.transformInto[String])
       .buildTransformer
 
     private implicit val rollbackTransformer
@@ -178,7 +179,7 @@ final class PreparedTransactionEncoder(
       .buildTransformer
 
     private[interactive] def nodeTransformer(implicit
-        SerializationVersion: SerializationVersion
+        languageVersion: LanguageVersion
     ): PartialTransformer[lf.transaction.Node, iss.DamlTransaction.Node.VersionedNode] =
       PartialTransformer[lf.transaction.Node, iss.DamlTransaction.Node.VersionedNode] { lfNode =>
         val nodeType = lfNode match {
@@ -216,8 +217,8 @@ final class PreparedTransactionEncoder(
     lfNode =>
       val transformerResult = lfNode match {
         // Rollback nodes are not versioned so lfNode.optVersion will be empty
-        // Just pick the transformer for the min version as it doesn't matter here
-        case _: Node.Rollback => getEncoderForVersion(SerializationVersion.minVersion)
+        // Just pick the transformer for the default version as it doesn't matter here
+        case _: Node.Rollback => getEncoderForVersion(LanguageVersion.default)
         case _ =>
           lfNode.optVersion
             .toRight("Expected a node version but was empty")

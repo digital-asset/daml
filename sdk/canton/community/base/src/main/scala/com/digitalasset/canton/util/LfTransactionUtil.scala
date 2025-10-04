@@ -15,7 +15,7 @@ import scala.annotation.nowarn
   */
 object LfTransactionUtil {
 
-  implicit val orderSerializationVersion: Order[LfLanguageVersion] =
+  implicit val orderTransactionVersion: Order[LfLanguageVersion] =
     Order.fromOrdering
 
   def consumedContractId(node: LfActionNode): Option[LfContractId] = node match {

@@ -527,7 +527,7 @@ message DamlTransaction {
   }
   // [docs-entry-end: DamlTransaction.Node]
 
-  // serialization version, will be >= max(nodes version)
+  // Transaction version, will be >= max(nodes version)
   string version = 1;
   // Root nodes of the transaction
   repeated string roots = 2;

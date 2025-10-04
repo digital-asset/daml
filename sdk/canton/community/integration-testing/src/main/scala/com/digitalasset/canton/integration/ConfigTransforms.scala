@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration
 
 import cats.syntax.option.*
-import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
@@ -129,8 +128,7 @@ object ConfigTransforms {
       _.focus(_.monitoring.logging.api.warnBeyondLoad).replace(Some(10000)),
       // disable exit on fatal error in tests
       ConfigTransforms.setExitOnFatalFailures(false),
-      // TODO(i26481): adjust when the new connection pool is stable
-      ConfigTransforms.setConnectionPool(testedProtocolVersion >= ProtocolVersion.dev),
+      ConfigTransforms.setConnectionPool(true),
     )
 
   lazy val dontWarnOnDeprecatedPV: Seq[ConfigTransform] = Seq(

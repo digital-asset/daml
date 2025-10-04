@@ -339,6 +339,7 @@ object JsCommandService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction-tree"))
     .in(jsonBody[JsCommands])
     .out(jsonBody[JsSubmitAndWaitForTransactionTreeResponse])
+    .deprecated()
     .description(
       "Submit a batch of commands and wait for the transaction trees response. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use submit-and-wait-for-transaction instead."
     )

@@ -40,7 +40,7 @@ import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.protocol.UpdateId
+import com.digitalasset.canton.protocol.{ReassignmentId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
@@ -533,7 +533,7 @@ object EventStorageBackendTemplate {
       long("event_offset") ~
       int("source_synchronizer_id") ~
       int("target_synchronizer_id") ~
-      str("reassignment_id") ~
+      byteArray("reassignment_id") ~
       int("submitter").? ~
       long("reassignment_counter") ~
       updateId("update_id") ~
@@ -614,7 +614,7 @@ object EventStorageBackendTemplate {
               stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
             targetSynchronizerId =
               stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
-            reassignmentId = reassignmentId,
+            reassignmentId = ReassignmentId.assertFromBytes(reassignmentId).toProtoPrimitive,
             submitter = submitter.map(stringInterning.party.unsafe.externalize),
             reassignmentCounter = reassignmentCounter,
             rawCreatedEvent = RawCreatedEventLegacy(
@@ -650,7 +650,7 @@ object EventStorageBackendTemplate {
       long("event_offset") ~
       int("source_synchronizer_id") ~
       int("target_synchronizer_id") ~
-      str("reassignment_id") ~
+      byteArray("reassignment_id") ~
       int("submitter").? ~
       long("reassignment_counter") ~
       updateId("update_id") ~
@@ -707,7 +707,7 @@ object EventStorageBackendTemplate {
               stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
             targetSynchronizerId =
               stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
-            reassignmentId = reassignmentId,
+            reassignmentId = ReassignmentId.assertFromBytes(reassignmentId).toProtoPrimitive,
             submitter = submitter.map(stringInterning.party.unsafe.externalize),
             reassignmentCounter = reassignmentCounter,
             contractId = contractId,
