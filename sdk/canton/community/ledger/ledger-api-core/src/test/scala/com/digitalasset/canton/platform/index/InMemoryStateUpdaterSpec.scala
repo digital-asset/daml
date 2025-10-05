@@ -58,7 +58,7 @@ import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateSerializationVersion
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.digitalasset.daml.lf.transaction.test.{
   NodeIdTransactionBuilder,
   TestNodeBuilder,
@@ -863,7 +863,7 @@ object InMemoryStateUpdaterSpec {
         argument = Value.ValueUnit,
         signatories = Set(party1),
         observers = Set(party2),
-        version = CreateSerializationVersion.Version(LanguageVersion.v2_dev),
+        version = CreateTransactionVersion.Version(LanguageVersion.v2_dev),
       )
   }
   private val someCreateNode = genCreateNode
@@ -947,6 +947,7 @@ object InMemoryStateUpdaterSpec {
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       recordTime = CantonTimestamp.MinValue,
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
   private val update4 = offset(14L) ->
@@ -1105,6 +1106,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
       externalTransactionHash = externalTransactionHash,
       acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged),
+      internalContractIds = Map.empty,
     )
 
   private def assignmentAccepted(
@@ -1135,6 +1137,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
       synchronizerId = target,
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
   private def unassignmentAccepted(
@@ -1167,6 +1170,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
       synchronizerId = source,
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
   private def commandRejected(t: Long, synchronizerId: SynchronizerId): Update.CommandRejected =

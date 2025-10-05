@@ -20,6 +20,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.ProcessingSteps.InternalContractIds
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
 import com.digitalasset.canton.protocol.{ReassignmentId, RootHash, UpdateId}
@@ -77,7 +78,7 @@ final case class UnassignmentValidationResult(
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): AcsChangeFactory => Update.SequencedReassignmentAccepted = {
+  ): AcsChangeFactory => InternalContractIds => Update.SequencedReassignmentAccepted = {
     val updateId = rootHash
     val completionInfo =
       Option.when(
@@ -92,33 +93,35 @@ final case class UnassignmentValidationResult(
         )
       )
     (acsChangeFactory: AcsChangeFactory) =>
-      Update.SequencedReassignmentAccepted(
-        optCompletionInfo = completionInfo,
-        workflowId = submitterMetadata.workflowId,
-        updateId = UpdateId.fromRootHash(updateId),
-        reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = sourceSynchronizer.map(_.logical),
-          targetSynchronizer = targetSynchronizer.map(_.logical),
-          submitter = Option(submitterMetadata.submitter),
-          reassignmentId = reassignmentId,
-          isReassigningParticipant = isReassigningParticipant,
-        ),
-        reassignment =
-          Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
-            Reassignment.Unassign(
-              contractId = reassign.contract.contractId,
-              templateId = reassign.templateId,
-              packageName = reassign.packageName,
-              stakeholders = contracts.stakeholders.all,
-              assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
-              reassignmentCounter = reassign.counter.unwrap,
-              nodeId = idx,
-            )
-          }),
-        recordTime = recordTime,
-        synchronizerId = sourceSynchronizer.unwrap.logical,
-        acsChangeFactory = acsChangeFactory,
-      )
+      (internalContractIds: InternalContractIds) =>
+        Update.SequencedReassignmentAccepted(
+          optCompletionInfo = completionInfo,
+          workflowId = submitterMetadata.workflowId,
+          updateId = UpdateId.fromRootHash(updateId),
+          reassignmentInfo = ReassignmentInfo(
+            sourceSynchronizer = sourceSynchronizer.map(_.logical),
+            targetSynchronizer = targetSynchronizer.map(_.logical),
+            submitter = Option(submitterMetadata.submitter),
+            reassignmentId = reassignmentId,
+            isReassigningParticipant = isReassigningParticipant,
+          ),
+          reassignment =
+            Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
+              Reassignment.Unassign(
+                contractId = reassign.contract.contractId,
+                templateId = reassign.templateId,
+                packageName = reassign.packageName,
+                stakeholders = contracts.stakeholders.all,
+                assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
+                reassignmentCounter = reassign.counter.unwrap,
+                nodeId = idx,
+              )
+            }),
+          recordTime = recordTime,
+          synchronizerId = sourceSynchronizer.unwrap.logical,
+          acsChangeFactory = acsChangeFactory,
+          internalContractIds = internalContractIds,
+        )
   }
 }
 

@@ -25,6 +25,7 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyR
 import com.digitalasset.canton.participant.event.{AcsChangeSupport, RecordOrderPublisher}
 import com.digitalasset.canton.participant.protocol.conflictdetection.{CommitSet, RequestTracker}
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationTargetParticipantProcessor.{
+  GetInternalContractIds,
   PersistContracts,
   contractsToRequestEachTime,
 }
@@ -33,6 +34,7 @@ import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{
   ContractInstance,
+  LfContractId,
   ReassignmentId,
   SerializableContract,
   UpdateId,
@@ -82,6 +84,7 @@ class PartyReplicationTargetParticipantProcessor(
     protected val onError: String => Unit,
     protected val onDisconnect: (String, TraceContext) => Unit,
     persistContracts: PersistContracts,
+    getInternalContractIds: GetInternalContractIds,
     recordOrderPublisher: RecordOrderPublisher,
     requestTracker: RequestTracker,
     pureCrypto: CryptoPureApi,
@@ -176,9 +179,16 @@ class PartyReplicationTargetParticipantProcessor(
                   .fromSerializable(contract)
                   .map(ContractReassignment(_, reassignmentCounter))
             })
+            internalContractIdsForActiveContracts <- EitherT.right[String](
+              getInternalContractIds(reassignments.map(_.contract.contractId))(traceContext)
+            )
             _ <- EitherT.rightT[FutureUnlessShutdown, String](
               recordOrderPublisher.schedulePublishAddContracts(
-                repairEventFromSerializedContract(repairCounter, reassignments)
+                repairEventFromSerializedContract(
+                  repairCounter = repairCounter,
+                  activeContracts = reassignments,
+                  internalContractIds = internalContractIdsForActiveContracts,
+                )
               )
             )
             _ = processorStore
@@ -273,6 +283,7 @@ class PartyReplicationTargetParticipantProcessor(
   private def repairEventFromSerializedContract(
       repairCounter: RepairCounter,
       activeContracts: NonEmpty[Seq[ContractReassignment]],
+      internalContractIds: Map[LfContractId, Long],
   )(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Update.OnPRReassignmentAccepted = {
@@ -336,6 +347,7 @@ class PartyReplicationTargetParticipantProcessor(
       recordTime = timestamp,
       synchronizerId = psid.logical,
       acsChangeFactory = acsChangeFactory,
+      internalContractIds = internalContractIds,
     )
   }
 }
@@ -366,6 +378,7 @@ object PartyReplicationTargetParticipantProcessor {
       onError,
       onDisconnect,
       persistContracts(participantNodePersistentState),
+      getInternalContractIds(participantNodePersistentState),
       connectedSynchronizer.ephemeral.recordOrderPublisher,
       connectedSynchronizer.ephemeral.requestTracker,
       connectedSynchronizer.synchronizerHandle.syncPersistentState.pureCryptoApi,
@@ -399,4 +412,16 @@ object PartyReplicationTargetParticipantProcessor {
               participantNodePersistentState.value.contractStore.storeContracts(_)
             )
         )
+
+  private[party] type GetInternalContractIds =
+    NonEmpty[Seq[LfContractId]] => TraceContext => FutureUnlessShutdown[
+      Map[LfContractId, Long]
+    ]
+
+  private def getInternalContractIds(
+      participantNodePersistentState: Eval[ParticipantNodePersistentState]
+  ): GetInternalContractIds = contracts =>
+    implicit tc =>
+      participantNodePersistentState.value.contractStore
+        .lookupBatchedNonCachedInternalIds(contracts.forgetNE)
 }

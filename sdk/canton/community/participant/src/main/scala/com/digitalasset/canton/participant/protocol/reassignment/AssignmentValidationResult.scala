@@ -20,6 +20,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.ProcessingSteps.InternalContractIds
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
 import com.digitalasset.canton.protocol.{LfNodeCreate, ReassignmentId, RootHash, UpdateId}
@@ -69,7 +70,7 @@ final case class AssignmentValidationResult private[reassignment] (
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): AcsChangeFactory => SequencedUpdate = {
+  ): AcsChangeFactory => InternalContractIds => SequencedUpdate = {
     val reassignment = contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
       val contract = reassign.contract
       val contractInst = contract.inst
@@ -103,22 +104,24 @@ final case class AssignmentValidationResult private[reassignment] (
         )
       )
     (acsChangeFactory: AcsChangeFactory) =>
-      Update.SequencedReassignmentAccepted(
-        optCompletionInfo = completionInfo,
-        workflowId = submitterMetadata.workflowId,
-        updateId = UpdateId.fromRootHash(updateId),
-        reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = sourcePSId.map(_.logical),
-          targetSynchronizer = targetSynchronizer,
-          submitter = Option(submitterMetadata.submitter),
-          reassignmentId = reassignmentId,
-          isReassigningParticipant = isReassigningParticipant,
-        ),
-        reassignment = Reassignment.Batch(reassignment),
-        recordTime = recordTime,
-        synchronizerId = targetSynchronizer.unwrap,
-        acsChangeFactory = acsChangeFactory,
-      )
+      (internalContractIds: InternalContractIds) =>
+        Update.SequencedReassignmentAccepted(
+          optCompletionInfo = completionInfo,
+          workflowId = submitterMetadata.workflowId,
+          updateId = UpdateId.fromRootHash(updateId),
+          reassignmentInfo = ReassignmentInfo(
+            sourceSynchronizer = sourcePSId.map(_.logical),
+            targetSynchronizer = targetSynchronizer,
+            submitter = Option(submitterMetadata.submitter),
+            reassignmentId = reassignmentId,
+            isReassigningParticipant = isReassigningParticipant,
+          ),
+          reassignment = Reassignment.Batch(reassignment),
+          recordTime = recordTime,
+          synchronizerId = targetSynchronizer.unwrap,
+          acsChangeFactory = acsChangeFactory,
+          internalContractIds = internalContractIds,
+        )
   }
 }
 

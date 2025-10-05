@@ -32,6 +32,14 @@ trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PersistedContractInstance]]
 
+  def lookupBatchedNonCached(internalContractIds: Iterable[Long])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Long, PersistedContractInstance]]
+
+  def lookupBatchedNonCachedInternalIds(contractIds: Iterable[LfContractId])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[LfContractId, Long]]
+
 // TODO(#27996): this query supposed to be used for LAPI streaming to leverage the contract cache. As getting internal contract ID is not possible ATM, this optimization will be implemented later
 //  def lookupPersistedIfCached(internalContractId: Long)(implicit
 //                                       traceContext: TraceContext
