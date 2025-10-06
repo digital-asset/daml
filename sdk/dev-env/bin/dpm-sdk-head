@@ -177,18 +177,18 @@ assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
 if [ -z "$(find "$DPM_HOME"/cache/sdk/* -type f)" ]; then
   echo "$(tput setaf 5)No assemblies installed for copying from, installing latest.$(tput sgr 0)"
   "$DPM_HOME/bin/dpm" install latest
-  echo "$(tput setaf 3)Installed $("$DPM_HOME/bin/dpm" version).$(tput sgr 0)"
+  echo "$(tput setaf 3)Installed $("$DPM_HOME/bin/dpm" versions -o json | jq -r '.[] | select(.active==true).version').$(tput sgr 0)"
 fi
 
 # Create a `$RELEASE_VERSION.yaml` by copying the current latest installed version and updating the name/version field
 if [ ! -f "$assembly_location" ]; then
   echo "$(tput setaf 5)No assembly found for $RELEASE_VERSION, creating new.$(tput sgr 0)"
-  latest_version=$("$DPM_HOME/bin/dpm" version)
+  latest_version=$("$DPM_HOME/bin/dpm" versions -o json | jq -r '.[] | select(.active==true).version')
   assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
-  cp "$DPM_HOME/cache/sdk/${latest_version#* }/${latest_version% *}.yaml" "$assembly_location"
+  cp "$DPM_HOME/cache/sdk/private/${latest_version}.yaml" "$assembly_location"
   # yq has trouble picking up env vars
   RELEASE_VERSION=$RELEASE_VERSION yq -MiY '.spec.version |= env.RELEASE_VERSION' "$assembly_location"
-  echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version% *}.$(tput sgr 0)"
+  echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version}.$(tput sgr 0)"
 fi
 
 all_components=(damlc daml-script codegen-js codegen-java daml-new)
@@ -227,7 +227,7 @@ update_component() {
     # get-dpm script doesn't delete, it only updates
     # use it to pull down a new dpm
     "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
-    version_line=$("$DPM_HOME/bin/dpm" version --assistant | grep -o 'version: .*')
+    version_line=$("$DPM_HOME/bin/dpm" --version | grep -o 'version: .*')
     DPM_VERSION=${version_line#version: }
 
     # Update our $RELEASE_VERSION.yaml to point to new DPM
