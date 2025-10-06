@@ -5,12 +5,12 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.data.Ref.{Identifier, TypeConId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.speedy.SError.SError
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
@@ -167,12 +167,17 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             None -> ERROR @Party "none"
           | Some x -> x;
 
-
       val mkList: Party -> Option Party -> List Party =
         \(sig: Party) -> \(optSig: Option Party) ->
           case optSig of
             None -> Cons @Party [sig] Nil @Party
           | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
+      
+      val isSome: forall (a: *). Option a -> Bool = /\ (a: *).
+        \(o: Option a) ->
+          case o of
+            None -> False
+          | Some x -> True;
     }
     """
   }
@@ -393,24 +398,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       availablePackages: Map[Ref.PackageId, Package],
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
   ): Either[SError, Success] = {
-
-    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
-
-    val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
-
-    implicit def logContext: LoggingContext = LoggingContext.ForTesting
-    val seed = crypto.Hash.hashPrivateKey("seed")
-    val machine = Speedy.Machine.fromUpdateSExpr(
-      pkgs,
-      seed,
-      sexprToEval,
-      Set(alice, bob),
-      packageResolution = packageResolution,
-    )
-
-    SpeedyTestLib
-      .run(machine)
-      .map(sv => (sv, sv.toNormalizedValue))
+    val machine = buildMachine(e, availablePackages, packageResolution)
+    go(machine)
   }
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
@@ -452,6 +441,29 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       .map(sv => (sv, sv.toNormalizedValue))
+  }
+
+  def go(machine: Speedy.UpdateMachine): Either[SError, Success] =
+    SpeedyTestLib
+      .run(machine)
+      .map(sv => (sv, sv.toNormalizedValue))
+
+  def buildMachine(
+      e: Expr,
+      availablePackages: Map[Ref.PackageId, Package],
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+  ): Speedy.UpdateMachine = {
+    val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
+    val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
+    implicit def logContext: LoggingContext = LoggingContext.ForTesting
+    val seed = crypto.Hash.hashPrivateKey("seed")
+    Speedy.Machine.fromUpdateSExpr(
+      pkgs,
+      seed,
+      sexprToEval,
+      Set(alice, bob),
+      packageResolution = packageResolution,
+    )
   }
 
   def makeRecord(fields: Value*): Value = {
@@ -1130,6 +1142,60 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
+    }
+
+    "be able to upgrade template using from_interface" in {
+      val res = go(
+        e"""let alice : Party = '-util-':M:mkParty "alice"
+            in ubind
+              cidT : ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              t : '-pkg1-':M:T <- '-pkg1-':M:do_fetch cidT
+            in let i : '-iface-':M:Iface = to_interface @'-pkg1-':M:T @'-iface-':M:Iface t
+            in let tOpt : (Option '-pkg2-':M:T) = from_interface @'-iface-':M:Iface@'-pkg2-':M:T i
+            in upure @Bool ('-util-':M:isSome @'-pkg2-':M:T tOpt)
+        """,
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
+      )
+      inside(res) { case Right((_, v)) =>
+        v shouldBe ValueTrue
+      }
+    }
+
+    "fail to upgrade template using unsafe_from_interface" in {
+      val machine = buildMachine(
+        e"""let alice : Party = '-util-':M:mkParty "alice"
+            in ubind
+              cidT : ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              t : '-pkg1-':M:T <- '-pkg1-':M:do_fetch cidT
+            in let cidI : ContractId '-iface-':M:Iface = COERCE_CONTRACT_ID @'-pkg0-':M:T @'-iface-':M:Iface cidT
+            in let i : '-iface-':M:Iface = to_interface @'-pkg1-':M:T @'-iface-':M:Iface t
+            in let t1 : '-pkg1-':M:T = unsafe_from_interface @'-iface-':M:Iface @'-pkg1-':M:T cidI i
+            in let t2 : '-pkg2-':M:T = unsafe_from_interface @'-iface-':M:Iface @'-pkg2-':M:T cidI i
+            in upure @Unit ()
+        """,
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId2 -> pkg2,
+        ),
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
+      )
+      inside(go(machine)) {
+        case Left(SErrorDamlException(IE.WronglyTypedContract(_, expected, actual))) =>
+          expected shouldBe TypeConId.assertFromString("-pkg2-:M:T")
+          actual shouldBe TypeConId.assertFromString("-pkg1-:M:T")
+      }
+      val warnings = machine.warningLog.iterator.toSeq.filter(warning =>
+        warning.message.contains("unsafeFromInterface is deprecated")
+      )
+      warnings.size shouldBe 2
     }
 
     "do recompute and check immutability of meta data when using different versions" in {

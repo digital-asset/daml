@@ -82,6 +82,7 @@ class HasFromInterface t i where
   -- | HIDE
   -- Like 'fromInterface', but raises a fatal error (`WronglyTypedContract`) if the
   -- underlying template type of the interface value doesn't match the desired type.
+  -- DEPRECATED: use `fromInterface` instead
   unsafeFromInterface : ContractId i -> i -> t
 
 -- | (Daml-LF >= 1.15) Constraint that indicates that a template implements an interface.
