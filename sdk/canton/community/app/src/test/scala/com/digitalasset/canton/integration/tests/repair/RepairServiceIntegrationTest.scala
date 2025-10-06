@@ -806,7 +806,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(
-                ExampleTransactionFactory.transactionVersion,
+                ExampleTransactionFactory.SerializationVersion,
                 ValueRecord(None, ImmArray(None -> ValueParty(alice.toLf))),
               ),
             )

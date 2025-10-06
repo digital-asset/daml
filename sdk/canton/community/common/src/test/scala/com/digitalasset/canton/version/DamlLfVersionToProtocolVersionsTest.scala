@@ -12,14 +12,14 @@ import scala.util.Try
 
 class DamlLfVersionToProtocolVersionsTest extends AnyWordSpec with BaseTest {
 
-  val supportedTransactionVersions = LfLanguageVersion.AllV2.filter(_ >= LfLanguageVersion.v2_1)
+  val supportedSerializationVersions = LfLanguageVersion.AllV2.filter(_ >= LfLanguageVersion.v2_1)
 
   "DamlLFVersionToProtocolVersions" should {
-    supportedTransactionVersions.foreach { version =>
+    supportedSerializationVersions.foreach { version =>
       s"find the minimum protocol version for $version" in {
         assert(
           Try(
-            DamlLfVersionToProtocolVersions.getMinimumSupportedProtocolVersion(version)
+            LfSerializationVersionToProtocolVersions.getMinimumSupportedProtocolVersion(version)
           ).isSuccess,
           s"Add $version to damlLfVersionToProtocolVersions Map",
         )

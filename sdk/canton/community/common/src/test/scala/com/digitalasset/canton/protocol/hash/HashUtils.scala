@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   Node,
-  TransactionVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.{Value, Value as V}
 import com.google.protobuf.ByteString
@@ -90,7 +90,7 @@ trait HashUtilsTest { this: Matchers =>
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = None,
-      version = TransactionVersion.minVersion,
+      version = SerializationVersion.minVersion,
     )
 
   def defRef(module: String, name: String): Ref.Identifier =
