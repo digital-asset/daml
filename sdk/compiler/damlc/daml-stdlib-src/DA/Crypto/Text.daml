@@ -1,6 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE CPP #-}
 
 -- | Functions for working with Crypto builtins.
 -- For example, as used to implement CCTP functionality.
@@ -193,10 +194,12 @@ instance HasFromHex (Optional Int) where
 instance HasFromHex (Optional Party) where
   fromHex hex = fromHex hex >>= partyFromText
 
+#ifdef DAML_CRYPTO_UTILITY
 instance Template a => HasFromHex (ContractId a) where
   fromHex text
     | isHex text = primitive @"BETextToContractId" (Text.asciiToLower text)
     | otherwise = error $ "Expected a hex-encoded string but argument was: " <> text
+#endif
 
 -- Numerics can be thought of as a decimal string with a scale. As usage sites need to know the scale, we can
 -- simply hex encode the string representation of the underlying numeric's decimal string. This allows `parseNumeric`

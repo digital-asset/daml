@@ -1770,7 +1770,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(SECP256K1_WITH_ECDSA_BOOL, BSECP256K1WithEcdsaBool),
       BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex),
       BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex),
-      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId),
+      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId, minVersion = cryptoUtility),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),

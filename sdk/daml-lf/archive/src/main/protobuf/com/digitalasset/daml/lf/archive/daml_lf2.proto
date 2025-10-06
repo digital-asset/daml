@@ -380,12 +380,11 @@ enum BuiltinFunction {
   SECP256K1_BOOL = 68;
   HEX_TO_TEXT = 69;
   TEXT_TO_HEX = 70;
-  TEXT_TO_CONTRACT_ID = 71;
 
-  SHA256_HEX = 72;
-  SECP256K1_WITH_ECDSA_BOOL = 73;
+  SHA256_HEX = 71;
+  SECP256K1_WITH_ECDSA_BOOL = 72;
 
-  // Next id is 74.
+  // Next id is 73.
 
   /* Dev Builtins */
   // We use fields above 1000 for dev features
@@ -402,6 +401,8 @@ enum BuiltinFunction {
   BIGNUMERIC_TO_TEXT = 2010;           // *Available in versions >= 2.dev*
 
   TYPE_REP_TYCON_NAME = 3011;          // *Available in versions >= 2.dev*
+
+  TEXT_TO_CONTRACT_ID = 4001;          // *Available in versions >= 2.dev*
 }
 
 // Builtin literals
