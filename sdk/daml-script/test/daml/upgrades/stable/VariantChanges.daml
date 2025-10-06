@@ -38,6 +38,7 @@ main = tests
   , ("Upgrade fails if variant has fields removed", upgradeToRemovedField)
   , ("Upgrade fails if variant has non-optional fields added", upgradeToNewNonOptField)
   , ("Upgrade fails if variant has non-optional nested fields added", upgradeToNewNonOptNestedField)
+  , ("Succeeds if upgrading a variant with a new case in the middle, from a case with unchanged rank", templateVariantUpgradeNonLastSameRank)
 
   , ("Downgrade succeeds if variant is an existing constructor", downgradeFromExistingCon)
   , ("Downgrade succeeds if variant has optional fields added as None", downgradeFromNoneNewOptField)
@@ -45,8 +46,7 @@ main = tests
   , ("Downgrade fails if variant is a new constructor", downgradeFromNewCon)
   , ("Downgrade fails if variant has optional fields added as Some", downgradeFromSomeNewOptField)
   , ("Downgrade fails if variant has optional nested fields added as Some", downgradeFromSomeNewOptNestedField)
-  , broken ("Fails if upgrading a variant with a new case in the middle, from a case with unchanged rank", templateVariantUpgradeNonLastSameRank)
-  , broken ("Fails if upgrading a variant with a new case in the middle, from a case with changed rank", templateVariantUpgradeNonLastDifferentRank)
+  , brokenOnIDELedger ("Fails if upgrading a variant with a new case in the middle, from a case with changed rank", templateVariantUpgradeNonLastDifferentRank)
   , ("Fails if downgrading a variant from a new case in the middle", templateVariantDowngradeNonLastDifferentRank)
   ]
 
@@ -61,7 +61,6 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = test $ do
     (Right "V1", True) -> pure ()
     (Right "V2", True) -> pure ()
     (Left (UpgradeError _ _), False) -> pure ()
-    (Left (UpgradeError (TranslationFailed _ _ _ _) _), False) -> pure ()
     (Left (WronglyTypedContract {}), False) -> pure ()
     (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
     -- IDE Ledger doesn't apply obfuscation, instead the lookup error is wrapped in SCrash
@@ -422,7 +421,7 @@ templateVariantUpgradeNonLastSameRank : Test
 templateVariantUpgradeNonLastSameRank =
   templateInvalidChange
     @V2.VariantNonLastAdditional
-    False
+    True
     (`V1.VariantNonLastAdditional` V1.VariantNonLastAdditionalData1 1)
     V2.VariantNonLastAdditionalCall
 
