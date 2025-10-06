@@ -8,7 +8,11 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, ExecutionContextMonitor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.logging.SuppressingLogger.{LogEntryOptionality, NoSuppression, State}
+import com.digitalasset.canton.logging.SuppressingLogger.{
+  ActiveState,
+  LogEntryOptionality,
+  NoSuppression,
+}
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.typesafe.scalalogging.Logger
@@ -22,12 +26,12 @@ import org.scalatest.matchers.should.Matchers.*
 import org.slf4j.event.Level
 import org.slf4j.event.Level.{ERROR, WARN}
 
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.collection.mutable
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
@@ -58,7 +62,7 @@ class SuppressingLogger private[logging] (
     underlyingLoggerFactory: NamedLoggerFactory,
     pollTimeout: FiniteDuration,
     skipLogEntry: LogEntry => Boolean,
-    activeState: AtomicReference[State] = new AtomicReference[State](NoSuppression),
+    activeState: ActiveState = new ActiveState(),
     private[logging] val recordedLogEntries: java.util.concurrent.BlockingQueue[LogEntry] =
       new java.util.concurrent.LinkedBlockingQueue[LogEntry](),
 ) extends NamedLoggerFactory {
@@ -74,7 +78,7 @@ class SuppressingLogger private[logging] (
   override val name: String = underlyingLoggerFactory.name
   override val properties: ListMap[String, String] = underlyingLoggerFactory.properties
 
-  private def restoreNoSuppression = () => activeState.set(NoSuppression)
+  private def restoreNoSuppression: () => Unit = () => activeState.restoreNoSuppression()
 
   override def appendUnnamedKey(key: String, value: String): NamedLoggerFactory =
     // intentionally share suppressedLevel and queues so suppression on a parent logger will effect a child and collect all suppressed messages
@@ -588,10 +592,7 @@ class SuppressingLogger private[logging] (
     // Nested usages are not supported, because we clear the message queue when the suppression begins.
     // So a second call of this method would purge the messages collected by previous calls.
 
-    val previous = activeState.getAndUpdate(state =>
-      if (state eq NoSuppression) State(rule)
-      else state
-    )
+    val previous = activeState.setRuleIfUnset(rule)
     if (!(previous eq NoSuppression))
       fail(
         "`SuppressingLogger.suppress` support neither nested nor concurrent calls; stack trace of previous entrance attached as cause",
@@ -642,6 +643,37 @@ object SuppressingLogger {
   }
 
   private val NoSuppression = State(SuppressionRule.NoSuppression)
+
+  class ActiveState {
+    private var state: State = NoSuppression
+
+    /** Used to synchronize (1) writing state and (2) reading state. */
+    private val readWriteLock: ReentrantReadWriteLock = new ReentrantReadWriteLock()
+    private val writeLock = readWriteLock.writeLock()
+    private val readLock = readWriteLock.readLock()
+
+    def setRuleIfUnset(rule: SuppressionRule): State = {
+      blocking(writeLock.lock())
+
+      val oldState = state
+      state = if (state eq NoSuppression) State(rule) else state
+
+      writeLock.unlock()
+      oldState
+    }
+
+    def restoreNoSuppression(): Unit = {
+      blocking(writeLock.lock())
+      state = NoSuppression
+      writeLock.unlock()
+    }
+
+    def withSuppressionRule(body: SuppressionRule => Unit): Unit = {
+      blocking(readLock.lock())
+      try body(state.rule)
+      finally readLock.unlock()
+    }
+  }
 
   def apply(
       testClass: Class[_],

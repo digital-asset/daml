@@ -281,6 +281,8 @@ object Update {
 
     def isAcsDelta(contractId: Value.ContractId): Boolean
 
+    def internalContractIds: Map[Value.ContractId, Long]
+
     lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
     override protected def pretty: Pretty[TransactionAccepted] =
@@ -343,6 +345,7 @@ object Update {
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       acsChangeFactory: AcsChangeFactory,
+      internalContractIds: Map[Value.ContractId, Long],
       externalTransactionHash: Option[Hash] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
@@ -364,6 +367,7 @@ object Update {
       synchronizerId: SynchronizerId,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with RepairUpdate {
@@ -399,6 +403,8 @@ object Update {
 
     def reassignment: Reassignment.Batch
 
+    def internalContractIds: Map[Value.ContractId, Long]
+
     override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
@@ -420,6 +426,7 @@ object Update {
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
       acsChangeFactory: AcsChangeFactory,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with SequencedUpdate
@@ -433,6 +440,7 @@ object Update {
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate {
@@ -448,6 +456,7 @@ object Update {
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
       acsChangeFactory: AcsChangeFactory,
+      internalContractIds: Map[Value.ContractId, Long],
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate

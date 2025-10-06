@@ -528,7 +528,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       } yield CommitAndStoreContractsAndPublishEvent(
         None,
         Seq.empty,
-        eventO.map(event => _ => event),
+        eventO.map(event => _ => _ => event),
       )
 
     def mergeRejectionReasons(

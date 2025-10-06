@@ -1296,28 +1296,30 @@ class TransactionProcessingSteps(
 
     val acceptedEvent =
       (acsChangeFactory: AcsChangeFactory) =>
-        Update.SequencedTransactionAccepted(
-          completionInfoO = completionInfoO,
-          transactionMeta = TransactionMeta(
-            ledgerEffectiveTime = ledgerEffectiveTime.toLf,
-            workflowId = workflowIdO.map(_.unwrap),
-            preparationTime = lfTx.metadata.preparationTime.toLf,
-            // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
-            // transactions and it leaks the structure of the omitted parts of the transaction.
-            submissionSeed = Update.noOpSeed,
-            timeBoundaries = LedgerTimeBoundaries.unconstrained,
-            optUsedPackages = None,
-            optNodeSeeds = None, // optNodeSeeds is unused by the indexer
-            optByKeyNodes = None, // optByKeyNodes is unused by the indexer
-          ),
-          transaction = LfCommittedTransaction(lfTx.unwrap),
-          updateId = txId,
-          contractAuthenticationData = contractAuthenticationData,
-          synchronizerId = psid.logical,
-          recordTime = requestTime,
-          externalTransactionHash = externalTransactionHash,
-          acsChangeFactory = acsChangeFactory,
-        )
+        (internalContractIds: Map[LfContractId, Long]) =>
+          Update.SequencedTransactionAccepted(
+            completionInfoO = completionInfoO,
+            transactionMeta = TransactionMeta(
+              ledgerEffectiveTime = ledgerEffectiveTime.toLf,
+              workflowId = workflowIdO.map(_.unwrap),
+              preparationTime = lfTx.metadata.preparationTime.toLf,
+              // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
+              // transactions and it leaks the structure of the omitted parts of the transaction.
+              submissionSeed = Update.noOpSeed,
+              timeBoundaries = LedgerTimeBoundaries.unconstrained,
+              optUsedPackages = None,
+              optNodeSeeds = None, // optNodeSeeds is unused by the indexer
+              optByKeyNodes = None, // optByKeyNodes is unused by the indexer
+            ),
+            transaction = LfCommittedTransaction(lfTx.unwrap),
+            updateId = txId,
+            contractAuthenticationData = contractAuthenticationData,
+            synchronizerId = psid.logical,
+            recordTime = requestTime,
+            externalTransactionHash = externalTransactionHash,
+            acsChangeFactory = acsChangeFactory,
+            internalContractIds = internalContractIds,
+          )
     CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),
       contractsToBeStored,
@@ -1496,7 +1498,7 @@ class TransactionProcessingSteps(
       } yield CommitAndStoreContractsAndPublishEvent(
         None,
         Seq(),
-        eventO.map(event => _ => event),
+        eventO.map(event => _ => _ => event),
       )).mapK(FutureUnlessShutdown.outcomeK)
 
     for {

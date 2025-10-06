@@ -32,7 +32,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.transaction.CommittedTransaction
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node}
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -382,6 +382,12 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
+    val internalContractIds: Map[ContractId, Long] =
+      transaction.nodes.values
+        .collect { case create: Node.Create => create.coid }
+        .zipWithIndex
+        .map { case (cid, idx) => cid -> idx.toLong }
+        .toMap
     dbDispatcher
       .executeSql(metrics.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
@@ -419,6 +425,7 @@ private class JdbcLedgerDao(
               externalTransactionHash = None,
               acsChangeFactory =
                 TestAcsChangeFactory(contractActivenessChanged = contractActivenessChanged),
+              internalContractIds = internalContractIds,
             )
           ),
         )

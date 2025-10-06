@@ -98,6 +98,7 @@ class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       CantonTimestamp.now(),
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
     "extract transaction metering" in {

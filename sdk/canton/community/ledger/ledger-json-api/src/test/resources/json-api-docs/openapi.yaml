@@ -131,6 +131,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1034,6 +1035,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1093,6 +1095,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1136,6 +1139,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1170,6 +1174,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1235,6 +1240,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []
@@ -1309,6 +1315,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsCantonError'
+      deprecated: true
       security:
       - httpAuth: []
       - apiKeyAuth: []

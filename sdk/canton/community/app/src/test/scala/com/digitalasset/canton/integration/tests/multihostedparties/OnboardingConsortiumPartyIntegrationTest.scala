@@ -113,6 +113,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
                 newHostingParticipants.map(_.id -> ParticipantPermission.Confirmation),
               threshold = threshold,
               store = daId,
+              participantsRequiringPartyToBeOnboarded = Seq(participant4),
             )
           )
 
@@ -176,7 +177,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
 
           logger.debug("Onboarding: Import ACS to P4 (an empty participant)")
           participant4.ledger_api.state.acs.of_all() shouldBe empty
-          participant4.repair.import_acs(acsFilename)
+          participant4.parties.import_party_acs(acsFilename)
 
           logger.debug(s"Onboarding: Connect P4 to the synchronizer $daName")
           participant4.synchronizers.connect_local(sequencer1, daName)

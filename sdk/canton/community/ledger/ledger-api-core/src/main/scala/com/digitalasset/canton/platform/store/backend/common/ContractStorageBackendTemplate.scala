@@ -5,13 +5,8 @@ package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.long
 import anorm.{RowParser, ~}
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.Conversions.{
-  OffsetToStatement,
-  contractId,
-  parties,
-}
+import com.digitalasset.canton.platform.store.backend.Conversions.{contractId, parties}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
@@ -33,11 +28,11 @@ class ContractStorageBackendTemplate(
 
   override def supportsBatchKeyStateLookups: Boolean = false
 
-  override def keyStates(keys: Seq[Key], validAt: Offset)(
+  override def keyStates(keys: Seq[Key], validAtEventSeqId: Long)(
       connection: Connection
-  ): Map[Key, KeyState] = keys.map(key => key -> keyState(key, validAt)(connection)).toMap
+  ): Map[Key, KeyState] = keys.map(key => key -> keyState(key, validAtEventSeqId)(connection)).toMap
 
-  override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
+  override def keyState(key: Key, validAtEventSeqId: Long)(connection: Connection): KeyState = {
     val resultParser =
       (contractId("contract_id") ~ parties(stringInterning)("flat_event_witnesses")).map {
         case cId ~ stakeholders =>
@@ -49,7 +44,7 @@ class ContractStorageBackendTemplate(
                 SELECT lapi_events_create.*
                   FROM lapi_events_create
                  WHERE create_key_hash = ${key.hash}
-                   AND event_offset <= $validAt
+                   AND event_sequential_id <= $validAtEventSeqId
                    AND length(flat_event_witnesses) > 1 -- exclude participant divulgence and transients
                  ORDER BY event_sequential_id DESC
                  FETCH NEXT 1 ROW ONLY
@@ -61,7 +56,7 @@ class ContractStorageBackendTemplate(
                    FROM lapi_events_consuming_exercise
                   WHERE
                     contract_id = last_contract_key_create.contract_id
-                    AND event_offset <= $validAt
+                    AND event_sequential_id <= $validAtEventSeqId
                 )"""
       .as(resultParser)(connection)
       .getOrElse(KeyUnassigned)
@@ -70,7 +65,7 @@ class ContractStorageBackendTemplate(
   private val contractIdRowParser: RowParser[ContractId] =
     contractId("contract_id")
 
-  override def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
+  override def archivedContracts(contractIds: Seq[ContractId], beforeEventSeqId: Long)(
       connection: Connection
   ): Set[ContractId] =
     if (contractIds.isEmpty) Set.empty
@@ -80,13 +75,13 @@ class ContractStorageBackendTemplate(
        FROM lapi_events_consuming_exercise
        WHERE
          contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
-         AND event_offset <= $before
+         AND event_sequential_id <= $beforeEventSeqId
          AND length(flat_event_witnesses) > 1 -- exclude participant divulgence and transients"""
         .as(contractIdRowParser.*)(connection)
         .toSet
     }
 
-  override def createdContracts(contractIds: Seq[ContractId], before: Offset)(
+  override def createdContracts(contractIds: Seq[ContractId], beforeEventSeqId: Long)(
       connection: Connection
   ): Set[ContractId] =
     if (contractIds.isEmpty) Set.empty
@@ -97,7 +92,7 @@ class ContractStorageBackendTemplate(
          FROM lapi_events_create
          WHERE
            contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
-           AND event_offset <= $before
+           AND event_sequential_id <= $beforeEventSeqId
            AND length(flat_event_witnesses) > 1 -- exclude participant divulgence and transients"""
         .as(contractIdRowParser.*)(connection)
         .toSet
@@ -105,7 +100,7 @@ class ContractStorageBackendTemplate(
 
   override def assignedContracts(
       contractIds: Seq[ContractId],
-      before: Offset,
+      beforeEventSeqId: Long,
   )(
       connection: Connection
   ): Set[ContractId] =
@@ -117,7 +112,7 @@ class ContractStorageBackendTemplate(
              FROM lapi_events_assign
              WHERE
                contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
-               AND event_offset <= $before
+               AND event_sequential_id <= $beforeEventSeqId
              GROUP BY contract_id
            )
          SELECT

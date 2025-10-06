@@ -58,7 +58,7 @@ import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateSerializationVersion
+import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.digitalasset.daml.lf.transaction.test.{
   NodeIdTransactionBuilder,
   TestNodeBuilder,
@@ -104,8 +104,8 @@ class InMemoryStateUpdaterSpec
     )
     runFlow(
       Seq(
-        (Vector(update1, metadataChangedUpdate), someLedgerEnd),
-        (Vector(update3, update4), secondLedgerEnd),
+        (Vector(update1, metadataChangedUpdate), someLedgerEnd, traceContext),
+        (Vector(update3, update4), secondLedgerEnd, traceContext),
       )
     )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
@@ -127,9 +127,9 @@ class InMemoryStateUpdaterSpec
     runFlow(
       Seq(
         // Empty input batch should have no effect
-        (Vector.empty, someLedgerEnd),
-        (Vector(update3), secondLedgerEnd),
-        (Vector(anotherMetadataChangedUpdate), thirdLedgerEnd),
+        (Vector.empty, someLedgerEnd, traceContext),
+        (Vector(update3), secondLedgerEnd, traceContext),
+        (Vector(anotherMetadataChangedUpdate), thirdLedgerEnd, traceContext),
       )
     )
 
@@ -145,6 +145,7 @@ class InMemoryStateUpdaterSpec
       InMemoryStateUpdater.prepare(
         Vector.empty,
         someLedgerEnd,
+        traceContext,
       )
     }
   }
@@ -153,10 +154,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1),
       someLedgerEnd,
+      traceContext,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
       update1._2.traceContext,
+      traceContext,
     )
   }
 
@@ -172,6 +175,7 @@ class InMemoryStateUpdaterSpec
     val preparedWithHashResult = InMemoryStateUpdater.prepare(
       Vector(updateWithTransactionHash),
       someLedgerEnd,
+      traceContext,
     )
     inside(preparedWithHashResult.updates.loneElement) {
       case transactionAccepted: TransactionAccepted =>
@@ -181,6 +185,7 @@ class InMemoryStateUpdaterSpec
     val preparedWithoutHashResult = InMemoryStateUpdater.prepare(
       Vector(update1),
       someLedgerEnd,
+      traceContext,
     )
     inside(preparedWithoutHashResult.updates.loneElement) {
       case transactionAccepted: TransactionAccepted =>
@@ -192,10 +197,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
       someLedgerEnd,
+      traceContext,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
       someLedgerEnd,
       update1._2.traceContext,
+      traceContext,
     )
   }
 
@@ -203,10 +210,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, update9),
       someLedgerEnd,
+      traceContext,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, topologyTransactionLogUpdate),
       someLedgerEnd,
       update1._2.traceContext,
+      traceContext,
     )
   }
 
@@ -214,10 +223,12 @@ class InMemoryStateUpdaterSpec
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
       someLedgerEnd,
+      traceContext,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
       someLedgerEnd,
       metadataChangedUpdate._2.traceContext,
+      traceContext,
     )
   }
 
@@ -253,6 +264,7 @@ class InMemoryStateUpdaterSpec
           .prepare(
             Vector(update),
             someLedgerEnd,
+            traceContext,
           )
           .updates
           .collect { case txAccepted: TransactionLogUpdate.TransactionAccepted => txAccepted }
@@ -288,17 +300,14 @@ class InMemoryStateUpdaterSpec
         tx_accepted_withCompletionStreamResponse
       )
     inOrder
-      .verify(contractStateCaches)
-      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
-    inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
         tx_accepted_withoutCompletionStreamResponse
       )
+    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
     inOrder
       .verify(contractStateCaches)
-      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
-    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
+      .push(any[NonEmptyVector[ContractStateEvent]], any[Long])(any[TraceContext])
 
     inOrder
       .verify(ledgerEndCache)
@@ -332,7 +341,7 @@ class InMemoryStateUpdaterSpec
       )
     inOrder
       .verify(contractStateCaches)
-      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
+      .push(any[NonEmptyVector[ContractStateEvent]], any[Long])(any[TraceContext])
     inOrder
       .verify(ledgerEndCache)
       .set(Some(lastLedgerEnd))
@@ -349,14 +358,14 @@ class InMemoryStateUpdaterSpec
         tx_accepted_withCompletionStreamResponse
       )
     inOrder
-      .verify(contractStateCaches)
-      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
-    inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
         tx_accepted_withoutCompletionStreamResponse
       )
     inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
+    inOrder
+      .verify(contractStateCaches)
+      .push(any[NonEmptyVector[ContractStateEvent]], any[Long])(any[TraceContext])
 
     inOrder
       .verify(transactionSubmissionTracker)
@@ -383,17 +392,17 @@ class InMemoryStateUpdaterSpec
       .verify(inMemoryFanoutBuffer)
       .push(tx_accepted_withFlatEventWitnesses)
     inOrder
-      .verify(contractStateCaches)
-      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
-
-    // the tx_accepted_withoutFlatEventWitnesses should not be pushed as it has empty flatEventWitnesses
-    verifyNoMoreInteractions(contractStateCaches)
-
-    inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
         tx_accepted_withoutFlatEventWitnesses
       )
+    inOrder
+      .verify(contractStateCaches)
+      .push(any[NonEmptyVector[ContractStateEvent]], any[Long])(any[TraceContext])
+
+    // the tx_accepted_withoutFlatEventWitnesses should not be pushed as it has empty flatEventWitnesses
+    verifyNoMoreInteractions(contractStateCaches)
+
     inOrder
       .verify(ledgerEndCache)
       .set(Some(lastLedgerEnd.copy(lastOffset = tx_accepted_withoutFlatEventWitnesses.offset)))
@@ -691,7 +700,7 @@ object InMemoryStateUpdaterSpec {
       logger = logger,
     )(
       inMemoryState = inMemoryState,
-      prepare = (_, ledgerEnd) => result(ledgerEnd),
+      prepare = (_, ledgerEnd, _) => result(ledgerEnd),
       update = cachesUpdateCaptor,
     )(emptyTraceContext)
 
@@ -822,11 +831,13 @@ object InMemoryStateUpdaterSpec {
       updates = updates,
       ledgerEnd = lastLedgerEnd,
       emptyTraceContext,
+      traceContext,
     )
     val prepareResultOnlyReassignment: PrepareResult = PrepareResult(
       updates = Vector(assignLogUpdate),
       ledgerEnd = lastLedgerEnd,
       emptyTraceContext,
+      traceContext,
     )
     val prepareResultWithEmptyFlatEventWitnesses: PrepareResult = PrepareResult(
       updates = Vector(
@@ -835,6 +846,7 @@ object InMemoryStateUpdaterSpec {
       ),
       ledgerEnd = lastLedgerEnd.copy(lastOffset = tx_accepted_withoutFlatEventWitnesses.offset),
       emptyTraceContext,
+      traceContext,
     )
 
     def result(ledgerEnd: LedgerEnd): PrepareResult =
@@ -842,10 +854,11 @@ object InMemoryStateUpdaterSpec {
         Vector.empty,
         ledgerEnd,
         emptyTraceContext,
+        traceContext,
       )
 
     def runFlow(
-        input: Seq[(Vector[(Offset, Update)], LedgerEnd)]
+        input: Seq[(Vector[(Offset, Update)], LedgerEnd, TraceContext)]
     )(implicit mat: Materializer): Done =
       Source(input)
         .via(inMemoryStateUpdater(false))
@@ -863,7 +876,7 @@ object InMemoryStateUpdaterSpec {
         argument = Value.ValueUnit,
         signatories = Set(party1),
         observers = Set(party2),
-        version = CreateSerializationVersion.Version(LanguageVersion.v2_dev),
+        version = CreateTransactionVersion.Version(LanguageVersion.v2_dev),
       )
   }
   private val someCreateNode = genCreateNode
@@ -947,6 +960,7 @@ object InMemoryStateUpdaterSpec {
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       recordTime = CantonTimestamp.MinValue,
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
   private val update4 = offset(14L) ->
@@ -1068,7 +1082,7 @@ object InMemoryStateUpdaterSpec {
     var checkpoints: Seq[OffsetCheckpoint] = Seq.empty
 
     val output = sourceSomes
-      .map((_, someLedgerEnd))
+      .map((_, someLedgerEnd, emptyTraceContext))
       .via(
         InMemoryStateUpdaterFlow
           .updateOffsetCheckpointCacheFlowWithTickingSource(
@@ -1105,6 +1119,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
       externalTransactionHash = externalTransactionHash,
       acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged),
+      internalContractIds = Map.empty,
     )
 
   private def assignmentAccepted(
@@ -1135,6 +1150,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
       synchronizerId = target,
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
   private def unassignmentAccepted(
@@ -1167,6 +1183,7 @@ object InMemoryStateUpdaterSpec {
       recordTime = CantonTimestamp(Timestamp(t)),
       synchronizerId = source,
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
   private def commandRejected(t: Long, synchronizerId: SynchronizerId): Update.CommandRejected =

@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
+  InternalContractIds,
   ParsedRequest,
   WrapsProcessorError,
 }
@@ -597,7 +598,7 @@ trait ProcessingSteps[
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[FutureUnlessShutdown[CommitSet]],
       contractsToBeStored: Seq[ContractInstance],
-      maybeEvent: Option[AcsChangeFactory => SequencedUpdate],
+      maybeEvent: Option[AcsChangeFactory => InternalContractIds => SequencedUpdate],
   )
 
   /** Phase 7, step 4:
@@ -826,4 +827,8 @@ object ProcessingSteps {
 
     override def cancelDecisionTimeTickRequest(): Unit = ()
   }
+
+  // TODO(#27996) remove this type when internal contract ids are no longer fetched from ProtocolProcessor
+  type InternalContractIds = Map[LfContractId, Long]
+
 }

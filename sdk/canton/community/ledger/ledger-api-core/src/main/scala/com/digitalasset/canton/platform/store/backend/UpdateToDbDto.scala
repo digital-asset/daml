@@ -397,8 +397,12 @@ object UpdateToDbDto {
         record_time = transactionAccepted.recordTime.toMicros,
         external_transaction_hash =
           transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
-        // TODO(#27998) populate with the actual internal contract id from a map that should be in transactionAccepted
-        internal_contract_id = 0,
+        internal_contract_id = transactionAccepted.internalContractIds.getOrElse(
+          create.coid,
+          throw new IllegalStateException(
+            s"missing internal contract id for contract ${create.coid}"
+          ),
+        ),
       )
     ) ++ withFirstMarked(
       flatWitnesses,
@@ -606,7 +610,7 @@ object UpdateToDbDto {
         event_sequential_id = 0L, // this is filled later
         source_synchronizer_id = reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap,
         target_synchronizer_id = reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap,
-        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toProtoPrimitive,
+        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toBytes.toByteArray,
         reassignment_counter = unassign.reassignmentCounter,
         assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
         trace_context = serializedTraceContext,
@@ -665,12 +669,16 @@ object UpdateToDbDto {
         authentication_data = assign.contractAuthenticationData.toByteArray,
         source_synchronizer_id = reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap,
         target_synchronizer_id = reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap,
-        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toProtoPrimitive,
+        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toBytes.toByteArray,
         reassignment_counter = assign.reassignmentCounter,
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
-        // TODO(#27998) populate with the actual internal contract id from a map that should be in transactionAccepted
-        internal_contract_id = 0,
+        internal_contract_id = reassignmentAccepted.internalContractIds.getOrElse(
+          assign.createNode.coid,
+          throw new IllegalStateException(
+            s"missing internal contract id for contract ${assign.createNode.coid}"
+          ),
+        ),
       )
     ) ++ withFirstMarked(
       flatEventWitnesses,

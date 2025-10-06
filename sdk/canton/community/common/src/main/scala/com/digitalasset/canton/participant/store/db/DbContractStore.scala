@@ -59,10 +59,14 @@ class DbContractStore(
   // TODO(#27996): optimize: evict proto deserialization from the DB threads (suggested: using a proper pekko-stream with deser stage over the batches, or do deser on client thread -but then it might be redundant-)
   implicit def contractGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
-  ): GetResult[PersistedContractInstance] = GetResult { r =>
-    val _ = r.nextLong()
-    PersistedContractInstance(
-      // internalContractId = r.nextLong(), TODO(#27996): not supported just yet
+  ): GetResult[PersistedContractInstance] = idAndContractGetResult.andThen(_._2)
+
+  implicit def idAndContractGetResult(implicit
+      getResultByteArray: GetResult[Array[Byte]]
+  ): GetResult[(Long, PersistedContractInstance)] = GetResult { r =>
+    val internalContractId = r.nextLong()
+    internalContractId -> PersistedContractInstance(
+      // internalContractId = internalContractId, TODO(#27996): not supported just yet
       inst = TransactionCoder
         .decodeFatContractInstance(ByteString.copyFrom(r.<<[Array[Byte]]))
         .leftMap(e => s"Failed to decode contract instance: $e")
@@ -443,4 +447,45 @@ class DbContractStore(
     cache.cleanUp()
     super.onClosed()
   }
+
+  override def lookupBatchedNonCached(internalContractIds: Iterable[Long])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Long, PersistedContractInstance]] =
+    NonEmpty
+      .from(internalContractIds.toSeq)
+      .fold(FutureUnlessShutdown.pure(Map.empty[Long, PersistedContractInstance])) {
+        nonEmptyInternalContractIds =>
+          import DbStorage.Implicits.BuilderChain.*
+
+          val inClause = DbStorage.toInClause("internal_contract_id", nonEmptyInternalContractIds)
+          val query =
+            (contractsBaseQuery ++ sql" where " ++ inClause).as[(Long, PersistedContractInstance)]
+          storage
+            .query(
+              query,
+              functionFullName,
+            )
+            .map(_.toMap)
+      }
+
+  override def lookupBatchedNonCachedInternalIds(
+      contractIds: Iterable[LfContractId]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfContractId, Long]] =
+    NonEmpty
+      .from(contractIds.toSeq)
+      .fold(FutureUnlessShutdown.pure(Map.empty[LfContractId, Long])) { nonEmptyContractIds =>
+        import DbStorage.Implicits.BuilderChain.*
+
+        val inClause = DbStorage.toInClause("contract_id", nonEmptyContractIds)
+        val query =
+          (sql"""select contract_id, internal_contract_id from par_contracts where """ ++ inClause)
+            .as[(LfContractId, Long)]
+        storage
+          .query(
+            query,
+            functionFullName,
+          )
+          .map(_.toMap)
+      }
+
 }
