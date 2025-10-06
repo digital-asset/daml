@@ -842,26 +842,30 @@ class Engine(val config: EngineConfig) {
       hashingMethod: Hash.HashingMethod,
   ): Result[Hash] = {
     import Engine.Syntax._
-    import Engine.mkDevError
+    import Engine.mkInterpretationError
 
-    val location = NameOf.qualifiedNameOfCurrentFunc
     val templateId = create.templateId
     val pkgId = templateId.packageId
     val createArg = create.arg.mapCid(contractIdSubstitution)
     val packageName = create.packageName
+
+    def mkHashingError(msg: String): Error.Interpretation =
+      mkInterpretationError(
+        IError.ContractHashingError(create.coid, create.templateId, create.arg, msg)
+      )
 
     hashingMethod match {
       case Hash.HashingMethod.Legacy =>
         Hash
           .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
           .left
-          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .map(mkHashingError)
           .toResult
       case Hash.HashingMethod.UpgradeFriendly =>
         Hash
           .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
           .left
-          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .map(mkHashingError)
           .toResult
       case Hash.HashingMethod.TypedNormalForm =>
         for {
@@ -875,12 +879,24 @@ class Engine(val config: EngineConfig) {
           )
             .translateValue(Ast.TTyCon(templateId), createArg)
             .left
-            .map(error => mkDevError(location, IError.Dev.TranslationError(error)))
+            .map(error =>
+              mkInterpretationError(
+                IError.Upgrade(
+                  IError.Upgrade.TranslationFailed(
+                    Some(create.coid),
+                    create.templateId,
+                    create.templateId,
+                    create.arg,
+                    error,
+                  )
+                )
+              )
+            )
             .toResult
           hash <- SValueHash
             .hashContractInstance(packageName, templateId.qualifiedName, sValue)
             .left
-            .map(error => mkDevError(location, IError.Dev.HashingError(error.msg)))
+            .map(error => mkHashingError(error.msg))
             .toResult
         } yield hash
     }
@@ -1014,8 +1030,8 @@ object Engine {
     EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
 
-  private def mkDevError(location: String, error: IError.Dev.Error) =
-    Error.Interpretation(Error.Interpretation.DamlException(IError.Dev(location, error)), None)
+  private def mkInterpretationError(error: IError) =
+    Error.Interpretation(Error.Interpretation.DamlException(error), None)
 
   private object Syntax {
     implicit class EitherOps[A](val e: Either[Error, A]) extends AnyVal {

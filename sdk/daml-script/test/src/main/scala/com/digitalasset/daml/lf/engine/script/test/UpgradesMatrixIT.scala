@@ -305,11 +305,11 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         }
       case UpgradesMatrixCases.ExpectAuthenticationError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.DevError]
+          error shouldBe a[SubmitError.UpgradeError.AuthenticationFailed]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.DevError]
+          error shouldBe a[SubmitError.UpgradeError.TranslationFailed]
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(statusError, submitError)) =>

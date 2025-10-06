@@ -312,6 +312,14 @@ prettyScriptErrorError lvl (Just err) =  do
                   (prettyContractRef lvl world)
                   scriptError_ContractNotActiveContractRef
         ]
+    ScriptErrorErrorContractHashingError (ScriptError_ContractHashingError contractRef dstTemplateId createArg message) ->
+      pure $ vcat
+        [ "Error when hashing a contract."
+        , label_ "Contract:" $ prettyMay "<missing contract>" (prettyContractRef lvl world) contractRef
+        , label_ "target template:" $ prettyMay "<missing template id>" (prettyDefName lvl world) dstTemplateId
+        , label_ "contract argument:" $ prettyMay "<missing contract argument>" (prettyValue' lvl False 0 world) createArg
+        , label_ "reason:" $ ltext message
+        ]
     ScriptErrorErrorDisclosedContractKeyHashingError(ScriptError_DisclosedContractKeyHashingError contractId key computedHash declaredHash) ->
       pure $ vcat
         [ "Mismatched disclosed contract key hash for contract"

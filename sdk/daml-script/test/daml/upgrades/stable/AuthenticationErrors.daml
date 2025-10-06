@@ -398,7 +398,7 @@ setUpChoiceBodyTest = do
   pure (alice, clientCid)
 
 assertIsAuthenticationError : Show a => Either SubmitError a -> Script ()
-assertIsAuthenticationError (Left (DevError AuthenticationError _)) = pure ()
+assertIsAuthenticationError (Left (UpgradeError (AuthenticationFailed _ _ _ _) _)) = pure ()
 assertIsAuthenticationError res = assertFail $ "Expected TranslationError, got " <> show res
 
 assertIsWronglyTypedContractError : Show a => Either SubmitError a -> Script ()

@@ -2448,12 +2448,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.TypeMismatch]
       }
     }
 
@@ -2472,12 +2484,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.TypeMismatch]
       }
     }
   }
@@ -2544,12 +2568,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
       }
     }
 
@@ -2568,12 +2604,24 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(
               Interpretation(
                 DamlException(
-                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                  interpretation.Error.Upgrade(
+                    interpretation.Error.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
+                  )
                 ),
                 _,
               )
             ) =>
-          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+          coid shouldBe cid
+          srcTemplateId shouldBe simpleId
+          dstTemplateId shouldBe simpleId
+          createArg shouldBe contracts(cid).createArg
+          error shouldBe a[interpretation.Error.Upgrade.TranslationFailed.InvalidValue]
       }
     }
   }
