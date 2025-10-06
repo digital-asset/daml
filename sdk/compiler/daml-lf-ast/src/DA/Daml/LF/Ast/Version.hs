@@ -210,6 +210,13 @@ featureComplexAnyType = Feature
     , featureCppFlag = Just "DAML_COMPLEX_ANY_TYPE"
     }
 
+featureCryptoUtility :: Feature
+featureCryptoUtility = Feature
+    { featureName = "Crypto Utility Function"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_CRYPTO_UTILITY"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
@@ -240,6 +247,7 @@ allFeatures =
     , featureContractKeys
     , featureUnstable
     , featureExperimental
+    , featureCryptoUtility
     ]
 
 -- | A map from feature CPP flags to features.
