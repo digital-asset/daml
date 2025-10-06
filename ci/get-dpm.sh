@@ -5,8 +5,9 @@ set -euo pipefail
 TEMP_DIR="$(mktemp -d)"
 ORAS_VERSION="1.2.2"
 ORAS="oras"
-# DPM latest url
-DPM_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest}"
+# DPM url pinned to known working version
+# Update periodically
+DPM_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/dpm:0.0.0-snapshot-20251006.213.0.v9c6abee}"
 # Get current machine OS type and ARCH
 OS_TYPE="$(uname -s | tr A-Z a-z)"
 if [[ $(uname -m) == 'x86_64' ]]; then
@@ -42,7 +43,7 @@ ${ORAS} pull --platform "${OS_TYPE}/${CPU_ARCH}" -o "${HOME}/.dpm/bin" "${DPM_UR
 # Set execute permission
 chmod -v +x "${HOME}/.dpm/bin/dpm"
 # Find out what version it is
-version_line=$(${HOME}/.dpm/bin/dpm version --assistant | grep -o 'version: .*')
+version_line=$(${HOME}/.dpm/bin/dpm --version | grep -o 'version: .*')
 version=${version_line#version: }
 
 # Move to correct component location
@@ -51,4 +52,4 @@ mv -f "${HOME}/.dpm/bin/dpm" "${HOME}/.dpm/cache/components/dpm/${version}/dpm"
 # Create symlink for .dpm/bin, to match DPM's current behaviour
 ln -sf "${HOME}/.dpm/cache/components/dpm/${version}/dpm" "${HOME}/.dpm/bin/dpm"
 
-"${HOME}/.dpm/bin/dpm" version --assistant
+"${HOME}/.dpm/bin/dpm" --version
