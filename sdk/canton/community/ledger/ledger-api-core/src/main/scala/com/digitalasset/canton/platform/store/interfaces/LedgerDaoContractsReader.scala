@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.interfaces
 
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.ExistingContractStatus
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
@@ -22,13 +21,13 @@ private[platform] trait LedgerDaoContractsReader {
     *
     * @param contractId
     *   the contract id to query
-    * @param notEarlierThanOffset
+    * @param notEarlierThanEventSeqId
     *   the offset threshold to resolve the contract state (state can be newer, but not older)
     * @return
     *   the optional boolean flag indicating whether the contract is active (true) or archived
     *   (false). None if the contract is not found.
     */
-  def lookupContractState(contractId: ContractId, notEarlierThanOffset: Offset)(implicit
+  def lookupContractState(contractId: ContractId, notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ExistingContractStatus]]
 
@@ -39,12 +38,12 @@ private[platform] trait LedgerDaoContractsReader {
     *
     * @param key
     *   the contract key to query
-    * @param notEarlierThanOffset
+    * @param notEarlierThanEventSeqId
     *   the offset threshold to resolve the key state (state can be newer, but not older)
     * @return
     *   the [[KeyState]]
     */
-  def lookupKeyState(key: GlobalKey, notEarlierThanOffset: Offset)(implicit
+  def lookupKeyState(key: GlobalKey, notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[KeyState]
 
@@ -53,7 +52,7 @@ private[platform] trait LedgerDaoContractsReader {
     * Used to unit test the SQL queries for key lookups. Does not use batching.
     */
   @VisibleForTesting
-  def lookupKeyStatesFromDb(keys: Seq[GlobalKey], notEarlierThanOffset: Offset)(implicit
+  def lookupKeyStatesFromDb(keys: Seq[GlobalKey], notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Map[GlobalKey, KeyState]]
 

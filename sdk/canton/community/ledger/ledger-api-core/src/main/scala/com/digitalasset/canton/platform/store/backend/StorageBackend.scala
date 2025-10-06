@@ -232,18 +232,18 @@ trait ContractStorageBackend {
     * If the backend does not support batch lookups, the implementation will fall back to sequential
     * lookups
     */
-  def keyStates(keys: Seq[Key], validAt: Offset)(connection: Connection): Map[Key, KeyState]
+  def keyStates(keys: Seq[Key], validAtEventSeqId: Long)(connection: Connection): Map[Key, KeyState]
 
   /** Sequential lookup of key states */
-  def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState
+  def keyState(key: Key, validAtEventSeqId: Long)(connection: Connection): KeyState
 
-  def archivedContracts(contractIds: Seq[ContractId], before: Offset)(
+  def archivedContracts(contractIds: Seq[ContractId], beforeEventSeqId: Long)(
       connection: Connection
   ): Set[ContractId]
-  def createdContracts(contractIds: Seq[ContractId], before: Offset)(
+  def createdContracts(contractIds: Seq[ContractId], beforeEventSeqId: Long)(
       connection: Connection
   ): Set[ContractId]
-  def assignedContracts(contractIds: Seq[ContractId], before: Offset)(
+  def assignedContracts(contractIds: Seq[ContractId], beforeEventSeqId: Long)(
       connection: Connection
   ): Set[ContractId]
 

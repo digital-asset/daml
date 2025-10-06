@@ -539,6 +539,7 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       recordTime = recordTime,
       synchronizerId = synchronizerId,
       acsChangeFactory = testAcsChangeFactory,
+      internalContractIds = Map.empty,
     )
 
   private def transaction(
@@ -567,5 +568,6 @@ class IndexComponentLoadTest extends AnyFlatSpec with IndexComponentTest {
       recordTime = recordTime,
       acsChangeFactory = testAcsChangeFactory,
       externalTransactionHash = None,
+      internalContractIds = Map.empty,
     )
 }

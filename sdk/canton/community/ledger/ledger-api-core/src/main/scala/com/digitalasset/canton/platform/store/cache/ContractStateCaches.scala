@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.{
   Active,
@@ -14,6 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatu
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
@@ -46,7 +46,8 @@ class ContractStateCaches(
     *   strictly increasing event sequential ids.
     */
   def push(
-      eventsBatch: NonEmptyVector[ContractStateEvent]
+      eventsBatch: NonEmptyVector[ContractStateEvent],
+      lastEventSeqId: Long,
   )(implicit traceContext: TraceContext): Unit = {
     val keyMappingsBuilder = Map.newBuilder[Key, ContractKeyStateValue]
     val contractMappingsBuilder = Map.newBuilder[ContractId, ExistingContractStatus]
@@ -66,27 +67,28 @@ class ContractStateCaches(
         }
         contractMappingsBuilder.addOne(archived.contractId -> Archived)
 
-      case _: ReassignmentAccepted => ()
+      case ReassignmentAccepted => ()
     }
 
     val keyMappings = keyMappingsBuilder.result()
     val contractMappings = contractMappingsBuilder.result()
 
-    val validAt = eventsBatch.last.eventOffset
+    val validAt = lastEventSeqId
     keyState.putBatch(validAt, keyMappings)
     contractState.putBatch(validAt, contractMappings)
   }
 
   /** Reset the contract and key state caches to the specified offset. */
-  def reset(lastPersistedLedgerEnd: Option[Offset]): Unit = {
-    keyState.reset(lastPersistedLedgerEnd)
-    contractState.reset(lastPersistedLedgerEnd)
+  def reset(lastPersistedLedgerEnd: Option[LedgerEnd]): Unit = {
+    val index = lastPersistedLedgerEnd.map(_.lastEventSeqId).getOrElse(0L)
+    keyState.reset(index)
+    contractState.reset(index)
   }
 }
 
 object ContractStateCaches {
   def build(
-      initialCacheIndex: Option[Offset],
+      initialCacheEventSeqIdIndex: Long,
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
       metrics: LedgerApiServerMetrics,
@@ -95,9 +97,14 @@ object ContractStateCaches {
       executionContext: ExecutionContext
   ): ContractStateCaches =
     new ContractStateCaches(
-      contractState =
-        ContractsStateCache(initialCacheIndex, maxContractsCacheSize, metrics, loggerFactory),
-      keyState = ContractKeyStateCache(initialCacheIndex, maxKeyCacheSize, metrics, loggerFactory),
+      contractState = ContractsStateCache(
+        initialCacheEventSeqIdIndex,
+        maxContractsCacheSize,
+        metrics,
+        loggerFactory,
+      ),
+      keyState =
+        ContractKeyStateCache(initialCacheEventSeqIdIndex, maxKeyCacheSize, metrics, loggerFactory),
       loggerFactory = loggerFactory,
     )
 }

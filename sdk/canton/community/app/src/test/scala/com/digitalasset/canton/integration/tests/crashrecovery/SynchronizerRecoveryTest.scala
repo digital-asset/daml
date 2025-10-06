@@ -49,11 +49,31 @@ final class SynchronizerRecoveryTest extends BaseSynchronizerRestartTest with Ha
     _.message should (include("UNAUTHENTICATED") and include(
       "not match the synchronizer id of the synchronizer the participant"
     )),
+    // This is similar to the line above: the connection pool catches mismatches while validating connections
+    _.message should include("Sequencer connection has changed attributes"),
+    _.message should (include(SyncServiceSynchronizerDisconnect.id) and include(
+      "fatally disconnected because of Trust threshold 1 is no longer reachable"
+    )),
     _.message should (include("PERMISSION_DENIED") and include("access is disabled")),
     _.message should include(LostSequencerSubscription.id),
     _.message should include(SyncServiceSynchronizerDisabledUs.id),
     _.message should include("Token refresh aborted due to shutdown."),
   )
+
+  private def expectedLogsForConnectionFailure(usingConnectionPool: Boolean) = {
+    val seq = Seq[(LogEntry => Assertion, String)](
+      (_.shouldBeCommandFailure(FailedToConnectToSequencers), "Failure to connect")
+    )
+    if (usingConnectionPool)
+      (
+        (logEntry: LogEntry) =>
+          logEntry.warningMessage should include(
+            "Validation failure: Connection is not on expected sequencer"
+          ),
+        "Connection validation failure",
+      ) +: seq
+    else seq
+  }
 
   "if synchronizer loses all state, it will consider previously connected participant disabled" in {
     implicit env: TestConsoleEnvironment =>
@@ -90,19 +110,19 @@ final class SynchronizerRecoveryTest extends BaseSynchronizerRestartTest with Ha
         )
       )
 
+      val usingConnectionPool = participant1.config.sequencerClient.useNewConnectionPool
+
       clue("Reconnect and assert throwable and logs ...")(
         loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
           participant1.synchronizers.reconnect(daName),
-          logEntries => logEntries.head.shouldBeCommandFailure(FailedToConnectToSequencers),
+          LogEntry.assertLogSeq(expectedLogsForConnectionFailure(usingConnectionPool)),
         )
       )
 
       clue("Reconnect_all and assert throwable and logs ...")(
         loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
           participant1.synchronizers.reconnect_all(ignoreFailures = false),
-          logEntries => {
-            logEntries.head.shouldBeCommandFailure(FailedToConnectToSequencers)
-          },
+          LogEntry.assertLogSeq(expectedLogsForConnectionFailure(usingConnectionPool)),
         )
       )
   }
@@ -142,12 +162,12 @@ final class SynchronizerRecoveryTest extends BaseSynchronizerRestartTest with Ha
         )
       )
 
+      val usingConnectionPool = participant1.config.sequencerClient.useNewConnectionPool
+
       clue("Reconnect participant1 to the synchronizer and assert that its connection is corrupt")(
         loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
           participant1.synchronizers.reconnect(daName),
-          entries => {
-            entries.head.shouldBeCommandFailure(FailedToConnectToSequencers)
-          },
+          LogEntry.assertLogSeq(expectedLogsForConnectionFailure(usingConnectionPool)),
         )
       )
 

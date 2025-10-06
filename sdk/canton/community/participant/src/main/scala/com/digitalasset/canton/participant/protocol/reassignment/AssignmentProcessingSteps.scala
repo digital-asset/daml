@@ -474,7 +474,7 @@ private[reassignment] class AssignmentProcessingSteps(
       } yield CommitAndStoreContractsAndPublishEvent(
         None,
         Seq.empty,
-        eventO.map(event => _ => event),
+        eventO.map(event => _ => _ => event),
       )
       EitherT.fromEither[FutureUnlessShutdown](commit)
     }

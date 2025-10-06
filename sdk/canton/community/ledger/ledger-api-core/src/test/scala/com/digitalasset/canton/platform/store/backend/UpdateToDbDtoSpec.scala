@@ -220,6 +220,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         val externalTransactionHash = someExternalTransactionHash
         val builder = TxBuilder()
         val contractId = builder.newCid
+        val internalContractIds = Map(contractId -> 0L)
         val contractTemplate = Ref.Identifier.assertFromString("P:M:T")
         val keyValue = Value.ValueUnit
         val createNode = builder
@@ -246,6 +247,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               synchronizerId = someSynchronizerId1,
               recordTime = someRecordTime,
               repairCounter = RepairCounter(1337),
+              internalContractIds = internalContractIds,
             )
           else
             state.Update.SequencedTransactionAccepted(
@@ -258,6 +260,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               recordTime = someRecordTime,
               externalTransactionHash = Some(externalTransactionHash),
               acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
+              internalContractIds = internalContractIds,
             )
         val dtos = updateToDtos(update)
 
@@ -446,6 +449,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           recordTime = CantonTimestamp.ofEpochMicro(120),
           externalTransactionHash = Some(externalTransactionHash),
           acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
+          internalContractIds = Map.empty,
         )
         val dtos = updateToDtos(update)
 
@@ -589,6 +593,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map.empty,
       )
       val dtos = updateToDtos(update)
 
@@ -735,6 +740,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map.empty,
       )
       val dtos = updateToDtos(update)
 
@@ -957,6 +963,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map.empty,
       )
       val dtos = updateToDtos(update)
 
@@ -1033,6 +1040,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map.empty,
       )
       val dtos = updateToDtos(update)
 
@@ -1158,6 +1166,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map(contractId -> 42L),
       )
       val dtos = updateToDtos(update)
 
@@ -1190,7 +1199,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
         representative_package_id = createNode.templateId.packageId,
-        internal_contract_id = 0L,
+        internal_contract_id = 42L,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.IdFilterCreateStakeholder(
@@ -1326,6 +1335,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map.empty,
       )
       val dtos = updateToDtos(update)
 
@@ -1388,6 +1398,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map(contractId -> 42L),
       )
       val dtos = updateToDtos(update)
 
@@ -1420,7 +1431,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
         representative_package_id = createNode.templateId.packageId,
-        internal_contract_id = 0L,
+        internal_contract_id = 42L,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.IdFilterCreateStakeholder(
@@ -1537,6 +1548,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             recordTime = someRecordTime,
             externalTransactionHash = Some(externalTransactionHash),
             acsChangeFactory = TestAcsChangeFactory(),
+            internalContractIds = Map(contractId -> 42L),
           )
           val dtos = updateToDtos(update)
 
@@ -1569,7 +1581,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             record_time = someRecordTime.toMicros,
             external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
             representative_package_id = createNode.templateId.packageId,
-            internal_contract_id = 0L,
+            internal_contract_id = 42L,
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
             DbDto.IdFilterCreateStakeholder(
@@ -1655,6 +1667,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = someRecordTime,
         synchronizerId = targetSynchronizerId.unwrap,
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map(contractId -> 42L),
       )
 
       val dtos = updateToDtos(update)
@@ -1683,11 +1696,11 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         authentication_data = someContractAuthenticationData.toByteArray,
         source_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer1"),
         target_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer2"),
-        reassignment_id = "001000000000",
+        reassignment_id = ReassignmentId.tryCreate("001000000000").toBytes.toByteArray,
         reassignment_counter = 1500L,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
-        internal_contract_id = 0L,
+        internal_contract_id = 42L,
       )
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.unwrap,
@@ -1781,6 +1794,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         recordTime = CantonTimestamp.ofEpochMicro(120),
         synchronizerId = sourceSynchronizerId.unwrap,
         acsChangeFactory = TestAcsChangeFactory(),
+        internalContractIds = Map.empty,
       )
 
       val dtos = updateToDtos(update)
@@ -1799,7 +1813,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         source_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer1"),
         target_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer2"),
-        reassignment_id = "001000000000",
+        reassignment_id = ReassignmentId.tryCreate("001000000000").toBytes.toByteArray,
         reassignment_counter = 1500L,
         assignment_exclusivity = Some(123456L),
         trace_context = serializedEmptyTraceContext,

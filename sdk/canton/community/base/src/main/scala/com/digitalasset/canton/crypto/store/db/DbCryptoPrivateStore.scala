@@ -77,6 +77,11 @@ class DbCryptoPrivateStore(
 
   import storage.api.*
 
+  private def queryKeys(): DbAction.ReadOnly[Set[StoredPrivateKey]] =
+    sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys"
+      .as[StoredPrivateKey]
+      .map(_.toSet)
+
   private def queryKeys(purpose: KeyPurpose): DbAction.ReadOnly[Set[StoredPrivateKey]] =
     sql"select key_id, data, purpose, name, wrapper_key_id from common_crypto_private_keys where purpose = $purpose"
       .as[StoredPrivateKey]
@@ -197,10 +202,13 @@ class DbCryptoPrivateStore(
   private[canton] def listPrivateKeys(purpose: KeyPurpose)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
-    EitherT.right(
-      storage
-        .query(queryKeys(purpose), functionFullName)
-    )
+    EitherT.right(storage.query(queryKeys(purpose), functionFullName))
+
+  @VisibleForTesting
+  private[canton] def listPrivateKeys()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    EitherT.right(storage.query(queryKeys(), functionFullName))
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
     sqlu"delete from common_crypto_private_keys where key_id = $keyId"

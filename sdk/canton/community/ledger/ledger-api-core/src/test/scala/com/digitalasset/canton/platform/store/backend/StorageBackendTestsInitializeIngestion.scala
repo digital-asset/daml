@@ -279,17 +279,17 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsCreated =
             executeSql(
               backend.contract
-                .createdContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+                .createdContracts(List(hashCid("#101"), hashCid("#201")), 1000)
             )
           val contractsArchived =
             executeSql(
               backend.contract
-                .archivedContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+                .archivedContracts(List(hashCid("#101"), hashCid("#201")), 1000)
             )
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), 1000)
             )
           val assignedEvents =
             executeSql(
@@ -348,17 +348,17 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsCreated =
             executeSql(
               backend.contract
-                .createdContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+                .createdContracts(List(hashCid("#101"), hashCid("#201")), 1000)
             )
           val contractsArchived =
             executeSql(
               backend.contract
-                .archivedContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+                .archivedContracts(List(hashCid("#101"), hashCid("#201")), 1000)
             )
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), 1000)
             )
           val assignedEvents =
             executeSql(
@@ -414,12 +414,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           val contractsCreated =
             executeSql(
               backend.contract
-                .createdContracts(List(hashCid("#101"), hashCid("#201")), offset(1000))
+                .createdContracts(List(hashCid("#101"), hashCid("#201")), 1000)
             )
           val contractsAssigned =
             executeSql(
               backend.contract
-                .assignedContracts(List(hashCid("#103"), hashCid("#203")), offset(1000))
+                .assignedContracts(List(hashCid("#103"), hashCid("#203")), 1000)
             )
           val assignedEvents =
             executeSql(

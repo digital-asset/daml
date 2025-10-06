@@ -1847,9 +1847,8 @@ final class SequencerClientTest
 
       val connectionPool = MockPool()
 
-      // TODO(i26481): adjust when the new connection pool is stable
-      val useNewConnectionPool =
-        useNewConnectionPoolO.getOrElse(testedProtocolVersion >= ProtocolVersion.dev)
+      // TODO(i26481): adjust when everything in this test can be enabled for the connection pool
+      val useNewConnectionPool = useNewConnectionPoolO.getOrElse(true)
       val client = new RichSequencerClientImpl(
         psid,
         synchronizerPredecessor = synchronizerPredecessor,

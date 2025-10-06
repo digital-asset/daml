@@ -310,7 +310,7 @@ CREATE TABLE lapi_events_assign (
     -- * common reassignment
     source_synchronizer_id integer not null,
     target_synchronizer_id integer not null,
-    reassignment_id varchar collate "C" not null,
+    reassignment_id bytea not null,
     reassignment_counter bigint not null,
 
     -- * assigned specific
@@ -542,7 +542,7 @@ CREATE TABLE lapi_events_unassign (
     -- * common reassignment
     source_synchronizer_id integer not null,
     target_synchronizer_id integer not null,
-    reassignment_id varchar collate "C" not null,
+    reassignment_id bytea not null,
     reassignment_counter bigint not null,
 
     -- * unassigned specific

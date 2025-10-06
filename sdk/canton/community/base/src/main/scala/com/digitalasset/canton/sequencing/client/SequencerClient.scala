@@ -239,8 +239,8 @@ abstract class SequencerClientImpl(
     with HasCloseContext {
   import SequencerClientImpl.LinkDetails
 
-  noTracingLogger.debug(
-    s"[$member] Using connection pool: ${config.useNewConnectionPool} for synchronizer $psid"
+  noTracingLogger.info(
+    s"[$member] Using ${if (config.useNewConnectionPool) "new connection pool" else "old transports"} for synchronizer $psid"
   )
 
   override def logout()(implicit

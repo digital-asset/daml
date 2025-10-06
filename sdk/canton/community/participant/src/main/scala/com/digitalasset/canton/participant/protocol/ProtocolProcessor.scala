@@ -1600,7 +1600,15 @@ abstract class ProtocolProcessor[
         )
         for {
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
-          eventO = eventFactoryO.map(_(AcsChangeSupport.fromCommitSet(commitSet)))
+          // TODO(#27996) getting the internal contract ids will not be done here and will be part of indexing
+          internalContractIdsForStoredContracts <- EitherT.right[steps.ResultError](
+            ephemeral.contractStore.lookupBatchedNonCachedInternalIds(
+              contractsToBeStored.map(_.contractId)
+            )
+          )
+          eventO = eventFactoryO.map(
+            _(AcsChangeSupport.fromCommitSet(commitSet))(internalContractIdsForStoredContracts)
+          )
           _ = logger.info(show"About to wrap up request $requestId with event $eventO")
           requestTimestamp = requestId.unwrap
           _unit <- EitherT.right[steps.ResultError](

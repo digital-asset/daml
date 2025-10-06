@@ -240,7 +240,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         }
       )
       .mapConcat(
-        _.map(batch => (batch.offsetsUpdates, batch.ledgerEnd))
+        _.map(batch => (batch.offsetsUpdates, batch.ledgerEnd, batch.batchTraceContext))
       )
       .buffered(
         counter = metrics.indexer.outputBatchedBufferLength,

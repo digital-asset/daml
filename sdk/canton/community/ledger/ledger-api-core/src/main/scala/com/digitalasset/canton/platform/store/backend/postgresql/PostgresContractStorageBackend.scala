@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.backend.postgresql
 
 import anorm.SqlParser.{int, long}
 import anorm.{SqlStringInterpolation, ~}
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   contractId,
   hashFromHexString,
@@ -32,7 +31,7 @@ class PostgresContractStorageBackend(
 
   override final def supportsBatchKeyStateLookups: Boolean = true
 
-  override def keyStates(keys: Seq[Key], validAt: Offset)(
+  override def keyStates(keys: Seq[Key], validAtEventSeqId: Long)(
       connection: Connection
   ): Map[Key, KeyState] = if (keys.isEmpty) Map()
   else {
@@ -45,8 +44,6 @@ class PostgresContractStorageBackend(
           stakeholders.toSet,
         )
       }.*
-
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
 
     // efficient adaption of the "single lookup query" using postgres specific syntax
     // the unnest will expand the keys into a temporary table. the cross join lateral runs the
@@ -61,7 +58,7 @@ class PostgresContractStorageBackend(
         SELECT *
         FROM lapi_events_create p
         WHERE p.create_key_hash = k.create_key_hash
-          AND p.event_offset <= $validAt
+          AND p.event_sequential_id <= $validAtEventSeqId
         ORDER BY p.event_sequential_id DESC
         LIMIT 1
     ) p
@@ -72,7 +69,7 @@ class PostgresContractStorageBackend(
       SELECT 1
       FROM lapi_events_consuming_exercise
       WHERE contract_id = last_contract_key_create.contract_id
-      AND event_offset <= $validAt
+      AND event_sequential_id <= $validAtEventSeqId
   )"""
       .as(resultParser)(connection)
       .toMap
