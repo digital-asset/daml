@@ -172,12 +172,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           case optSig of
             None -> Cons @Party [sig] Nil @Party
           | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
-      
-      val isSome: forall (a: *). Option a -> Bool = /\ (a: *).
-        \(o: Option a) ->
-          case o of
-            None -> False
-          | Some x -> True;
     }
     """
   }
@@ -1146,13 +1140,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "be able to upgrade template using from_interface" in {
       val res = go(
-        e"""let alice : Party = '-util-':M:mkParty "alice"
-            in ubind
-              cidT : ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
-              t : '-pkg1-':M:T <- '-pkg1-':M:do_fetch cidT
+        e"""let t: '-pkg1-':M:T = '-pkg1-':M:T { sig = '-util-':M:mkParty "alice", obs = '-util-':M:mkParty "bob", aNumber = 100 }
             in let i : '-iface-':M:Iface = to_interface @'-pkg1-':M:T @'-iface-':M:Iface t
-            in let tOpt : (Option '-pkg2-':M:T) = from_interface @'-iface-':M:Iface@'-pkg2-':M:T i
-            in upure @Bool ('-util-':M:isSome @'-pkg2-':M:T tOpt)
+            in upure @(Option '-pkg2-':M:T) (from_interface @'-iface-':M:Iface@'-pkg2-':M:T i)
         """,
         availablePackages = Map(
           utilPkgId -> utilPkg,
@@ -1162,8 +1152,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, v)) =>
-        v shouldBe ValueTrue
+      inside(res) { case Right((_, ValueOptional(v))) =>
+        v shouldBe defined
       }
     }
 
@@ -1175,8 +1165,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               t : '-pkg1-':M:T <- '-pkg1-':M:do_fetch cidT
             in let cidI : ContractId '-iface-':M:Iface = COERCE_CONTRACT_ID @'-pkg0-':M:T @'-iface-':M:Iface cidT
             in let i : '-iface-':M:Iface = to_interface @'-pkg1-':M:T @'-iface-':M:Iface t
-            in let t1 : '-pkg1-':M:T = unsafe_from_interface @'-iface-':M:Iface @'-pkg1-':M:T cidI i
-            in let t2 : '-pkg2-':M:T = unsafe_from_interface @'-iface-':M:Iface @'-pkg2-':M:T cidI i
+            in let _ : '-pkg1-':M:T = unsafe_from_interface @'-iface-':M:Iface @'-pkg1-':M:T cidI i
+            in let _ : '-pkg2-':M:T = unsafe_from_interface @'-iface-':M:Iface @'-pkg2-':M:T cidI i
             in upure @Unit ()
         """,
         availablePackages = Map(
