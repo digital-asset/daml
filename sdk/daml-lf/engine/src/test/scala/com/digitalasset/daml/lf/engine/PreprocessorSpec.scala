@@ -5,38 +5,25 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.daml.nameof.NameOf.qualifiedNameOfMember
+import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageRef, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError}
-import com.digitalasset.daml.lf.speedy.{Command, DisclosedContract, SValue}
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ValueInt64,
-  ValueList,
-  ValueParty,
-  ValueRecord,
-}
-import org.scalatest.{Assertion, Inside, Inspectors}
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.wordspec.AnyWordSpec
+import com.digitalasset.daml.lf.speedy.{Command, Compiler}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   defaultPackageId => _,
   _,
 }
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstanceImpl,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  SerializationVersion,
-}
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.speedy.Compiler
+import com.digitalasset.daml.lf.value.Value._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, Inside, Inspectors}
 
 import scala.collection.immutable
 
@@ -549,40 +536,5 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       createdAt = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
       authenticationData = Bytes.Empty,
     )
-  }
-
-  @SuppressWarnings(
-    Array(
-      "org.wartremover.warts.Product",
-      "org.wartremover.warts.Serializable",
-      "org.wartremover.warts.JavaSerializable",
-    )
-  )
-  def acceptDisclosedContract(
-      result: Either[Error, (ImmArray[DisclosedContract], Set[Hash])]
-  ): Assertion = {
-    import Inside._
-    import Inspectors._
-    import Matchers._
-
-    inside(result) { case Right((disclosedContracts, keyHashes)) =>
-      forAll(disclosedContracts.toList) {
-        _.argument match {
-          case SValue.SRecord(`withoutKeyTmplId`, fields, values) =>
-            fields shouldBe ImmArray(
-              Ref.Name.assertFromString("owners"),
-              Ref.Name.assertFromString("data"),
-            )
-            values shouldBe Array(
-              SValue.SList(FrontStack(SValue.SParty(alice))),
-              SValue.SInt64(42L),
-            )
-
-          case _ =>
-            fail()
-        }
-      }
-      keyHashes shouldBe Set.empty
-    }
   }
 }

@@ -80,11 +80,6 @@ private[lf] object Command {
 
 }
 
-final case class DisclosedContract(
-    contract: FatContractInstance,
-    argument: SValue,
-)
-
 final case class InterfaceView(
     templateId: Identifier,
     argument: SValue,
