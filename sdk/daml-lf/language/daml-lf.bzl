@@ -79,8 +79,8 @@ lf_version_configuration = {
     "default": "2.1",
     # latest = latest MAJOR version?
     "latest": lf_version_latest.get("2"),
-    # "preview": "",
-    # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
+    "preview": "2.2",
+    "dev": "2.dev",
 }
 
 # The Daml-LF version used by default by the compiler if it matches the
