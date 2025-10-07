@@ -124,11 +124,10 @@ fi
 
 if [ ! -d "$DPM_HOME" ]; then
   echo "$(tput setaf 5)DPM is not installed, installing latest from remote....$(tput sgr 0)"
-  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
-  # Setup DPM config using private edition
+  "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public-unstable/components/dpm:latest"
   cat > "${DPM_HOME}/dpm-config.yaml" << EOF
-edition: private
-registry: europe-docker.pkg.dev/da-images-dev/private
+edition: open-source
+registry: europe-docker.pkg.dev/da-images/public-unstable
 EOF
   CONF_FILE=
   case $SHELL in
@@ -170,10 +169,10 @@ fi
 # Some issues with updating release yaml file
 chmod -R u+w "$DPM_HOME"
 
-assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
+assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
 
 # When installing via `get-dpm`, an SDK is not installed
-# Detect this and install private latest
+# Detect this and install open-source latest
 if [ -z "$(find "$DPM_HOME"/cache/sdk/* -type f)" ]; then
   echo "$(tput setaf 5)No assemblies installed for copying from, installing latest.$(tput sgr 0)"
   "$DPM_HOME/bin/dpm" install latest
@@ -184,8 +183,8 @@ fi
 if [ ! -f "$assembly_location" ]; then
   echo "$(tput setaf 5)No assembly found for $RELEASE_VERSION, creating new.$(tput sgr 0)"
   latest_version=$("$DPM_HOME/bin/dpm" versions -o json | jq -r '.[] | select(.active==true).version')
-  assembly_location="$DPM_HOME/cache/sdk/private/$RELEASE_VERSION.yaml"
-  cp "$DPM_HOME/cache/sdk/private/${latest_version}.yaml" "$assembly_location"
+  assembly_location="$DPM_HOME/cache/sdk/open-source/$RELEASE_VERSION.yaml"
+  cp "$DPM_HOME/cache/sdk/open-source/${latest_version}.yaml" "$assembly_location"
   # yq has trouble picking up env vars
   RELEASE_VERSION=$RELEASE_VERSION yq -MiY '.spec.version |= env.RELEASE_VERSION' "$assembly_location"
   echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version}.$(tput sgr 0)"
@@ -226,7 +225,7 @@ update_component() {
 
     # get-dpm script doesn't delete, it only updates
     # use it to pull down a new dpm
-    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest"
+    "$REPO_ROOT/../ci/get-dpm.sh" "europe-docker.pkg.dev/da-images/public-unstable/components/dpm:latest"
     version_line=$("$DPM_HOME/bin/dpm" --version | grep -o 'version: .*')
     DPM_VERSION=${version_line#version: }
 
