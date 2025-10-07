@@ -134,7 +134,7 @@ jobs:
         # Authorize in GCLOUD
         gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
         gcloud auth configure-docker --quiet ${DPM_REGISTRY%%/*}
-        ./ci/get-dpm.sh "${DPM_REGISTRY}/components/dpm:latest"
+        ./ci/get-dpm.sh
         ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${DPM_REGISTRY}
       name: publish_to_oci
       displayName: "Publish Split Release Artifacts to OCI Registry"
