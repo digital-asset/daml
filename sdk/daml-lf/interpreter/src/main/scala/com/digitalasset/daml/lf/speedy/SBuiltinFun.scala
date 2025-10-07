@@ -1795,6 +1795,11 @@ private[lf] object SBuiltinFun {
     ): Control[Nothing] = {
       val coid = getSContractId(args, 0)
       val (tyCon, record) = getSAnyContract(args, 1)
+      val warning = Warning(
+        machine.getLastLocation,
+        "unsafeFromInterface is deprecated, use fromInterface instead.",
+      )
+      machine.warningLog.add(warning)(machine.loggingContext)
       if (tplId == tyCon) {
         Control.Value(record)
       } else {
