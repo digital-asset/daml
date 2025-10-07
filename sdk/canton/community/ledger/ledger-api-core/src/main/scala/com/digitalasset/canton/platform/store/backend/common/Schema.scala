@@ -154,9 +154,9 @@ private[backend] object AppendOnlySchema {
         "create_key_hash" -> fieldStrategy.stringOptional(_ => _.create_key_hash),
       )
     val idFilterActivateStakeholder: Table[DbDto.IdFilterActivateStakeholder] =
-      idFilter("id_filter_activate_stakeholder")
+      idFilter("lapi_filter_activate_stakeholder")
     val idFilterActivateWitness: Table[DbDto.IdFilterActivateWitness] =
-      idFilter("id_filter_activate_witness")
+      idFilter("lapi_filter_activate_witness")
 
     val eventDeactivate: Table[DbDto.EventDeactivate] =
       fieldStrategy.insert("lapi_events_deactivate_contract")(
@@ -218,12 +218,12 @@ private[backend] object AppendOnlySchema {
         "ledger_effective_time" -> fieldStrategy.bigintOptional(_ => _.ledger_effective_time),
       )
     val idFilterDeactivateStakeholder: Table[DbDto.IdFilterDeactivateStakeholder] =
-      idFilter("id_filter_deactivate_stakeholder")
+      idFilter("lapi_filter_deactivate_stakeholder")
     val idFilterDeactivateWitness: Table[DbDto.IdFilterDeactivateWitness] =
-      idFilter("id_filter_deactivate_witness")
+      idFilter("lapi_filter_deactivate_witness")
 
     val eventVariousWitnessed: Table[DbDto.EventVariousWitnessed] =
-      fieldStrategy.insert("lapi_events_deactivate_contract")(
+      fieldStrategy.insert("lapi_events_various_witnessed")(
         // update related columns
         "event_offset" -> fieldStrategy.bigint(_ => _.event_offset),
         "update_id" -> fieldStrategy.bytea(_ => _.update_id),
@@ -263,6 +263,9 @@ private[backend] object AppendOnlySchema {
         "exercise_result_compression" -> fieldStrategy.smallintOptional(_ =>
           _.exercise_result_compression
         ),
+        "representative_package_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.representative_package_id.map(stringInterning.packageId.unsafe.internalize)
+        ),
 
         // contract related columns
         "contract_id" -> fieldStrategy.byteaOptional(_ => _.contract_id.map(_.toBytes.toByteArray)),
@@ -276,7 +279,7 @@ private[backend] object AppendOnlySchema {
         "ledger_effective_time" -> fieldStrategy.bigintOptional(_ => _.ledger_effective_time),
       )
     val idFilterVariousWitness: Table[DbDto.IdFilterVariousWitness] =
-      idFilter("id_filter_various_witness")
+      idFilter("lapi_filter_various_witness")
 
     // TODO(#28008) remove
     val eventsCreate: Table[DbDto.EventCreate] =

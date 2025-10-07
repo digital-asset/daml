@@ -42,7 +42,7 @@ class ServerRunner(
               consoleEnvironment.grpcLedgerCommandRunner
                 .runCommand(
                   "upload-dar",
-                  LedgerApiCommands.PackageManagementService.UploadDarFile(darPath),
+                  LedgerApiCommands.PackageManagementService.UploadDarFile(darPath, None),
                   p.config.clientLedgerApi,
                   Some(p.adminTokenDispenser.getCurrentToken.secret),
                 )

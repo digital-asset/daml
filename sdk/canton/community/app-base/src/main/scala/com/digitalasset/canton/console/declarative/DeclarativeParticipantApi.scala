@@ -13,7 +13,10 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
   TopologyAdminCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.LedgerApiUser
+import com.digitalasset.canton.admin.api.client.data.{
+  LedgerApiUser,
+  ListConnectedSynchronizersResult,
+}
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.ClientConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -30,7 +33,7 @@ import com.digitalasset.canton.participant.admin.AdminWorkflowServices
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnectionValidation}
-import com.digitalasset.canton.topology.admin.grpc.BaseQuery
+import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
@@ -703,7 +706,7 @@ class DeclarativeParticipantApi(
 
   private def mirrorDarsIfNecessary(fetchDarDirectory: File, dars: Seq[DeclarativeDarConfig])(
       implicit traceContext: TraceContext
-  ): Seq[(File, Option[String])] = dars.flatMap { dar =>
+  ): Seq[(File, Option[String], Seq[String])] = dars.flatMap { dar =>
     if (dar.location.startsWith("http")) {
       val matched = matchDar
         .findFirstMatchIn(dar.location)
@@ -719,29 +722,36 @@ class DeclarativeParticipantApi(
             logger.warn(s"Failed to download ${dar.location}: $err")
           }
           .toOption
-          .map(_ => (output, dar.expectedMainPackage))
+          .map(_ => (output, dar.expectedMainPackage, dar.synchronizers))
       }.toList
-    } else List((new File(dar.location), dar.expectedMainPackage))
+    } else List((new File(dar.location), dar.expectedMainPackage, dar.synchronizers))
   }
 
-  private def computeWanted(dars: Seq[(File, Option[String])])(implicit
+  private def computeWanted(
+      dars: Seq[(File, Option[String], Seq[String])],
+      connectedSynchronizers: Seq[ListConnectedSynchronizersResult],
+  )(implicit
       traceContext: TraceContext
-  ): Seq[(String, String)] =
-    dars.flatMap { case (item, expected) =>
+  ): Seq[((String, SynchronizerId), String)] =
+    dars.flatMap { case (item, expected, synchronizers) =>
       val bufInput = new FileInputStream(item)
       val zipInputStream = new ZipInputStream(bufInput)
       DarParser
         .readArchive("file", zipInputStream)
-        .toOption
+        .toList
         .flatMap { loaded =>
           expected match {
             case Some(value) if value != loaded.main.getHash =>
               logger.warn(s"DAR $item has main package ${loaded.main.getHash} but expected $value")
-              None
-            case _ => Some((loaded.main.getHash, item.toString))
+              Seq.empty
+            case _ =>
+              connectedSynchronizers
+                .filter(s =>
+                  synchronizers.isEmpty || synchronizers.contains(s.synchronizerAlias.unwrap)
+                )
+                .map(s => ((loaded.main.getHash, s.synchronizerId), item.toString))
           }
         }
-        .toList
     }
 
   private def syncDars(
@@ -750,39 +760,77 @@ class DeclarativeParticipantApi(
       fetchDarDirectory: File,
   )(implicit
       traceContext: TraceContext
-  ): Either[String, UpdateResult] = {
-    val want = computeWanted(mirrorDarsIfNecessary(fetchDarDirectory, dars))
-    def fetchDars(limit: PositiveInt): Either[String, Seq[(String, String)]] =
-      for {
-        dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
-      } yield dars
-        .filterNot(dar => AdminWorkflowServices.AdminWorkflowNames.contains(dar.name))
-        .map(_.mainPackageId)
-        .map((_, "<ignored string>"))
-    run[String, String](
-      "dars",
-      removeExcess = false,
-      checkSelfConsistency,
-      want = want,
-      fetch = fetchDars,
-      add = { case (_, file) =>
-        queryAdminApi(
-          ParticipantAdminCommands.Package.UploadDar(
-            darPath = file,
-            vetAllPackages = true,
-            synchronizeVetting = false,
-            description = "Uploaded by declarative API",
-            expectedMainPackageId = "",
-            requestHeaders = Map.empty,
-            logger,
-          )
-        ).map(_ => ())
-      },
-      upd = { case (hash, desired, existing) => Either.unit },
-      rm = (_, _) => Either.unit, // not implemented in canton yet
-      onlyCheckKeys = true,
-    )
-
-  }
+  ): Either[String, UpdateResult] =
+    queryAdminApi(ListConnectedSynchronizers())
+      .flatMap { connectedSynchronizers =>
+        val want =
+          computeWanted(mirrorDarsIfNecessary(fetchDarDirectory, dars), connectedSynchronizers)
+        def fetchDars(limit: PositiveInt): Either[String, Seq[((String, SynchronizerId), String)]] =
+          for {
+            dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
+            participantId <- queryAdminApi(TopologyAdminCommands.Init.GetId())
+            vettedPackages <- queryAdminApi(
+              TopologyAdminCommands.Read.ListVettedPackages(
+                BaseQuery(
+                  store = None,
+                  proposals = false,
+                  timeQuery = TimeQuery.HeadState,
+                  ops = Some(TopologyChangeOp.Replace),
+                  filterSigningKey = "",
+                  protocolVersion = None,
+                ),
+                filterParticipant = ParticipantId(participantId).filterString,
+              )
+            )
+          } yield {
+            val packageToSynchronizers = vettedPackages
+              .flatMap { vp =>
+                Seq(vp.context.storeId)
+                  .collect { case TopologyStoreId.Synchronizer(synchronizerId) => synchronizerId }
+                  .flatMap(synchronizerId =>
+                    vp.item.packages
+                      .map(_.packageId -> synchronizerId.bimap(identity, _.logical).merge)
+                  )
+              }
+              .groupBy { case (packageId, _) => packageId }
+              .map { case (packageId, values) =>
+                (packageId: String, values.map { case (_, synchronizerId) => synchronizerId })
+              }
+            val actualDars = dars
+              .filterNot(dar => AdminWorkflowServices.AdminWorkflowNames.contains(dar.name))
+              .map(_.mainPackageId)
+              .flatMap(pkgId =>
+                packageToSynchronizers
+                  .getOrElse(pkgId, Seq.empty)
+                  .map(synchronizerId => pkgId -> synchronizerId)
+              )
+              .map((_, "<ignored string>"))
+            actualDars
+          }
+        run[(String, SynchronizerId), String](
+          "dars",
+          removeExcess = false,
+          checkSelfConsistency,
+          want = want,
+          fetch = fetchDars,
+          add = { case ((_hash, synchronizerId), file) =>
+            queryAdminApi(
+              ParticipantAdminCommands.Package.UploadDar(
+                darPath = file,
+                synchronizerId = Some(synchronizerId),
+                vetAllPackages = true,
+                synchronizeVetting = true,
+                description = s"Uploaded by declarative API: $file",
+                expectedMainPackageId = "",
+                requestHeaders = Map.empty,
+                logger,
+              )
+            ).map(_ => ())
+          },
+          upd = { case ((hash, synchronizerId), desired, existing) => Either.unit },
+          rm = (_, _) => Either.unit, // not implemented in canton yet
+          onlyCheckKeys = true,
+        )
+      }
 
 }

@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.protocol.{
   LfCommittedTransaction,
   LfHash,
-  LfLanguageVersion,
+  LfSerializationVersion,
   LfTransaction,
   LfVersionedTransaction,
 }
@@ -45,7 +45,7 @@ object DefaultDamlValues {
   lazy val emptyTransaction: LfTransaction =
     LfTransaction(nodes = Map.empty, roots = ImmArray.empty)
   lazy val emptyVersionedTransaction: LfVersionedTransaction =
-    LfVersionedTransaction(LfLanguageVersion.v2_dev, Map.empty, ImmArray.empty)
+    LfVersionedTransaction(LfSerializationVersion.VDev, Map.empty, ImmArray.empty)
   lazy val emptyCommittedTransaction: LfCommittedTransaction =
     LfCommittedTransaction.subst[Id](emptyVersionedTransaction)
 }

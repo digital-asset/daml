@@ -30,9 +30,6 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition = super.environmentDefinition
     .withSetup { implicit env =>
-      import env.*
-      participants.all.dars.upload(darPath)
-
       connectToDefaultSynchronizers()
     }
 

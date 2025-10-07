@@ -214,11 +214,12 @@ final class SingleParticipantTestContext private[participant] (
   override def validateDarFile(request: ValidateDarFileRequest): Future[Unit] =
     services.packageManagement.validateDarFile(request).map(_ => ())
 
-  override def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
+  override def uploadDarRequest(bytes: ByteString, synchronizerId: String): UploadDarFileRequest =
     new UploadDarFileRequest(
       bytes,
       nextSubmissionId(),
       UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+      synchronizerId,
     )
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[Unit] =

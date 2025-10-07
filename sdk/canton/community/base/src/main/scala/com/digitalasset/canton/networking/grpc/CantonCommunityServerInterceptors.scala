@@ -12,8 +12,13 @@ import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   AuthServiceConfig,
   JwksCacheConfig,
+  StreamLimitConfig,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.grpc.ratelimiting.{
+  RateLimitingInterceptor,
+  StreamCounterCheck,
+}
 import com.digitalasset.canton.tracing.{TraceContextGrpc, TracingConfig}
 import io.grpc.ServerInterceptors.intercept
 import io.grpc.{ServerInterceptor, ServerServiceDefinition}
@@ -25,6 +30,8 @@ trait CantonServerInterceptors {
       service: ServerServiceDefinition,
       withLogging: Boolean,
   ): ServerServiceDefinition
+
+  def streamCounterCheck: Option[StreamCounterCheck]
 }
 
 class CantonCommunityServerInterceptors(
@@ -39,7 +46,13 @@ class CantonCommunityServerInterceptors(
     jwksCacheConfig: JwksCacheConfig,
     telemetry: Telemetry,
     additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
+    streamLimits: Option[StreamLimitConfig],
 ) extends CantonServerInterceptors {
+
+  override val streamCounterCheck: Option[StreamCounterCheck] = streamLimits.map { limits =>
+    new StreamCounterCheck(limits.limits, limits.warnOnUndefinedLimits, loggerFactory)
+  }
+
   private def interceptForLogging(
       service: ServerServiceDefinition,
       withLogging: Boolean,
@@ -79,6 +92,11 @@ class CantonCommunityServerInterceptors(
         telemetry,
       )
 
+  private def addLimitInterceptor(service: ServerServiceDefinition): ServerServiceDefinition =
+    streamCounterCheck.fold(service) { limits =>
+      intercept(service, new RateLimitingInterceptor(List(limits.check)), limits)
+    }
+
   def addAllInterceptors(
       service: ServerServiceDefinition,
       withLogging: Boolean,
@@ -87,6 +105,7 @@ class CantonCommunityServerInterceptors(
       .pipe(interceptForLogging(_, withLogging))
       .pipe(addTraceContextInterceptor)
       .pipe(addMetricsInterceptor)
+      .pipe(addLimitInterceptor)
       .pipe(addAuthInterceptor)
       .pipe(s => additionalInterceptors.foldLeft(s)((acc, i) => intercept(acc, i)))
 }

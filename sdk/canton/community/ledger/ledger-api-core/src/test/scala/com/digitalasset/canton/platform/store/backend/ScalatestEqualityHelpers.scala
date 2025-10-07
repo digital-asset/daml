@@ -11,7 +11,7 @@ import scala.annotation.nowarn
 // DbDto case classes contain serialized values in Arrays (sometimes wrapped in Options),
 // because this representation can efficiently be passed to Jdbc.
 // Using Arrays means DbDto instances are not comparable, so we have to define a custom equality operator.
-object DbDtoEq extends Matchers {
+object ScalatestEqualityHelpers extends Matchers {
 
   @nowarn("cat=lint-infer-any")
   val DbDtoEq: org.scalactic.Equality[DbDto] = {
@@ -21,6 +21,21 @@ object DbDtoEq extends Matchers {
       (a.productIterator zip b.productIterator).forall {
         case (x: Array[_], y: Array[_]) => x sameElements y
         case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+        case (x, y) => x === y
+      }
+    case (_, _) => false
+  }
+
+  @nowarn("cat=lint-infer-any")
+  @SuppressWarnings(Array("org.wartremover.warts.Product"))
+  def caseClassArrayEq[T <: Product]: org.scalactic.Equality[T] = {
+    case (a: Product, b: Product) =>
+      (a.productPrefix === b.productPrefix) &&
+      (a.productArity == b.productArity) &&
+      (a.productIterator zip b.productIterator).forall {
+        case (x: Array[_], y: Array[_]) => x sameElements y
+        case (Some(x: Array[_]), Some(y: Array[_])) => x sameElements y
+        case (p1: Product, p2: Product) => caseClassArrayEq.areEquivalent(p1, p2)
         case (x, y) => x === y
       }
     case (_, _) => false

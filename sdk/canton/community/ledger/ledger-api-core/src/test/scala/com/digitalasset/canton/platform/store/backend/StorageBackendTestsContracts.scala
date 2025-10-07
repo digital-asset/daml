@@ -25,7 +25,7 @@ private[backend] trait StorageBackendTestsContracts
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
+      dtoCreateLegacy(offset(1), 1L, contractId = contractId, signatory = signatory),
       DbDto.IdFilterCreateStakeholder(
         event_sequential_id = 1L,
         template_id = someTemplateId.toString,
@@ -80,7 +80,7 @@ private[backend] trait StorageBackendTestsContracts
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node with no flat event witnesses
-      dtoCreate(
+      dtoCreateLegacy(
         offset(1),
         1L,
         contractId = contractId,
@@ -144,10 +144,10 @@ private[backend] trait StorageBackendTestsContracts
     val observer2 = Ref.Party.assertFromString("observer2")
 
     val dtos: Vector[DbDto] = Vector(
-      dtoAssign(offset(1), 1L, contractId1),
-      dtoAssign(offset(2), 2L, contractId1, observer = observer2),
-      dtoAssign(offset(3), 3L, contractId2),
-      dtoAssign(offset(4), 4L, contractId2, observer = observer2),
+      dtoAssignLegacy(offset(1), 1L, contractId1),
+      dtoAssignLegacy(offset(2), 2L, contractId1, observer = observer2),
+      dtoAssignLegacy(offset(3), 3L, contractId2),
+      dtoAssignLegacy(offset(4), 4L, contractId2, observer = observer2),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
@@ -177,7 +177,7 @@ private[backend] trait StorageBackendTestsContracts
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(offset(1), 1L, contractId = contractId, signatory = signatory),
+      dtoCreateLegacy(offset(1), 1L, contractId = contractId, signatory = signatory),
       DbDto.IdFilterCreateStakeholder(
         1L,
         someTemplateId.toString,
@@ -186,7 +186,13 @@ private[backend] trait StorageBackendTestsContracts
       ),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, consuming = true, contractId, deactivatedEventSeqId = Some(1L)),
+      dtoExerciseLegacy(
+        offset(2),
+        2L,
+        consuming = true,
+        contractId,
+        deactivatedEventSeqId = Some(1L),
+      ),
       dtoCompletion(offset(2)),
     )
 
@@ -243,7 +249,7 @@ private[backend] trait StorageBackendTestsContracts
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create node
-      dtoCreate(
+      dtoCreateLegacy(
         offset(1),
         1L,
         contractId = contractId,
@@ -258,7 +264,13 @@ private[backend] trait StorageBackendTestsContracts
       ),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, consuming = true, contractId, emptyFlatEventWitnesses = true),
+      dtoExerciseLegacy(
+        offset(2),
+        2L,
+        consuming = true,
+        contractId,
+        emptyFlatEventWitnesses = true,
+      ),
       dtoCompletion(offset(2)),
     )
 
@@ -296,14 +308,14 @@ private[backend] trait StorageBackendTestsContracts
 
     val dtos: Vector[DbDto] = Vector(
       // 1: transaction with create nodes
-      dtoCreate(offset(1), 1L, contractId = contractId1, signatory = signatory),
-      dtoCreate(offset(1), 2L, contractId = contractId2, signatory = signatory),
-      dtoCreate(offset(1), 3L, contractId = contractId3, signatory = signatory),
-      dtoCreate(offset(1), 4L, contractId = contractId4, signatory = signatory),
+      dtoCreateLegacy(offset(1), 1L, contractId = contractId1, signatory = signatory),
+      dtoCreateLegacy(offset(1), 2L, contractId = contractId2, signatory = signatory),
+      dtoCreateLegacy(offset(1), 3L, contractId = contractId3, signatory = signatory),
+      dtoCreateLegacy(offset(1), 4L, contractId = contractId4, signatory = signatory),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 5L, consuming = true, contractId1),
+      dtoExerciseLegacy(offset(2), 5L, consuming = true, contractId1),
       // 3: transaction that creates one more contract
-      dtoCreate(offset(3), 6L, contractId = contractId5, signatory = signatory),
+      dtoCreateLegacy(offset(3), 6L, contractId = contractId5, signatory = signatory),
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))

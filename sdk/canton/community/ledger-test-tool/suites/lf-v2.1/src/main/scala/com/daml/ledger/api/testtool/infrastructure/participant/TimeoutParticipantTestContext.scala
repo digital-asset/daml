@@ -108,12 +108,13 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
     "List known packages",
     delegate.listKnownPackages(),
   )
+
+  override def uploadDarRequest(bytes: ByteString, synchronizerId: String): UploadDarFileRequest =
+    delegate.uploadDarRequest(bytes, synchronizerId)
   override def validateDarFile(request: ValidateDarFileRequest): Future[Unit] = withTimeout(
     s"Validate dar file ${request.submissionId}",
     delegate.validateDarFile(request),
   )
-  override def uploadDarRequest(bytes: ByteString): UploadDarFileRequest =
-    delegate.uploadDarRequest(bytes)
   override def uploadDarFile(request: UploadDarFileRequest): Future[Unit] = withTimeout(
     s"Upload dar file ${request.submissionId}",
     delegate.uploadDarFile(request),

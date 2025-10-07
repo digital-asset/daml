@@ -5,11 +5,7 @@ package com.digitalasset.canton.platform.store.backend.postgresql
 
 import anorm.SqlParser.{int, long}
 import anorm.{SqlStringInterpolation, ~}
-import com.digitalasset.canton.platform.store.backend.Conversions.{
-  contractId,
-  hashFromHexString,
-  parties,
-}
+import com.digitalasset.canton.platform.store.backend.Conversions.{contractId, hashFromHexString}
 import com.digitalasset.canton.platform.store.backend.common.ContractStorageBackendTemplate
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
@@ -36,13 +32,8 @@ class PostgresContractStorageBackend(
   ): Map[Key, KeyState] = if (keys.isEmpty) Map()
   else {
     val resultParser =
-      (contractId("contract_id") ~ hashFromHexString("create_key_hash") ~ parties(stringInterning)(
-        "flat_event_witnesses"
-      )).map { case cId ~ hash ~ stakeholders =>
-        hash -> KeyAssigned(
-          cId,
-          stakeholders.toSet,
-        )
+      (contractId("contract_id") ~ hashFromHexString("create_key_hash")).map { case cId ~ hash =>
+        hash -> KeyAssigned(cId)
       }.*
 
     // efficient adaption of the "single lookup query" using postgres specific syntax

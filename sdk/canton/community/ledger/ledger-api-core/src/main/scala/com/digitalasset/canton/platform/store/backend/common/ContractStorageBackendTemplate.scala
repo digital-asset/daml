@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
+import anorm.RowParser
 import anorm.SqlParser.long
-import anorm.{RowParser, ~}
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.Conversions.{contractId, parties}
+import com.digitalasset.canton.platform.store.backend.Conversions.contractId
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
@@ -33,11 +33,7 @@ class ContractStorageBackendTemplate(
   ): Map[Key, KeyState] = keys.map(key => key -> keyState(key, validAtEventSeqId)(connection)).toMap
 
   override def keyState(key: Key, validAtEventSeqId: Long)(connection: Connection): KeyState = {
-    val resultParser =
-      (contractId("contract_id") ~ parties(stringInterning)("flat_event_witnesses")).map {
-        case cId ~ stakeholders =>
-          KeyAssigned(cId, stakeholders.toSet)
-      }.singleOpt
+    val resultParser = contractId("contract_id").map(KeyAssigned.apply).singleOpt
     import com.digitalasset.canton.platform.store.backend.Conversions.HashToStatement
     SQL"""
          WITH last_contract_key_create AS (
@@ -49,7 +45,7 @@ class ContractStorageBackendTemplate(
                  ORDER BY event_sequential_id DESC
                  FETCH NEXT 1 ROW ONLY
               )
-         SELECT contract_id, flat_event_witnesses
+         SELECT contract_id
            FROM last_contract_key_create
          WHERE NOT EXISTS
                 (SELECT 1

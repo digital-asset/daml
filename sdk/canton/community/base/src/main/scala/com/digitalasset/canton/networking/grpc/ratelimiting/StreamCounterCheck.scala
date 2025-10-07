@@ -7,8 +7,8 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.ActiveStreamCounterInterceptor
 import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.*
+import com.digitalasset.canton.networking.grpc.{ActiveStreamCounterInterceptor, CantonGrpcUtil}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import java.util.concurrent.atomic.AtomicReference
@@ -17,7 +17,7 @@ import scala.collection.concurrent.TrieMap
 /** Counts number of open stream and can be used with a [[RateLimitingInterceptor]] to enforce a
   * limit for open requests
   */
-abstract class StreamCounterCheck(
+class StreamCounterCheck(
     initialLimits: Map[FullMethodName, NonNegativeInt],
     warnOnUnconfiguredLimits: Boolean,
     val loggerFactory: NamedLoggerFactory,
@@ -33,9 +33,13 @@ abstract class StreamCounterCheck(
     limits.updateAndGet(_.updatedWith(key)(_ => newLimit)).discard
   }
 
-  protected def errorFactory(methodName: FullMethodName, limit: NonNegativeInt)(implicit
+  private def errorFactory(methodName: FullMethodName)(implicit
       traceContext: TraceContext
-  ): RpcError
+  ): RpcError = {
+    val err = CantonGrpcUtil.GrpcErrors.Overloaded.TooManyStreams(methodName)
+    err.log()
+    err.toCantonRpcError
+  }
 
   private def adjust(methodName: FullMethodName, delta: Int): Unit =
     counters
@@ -55,7 +59,7 @@ abstract class StreamCounterCheck(
         val current = counters.getOrElse(methodName, 0)
         if (current >= limit.value) {
           LimitResult.OverLimit(
-            errorFactory(methodName, limit)(
+            errorFactory(methodName)(
               TraceContextGrpc.fromGrpcContextOrNew("StreamCounterCheck.check")
             )
           )

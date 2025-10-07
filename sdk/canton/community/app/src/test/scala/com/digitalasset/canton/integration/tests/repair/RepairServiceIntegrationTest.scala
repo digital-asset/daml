@@ -97,7 +97,8 @@ sealed trait RepairServiceIntegrationTest
 
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
-      participant1.dars.upload(cantonTestsPath)
+      participant1.dars.upload(cantonTestsPath, synchronizerId = daId)
+      participant1.dars.upload(cantonTestsPath, synchronizerId = acmeId)
       eventually()(assert(participant1.synchronizers.is_connected(daId)))
 
       participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
@@ -806,7 +807,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(
-                ExampleTransactionFactory.SerializationVersion,
+                ExampleTransactionFactory.serializationVersion,
                 ValueRecord(None, ImmArray(None -> ValueParty(alice.toLf))),
               ),
             )

@@ -508,8 +508,7 @@ final case class CantonConfig(
         asyncWriter = sequencerNodeConfig.parameters.asyncWriter.toParameters,
         unsafeEnableOnlinePartyReplication =
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
-        sequencerApiLimits = sequencerNodeConfig.parameters.sequencerApiLimits,
-        warnOnUndefinedLimits = sequencerNodeConfig.parameters.warnOnUndefinedLimits,
+        streamLimits = sequencerNodeConfig.publicApi.stream,
       )
     }
 
@@ -1327,6 +1326,9 @@ object CantonConfig {
     lazy implicit final val startupMemoryCheckConfigReader: ConfigReader[StartupMemoryCheckConfig] =
       deriveReader[StartupMemoryCheckConfig]
 
+    lazy implicit final val streamLimitConfigReader: ConfigReader[StreamLimitConfig] =
+      deriveReader[StreamLimitConfig]
+
     implicit val participantReplicationConfigReader: ConfigReader[ReplicationConfig] =
       deriveReader[ReplicationConfig]
     implicit val participantFeaturesConfigReader: ConfigReader[ParticipantFeaturesConfig] =
@@ -1982,6 +1984,9 @@ object CantonConfig {
 
     lazy implicit final val startupMemoryCheckConfigWriter: ConfigWriter[StartupMemoryCheckConfig] =
       deriveWriter[StartupMemoryCheckConfig]
+
+    lazy implicit final val streamLimitConfigWriter: ConfigWriter[StreamLimitConfig] =
+      deriveWriter[StreamLimitConfig]
 
     implicit val participantReplicationConfigWriter: ConfigWriter[ReplicationConfig] =
       deriveWriter[ReplicationConfig]

@@ -131,7 +131,10 @@ trait AcsCommitmentMetricsIntegrationTest
   ): Unit = {
     // Connect and disconnect so that we can modify the synchronizer connection config afterwards
     participant.synchronizers.connect_local(localSequencerReference, alias = synchronizerAlias)
-    participant.dars.upload(CantonExamplesPath)
+    participant.dars.upload(
+      CantonExamplesPath,
+      synchronizerId = Some(participant.synchronizers.id_of(synchronizerAlias)),
+    )
   }
 
   private def deployAndCheckContractOnParticipants(

@@ -30,6 +30,7 @@ import com.digitalasset.canton.participant.admin.{
   PackageService,
   PackageVettingSynchronization,
 }
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, OptionUtil}
 import com.digitalasset.daml.lf.data.Ref.ModuleName
@@ -44,6 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcPackageService(
     service: PackageService,
     synchronizeVetting: PackageVettingSynchronization,
+    connectedSynchronizers: () => Set[PhysicalSynchronizerId],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends v30.PackageServiceGrpc.PackageService
@@ -73,12 +75,16 @@ class GrpcPackageService(
   override def validateDar(request: v30.ValidateDarRequest): Future[v30.ValidateDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret =
-      service
-        .validateDar(request.data, request.filename)
-        .map(mainPackageId => v30.ValidateDarResponse(mainPackageId = mainPackageId.unwrap))
+      for {
+        psid <- findSynchronizerId(request.synchronizerId).mapK(FutureUnlessShutdown.outcomeK)
+        result <- service
+          .validateDar(request.data, request.filename, psid)
+          .map(mainPackageId => v30.ValidateDarResponse(mainPackageId = mainPackageId.unwrap))
+          .leftMap(_.asGrpcError)
+      } yield result
+
     EitherTUtil.toFuture(
       ret
-        .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     )
   }
@@ -89,6 +95,7 @@ class GrpcPackageService(
       uploadDarDataP,
       vetAllPackages,
       synchronizeVettingP,
+      synchronizerIdP,
     ) = request
 
     val ret =
@@ -102,14 +109,17 @@ class GrpcPackageService(
               )
           )
           .leftMap(_.asGrpcError)
+        psidO <- Option
+          .when(vetAllPackages)(synchronizerIdP)
+          .traverse(findSynchronizerId(_).mapK(FutureUnlessShutdown.outcomeK))
         darIds <- service
           .upload(
-            uploadDarData,
+            dars = uploadDarData,
             submissionIdO = None,
-            vetAllPackages = vetAllPackages,
-            synchronizeVetting =
-              if (synchronizeVettingP) synchronizeVetting
-              else PackageVettingSynchronization.NoSync,
+            vettingInfo = psidO.map(psid =>
+              psid -> (if (synchronizeVettingP) synchronizeVetting
+                       else PackageVettingSynchronization.NoSync)
+            ),
           )
           .leftMap(_.asGrpcError)
       } yield v30.UploadDarResponse(darIds = darIds.map(_.unwrap))
@@ -151,14 +161,57 @@ class GrpcPackageService(
     EitherTUtil.toFuture(ret)
   }
 
+  // Given a synchronizer ID as a raw string, return the physical synchronizer
+  // ID. If no synchronizer ID is provided and only one synchronizer is
+  // connected, return that instead of erroring out. If multiple synchronizers
+  // are connected, error out.
+  private def findSynchronizerId(
+      synchronizerIdRaw: Option[String]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, StatusRuntimeException, PhysicalSynchronizerId] =
+    for {
+      synchronizerIdO <- EitherT
+        .fromEither[Future](
+          synchronizerIdRaw.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+        )
+        .leftMap(ProtoDeserializationFailure.Wrap(_).asGrpcError)
+
+      connected = connectedSynchronizers()
+      validatedSpecifiedSynchronizerIdO = synchronizerIdO.map(synchronizerId =>
+        connected
+          .find(_.logical == synchronizerId)
+          .toRight(
+            CantonPackageServiceError.NotConnectedToSynchronizer.Error(synchronizerId.toString)
+          )
+      )
+      singleConnectedSynchronizer = connected.toSeq match {
+        case Seq() => Left(CantonPackageServiceError.CannotAutodetectSynchronizer.Failure(Seq()))
+        case Seq(onlySynchronizerId) => Right(onlySynchronizerId)
+        case multiple =>
+          Left(
+            CantonPackageServiceError.CannotAutodetectSynchronizer.Failure(multiple.map(_.logical))
+          )
+      }
+      synchronizerId <- EitherT
+        .fromEither[Future](
+          validatedSpecifiedSynchronizerIdO
+            .map(_.leftMap(_.asGrpcError))
+            .getOrElse(singleConnectedSynchronizer.leftMap(_.asGrpcError))
+        )
+
+    } yield synchronizerId
+
   override def vetDar(request: v30.VetDarRequest): Future[v30.VetDarResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
+      psid <- findSynchronizerId(request.synchronizerId)
       hash <- EitherT.fromEither[Future](extractMainPackageId(request.mainPackageId))
       _unit <- service
         .vetDar(
           hash,
           if (request.synchronize) synchronizeVetting else PackageVettingSynchronization.NoSync,
+          psid,
         )
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
@@ -171,9 +224,10 @@ class GrpcPackageService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val ret = for {
+      synchronizerId <- findSynchronizerId(request.synchronizerId)
       hash <- EitherT.fromEither[Future](extractMainPackageId(request.mainPackageId))
       _unit <- service
-        .unvetDar(hash)
+        .unvetDar(hash, synchronizerId)
         .leftMap(_.asGrpcError)
         .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
     } yield v30.UnvetDarResponse()
@@ -188,7 +242,7 @@ class GrpcPackageService(
       for {
         hash <- EitherT.fromEither[Future](hashE)
         _unit <- service
-          .removeDar(hash)
+          .removeDar(hash, connectedSynchronizers())
           .leftMap(_.asGrpcError)
           .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError))
       } yield v30.RemoveDarResponse()

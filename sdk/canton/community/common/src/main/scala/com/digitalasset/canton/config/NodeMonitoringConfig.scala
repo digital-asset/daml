@@ -31,6 +31,7 @@ final case class GrpcHealthServerConfig(
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
   override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf)
   override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()
+  override def stream: Option[StreamLimitConfig] = None
   def toRemoteConfig: FullClientConfig =
     FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }

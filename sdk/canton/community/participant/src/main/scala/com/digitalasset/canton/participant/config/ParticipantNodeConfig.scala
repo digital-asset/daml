@@ -249,6 +249,9 @@ final case class LedgerApiServerConfig(
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 
+  // LAPI server does not use the canonical server builder, so doesn't support the stream limits using stream limit config
+  override val stream: Option[StreamLimitConfig] = None
+
   lazy val clientConfig: FullClientConfig =
     FullClientConfig(address, port, tls.map(_.clientConfig))
 

@@ -24,8 +24,8 @@ import com.digitalasset.daml.lf.data.Ref.{
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
+import com.digitalasset.daml.lf.transaction.{SerializationVersion as LfSerializationVersion, *}
 import com.digitalasset.daml.lf.value.Value as LfValue
 import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance, ValueText}
 import org.apache.pekko.stream.scaladsl.Sink
@@ -152,7 +152,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       ),
     )
 
-  private[this] val txVersion = LanguageVersion.Major.V2.maxStableVersion
+  private[this] val txVersion = LfSerializationVersion.V1
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
   protected final val someContractInstance =
@@ -234,7 +234,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       key: Option[GlobalKeyWithMaintainers] = None,
       templateId: Identifier = someTemplateId,
       contractArgument: LfValue = someContractArgument,
-      SerializationVersion: LanguageVersion = LanguageVersion.v2_1,
+      serializationVersion: LfSerializationVersion = LfSerializationVersion.V1,
   ): Node.Create =
     Node.Create(
       coid = absCid,
@@ -244,7 +244,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       signatories = signatories,
       stakeholders = stakeholders,
       keyOpt = key,
-      version = SerializationVersion,
+      version = serializationVersion,
     )
 
   protected final def exerciseNode(

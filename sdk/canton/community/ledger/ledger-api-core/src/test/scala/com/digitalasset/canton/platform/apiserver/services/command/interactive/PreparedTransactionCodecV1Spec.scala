@@ -14,8 +14,12 @@ import com.digitalasset.canton.topology.GeneratorsTopology
 import com.digitalasset.canton.{BaseTest, GeneratorsLf, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  Node,
+  NodeId,
+  SerializationVersion as LfSerializationVersion,
+  VersionedTransaction,
+}
 import com.digitalasset.daml.lf.value.test.ValueGenerators
 import org.scalacheck.Arbitrary
 import org.scalatest.matchers.should.Matchers
@@ -69,7 +73,7 @@ class PreparedTransactionCodecV1Spec
 
       forAll { (node: Node.Exercise) =>
         val encoded =
-          encoder.v1.exerciseTransformer(LanguageVersion.v2_1).transform(node).asEither.value
+          encoder.v1.exerciseTransformer(LfSerializationVersion.V1).transform(node).asEither.value
         decoder.v1.exerciseTransformer.transform(encoded).asEither.value shouldEqual node
       }
     }
@@ -86,7 +90,7 @@ class PreparedTransactionCodecV1Spec
 
       forAll { (node: Node.Fetch) =>
         val encoded =
-          encoder.v1.fetchTransformer(LanguageVersion.v2_1).transform(node).asEither.value
+          encoder.v1.fetchTransformer(LfSerializationVersion.V1).transform(node).asEither.value
         decoder.v1.fetchTransformer.transform(encoded).asEither.value shouldEqual node
       }
     }

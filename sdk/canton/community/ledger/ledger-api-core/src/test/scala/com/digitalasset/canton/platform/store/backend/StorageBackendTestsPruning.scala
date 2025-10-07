@@ -78,7 +78,7 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       ingest(
         Vector(
-          dtoExercise(
+          dtoExerciseLegacy(
             offset = offset(3),
             eventSequentialId = 5L,
             contractId = hashCid("#1"),
@@ -91,7 +91,7 @@ private[backend] trait StorageBackendTestsPruning
             signatoryParty,
             first_per_sequential_id = true,
           ),
-          dtoExercise(
+          dtoExerciseLegacy(
             offset = offset(4),
             eventSequentialId = 6L,
             contractId = hashCid("#1"),
@@ -111,7 +111,7 @@ private[backend] trait StorageBackendTestsPruning
             actorParty,
             first_per_sequential_id = true,
           ),
-          dtoUnassign(
+          dtoUnassignLegacy(
             offset = offset(5),
             eventSequentialId = 7L,
             contractId = hashCid("#1"),
@@ -125,7 +125,7 @@ private[backend] trait StorageBackendTestsPruning
           ),
         ) ++
           Vector(
-            dtoExercise(
+            dtoExerciseLegacy(
               offset = offset(6),
               eventSequentialId = 8L,
               contractId = hashCid("#2"),
@@ -138,7 +138,7 @@ private[backend] trait StorageBackendTestsPruning
               signatoryParty,
               first_per_sequential_id = true,
             ),
-            dtoExercise(
+            dtoExerciseLegacy(
               offset = offset(7),
               eventSequentialId = 9L,
               contractId = hashCid("#2"),
@@ -158,7 +158,7 @@ private[backend] trait StorageBackendTestsPruning
               actorParty,
               first_per_sequential_id = true,
             ),
-            dtoUnassign(
+            dtoUnassignLegacy(
               offset = offset(8),
               eventSequentialId = 10L,
               contractId = hashCid("#1"),
@@ -216,7 +216,7 @@ private[backend] trait StorageBackendTestsPruning
 
   it should "prune an archived contract" in {
     // a create event in its own transaction
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -226,7 +226,7 @@ private[backend] trait StorageBackendTestsPruning
       synchronizerId = someSynchronizerId,
     )
     // a consuming event in its own transaction
-    val archive = dtoExercise(
+    val archive = dtoExerciseLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       consuming = true,
@@ -316,7 +316,7 @@ private[backend] trait StorageBackendTestsPruning
 
   it should "prune a contract which was unassigned later" in {
     // a create event in its own transaction
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -326,7 +326,7 @@ private[backend] trait StorageBackendTestsPruning
       synchronizerId = someSynchronizerId,
     )
     // a consuming event in its own transaction
-    val unassign = dtoUnassign(
+    val unassign = dtoUnassignLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       contractId = hashCid("#1"),
@@ -402,7 +402,7 @@ private[backend] trait StorageBackendTestsPruning
   }
 
   it should "not prune an active contract" in {
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(2),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -410,7 +410,7 @@ private[backend] trait StorageBackendTestsPruning
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
       synchronizerId = someSynchronizerId,
     )
-    val archiveDifferentSynchronizer = dtoExercise(
+    val archiveDifferentSynchronizer = dtoExerciseLegacy(
       offset = offset(3),
       eventSequentialId = 2L,
       consuming = true,
@@ -418,7 +418,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       synchronizerId = someSynchronizerId2,
     )
-    val archiveDifferentContractId = dtoExercise(
+    val archiveDifferentContractId = dtoExerciseLegacy(
       offset = offset(4),
       eventSequentialId = 3L,
       consuming = true,
@@ -426,7 +426,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       synchronizerId = someSynchronizerId,
     )
-    val unassignDifferentSynchronizer = dtoUnassign(
+    val unassignDifferentSynchronizer = dtoUnassignLegacy(
       offset = offset(5),
       eventSequentialId = 4L,
       contractId = hashCid("#1"),
@@ -434,7 +434,7 @@ private[backend] trait StorageBackendTestsPruning
       sourceSynchronizerId = someSynchronizerId2,
       targetSynchronizerId = someSynchronizerId,
     )
-    val unassignDifferentContractId = dtoUnassign(
+    val unassignDifferentContractId = dtoUnassignLegacy(
       offset = offset(6),
       eventSequentialId = 5L,
       contractId = hashCid("#2"),
@@ -442,7 +442,7 @@ private[backend] trait StorageBackendTestsPruning
       sourceSynchronizerId = someSynchronizerId,
       targetSynchronizerId = someSynchronizerId2,
     )
-    val archiveAfter = dtoExercise(
+    val archiveAfter = dtoExerciseLegacy(
       offset = offset(7),
       eventSequentialId = 6L,
       consuming = true,
@@ -450,7 +450,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       synchronizerId = someSynchronizerId,
     )
-    val unassignAfter = dtoUnassign(
+    val unassignAfter = dtoUnassignLegacy(
       offset = offset(8),
       eventSequentialId = 7L,
       contractId = hashCid("#1"),
@@ -634,7 +634,7 @@ private[backend] trait StorageBackendTestsPruning
 
   it should "prune an assign if archived in the same synchronizer" in {
     // an assign event in its own transaction
-    val assign = dtoAssign(
+    val assign = dtoAssignLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -644,7 +644,7 @@ private[backend] trait StorageBackendTestsPruning
       targetSynchronizerId = someSynchronizerId2,
     )
     // a consuming event in its own transaction
-    val archive = dtoExercise(
+    val archive = dtoExerciseLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       consuming = true,
@@ -715,7 +715,7 @@ private[backend] trait StorageBackendTestsPruning
 
   it should "prune an assign which was unassigned in the same synchronizer later" in {
     // an assign event in its own transaction
-    val assign = dtoAssign(
+    val assign = dtoAssignLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -726,7 +726,7 @@ private[backend] trait StorageBackendTestsPruning
     )
 
     // an unassign event in its own transaction
-    val unassign = dtoUnassign(
+    val unassign = dtoUnassignLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       contractId = hashCid("#1"),
@@ -793,7 +793,7 @@ private[backend] trait StorageBackendTestsPruning
         hashCidString: String = "#1",
         synchronizerId: SynchronizerId = someSynchronizerId2,
     ): Vector[DbDto] = {
-      val archive = dtoExercise(
+      val archive = dtoExerciseLegacy(
         offset = offset(offsetInt.toLong),
         eventSequentialId = eventSequentialId,
         consuming = true,
@@ -819,7 +819,7 @@ private[backend] trait StorageBackendTestsPruning
         hashCidString: String = "#1",
         synchronizerId: SynchronizerId = someSynchronizerId2,
     ): Vector[DbDto] = {
-      val unassign = dtoUnassign(
+      val unassign = dtoUnassignLegacy(
         offset = offset(offsetInt.toLong),
         eventSequentialId = eventSequentialId,
         contractId = hashCid(hashCidString),
@@ -854,7 +854,7 @@ private[backend] trait StorageBackendTestsPruning
       offsetInt = 4,
       eventSequentialId = 3,
     )
-    val assign = dtoAssign(
+    val assign = dtoAssignLegacy(
       offset = offset(5),
       eventSequentialId = 4L,
       contractId = hashCid("#1"),
@@ -1076,14 +1076,14 @@ private[backend] trait StorageBackendTestsPruning
     val divulgee = Ref.Party.assertFromString(partyName)
     val contract1_id = hashCid("#1")
     val contract2_id = hashCid("#2")
-    val contract1_immediateDivulgence = dtoCreate(
+    val contract1_immediateDivulgence = dtoCreateLegacy(
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = contract1_id,
       signatory = divulgee,
       emptyFlatEventWitnesses = true,
     )
-    val contract2_createWithLocalStakeholder = dtoCreate(
+    val contract2_createWithLocalStakeholder = dtoCreateLegacy(
       offset = offset(2),
       eventSequentialId = 2L,
       contractId = contract2_id,

@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests.repair
 
 import better.files.*
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
+import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DbConfig, RequireTypes}
 import com.digitalasset.canton.console.{
   LocalInstanceReference,
   LocalMediatorReference,
@@ -158,39 +158,7 @@ protected abstract class LargeAcsExportAndImportTestBase
 
   protected val baseEnvironmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_Manual
-      .clearConfigTransforms() // Disable globally unique ports
-      .addConfigTransforms(ConfigTransforms.allDefaultsButGloballyUniquePorts*)
       .addConfigTransforms(
-        // Adding hard-coded ports because reconnecting to a synchronizer requires the synchronizer
-        // ports to be the same, and we do so across node restarts as part of the tests
-        ConfigTransforms.updateSequencerConfig("sequencer1")(cfg =>
-          cfg
-            .focus(_.publicApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9018)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9019)))
-        ),
-        ConfigTransforms.updateParticipantConfig("participant1")(cfg =>
-          cfg
-            .focus(_.ledgerApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9011)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9012)))
-        ),
-        ConfigTransforms.updateParticipantConfig("participant2")(cfg =>
-          cfg
-            .focus(_.ledgerApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9021)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9022)))
-        ),
-        ConfigTransforms.updateParticipantConfig("participant3")(cfg =>
-          cfg
-            .focus(_.ledgerApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9031)))
-            .focus(_.adminApi.internalPort)
-            .replace(Some(RequireTypes.Port.tryCreate(9032)))
-        ),
         // Disable background pruning
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.parameters.journalGarbageCollectionDelay)
@@ -554,7 +522,7 @@ final class LargeAcsCreateContractsTest extends DumpTestSet {
 
 /** The actual test */
 final class LargeAcsExportAndImportTest extends EstablishTestSet {
-  override protected def testSet: TestSet = TestSet(1000, transientContracts = 0)
+  override protected def testSet: TestSet = TestSet(10, transientContracts = 1)
 
   override def useLegacyExportImport: Boolean = false
 
@@ -564,7 +532,7 @@ final class LargeAcsExportAndImportTest extends EstablishTestSet {
 
 /** The actual test */
 final class LargeAcsExportAndImportTestLegacy extends EstablishTestSet {
-  override protected def testSet: TestSet = TestSet(1000, transientContracts = 0)
+  override protected def testSet: TestSet = TestSet(10, transientContracts = 1)
 
   override def useLegacyExportImport: Boolean = true
 

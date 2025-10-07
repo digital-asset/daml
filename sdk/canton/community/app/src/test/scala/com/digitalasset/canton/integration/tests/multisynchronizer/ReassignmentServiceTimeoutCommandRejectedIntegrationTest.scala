@@ -90,7 +90,8 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
         disableAssignmentExclusivityTimeout(getInitializedSynchronizer(daName))
         disableAssignmentExclusivityTimeout(getInitializedSynchronizer(acmeName))
 
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
         programmableSequencers.put(daName, getProgrammableSequencer(sequencer1.name))
         programmableSequencers.put(acmeName, getProgrammableSequencer(sequencer2.name))
       }
