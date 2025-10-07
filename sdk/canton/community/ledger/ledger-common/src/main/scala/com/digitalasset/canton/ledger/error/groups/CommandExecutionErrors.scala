@@ -418,7 +418,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     object ContractHashingError
       extends ErrorCode(
         id = "CONTRACT_HASHING_ERROR",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ErrorCategory.InvalidIndependentOfSystemState,
       ) {
 
       final case class Reject(
@@ -852,7 +852,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       object ValidationFailed
           extends ErrorCode(
             id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+            ErrorCategory.InvalidIndependentOfSystemState,
           ) {
         final case class Reject(
             override val cause: String,
@@ -893,7 +893,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       object TranslationFailed
         extends ErrorCode(
           id = "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ErrorCategory.InvalidIndependentOfSystemState,
         ) {
         final case class Reject(
           override val cause: String,
@@ -923,7 +923,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       object AuthenticationFailed
         extends ErrorCode(
           id = "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ErrorCategory.InvalidIndependentOfSystemState,
         ) {
         final case class Reject(
           override val cause: String,

@@ -2760,7 +2760,7 @@ private[lf] object SBuiltinFun {
                       srcTemplateId = coinst.templateId,
                       dstTemplateId = coinst.templateId,
                       createArg = coinst.createArg,
-                      msg = s"failed to authenticate contract",
+                      msg = "failed to authenticate contract",
                     )
                 )
               )
