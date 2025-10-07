@@ -216,8 +216,10 @@ ${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)("""
            val concrete_from_interface: Mod:Human -> Option Mod:Person  =
              \ (h: Mod:Human) -> from_interface @Mod:Human @Mod:Person h;
 
+${onlyIf(languageVersion < LanguageVersion.Features.unsafeFromInterfaceRemoved)("""
            val concrete_unsafe_from_interface: ContractId Mod:Human -> Mod:Human -> Mod:Person  =
              \ (cid: ContractId Mod:Human) (h: Mod:Human) -> unsafe_from_interface @Mod:Human @Mod:Person cid h;
+""")}
 
            val concrete_to_required_interface: Mod:Human -> Mod:Planet =
              \ (h: Mod:Human) -> to_required_interface @Mod:Planet @Mod:Human h;

@@ -848,19 +848,6 @@ class DecodeV2Spec
           )
           .build()
 
-        val unsafeFromInterface = DamlLf2.Expr
-          .newBuilder()
-          .setUnsafeFromInterface(
-            DamlLf2.Expr.UnsafeFromInterface
-              .newBuilder()
-              .setInterfaceType(ifaceTyConId)
-              .setTemplateType(templateTyConId)
-              .setContractIdExpr(unitExpr)
-              .setInterfaceExpr(falseExpr)
-              .build()
-          )
-          .build()
-
         val toRequiredInterface = DamlLf2.Expr
           .newBuilder()
           .setToRequiredInterface(
@@ -915,12 +902,6 @@ class DecodeV2Spec
             ifaceId = scalaIfaceTyConName,
             body = EUnit,
           ),
-          unsafeFromInterface -> Ast.EUnsafeFromInterface(
-            interfaceId = scalaIfaceTyConName,
-            templateId = scalaTemplateTyConName,
-            contractIdExpr = EUnit,
-            ifaceExpr = EFalse,
-          ),
           toRequiredInterface -> Ast.EToRequiredInterface(
             requiredIfaceId = scalaRequiredIfaceTyConName,
             requiringIfaceId = scalaIfaceTyConName,
@@ -945,6 +926,44 @@ class DecodeV2Spec
           val result = Try(interfacePrimitivesDecoder(version).decodeExprForTest(proto, "test"))
           result shouldBe Success(scala)
         }
+      }
+    }
+
+    s"decode unsafe_from_interface primitive, iff version < LF 2.2" in {
+      val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+      val modId =
+        DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
+      val templateTyConId =
+        DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(1)
+      val ifaceTyConId =
+        DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(2)
+      val scalaTemplateTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:T")
+      val scalaIfaceTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:I")
+
+      val unsafeFromInterface = DamlLf2.Expr
+        .newBuilder()
+        .setUnsafeFromInterface(
+          DamlLf2.Expr.UnsafeFromInterface
+            .newBuilder()
+            .setInterfaceType(ifaceTyConId)
+            .setTemplateType(templateTyConId)
+            .setContractIdExpr(unitExpr)
+            .setInterfaceExpr(falseExpr)
+            .build()
+        )
+        .build()
+      val expected = Ast.EUnsafeFromInterface(
+        interfaceId = scalaIfaceTyConName,
+        templateId = scalaTemplateTyConName,
+        contractIdExpr = EUnit,
+        ifaceExpr = EFalse,
+      )
+
+      forEveryVersion { version =>
+        val result =
+          Try(interfacePrimitivesDecoder(version).decodeExprForTest(unsafeFromInterface, "test"))
+        if (version < LV.Features.unsafeFromInterfaceRemoved) result shouldBe Success(expected)
+        else inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
       }
     }
 
