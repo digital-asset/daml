@@ -6,7 +6,6 @@ package speedy
 
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 // ---------------------
 // Preprocessed commands
