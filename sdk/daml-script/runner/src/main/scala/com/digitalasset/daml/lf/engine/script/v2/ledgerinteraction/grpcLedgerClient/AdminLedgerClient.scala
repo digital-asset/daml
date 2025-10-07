@@ -269,6 +269,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
           ),
           vetAllPackages = true,
           synchronizeVetting = true,
+          synchronizerId = None,
         )
       )
       .map { response =>
