@@ -7,7 +7,7 @@ ORAS_VERSION="1.2.2"
 ORAS="oras"
 # DPM url pinned to known working version
 # Update periodically
-DPM_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/dpm:0.0.0-snapshot-20251006.213.0.v9c6abee}"
+DPM_URL="${1:-europe-docker.pkg.dev/da-images/public/components/dpm:0.0.1}"
 # Get current machine OS type and ARCH
 OS_TYPE="$(uname -s | tr A-Z a-z)"
 if [[ $(uname -m) == 'x86_64' ]]; then
