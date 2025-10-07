@@ -12,13 +12,7 @@ import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstance,
-  GlobalKeyWithMaintainers,
-  Node,
-  SerializationVersion,
-}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.Value.ContractId.V1.`V1 Order`
@@ -68,7 +62,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "handle propose ETyAbs, ETyApp, and ELoc" in {
-      import language.Util.{EFalse, EEmptyString, TUnit}
+      import language.Util.{EEmptyString, EFalse, TUnit}
       val List(a, x, precond, label) =
         List("a", "x", "precond", "label").map(Ref.Name.assertFromString)
       val l = Ref.Location(
