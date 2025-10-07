@@ -11,12 +11,11 @@ import com.daml.jwt.{
   StandardJWTPayload,
   StandardJWTTokenFormat,
 }
-import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, PositiveInt}
 import com.digitalasset.canton.config.{AuthServiceConfig, PemFile, TlsServerConfig}
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.integration.tests.jsonapi.HttpServiceTestFixture.UseTls
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.CantonFixture
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.ParticipantSelector
@@ -66,18 +65,11 @@ trait HttpJsonApiTestBase extends CantonFixture {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
+      .addConfigTransform(ConfigTransforms.useStaticTime)
+      .prependConfigTransform(
+        ConfigTransforms.enableHttpLedgerApi("participant1", wsConfig)
+      )
       .addConfigTransforms(
-        ConfigTransforms.updateParticipantConfig("participant1")(config =>
-          config.copy(httpLedgerApi =
-            Some(
-              JsonApiConfig(
-                // TODO(#13519): Extract in ConfigTransforms.globallyUniquePorts
-                server = HttpServerConfig().copy(port = Some(UniquePortGenerator.next.unwrap)),
-                websocketConfig = wsConfig,
-              )
-            )
-          )
-        ),
         ConfigTransforms.updateParticipantConfig("participant1")(
           ConfigTransforms.useTestingTimeService
         ),
@@ -110,7 +102,6 @@ trait HttpJsonApiTestBase extends CantonFixture {
               .focus(_.ledgerApi.partyManagementService.maxPartiesPageSize)
               .replace(maxPartiesPageSize)
           ),
-        ConfigTransforms.useStaticTime,
       )
       .withSetup { implicit env =>
         import env.*
@@ -129,10 +120,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
     implicit val ec = env.executionContext
     val participant = participantSelector(env)
     import com.digitalasset.canton.ledger.client.configuration.*
-    val jsonApiPort = participant.config.httpLedgerApi
-      .valueOrFail("http ledger api must be configured")
-      .server
-      .port
+    val jsonApiPort = participant.config.httpLedgerApi.server.internalPort
       .valueOrFail("port must be configured")
 
     val userId = getClass.getName
@@ -147,7 +135,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
     )
 
     val scheme = if (useTls) "https" else "http"
-    val uri = Uri.from(scheme = scheme, host = "localhost", port = jsonApiPort)
+    val uri = Uri.from(scheme = scheme, host = "localhost", port = jsonApiPort.unwrap)
     Future.successful(
       AbstractHttpServiceIntegrationTestFuns.HttpServiceTestFixtureData(
         uri,
@@ -163,10 +151,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       executionSequencerFactory: ExecutionSequencerFactory,
   ): A = {
     import com.digitalasset.canton.ledger.client.configuration.*
-    val jsonApiPort = fixtureParam.participant1.config.httpLedgerApi
-      .valueOrFail("http ledger api must be configured")
-      .server
-      .port
+    val jsonApiPort = fixtureParam.participant1.config.httpLedgerApi.server.internalPort
       .valueOrFail("port must be configured")
 
     val userId = getClass.getName
@@ -180,7 +165,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       loggerFactory,
     )
 
-    testFn(jsonApiPort, client)
+    testFn(jsonApiPort.unwrap, client)
   }
 
   def usingParticipantLedger[A](
@@ -194,10 +179,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
   ): A = {
     import com.digitalasset.canton.ledger.client.configuration.*
     val participant = participantSelector(fixtureParam)
-    val jsonApiPort = participant.config.httpLedgerApi
-      .valueOrFail("http ledger api must be configured")
-      .server
-      .port
+    val jsonApiPort = participant.config.httpLedgerApi.server.internalPort
       .valueOrFail("port must be configured")
 
     val userId = getClass.getName
@@ -211,7 +193,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
       loggerFactory,
     )
 
-    testFn(jsonApiPort, client)
+    testFn(jsonApiPort.unwrap, client)
   }
 
   protected def getToken(

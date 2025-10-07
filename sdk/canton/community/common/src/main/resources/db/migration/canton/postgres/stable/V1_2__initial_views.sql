@@ -195,6 +195,7 @@ create or replace view debug.common_crypto_public_keys as
 
 create or replace view debug.par_contracts as
   select
+    internal_contract_id,
     lower(encode(contract_id, 'hex')) as contract_id,
     instance,
     package_id,
@@ -559,7 +560,6 @@ create or replace view debug.sequencer_synchronizer_configuration as
 
 create or replace view debug.mediator_deduplication_store as
   select
-    mediator_id,
     uuid,
     debug.canton_timestamp(request_time) as request_time,
     debug.canton_timestamp(expire_after) as expire_after

@@ -1817,7 +1817,10 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             directDeps = List.empty,
             languageVersion = defaultLanguageVersion,
             metadata = packageMetadata,
-            imports = Left("package made in com.digitalasset.daml.lf.validation.TypingSpecV2"),
+            imports = GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.validation.TypingSpecV2",
+              pkgIds = Set.empty,
+            ),
           )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
@@ -1851,7 +1854,10 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             directDeps = List.empty,
             languageVersion = defaultLanguageVersion,
             metadata = packageMetadata,
-            imports = Left("package made in com.digitalasset.daml.lf.validation.TypingSpecV2"),
+            imports = GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.validation.TypingSpecV2",
+              pkgIds = Set.empty,
+            ),
           )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
@@ -1885,7 +1891,10 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
             directDeps = List.empty,
             languageVersion = defaultLanguageVersion,
             metadata = packageMetadata,
-            imports = Left("package made in com.digitalasset.daml.lf.validation.TypingSpecV2"),
+            imports = GeneratedImports(
+              reason = "package made in com.digitalasset.daml.lf.validation.TypingSpecV2",
+              pkgIds = Set.empty,
+            ),
           )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),

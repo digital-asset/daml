@@ -127,9 +127,7 @@ final class BlockChunkProcessor(
       ) = validationResult
 
       finalInFlightAggregationsWithAggregationExpiry =
-        finalInFlightAggregations.filterNot { case (_, inFlightAggregation) =>
-          inFlightAggregation.expired(lastTsBeforeValidation)
-        }
+        expireInFlightAggregations(finalInFlightAggregations, lastTsBeforeValidation)
       chunkUpdate =
         ChunkUpdate(
           acksByMember,
@@ -161,6 +159,14 @@ final class BlockChunkProcessor(
         )
     } yield (newState, chunkUpdate)
   }
+
+  private def expireInFlightAggregations(
+      finalInFlightAggregations: InFlightAggregations,
+      timestamp: CantonTimestamp,
+  ): InFlightAggregations =
+    finalInFlightAggregations.filterNot { case (_, inFlightAggregation) =>
+      inFlightAggregation.expired(timestamp)
+    }
 
   private def logChunkDetails(
       state: State,
@@ -253,7 +259,6 @@ final class BlockChunkProcessor(
           synchronizerSyncCryptoApi,
           tickSequencingTimestamp,
           state.latestSequencerEventTimestamp,
-          protocolVersion,
           warnIfApproximate = false,
         )
       _ = logger.debug(
@@ -265,10 +270,15 @@ final class BlockChunkProcessor(
           snapshot.ipsSnapshot,
         )
     } yield {
+      val unexpiredInFlightAggregations = expireInFlightAggregations(
+        state.inFlightAggregations,
+        tickSequencingTimestamp,
+      )
       val newState =
         state.copy(
           lastChunkTs = tickSequencingTimestamp,
           latestSequencerEventTimestamp = Some(tickSequencingTimestamp),
+          inFlightAggregations = unexpiredInFlightAggregations,
         )
       val tickSubmissionOutcome =
         SubmissionOutcome.Deliver(
@@ -294,7 +304,7 @@ final class BlockChunkProcessor(
         invalidAcknowledgements = Seq.empty,
         inFlightAggregationUpdates = Map.empty,
         lastSequencerEventTimestamp = Some(tickSequencingTimestamp),
-        inFlightAggregations = state.inFlightAggregations,
+        inFlightAggregations = unexpiredInFlightAggregations,
         submissionsOutcomes = Seq(tickSubmissionOutcome),
       )
 
@@ -382,7 +392,6 @@ final class BlockChunkProcessor(
                         topologyTimestamp,
                         sequencingTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                         _.sequencerTopologyTimestampTolerance,
                       )
@@ -416,7 +425,6 @@ final class BlockChunkProcessor(
                         synchronizerSyncCryptoApi,
                         sequencingTimestamp,
                         latestSequencerEventTimestamp,
-                        protocolVersion,
                         warnIfApproximate,
                       )
                       .map { snapshot =>
@@ -471,7 +479,6 @@ final class BlockChunkProcessor(
         synchronizerSyncCryptoApi,
         state.lastBlockTs,
         state.latestSequencerEventTimestamp,
-        protocolVersion,
         warnIfApproximate = false,
       )
       synchronizerSuccessorO <- snapshot.ipsSnapshot

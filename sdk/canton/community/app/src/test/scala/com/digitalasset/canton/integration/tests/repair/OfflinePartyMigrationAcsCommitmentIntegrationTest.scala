@@ -12,8 +12,8 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.integration.{
@@ -177,7 +177,7 @@ sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
 
 final class OfflinePartyMigrationAcsCommitmentIntegrationTestPostgres
     extends OfflinePartyMigrationAcsCommitmentIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UsePostgres(loggerFactory))
 }
 

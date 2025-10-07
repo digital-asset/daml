@@ -50,11 +50,8 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, webSocketBody}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-// TODO(#23504) remove deprecated methods
-@nowarn("cat=deprecation")
 class JsUpdateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -331,18 +328,7 @@ class JsUpdateService(
     req => {
       implicit val tc = req.traceContext
       Flow[LegacyDTOs.GetUpdatesRequest].map { request =>
-        update_service.GetUpdatesRequest(
-          beginExclusive = request.beginExclusive,
-          endInclusive = request.endInclusive,
-          filter = request.filter.map(f =>
-            transaction_filter.TransactionFilter(
-              filtersByParty = f.filtersByParty,
-              filtersForAnyParty = f.filtersForAnyParty,
-            )
-          ),
-          verbose = request.verbose,
-          updateFormat = request.updateFormat,
-        )
+        toGetUpdatesRequest(request, forTrees = false)
       } via
         prepareSingleWsStream(
           updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
@@ -404,8 +390,6 @@ class JsUpdateService(
         update_service.GetUpdatesRequest(
           beginExclusive = req.beginExclusive,
           endInclusive = req.endInclusive,
-          filter = None,
-          verbose = false,
           updateFormat = req.updateFormat,
         )
       case (None, None, _) =>
@@ -418,8 +402,6 @@ class JsUpdateService(
         update_service.GetUpdatesRequest(
           beginExclusive = req.beginExclusive,
           endInclusive = req.endInclusive,
-          filter = None,
-          verbose = false,
           updateFormat = Some(toUpdateFormat(filter, verbose, forTrees)),
         )
     }
@@ -478,15 +460,19 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get flat transactions update stream (deprecated: use v2/updates instead)")
+    .deprecated()
+    .description(
+      "Get flat transactions update stream. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
+    )
 
   val getUpdatesFlatListEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("flats"))
       .in(jsonBody[LegacyDTOs.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdatesResponse]])
+      .deprecated()
       .description(
-        "Query flat transactions update list (blocking call, deprecated: use v2/updates instead)"
+        "Query flat transactions update list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
       )
       .inStreamListParamsAndDescription()
 
@@ -500,15 +486,19 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get update transactions tree stream (deprecated: use v2/updates instead)")
+    .deprecated()
+    .description(
+      "Get update transactions tree stream. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
+    )
 
   val getUpdatesTreeListEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("trees"))
       .in(jsonBody[LegacyDTOs.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdateTreesResponse]])
+      .deprecated()
       .description(
-        "Query update transactions tree list (blocking call, deprecated: use v2/updates instead)"
+        "Query update transactions tree list (blocking call). Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates instead."
       )
       .inStreamListParamsAndDescription()
 
@@ -517,8 +507,9 @@ object JsUpdateService extends DocumentationEndpoints {
     .in(path[Long]("offset"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
+    .deprecated()
     .description(
-      "Get transaction tree by offset (deprecated: use v2/updates/update-by-offset instead)"
+      "Get transaction tree by offset. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset instead."
     )
 
   val getTransactionTreeByIdEndpoint = updates.get
@@ -526,22 +517,29 @@ object JsUpdateService extends DocumentationEndpoints {
     .in(path[String]("update-id"))
     .in(query[List[String]]("parties"))
     .out(jsonBody[JsGetTransactionTreeResponse])
-    .description("Get transaction tree by id (deprecated: use v2/updates/update-by-id instead)")
+    .deprecated()
+    .description(
+      "Get transaction tree by id. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-id instead."
+    )
 
   val getTransactionByIdEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("transaction-by-id"))
       .in(jsonBody[LegacyDTOs.GetTransactionByIdRequest])
       .out(jsonBody[JsGetTransactionResponse])
-      .description("Get transaction by id (deprecated: use v2/updates/update-by-id instead)")
+      .deprecated()
+      .description(
+        "Get transaction by id. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-id instead."
+      )
 
   val getTransactionByOffsetEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("transaction-by-offset"))
       .in(jsonBody[LegacyDTOs.GetTransactionByOffsetRequest])
       .out(jsonBody[JsGetTransactionResponse])
+      .deprecated()
       .description(
-        "Get transaction by offset (deprecated: use v2/updates/update-by-offset instead)"
+        "Get transaction by offset. Provided for backwards compatibility, it will be removed in the Canton version 3.5.0, use v2/updates/update-by-offset instead."
       )
 
   val getUpdateByOffsetEndpoint =
@@ -604,8 +602,6 @@ final case class JsGetUpdateTreesResponse(
     update: JsUpdateTree.Update
 )
 
-// TODO(#23504) remove suppression of deprecation warnings
-@nowarn("cat=deprecation")
 object JsUpdateServiceCodecs {
   import JsSchema.config
   import JsSchema.JsServicesCommonCodecs.*
@@ -616,11 +612,6 @@ object JsUpdateServiceCodecs {
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveRelaxedCodec
   implicit val getUpdatesRequestRW: Codec[update_service.GetUpdatesRequest] = deriveRelaxedCodec
   implicit val getUpdatesRequestLegacyRW: Codec[LegacyDTOs.GetUpdatesRequest] = deriveRelaxedCodec
-  implicit val getTransactionByIdRequestRW: Codec[update_service.GetTransactionByIdRequest] =
-    deriveRelaxedCodec
-  implicit val getTransactionByOffsetRequestRW
-      : Codec[update_service.GetTransactionByOffsetRequest] =
-    deriveRelaxedCodec
   implicit val getTransactionByIdRequestLegacyRW: Codec[LegacyDTOs.GetTransactionByIdRequest] =
     deriveRelaxedCodec
   implicit val getTransactionByOffsetRequestLegacyRW

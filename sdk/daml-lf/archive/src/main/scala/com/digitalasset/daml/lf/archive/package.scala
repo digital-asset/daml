@@ -4,15 +4,12 @@
 package com.digitalasset.daml.lf
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.nameof.NameOf
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.scalautil.Statement.discard
-import com.google.protobuf.CodedInputStream
 
 import scala.util.Using
 import scala.util.Using.Releasable
 import scala.util.control.NonFatal
-
 import Ordering.Implicits.infixOrderingOps
 
 package object archive {
@@ -46,43 +43,37 @@ package object archive {
   // possible otherwise complex models failed to deserialize.
   private val EXTENDED_PROTOBUF_RECURSION_LIMIT: Int = 1000
 
-  private[this] val Base: GenReader[CodedInputStream] =
-    new GenReader[CodedInputStream]({ cos =>
-      Right(cos)
-    })
-
   val ArchiveParser: GenReader[DamlLf.Archive] =
-    Base.andThen { cos =>
-      attempt(getClass.getCanonicalName + ".ArchiveParser")(DamlLf.Archive.parseFrom(cos))
-    }
+    GenReader.Base(getClass.getCanonicalName + ".ArchiveParser", DamlLf.Archive.parseFrom)
   val ArchiveReader: GenReader[ArchivePayload] =
     ArchiveParser.andThen(Reader.readArchive)
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
     ArchiveReader.andThen(Decode.decodeArchivePayload(_))
 
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
-    Base.andThen { cos =>
-      attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
-        DamlLf.ArchivePayload.parseFrom(cos)
-      )
-    }
+    GenReader.Base(
+      getClass.getCanonicalName + ".ArchivePayloadParser",
+      DamlLf.ArchivePayload.parseFrom,
+    )
   val lf1PackageParser: GenReader[DamlLf1.Package] =
-    Base.andThen { cos =>
-      discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
-      attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
+    GenReader.Base(
+      getClass.getCanonicalName + ".Lf1PackageParser",
+      { cos =>
+        discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
         DamlLf1.Package.parseFrom(cos)
-      )
-    }
+      },
+    )
 
   def lf2PackageParser(minor: LanguageVersion.Minor): GenReader[DamlLf2.Package] =
-    Base.andThen { cos =>
-      val langVersion = LanguageVersion(LanguageVersion.Major.V2, minor)
-      if (langVersion < LanguageVersion.Features.flatArchive)
-        discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
-      attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
+    GenReader.Base(
+      getClass.getCanonicalName + ".Lf2PackageParser",
+      { cos =>
+        val langVersion = LanguageVersion(LanguageVersion.Major.V2, minor)
+        if (langVersion < LanguageVersion.Features.flatArchive)
+          discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
         DamlLf2.Package.parseFrom(cos)
-      )
-    }
+      },
+    )
 
   def archivePayloadDecoder(
       hash: PackageId,
@@ -92,20 +83,23 @@ package object archive {
       .andThen(Reader.readArchivePayload(hash, _))
       .andThen(Decode.decodeArchivePayload(_, onlySerializableDataDefs))
 
-  private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] = {
+  private def ModuleParser(ver: LanguageVersion): GenReader[DamlLf2.Package] =
     ver.major match {
-      case LanguageVersion.Major.V2 =>
-        Base
-          .andThen { cos =>
+      case LanguageMajorVersion.V2 =>
+        GenReader.Base(
+          getClass.getCanonicalName + ".ModuleParser",
+          { cos =>
             if (ver < LanguageVersion.Features.flatArchive)
               discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
-            attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf2.Package.parseFrom(cos))
-          }
-          .andThen(new DecodeV2(ver.minor).decodeSingleModulePackage(pkgId, _))
-      case _ =>
-        new GenReader[Ast.Module](_ => Left(Error.Parsing(s"LF version $ver unsupported")))
+            DamlLf2.Package.parseFrom(cos)
+          },
+        )
+      case LanguageMajorVersion.V1 =>
+        GenReader.fail(Error.Parsing(s"LF version $ver unsupported"))
     }
-  }
+
+  private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] =
+    ModuleParser(ver).andThen(new DecodeV2(ver.minor).decodeSingleModulePackage(pkgId, _))
 
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)

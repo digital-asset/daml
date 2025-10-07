@@ -19,8 +19,8 @@ import com.digitalasset.canton.examples.java.cycle as C
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{PartiesAllocator, PartyToParticipantDeclarative}
@@ -245,7 +245,7 @@ trait TopologyManagementIntegrationTest
         )
       }
 
-      val snapshot = participant1.topology.transactions.export_topology_snapshot(daId)
+      val snapshot = participant1.topology.transactions.export_topology_snapshotV2(daId)
 
       // ignores duplicate transaction
       loggerFactory.assertLogsSeq(
@@ -254,7 +254,7 @@ trait TopologyManagementIntegrationTest
       )(
         {
           participant1.topology.transactions.load(Seq(tx), daId)
-          participant1.topology.transactions.import_topology_snapshot(snapshot, daId)
+          participant1.topology.transactions.import_topology_snapshotV2(snapshot, daId)
         },
         { logEntries =>
           logEntries should not be empty
@@ -1366,7 +1366,7 @@ trait TopologyManagementIntegrationTest
 
 class TopologyManagementReferenceIntegrationTestPostgres extends TopologyManagementIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 class TopologyManagementBftOrderingIntegrationTestPostgres

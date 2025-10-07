@@ -53,7 +53,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ContractAuthenticator
+import com.digitalasset.canton.util.ContractValidator
 import com.digitalasset.canton.util.ShowUtil.*
 import org.slf4j.event.Level
 
@@ -67,6 +67,7 @@ class TransactionProcessor(
     damle: DAMLe,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     crypto: SynchronizerCryptoClient,
+    contractValidator: ContractValidator,
     sequencerClient: SequencerClient,
     inFlightSubmissionSynchronizerTracker: InFlightSubmissionSynchronizerTracker,
     ephemeral: SyncEphemeralState,
@@ -97,7 +98,7 @@ class TransactionProcessor(
         ModelConformanceChecker(
           damle,
           confirmationRequestFactory.transactionTreeFactory,
-          ContractAuthenticator(crypto.pureCrypto),
+          contractValidator,
           participantId,
           packageResolver,
           crypto.pureCrypto,
@@ -106,7 +107,6 @@ class TransactionProcessor(
         staticSynchronizerParameters,
         crypto,
         metrics,
-        ContractAuthenticator(crypto.pureCrypto),
         damle.enrichTransaction,
         damle.enrichCreateNode,
         new AuthorizationValidator(participantId),
@@ -476,7 +476,7 @@ object TransactionProcessor {
   }
 
   final case class ViewParticipantDataError(
-      transactionId: TransactionId,
+      transactionId: UpdateId,
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {

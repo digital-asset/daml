@@ -7,6 +7,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
@@ -48,31 +49,37 @@ final case class CommitCertificate(
 
 object ConsensusCertificate {
   def fromProto(
-      consensusCertificate: ProtoConsensusCertificate
+      consensusCertificate: ProtoConsensusCertificate,
+      actualSender: Option[BftNodeId],
   ): ParsingResult[ConsensusCertificate] =
     consensusCertificate.certificate match {
       case ProtoConsensusCertificate.Certificate.Empty =>
         Left(ProtoDeserializationError.OtherError("consensus certificate is empty"))
       case ProtoConsensusCertificate.Certificate.PrepareCertificate(prepareCertificate) =>
-        PrepareCertificate.fromProto(prepareCertificate)
+        PrepareCertificate.fromProto(prepareCertificate, actualSender)
       case ProtoConsensusCertificate.Certificate.CommitCertificate(commitCertificate) =>
-        CommitCertificate.fromProto(commitCertificate)
+        CommitCertificate.fromProto(commitCertificate, actualSender)
     }
 }
 
 object PrepareCertificate {
   def fromProto(
-      prepareCertificate: v30.PrepareCertificate
+      prepareCertificate: v30.PrepareCertificate,
+      actualSender: Option[BftNodeId],
   ): ParsingResult[PrepareCertificate] =
     for {
       prePrepare <- ProtoConverter
         .parseRequired(
-          SignedMessage.fromProto(v30.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
+          SignedMessage.fromProto(v30.ConsensusMessage)(
+            PrePrepare.fromProtoConsensusMessage(actualSender, _)
+          ),
           "prePrepare",
           prepareCertificate.prePrepare,
         )
       prepares <- prepareCertificate.prepares.traverse(
-        SignedMessage.fromProto(v30.ConsensusMessage)(Prepare.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v30.ConsensusMessage)(
+          Prepare.fromProtoConsensusMessage(actualSender, _)
+        )
       )
     } yield PrepareCertificate(prePrepare, prepares)
 }
@@ -82,17 +89,22 @@ object CommitCertificate {
     Ordering.by(commit => (commit.from, commit.localTimestamp))
 
   def fromProto(
-      commitCertificate: v30.CommitCertificate
+      commitCertificate: v30.CommitCertificate,
+      actualSender: Option[BftNodeId],
   ): ParsingResult[CommitCertificate] =
     for {
       prePrepare <- ProtoConverter
         .parseRequired(
-          SignedMessage.fromProto(v30.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
+          SignedMessage.fromProto(v30.ConsensusMessage)(
+            PrePrepare.fromProtoConsensusMessage(actualSender, _)
+          ),
           "prePrepare",
           commitCertificate.prePrepare,
         )
       commits <- commitCertificate.commits.traverse(
-        SignedMessage.fromProto(v30.ConsensusMessage)(Commit.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v30.ConsensusMessage)(
+          Commit.fromProtoConsensusMessage(actualSender, _)
+        )
       )
     } yield CommitCertificate(prePrepare, commits)
 }

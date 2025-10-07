@@ -12,7 +12,7 @@ import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.json.v2.JsCommandServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.*
 import com.digitalasset.canton.http.json.v2.{JsCommand, JsCommands, JsGetActiveContractsResponse}
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.util.MonadUtil
 import io.circe.parser.decode
 import io.circe.syntax.*
@@ -26,7 +26,7 @@ import scala.concurrent.Future
 class JsonStreamAsListPerformanceTests
     extends AbstractHttpServiceIntegrationTestFuns
     with HttpServiceUserFixture.UserToken {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   private val numberOfRepeatedCalls: Int = 5
   private val maxAverageTimeForCall: Long = 1000
@@ -58,9 +58,7 @@ class JsonStreamAsListPerformanceTests
                 .parse(
                   state_service
                     .GetActiveContractsRequest(
-                      filter = None,
                       activeAtOffset = completionOffset,
-                      verbose = false,
                       eventFormat = Some(
                         transaction_filter.EventFormat(
                           filtersByParty = Map.empty,

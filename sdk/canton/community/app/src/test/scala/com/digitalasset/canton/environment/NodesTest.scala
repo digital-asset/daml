@@ -21,7 +21,6 @@ import com.digitalasset.canton.concurrent.{
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
 import com.digitalasset.canton.crypto.Crypto
-import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
@@ -151,7 +150,6 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       storageFactory = new StorageSingleFactory(StorageConfig.Memory()),
       cryptoPrivateStoreFactory =
         CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
-      kmsFactory = CommunityKmsFactory,
     )
     .value
 

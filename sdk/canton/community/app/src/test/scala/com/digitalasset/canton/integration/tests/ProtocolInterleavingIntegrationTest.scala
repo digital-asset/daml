@@ -14,8 +14,8 @@ import com.digitalasset.canton.damltests.java.conflicttest.{Many, Single}
 import com.digitalasset.canton.integration.IntegrationTestUtilities.assertIncreasingRecordTime
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -474,7 +474,7 @@ trait ProtocolInterleavingIntegrationTest
 
 class ProtocolInterleavingReferenceIntegrationTestPostgres
     extends ProtocolInterleavingIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }
 

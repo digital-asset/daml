@@ -150,7 +150,7 @@ class DecodeV2Spec
       }
     }
 
-    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" in {
+    s"Reject local flattening if lf version >= ${LV.Features.exprInterning}" in {
       val input = DamlLf2.Kind
         .newBuilder()
         .setArrow(
@@ -325,7 +325,7 @@ class DecodeV2Spec
       }
     }
 
-    s"translate exception types iff version >= ${LV.Features.exceptions}" in {
+    s"translate exception types" in {
       val exceptionBuiltinTypes = Table(
         "builtin types",
         DamlLf2.BuiltinType.ANY_EXCEPTION -> Ast.BTAnyException,
@@ -335,18 +335,12 @@ class DecodeV2Spec
         val decoder = moduleDecoder(version)
         forEvery(exceptionBuiltinTypes) { case (proto, bType) =>
           val result = Try(decoder.uncheckedDecodeTypeForTest(buildPrimType(proto)))
-
-          if (version >= LV.Features.exceptions)
-            result shouldBe Success(Ast.TBuiltin(bType))
-          else
-            inside(result) { case Failure(error) =>
-              error shouldBe an[Error.Parsing]
-            }
+          result shouldBe Success(Ast.TBuiltin(bType))
         }
       }
     }
 
-    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" should {
+    s"Reject local flattening if lf version >= ${LV.Features.exprInterning}" should {
 
       "for case VAR (enforced: null)" in {
         val stringTable = ImmArraySeq("a")
@@ -714,7 +708,7 @@ class DecodeV2Spec
 
     }
 
-    s"translate exception primitive as is iff version >= ${LV.Features.exceptions}" in {
+    s"translate exception primitive" in {
       val exceptionBuiltinCases = Table(
         "exception primitive" -> "expected output",
         toProtoExpr(DamlLf2.BuiltinFunction.ANY_EXCEPTION_MESSAGE) ->
@@ -741,17 +735,12 @@ class DecodeV2Spec
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
           val result = Try(decoder.decodeExprForTest(proto, "test"))
 
-          if (version >= LV.Features.exceptions)
-            result shouldBe Success(scala)
-          else
-            inside(result) { case Failure(error) =>
-              error shouldBe an[Error.Parsing]
-            }
+          result shouldBe Success(scala)
         }
       }
     }
 
-    s"translate UpdateTryCatch as is iff version >= ${LV.Features.exceptions}" in {
+    s"translate UpdateTryCatch" in {
       val tryCatchProto =
         DamlLf2.Update.TryCatch
           .newBuilder()
@@ -775,12 +764,7 @@ class DecodeV2Spec
         val decoder =
           moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         val result = Try(decoder.decodeExprForTest(tryCatchExprProto, "test"))
-        if (version >= LV.Features.exceptions)
-          result shouldBe Success(tryCatchExprScala)
-        else
-          inside(result) { case Failure(error) =>
-            error shouldBe an[Error.Parsing]
-          }
+        result shouldBe Success(tryCatchExprScala)
       }
     }
 
@@ -1202,7 +1186,7 @@ class DecodeV2Spec
       }
     }
 
-    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" should {
+    s"Reject local flattening if lf version >= ${LV.Features.exprInterning}" should {
       "for case ABS (enforced: singleton)" in {
         val internedZero = DamlLf2.Expr
           .newBuilder()

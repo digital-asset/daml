@@ -13,7 +13,7 @@ from google.protobuf.json_format import MessageToJson
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2_grpc
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2
 from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2
-from external_party_onboarding import onboard_external_party
+from external_party_onboarding_admin_api import onboard_external_party
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -102,21 +102,8 @@ def get_active_contracts(party: str):
     )
     active_contracts_response = state_client.GetActiveContracts(
         state_service_pb2.GetActiveContractsRequest(
-            filter=transaction_filter_pb2.TransactionFilter(
-                filters_by_party={
-                    party: transaction_filter_pb2.Filters(
-                        cumulative=[
-                            transaction_filter_pb2.CumulativeFilter(
-                                wildcard_filter=transaction_filter_pb2.WildcardFilter(
-                                    include_created_event_blob=True
-                                )
-                            )
-                        ]
-                    )
-                }
-            ),
+            event_format=get_event_format(party),
             active_at_offset=ledger_end_response.offset,
-            verbose=True,
         )
     )
     return active_contracts_response
@@ -208,15 +195,20 @@ def execute_and_get_contract_id(
             completion: completion_pb2.Completion = update.completion
             break
 
-    transaction_response: update_service_pb2.GetTransactionResponse = (
-        us_client.GetTransactionById(
-            update_service_pb2.GetTransactionByIdRequest(
+    update_response: update_service_pb2.GetUpdateResponse = (
+        us_client.GetUpdateById(
+            update_service_pb2.GetUpdateByIdRequest(
                 update_id=completion.update_id,
-                requesting_parties=[party],
+                update_format=transaction_filter_pb2.UpdateFormat(
+                    include_transactions=transaction_filter_pb2.TransactionFormat(
+                        event_format=get_event_format(party),
+                        transaction_shape=transaction_filter_pb2.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+                    )
+                )
             )
         )
     )
-    for event in transaction_response.transaction.events:
+    for event in update_response.transaction.events:
         if event.HasField("created"):
             contract_id = event.created.contract_id
             break

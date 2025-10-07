@@ -11,9 +11,9 @@ import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -31,6 +31,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   ProgrammableSequencer,
 }
 import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
 import com.digitalasset.canton.{LedgerParticipantId, config}
 import monocle.Monocle.toAppliedFocusOps
 
@@ -70,6 +71,7 @@ trait AcsCommitmentRestartIntegrationTest
             sequencerAggregateSubmissionTimeout = config
               .NonNegativeFiniteDuration(confirmationResponseTimeout.plus(mediatorReactionTimeout)),
           ),
+          force = ForceFlags(ForceFlag.AllowOutOfBoundsValue),
         )
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
@@ -221,6 +223,6 @@ trait AcsCommitmentRestartIntegrationTest
 
 class AcsCommitmentRestartIntegrationTestPostgres extends AcsCommitmentRestartIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

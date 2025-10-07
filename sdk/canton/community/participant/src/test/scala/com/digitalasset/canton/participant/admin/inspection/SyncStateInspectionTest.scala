@@ -30,6 +30,7 @@ import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
   SyncPersistentStateManager,
 }
+import com.digitalasset.canton.platform.store.interning.MockStringInterning
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedSynchronizer
@@ -61,6 +62,8 @@ sealed trait SyncStateInspectionTest
     with FailOnShutdown
     with HasExecutionContext {
   this: DbTest =>
+
+  val mockStringInterning = new MockStringInterning
 
   override def cleanDb(
       storage: DbStorage
@@ -145,6 +148,7 @@ sealed trait SyncStateInspectionTest
       acsCounterParticipantConfigStore,
       timeouts,
       loggerFactory,
+      Eval.now(mockStringInterning),
     )
 
     when(syncStateInspection.syncPersistentStateManager.acsCommitmentStore(synchronizerId))

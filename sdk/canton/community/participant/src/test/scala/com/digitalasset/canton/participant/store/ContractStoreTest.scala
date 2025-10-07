@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.ExampleContractFactory
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.packageId
+import com.digitalasset.canton.protocol.{ExampleContractFactory, GenContractInstance, LfContractId}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.transaction.CreationTime
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -20,33 +20,41 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
   protected val charlie: LfPartyId = LfPartyId.assertFromString("charlie")
   protected val david: LfPartyId = LfPartyId.assertFromString("david")
 
-  def contractStore(mk: () => ContractStore): Unit = {
+  protected val contract: GenContractInstance { type InstCreatedAtTime <: CreationTime.CreatedAt } =
+    ExampleContractFactory.build()
+  protected val contractId: LfContractId = contract.contractId
 
-    val contract = ExampleContractFactory.build()
-    val contractId = contract.contractId
-
-    val let2 = CantonTimestamp.Epoch.plusSeconds(5)
-    val pkgId2 = Ref.PackageId.assertFromString("different_id")
-    val contract2 = ExampleContractFactory.build(
+  protected val let2: CantonTimestamp = CantonTimestamp.Epoch.plusSeconds(5)
+  protected val pkgId2: IdString.PackageId = Ref.PackageId.assertFromString("different_id")
+  protected val contract2
+      : GenContractInstance { type InstCreatedAtTime <: CreationTime.CreatedAt } =
+    ExampleContractFactory.build(
       templateId = Ref.Identifier(pkgId2, QualifiedName.assertFromString("module:template")),
       createdAt = CreationTime.CreatedAt(let2.toLf),
     )
-    val contractId2 = contract2.contractId
+  protected val contractId2: LfContractId = contract2.contractId
 
-    val templateName3 = QualifiedName.assertFromString("Foo:Bar")
-    val templateId3 = Ref.Identifier(packageId, templateName3)
-    val contract3 =
-      ExampleContractFactory.build(
-        templateId = templateId3,
-        createdAt = CreationTime.CreatedAt(let2.toLf),
-      )
-    val contractId3 = contract3.contractId
+  protected val templateName3: QualifiedName = QualifiedName.assertFromString("Foo:Bar")
+  protected val templateId3: Ref.FullReference[PackageId] = Ref.Identifier(packageId, templateName3)
+  protected val contract3
+      : GenContractInstance { type InstCreatedAtTime <: CreationTime.CreatedAt } =
+    ExampleContractFactory.build(
+      templateId = templateId3,
+      createdAt = CreationTime.CreatedAt(let2.toLf),
+    )
+  protected val contractId3: LfContractId = contract3.contractId
 
-    val contract4 = ExampleContractFactory.build(templateId = Ref.Identifier(pkgId2, templateName3))
-    val contractId4 = contract4.contractId
+  protected val contract4
+      : GenContractInstance { type InstCreatedAtTime <: CreationTime.CreatedAt } =
+    ExampleContractFactory.build(templateId = Ref.Identifier(pkgId2, templateName3))
+  protected val contractId4: LfContractId = contract4.contractId
 
-    val contract5 = ExampleContractFactory.build(templateId = Ref.Identifier(pkgId2, templateName3))
-    val contractId5 = contract5.contractId
+  protected val contract5
+      : GenContractInstance { type InstCreatedAtTime <: CreationTime.CreatedAt } =
+    ExampleContractFactory.build(templateId = Ref.Identifier(pkgId2, templateName3))
+  protected val contractId5: LfContractId = contract5.contractId
+
+  def contractStore(mk: () => ContractStore): Unit = {
 
     "store and retrieve a created contract" in {
       val store = mk()
@@ -256,6 +264,30 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4)).value
       } yield {
         res shouldBe Left(UnknownContracts(Set(contractId2)))
+      }
+    }
+
+    "store contracts and retrieve them by internal id" in {
+      val store = mk()
+
+      val contracts = Seq(contract, contract2, contract3, contract4)
+      val contractIds = contracts.map(_.contractId)
+
+      for {
+        _ <- store.storeContracts(contracts)
+        internalIdsMap <- store.lookupBatchedNonCachedInternalIds(contractIds)
+        persistedMap <- store.lookupBatchedNonCached(internalIdsMap.values)
+      } yield {
+        internalIdsMap.keys should contain theSameElementsAs contractIds
+        internalIdsMap.foreach { case (contractId, internalId) =>
+          persistedMap.get(internalId) match {
+            case Some(persisted) =>
+              persisted.inst.contractId shouldBe contractId
+            case None =>
+              fail(s"No persisted contract found for internal id $internalId")
+          }
+        }
+        succeed
       }
     }
   }

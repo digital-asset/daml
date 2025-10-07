@@ -372,20 +372,12 @@ class IdeLedgerClient(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
-          innerError.signatories,
-          innerError.observers,
-          innerError.keyOpt,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
-        )
-      case e @ Upgrade(innerError: Upgrade.DowngradeDropDefinedField) =>
-        SubmitError.UpgradeError.DowngradeDropDefinedField(
-          innerError.expectedType.pretty,
-          innerError.fieldIndex,
-          Pretty.prettyDamlException(e).renderWideStream.mkString,
-        )
-      case e @ Upgrade(innerError: Upgrade.DowngradeFailed) =>
-        SubmitError.UpgradeError.DowngradeFailed(
-          innerError.expectedType.pretty,
+          innerError.originalSignatories,
+          innerError.originalObservers,
+          innerError.originalKeyOpt,
+          innerError.recomputedSignatories,
+          innerError.recomputedObservers,
+          innerError.recomputedKeyOpt,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>
@@ -681,7 +673,7 @@ class IdeLedgerClient(
       for {
         speedyCommands <- eitherSpeedyCommands
         speedyDisclosures <- eitherSpeedyDisclosures
-        translated = compiledPackages.compiler.unsafeCompile(speedyCommands, ImmArray.empty)
+        translated = compiledPackages.compiler.unsafeCompile(speedyCommands)
         result =
           IdeLedgerRunner.submit(
             compiledPackages,

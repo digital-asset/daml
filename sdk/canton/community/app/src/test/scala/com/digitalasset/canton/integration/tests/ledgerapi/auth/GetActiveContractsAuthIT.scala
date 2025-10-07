@@ -11,12 +11,12 @@ import com.daml.ledger.api.v2.state_service.{
 }
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 
 import scala.concurrent.Future
 
 final class GetActiveContractsAuthIT extends SuperReaderServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "StateService#GetActiveContracts"
 
@@ -28,8 +28,6 @@ final class GetActiveContractsAuthIT extends SuperReaderServiceCallAuthTests {
       stub(StateServiceGrpc.stub(channel), context.token)
         .getActiveContracts(
           GetActiveContractsRequest(
-            filter = None,
-            verbose = false,
             activeAtOffset = 0,
             eventFormat = context.eventFormat.orElse(Some(eventFormat(getMainActorId))),
           ),

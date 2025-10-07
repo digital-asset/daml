@@ -70,13 +70,17 @@ create table common_crypto_public_keys (
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
+    internal_contract_id bigint generated always as identity,
     contract_id binary varying not null,
     -- The contract is a LfFatContractInstance serialized using the LF contract proto serializer.
     instance binary large object not null,
     package_id varchar not null,
     template_id varchar not null,
-    primary key (contract_id));
+    primary key (contract_id)
+);
 
+-- Index for lookup per internal_contract_id
+create index idx_par_contracts_internal on par_contracts(internal_contract_id);
 -- Index to speedup ContractStore.find
 -- package_id comes before template_id, because queries with package_id and without template_id make more sense than vice versa.
 -- contract_id is left out, because a query with contract_id can be served with the primary key.
@@ -314,7 +318,7 @@ create table par_commitment_snapshot (
     -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
     stakeholders_hash varchar not null,
-    stakeholders varchar array not null,
+    stakeholders integer array not null,
     commitment binary large object not null,
     primary key (synchronizer_idx, stakeholders_hash)
 );
@@ -384,12 +388,11 @@ create table seq_block_height (
 );
 
 create table mediator_deduplication_store (
-    mediator_id varchar not null,
     uuid varchar not null,
     request_time bigint not null,
     expire_after bigint not null
 );
-create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(mediator_id, expire_after);
+create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after);
 
 create type pruning_phase as enum ('started', 'completed');
 
@@ -731,6 +734,24 @@ create table common_topology_transactions (
 );
 
 create index idx_common_topology_transactions on common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
+
+-- for:
+-- - DbTopologyStore.findProposalsByTxHash
+-- - DbTopologyStore.findLatestTransactionsAndProposalsByTxHash
+create index idx_common_topology_transactions_by_tx_hash
+  on common_topology_transactions (store_id, tx_hash, is_proposal, valid_from, valid_until, rejection_reason);
+
+-- for:
+-- - DbTopologyStore.findEffectiveStateChanges
+create index idx_common_topology_transactions_effective_changes
+  on common_topology_transactions (store_id, is_proposal, valid_from, valid_until, rejection_reason);
+
+
+-- for:
+-- - DbTopologyStore.update, updating the valid_until column for past transactions
+create index idx_common_topology_transactions_for_valid_until_update
+  on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from);
+
 
 -- Stores the traffic balance updates
 create table seq_traffic_control_balance_updates (

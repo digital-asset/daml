@@ -43,7 +43,7 @@ class InMemoryFanoutBuffer(
   @volatile private[cache] var _bufferLog =
     Vector.empty[(Offset, TransactionLogUpdate)]
   @volatile private[cache] var _lookupMap =
-    Map.empty[UpdateId, TransactionLogUpdate]
+    Map.empty[String, TransactionLogUpdate]
 
   private val bufferMetrics = metrics.services.index.inMemoryFanoutBuffer
   private val pushTimer = bufferMetrics.push
@@ -125,7 +125,7 @@ class InMemoryFanoutBuffer(
 
   /** Lookup the accepted transaction update by transaction id. */
   def lookupTransaction(
-      updateId: UpdateId
+      updateId: String
   ): Option[TransactionLogUpdate.TransactionAccepted] =
     _lookupMap.get(updateId).collect { case tx: TransactionLogUpdate.TransactionAccepted => tx }
 
@@ -133,13 +133,13 @@ class InMemoryFanoutBuffer(
   def lookup(
       lookupKey: LookupKey
   ): Option[TransactionLogUpdate] = lookupKey match {
-    case LookupKey.UpdateId(updateId) => lookup(updateId)
-    case LookupKey.Offset(offset) => lookup(offset)
+    case LookupKey.ByUpdateId(updateId) => lookup(updateId.toHexString)
+    case LookupKey.ByOffset(offset) => lookup(offset)
   }
 
   /** Lookup the accepted transaction log update by update id. */
   private def lookup(
-      updateId: UpdateId
+      updateId: String
   ): Option[TransactionLogUpdate] = _lookupMap.get(updateId)
 
   /** Lookup the accepted transaction log update by update offset. */
@@ -154,23 +154,6 @@ class InMemoryFanoutBuffer(
       case Found(idx) => Some(vectorSnapshot(idx)._2)
       case _ => None
     }
-  }
-
-  // TODO(#23504) remove
-  /** Lookup the accepted transaction update by transaction offset. */
-  def lookupTransaction(
-      offset: Offset
-  ): Option[TransactionLogUpdate.TransactionAccepted] = {
-    val vectorSnapshot = _bufferLog
-
-    val searchResult = vectorSnapshot.view.map(_._1).search(offset)
-
-    val foundUpdate = searchResult match {
-      case Found(idx) => Some(vectorSnapshot(idx)._2)
-      case _ => None
-    }
-
-    foundUpdate.collect { case tx: TransactionLogUpdate.TransactionAccepted => tx }
   }
 
   /** Removes entries starting from the buffer head up until `endInclusive`.
@@ -222,7 +205,7 @@ class InMemoryFanoutBuffer(
 
   private def dropOldest(dropCount: Int): Unit = blocking(synchronized {
     val (evicted, remainingBufferLog) = _bufferLog.splitAt(dropCount)
-    val lookupKeysToEvict: View[UpdateId] =
+    val lookupKeysToEvict: View[String] =
       evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._1)
 
     _bufferLog = remainingBufferLog
@@ -231,7 +214,7 @@ class InMemoryFanoutBuffer(
 
   private def extractEntryFromMap(
       transactionLogUpdate: TransactionLogUpdate
-  ): Option[(UpdateId, TransactionLogUpdate)] =
+  ): Option[(String, TransactionLogUpdate)] =
     transactionLogUpdate match {
       case txAccepted: TransactionLogUpdate.TransactionAccepted =>
         Some(txAccepted.updateId -> txAccepted)
@@ -245,7 +228,6 @@ class InMemoryFanoutBuffer(
 }
 
 private[platform] object InMemoryFanoutBuffer {
-  type UpdateId = String
 
   /** Specialized slice representation of a Vector */
   private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable {

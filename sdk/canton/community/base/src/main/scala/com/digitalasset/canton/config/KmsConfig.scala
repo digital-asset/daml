@@ -130,7 +130,7 @@ object KmsConfig {
       disableSslVerification: Boolean = false,
       endpointOverride: Option[String] = None,
   ) extends KmsConfig
-      with EnterpriseOnlyCantonConfigValidation
+      with UniformCantonConfigValidation
 
   object Aws {
     val defaultTestConfig: Aws = Aws(region = "us-east-1")
@@ -167,7 +167,7 @@ object KmsConfig {
       override val retries: RetryConfig = RetryConfig(),
       endpointOverride: Option[String] = None,
   ) extends KmsConfig
-      with EnterpriseOnlyCantonConfigValidation
+      with UniformCantonConfigValidation
 
   object Gcp {
     val defaultTestConfig: Gcp = Gcp(

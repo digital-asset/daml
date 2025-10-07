@@ -16,7 +16,7 @@ load(
     "COMPILER_LF_MAJOR_VERSIONS",
     "lf_version_default_or_latest",
 )
-load("@os_info//:os_info.bzl", "is_darwin")
+load("@os_info//:os_info.bzl", "is_linux")
 
 da_scala_library(
     name = "interpreter",
@@ -54,10 +54,6 @@ da_scala_library(
 da_scala_library(
     name = "interpreter-test-lib",
     srcs = glob(["src/test/**/*Lib.scala"]),
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
     scalacopts = lf_scalacopts_stricter,
     deps = [
         ":interpreter",
@@ -66,7 +62,6 @@ da_scala_library(
         "//daml-lf/parser",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
@@ -150,6 +145,8 @@ da_scala_test(
     jvm_flags = [
         "-XX:-UseCompressedOops",
         "-XX:-UseCompressedClassPointers",
+        "--add-opens java.base/java.lang=ALL-UNNAMED",
+        "--add-opens java.base/java.math=ALL-UNNAMED",
     ],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
@@ -171,7 +168,7 @@ da_scala_test(
         "@maven//:org_openjdk_jol_jol_core",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
-) if not is_darwin else []
+) if is_linux else []
 
 scala_repl(
     name = "interpreter@repl",

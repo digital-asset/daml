@@ -92,7 +92,13 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
+import com.digitalasset.canton.util.{
+  ContractHasher,
+  ContractValidator,
+  ErrorUtil,
+  FutureUnlessShutdownUtil,
+  MonadUtil,
+}
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -127,6 +133,7 @@ class ConnectedSynchronizer(
     val ephemeral: SyncEphemeralState,
     val packageService: PackageService,
     synchronizerCrypto: SynchronizerCryptoClient,
+    contractValidator: ContractValidator,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
     missingKeysAlerter: MissingKeysAlerter,
@@ -170,23 +177,26 @@ class ConnectedSynchronizer(
   private val seedGenerator =
     new SeedGenerator(synchronizerCrypto.crypto.pureCrypto)
 
+  private val packageResolver: PackageResolver = pkgId =>
+    traceContext => packageService.getPackage(pkgId)(traceContext)
+
+  private val contractHasher = ContractHasher(engine, packageResolver)
+
   private[canton] val requestGenerator =
     TransactionConfirmationRequestFactory(
       participantId,
       psid,
     )(
       synchronizerCrypto.crypto.pureCrypto,
+      contractHasher,
       seedGenerator,
       parameters.loggingConfig,
       loggerFactory,
     )
 
-  private val packageResolver: PackageResolver = pkgId =>
-    traceContext => packageService.getPackage(pkgId)(traceContext)
-
   private val damle =
     new DAMLe(
-      pkgId => traceContext => packageService.getPackage(pkgId)(traceContext),
+      packageResolver,
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,
@@ -199,6 +209,7 @@ class ConnectedSynchronizer(
     damle,
     staticSynchronizerParameters,
     synchronizerCrypto,
+    contractValidator,
     sequencerClient,
     ephemeral.inFlightSubmissionSynchronizerTracker,
     ephemeral,
@@ -220,6 +231,7 @@ class ConnectedSynchronizer(
     ephemeral.inFlightSubmissionSynchronizerTracker,
     ephemeral,
     synchronizerCrypto,
+    contractValidator,
     seedGenerator,
     sequencerClient,
     timeouts,
@@ -238,6 +250,7 @@ class ConnectedSynchronizer(
     ephemeral.inFlightSubmissionSynchronizerTracker,
     ephemeral,
     synchronizerCrypto,
+    contractValidator,
     seedGenerator,
     sequencerClient,
     timeouts,
@@ -436,7 +449,7 @@ class ConnectedSynchronizer(
         changes
       })
 
-    def initializeClientAtCleanHead(): FutureUnlessShutdown[Unit] = {
+    def initializeClientAtCleanHead(): Unit = {
       // generally, the topology client will be initialised by the topology processor. however,
       // if there is nothing to be replayed, then the topology processor will only be initialised
       // once the first event is dispatched.
@@ -451,25 +464,15 @@ class ConnectedSynchronizer(
         ApproximateTime(resubscriptionTs),
         potentialTopologyChange = true,
       )
-      // now, compute epsilon at resubscriptionTs
-      topologyClient
-        .awaitSnapshot(resubscriptionTs)
-        .flatMap(snapshot =>
-          snapshot.findDynamicSynchronizerParametersOrDefault(
-            staticSynchronizerParameters.protocolVersion,
-            warnOnUsingDefault = false,
-          )
-        )
-        .map(_.topologyChangeDelay)
-        .map { topologyChangeDelay =>
-          // update client
-          topologyClient.updateHead(
-            SequencedTime(resubscriptionTs),
-            EffectiveTime(resubscriptionTs.plus(topologyChangeDelay.duration)),
-            ApproximateTime(resubscriptionTs),
-            potentialTopologyChange = true,
-          )
-        }
+      // now, compute epsilon at resubscriptionTs and update client
+      topologyClient.updateHead(
+        SequencedTime(resubscriptionTs),
+        EffectiveTime(
+          resubscriptionTs.plus(staticSynchronizerParameters.topologyChangeDelay.duration)
+        ),
+        ApproximateTime(resubscriptionTs),
+        potentialTopologyChange = true,
+      )
     }
 
     val startingPoints = ephemeral.startingPoints
@@ -483,7 +486,7 @@ class ConnectedSynchronizer(
       _ <- EitherT.right(sequencerConnectionListener.init())
 
       // Phase 0: Initialise topology client at current clean head
-      _ <- EitherT.right(initializeClientAtCleanHead())
+      _ = initializeClientAtCleanHead()
 
       // Phase 2: Log so we know if any repairs have been applied.
       _ = logger.info(s"The next repair counter would be $nextRepairCounter")
@@ -795,6 +798,7 @@ class ConnectedSynchronizer(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractIds: Seq[LfContractId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
+      sourceTopology: Source[TopologySnapshot],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
@@ -824,13 +828,14 @@ class ConnectedSynchronizer(
                 contractIds,
                 targetSynchronizer,
               ),
-            synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
+            sourceTopology.unwrap,
           )
     }
 
   override def submitAssignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
+      targetTopology: Target[TopologySnapshot],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
@@ -854,7 +859,7 @@ class ConnectedSynchronizer(
           .submit(
             AssignmentProcessingSteps
               .SubmissionParam(submitterMetadata, reassignmentId),
-            synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
+            targetTopology.unwrap,
           )
     }
 
@@ -1044,32 +1049,40 @@ object ConnectedSynchronizer {
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
         )
-      } yield new ConnectedSynchronizer(
-        synchronizerHandle,
-        participantId,
-        engine,
-        parameters,
-        participantNodePersistentState,
-        persistentState,
-        ephemeralState,
-        packageService,
-        synchronizerCrypto,
-        identityPusher,
-        topologyProcessor,
-        missingKeysAlerter,
-        sequencerConnectionSuccessorListener,
-        reassignmentCoordination,
-        commandProgressTracker,
-        ParallelMessageDispatcherFactory,
-        journalGarbageCollector,
-        acsCommitmentProcessor,
-        clock,
-        promiseUSFactory,
-        connectedSynchronizerMetrics,
-        futureSupervisor,
-        loggerFactory,
-        testingConfig,
-      )
+      } yield {
+        val contractValidator = ContractValidator(
+          synchronizerCrypto.pureCrypto,
+          engine,
+          packageId => traceContext => packageService.getPackage(packageId)(traceContext),
+        )
+        new ConnectedSynchronizer(
+          synchronizerHandle,
+          participantId,
+          engine,
+          parameters,
+          participantNodePersistentState,
+          persistentState,
+          ephemeralState,
+          packageService,
+          synchronizerCrypto,
+          contractValidator,
+          identityPusher,
+          topologyProcessor,
+          missingKeysAlerter,
+          sequencerConnectionSuccessorListener,
+          reassignmentCoordination,
+          commandProgressTracker,
+          ParallelMessageDispatcherFactory,
+          journalGarbageCollector,
+          acsCommitmentProcessor,
+          clock,
+          promiseUSFactory,
+          connectedSynchronizerMetrics,
+          futureSupervisor,
+          loggerFactory,
+          testingConfig,
+        )
+      }
     }
   }
 }

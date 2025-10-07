@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin
 
-import cats.Eval
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.{CachingConfigs, PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -56,8 +55,8 @@ class PackageUploaderTest
         )
         .futureValueUS
 
-      val darMainPackageId = DarMainPackageId.tryCreate(cantonExamplesMainPkgId)
-      validationResult.value shouldBe darMainPackageId
+      validationResult.value._1 shouldBe cantonExamplesMainPkgId
+      validationResult.value._2.size shouldBe 31
 
       // Assert not persisted
       packageStore.listPackages().futureValueUS shouldBe empty
@@ -274,6 +273,8 @@ class PackageUploaderTest
       loggerFactory = loggerFactory,
       packageMetadataViewConfig = PackageMetadataViewConfig(),
       timeouts = ProcessingTimeout(),
+      futureSupervisor = futureSupervisor,
+      exitOnFatalFailures = false,
     )
     val packageUploader = new PackageUploader(
       clock = clock,
@@ -285,7 +286,7 @@ class PackageUploaderTest
         paranoidMode = true,
       ),
       enableStrictDarValidation = enableStrictDarValidation,
-      packageMetadataView = Eval.now(mutablePackageMetadataViewImpl),
+      packageMetadataView = mutablePackageMetadataViewImpl,
       timeouts = ProcessingTimeout(),
       loggerFactory = loggerFactory,
     )

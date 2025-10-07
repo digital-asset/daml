@@ -431,9 +431,12 @@ object SubmitError {
         coid: ContractId,
         srcTemplateId: Identifier,
         dstTemplateId: Identifier,
-        signatories: Set[Party],
-        observers: Set[Party],
-        optKey: Option[GlobalKeyWithMaintainers],
+        originalSignatories: Set[Party],
+        originalObservers: Set[Party],
+        originalOptKey: Option[GlobalKeyWithMaintainers],
+        recomputedSignatories: Set[Party],
+        recomputedObservers: Set[Party],
+        recomputedOptKey: Option[GlobalKeyWithMaintainers],
         message: String,
     ) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
@@ -445,54 +448,33 @@ object SubmitError {
             ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
             ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
             ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
-            ("signatories", SList(signatories.toList.map(SParty).to(FrontStack))),
-            ("observers", SList(observers.toList.map(SParty).to(FrontStack))),
             (
-              "optKey",
-              SOptional(optKey.map(key => {
+              "originalSignatories",
+              SList(originalSignatories.toList.map(SParty).to(FrontStack)),
+            ),
+            ("originalObservers", SList(originalObservers.toList.map(SParty).to(FrontStack))),
+            (
+              "originalOptKey",
+              SOptional(originalOptKey.map(key => {
+                val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
+                val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
+                makeTuple(globalKey, maintainers)
+              })),
+            ),
+            (
+              "recomputedSignatories",
+              SList(recomputedSignatories.toList.map(SParty).to(FrontStack)),
+            ),
+            ("recomputedObservers", SList(recomputedObservers.toList.map(SParty).to(FrontStack))),
+            (
+              "recomputedOptKey",
+              SOptional(recomputedOptKey.map(key => {
                 val globalKey = globalKeyToAnyContractKey(env, key.globalKey)
                 val maintainers = SList(key.maintainers.toList.map(SParty).to(FrontStack))
                 makeTuple(globalKey, maintainers)
               })),
             ),
           )
-        SubmitErrorConverters(env).damlScriptError(
-          "UpgradeError",
-          ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
-        )
-      }
-    }
-
-    sealed case class DowngradeDropDefinedField(
-        expectedType: String,
-        fieldIndex: Long,
-        message: String,
-    ) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "DowngradeDropDefinedField",
-          1,
-          ("expectedType", SText(expectedType)),
-          ("fieldIndex", SInt64(fieldIndex)),
-        )
-        SubmitErrorConverters(env).damlScriptError(
-          "UpgradeError",
-          ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
-        )
-      }
-    }
-
-    sealed case class DowngradeFailed(expectedType: String, message: String) extends SubmitError {
-      override def toDamlSubmitError(env: Env): SValue = {
-        val upgradeErrorType = damlScriptUpgradeErrorType(
-          env,
-          "DowngradeFailed",
-          2,
-          ("expectedType", SText(expectedType)),
-        )
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           ("errorType", upgradeErrorType),
@@ -612,7 +594,9 @@ object SubmitError {
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
         case "TranslationError" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("TranslationError"), 1)
-        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 2)
+        case "AuthenticationError" =>
+          SEnum(devErrorTypeIdentifier, Name.assertFromString("AuthenticationError"), 2)
+        case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",

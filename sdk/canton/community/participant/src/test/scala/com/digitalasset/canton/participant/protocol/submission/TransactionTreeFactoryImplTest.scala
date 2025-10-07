@@ -15,9 +15,11 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   defaultTestingTopology,
 }
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -52,6 +54,7 @@ final class TransactionTreeFactoryImplTest
           factory.psid,
           factory.cantonContractIdVersion,
           factory.cryptoOps,
+          TestContractHasher.Async,
           loggerFactory,
         )
 
@@ -197,12 +200,12 @@ final class TransactionTreeFactoryImplTest
     }
   }
 
-  object TestPackageDependencyResolver extends PackageDependencyResolverUS {
+  object TestPackageDependencyResolver extends PackageDependencyResolver {
     import cats.syntax.either.*
     val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
     override def packageDependencies(packageId: PackageId)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
+    ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]] =
       packageId match {
         case ExampleTransactionFactory.packageId =>
           Right(Set(exampleDependency)).toEitherT[FutureUnlessShutdown]
@@ -210,13 +213,15 @@ final class TransactionTreeFactoryImplTest
       }
   }
 
-  object MisconfiguredPackageDependencyResolver extends PackageDependencyResolverUS {
+  object MisconfiguredPackageDependencyResolver extends PackageDependencyResolver {
     import cats.syntax.either.*
+    val exampleParticipant: ParticipantId = ParticipantId("MisconfiguredPackageDependencyResolver")
     val exampleDependency: IdString.PackageId = PackageId.assertFromString("example-dependency")
+
     override def packageDependencies(packageId: PackageId)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-      Left(packageId).toEitherT[FutureUnlessShutdown]
+    ): EitherT[FutureUnlessShutdown, (PackageId, ParticipantId), Set[PackageId]] =
+      Left(packageId -> exampleParticipant).toEitherT[FutureUnlessShutdown]
   }
 
 }

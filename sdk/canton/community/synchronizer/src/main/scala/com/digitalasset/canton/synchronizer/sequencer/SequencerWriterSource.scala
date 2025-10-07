@@ -306,7 +306,10 @@ object SequencerWriterSource {
           Flow[Traced[BatchWritten]].map { tracedBatchWritten =>
             tracedBatchWritten.withTraceContext { _ => batchWritten =>
               batchWritten.events.foreach { events =>
-                store.bufferEvents(events)
+                store.bufferEvents(events.map(_.map(_.id)))
+                events.foreach { event =>
+                  event.event.payloadO.foreach(store.bufferPayload(_)(event.traceContext))
+                }
               }
             }
             tracedBatchWritten

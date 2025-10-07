@@ -77,8 +77,10 @@ trait UpdateStreamsDbMetrics {
     val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_ids_stakeholder"
     )
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
-    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
+    val fetchEventCreatePayloadsLegacy: DatabaseMetrics = createDbMetrics(
+      "fetch_event_create_payloads"
+    )
+    val fetchEventConsumingPayloadsLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_payloads"
     )
 
@@ -91,19 +93,19 @@ trait UpdateStreamsDbMetrics {
   // Private constructor to avoid being instantiated multiple times by accident
   final class UpdatesLedgerEffectsStreamMetrics private[UpdateStreamsDbMetrics] {
 
-    val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+    val fetchEventCreateIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_stakeholder"
     )
-    val fetchEventCreateIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
+    val fetchEventCreateIdsNonStakeholderLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_create_ids_non_stakeholder"
     )
-    val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
+    val fetchEventConsumingIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_ids_stakeholder"
     )
-    val fetchEventConsumingIdsNonStakeholder: DatabaseMetrics = createDbMetrics(
+    val fetchEventConsumingIdsNonStakeholderLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_ids_non_stakeholder"
     )
-    val fetchEventNonConsumingIds: DatabaseMetrics = createDbMetrics(
+    val fetchEventNonConsumingIdsLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_non_consuming_ids_informee"
     )
     val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
@@ -125,14 +127,16 @@ trait UpdateStreamsDbMetrics {
   // Private constructor to avoid being instantiated multiple times by accident
   final class ReassignmentStreamMetrics private[UpdateStreamsDbMetrics] {
 
-    val fetchEventAssignIdsStakeholder: DatabaseMetrics = createDbMetrics(
+    val fetchEventAssignIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_assign_ids_stakeholder"
     )
-    val fetchEventUnassignIdsStakeholder: DatabaseMetrics = createDbMetrics(
+    val fetchEventUnassignIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_unassign_ids_stakeholder"
     )
-    val fetchEventAssignPayloads: DatabaseMetrics = createDbMetrics("fetch_event_assign_payloads")
-    val fetchEventUnassignPayloads: DatabaseMetrics = createDbMetrics(
+    val fetchEventAssignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
+      "fetch_event_assign_payloads"
+    )
+    val fetchEventUnassignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_unassign_payloads"
     )
 
@@ -166,8 +170,10 @@ trait UpdatePointwiseDbMetrics {
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class UpdatesAcsDeltaPointwiseMetrics private[UpdatePointwiseDbMetrics] {
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
-    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
+    val fetchEventCreatePayloadsLegacy: DatabaseMetrics = createDbMetrics(
+      "fetch_event_create_payloads"
+    )
+    val fetchEventConsumingPayloadsLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_consuming_payloads"
     )
 
@@ -199,8 +205,10 @@ trait UpdatePointwiseDbMetrics {
   // Private constructor to avoid being instantiated multiple times by accident
   final class ReassignmentPointwiseMetrics private[UpdatePointwiseDbMetrics] {
 
-    val fetchEventAssignPayloads: DatabaseMetrics = createDbMetrics("fetch_event_assign_payloads")
-    val fetchEventUnassignPayloads: DatabaseMetrics = createDbMetrics(
+    val fetchEventAssignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
+      "fetch_event_assign_payloads"
+    )
+    val fetchEventUnassignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
       "fetch_event_unassign_payloads"
     )
 
@@ -440,6 +448,9 @@ class MainIndexDBMetrics(
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"
   )
+  val lookupLastActivationsDbMetrics: DatabaseMetrics = createDbMetrics(
+    "lookup_last_activations"
+  )
 
   val lookupPointwiseUpdateFetchEventIds: DatabaseMetrics = createDbMetrics(
     "fetch_event_ids"
@@ -450,16 +461,31 @@ class MainIndexDBMetrics(
   )
   val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
-  val getActiveContractIdsForCreated: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_ids_for_created"
+  val getActiveContractIdRanges: DatabaseMetrics = createDbMetrics(
+    "get_active_contract_id_ranges"
   )
-  val getActiveContractIdsForAssigned: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_ids_for_assigned"
+  val getActiveContractIdRangesForCreatedLegacy: DatabaseMetrics = createDbMetrics(
+    "get_active_contract_id_ranges_for_created"
   )
-  val getActiveContractBatchForCreated: DatabaseMetrics = createDbMetrics(
+  val getFilteredActiveContractIds: DatabaseMetrics = createDbMetrics(
+    "get_filtered_active_contract_ids"
+  )
+  val getFilteredActiveContractIdsForCreatedLegacy: DatabaseMetrics = createDbMetrics(
+    "get_filtered_active_contract_ids_for_created"
+  )
+  val getActiveContractIdRangesForAssignedLegacy: DatabaseMetrics = createDbMetrics(
+    "get_active_contract_id_ranges_for_assigned"
+  )
+  val getFilteredActiveContractIdsForAssignedLegacy: DatabaseMetrics = createDbMetrics(
+    "get_filtered_active_contract_ids_for_assigned"
+  )
+  val getActiveContractBatch: DatabaseMetrics = createDbMetrics(
+    "get_active_contract_batch"
+  )
+  val getActiveContractBatchForCreatedLegacy: DatabaseMetrics = createDbMetrics(
     "get_active_contract_batch_for_created"
   )
-  val getActiveContractBatchForAssigned: DatabaseMetrics = createDbMetrics(
+  val getActiveContractBatchForAssignedLegacy: DatabaseMetrics = createDbMetrics(
     "get_active_contract_batch_for_assigned"
   )
   val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
@@ -475,10 +501,10 @@ class MainIndexDBMetrics(
   val getUnassingIdsForOffsets: DatabaseMetrics = createDbMetrics(
     "get_unassign_ids_for_offsets"
   )
-  val getCreateIdsForContractIds: DatabaseMetrics = createDbMetrics(
+  val getCreateIdsForContractIdsLegacy: DatabaseMetrics = createDbMetrics(
     "get_create_ids_for_contract_ids"
   )
-  val getAssignIdsForContractIds: DatabaseMetrics = createDbMetrics(
+  val getAssignIdsForContractIdsLegacy: DatabaseMetrics = createDbMetrics(
     "get_assign_ids_for_contract_ids"
   )
 
@@ -499,7 +525,7 @@ class MainIndexDBMetrics(
     "last_synchronizer_offset_before_or_at_record_time"
   )
 
-  val archivals: DatabaseMetrics = createDbMetrics("archivals")
+  val archivalsLegacy: DatabaseMetrics = createDbMetrics("archivals")
 
   object translation {
     val getLfPackage: Timer = openTelemetryMetricsFactory.timer(inventory.getLfPackage.info)

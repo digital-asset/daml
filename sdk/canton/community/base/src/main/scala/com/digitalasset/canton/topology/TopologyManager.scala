@@ -9,26 +9,27 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParameters,
   StaticSynchronizerParameters,
 }
 import com.digitalasset.canton.sequencing.AsyncResult
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
   IncreaseOfPreparationTimeRecordTimeTolerance,
   ParticipantTopologyManagerError,
+  ValueOutOfBounds,
 }
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -58,6 +59,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.{LfPackageId, config}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.unused
@@ -184,7 +186,10 @@ class AuthorizedTopologyManager(
       timeouts,
       futureSupervisor,
       loggerFactory,
-    )
+    ) {
+  def initialize(implicit @unused traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.unit
+}
 
 abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     nodeId: UniqueIdentifier,
@@ -315,6 +320,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
   def validatePackageVetting(
       @unused currentlyVettedPackages: Set[LfPackageId],
       @unused nextPackageIds: Set[LfPackageId],
+      @unused dryRunSnapshot: Option[PackageMetadata],
       @unused forceFlags: ForceFlags,
   )(implicit
       traceContext: TraceContext
@@ -382,7 +388,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       protocolVersion: ProtocolVersion,
       expectFullAuthorization: Boolean,
       forceChanges: ForceFlags = ForceFlags.none,
-      waitToBecomeEffective: Option[NonNegativeFiniteDuration],
+      waitToBecomeEffective: Option[config.NonNegativeFiniteDuration],
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -813,11 +819,18 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
     case SynchronizerParametersState(synchronizerId, newSynchronizerParameters) =>
-      checkPreparationTimeRecordTimeToleranceNotIncreasing(
-        synchronizerId,
-        newSynchronizerParameters,
-        forceChanges,
-      )
+      for {
+        _ <- checkPreparationTimeRecordTimeToleranceNotIncreasing(
+          synchronizerId,
+          newSynchronizerParameters,
+          forceChanges,
+        )
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          checkDynamicSynchronizerParametersBounds(newSynchronizerParameters, forceChanges)
+        )
+      } yield ()
+
     case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
     case VettedPackages(participantId, newPackages) =>
@@ -849,6 +862,16 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       member.uid == nodeId || forceChanges.permits(ForceFlag.AlienMember),
       DangerousCommandRequiresForce.AlienMember(member, topologyMappingCode),
     )
+
+  private def checkDynamicSynchronizerParametersBounds(
+      newSynchronizerParameters: DynamicSynchronizerParameters,
+      forceChanges: ForceFlags,
+  )(implicit
+      traceContext: TraceContext
+  ): Either[TopologyManagerError, Unit] =
+    if (!forceChanges.permits(ForceFlag.AllowOutOfBoundsValue))
+      TopologyManager.checkBounds(newSynchronizerParameters)
+    else ().asRight
 
   private def checkPreparationTimeRecordTimeToleranceNotIncreasing(
       synchronizerId: SynchronizerId,
@@ -929,7 +952,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         }
       _ <- checkPackageVettingRevocation(currentlyVettedPackages, newPackageIds, forceChanges)
       _ <- checkTransactionIsForCurrentNode(participantId, forceChanges, topologyMappingCode)
-      _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, forceChanges)
+      _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, None, forceChanges)
     } yield ()
 
   private def checkPackageVettingRevocation(
@@ -941,9 +964,9 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
     val removed = currentlyVettedPackages -- nextPackageIds
     val force = forceChanges.permits(ForceFlag.AllowUnvetPackage)
-    val changeIdDangerous = removed.nonEmpty
+    val changeIsDangerous = removed.nonEmpty
     EitherT.cond(
-      !changeIdDangerous || force,
+      !changeIsDangerous || force,
       (),
       ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce.Reject(),
     )
@@ -1119,5 +1142,37 @@ object TopologyManager {
         signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
     }
+  }
+
+  def checkBounds(
+      parameters: DynamicSynchronizerParameters
+  )(implicit errorLoggingContext: ErrorLoggingContext): Either[TopologyManagerError, Unit] = {
+    def check(
+        proj: DynamicSynchronizerParameters => NonNegativeFiniteDuration,
+        name: String,
+        bounds: (NonNegativeFiniteDuration, NonNegativeFiniteDuration),
+    ): Either[TopologyManagerError, Unit] = {
+      val value = proj(parameters)
+
+      val (min, max) = bounds
+
+      for {
+        _ <- Either.cond(value >= min, (), ValueOutOfBounds.Error(value, name, min, max))
+        _ <- Either.cond(value <= max, (), ValueOutOfBounds.Error(value, name, min, max))
+      } yield ()
+    }
+
+    for {
+      _ <- check(
+        _.confirmationResponseTimeout,
+        "confirmation response timeout",
+        DynamicSynchronizerParameters.confirmationResponseTimeoutBounds,
+      )
+      _ <- check(
+        _.mediatorReactionTimeout,
+        "mediator reaction timeout",
+        DynamicSynchronizerParameters.mediatorReactionTimeoutBounds,
+      )
+    } yield ()
   }
 }

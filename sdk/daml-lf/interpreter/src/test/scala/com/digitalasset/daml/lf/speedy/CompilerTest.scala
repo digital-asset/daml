@@ -6,20 +6,18 @@ package speedy
 
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.interpretation.Error.TemplatePreconditionViolated
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
+import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
-import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -49,7 +47,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         .fill(10 * 1000)(Command.Create(recordCon, contract()))
         .toImmArray
 
-      compiledPackages.compiler.unsafeCompile(cmds, ImmArray.Empty) shouldBe a[SExpr]
+      compiledPackages.compiler.unsafeCompile(cmds) shouldBe a[SExpr]
     }
 
     "compile deeply nested lets" in {
@@ -130,430 +128,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
-
-  "compileWithContractDisclosures" should {
-    val version = pkg.languageVersion
-    val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
-    val cid2 = Value.ContractId.V2
-      .unsuffixed(Time.Timestamp.Epoch, crypto.Hash.hashPrivateKey("test-contract-id-2"))
-    val disclosedCid1 =
-      Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-1"))
-    val disclosedCid2 =
-      Value.ContractId.V2.unsuffixed(
-        Time.Timestamp.Epoch,
-        crypto.Hash.hashPrivateKey("disclosed-test-contract-id-2"),
-      )
-
-    "using a template with preconditions" should {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
-      val disclosedContract1 =
-        buildDisclosedContract(
-          disclosedCid1,
-          alice,
-          templateId,
-          hasKey = false,
-          precondition = true,
-        )
-      val versionedContract1 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = version,
-        packageName = pkg.pkgName,
-        template = templateId,
-        arg = disclosedContract1.argument.toUnnormalizedValue,
-      )
-      val disclosedContract2 =
-        buildDisclosedContract(cid2, alice, templateId, hasKey = false, precondition = false)
-      val versionedContract2 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = version,
-        packageName = pkg.pkgName,
-        template = templateId,
-        arg = disclosedContract2.argument.toUnnormalizedValue,
-      )
-
-      "accept disclosed contracts with a valid precondition" in {
-        val sexpr = tokenApp(
-          compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1))
-        )
-
-        inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
-          case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache shouldBe empty
-            disclosedContracts.keySet shouldBe Set(disclosedCid1)
-        }
-      }
-
-      "reject disclosed contracts with an invalid precondition" in {
-        val sexpr = tokenApp(
-          compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract2))
-        )
-
-        inside(evalSExpr(sexpr, getContract = Map(cid2 -> versionedContract2))) {
-          case Left(
-                SErrorDamlException(TemplatePreconditionViolated(`templateId`, None, contract))
-              ) =>
-            contract shouldBe versionedContract2.createArg
-        }
-      }
-    }
-
-    "using a template with no key" should {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
-      val disclosedContract1 =
-        buildDisclosedContract(disclosedCid1, alice, templateId, hasKey = false)
-      val versionedContract1 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = version,
-        packageName = pkg.pkgName,
-        template = templateId,
-        arg = disclosedContract1.argument.toUnnormalizedValue,
-      )
-      val disclosedContract2 =
-        buildDisclosedContract(disclosedCid2, alice, templateId, hasKey = false)
-      val versionedContract2 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = version,
-        packageName = pkg.pkgName,
-        template = templateId,
-        arg = disclosedContract2.argument.toUnnormalizedValue,
-      )
-
-      "with no commands" should {
-        "contract cache empty with no disclosures" in {
-          val sexpr =
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray.Empty))
-
-          inside(evalSExpr(sexpr)) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet shouldBe empty
-              disclosedContracts.keySet shouldBe empty
-          }
-        }
-
-        "contract cache contains single disclosure" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1))
-          )
-
-          inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet shouldBe empty
-              disclosedContracts.keySet shouldBe Set(disclosedCid1)
-          }
-        }
-
-        "contract cache contains multiple disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler
-              .unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1, disclosedContract2))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet shouldBe empty
-            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
-          }
-        }
-      }
-
-      "with one command" should {
-        val command = Command.Create(templateId, contract())
-
-        "contract cache contains created contract with no disclosures" in {
-          val sexpr =
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray.Empty))
-
-          inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet.size shouldBe 1
-              disclosedContracts.keySet shouldBe empty
-          }
-        }
-
-        "contract cache contains created contract and single disclosure" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray(disclosedContract1))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 1
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1)
-          }
-        }
-
-        "contract cache contains created contract and multiple disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler
-              .unsafeCompile(ImmArray(command), ImmArray(disclosedContract1, disclosedContract2))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 1
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            contractCache.keySet shouldNot contain(disclosedCid2)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
-          }
-        }
-      }
-
-      "with multiple commands" should {
-        val command1 = Command.Create(templateId, contract())
-        val command2 = Command.Create(templateId, contract())
-
-        "contract cache contains all created contracts with no disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2), ImmArray.Empty)
-          )
-
-          inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet.size shouldBe 2
-              disclosedContracts.keySet shouldBe empty
-          }
-        }
-
-        "contract cache contains all created contracts and single disclosure" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler
-              .unsafeCompile(ImmArray(command1, command2), ImmArray(disclosedContract1))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 2
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            contractCache.keySet shouldNot contain(disclosedCid2)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1)
-          }
-        }
-
-        "contract cache contains all created contracts and multiple disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(
-              ImmArray(command1, command2),
-              ImmArray(disclosedContract1, disclosedContract2),
-            )
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 2
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            contractCache.keySet shouldNot contain(disclosedCid2)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
-          }
-        }
-      }
-    }
-
-    "using a template with a key" should {
-      val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:RecordKey")
-      val disclosedContract1 =
-        buildDisclosedContract(
-          disclosedCid1,
-          alice,
-          templateId,
-          label = "test-label-1",
-          hasKey = true,
-        )
-      val versionedContract1 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = version,
-        packageName = pkg.pkgName,
-        template = templateId,
-        arg = disclosedContract1.argument.toUnnormalizedValue,
-      )
-      val disclosedContract2 =
-        buildDisclosedContract(
-          disclosedCid2,
-          alice,
-          templateId,
-          label = "test-label-2",
-          hasKey = true,
-        )
-      val versionedContract2 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = version,
-        packageName = pkg.pkgName,
-        template = templateId,
-        arg = disclosedContract2.argument.toUnnormalizedValue,
-      )
-
-      "with no commands" should {
-        "contract cache is empty with no disclosures" in {
-          val sexpr =
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray.Empty))
-
-          inside(evalSExpr(sexpr)) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet shouldBe empty
-              disclosedContracts.keySet shouldBe empty
-          }
-        }
-
-        "contract cache contains single disclosure" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1))
-          )
-
-          inside(evalSExpr(sexpr, getContract = Map(cid1 -> versionedContract1))) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet shouldBe empty
-              disclosedContracts.keySet shouldBe Set(disclosedCid1)
-          }
-        }
-
-        "contract cache contains multiple disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler
-              .unsafeCompile(ImmArray.Empty, ImmArray(disclosedContract1, disclosedContract2))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet shouldBe empty
-            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
-          }
-        }
-      }
-
-      "with one command" should {
-        val command = Command.Create(templateId, contract("test-label"))
-
-        "contract cache contains created contract with no disclosures" in {
-          val sexpr =
-            tokenApp(compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray.Empty))
-
-          inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet.size shouldBe 1
-              disclosedContracts.keySet shouldBe empty
-          }
-        }
-
-        "contract cache contains created contract and single disclosure" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(ImmArray(command), ImmArray(disclosedContract1))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 1
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1)
-          }
-        }
-
-        "contract cache contains created contract and multiple disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler
-              .unsafeCompile(ImmArray(command), ImmArray(disclosedContract1, disclosedContract2))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 1
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            contractCache.keySet shouldNot contain(disclosedCid2)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
-          }
-        }
-      }
-
-      "with multiple commands" should {
-        val command1 = Command.Create(templateId, contract("test-label-1"))
-        val command2 = Command.Create(templateId, contract("test-label-2"))
-
-        "contract cache contains all created contracts with no disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(ImmArray(command1, command2), ImmArray.Empty)
-          )
-
-          inside(evalSExpr(sexpr, committers = Set(alice))) {
-            case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-              contractCache.keySet.size shouldBe 2
-              disclosedContracts.keySet shouldBe empty
-          }
-        }
-
-        "contract cache contains all created contracts and single disclosure" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler
-              .unsafeCompile(ImmArray(command1, command2), ImmArray(disclosedContract1))
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 2
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1)
-          }
-        }
-
-        "contract cache contains all created contracts and multiple disclosures" in {
-          val sexpr = tokenApp(
-            compiledPackages.compiler.unsafeCompile(
-              ImmArray(command1, command2),
-              ImmArray(disclosedContract1, disclosedContract2),
-            )
-          )
-
-          inside(
-            evalSExpr(
-              sexpr,
-              getContract = Map(cid1 -> versionedContract1, cid2 -> versionedContract2),
-              committers = Set(alice),
-            )
-          ) { case Right((SValue.SUnit, contractCache, disclosedContracts)) =>
-            contractCache.keySet.size shouldBe 2
-            contractCache.keySet shouldNot contain(disclosedCid1)
-            contractCache.keySet shouldNot contain(disclosedCid2)
-            disclosedContracts.keySet shouldBe Set(disclosedCid1, disclosedCid2)
-          }
-        }
-      }
-    }
-  }
 }
 
 final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
@@ -617,7 +191,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       committers: Set[Party] = Set.empty,
   ): Either[
     SError,
-    (SValue, Map[ContractId, (Ref.Identifier, SValue)], Map[ContractId, ContractInfo]),
+    (SValue, Map[ContractId, (Ref.Identifier, SValue)]),
   ] = {
     val machine =
       Speedy.UpdateMachine(
@@ -631,7 +205,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
     SpeedyTestLib
       .run(machine, getContract = getContract)
-      .map((_, machine.localContractStore, machine.disclosedContracts))
+      .map((_, machine.localContractStore))
   }
 
   def buildDisclosedContract(
@@ -656,7 +230,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           SValue.SParty(maintainer),
         ),
       )
-    val txVersion = pkg.languageVersion
+    val txVersion = SerializationVersion.assign(pkg.languageVersion)
     val disclosedContract = DisclosedContract(
       FatContractInstance.fromCreateNode(
         Node.Create(

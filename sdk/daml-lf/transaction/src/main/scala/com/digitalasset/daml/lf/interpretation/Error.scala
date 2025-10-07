@@ -166,22 +166,14 @@ object Error {
         coid: ContractId,
         srcTemplateId: TypeConId,
         dstTemplateId: TypeConId,
-        signatories: Set[Party],
-        observers: Set[Party],
-        keyOpt: Option[GlobalKeyWithMaintainers],
+        originalSignatories: Set[Party],
+        originalObservers: Set[Party],
+        originalKeyOpt: Option[GlobalKeyWithMaintainers],
+        recomputedSignatories: Set[Party],
+        recomputedObservers: Set[Party],
+        recomputedKeyOpt: Option[GlobalKeyWithMaintainers],
         msg: String,
     ) extends Error
-
-    // TODO https://github.com/digital-asset/daml/issues/17647:
-    //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
-    final case class DowngradeDropDefinedField(
-        expectedType: Ast.Type,
-        fieldIndex: Long,
-        actualValue: Value,
-    ) extends Error
-
-    final case class DowngradeFailed(expectedType: Ast.Type, actualValue: Value) extends Error
-
   }
 
   sealed case class Crypto(error: Crypto.Error) extends Error
@@ -245,6 +237,8 @@ object Error {
 
     final case class AuthenticationError(coid: ContractId, value: Value, message: String)
         extends Error
+
+    final case class HashingError(msg: String) extends Error
 
     final case class Limit(error: Limit.Error) extends Error
 

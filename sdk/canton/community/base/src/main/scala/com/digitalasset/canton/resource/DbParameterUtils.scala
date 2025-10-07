@@ -175,4 +175,44 @@ object DbParameterUtils {
       }
   }
 
+  /** Sets an Iterable of int as an array of string database parameter.
+    *
+    * @param items
+    *   the strings to store in the column.
+    * @param pp
+    *   A `PositionedParameters` object, which is used to set the database parameter.
+    */
+  def setArrayIntParameterDb(
+      items: Iterable[Int],
+      pp: PositionedParameters,
+  ): Unit = {
+    val jdbcArray: Array[Integer] = items.view.map(Int.box).toArray
+    pp.setObject(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
+  }
+
+  /** Retrieves an array ints from the database.
+    */
+  def getIntArrayResultsDb: GetResult[Array[Int]] = {
+
+    def anyRefToInt(obj: AnyRef): Int = obj match {
+      case int: java.lang.Integer => Int.unbox(int)
+      case invalid =>
+        throw new SQLNonTransientException(
+          s"Cannot convert object array element (of type ${invalid.getClass.getName}) to Int"
+        )
+    }
+
+    GetResult(r => r.rs.getArray(r.skip.currentPos))
+      .andThen { case (sqlArr: java.sql.Array) =>
+        sqlArr.getArray match {
+          case arr: Array[Int] => arr // Postgres
+          case arr: Array[AnyRef] => arr.map(anyRefToInt) // H2
+          case other =>
+            throw new SQLNonTransientException(
+              s"Cannot convert object (of type ${other.getClass.getName}) to int array"
+            )
+        }
+      }
+  }
+
 }

@@ -119,6 +119,7 @@ final case class BatchingConfig(
     maxAcsImportBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxAcsImportBatchSize,
     parallelism: PositiveNumeric[Int] = BatchingConfig.defaultBatchingParallelism,
     aggregator: BatchAggregatorConfig = BatchingConfig.defaultAggregator,
+    contractStoreAggregator: BatchAggregatorConfig = BatchingConfig.defaultContractStoreAggregator,
     maxPruningTimeInterval: PositiveFiniteDuration = BatchingConfig.defaultMaxPruningTimeInterval,
 ) extends UniformCantonConfigValidation
 
@@ -134,6 +135,11 @@ object BatchingConfig {
   private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
   private val defaultMaxAcsImportBatchSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(1000)
   private val defaultAggregator: BatchAggregatorConfig.Batching = BatchAggregatorConfig.Batching()
+  private val defaultContractStoreAggregator: BatchAggregatorConfig.Batching =
+    BatchAggregatorConfig.Batching(
+      maximumInFlight = PositiveNumeric.tryCreate(5),
+      maximumBatchSize = PositiveNumeric.tryCreate(50),
+    )
   // default of 30min corresponds to 1440 pruning queries after 30 days downtime, which is a reasonable tradeoff
   private val defaultMaxPruningTimeInterval: PositiveFiniteDuration =
     PositiveFiniteDuration.ofMinutes(30)

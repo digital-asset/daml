@@ -1,11 +1,10 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
--- @ERROR range=105:1-105:23; UNHANDLED_EXCEPTION/ExceptionSemantics:E: E
--- @ERROR range=120:1-120:25; UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError: ArithmeticError while evaluating (DIV_INT64 1 0).
--- @ERROR range=135:1-135:11; Attempt to fetch or exercise a contract not visible to the reading parties.
--- @ERROR range=146:1-146:11; Attempt to exercise a consumed contract
+-- @ERROR range=104:1-104:23; UNHANDLED_EXCEPTION/ExceptionSemantics:E: E
+-- @ERROR range=119:1-119:25; UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError: ArithmeticError while evaluating (DIV_INT64 1 0).
+-- @ERROR range=134:1-134:11; Attempt to fetch or exercise a contract not visible to the reading parties.
+-- @ERROR range=145:1-145:11; Attempt to exercise a consumed contract
 -- @WARN -Werror=upgrade-exceptions
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}

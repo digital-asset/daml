@@ -90,7 +90,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
       "the key value cannot be serialized" in {
         LookupByKeyActionDescription.create(
           LfVersioned(
-            ExampleTransactionFactory.transactionVersion,
+            ExampleTransactionFactory.SerializationVersion,
             LfGlobalKey
               .build(
                 LfTransactionBuilder.defaultTemplateId,

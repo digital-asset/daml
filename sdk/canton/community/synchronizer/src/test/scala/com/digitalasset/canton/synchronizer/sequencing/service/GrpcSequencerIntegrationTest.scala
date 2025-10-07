@@ -138,8 +138,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     override protected[this] def logger: TracedLogger = self.logger
   })
 
-  // TODO(i26481): adjust when the new connection pool is stable
-  val useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev
+  // TODO(i26270): cleanup when the new connection pool is stable
+  val useNewConnectionPool: Boolean = true
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -320,11 +320,13 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       useNewConnectionPool: Boolean = useNewConnectionPool,
   ): EitherT[FutureUnlessShutdown, String, RichSequencerClient] = {
+    val clientConfig =
+      SequencerClientConfig(authToken = authConfig, useNewConnectionPool = useNewConnectionPool)
     val clientFactory = SequencerClientFactory(
       synchronizerId,
       cryptoApi,
       cryptoApi.crypto,
-      SequencerClientConfig(authToken = authConfig, useNewConnectionPool = useNewConnectionPool),
+      clientConfig,
       TracingConfig.Propagation.Disabled,
       TestingConfigInternal(),
       BaseTest.defaultStaticSynchronizerParameters,
@@ -346,8 +348,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     )
 
     val poolConfig = SequencerConnectionXPoolConfig.fromSequencerConnections(
-      connections,
-      TracingConfig(TracingConfig.Propagation.Disabled),
+      sequencerConnections = connections,
+      tracingConfig = TracingConfig(TracingConfig.Propagation.Disabled),
       expectedPSIdO = None,
     )
 
@@ -577,6 +579,7 @@ class GrpcSequencerIntegrationTest
               sequencerTrustThreshold = PositiveInt.two,
               sequencerLivenessMargin = NonNegativeInt.zero,
               submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+              sequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
             )
             .value,
           expectedSequencers = NonEmpty

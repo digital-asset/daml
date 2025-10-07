@@ -13,6 +13,7 @@ import com.digitalasset.canton.platform.store.dao.BufferedUpdatePointwiseReader.
   ToApiResponse,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
+import com.digitalasset.canton.protocol.{TestUpdateId, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -24,7 +25,7 @@ import scala.concurrent.Future
 import scala.language.implicitConversions
 
 class BufferedUpdatePointwiseReaderSpec extends AsyncFlatSpec with MockitoSugar with BaseTest {
-  private val className = classOf[BufferedTransactionPointwiseReader[_, _]].getSimpleName
+  private val className = classOf[BufferedUpdatePointwiseReader[_, _]].getSimpleName
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace(
     loggerFactory
@@ -33,10 +34,10 @@ class BufferedUpdatePointwiseReaderSpec extends AsyncFlatSpec with MockitoSugar 
   private val requestingParties = Set("p1", "p2").map(Ref.Party.assertFromString)
   private val someSynchronizerId = SynchronizerId.tryFromString("some::synchronizer id")
 
-  private val bufferedUpdateId1 = "bufferedTid_1"
-  private val bufferedUpdateId2 = "bufferedTid_2"
-  private val notBufferedUpdateId = "notBufferedTid"
-  private val unknownUpdateId = "unknownUpdateId"
+  private val bufferedUpdateId1 = TestUpdateId("bufferedTid_1")
+  private val bufferedUpdateId2 = TestUpdateId("bufferedTid_2")
+  private val notBufferedUpdateId = TestUpdateId("notBufferedTid")
+  private val unknownUpdateId = TestUpdateId("unknownUpdateId")
 
   private val bufferedOffset1 = Offset.firstOffset
   private val bufferedOffset2 = bufferedOffset1.increment
@@ -57,29 +58,30 @@ class BufferedUpdatePointwiseReaderSpec extends AsyncFlatSpec with MockitoSugar 
   when(inMemoryFanout.lookup(toLookupKey(notBufferedOffset))).thenReturn(None)
   when(inMemoryFanout.lookup(toLookupKey(unknownOffset))).thenReturn(None)
 
-  private val toApiResponse = mock[ToApiResponse[Set[Party], String]]
+  private val toApiResponse = mock[ToApiResponse[Set[Party], UpdateId]]
   when(toApiResponse.apply(bufferedTransaction1, requestingParties, loggingContext))
     .thenReturn(Future.successful(Some(bufferedUpdateId1)))
   when(toApiResponse.apply(bufferedTransaction2, requestingParties, loggingContext))
     .thenReturn(Future.successful(None))
 
   private val fetchFromPersistence =
-    new FetchUpdatePointwiseFromPersistence[(LookupKey, Set[Party]), String] {
+    new FetchUpdatePointwiseFromPersistence[(LookupKey, Set[Party]), UpdateId] {
       override def apply(
           queryParam: (LookupKey, Set[Party]),
           loggingContext: LoggingContextWithTrace,
-      ): Future[Option[String]] =
+      ): Future[Option[UpdateId]] =
         queryParam._1 match {
-          case LookupKey.UpdateId(`notBufferedUpdateId`) | LookupKey.Offset(`notBufferedOffset`) =>
+          case LookupKey.ByUpdateId(`notBufferedUpdateId`) |
+              LookupKey.ByOffset(`notBufferedOffset`) =>
             Future.successful(Some(notBufferedUpdateId))
-          case LookupKey.UpdateId(`unknownUpdateId`) | LookupKey.Offset(`unknownOffset`) =>
+          case LookupKey.ByUpdateId(`unknownUpdateId`) | LookupKey.ByOffset(`unknownOffset`) =>
             Future.successful(None)
           case other => fail(s"Unexpected $other lookup key")
         }
     }
 
   private val bufferedUpdateReader =
-    new BufferedUpdatePointwiseReader[(LookupKey, Set[Party]), String](
+    new BufferedUpdatePointwiseReader[(LookupKey, Set[Party]), UpdateId](
       fetchFromPersistence = fetchFromPersistence,
       fetchFromBuffer = queryParam => inMemoryFanout.lookup(queryParam._1),
       toApiResponse = (tx, queryParam, lc) => toApiResponse(tx, queryParam._2, lc),
@@ -118,9 +120,9 @@ class BufferedUpdatePointwiseReaderSpec extends AsyncFlatSpec with MockitoSugar 
     }
   }
 
-  private def tx(discriminator: String, offset: Offset) =
+  private def tx(discriminator: UpdateId, offset: Offset) =
     TransactionLogUpdate.TransactionAccepted(
-      updateId = discriminator,
+      updateId = discriminator.toHexString,
       workflowId = "",
       commandId = "",
       effectiveAt = Timestamp.Epoch,
@@ -135,7 +137,7 @@ class BufferedUpdatePointwiseReaderSpec extends AsyncFlatSpec with MockitoSugar 
   protected implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
 
-  private def toLookupKey(str: String): LookupKey = LookupKey.UpdateId(str)
+  private def toLookupKey(str: UpdateId): LookupKey = LookupKey.ByUpdateId(str)
 
-  private def toLookupKey(offset: Offset): LookupKey = LookupKey.Offset(offset)
+  private def toLookupKey(offset: Offset): LookupKey = LookupKey.ByOffset(offset)
 }

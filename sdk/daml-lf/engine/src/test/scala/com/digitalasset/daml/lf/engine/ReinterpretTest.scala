@@ -10,11 +10,17 @@ import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.{Node, NodeId, SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  Node,
+  NodeId,
+  SerializationVersion,
+  SubmittedTransaction,
+  Transaction,
+}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -35,7 +41,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   import ReinterpretTest._
 
-  private[this] val langVersion = majorLanguageVersion.maxStableVersion
+  private[this] val version = SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
@@ -54,7 +60,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = langVersion,
+          version = version,
           packageName = miniTestsPkg.pkgName,
           template = TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),
           arg = ValueRecord(
@@ -195,7 +201,10 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
             PackageVersion.assertFromString("0.0.0"),
             None,
           ),
-          Left("package made in com.digitalasset.daml.lf.engine.ReinterpretTest"),
+          GeneratedImports(
+            reason = "package made in com.digitalasset.daml.lf.engine.ReinterpretTest",
+            pkgIds = Set.empty,
+          ),
         )
       var queriedPackageIds = Set.empty[Ref.PackageId]
       val trackPackageQueries: PartialFunction[Ref.PackageId, Package] = { pkgId =>

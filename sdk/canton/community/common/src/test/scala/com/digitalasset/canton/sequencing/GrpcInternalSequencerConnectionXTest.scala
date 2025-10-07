@@ -3,14 +3,13 @@
 
 package com.digitalasset.canton.sequencing
 
-import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   SequencerConnectionXError,
   SequencerConnectionXState,
 }
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.event.Level.INFO
 
 class GrpcInternalSequencerConnectionXTest
     extends AnyWordSpec
@@ -170,29 +169,6 @@ class GrpcInternalSequencerConnectionXTest
           connection.attributes shouldBe Some(correctConnectionAttributes)
 
           responses.assertAllResponsesSent()
-      }
-    }
-
-    "retry if the server is unavailable during any request" in {
-      val responses = TestResponses(
-        apiResponses = Seq(failureUnavailable, correctApiResponse),
-        handshakeResponses = Seq(failureUnavailable, successfulHandshake),
-        synchronizerAndSeqIdResponses = Seq(failureUnavailable, correctSynchronizerIdResponse1),
-        staticParametersResponses = Seq(failureUnavailable, correctStaticParametersResponse),
-      )
-      withConnection(responses) { (connection, listener) =>
-        loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(INFO))(
-          {
-            connection.start().valueOrFail("start connection")
-            listener.shouldStabilizeOn(SequencerConnectionXState.Validated)
-            connection.attributes shouldBe Some(correctConnectionAttributes)
-          },
-          forExactly(4, _) {
-            _.infoMessage should include("Waiting for 1ms before retrying...")
-          },
-        )
-
-        responses.assertAllResponsesSent()
       }
     }
 

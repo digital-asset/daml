@@ -1,0 +1,9 @@
+module HoldingV1 where
+
+interface Holding where
+   viewtype HoldingView
+
+data HoldingView = HoldingView
+ with
+   owner : Party
+   assetId: Text

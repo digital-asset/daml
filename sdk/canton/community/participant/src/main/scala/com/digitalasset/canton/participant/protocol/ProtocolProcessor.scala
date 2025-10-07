@@ -783,18 +783,27 @@ abstract class ProtocolProcessor[
         )
         (incorrectRecipients, viewsWithCorrectRootHashAndRecipients) = checkRecipientsResult
 
-        // TODO(#23971) Absolutize ledger effects before passing them to ExtractUsedAndCreated
+        (
+          viewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects,
+          incorrectAbsolutizationViews,
+        ) = steps.absolutizeLedgerEffects(
+          viewsWithCorrectRootHashAndRecipients
+        )
 
-        (fullViewsWithCorrectRootHashAndRecipients, incorrectDecryptedViews) =
-          steps.computeFullViews(viewsWithCorrectRootHashAndRecipients)
+        (
+          fullViewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects,
+          incorrectFullViews,
+        ) = steps.computeFullViews(viewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects)
 
         malformedPayloads =
-          decryptionErrors ++ incorrectRootHashes ++ incorrectRecipients ++ incorrectDecryptedViews
+          decryptionErrors ++ incorrectRootHashes ++ incorrectRecipients ++ incorrectAbsolutizationViews ++ incorrectFullViews
 
-        _ <- NonEmpty.from(fullViewsWithCorrectRootHashAndRecipients) match {
+        _ <- NonEmpty.from(
+          fullViewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects
+        ) match {
           case None =>
             /*
-              If fullViewsWithCorrectRootHashAndRecipients is empty, it does not necessarily mean that we have a
+              If fullViewsWithCorrectRootHashAndRecipientsAndAbsoluteLedgerEffects is empty, it does not necessarily mean that we have a
               malicious submitter (e.g., if there is concurrent topology change). Hence, if we have a submission data,
               then we will aim to generate a command completion.
              */
@@ -848,7 +857,7 @@ abstract class ProtocolProcessor[
 
           case Some(goodViewsWithSignatures) =>
             // All views with the same correct root hash declare the same mediator, so it's enough to look at the head
-            val (firstView, _) = goodViewsWithSignatures.head1
+            val (firstView, _, _) = goodViewsWithSignatures.head1
 
             val observeFUS = submissionDataForTrackerO match {
               case Some(submissionDataForTracker) =>
@@ -1591,7 +1600,15 @@ abstract class ProtocolProcessor[
         )
         for {
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
-          eventO = eventFactoryO.map(_(AcsChangeSupport.fromCommitSet(commitSet)))
+          // TODO(#27996) getting the internal contract ids will not be done here and will be part of indexing
+          internalContractIdsForStoredContracts <- EitherT.right[steps.ResultError](
+            ephemeral.contractStore.lookupBatchedNonCachedInternalIds(
+              contractsToBeStored.map(_.contractId)
+            )
+          )
+          eventO = eventFactoryO.map(
+            _(AcsChangeSupport.fromCommitSet(commitSet))(internalContractIdsForStoredContracts)
+          )
           _ = logger.info(show"About to wrap up request $requestId with event $eventO")
           requestTimestamp = requestId.unwrap
           _unit <- EitherT.right[steps.ResultError](

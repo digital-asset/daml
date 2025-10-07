@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store.db
 
+import cats.Eval
 import cats.syntax.apply.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf
@@ -27,6 +28,7 @@ import com.digitalasset.canton.participant.store.{
   CommitmentQueue,
   IncrementalCommitmentStore,
 }
+import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -65,6 +67,7 @@ class DbAcsCommitmentStore(
     override val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
+    stringInterningEval: Eval[StringInterning],
 )(implicit val ec: ExecutionContext)
     extends AcsCommitmentStore
     with DbPrunableByTimeSynchronizer[IndexedSynchronizer]
@@ -456,6 +459,7 @@ class DbAcsCommitmentStore(
       indexedSynchronizer,
       timeouts,
       loggerFactory,
+      stringInterningEval,
     )
 
   override val queue: DbCommitmentQueue =
@@ -486,6 +490,7 @@ class DbIncrementalCommitmentStore(
     indexedSynchronizer: IndexedSynchronizer,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    stringInterningEval: Eval[StringInterning],
 )(implicit val ec: ExecutionContext)
     extends IncrementalCommitmentStore
     with DbStore {
@@ -493,17 +498,11 @@ class DbIncrementalCommitmentStore(
   import DbStorage.Implicits.*
   import storage.api.*
 
-  private implicit val getLfPartyIdSortedSet: GetResult[SortedSet[LfPartyId]] =
-    DbParameterUtils.getStringArrayResultsDb
-      .andThen(arr => SortedSet.from(arr.view.map(LfPartyId.assertFromString)))
+  private implicit val getLfPartyIdSortedSet: GetResult[Vector[Int]] =
+    DbParameterUtils.getIntArrayResultsDb.andThen(_.toVector)
 
-  private implicit val setParameterPartyIdSortedSet: SetParameter[SortedSet[LfPartyId]] = {
-    (parties, pp) =>
-      DbParameterUtils.setArrayStringParameterDb(
-        parties,
-        pp,
-      )
-  }
+  private implicit val setParameterPartyIdSortedSet: SetParameter[Vector[Int]] =
+    DbParameterUtils.setArrayIntParameterDb(_, _)
 
   override def get()(implicit
       traceContext: TraceContext
@@ -515,9 +514,15 @@ class DbIncrementalCommitmentStore(
             sql"""select ts, tie_breaker from par_commitment_snapshot_time where synchronizer_idx = $indexedSynchronizer"""
               .as[(CantonTimestamp, Long)]
               .headOption
-          snapshot <-
+          snapshotWithInternedIds <-
             sql"""select stakeholders, commitment from par_commitment_snapshot where synchronizer_idx = $indexedSynchronizer"""
-              .as[(SortedSet[LfPartyId], AcsCommitment.CommitmentType)]
+              .as[(Vector[Int], AcsCommitment.CommitmentType)]
+          stringInterning = stringInterningEval.value
+          snapshot = snapshotWithInternedIds.map { case (internedParties, commitmentType) =>
+            SortedSet.from(
+              internedParties.view.map(stringInterning.party.externalize)
+            ) -> commitmentType
+          }
         } yield (tsWithTieBreaker, snapshot)).transactionally
           .withTransactionIsolation(Serializable),
         operationName = "commitments: read commitments snapshot",
@@ -568,13 +573,15 @@ class DbIncrementalCommitmentStore(
     def storeUpdates(
         updates: List[(SortedSet[LfPartyId], AcsCommitment.CommitmentType)]
     ): DbAction.All[Unit] = {
+      val stringInterning = stringInterningEval.value
+
       def setParams(
           pp: PositionedParameters
       ): ((SortedSet[LfPartyId], AcsCommitment.CommitmentType)) => Unit = {
         case (stkhs, commitment) =>
           pp >> indexedSynchronizer
           pp >> partySetHash(stkhs)
-          pp >> stkhs
+          pp >> stkhs.view.map(stringInterning.party.internalize).toVector
           pp >> commitment
       }
 

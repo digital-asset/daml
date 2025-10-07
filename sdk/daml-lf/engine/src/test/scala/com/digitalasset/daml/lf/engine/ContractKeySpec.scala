@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
@@ -63,7 +64,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   import ContractKeySpec._
 
-  private[this] val langVersion = majorLanguageVersion.maxStableVersion
+  private[this] val version = SerializationVersion.minContractKeys
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -92,7 +93,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
     TransactionBuilder.fatContractInstanceWithDummyDefaults(
-      version = langVersion,
+      version = version,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
@@ -109,7 +110,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("BasicTests:Simple:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = langVersion,
+          version = version,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
@@ -120,7 +121,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         TransactionBuilder.fatContractInstanceWithDummyDefaults(
-          version = langVersion,
+          version = version,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
@@ -299,7 +300,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
       val keyedInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = langVersion,
+        version = version,
         packageName = multiKeysPkg.pkgName,
         template = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),
         arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),

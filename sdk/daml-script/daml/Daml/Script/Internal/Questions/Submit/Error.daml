@@ -24,14 +24,16 @@ data UpgradeErrorType
         coid : AnyContractId
         srcTemplateId : TemplateTypeRep
         dstTemplateId : TemplateTypeRep
-        signatories : [Party]
-        observers : [Party]
-        keyOpt : Optional (AnyContractKey, [Party])
-  | DowngradeDropDefinedField with
-        expectedType : Text
-        fieldIndex : Int
-  | DowngradeFailed with
-        expectedType : Text
+        originalSignatories : [Party]
+        originalObservers : [Party]
+        originalKeyOpt : Optional (AnyContractKey, [Party])
+        recomputedSignatories : [Party]
+        recomputedObservers : [Party]
+        recomputedKeyOpt : Optional (AnyContractKey, [Party])
+  -- We will add new constructors soon. In the meantime we need a dummy constructor so that the compile doesn't confuse
+  -- UpgradeErrorType for a record, which would force us to rename ValidationFailed to UpgradeErrorType.
+  -- TODO(https://github.com/digital-asset/daml/issues/21667): remove
+  | DummyUpgradeError
 
 -- | MOVE Daml.Script
 -- Daml Crypto (Secp256k1) related submission errors
@@ -51,6 +53,7 @@ data CryptoErrorType
 data DevErrorType
   = ChoiceGuardFailed
   | TranslationError
+  | AuthenticationError
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
@@ -235,9 +238,12 @@ instance Show SubmitError where
 -- | MOVE Daml.Script
 instance Show UpgradeErrorType where
   show err = case err of
-    ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->
-      "Validation failed for contract " <> show coid <> " (Signatories: " <> show signatories <> ", Observers: " <> show observers <> ")"
-    DowngradeDropDefinedField expectedType rank ->
-      "Cannot drop Some field at position " <> show rank <> " in record to downgrade to " <> show expectedType
-    DowngradeFailed expectedType ->
-      "Could not downgrade from new variant/enum constructor to " <> show expectedType
+    ValidationFailed coid _srcTemplateId _dstTemplateId originalSignatories originalObservers _originalKeyOpt recomputedSignatories recomputedObservers _recomputedKeyOpt ->
+      "Validation failed for contract "
+          <> show coid
+          <> " (original signatories: " <> show originalSignatories
+          <> ", original observers: " <> show originalObservers
+          <> ", recomputed signatories: " <> show recomputedSignatories
+          <> ", recomputed observers: " <> show recomputedObservers <> ")"
+    DummyUpgradeError -> error "This should never happen"
+

@@ -271,15 +271,28 @@ packageSummaryFromDamlYaml path = do
 
     unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "package" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
       $ parseUnresolvedVersion releaseVersion
-    
-    let usingLocalComponents =
-          either (const False) (any (Map.member "local-path")) $ queryPackageConfig @(Map.Map String (Map.Map String String)) ["override-components"] package
+
+    let overrideMapToMaybe :: T.Text -> Map.Map T.Text T.Text -> Either ConfigError (Maybe T.Text)
+        overrideMapToMaybe componentName m =
+          case (Map.lookup "version" m, Map.lookup "local-path" m) of
+            (Just _, Just _) -> Left $ makeConfigError "Both version and local-path fields specified, only one can be provided"
+            (Just v, Nothing) -> Right $ Just v
+            (Nothing, Just _) -> Right Nothing
+            (Nothing, Nothing) -> Left $ makeConfigError "Missing version or local-path field"
+          where
+            makeConfigError :: String -> ConfigError
+            makeConfigError = ConfigFieldInvalid "package" ["component-overrides", componentName]
+    componentOverrides <-
+      except $ queryPackageConfig @(Map.Map T.Text (Map.Map T.Text T.Text)) ["override-components"] package
+        >>= maybe (pure mempty) (Map.traverseWithKey overrideMapToMaybe)
     
     pure PackageSummary
       { psUnitId = UnitId $ name <> "-" <> version
       , psDeps = DarFile . toPosixFilePath <$> canonDeps
-      , psReleaseVersion = unresolvedReleaseVersion
-      , psUsingLocalComponents = usingLocalComponents
+      , psSdkVersionData = SdkVersionData
+          { svdVersion = unresolvedReleaseVersion
+          , svdOverrides = componentOverrides
+          }
       }
 
 -- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply

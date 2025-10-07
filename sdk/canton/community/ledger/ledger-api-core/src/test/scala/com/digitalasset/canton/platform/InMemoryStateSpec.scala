@@ -78,7 +78,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           // ASSERT STATE INITIALIZED
 
           inOrder.verify(dispatcherState).stopDispatcher()
-          inOrder.verify(contractStateCaches).reset(Some(initOffset))
+          inOrder.verify(contractStateCaches).reset(Some(initLedgerEnd))
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder
             .verify(mutableLedgerEndCache)
@@ -136,7 +136,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
 
           when(dispatcherState.isRunning).thenReturn(false)
           inMemoryState.initialized shouldBe false
-          inOrder.verify(contractStateCaches).reset(Some(reInitOffset))
+          inOrder.verify(contractStateCaches).reset(Some(reInitLedgerEnd))
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder
             .verify(mutableLedgerEndCache)

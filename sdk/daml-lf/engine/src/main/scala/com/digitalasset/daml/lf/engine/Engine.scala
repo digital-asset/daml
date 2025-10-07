@@ -7,11 +7,19 @@ package engine
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party, TypeConId}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{InitialSeeding, Question, SError, SResult, SValue, TraceLog}
-import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.digitalasset.daml.lf.speedy.Speedy
+import com.digitalasset.daml.lf.speedy.{
+  InitialSeeding,
+  Question,
+  SError,
+  SResult,
+  SValue,
+  Speedy,
+  TraceLog,
+  ValueTranslator,
+}
+import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEValue, SExpr}
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
@@ -30,6 +38,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.daml.lf.language.{
+  Ast,
   LanguageMajorVersion,
   LanguageVersion,
   LookupError,
@@ -42,10 +51,16 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
+import com.digitalasset.daml.lf.data
 
 import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
+import com.digitalasset.daml.lf.speedy.Question.Update
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
+import com.digitalasset.daml.lf.speedy.SValue.SContractId
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -114,6 +129,7 @@ class Engine(val config: EngineConfig) {
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
       forbidLocalContractIds = config.forbidLocalContractIds,
+      costModel = data.CostModel.EmptyCostModelImplicits,
     )
 
   def info = new EngineInfo(config)
@@ -137,8 +153,6 @@ class Engine(val config: EngineConfig) {
     *                   ("committers" according to the ledger model)
     * @param readAs the parties authorizing the root actions (only read, but no write) of the resulting transaction
     * @param cmds the commands to be interpreted
-    * @param disclosures contracts to be used as input contracts of the transaction;
-    *                    contract data may come from an untrusted source and will therefore be validated during interpretation.
     * @param participantId a unique identifier (of the underlying participant) used to derive node and contractId discriminators
     * @param submissionSeed the master hash used to derive node and contractId discriminators
     */
@@ -148,7 +162,6 @@ class Engine(val config: EngineConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
-      disclosures: ImmArray[FatContractInstance] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
       prefetchKeys: Seq[ApiContractKey],
@@ -161,21 +174,19 @@ class Engine(val config: EngineConfig) {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
-      preprocessedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
-      (processedDiscs, disclosedContractIds, disclosedKeyHashes) = preprocessedDiscsAndKeys
       _ <- preprocessor.prefetchContractIdsAndKeys(
         processedCmds,
         processedPrefetchKeys,
-        disclosedContractIds,
-        disclosedKeyHashes,
+        unprocessedCommands = Some(cmds.commands),
       )
+      // TODO: https://github.com/digital-asset/daml/issues/21933: Preprocessing input size checks should stop submission workflows ASAP
+      _ <- preprocessor.getInputCost
       result <-
         interpretCommands(
           validating = false,
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
-          disclosures = processedDiscs,
           ledgerTime = cmds.ledgerEffectiveTime,
           preparationTime = preparationTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -271,7 +282,6 @@ class Engine(val config: EngineConfig) {
         submitters = submitters,
         readAs = Set.empty,
         commands = commands,
-        disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -390,7 +400,6 @@ class Engine(val config: EngineConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       commands: ImmArray[speedy.Command],
-      disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
       preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
@@ -403,7 +412,7 @@ class Engine(val config: EngineConfig) {
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompile(commands, disclosures),
+        compiledPackages.compiler.unsafeCompile(commands),
       )
       result <- interpretExpression(
         validating,
@@ -457,6 +466,7 @@ class Engine(val config: EngineConfig) {
       packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
+      initialGasBudget = config.gasBudget,
     )
     interpretLoop(machine, ledgerTime, submissionInfo)
   }
@@ -513,7 +523,7 @@ class Engine(val config: EngineConfig) {
     def finish: Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
+              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping)
             ) =>
           deps(tx).flatMap { deps =>
             if (config.paranoid) {
@@ -561,7 +571,6 @@ class Engine(val config: EngineConfig) {
               timeBoundaries = machine.getTimeBoundaries,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              disclosedEvents = disclosedCreateEvents,
             )
 
             config.profileDir.foreach { dir =>
@@ -815,6 +824,154 @@ class Engine(val config: EngineConfig) {
     } yield Versioned(version, r.toNormalizedValue)
   }
 
+  /** Computes the hash of a Create node. Used for producing fat contract
+    * instances after absolutizing the contract IDs of a transaction produced by
+    * the engine.
+    *
+    * @param create the Create node for which the hash is computed
+    * @param contractIdSubstitution a substitution for contract IDs to be applied by the engine to the create argument
+    *                               before hashing
+    * @param hashingMethod the hashing method to use
+    * @return a Result containing the computed hash. When [hashingMethod] is
+    *         [[HashingMethod.TypedNormalForm]], returns a [[ResultError]]
+    *         if [[create]] is ill-typed or if its package is unavailable.
+    */
+  def hashCreateNode(
+      create: Node.Create,
+      contractIdSubstitution: ContractId => ContractId,
+      hashingMethod: Hash.HashingMethod,
+  ): Result[Hash] = {
+    import Engine.Syntax._
+    import Engine.mkDevError
+
+    val location = NameOf.qualifiedNameOfCurrentFunc
+    val templateId = create.templateId
+    val pkgId = templateId.packageId
+    val createArg = create.arg.mapCid(contractIdSubstitution)
+    val packageName = create.packageName
+
+    hashingMethod match {
+      case Hash.HashingMethod.Legacy =>
+        Hash
+          .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = false)
+          .left
+          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .toResult
+      case Hash.HashingMethod.UpgradeFriendly =>
+        Hash
+          .hashContractInstance(templateId, createArg, packageName, upgradeFriendly = true)
+          .left
+          .map(error => mkDevError(location, IError.Dev.HashingError(error)))
+          .toResult
+      case Hash.HashingMethod.TypedNormalForm =>
+        for {
+          _ <-
+            if (!compiledPackages.contains(pkgId))
+              loadPackage(pkgId, language.Reference.Template(templateId.toRef))
+            else ResultDone.Unit
+          sValue <- new ValueTranslator(
+            compiledPackages.pkgInterface,
+            forbidLocalContractIds = true,
+          )
+            .translateValue(Ast.TTyCon(templateId), createArg)
+            .left
+            .map(error => mkDevError(location, IError.Dev.TranslationError(error)))
+            .toResult
+          hash <- SValueHash
+            .hashContractInstance(packageName, templateId.qualifiedName, sValue)
+            .left
+            .map(error => mkDevError(location, IError.Dev.HashingError(error.msg)))
+            .toResult
+        } yield hash
+    }
+  }
+
+  /** Validates [instance] against [targetPackageId] by performing the following checks:
+    * - Verifies that the argument type checks against the target package
+    * - Verifies that the ensures clause does not evaluate to false or throw
+    * - Checks that the metadata in the contract is consistent with that produced by the target package
+    * - Hashes the contract instance using the specified hashing method
+    * - Validates this hash using the provided [idValidator]
+    *
+    * @param instance the contract instance to validate
+    * @param targetPackageId the target package id against which the instance is validated
+    * @param contractIdSubstitution a substitution for contract IDs to be applied by the engine to the contract
+    *                                instance before validation
+    * @param hashingMethod the hash type to use for validation
+    * @param idValidator a function that checks whether a given hash is valid
+    * @return a Result containing a [Right(())] on success and a [Left(_)] when validation fails. On other errors
+    *         like missing packages or internal errors, a ResultError is returned.
+    */
+  def validateContractInstance(
+      instance: FatContractInstance,
+      targetPackageId: PackageId,
+      contractIdSubstitution: ContractId => ContractId,
+      hashingMethod: Hash.HashingMethod,
+      idValidator: Hash => Boolean,
+  )(implicit loggingContext: LoggingContext): Result[Either[IError, Unit]] = {
+    val substitutedInstance = instance.mapCid(contractIdSubstitution)
+
+    def internalError(msg: String): Result[Either[IError, Unit]] =
+      ResultError(Error.Interpretation.Internal(NameOf.qualifiedNameOfCurrentFunc, msg, None))
+
+    def interpret(
+        machine: UpdateMachine,
+        abort: () => Option[String],
+    ): Result[Either[IError, Unit]] =
+      machine.run() match {
+        case SResult.SResultQuestion(question) =>
+          question match {
+            case Update.NeedContract(contractId, _, callback) =>
+              if (contractId != substitutedInstance.contractId)
+                internalError(
+                  s"expected contract id ${substitutedInstance.contractId}, got $contractId"
+                )
+              else {
+                discard(callback(substitutedInstance, hashingMethod, idValidator))
+                interpret(machine, abort)
+              }
+            case Update.NeedPackage(pkgId, context, callback) =>
+              Result.needPackage(
+                pkgId,
+                context,
+                { pkg: Package =>
+                  compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
+                    callback(compiledPackages)
+                    interpret(machine, abort)
+                  }
+                },
+              )
+            case _ => internalError(s"unexpected question from speedy: $question")
+          }
+        case SResult.SResultFinal(_) =>
+          ResultDone(Right(()))
+        case SResult.SResultError(err) =>
+          err match {
+            case SError.SErrorDamlException(error) =>
+              ResultDone(Left(error))
+            case err @ SError.SErrorCrash(where, reason) =>
+              ResultError(Error.Interpretation.Internal(where, reason, Some(err)))
+          }
+        case SResult.SResultInterruption =>
+          ResultInterruption(() => interpret(machine, abort), abort)
+      }
+
+    val machine =
+      Speedy.Machine.fromUpdateSExpr(
+        compiledPackages = compiledPackages,
+        transactionSeed = crypto.Hash.hashPrivateKey("ContractValidationImpl.validate"),
+        updateSE = SEMakeClo(
+          ArraySeq.empty,
+          1,
+          SBFetchTemplate(TypeConId(targetPackageId, substitutedInstance.templateId.qualifiedName))(
+            SEValue(SContractId(substitutedInstance.contractId))
+          ),
+        ),
+        committers = Set.empty,
+      )
+
+    interpret(machine, () => { machine.abort(); None })
+  }
 }
 
 object Engine {
@@ -856,4 +1013,13 @@ object Engine {
   def DevEngine(majorLanguageVersion: LanguageMajorVersion): Engine = new Engine(
     EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(majorLanguageVersion))
   )
+
+  private def mkDevError(location: String, error: IError.Dev.Error) =
+    Error.Interpretation(Error.Interpretation.DamlException(IError.Dev(location, error)), None)
+
+  private object Syntax {
+    implicit class EitherOps[A](val e: Either[Error, A]) extends AnyVal {
+      def toResult: Result[A] = e.fold(ResultError(_), ResultDone(_))
+    }
+  }
 }

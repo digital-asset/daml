@@ -162,10 +162,11 @@ getCantonBootstrap :: SandboxConfig -> String
 getCantonBootstrap conf = unlines $ domainBootstrap <> (upload <$> dars conf)
   where
     domainBootstrap =
-        [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
+        [ "import com.digitalasset.canton.config.NonNegativeFiniteDuration"
+        , "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
         , "import com.digitalasset.canton.version.ProtocolVersion"
         , ""
-        , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, " <> protocolVersion <> ")"
+        , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, " <> protocolVersion <> ", topologyChangeDelay = NonNegativeFiniteDuration.Zero)"
         , "val synchronizerOwners = Seq(sequencer1, mediator1)"
         , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
         , "`" <> getParticipantName conf <> "`.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
@@ -205,6 +206,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                                 ] ]
                           | Just secret <- [mbSharedSecret] ]
                           )
+                     , "http-ledger-api" Aeson..= Aeson.object [ "enabled" Aeson..= False ]
                      , "parameters" Aeson..= Aeson.object [ "alpha-version-support" Aeson..= True ]
                      ] <>
                      [ "testing-time" Aeson..= Aeson.object [ "type" Aeson..= ("monotonic-time" :: T.Text) ]
@@ -216,7 +218,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, s
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
-                        , "type" Aeson..= ("community-reference" :: T.Text)
+                        , "type" Aeson..= ("reference" :: T.Text)
                         ]
                     , storage
                     , "public-api" Aeson..= port sequencerPublicPort

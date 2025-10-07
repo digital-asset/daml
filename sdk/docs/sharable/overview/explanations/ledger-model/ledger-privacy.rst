@@ -271,7 +271,7 @@ They can therefore infer that their projections have happened in the same atomic
    
 .. note::
    A user of a Participant Node can request the Ledger projection for the user's parties via the
-   :externalref:`updates tree stream <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`.
+   :brokenref:`updates tree stream <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`.
 
 
 

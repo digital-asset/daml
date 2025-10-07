@@ -46,6 +46,7 @@ import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.{
+  SequencerConnectionPoolDelays,
   SequencerConnectionValidation,
   SequencerConnections,
   SubmissionRequestAmplification,
@@ -53,10 +54,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransaction,
-  StoredTopologyTransactions,
-}
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -736,23 +734,29 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val merged =
         SignedTopologyTransactions.compact(initialTopologyState).map(_.updateIsProposal(false))
 
-      val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
-        merged.map(stored =>
-          StoredTopologyTransaction(
-            sequenced = SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-            validFrom = EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-            validUntil = None,
-            transaction = stored,
-            rejectionReason = None,
-          )
+      val out = ByteString.newOutput()
+      merged.foreach { stored =>
+        val tx = StoredTopologyTransaction(
+          sequenced = SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+          validFrom = EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+          validUntil = None,
+          transaction = stored,
+          rejectionReason = None,
         )
-      ).toByteString(staticSynchronizerParameters.protocolVersion)
+        tx.writeDelimitedTo(staticSynchronizerParameters.protocolVersion, out)
+          .left
+          .foreach(error =>
+            consoleEnvironment.raiseError(s"The synchronizer cannot be bootstrapped: $error")
+          )
+      }
+
+      val storedTopologySnapshot = out.toByteString
 
       sequencers
         .filterNot(_.health.initialized())
         .foreach(x =>
           x.setup
-            .assign_from_genesis_state(storedTopologySnapshot, staticSynchronizerParameters)
+            .assign_from_genesis_stateV2(storedTopologySnapshot, staticSynchronizerParameters)
             .discard
         )
 
@@ -768,6 +772,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
                 sequencerTrustThreshold,
                 sequencerLivenessMargin,
                 mediatorRequestAmplification,
+                SequencerConnectionPoolDelays.default,
               ),
               // if we run bootstrap ourselves, we should have been able to reach the nodes
               // so we don't want the bootstrapping to fail spuriously here in the middle of
@@ -884,15 +889,18 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         newSequencer: SequencerReference,
         existingSequencer: SequencerReference,
         synchronizerOwners: Set[InstanceReference],
+        customCommandTimeout: Option[config.NonNegativeDuration] = None,
         isBftSequencer: Boolean = false,
     )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
       import consoleEnvironment.*
+
+      val commandTimeout = customCommandTimeout.getOrElse(commandTimeouts.bounded)
 
       def synchronizeTopologyAfterAddingSequencer(
           newSequencerId: SequencerId,
           existingSequencer: SequencerReference,
       ): Unit =
-        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+        ConsoleMacros.utils.retry_until_true(commandTimeout) {
           existingSequencer.topology.sequencers
             .list(existingSequencer.synchronizer_id)
             .headOption
@@ -905,7 +913,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           newSequencerId: SequencerId,
           existingSequencer: SequencerReference,
       ): Unit =
-        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+        ConsoleMacros.utils.retry_until_true(commandTimeout) {
           existingSequencer.bft.get_ordering_topology().sequencerIds.contains(newSequencerId)
         }
 
@@ -945,7 +953,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       logger.info("Proposed a sequencer synchronizer state with the new sequencer")
 
       // wait for SequencerSynchronizerState to be observed by the sequencer
-      ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+      ConsoleMacros.utils.retry_until_true(commandTimeout) {
         val sequencerStates =
           existingSequencer.topology.sequencers.list(store = synchronizerId)
 
@@ -966,10 +974,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       // now we can establish the sequencer snapshot
       val onboardingState =
-        existingSequencer.setup.onboarding_state_for_sequencer(newSequencer.id)
+        existingSequencer.setup.onboarding_state_for_sequencerV2(newSequencer.id)
 
       // finally, initialize "newSequencer"
-      newSequencer.setup.assign_from_onboarding_state(onboardingState).discard
+      newSequencer.setup.assign_from_onboarding_stateV2(onboardingState).discard
     }
   }
 

@@ -46,7 +46,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.{ContractHasher, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -362,6 +362,7 @@ object TransactionConfirmationRequestFactory {
       synchronizerId: PhysicalSynchronizerId,
   )(
       cryptoOps: HashOps & HmacOps,
+      hasher: ContractHasher,
       seedGenerator: SeedGenerator,
       loggingConfig: LoggingConfig,
       loggerFactory: NamedLoggerFactory,
@@ -372,8 +373,9 @@ object TransactionConfirmationRequestFactory {
         submitterNode,
         synchronizerId,
         // TODO(#23971): Make this dependent on the protocol version when introducing V2 contract IDs
-        AuthenticatedContractIdVersionV11,
+        AuthenticatedContractIdVersionV12,
         cryptoOps,
+        hasher,
         loggerFactory,
       )
 

@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.checked
+import com.digitalasset.canton
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -29,12 +29,13 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.{
   SequencerConnectionXPoolHealth,
 }
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.time.{Clock, WallClock}
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{checked, config as cantonConfig}
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.Materializer
 
@@ -58,6 +59,11 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     extends SequencerConnectionXPool {
 
   import SequencerConnectionXPoolImpl.*
+
+  /** Use a wall clock for scheduling restart delays, so that the pool can make progress even in
+    * tests that use static time without explicitly advancing the time
+    */
+  private val wallClock = new WallClock(timeouts, loggerFactory)
 
   /** Reference to the currently active configuration */
   private val configRef = new AtomicReference[SequencerConnectionXPoolConfig](initialConfig)
@@ -143,7 +149,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     }
 
     FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      clock.scheduleAfter(_ => signalTimeout(), initializationTimeout.asJavaApproximation),
+      wallClock.scheduleAfter(_ => signalTimeout(), initializationTimeout.asJavaApproximation),
       s"connection-pool-initialization-timeout",
     )
   }
@@ -221,25 +227,54 @@ class SequencerConnectionXPoolImpl private[sequencing] (
       SequencerConnectionXPoolImpl.this.loggerFactory
         .append("connection", s"${connection.config.name}")
 
-    private val restartScheduledRef: AtomicBoolean = new AtomicBoolean(false)
+    /** @param scheduled
+      *   Indicates that a restart has already been scheduled for this connection
+      * @param delay
+      *   Current restart delay. It grows exponentially at every restart, and is reset to the
+      *   minimum when a connection fails after having been validated.
+      */
+    private case class RestartData(
+        scheduled: Boolean,
+        delay: cantonConfig.NonNegativeFiniteDuration,
+    )
 
-    private def scheduleRestart()(implicit traceContext: TraceContext): Unit =
-      if (restartScheduledRef.getAndSet(true))
+    private val restartDataRef = new AtomicReference[RestartData](
+      RestartData(scheduled = false, delay = config.minRestartConnectionDelay)
+    )
+
+    private def resetRestartDelay(): Unit = restartDataRef.getAndUpdate {
+      _.copy(delay = config.minRestartConnectionDelay)
+    }.discard
+
+    private def scheduleRestart()(implicit traceContext: TraceContext): Unit = {
+      val RestartData(restartAlreadyScheduled, delay) = restartDataRef.getAndUpdate {
+        case RestartData(false, delay) =>
+          RestartData(
+            scheduled = true,
+            // Exponentially backoff the restart delay, bounded by the max
+            delay = canton.config.NonNegativeFiniteDuration.tryFromDuration(
+              (delay.duration * 2).min(config.maxRestartConnectionDelay.duration)
+            ),
+          )
+        case other => other
+      }
+
+      if (restartAlreadyScheduled)
         logger.debug("Restart already scheduled -- ignoring")
       else {
-        val delay = config.restartConnectionDelay
-        logger.debug(
+        logger.info(
           s"Scheduling restart after ${LoggerUtil.roundDurationForHumans(delay.duration)}"
         )
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-          clock.scheduleAfter(_ => restart(), delay.asJava),
+          wallClock.scheduleAfter(_ => restart(), delay.asJava),
           s"restart-connection-${connection.name}",
         )
       }
+    }
 
     private def restart()(implicit traceContext: TraceContext): Unit =
       if (!isClosing) {
-        if (restartScheduledRef.getAndSet(false)) {
+        if (restartDataRef.getAndUpdate(_.copy(scheduled = false)).scheduled) {
           logger.debug("Restarting")
           startConnection()
         }
@@ -269,7 +304,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
               case SequencerConnectionXState.Validated => processValidatedConnection(connection)
 
               case SequencerConnectionXState.Stopped =>
-                removeConnectionFromPool(connection)
+                removeConnectionFromPool(connection, actionIfPresent = resetRestartDelay())
                 if (!isClosing) scheduleRestart()
 
               // For any other state, ensure the connection is not in the pool
@@ -278,7 +313,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
                   SequencerConnectionXState.Started | SequencerConnectionXState.Stopping =>
                 if (state == SequencerConnectionXState.Fatal)
                   checkIfThresholdIsStillReachable(config.trustThreshold)
-                removeConnectionFromPool(connection)
+                removeConnectionFromPool(connection, actionIfPresent = resetRestartDelay())
             }
           }
         })
@@ -563,8 +598,13 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     }
   }
 
+  /** @param actionIfPresent
+    *   An action to perform if the connection is effectively present in the pool (which is not
+    *   always the case due to concurrent activity)
+    */
   private def removeConnectionFromPool(
-      connection: InternalSequencerConnectionX
+      connection: InternalSequencerConnectionX,
+      actionIfPresent: => Unit = (),
   )(implicit traceContext: TraceContext): Unit = blocking {
     lock.synchronized {
       connection.attributes match {
@@ -576,6 +616,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
               // Match on config
               case Some(current) if current.exists(_.config == connection.config) =>
                 logger.debug(s"Removing $connection from the pool")
+                actionIfPresent
                 val newList = current.filter(_.config != connection.config)
                 NonEmpty.from(newList)
               case None => None

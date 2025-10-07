@@ -216,39 +216,9 @@ object ArbitraryConfig {
       transactionsProcessingParallelism = transactionsProcessingParallelism,
     )
 
-  def genTransactionTreeStreams: Gen[TransactionTreeStreamsConfig] =
-    for {
-      maxIdsPerIdPage <- Gen.chooseNum(0, Int.MaxValue)
-      maxPayloadsPerPayloadsPage <- Gen.chooseNum(0, Int.MaxValue)
-      maxPagesPerIdPagesBuffer <- Gen.chooseNum(0, Int.MaxValue)
-      maxWorkingMemoryInBytesForIdPages <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelIdCreateQueries <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelPayloadCreateQueries <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelIdConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelPayloadConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelPayloadQueries <- Gen.chooseNum(0, Int.MaxValue)
-      transactionsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelIdNonConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
-      maxParallelPayloadNonConsumingQueries <- Gen.chooseNum(0, Int.MaxValue)
-    } yield TransactionTreeStreamsConfig(
-      maxIdsPerIdPage = maxIdsPerIdPage,
-      maxPagesPerIdPagesBuffer = maxPayloadsPerPayloadsPage,
-      maxWorkingMemoryInBytesForIdPages = maxPagesPerIdPagesBuffer,
-      maxPayloadsPerPayloadsPage = maxWorkingMemoryInBytesForIdPages,
-      maxParallelIdCreateQueries = maxParallelIdCreateQueries,
-      maxParallelIdConsumingQueries = maxParallelPayloadCreateQueries,
-      maxParallelPayloadCreateQueries = maxParallelIdConsumingQueries,
-      maxParallelPayloadConsumingQueries = maxParallelPayloadConsumingQueries,
-      maxParallelPayloadQueries = maxParallelPayloadQueries,
-      transactionsProcessingParallelism = transactionsProcessingParallelism,
-      maxParallelIdNonConsumingQueries = maxParallelIdNonConsumingQueries,
-      maxParallelPayloadNonConsumingQueries = maxParallelPayloadNonConsumingQueries,
-    )
-
   val indexServiceConfig: Gen[IndexServiceConfig] = for {
     activeContractsServiceStreamsConfig <- genActiveContractsServiceStreamConfig
     transactionFlatStreams <- genTransactionFlatStreams
-    transactionTreeStreams <- genTransactionTreeStreams
     eventsProcessingParallelism <- Gen.chooseNum(0, Int.MaxValue)
     bufferedStreamsPageSize <- Gen.chooseNum(0, Int.MaxValue)
     maxContractStateCacheSize <- Gen.long
@@ -264,7 +234,6 @@ object ArbitraryConfig {
     apiStreamShutdownTimeout,
     activeContractsServiceStreams = activeContractsServiceStreamsConfig,
     updatesStreams = transactionFlatStreams,
-    transactionTreeStreams = transactionTreeStreams,
   )
 
 }

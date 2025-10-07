@@ -6,11 +6,11 @@ package com.digitalasset.canton.integration.tests.multisynchronizer
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalSequencerReference
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{
@@ -64,13 +64,12 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
+      // We want to trigger time out
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
       .addConfigTransforms(
-        // We want to trigger time out
-        ConfigTransforms.useStaticTime,
-
         // Because we play with the simClock, ensure we have enough forward tolerance
         // on the target timestamp to not impact up unassigments.
-        ConfigTransforms.updateTargetTimestampForwardTolerance(1.hours),
+        ConfigTransforms.updateTargetTimestampForwardTolerance(1.hours)
       )
       .withSetup { implicit env =>
         import env.*
@@ -321,7 +320,7 @@ class ReassignmentConfirmationAdminPartyIntegrationTestPostgres
     extends ReassignmentConfirmationAdminPartyIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate))

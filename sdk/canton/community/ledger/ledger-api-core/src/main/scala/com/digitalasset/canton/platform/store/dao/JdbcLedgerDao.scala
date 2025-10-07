@@ -17,7 +17,6 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
-  TransactionTreeStreamsConfig,
   UpdatesStreamsConfig,
 }
 import com.digitalasset.canton.platform.store.*
@@ -27,12 +26,13 @@ import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.transaction.CommittedTransaction
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node}
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,7 +51,6 @@ private class JdbcLedgerDao(
     completionsPageSize: Int,
     activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
     updatesStreamsConfig: UpdatesStreamsConfig,
-    transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
     globalMaxEventIdQueries: Int,
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
@@ -196,7 +195,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
-        readStorageBackend.eventStorageBackend.pruneEvents(
+        readStorageBackend.eventStorageBackend.pruneEventsLegacy(
           pruneUpToInclusive,
           incompleteReassignmentOffsets,
         )(
@@ -291,20 +290,6 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val treeTransactionsStreamReader = new TransactionsTreeStreamReader(
-    config = transactionTreeStreamsConfig,
-    globalIdQueriesLimiter = globalIdQueriesLimiter,
-    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    dbDispatcher = dbDispatcher,
-    queryValidRange = queryValidRange,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
-    metrics = metrics,
-    tracer = tracer,
-    reassignmentStreamReader = reassignmentStreamReader,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
   private val reassignmentPointwiseReader = new ReassignmentPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
@@ -340,14 +325,6 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val treeTransactionPointwiseReader = new TransactionTreePointwiseReader(
-    dbDispatcher = dbDispatcher,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    metrics = metrics,
-    lfValueTranslation = translation,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
   override val updateReader: UpdateReader =
     new UpdateReader(
       dispatcher = dbDispatcher,
@@ -356,8 +333,6 @@ private class JdbcLedgerDao(
       metrics = metrics,
       updatesStreamReader = updatesStreamReader,
       updatePointwiseReader = updatePointwiseReader,
-      treeTransactionsStreamReader = treeTransactionsStreamReader,
-      treeTransactionPointwiseReader = treeTransactionPointwiseReader,
       acsReader = acsReader,
     )(queryExecutionContext)
 
@@ -407,6 +382,12 @@ private class JdbcLedgerDao(
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] = {
     logger.info("Storing transaction")
+    val internalContractIds: Map[ContractId, Long] =
+      transaction.nodes.values
+        .collect { case create: Node.Create => create.coid }
+        .zipWithIndex
+        .map { case (cid, idx) => cid -> idx.toLong }
+        .toMap
     dbDispatcher
       .executeSql(metrics.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
@@ -444,6 +425,7 @@ private class JdbcLedgerDao(
               externalTransactionHash = None,
               acsChangeFactory =
                 TestAcsChangeFactory(contractActivenessChanged = contractActivenessChanged),
+              internalContractIds = internalContractIds,
             )
           ),
         )
@@ -458,9 +440,6 @@ private[platform] object JdbcLedgerDao {
   object Logging {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
-
-    def updateId(id: UpdateId): LoggingEntry =
-      "updateId" -> id
   }
 
   def read(
@@ -474,7 +453,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize: Int,
       activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
       updatesStreamsConfig: UpdatesStreamsConfig,
-      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
@@ -502,7 +480,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
       updatesStreamsConfig = updatesStreamsConfig,
-      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,
@@ -523,7 +500,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize: Int,
       activeContractsServiceStreamsConfig: ActiveContractsServiceStreamsConfig,
       updatesStreamsConfig: UpdatesStreamsConfig,
-      transactionTreeStreamsConfig: TransactionTreeStreamsConfig,
       globalMaxEventIdQueries: Int,
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
@@ -546,7 +522,6 @@ private[platform] object JdbcLedgerDao {
       completionsPageSize = completionsPageSize,
       activeContractsServiceStreamsConfig = activeContractsServiceStreamsConfig,
       updatesStreamsConfig = updatesStreamsConfig,
-      transactionTreeStreamsConfig = transactionTreeStreamsConfig,
       globalMaxEventIdQueries = globalMaxEventIdQueries,
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,

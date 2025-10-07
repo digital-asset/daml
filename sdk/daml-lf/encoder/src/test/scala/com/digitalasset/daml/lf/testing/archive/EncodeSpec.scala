@@ -274,8 +274,15 @@ ${onlyIf(languageVersion >= LanguageVersion.Features.choiceFuncs)("""
          }
       """
 
-      // we remove the imports since they will be removed during encoding
-      val pkg1 = pkg.copy(imports = Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET"))
+      // we remove the imports to simulate them being unset due to being removed
+      // during encoding
+      val pkg1 =
+        pkg.copy(imports =
+          GeneratedImports(
+            reason = "PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET",
+            pkgIds = Set.empty,
+          )
+        )
 
       validate(pkgId, pkg1)
       val archive =

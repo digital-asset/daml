@@ -3,18 +3,23 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
+import cats.syntax.traverse.*
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.admin.party_management_service.{
   AllocatePartyRequest,
+  GenerateExternalPartyTopologyRequest,
+  GenerateExternalPartyTopologyResponse,
   PartyDetails as ProtoPartyDetails,
 }
+import com.daml.ledger.api.v2.crypto as lapicrypto
 import com.daml.tracing.TelemetrySpecBase.*
 import com.daml.tracing.{DefaultOpenTelemetry, NoOpTelemetry}
 import com.digitalasset.base.error.ErrorsAssertions
 import com.digitalasset.base.error.utils.ErrorDetails
 import com.digitalasset.base.error.utils.ErrorDetails.RetryInfoDetail
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.{HashOps, TestHash}
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
 import com.digitalasset.canton.ledger.localstore.api.{
   PartyRecord,
@@ -27,15 +32,34 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   IndexerPartyDetails,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
+import com.digitalasset.canton.logging.{
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  SuppressionRule,
+}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.{InFlight, StreamTracker}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.transaction.{
+  HostingParticipant,
+  NamespaceDelegation,
+  ParticipantPermission,
+  PartyToKeyMapping,
+  PartyToParticipant,
+  TopologyTransaction,
+}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  ExternalPartyOnboardingDetails,
+  ParticipantId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref
+import com.google.protobuf.ByteString
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import io.opentelemetry.api.trace.Tracer
@@ -45,7 +69,9 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
+import java.security.KeyPairGenerator
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -73,6 +99,10 @@ class ApiPartyManagementServiceSpec
     testTelemetrySetup.close()
 
   private implicit val ec: ExecutionContext = directExecutionContext
+
+  val ApiPartyManagementServiceSuppressionRule: SuppressionRule =
+    SuppressionRule.LoggerNameContains("ApiPartyManagementService") &&
+      SuppressionRule.Level(Level.ERROR)
 
   "ApiPartyManagementService" should {
     def blind(
@@ -116,12 +146,12 @@ class ApiPartyManagementServiceSpec
         mockPartyRecordStore,
       ) = mockedServices()
       val partyAllocationTracker = makePartyAllocationTracker(loggerFactory)
-
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
         mockUserManagementStore,
         mockIdentityProviderExists,
         partiesPageSize,
+        NonNegativeInt.tryCreate(0),
         mockPartyRecordStore,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
@@ -131,29 +161,34 @@ class ApiPartyManagementServiceSpec
         loggerFactory = loggerFactory,
       )
 
-      val span = testTelemetrySetup.anEmptySpan()
-      val scope = span.makeCurrent()
+      loggerFactory.suppress(
+        ApiPartyManagementServiceSuppressionRule
+      ) {
 
-      // Kick the interaction off
-      val future = apiService
-        .allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
-        .thereafter { _ =>
-          scope.close()
-          span.end()
-        }
+        val span = testTelemetrySetup.anEmptySpan()
+        val scope = span.makeCurrent()
 
-      // Allow the tracker to complete
-      partyAllocationTracker.onStreamItem(
-        PartyAllocation.Completed(
-          PartyAllocation.TrackerKey.forTests(aSubmissionId),
-          IndexerPartyDetails(aParty, isLocal = true),
+        // Kick the interaction off
+        val future = apiService
+          .allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
+          .thereafter { _ =>
+            scope.close()
+            span.end()
+          }
+
+        // Allow the tracker to complete
+        partyAllocationTracker.onStreamItem(
+          PartyAllocation.Completed(
+            PartyAllocation.TrackerKey.forTests(aSubmissionId),
+            IndexerPartyDetails(aParty, isLocal = true),
+          )
         )
-      )
 
-      // Wait for tracker to complete
-      future.futureValue
+        // Wait for tracker to complete
+        future.futureValue
 
-      testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
+        testTelemetrySetup.reportedSpanAttributes should contain(anUserIdSpanAttribute)
+      }
     }
 
     "close while allocating party" in {
@@ -164,12 +199,12 @@ class ApiPartyManagementServiceSpec
         mockPartyRecordStore,
       ) = mockedServices()
       val partyAllocationTracker = makePartyAllocationTracker(loggerFactory)
-
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
         mockUserManagementStore,
         mockIdentityProviderExists,
         partiesPageSize,
+        NonNegativeInt.tryCreate(0),
         mockPartyRecordStore,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
@@ -179,41 +214,318 @@ class ApiPartyManagementServiceSpec
         loggerFactory = loggerFactory,
       )
 
-      // Kick the interaction off
-      val future =
-        apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
+      loggerFactory.suppress(
+        ApiPartyManagementServiceSuppressionRule
+      ) {
+        // Kick the interaction off
+        val future =
+          apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
 
-      // Close the service
-      apiPartyManagementService.close()
+        // Close the service
+        apiPartyManagementService.close()
 
-      // Assert that it caused the appropriate failure
-      future
-        .transform {
-          case Success(_) =>
-            fail("Expected a failure, but received success")
-          case Failure(err: StatusRuntimeException) =>
-            assertError(
-              actual = err,
-              expectedStatusCode = Code.UNAVAILABLE,
-              expectedMessage = "ABORTED_DUE_TO_SHUTDOWN(1,0): request aborted due to shutdown",
-              expectedDetails = List(
-                ErrorDetails.ErrorInfoDetail(
-                  "ABORTED_DUE_TO_SHUTDOWN",
-                  Map(
-                    "parties" -> "['aParty']",
-                    "category" -> "1",
-                    "test" -> s"'${getClass.getSimpleName}'",
+        // Assert that it caused the appropriate failure
+        future
+          .transform {
+            case Success(_) =>
+              fail("Expected a failure, but received success")
+            case Failure(err: StatusRuntimeException) =>
+              assertError(
+                actual = err,
+                expectedStatusCode = Code.UNAVAILABLE,
+                expectedMessage = "ABORTED_DUE_TO_SHUTDOWN(1,0): request aborted due to shutdown",
+                expectedDetails = List(
+                  ErrorDetails.ErrorInfoDetail(
+                    "ABORTED_DUE_TO_SHUTDOWN",
+                    Map(
+                      "parties" -> "['aParty']",
+                      "category" -> "1",
+                      "test" -> s"'${getClass.getSimpleName}'",
+                    ),
                   ),
+                  RetryInfoDetail(10.seconds),
                 ),
-                RetryInfoDetail(10.seconds),
-              ),
-              verifyEmptyStackTrace = true,
-            )
-            Success(succeed)
-          case Failure(other) =>
-            fail("Unexpected error", other)
-        }
+                verifyEmptyStackTrace = true,
+              )
+              Success(succeed)
+            case Failure(other) =>
+              fail("Unexpected error", other)
+          }
+      }
     }
+
+    "generate-external-topology" when {
+      def createService = {
+        val keyGen = KeyPairGenerator.getInstance("Ed25519")
+        val keyPair = keyGen.generateKeyPair()
+        val apiPartyManagementService = ApiPartyManagementService.createApiService(
+          mock[IndexPartyManagementService],
+          mock[UserManagementStore],
+          mock[IdentityProviderExists],
+          partiesPageSize,
+          NonNegativeInt.tryCreate(0),
+          mock[PartyRecordStore],
+          TestPartySyncService(testTelemetrySetup.tracer),
+          oneHour,
+          ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId.toString),
+          NoOpTelemetry,
+          mock[PartyAllocation.Tracker],
+          loggerFactory = loggerFactory,
+        )
+        val signingKey = Some(
+          lapicrypto.SigningPublicKey(
+            format = lapicrypto.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO,
+            keyData = ByteString.copyFrom(keyPair.getPublic.getEncoded),
+            keySpec = lapicrypto.SigningKeySpec.SIGNING_KEY_SPEC_EC_CURVE25519,
+          )
+        )
+        (apiPartyManagementService, signingKey)
+      }
+      def getMappingsFromResponse(response: GenerateExternalPartyTopologyResponse) = {
+        response.topologyTransactions should have length (3)
+        val txs = response.topologyTransactions.toList
+          .traverse(tx =>
+            TopologyTransaction
+              .fromByteString(ProtocolVersion.latest, tx)
+          )
+          .valueOrFail("unable to parse topology txs")
+          .map(_.mapping)
+        txs match {
+          case (nd: NamespaceDelegation) :: (pk: PartyToKeyMapping) :: (pp: PartyToParticipant) :: Nil =>
+            (nd, pk, pp)
+          case other => fail("unexpected mappings: " + other)
+        }
+      }
+      "correctly pass through all fields" in {
+        val (service, publicKey) = createService
+        val syncId = DefaultTestIdentities.synchronizerId
+
+        for {
+          response <- service.generateExternalPartyTopology(
+            GenerateExternalPartyTopologyRequest(
+              synchronizer = syncId.toProtoPrimitive,
+              partyHint = "alice",
+              publicKey = publicKey,
+              localParticipantObservationOnly = false,
+              otherConfirmingParticipantUids =
+                Seq(DefaultTestIdentities.participant2.uid.toProtoPrimitive),
+              confirmationThreshold = 2,
+              observingParticipantUids =
+                Seq(DefaultTestIdentities.participant3.uid.toProtoPrimitive),
+            )
+          )
+        } yield {
+          val (nd, pk, pp) = getMappingsFromResponse(response)
+          pk.party shouldBe pp.partyId
+          pk.party.namespace shouldBe nd.namespace
+          nd.namespace.fingerprint shouldBe nd.target.fingerprint
+          pk.threshold.value shouldBe 1
+          pp.participants.toSet shouldBe Set(
+            HostingParticipant(
+              DefaultTestIdentities.participant1,
+              ParticipantPermission.Confirmation,
+            ),
+            HostingParticipant(
+              DefaultTestIdentities.participant2,
+              ParticipantPermission.Confirmation,
+            ),
+            HostingParticipant(
+              DefaultTestIdentities.participant3,
+              ParticipantPermission.Observation,
+            ),
+          )
+          pp.threshold.value shouldBe 2
+
+        }
+      }
+      "correctly interpret local observer" in {
+        val (service, publicKey) = createService
+        val syncId = DefaultTestIdentities.synchronizerId
+
+        for {
+          response <- service.generateExternalPartyTopology(
+            GenerateExternalPartyTopologyRequest(
+              synchronizer = syncId.toProtoPrimitive,
+              partyHint = "alice",
+              publicKey = publicKey,
+              localParticipantObservationOnly = true,
+              otherConfirmingParticipantUids =
+                Seq(DefaultTestIdentities.participant2.uid.toProtoPrimitive),
+              confirmationThreshold = 1,
+              observingParticipantUids = Seq(),
+            )
+          )
+        } yield {
+          val (_, _, pp) = getMappingsFromResponse(response)
+          pp.participants.toSet shouldBe Set(
+            HostingParticipant(
+              DefaultTestIdentities.participant1,
+              ParticipantPermission.Observation,
+            ),
+            HostingParticipant(
+              DefaultTestIdentities.participant2,
+              ParticipantPermission.Confirmation,
+            ),
+          )
+          pp.threshold.value shouldBe 1
+        }
+      }
+      "correctly reject invalid threshold" in {
+        val (service, publicKey) = createService
+        val syncId = DefaultTestIdentities.synchronizerId
+
+        for {
+          response <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = syncId.toProtoPrimitive,
+                partyHint = "alice",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids =
+                  Seq(DefaultTestIdentities.participant2.uid.toProtoPrimitive),
+                confirmationThreshold = 3,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+        } yield {
+          response.getMessage should include(
+            "Confirmation threshold exceeds number of confirming participants"
+          )
+        }
+      }
+      "fail gracefully on invalid synchronizer-ids" in {
+        val (service, publicKey) = createService
+        for {
+          response1 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = "",
+                partyHint = "alice",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids = Seq(),
+                confirmationThreshold = 1,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+          response2 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = SynchronizerId.tryFromString("not::valid").toProtoPrimitive,
+                partyHint = "alice",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids = Seq(),
+                confirmationThreshold = 1,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+        } yield {
+          response1.getMessage should include("Empty string is not a valid unique identifier")
+          response2.getMessage should include("Unknown or not connected synchronizer not::valid")
+        }
+      }
+      "fail gracefully on invalid party hints" in {
+        val (service, publicKey) = createService
+        val syncId = DefaultTestIdentities.synchronizerId
+        for {
+          response1 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = syncId.toProtoPrimitive,
+                partyHint = "",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids = Seq(),
+                confirmationThreshold = 1,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+          response2 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = syncId.toProtoPrimitive,
+                partyHint =
+                  "Aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids = Seq(),
+                confirmationThreshold = 1,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+        } yield {
+          response1.getMessage should include("Party hint is empty")
+          response2.getMessage should include("is too long")
+        }
+      }
+      "fail gracefully on empty keys" in {
+        val (service, _) = createService
+        val syncId = DefaultTestIdentities.synchronizerId
+        for {
+          response1 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = syncId.toProtoPrimitive,
+                partyHint = "alice",
+                publicKey = None,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids = Seq(),
+                confirmationThreshold = 1,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+        } yield {
+          response1.getMessage should include("Field `public_key` is not set")
+        }
+      }
+      "fail gracefully on invalid duplicate participant ids" in {
+        val (service, publicKey) = createService
+        val syncId = DefaultTestIdentities.synchronizerId
+        for {
+          response1 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = syncId.toProtoPrimitive,
+                partyHint = "alice",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids =
+                  Seq(DefaultTestIdentities.participant1.uid.toProtoPrimitive),
+                confirmationThreshold = 1,
+                observingParticipantUids = Seq(),
+              )
+            )
+            .failed
+          response2 <- service
+            .generateExternalPartyTopology(
+              GenerateExternalPartyTopologyRequest(
+                synchronizer = syncId.toProtoPrimitive,
+                partyHint = "alice",
+                publicKey = publicKey,
+                localParticipantObservationOnly = false,
+                otherConfirmingParticipantUids = Seq(),
+                confirmationThreshold = 1,
+                observingParticipantUids =
+                  Seq(DefaultTestIdentities.participant1.uid.toProtoPrimitive),
+              )
+            )
+            .failed
+        } yield {
+          response1.getMessage should include("Duplicate participant ids")
+          response2.getMessage should include("Duplicate participant ids")
+        }
+      }
+
+    }
+
   }
 
   private def makePartyAllocationTracker(
@@ -267,7 +579,7 @@ class ApiPartyManagementServiceSpec
 
 object ApiPartyManagementServiceSpec {
 
-  val participantId = Ref.ParticipantId.assertFromString("participant1")
+  val participantId = DefaultTestIdentities.participant1
 
   val partyDetails: IndexerPartyDetails = IndexerPartyDetails(
     party = Ref.Party.assertFromString("Bob"),
@@ -294,6 +606,7 @@ object ApiPartyManagementServiceSpec {
         hint: Ref.Party,
         submissionId: Ref.SubmissionId,
         synchronizerIdO: Option[SynchronizerId],
+        externalPartyOnboardingDetails: Option[ExternalPartyOnboardingDetails],
     )(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[state.SubmissionResult] = {
@@ -304,5 +617,14 @@ object ApiPartyManagementServiceSpec {
       )
       FutureUnlessShutdown.pure(state.SubmissionResult.Acknowledged)
     }
+
+    override def protocolVersionForSynchronizerId(
+        synchronizerId: SynchronizerId
+    ): Option[ProtocolVersion] =
+      Option.when(synchronizerId == DefaultTestIdentities.synchronizerId)(ProtocolVersion.latest)
+
+    override def participantId: ParticipantId = DefaultTestIdentities.participant1
+
+    override def hashOps: HashOps = TestHash
   }
 }

@@ -38,6 +38,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   MalformedPayload,
   NoMediatorError,
   ProcessorError,
+  ViewMessageError,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
@@ -46,6 +47,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentS
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.InvalidContractIdInView
 import com.digitalasset.canton.protocol.messages.Verdict.{
   Approve,
   MediatorReject,
@@ -56,7 +58,7 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ContractAuthenticator, EitherTUtil, ReassignmentTag}
+import com.digitalasset.canton.util.{ContractValidator, EitherTUtil, ReassignmentTag}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -82,7 +84,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
   val protocolVersion: ReassignmentTag[ProtocolVersion]
 
-  protected def contractAuthenticator: ContractAuthenticator
+  protected def contractValidator: ContractValidator
 
   protected implicit def ec: ExecutionContext
 
@@ -104,6 +106,10 @@ private[reassignment] trait ReassignmentProcessingSteps[
   override val requestType: RequestType
 
   override type FullView <: FullReassignmentViewTree
+
+  override type ViewAbsoluteLedgerEffects = Unit
+  override type FullViewAbsoluteLedgerEffects = Unit
+
   override type ParsedRequestType = ParsedReassignmentRequest[FullView]
 
   protected def reassignmentId(
@@ -212,9 +218,38 @@ private[reassignment] trait ReassignmentProcessingSteps[
     EitherT.right(result)
   }
 
+  override def absolutizeLedgerEffects(
+      viewsWithCorrectRootHashAndRecipientsAndSignature: Seq[
+        (WithRecipients[DecryptedView], Option[Signature])
+      ]
+  ): (
+      Seq[(WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)],
+      Seq[MalformedPayload],
+  ) =
+    // Merely check that all reassigned contract IDs are absolute.
+    viewsWithCorrectRootHashAndRecipientsAndSignature.partitionMap {
+      case (withRecipients @ WithRecipients(view, _), sig) =>
+        val invalidContractIds =
+          view.contracts.contracts.view.map(_.contract.contractId).filterNot(_.isAbsolute).toSeq
+        Either.cond(
+          invalidContractIds.nonEmpty,
+          ViewMessageError(
+            InvalidContractIdInView(
+              s"Invalid contract IDs in view at position ${view.viewPosition}: $invalidContractIds"
+            )
+          ),
+          (withRecipients, sig, ()),
+        )
+    }
+
   override def computeFullViews(
-      decryptedViewsWithSignatures: Seq[(WithRecipients[DecryptedView], Option[Signature])]
-  ): (Seq[(WithRecipients[FullView], Option[Signature])], Seq[ProtocolProcessor.MalformedPayload]) =
+      decryptedViewsWithSignatures: Seq[
+        (WithRecipients[DecryptedView], Option[Signature], ViewAbsoluteLedgerEffects)
+      ]
+  ): (
+      Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)],
+      Seq[ProtocolProcessor.MalformedPayload],
+  ) =
     (decryptedViewsWithSignatures, Seq.empty)
 
   override def computeParsedRequest(
@@ -222,7 +257,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       ts: CantonTimestamp,
       sc: SequencerCounter,
       rootViewsWithMetadata: NonEmpty[
-        Seq[(WithRecipients[FullView], Option[Signature])]
+        Seq[(WithRecipients[FullView], Option[Signature], FullViewAbsoluteLedgerEffects)]
       ],
       submitterMetadataO: Option[ViewSubmitterMetadata],
       isFreshOwnTimelyRequest: Boolean,
@@ -246,7 +281,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
         .report()
     }
 
-    val (WithRecipients(viewTree, recipients), signature) = rootViewsWithMetadata.head1
+    val (WithRecipients(viewTree, recipients), signature, ()) = rootViewsWithMetadata.head1
 
     contractsMaybeUnknown(viewTree, snapshot).map(contractsMaybeUnknown =>
       ParsedReassignmentRequest(

@@ -110,7 +110,7 @@ convert_bin_to_json() {
 #   $2 - Key format
 #   $3 - Public key
 #   $4 - Key spec
-#   $5 - Root delegation flag (true/false)
+#   $5 - Namespace delegation restrictions
 # [start build_namespace_mapping fn]
 build_namespace_mapping() {
   local namespace="$1"

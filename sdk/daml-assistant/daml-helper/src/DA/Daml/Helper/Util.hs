@@ -304,10 +304,11 @@ withCantonSandbox options remainingArgs k = do
   where
     bootstrapScriptStr =
         unlines
-            [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
+            [ "import com.digitalasset.canton.config.NonNegativeFiniteDuration"
+            , "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
             , "import com.digitalasset.canton.version.ProtocolVersion"
             , ""
-            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest)"
+            , "val staticSynchronizerParameters = StaticSynchronizerParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest, topologyChangeDelay = NonNegativeFiniteDuration.Zero)"
             , "val synchronizerOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.synchronizer(\"mysynchronizer\", Seq(sequencer1), Seq(mediator1), synchronizerOwners, PositiveInt.one, staticSynchronizerParameters)"
             , "sandbox.synchronizers.connect_local(sequencer1, \"mysynchronizer\")"
@@ -378,7 +379,7 @@ cantonConfig CantonOptions{..} =
                 [ "sequencer1" Aeson..= Aeson.object
                     [ "sequencer" Aeson..= Aeson.object
                         [ "config" Aeson..= Aeson.object [ storage ]
-                        , "type" Aeson..= ("community-reference" :: T.Text)
+                        , "type" Aeson..= ("reference" :: T.Text)
                         ]
                     , storage
                     , "public-api" Aeson..= port cantonSequencerPublicApi

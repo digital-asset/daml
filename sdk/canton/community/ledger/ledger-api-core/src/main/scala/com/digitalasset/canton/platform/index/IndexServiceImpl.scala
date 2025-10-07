@@ -6,13 +6,7 @@ package com.digitalasset.canton.platform.index
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionResponse,
-  GetTransactionTreeResponse,
-  GetUpdateResponse,
-  GetUpdateTreesResponse,
-  GetUpdatesResponse,
-}
+import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
@@ -26,9 +20,7 @@ import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
   TraceIdentifiers,
-  TransactionFormat,
   UpdateFormat,
-  UpdateId,
 }
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.InterfaceViewUpgradeFailureWrapper
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -55,8 +47,6 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerDaoUpdateReader,
   LedgerReadDao,
 }
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.canton.platform.{
   InternalEventFormat,
   InternalTransactionFormat,
@@ -66,6 +56,8 @@ import com.digitalasset.canton.platform.{
   TemplatePartiesFilter,
   *,
 }
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{
   FullIdentifier,
@@ -80,9 +72,7 @@ import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
-import scalaz.syntax.tag.ToTagOps
 
-import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -220,83 +210,6 @@ private[index] class IndexServiceImpl(
         elem
       }
 
-  // TODO(#23504) remove when TransactionTrees are removed
-  @nowarn("cat=deprecation")
-  override def transactionTrees(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset],
-      eventFormat: EventFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] = {
-    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
-    val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
-    withValidatedFilter(
-      eventFormat,
-      getPackageMetadataSnapshot(contextualizedErrorLogger),
-    ) {
-      val isTailingStream = endInclusive.isEmpty
-      val parties =
-        if (eventFormat.filtersForAnyParty.isEmpty)
-          Some(eventFormat.filtersByParty.keySet)
-        else None // party-wildcard
-      between(startExclusive, endInclusive) { (from, to) =>
-        from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toDecimalString)
-        )
-        to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toDecimalString)
-        )
-        dispatcher()
-          .startingAt(
-            startExclusive = from,
-            subSource = RangeSource {
-              val memoFilter =
-                memoizedTransactionFilterProjection(
-                  getPackageMetadataSnapshot,
-                  eventFormat,
-                  interfaceViewPackageUpgrade,
-                )
-              (startInclusive, endInclusive) =>
-                Source(memoFilter().toList)
-                  .flatMapConcat { case (_, eventProjectionProperties) =>
-                    updatesReader
-                      .getTransactionTrees(
-                        startInclusive = startInclusive,
-                        endInclusive = endInclusive,
-                        // on the query filter side we treat every party as template-wildcard party,
-                        // if the party-wildcard is given then the transactions for all the templates and all the parties are fetched
-                        requestingParties = parties,
-                        eventProjectionProperties = eventProjectionProperties,
-                      )
-                      .via(rangeDecorator(startInclusive, endInclusive))
-                  }
-            },
-            endInclusive = to,
-          )
-          // when a tailing stream is requested add checkpoint messages
-          .via(
-            checkpointFlow(
-              cond = isTailingStream,
-              fetchOffsetCheckpoint = fetchOffsetCheckpoint,
-              responseFromCheckpoint = updateTreesResponse,
-            )
-          )
-          .mapError(shutdownError)
-          .buffered(metrics.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
-      }.wireTap(
-        _.update match {
-          case GetUpdateTreesResponse.Update.TransactionTree(transactionTree) =>
-            Spans.addEventToCurrentSpan(
-              Event(
-                transactionTree.commandId,
-                TraceIdentifiers.fromTransactionTree(transactionTree),
-              )
-            )
-          case _ => ()
-        }
-      )
-    }(contextualizedErrorLogger)
-  }
-
   override def getCompletions(
       startExclusive: Option[Offset],
       userId: Ref.UserId,
@@ -384,93 +297,6 @@ private[index] class IndexServiceImpl(
   ): Future[Option[FatContract]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  override def getTransactionById(
-      updateId: UpdateId,
-      transactionFormat: TransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
-    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
-    val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
-    checkUnknownIdentifiers(transactionFormat.eventFormat, currentPackageMetadata).left
-      .map(_.asGrpcError)
-      .fold(
-        Future.failed,
-        _ => {
-          val internalTransactionFormatO = eventFormatProjection(
-            eventFormat = transactionFormat.eventFormat,
-            metadata = currentPackageMetadata,
-            interfaceViewPackageUpgrade,
-          ).map(internalEventFormat =>
-            InternalTransactionFormat(
-              internalEventFormat = internalEventFormat,
-              transactionShape = transactionFormat.transactionShape,
-            )
-          )
-
-          internalTransactionFormatO match {
-            case Some(internalTransactionFormat) =>
-              updatesReader.lookupTransactionById(updateId.unwrap, internalTransactionFormat)
-            case None => Future.successful(None)
-          }
-        },
-      )
-  }
-
-  // TODO(#23504) remove when TransactionTrees are removed
-  @nowarn("cat=deprecation")
-  override def getTransactionTreeById(
-      updateId: UpdateId,
-      requestingParties: Set[Ref.Party],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[GetTransactionTreeResponse]] = {
-    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
-    updatesReader
-      .lookupTransactionTreeById(
-        updateId.unwrap,
-        requestingParties,
-        EventProjectionProperties(
-          verbose = true
-        )(
-          interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
-        ),
-      )
-  }
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  override def getTransactionByOffset(
-      offset: Offset,
-      transactionFormat: TransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
-    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
-    val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
-    checkUnknownIdentifiers(transactionFormat.eventFormat, currentPackageMetadata).left
-      .map(_.asGrpcError)
-      .fold(
-        Future.failed,
-        _ => {
-          val internalTransactionFormatO = eventFormatProjection(
-            eventFormat = transactionFormat.eventFormat,
-            metadata = currentPackageMetadata,
-            interfaceViewPackageUpgrade,
-          ).map(internalEventFormat =>
-            InternalTransactionFormat(
-              internalEventFormat = internalEventFormat,
-              transactionShape = transactionFormat.transactionShape,
-            )
-          )
-
-          internalTransactionFormatO match {
-            case Some(internalTransactionFormat) =>
-              updatesReader.lookupTransactionByOffset(offset, internalTransactionFormat)
-            case None => Future.successful(None)
-          }
-        },
-      )
-  }
-
   override def getUpdateBy(
       lookupKey: LookupKey,
       updateFormat: UpdateFormat,
@@ -495,27 +321,6 @@ private[index] class IndexServiceImpl(
             case None => Future.successful(None)
           }
         },
-      )
-  }
-
-  // TODO(#23504) remove when TransactionTrees are removed
-  @nowarn("cat=deprecation")
-  override def getTransactionTreeByOffset(
-      offset: Offset,
-      requestingParties: Set[Ref.Party],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[GetTransactionTreeResponse]] = {
-    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
-    updatesReader
-      .lookupTransactionTreeByOffset(
-        offset,
-        requestingParties,
-        EventProjectionProperties(
-          verbose = true
-        )(
-          interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
-        ),
       )
   }
 
@@ -743,13 +548,18 @@ object IndexServiceImpl {
     /** Computes an optimal package-id of the ``originalCreateTemplate`` interface instance that's
       * used for rendering a view for interface ``interfaceId``.
       *
+      * @param interfaceId
+      *   The interface-id of the view being requested
+      * @param representativeCreateTemplate
+      *   The template-id of the contract's representative package
+      *
       * @return
       *   the identifier for the ``originalCreateTemplate`` with the package-id adjusted to the
       *   selection result
       */
     def upgrade(
         interfaceId: Identifier,
-        originalCreateTemplate: Identifier,
+        representativeCreateTemplate: Identifier,
     ): Future[Either[Status, Identifier]]
   }
 
@@ -887,20 +697,6 @@ object IndexServiceImpl {
       } yield source
     )
 
-  // TODO(#23504) cleanup
-  private[index] def withValidatedFilter[T](
-      apiEventFormat: EventFormat,
-      metadata: PackageMetadata,
-  )(
-      source: => Source[T, NotUsed]
-  )(implicit errorLogger: ErrorLoggingContext): Source[T, NotUsed] =
-    foldToSource(
-      for {
-        _ <- checkUnknownIdentifiers(apiEventFormat, metadata)(errorLogger).left
-          .map(_.asGrpcError)
-      } yield source
-    )
-
   private[index] def validatedAcsActiveAtOffset[T](
       activeAt: Option[Offset],
       ledgerEnd: Option[Offset],
@@ -969,32 +765,6 @@ object IndexServiceImpl {
             includeTopologyEvents = topologyEvents,
           )
         )
-  }
-
-  // TODO(#23504) cleanup
-  @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
-  private[index] def memoizedTransactionFilterProjection(
-      getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
-      eventFormat: EventFormat,
-      interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
-  )(implicit
-      contextualizedErrorLogger: ErrorLoggingContext
-  ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
-    @volatile var metadata: PackageMetadata = null
-    @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
-    () =>
-      val currentMetadata = getPackageMetadataSnapshot(contextualizedErrorLogger)
-      if (metadata ne currentMetadata) {
-        metadata = currentMetadata
-        filters = eventFormatProjection(
-          eventFormat,
-          metadata,
-          interfaceViewPackageUpgrade,
-        ).map(internalEventFormat =>
-          (internalEventFormat.templatePartiesFilter, internalEventFormat.eventProjectionProperties)
-        )
-      }
-      filters
   }
 
   private def eventFormatProjection(
@@ -1253,13 +1023,6 @@ object IndexServiceImpl {
       offsetCheckpoint: OffsetCheckpoint
   ): GetUpdatesResponse =
     GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
-
-  // TODO(#23504) remove when TransactionTrees are removed
-  @nowarn("cat=deprecation")
-  private def updateTreesResponse(
-      offsetCheckpoint: OffsetCheckpoint
-  ): GetUpdateTreesResponse =
-    GetUpdateTreesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
   private def completionsResponse(
       offsetCheckpoint: OffsetCheckpoint

@@ -1,0 +1,53 @@
+{-# LANGUAGE CPP #-}
+
+module NonConforming where
+
+template NonConforming with
+  issuer : Party
+  owner : Party
+  mode : Int
+ where
+
+  -- See V2/NonConforming for how mode changes these
+  signatory issuer
+  observer owner
+
+  nonconsuming choice GetVersion: Text
+    controller issuer
+    do pure "V1"
+
+template NonConformingCK with
+  issuer : Party
+  owner : Party
+  mode : Int
+ where
+
+  -- See V2/NonConformingCK for how mode changes these
+  signatory issuer
+  observer owner
+#ifdef DAML_CONTRACT_KEYS
+  key (mode, issuer, owner): (Int, Party, Party)
+  maintainer key._2
+#endif
+
+  nonconsuming choice GetVersionCK: Text
+    controller issuer
+    do pure "V1"
+
+--
+-- Type Contract Test
+--
+template BankTransfer with
+  bank: Party
+  payee: Party
+  payer: Party
+  amount: Int
+ where
+  signatory bank
+
+  nonconsuming choice BankTransfer_GetPayee : Party
+      controller bank
+      do pure payee
+
+
+

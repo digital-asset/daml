@@ -271,8 +271,18 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
     }
 
-  // Create the processor, but return the changes instead of publishing them, such that the user can decide when
-  // to publish
+  /** Create the processor, but return the changes instead of publishing them, such that the user
+    * can decide when to publish
+    *
+    * @param warnOnAcsCommitmentDegradation
+    *   Whether to warn on acs commitment degradation errors. Setting this to true is needed only
+    *   when specifically testing acs commitment degradation.
+    * @param increasePerceivedComputationTimeForCommitments
+    *   This parameter will artificially increase the measured computation time for commitments used
+    *   to decide whether to trigger catch-up mode. This is useful to test catch-up mode without
+    *   having to create a large number of commitments. This parameter does not influence neither
+    *   the actual time spent to compute commitments, nor the compute metrics.
+    */
   protected def testSetupDontPublish(
       timeProofs: List[CantonTimestamp],
       contractSetup: Map[
@@ -288,9 +298,8 @@ sealed trait AcsCommitmentProcessorBaseTest
       synchronizerParametersUpdates: List[
         SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
       ] = List.empty,
-      // Whether to warn on acs commitment degradation errors.
-      // Setting this to true is needed only when specifically testing acs commitment degradation.
       warnOnAcsCommitmentDegradation: Boolean = false,
+      increasePerceivedComputationTimeForCommitments: Boolean = false,
   )(implicit ec: ExecutionContext): (
       FutureUnlessShutdown[AcsCommitmentProcessor],
       AcsCommitmentStore,
@@ -369,6 +378,9 @@ sealed trait AcsCommitmentProcessorBaseTest
       BatchingConfig(),
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
       Some(NonNegativeInt.zero),
+      increasePerceivedComputationTimeForCommitments = Option.when(
+        increasePerceivedComputationTimeForCommitments
+      )(interval.duration.multipliedBy(2)),
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }
@@ -2106,6 +2118,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -2323,6 +2336,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2402,6 +2416,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2486,6 +2501,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -2593,6 +2609,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -2742,6 +2759,7 @@ class AcsCommitmentProcessorTest
             synchronizerParametersUpdates =
               List(disabledConfigWithValidity, changedConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2847,6 +2865,7 @@ class AcsCommitmentProcessorTest
             synchronizerParametersUpdates =
               List(startConfigWithValidity, disabledConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -2935,6 +2954,7 @@ class AcsCommitmentProcessorTest
             acsCommitmentsCatchUpModeEnabled = true,
             synchronizerParametersUpdates = List(startConfigWithValidity, changeConfigWithValidity),
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -3021,6 +3041,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         (for {
@@ -3175,6 +3196,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitments = List(
@@ -3297,6 +3319,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitmentsFast = List(
@@ -3465,6 +3488,7 @@ class AcsCommitmentProcessorTest
             topology,
             acsCommitmentsCatchUpModeEnabled = true,
             warnOnAcsCommitmentDegradation = true,
+            increasePerceivedComputationTimeForCommitments = true,
           )
 
         val remoteCommitmentsFast = List(

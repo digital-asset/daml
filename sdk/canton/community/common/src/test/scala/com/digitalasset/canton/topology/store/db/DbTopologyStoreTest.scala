@@ -69,7 +69,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
         _ <- new InitialTopologySnapshotValidator(
           testData.factory.syncCryptoClient.crypto.pureCrypto,
           store,
-          timeouts,
+          validateInitialSnapshot = true,
           loggerFactory,
         ).validateAndApplyInitialTopologySnapshot(topologySnapshot)
           .valueOrFail("topology bootstrap")

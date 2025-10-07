@@ -42,7 +42,7 @@ class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
 class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
 class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
 class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 5)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
@@ -54,7 +54,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     extends UpgradesMatrix[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ](UpgradesMatrixCasesV2Dev, Some((n, k)))
+    ](UpgradesMatrix.CantonLedger, UpgradesMatrixCasesV2Dev, Some((n, k)))
     with CantonFixture {
   def encodeDar(
       mainDalfName: String,
@@ -301,11 +301,11 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
         result shouldBe a[Right[_, _]]
       case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error should (
-            be(a[SubmitError.UpgradeError.ValidationFailed]) or
-              be(a[SubmitError.UpgradeError.DowngradeDropDefinedField]) or
-              be(a[SubmitError.UpgradeError.DowngradeFailed])
-          )
+          error shouldBe a[SubmitError.UpgradeError.ValidationFailed]
+        }
+      case UpgradesMatrixCases.ExpectAuthenticationError =>
+        inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
+          error shouldBe a[SubmitError.DevError]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>

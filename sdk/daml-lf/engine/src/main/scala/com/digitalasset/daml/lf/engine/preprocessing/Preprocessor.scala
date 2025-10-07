@@ -5,19 +5,13 @@ package com.digitalasset.daml.lf
 package engine
 package preprocessing
 
+import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.command.{ApiContractKey, ReplayCommand}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{CostModel, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  Node,
-  SubmittedTransaction,
-}
+import com.digitalasset.daml.lf.transaction.{GlobalKey, Node, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
-import com.daml.nameof.NameOf
-import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
 
@@ -39,16 +33,43 @@ import scala.annotation.tailrec
   *   [[ResultNeedPackage]] continuation is called.
   * @param forbidLocalContractIds when `true` the preprocessor will reject
   *   any value/command/transaction that contains a local Contract ID.
+  * @param costModel the preprocessor input cost model that should be used
+  * @param initialInputCost initial input cost
+  * @param maxInputCost maximum input cost. Any input cost that exceeds this value will cause engine evaluation to
+  *   terminate with an error.
   */
 private[engine] final class Preprocessor(
     compiledPackages: CompiledPackages,
     loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
     forbidLocalContractIds: Boolean = true,
+    costModel: CostModel.CostModelImplicits = CostModel.EmptyCostModelImplicits,
+    initialInputCost: CostModel.Cost = 0L,
+    maxInputCost: CostModel.Cost = Long.MaxValue,
 ) {
 
   import Preprocessor._
-
   import compiledPackages.pkgInterface
+  import costModel._
+
+  private[this] var inputCost: CostModel.Cost = initialInputCost
+
+  def updateInputCost[A](value: A)(implicit cost: A => CostModel.Cost): Unit = {
+    inputCost += cost(value)
+  }
+
+  def getInputCost: Result[CostModel.Cost] = {
+    if (inputCost <= maxInputCost) {
+      ResultDone(inputCost)
+    } else {
+      ResultError(
+        Error.Preprocessing.Internal(
+          NameOf.qualifiedNameOfCurrentFunc,
+          "Preprocessing input cost budget exceeded",
+          None,
+        )
+      )
+    }
+  }
 
   val commandPreprocessor =
     new CommandPreprocessor(
@@ -181,7 +202,10 @@ private[engine] final class Preprocessor(
   def buildPackageResolution(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
       packagePreference: Set[Ref.PackageId] = Set.empty,
-  ): Result[Map[Ref.PackageName, Ref.PackageId]] =
+  ): Result[Map[Ref.PackageName, Ref.PackageId]] = {
+    updateInputCost(packageMap)
+    updateInputCost(packagePreference)
+
     packagePreference.foldLeft(EmptyPackageResolution)((acc, pkgId) =>
       for {
         pkgName <- packageMap.get(pkgId) match {
@@ -203,6 +227,7 @@ private[engine] final class Preprocessor(
         }
       } yield m.updated(pkgName, pkgId)
     )
+  }
 
   def buildGlobalKey(
       templateId: Ref.TypeConId,
@@ -223,17 +248,13 @@ private[engine] final class Preprocessor(
   def preprocessApiCommands(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       cmds: data.ImmArray[command.ApiCommand],
-  ): Result[ImmArray[speedy.ApiCommand]] =
+  ): Result[ImmArray[speedy.ApiCommand]] = {
+    updateInputCost(cmds)
+
     safelyRun(pullPackage(pkgResolution, cmds.toSeq.view.map(_.typeRef))) {
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
     }
-
-  def preprocessDisclosedContracts(
-      discs: data.ImmArray[FatContractInstance]
-  ): Result[(ImmArray[speedy.DisclosedContract], Set[Value.ContractId], Set[Hash])] =
-    safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {
-      commandPreprocessor.unsafePreprocessDisclosedContracts(discs)
-    }
+  }
 
   private[engine] def preprocessReplayCommand(
       cmd: ReplayCommand
@@ -280,17 +301,25 @@ private[engine] final class Preprocessor(
   def preprocessApiContractKeys(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       keys: Seq[ApiContractKey],
-  ): Result[Seq[GlobalKey]] =
+  ): Result[Seq[GlobalKey]] = {
+    updateInputCost(keys)
+
     safelyRun(pullPackage(pkgResolution, keys.view.map(_.templateRef))) {
       commandPreprocessor.unsafePreprocessApiContractKeys(pkgResolution, keys)
     }
+  }
 
   private[engine] def prefetchContractIdsAndKeys(
       commands: ImmArray[speedy.ApiCommand],
       prefetchKeys: Seq[GlobalKey],
-      disclosedContractIds: Set[Value.ContractId],
-      disclosedKeyHashes: Set[Hash],
-  ): Result[Unit] =
+      unprocessedCommands: Option[ImmArray[command.ApiCommand]] = None,
+  ): Result[Unit] = {
+    // TODO: https://github.com/digital-asset/daml/issues/21953: implement size cost model for speedy.ApiCommand and speedy.SValue
+    unprocessedCommands.foreach { cmds =>
+      updateInputCost(cmds)
+    }
+    updateInputCost(prefetchKeys)
+
     safelyRun(
       ResultError(
         Error.Preprocessing.Internal(
@@ -300,43 +329,38 @@ private[engine] final class Preprocessor(
         )
       )
     ) {
-      val keysToPrefetch = unsafePrefetchKeys(commands, prefetchKeys, disclosedKeyHashes)
-      val contractIdsToPrefetch = unsafePrefetchContractIds(commands, disclosedContractIds)
+      val keysToPrefetch = unsafePrefetchKeys(commands, prefetchKeys)
+      val contractIdsToPrefetch = unsafePrefetchContractIds(commands)
       (keysToPrefetch, contractIdsToPrefetch)
     }.flatMap { case (keysToPrefetch, contractIdsToPrefetch) =>
       if (keysToPrefetch.nonEmpty || contractIdsToPrefetch.nonEmpty)
         ResultPrefetch(contractIdsToPrefetch.toSeq, keysToPrefetch, () => ResultDone.Unit)
       else ResultDone.Unit
     }
+  }
 
   private def unsafePrefetchContractIds(
-      commands: ImmArray[speedy.ApiCommand],
-      disclosedContractIds: Set[Value.ContractId],
-  ): Set[Value.ContractId] = {
-    val contractIdsInCommands =
-      commands.iterator.foldLeft(Set.empty[Value.ContractId])((acc, cmd) =>
-        cmd match {
-          case speedy.Command.ExerciseTemplate(_, contractId, _, argument) =>
-            SValue.addContractIds(argument, acc + contractId.value)
-          case speedy.Command.ExerciseInterface(_, contractId, _, argument) =>
-            SValue.addContractIds(argument, acc + contractId.value)
-          case speedy.Command.ExerciseByKey(_, _, _, argument) =>
-            // No need to look at the key because keys cannot contain contract IDs
-            SValue.addContractIds(argument, acc)
-          case speedy.Command.Create(_, argument) =>
-            SValue.addContractIds(argument, acc)
-          case speedy.Command.CreateAndExercise(_, createArgument, _, choiceArgument) =>
-            SValue.addContractIds(choiceArgument, SValue.addContractIds(createArgument, acc))
-        }
-      )
-    val prefetchContractIds = contractIdsInCommands -- disclosedContractIds
-    prefetchContractIds
-  }
+      commands: ImmArray[speedy.ApiCommand]
+  ): Set[Value.ContractId] =
+    commands.iterator.foldLeft(Set.empty[Value.ContractId])((acc, cmd) =>
+      cmd match {
+        case speedy.Command.ExerciseTemplate(_, contractId, _, argument) =>
+          SValue.addContractIds(argument, acc + contractId.value)
+        case speedy.Command.ExerciseInterface(_, contractId, _, argument) =>
+          SValue.addContractIds(argument, acc + contractId.value)
+        case speedy.Command.ExerciseByKey(_, _, _, argument) =>
+          // No need to look at the key because keys cannot contain contract IDs
+          SValue.addContractIds(argument, acc)
+        case speedy.Command.Create(_, argument) =>
+          SValue.addContractIds(argument, acc)
+        case speedy.Command.CreateAndExercise(_, createArgument, _, choiceArgument) =>
+          SValue.addContractIds(choiceArgument, SValue.addContractIds(createArgument, acc))
+      }
+    )
 
   private def unsafePrefetchKeys(
       commands: ImmArray[speedy.Command],
       prefetchKeys: Seq[GlobalKey],
-      disclosedKeyHashes: Set[crypto.Hash],
   ): Seq[GlobalKey] = {
     val exercisedKeys = commands.iterator.collect {
       case speedy.Command.ExerciseByKey(templateId, contractKey, _, _) =>
@@ -346,9 +370,7 @@ private[engine] final class Preprocessor(
             throw Error.Preprocessing.ContractIdInContractKey(contractKey.toUnnormalizedValue)
           )
     }
-    val undisclosedKeys =
-      (exercisedKeys ++ prefetchKeys).filterNot(key => disclosedKeyHashes.contains(key.hash))
-    undisclosedKeys.distinct.toSeq
+    (exercisedKeys ++ prefetchKeys).distinct.toSeq
   }
 }
 

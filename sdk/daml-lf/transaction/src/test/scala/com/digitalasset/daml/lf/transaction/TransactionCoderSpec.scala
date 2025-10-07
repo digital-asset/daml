@@ -39,8 +39,8 @@ class TransactionCoderSpec
   implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 1000, sizeRange = 10)
 
-  private[this] val transactionVersions =
-    Table("transaction version", TransactionVersion.All: _*)
+  private[this] val serializationVersions =
+    Table("serialization version", SerializationVersion.All: _*)
 
   "encode-decode" should {
 
@@ -49,14 +49,13 @@ class TransactionCoderSpec
         case (createNode, (nodeVersion, txVersion)) =>
           try {
             val versionedNode = normalizeCreate(createNode.updateVersion(nodeVersion))
-            val Right(encodedNode) = TransactionCoder
-              .encodeNode(
-                enclosingVersion = txVersion,
-                nodeId = NodeId(0),
-                node = versionedNode,
-              )
+            val Right(encodedNode) = TransactionCoder.internal.encodeNode(
+              enclosingVersion = txVersion,
+              nodeId = NodeId(0),
+              node = versionedNode,
+            )
 
-            TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+            TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
               (NodeId(0), versionedNode)
             )
           } catch {
@@ -73,7 +72,7 @@ class TransactionCoderSpec
         case (fetchNode, (nodeVersion, txVersion)) =>
           val versionedNode = normalizeFetch(fetchNode.updateVersion(nodeVersion))
           val encodedNode =
-            TransactionCoder
+            TransactionCoder.internal
               .encodeNode(
                 enclosingVersion = txVersion,
                 nodeId = NodeId(0),
@@ -81,7 +80,7 @@ class TransactionCoderSpec
               )
               .toOption
               .get
-          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+          TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
             (NodeId(0), versionedNode)
           )
       }
@@ -92,13 +91,13 @@ class TransactionCoderSpec
         case (exerciseNode, (nodeVersion, txVersion)) =>
           val normalizedNode = normalizeExe(exerciseNode.updateVersion(nodeVersion))
           val Right(encodedNode) =
-            TransactionCoder
+            TransactionCoder.internal
               .encodeNode(
                 enclosingVersion = txVersion,
                 nodeId = NodeId(0),
                 node = normalizedNode,
               )
-          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+          TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
             (NodeId(0), normalizedNode)
           )
       }
@@ -106,16 +105,16 @@ class TransactionCoderSpec
 
     "do Node.Rollback" in {
       forAll(danglingRefRollbackNodeGen) { node =>
-        forEvery(transactionVersions) { txVersion =>
+        forEvery(serializationVersions) { txVersion =>
           val normalizedNode = normalizeNode(node)
           val Right(encodedNode) =
-            TransactionCoder
+            TransactionCoder.internal
               .encodeNode(
                 enclosingVersion = txVersion,
                 nodeId = NodeId(0),
                 node = normalizedNode,
               )
-          TransactionCoder.decodeNode(txVersion, encodedNode) shouldBe Right(
+          TransactionCoder.internal.decodeNode(txVersion, encodedNode) shouldBe Right(
             (NodeId(0), normalizedNode)
           )
         }
@@ -129,12 +128,7 @@ class TransactionCoderSpec
           tx.nodes.transform((_, node) => normalizeNode(node)),
           tx.roots,
         )
-        inside(
-          TransactionCoder
-            .encodeTransactionWithCustomVersion(
-              transaction = tx2
-            )
-        ) {
+        inside(TransactionCoder.encodeTransaction(tx2)) {
           case Left(EncodeError(msg)) =>
             // fuzzy sort of "failed because of the version override" test
             msg should include(tx2.version.pretty)
@@ -146,16 +140,16 @@ class TransactionCoderSpec
         }
       }
 
-    "transactions decoding should fail when unsupported transaction version received" in
+    "transactions decoding should fail when unsupported serialization version received" in
       forAll(noDanglingRefGenTransaction, minSuccessful(30)) { tx =>
         forAll(stringVersionGen, minSuccessful(10)) { badTxVer =>
-          whenever(TransactionVersion.fromString(badTxVer).isLeft) {
+          whenever(SerializationVersion.fromString(badTxVer).isLeft) {
             val encodedTxWithBadTxVer: proto.Transaction = assertRight(
               TransactionCoder
-                .encodeTransactionWithCustomVersion(
-                  transaction = VersionedTransaction(
-                    TransactionVersion.VDev,
-                    tx.nodes.view.mapValues(updateVersion(_, TransactionVersion.VDev)).toMap,
+                .encodeTransaction(
+                  VersionedTransaction(
+                    SerializationVersion.VDev,
+                    tx.nodes.view.mapValues(updateVersion(_, SerializationVersion.VDev)).toMap,
                     tx.roots,
                   )
                 )
@@ -166,14 +160,14 @@ class TransactionCoderSpec
             TransactionCoder.decodeTransaction(
               protoTx = encodedTxWithBadTxVer
             ) shouldEqual Left(
-              DecodeError(s"Unsupported transaction version '$badTxVer'")
+              DecodeError(s"Unsupported serialization version '$badTxVer'")
             )
           }
         }
       }
 
     "do tx with a lot of root nodes" in {
-      val version = TransactionVersion.StableVersions.max
+      val version = SerializationVersion.StableVersions.max
       val node =
         Node.Create(
           coid = absCid("#test-cid"),
@@ -186,7 +180,7 @@ class TransactionCoderSpec
           version = version,
         )
 
-      forEvery(transactionVersions) { version =>
+      forEvery(serializationVersions) { version =>
         val versionedNode = node.updateVersion(version)
         val roots = ImmArray.ImmArraySeq.range(0, 10000).map(NodeId(_)).toImmArray
         val nodes = roots.iterator.map(nid => nid -> versionedNode).toMap
@@ -220,7 +214,7 @@ class TransactionCoderSpec
         case ((nodeId, node), (txVersion, nodeVersion)) =>
           val normalizedNode = updateVersion(node, nodeVersion)
 
-          TransactionCoder
+          TransactionCoder.internal
             .encodeNode(
               enclosingVersion = txVersion,
               nodeId = nodeId,
@@ -232,10 +226,10 @@ class TransactionCoderSpec
 
   "decodeNode" should {
 
-    "succeed as expected when the node is encoded with a version older than the transaction version" in {
+    "succeed as expected when the node is encoded with a version older than the serialization version" in {
 
       val gen = for {
-        ver <- versionInIncreasingOrder(TransactionVersion.All)
+        ver <- versionInIncreasingOrder(SerializationVersion.All)
         (nodeVersion, txVersion) = ver
         node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
@@ -243,39 +237,41 @@ class TransactionCoderSpec
       forAll(gen, minSuccessful(5)) { case ((nodeVersion, txVersion), (nodeId, node)) =>
         val normalizedNode = updateVersion(node, nodeVersion)
 
-        val Right(encoded) = TransactionCoder
+        val Right(encoded) = TransactionCoder.internal
           .encodeNode(
             enclosingVersion = nodeVersion,
             nodeId = nodeId,
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNode(txVersion, encoded) shouldBe Right((nodeId, normalizedNode))
+        TransactionCoder.internal.decodeNode(txVersion, encoded) shouldBe Right(
+          (nodeId, normalizedNode)
+        )
       }
     }
 
-    "fail when the node is encoded with a version newer than the transaction version" in {
+    "fail when the node is encoded with a version newer than the serialization version" in {
 
       forAll(
         danglingRefGenActionNode,
-        versionInStrictIncreasingOrder(TransactionVersion.All),
+        versionInStrictIncreasingOrder(SerializationVersion.All),
         minSuccessful(5),
       ) { case ((nodeId, node), (v1, v2)) =>
         val normalizedNode = updateVersion(node, v2)
 
-        val Right(encoded) = TransactionCoder
+        val Right(encoded) = TransactionCoder.internal
           .encodeNode(
             enclosingVersion = v2,
             nodeId = nodeId,
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNode(v1, encoded) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.decodeNode(v1, encoded) shouldBe a[Left[_, _]]
       }
     }
 
     "do Versioned" in {
-      forAll(Gen.oneOf(TransactionVersion.All), bytesGen, minSuccessful(5)) { (version, bytes) =>
+      forAll(Gen.oneOf(SerializationVersion.All), bytesGen, minSuccessful(5)) { (version, bytes) =>
         val encoded = TransactionCoder.encodeVersioned(version, bytes)
         val Right(decoded) = TransactionCoder.decodeVersioned(encoded)
         decoded shouldBe Versioned(version, bytes)
@@ -284,7 +280,7 @@ class TransactionCoderSpec
 
     "reject versioned message with trailing data" in {
       forAll(
-        Gen.oneOf(TransactionVersion.All),
+        Gen.oneOf(SerializationVersion.All),
         bytesGen,
         bytesGen.filterNot(_.isEmpty),
         minSuccessful(5),
@@ -296,7 +292,7 @@ class TransactionCoderSpec
 
     "reject Versioned message with unknown fields" in {
       forAll(
-        Gen.oneOf(TransactionVersion.All),
+        Gen.oneOf(SerializationVersion.All),
         bytesGen,
         Arbitrary.arbInt.arbitrary,
         bytesGen.filterNot(_.isEmpty),
@@ -308,7 +304,7 @@ class TransactionCoderSpec
         assert(reencoded != encoded)
         inside(TransactionCoder.decodeVersioned(reencoded)) {
           case Left(DecodeError(errorMessage)) =>
-            errorMessage should include("unexpected field(s)")
+            errorMessage should include("unknown field")
         }
       }
     }
@@ -377,7 +373,7 @@ class TransactionCoderSpec
         val bytes = hackProto(instance, addUnknownField(_, i, extraBytes))
         inside(TransactionCoder.decodeFatContractInstance(bytes)) {
           case Left(DecodeError(errorMessage)) =>
-            errorMessage should include("unexpected field(s)")
+            errorMessage should include("unknown field")
         }
       }
     }
@@ -399,7 +395,8 @@ class TransactionCoderSpec
             CreationTime.CreatedAt(time),
             data.Bytes.fromByteString(salt),
           )
-          val Right(protoKey) = TransactionCoder.encodeKeyWithMaintainers(create.version, key)
+          val Right(protoKey) =
+            TransactionCoder.internal.encodeKeyWithMaintainers(create.version, key)
           val bytes = hackProto(
             instance,
             _.setContractKeyWithMaintainers(protoKey.toBuilder.clearMaintainers()).build(),
@@ -440,11 +437,11 @@ class TransactionCoderSpec
     }
 
     def hackKeyProto(
-        version: TransactionVersion,
+        version: SerializationVersion,
         key: GlobalKeyWithMaintainers,
         f: TransactionOuterClass.KeyWithMaintainers.Builder => TransactionOuterClass.KeyWithMaintainers.Builder,
     ): TransactionOuterClass.KeyWithMaintainers = {
-      val Right(encoded) = TransactionCoder.encodeKeyWithMaintainers(version, key)
+      val Right(encoded) = TransactionCoder.internal.encodeKeyWithMaintainers(version, key)
       f(encoded.toBuilder).build()
     }
 
@@ -587,7 +584,7 @@ class TransactionCoderSpec
     "fail if try to decode a node in a version newer than the enclosing Transaction message version" in {
 
       val gen = for {
-        ver <- versionInStrictIncreasingOrder(TransactionVersion.All)
+        ver <- versionInStrictIncreasingOrder(SerializationVersion.All)
         (txVersion, nodeVersion) = ver
         node <- danglingRefGenActionNodeWithVersion(nodeVersion)
       } yield (ver, node)
@@ -595,14 +592,14 @@ class TransactionCoderSpec
       forAll(gen) { case ((txVersion, nodeVersion), (nodeId, node)) =>
         val normalizedNode = updateVersion(node, nodeVersion)
 
-        val Right(encoded) = TransactionCoder
+        val Right(encoded) = TransactionCoder.internal
           .encodeNode(
             enclosingVersion = nodeVersion,
             nodeId = nodeId,
             node = normalizedNode,
           )
 
-        TransactionCoder.decodeNode(txVersion, encoded) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.decodeNode(txVersion, encoded) shouldBe a[Left[_, _]]
       }
     }
   }
@@ -621,8 +618,9 @@ class TransactionCoderSpec
       forAll(Gen.listOf(party)) { parties =>
         val sortedParties = parties.sorted.distinct
         val proto = toProto(sortedParties)
-        inside(TransactionCoder.toPartyTreeSet(proto)) { case Right(decoded: TreeSet[Party]) =>
-          decoded shouldBe TreeSet.from(sortedParties)
+        inside(TransactionCoder.internal.toPartyTreeSet(proto)) {
+          case Right(decoded: TreeSet[Party]) =>
+            decoded shouldBe TreeSet.from(sortedParties)
         }
       }
     }
@@ -638,7 +636,7 @@ class TransactionCoderSpec
         val nonSortedParties =
           Iterator.iterate(parties)(shuffle(_)).filterNot(_ == sortedParties).next()
         val proto = toProto(nonSortedParties)
-        TransactionCoder.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
       }
     }
 
@@ -646,7 +644,7 @@ class TransactionCoderSpec
       forAll(party, Gen.listOf(party)) { (party, parties) =>
         val partiesWithDuplicate = (party :: party :: parties).sorted
         val proto = toProto(partiesWithDuplicate)
-        TransactionCoder.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
+        TransactionCoder.internal.toPartyTreeSet(proto) shouldBe a[Left[_, _]]
       }
     }
   }
@@ -685,22 +683,22 @@ class TransactionCoderSpec
     ContractId.V1(Hash.hashPrivateKey(s))
 
   def versionNodes(
-      version: TransactionVersion,
+      version: SerializationVersion,
       nodes: Map[NodeId, Node],
   ): Map[NodeId, Node] =
     nodes.view.mapValues(updateVersion(_, version)).toMap
 
   private def versionInIncreasingOrder(
-      versions: Seq[TransactionVersion] = TransactionVersion.All
-  ): Gen[(TransactionVersion, TransactionVersion)] =
+      versions: Seq[SerializationVersion] = SerializationVersion.All
+  ): Gen[(SerializationVersion, SerializationVersion)] =
     for {
       v1 <- Gen.oneOf(versions)
       v2 <- Gen.oneOf(versions.filter(_ >= v1))
     } yield (v1, v2)
 
   private def versionInStrictIncreasingOrder(
-      versions: Seq[TransactionVersion] = TransactionVersion.All
-  ): Gen[(TransactionVersion, TransactionVersion)] =
+      versions: Seq[SerializationVersion] = SerializationVersion.All
+  ): Gen[(SerializationVersion, SerializationVersion)] =
     for {
       v1 <- Gen.oneOf(versions.dropRight(1))
       v2 <- Gen.oneOf(versions.filter(_ > v1))
@@ -762,7 +760,7 @@ class TransactionCoderSpec
       stakeholders = stakeholders,
       keyOpt = fetch.keyOpt.map(normalizeKey(_, fetch.version)),
       byKey =
-        if (fetch.version >= TransactionVersion.minContractKeys)
+        if (fetch.version >= SerializationVersion.minContractKeys)
           fetch.byKey
         else false,
     )
@@ -780,13 +778,13 @@ class TransactionCoderSpec
       exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
       choiceObservers = exe.choiceObservers,
       choiceAuthorizers = exe.choiceAuthorizers match {
-        case Some(_) if exe.version <= TransactionVersion.minChoiceAuthorizers => None
+        case Some(_) if exe.version <= SerializationVersion.minChoiceAuthorizers => None
         case Some(parties) if parties.isEmpty => None
         case otherwise => otherwise
       },
       keyOpt = exe.keyOpt.map(normalizeKey(_, exe.version)),
       byKey =
-        if (exe.version >= TransactionVersion.minContractKeys)
+        if (exe.version >= SerializationVersion.minContractKeys)
           exe.byKey
         else false,
     )
@@ -794,7 +792,7 @@ class TransactionCoderSpec
 
   private[this] def normalizeKey(
       key: GlobalKeyWithMaintainers,
-      version: TransactionVersion,
+      version: SerializationVersion,
   ) =
     key.copy(globalKey =
       GlobalKey.assertBuild(
@@ -806,12 +804,12 @@ class TransactionCoderSpec
 
   private[this] def normalize(
       value0: Value,
-      version: TransactionVersion,
+      version: SerializationVersion,
   ): Value = Util.assertNormalizeValue(value0, version)
 
   private def updateVersion(
       node: Node,
-      version: TransactionVersion,
+      version: SerializationVersion,
   ): Node = node match {
     case node: Node.Action => normalizeNode(node.updateVersion(version))
     case node: Node.Rollback => node

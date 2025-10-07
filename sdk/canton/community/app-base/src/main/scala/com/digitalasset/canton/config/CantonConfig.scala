@@ -73,6 +73,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.synchronizer.block.{SequencerDriver, SequencerDriverFactory}
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.mediator.{
+  DeduplicationStoreConfig,
   MediatorConfig,
   MediatorNodeConfig,
   MediatorNodeParameterConfig,
@@ -688,6 +689,14 @@ object CantonConfig {
     allowUnknownKeys = false,
   )
 
+  // TODO(#27556): Align TlsServerConfig and HttpServerConfig
+  implicit def httpServerConfigProductHint: ProductHint[HttpServerConfig] =
+    ProductHint[HttpServerConfig](
+      fieldMapping =
+        ConfigFieldMapping(CamelCase, KebabCase).withOverrides("internalPort" -> "port"),
+      allowUnknownKeys = false,
+    )
+
   object ConfigReaders {
     import CantonConfigUtil.*
     import BaseCantonConfig.Readers.*
@@ -1021,6 +1030,12 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererP2PNetworkConfigReader
         : ConfigReader[BftBlockOrdererConfig.P2PNetworkConfig] =
       deriveReader[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandalonePeerConfigReader
+        : ConfigReader[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig] =
+      deriveReader[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandaloneNetworkConfigReader
+        : ConfigReader[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig] =
+      deriveReader[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig]
     lazy implicit val bftBlockOrdererLeaderSelectionPolicyHowLongToBlacklistConfigReader
         : ConfigReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist] =
       deriveEnumerationReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist]
@@ -1097,6 +1112,8 @@ object CantonConfig {
     lazy implicit final val mediatorConfigReader: ConfigReader[MediatorConfig] = {
       implicit val mediatorPruningConfigReader: ConfigReader[MediatorPruningConfig] =
         deriveReader[MediatorPruningConfig]
+      implicit val deduplicationStoreConfigReader: ConfigReader[DeduplicationStoreConfig] =
+        deriveReader[DeduplicationStoreConfig]
       deriveReader[MediatorConfig]
     }
     lazy implicit final val remoteMediatorConfigReader: ConfigReader[RemoteMediatorConfig] =
@@ -1686,6 +1703,12 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererBftP2PNetworkConfigWriter
         : ConfigWriter[BftBlockOrdererConfig.P2PNetworkConfig] =
       deriveWriter[BftBlockOrdererConfig.P2PNetworkConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandalonePeerConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig] =
+      deriveWriter[BftBlockOrdererConfig.BftBlockOrderingStandalonePeerConfig]
+    lazy implicit val bftBlockOrdererBftBlockOrderingStandaloneNetworkConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig] =
+      deriveWriter[BftBlockOrdererConfig.BftBlockOrderingStandaloneNetworkConfig]
     lazy implicit val bftBlockOrdererBftP2PConnectionManagementConfigWriter
         : ConfigWriter[BftBlockOrdererConfig.P2PConnectionManagementConfig] =
       deriveWriter[BftBlockOrdererConfig.P2PConnectionManagementConfig]
@@ -1769,6 +1792,8 @@ object CantonConfig {
     lazy implicit final val mediatorConfigWriter: ConfigWriter[MediatorConfig] = {
       implicit val mediatorPruningConfigWriter: ConfigWriter[MediatorPruningConfig] =
         deriveWriter[MediatorPruningConfig]
+      implicit val deduplicationStoreConfigWriter: ConfigWriter[DeduplicationStoreConfig] =
+        deriveWriter[DeduplicationStoreConfig]
       deriveWriter[MediatorConfig]
     }
     lazy implicit final val mediatorNodeParameterConfigWriter

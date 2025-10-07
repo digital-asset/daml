@@ -12,6 +12,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j
 import org.slf4j.event.Level
 
+import scala.annotation.tailrec
 import scala.collection.immutable.ListMap
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
@@ -432,6 +433,36 @@ class SuppressingLoggerTest extends AnyWordSpec with BaseTest with HasExecutionC
         )
         .futureValue
     }
+
+    "suppress the right messages when suppression rule changes" in {
+      // This is a regression test. Chosing iterations high enough so the problem is reproduced reliably.
+      val iterations = 10000
+
+      // Log iterations many message at INFO level
+      // Do that in the background (separate thread)
+      val f = Future {
+        for (i <- 0 until iterations) {
+          logger.info(s"Info message: $i")
+        }
+      }
+
+      // Do the following until the logging completes or a test failure is detected (whichever happens first).
+      @tailrec
+      def go(): Unit = {
+        // Suppress all messages, do not check anything.
+        loggerFactory.assertLogsSeq(SuppressionRule.FullSuppression)((), _ => succeed)
+
+        // Suppress only WARN messages, check that nothing has been suppressed (because no warnings are logged.)
+        // Prior to creation of this test there used to be a race condition in SuppressingLogger that
+        // would make this assertion fail.
+        loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))((), _ shouldBe empty)
+
+        if (!f.isCompleted) go()
+      }
+      go()
+
+      f.futureValue
+    }
   }
 
   "Throwable.addSuppressed" should {
@@ -455,7 +486,7 @@ class SuppressingLoggerTest extends AnyWordSpec with BaseTest with HasExecutionC
   class LoggingTester extends NamedLogging {
     val underlyingNamedLogger = new TestNamedLogger
     def skipLogEntry(_logEntry: LogEntry): Boolean = false
-    val loggerFactory: SuppressingLogger =
+    override val loggerFactory: SuppressingLogger =
       new SuppressingLogger(underlyingNamedLogger, pollTimeout = 10.millis, skipLogEntry)
     val underlyingLogger: slf4j.Logger = underlyingNamedLogger.logger
   }

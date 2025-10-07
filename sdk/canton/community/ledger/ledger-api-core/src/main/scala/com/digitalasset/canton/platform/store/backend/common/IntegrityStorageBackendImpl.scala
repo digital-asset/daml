@@ -3,13 +3,14 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import anorm.SqlParser.{array, int, long, str}
+import anorm.SqlParser.{byteArray, int, long, str}
 import anorm.{RowParser, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.google.common.annotations.VisibleForTesting
 
@@ -186,10 +187,10 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
+      .asSingleOpt(updateId("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
       .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
-          s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
+          s"occurrence of duplicate update ID [${uId.toHexString}] found for offsets $offset1, $offset2"
         )
       }
 
@@ -252,9 +253,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       .asVectorOf(
         offset("completion_offset") ~
           int("user_id") ~
-          array[Int]("submitters") ~
+          byteArray("submitters") ~
           str("command_id") ~
-          str("update_id").? ~
+          updateId("update_id").? ~
           str("submission_id").? ~
           str("message_uuid").? ~
           long("record_time") ~
@@ -262,7 +263,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             case offset ~ userId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ recordTimeLong ~ synchronizerId =>
               CompletionEntry(
                 userId,
-                submitters.toList,
+                IntArrayDBSerialization.decodeFromByteArray(submitters).toList,
                 commandId,
                 updateId,
                 submissionId,
@@ -302,6 +303,24 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         )
       )
 
+    // Verify no duplicate completion entry
+    val internalContractIds = SQL"""
+          SELECT
+            internal_contract_id
+          FROM par_contracts
+      """
+      .asVectorOf(long("internal_contract_id"))(connection)
+    val firstTenDuplicatedInternalIds = internalContractIds
+      .groupMap(identity)(identity)
+      .iterator
+      .filter(_._2.sizeIs > 1)
+      .take(10)
+      .map(_._1)
+      .toSeq
+    if (firstTenDuplicatedInternalIds.nonEmpty)
+      throw new RuntimeException(
+        s"duplicate internal_contract_id-s found in table par_contracts (first 10 shown) $firstTenDuplicatedInternalIds"
+      )
   } catch {
     case t: Throwable if !failForEmptyDB =>
       val failure = t.getMessage
@@ -339,7 +358,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     */
   @VisibleForTesting
   override def moveLedgerEndBackToScratch()(connection: Connection): Unit = {
-    SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
+    SQL"UPDATE lapi_parameters SET ledger_end = 1, ledger_end_sequential_id = 0"
+      .executeUpdate()(connection)
+      .discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
@@ -350,7 +371,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       userId: Int,
       submitters: List[Int],
       commandId: String,
-      updateId: Option[String],
+      updateId: Option[UpdateId],
       submissionId: Option[String],
       messageUuid: Option[String],
       recordTimeLong: Long,

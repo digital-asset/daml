@@ -17,7 +17,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import io.grpc.Status
 import org.scalatest.Assertion
@@ -25,7 +25,7 @@ import org.scalatest.Assertion
 import scala.concurrent.{ExecutionContext, Future}
 
 final class GetEventsByContractIdRequestAuthIT extends ReadOnlyServiceCallAuthTests {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   override def serviceCallName: String = "EventQueryService#GetEventsByContractId"
 

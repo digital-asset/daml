@@ -18,14 +18,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
   underTest,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
-import com.digitalasset.canton.protocol.{
-  AuthenticatedContractIdVersionV11,
-  ContractAuthenticationDataV1,
-  ExampleContractFactory,
-  LfFatContractInst,
-  LfTransactionVersion,
-  Unicum,
-}
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{DefaultDamlValues, LfValue}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.*
@@ -71,9 +64,9 @@ class ValidateDisclosedContractsTest
     )
   }
 
-  it should "fail validation on absent contract_id" in {
-    requestMustFailWith(
-      request = underTest.validateCommands(
+  it should "support absent contract_id" in {
+    underTest
+      .validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
@@ -84,29 +77,21 @@ class ValidateDisclosedContractsTest
               .copy(contractId = "")
           )
         )
-      ),
-      code = Status.Code.INVALID_ARGUMENT,
-      description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.contract_id",
-      metadata = Map.empty,
-    )
+      )
+      .value shouldBe lf.expectedDisclosedContracts
   }
 
-  it should "fail validation on absent template_id" in {
-    requestMustFailWith(
-      request = underTest.validateCommands(
+  it should "support absent template_id" in {
+    underTest
+      .validateCommands(
         api.protoCommands.copy(
           disclosedContracts = scala.Seq(
             api.protoDisclosedContract
               .copy(templateId = None)
           )
         )
-      ),
-      code = Status.Code.INVALID_ARGUMENT,
-      description =
-        "MISSING_FIELD(8,0): The submitted command is missing a mandatory field: DisclosedContract.template_id",
-      metadata = Map.empty,
-    )
+      )
+      .value shouldBe lf.expectedDisclosedContracts
   }
 
   it should "fail validation on invalid contract_id" in {
@@ -270,7 +255,7 @@ object ValidateDisclosedContractsTest {
 
   private val underTest = ValidateDisclosedContracts
 
-  val lfContractId: ContractId.V1 = AuthenticatedContractIdVersionV11.fromDiscriminator(
+  val lfContractId: ContractId.V1 = CantonContractIdVersion.maxV1.fromDiscriminator(
     DefaultDamlValues.lfhash(3),
     Unicum(TestHash.digest(4)),
   )
@@ -330,7 +315,7 @@ object ValidateDisclosedContractsTest {
     private val salt = Salt.tryDeriveSalt(seedSalt, 0, new SymbolicPureCrypto())
 
     private val authenticationDataBytes: Bytes =
-      ContractAuthenticationDataV1(salt)(AuthenticatedContractIdVersionV11).toLfBytes
+      ContractAuthenticationDataV1(salt)(CantonContractIdVersion.maxV1).toLfBytes
 
     val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
@@ -353,7 +338,7 @@ object ValidateDisclosedContractsTest {
       signatories = api.signatories,
       stakeholders = api.stakeholders,
       keyOpt = Some(lf.keyWithMaintainers),
-      version = LfTransactionVersion.StableVersions.max,
+      version = LfSerializationVersion.StableVersions.max,
     )
 
     private val dupKeyCreateNode = createNode.copy(ExampleContractFactory.buildContractId())

@@ -6,13 +6,7 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionResponse,
-  GetTransactionTreeResponse,
-  GetUpdateResponse,
-  GetUpdateTreesResponse,
-  GetUpdatesResponse,
-}
+import com.daml.ledger.api.v2.update_service.{GetUpdateResponse, GetUpdatesResponse}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
@@ -23,12 +17,12 @@ import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoUpdateReader {
@@ -40,51 +34,10 @@ private[platform] trait LedgerDaoUpdateReader {
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed]
 
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionById(
-      updateId: UpdateId,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
-
-  // TODO(#23504) remove when getTransactionByOffset is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionByOffset(
-      offset: Offset,
-      internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
-
   def lookupUpdateBy(
       lookupKey: LookupKey,
       internalUpdateFormat: InternalUpdateFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]]
-
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def getTransactionTrees(
-      startInclusive: Offset,
-      endInclusive: Offset,
-      requestingParties: Option[Set[Party]],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
-
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionTreeById(
-      updateId: UpdateId,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
-
-  // TODO(#23504) remove when getTransactionById is removed
-  @nowarn("cat=deprecation")
-  def lookupTransactionTreeByOffset(
-      offset: Offset,
-      requestingParties: Set[Party],
-      eventProjectionProperties: EventProjectionProperties,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
   def getActiveContracts(
       activeAt: Option[Offset],

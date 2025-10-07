@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.logging
 
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -80,5 +80,5 @@ abstract class TraceIdIntegrationTest extends CommunityIntegrationTest with Shar
 }
 
 class TraceIdIntegrationTestDefault extends TraceIdIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

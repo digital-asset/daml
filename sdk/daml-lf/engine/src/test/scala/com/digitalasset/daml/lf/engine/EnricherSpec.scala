@@ -6,7 +6,7 @@ package engine
 
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
-  CreateTransactionVersion,
+  CreateSerializationVersion,
 }
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data._
@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.transaction.test.{
   TransactionBuilder,
   TreeTransactionBuilder,
 }
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.matchers.should.Matchers
@@ -238,7 +238,7 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
           signatories = Set("Alice"),
           observers = Set("Alice"),
           key = CreateKey.SignatoryMaintainerKey(key),
-          version = CreateTransactionVersion.Version(TransactionVersion.minVersion),
+          version = CreateSerializationVersion.Version(SerializationVersion.minVersion),
         )
       txBuilder.toCommittedTransaction(
         create,

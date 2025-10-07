@@ -59,18 +59,4 @@ private[postgresql] object PGTable {
       fields: (String, Field[FROM, _, _])*
   ): Table[FROM] =
     transposedInsertBase(transposedInsertStatement(tableName, fields))(fields)
-
-  def idempotentTransposedInsert[FROM](
-      tableName: String,
-      keyFieldIndex: Int,
-      ordering: Ordering[FROM],
-  )(
-      fields: (String, Field[FROM, _, _])*
-  ): Table[FROM] = {
-    val insertSuffix = s"on conflict (${fields(keyFieldIndex)._1}) do nothing"
-    transposedInsertBase(
-      transposedInsertStatement(tableName, fields, insertSuffix),
-      Some(ordering),
-    )(fields)
-  }
 }

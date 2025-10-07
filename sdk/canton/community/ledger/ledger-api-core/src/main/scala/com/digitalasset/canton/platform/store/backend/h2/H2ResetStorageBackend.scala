@@ -17,6 +17,14 @@ object H2ResetStorageBackend extends ResetStorageBackend {
       truncate table lapi_parameters;
       truncate table lapi_ledger_end_synchronizer_index;
       truncate table lapi_command_completions;
+      truncate table lapi_events_activate_contract;
+      truncate table lapi_filter_activate_stakeholder;
+      truncate table lapi_filter_activate_witness;
+      truncate table lapi_events_deactivate_contract;
+      truncate table lapi_filter_deactivate_stakeholder;
+      truncate table lapi_filter_deactivate_witness;
+      truncate table lapi_events_various_witnessed;
+      truncate table lapi_filter_various_witness;
       truncate table lapi_events_create;
       truncate table lapi_events_consuming_exercise;
       truncate table lapi_events_non_consuming_exercise;

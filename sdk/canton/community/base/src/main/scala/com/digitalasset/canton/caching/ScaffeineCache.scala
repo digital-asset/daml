@@ -120,6 +120,8 @@ object ScaffeineCache {
     def invalidateAll(): Unit = underlying.synchronous().invalidateAll()
 
     def cleanUp(): Unit = underlying.synchronous().cleanUp()
+
+    def getIfPresentSync(key: K): Option[V] = underlying.synchronous().getIfPresent(key)
   }
 
   class TunnelledAsyncLoadingCache[F[_], K, V] private[ScaffeineCache] (

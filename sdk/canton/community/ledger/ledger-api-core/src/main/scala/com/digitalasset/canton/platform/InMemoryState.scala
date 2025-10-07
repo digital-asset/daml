@@ -68,7 +68,7 @@ class InMemoryState(
         _ <- dispatcherState.stopDispatcher()
         // Reset the Ledger API caches to the latest ledger end
         _ <- Future {
-          contractStateCaches.reset(ledgerEndO.map(_.lastOffset))
+          contractStateCaches.reset(ledgerEndO)
           inMemoryFanoutBuffer.flush()
           ledgerEndCache.set(ledgerEndO)
           transactionSubmissionTracker.close()
@@ -150,7 +150,7 @@ object InMemoryState {
       ledgerEndCache = mutableLedgerEndCache,
       dispatcherState = dispatcherState,
       contractStateCaches = ContractStateCaches.build(
-        initialLedgerEnd.map(_.lastOffset),
+        initialLedgerEnd.map(_.lastEventSeqId).getOrElse(0L),
         maxContractStateCacheSize,
         maxContractKeyStateCacheSize,
         metrics,

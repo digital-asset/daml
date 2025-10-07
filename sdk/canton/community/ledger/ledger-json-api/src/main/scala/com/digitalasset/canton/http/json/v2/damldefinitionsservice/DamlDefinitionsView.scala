@@ -9,7 +9,7 @@ import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
   TypeSig,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.daml.lf.data.Ref
 
 class DamlDefinitionsView(

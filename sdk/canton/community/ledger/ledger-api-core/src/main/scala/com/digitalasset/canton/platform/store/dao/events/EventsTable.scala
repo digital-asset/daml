@@ -14,16 +14,8 @@ import com.daml.ledger.api.v2.topology_transaction.{
   TopologyTransaction,
 }
 import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
-import com.daml.ledger.api.v2.transaction.{
-  Transaction as ApiTransaction,
-  TransactionTree as ApiTransactionTree,
-  TreeEvent,
-}
-import com.daml.ledger.api.v2.update_service.{
-  GetTransactionTreeResponse,
-  GetUpdateTreesResponse,
-  GetUpdatesResponse,
-}
+import com.daml.ledger.api.v2.transaction.Transaction as ApiTransaction
+import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
@@ -38,10 +30,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawParticipantAuthorization,
 }
-import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.google.protobuf.ByteString
-
-import scala.annotation.nowarn
 
 object EventsTable {
 
@@ -90,7 +79,16 @@ object EventsTable {
       ApiTransaction(
         updateId = first.updateId,
         commandId = first.commandId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
+        effectiveAt = Some(
+          first.event.event.created
+            .flatMap(_.createdAt)
+            .orElse(first.ledgerEffectiveTime.map(TimestampConversion.fromLf))
+            .getOrElse(
+              throw new IllegalStateException(
+                "Either newly created contracts or the Entry for exercises should provide the ledgerEffectiveTime."
+              )
+            )
+        ),
         workflowId = first.workflowId.getOrElse(""),
         offset = first.offset,
         events = events,
@@ -169,62 +167,6 @@ object EventsTable {
             recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
           )
       }
-
-    // TODO(#23504) remove when TreeEvent is removed
-    @nowarn("cat=deprecation")
-    private def treeOf(
-        events: Seq[Entry[TreeEvent]]
-    ): (Map[Int, TreeEvent], Option[DamlTraceContext]) = {
-
-      // All events in this transaction by their identifier, with their children
-      // filtered according to those visible for this request
-      val eventsById =
-        events.iterator
-          .map(_.event)
-          .map(e => e.nodeId -> e)
-          .toMap
-
-      (eventsById, extractTraceContext(events))
-
-    }
-
-    // TODO(#23504) remove when TreeEvent is removed
-    @nowarn("cat=deprecation")
-    private def transactionTree(
-        events: Seq[Entry[TreeEvent]]
-    ): Option[ApiTransactionTree] =
-      events.headOption.map { first =>
-        val (eventsById, traceContext) = treeOf(events)
-        ApiTransactionTree(
-          updateId = first.updateId,
-          commandId = first.commandId.getOrElse(""),
-          workflowId = first.workflowId.getOrElse(""),
-          effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
-          offset = first.offset,
-          eventsById = eventsById,
-          synchronizerId = first.synchronizerId,
-          traceContext = traceContext,
-          recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
-        )
-      }
-
-    // TODO(#23504) remove when TreeEvent is removed
-    @nowarn("cat=deprecation")
-    def toGetTransactionTreesResponse(
-        events: Seq[Entry[TreeEvent]]
-    ): List[(Long, GetUpdateTreesResponse)] =
-      transactionTree(events).toList.map(tx =>
-        tx.offset -> GetUpdateTreesResponse(GetUpdateTreesResponse.Update.TransactionTree(tx))
-          .withPrecomputedSerializedSize()
-      )
-
-    // TODO(#23504) remove when TreeEvent is removed
-    @nowarn("cat=deprecation")
-    def toGetTransactionTreeResponse(
-        events: Seq[Entry[TreeEvent]]
-    ): Option[GetTransactionTreeResponse] =
-      transactionTree(events).map(tx => GetTransactionTreeResponse(Some(tx)))
-
   }
 
 }

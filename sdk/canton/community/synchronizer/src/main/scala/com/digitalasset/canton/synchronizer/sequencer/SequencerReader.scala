@@ -268,7 +268,11 @@ class SequencerReader(
                 show"but this sequencer cannot serve timestamps at or before ${lowerBoundText.unquoted} " +
                 show"or below the member's registration timestamp ${registeredMember.registeredFrom}."
 
-            logger.error(errorMessage)
+            // Logging at INFO level because this can happen during normal operations for a decentralized synchronizer
+            // where a participant updates its sequencer connection config before it has caught up to the point
+            // where the sequencer was actually onboarded.
+            // TODO(#28184) Make sure that this cannot happen due to misconfiguration of sequencer connections
+            logger.info(errorMessage)
             CreateSubscriptionError
               .EventsUnavailableForTimestamp(readFromTimestampInclusive, errorMessage)
           },
@@ -356,7 +360,6 @@ class SequencerReader(
                 syncCryptoApi,
                 event.timestamp,
                 previousTopologyClientTimestamp,
-                protocolVersion,
                 warnIfApproximate = warnIfApproximate,
               )
             }
@@ -424,7 +427,6 @@ class SequencerReader(
             topologyTimestamp,
             sequencingTimestamp,
             topologyClientTimestampBefore,
-            protocolVersion,
             // This warning should never be triggered.
             warnIfApproximate = true,
             _.sequencerTopologyTimestampTolerance,
@@ -610,7 +612,6 @@ class SequencerReader(
                       ),
                     )
                   case payload: BytesPayload => payload.decodeBatchAndTrim(protocolVersion, member)
-                  case batch: FilteredBatch => Batch.trimForMember(batch.batch, member)
                 })
               )
             }
@@ -770,7 +771,6 @@ class SequencerReader(
                   syncCryptoApi,
                   timestamp,
                   topologyClientTimestampBeforeO,
-                  protocolVersion,
                 )
                 .map(_.ipsSnapshot)
             )(FutureUnlessShutdown.pure)
@@ -916,10 +916,10 @@ object SequencerReader {
           case None => nextPreviousEventTimestamp
         },
         // set the timestamp to next timestamp from the read events or keep the current timestamp if we got no results
-        nextReadTimestamp = readEvents.nextTimestamp
-          .getOrElse(nextReadTimestamp),
+        nextReadTimestamp = readEvents.nextTimestamp.getOrElse(nextReadTimestamp),
         // did we receive a full batch of events on this update
-        lastBatchWasFull = readEvents.events.sizeCompare(batchSize) == 0,
+        // the case > is there as events query can return more events than requested in multi-instance setups
+        lastBatchWasFull = readEvents.events.sizeCompare(batchSize) >= 0,
       )
 
     override protected def pretty: Pretty[ReadState] = prettyOfClass(

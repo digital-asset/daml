@@ -18,7 +18,7 @@ import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.util.{LegacyContractHash, TestEngine}
+import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
@@ -177,7 +177,7 @@ class DAMLeTest
       val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
 
       val inst = contract.inst
-      val contractHash = LegacyContractHash.fatContractHash(inst).value
+      val contractHash = testEngine.hashAndConsume(inst.toCreateNode)
 
       reinterpret(
         submitters = submitters,
@@ -186,6 +186,7 @@ class DAMLeTest
         contracts = new ExtendedContractLookup(Map(contract.contractId -> contract), Map.empty),
         contractAuthenticator = {
           case (`inst`, `contractHash`) => Either.unit
+          case (`inst`, h) => fail(s"Hash mismatch: $h : $contractHash")
           case other => fail(s"Unexpected: $other")
         },
       ).value
@@ -202,7 +203,7 @@ class DAMLeTest
       val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
 
       val inst = contract.inst
-      val contractHash = LegacyContractHash.fatContractHash(inst).value
+      val contractHash = testEngine.hashAndConsume(inst.toCreateNode)
 
       reinterpret(
         submitters = submitters,

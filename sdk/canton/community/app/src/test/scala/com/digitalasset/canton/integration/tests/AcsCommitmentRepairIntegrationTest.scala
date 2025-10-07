@@ -13,12 +13,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UseH2,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.{UseH2, UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.util.{CommitmentTestUtil, IntervalDuration}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -96,7 +92,14 @@ trait AcsCommitmentRepairIntegrationTest
     simClock.advanceTo(simClock.uniqueTime().immediateSuccessor)
 
     val createdCids =
-      (1 to nContracts.value).map(_ => deployOnP1P2AndCheckContract(synchronizerId, iouContract))
+      (1 to nContracts.value).map(_ =>
+        deployOnTwoParticipantsAndCheckContract(
+          synchronizerId,
+          iouContract,
+          participant1,
+          participant2,
+        )
+      )
 
     val tick1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)
@@ -323,7 +326,7 @@ trait AcsCommitmentRepairIntegrationTest
 class AcsCommitmentRepairIntegrationTestPostgres extends AcsCommitmentRepairIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
@@ -338,7 +341,7 @@ class AcsCommitmentRepairIntegrationTestPostgres extends AcsCommitmentRepairInte
 class AcsCommitmentRepairIntegrationTestH2 extends AcsCommitmentRepairIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+    new UseReferenceBlockSequencer[DbConfig.H2](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

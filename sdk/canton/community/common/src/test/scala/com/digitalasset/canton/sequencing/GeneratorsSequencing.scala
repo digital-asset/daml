@@ -35,6 +35,8 @@ final class GeneratorsSequencing(generatorsTopology: GeneratorsTopology) {
   implicit val sequencerConnectionArb: Arbitrary[SequencerConnection] = genArbitrary
   implicit val submissionRequestAmplificationArb: Arbitrary[SubmissionRequestAmplification] =
     genArbitrary
+  implicit val sequencerConnectionPoolDelaysArb: Arbitrary[SequencerConnectionPoolDelays] =
+    genArbitrary
 
   implicit val sequencerConnectionsArb: Arbitrary[SequencerConnections] = Arbitrary(
     for {
@@ -47,11 +49,13 @@ final class GeneratorsSequencing(generatorsTopology: GeneratorsTopology) {
         .choose(0, connections.size - sequencerTrustThreshold.unwrap)
         .map(NonNegativeInt.tryCreate)
       submissionRequestAmplification <- submissionRequestAmplificationArb.arbitrary
+      sequencerConnectionPoolDelays <- sequencerConnectionPoolDelaysArb.arbitrary
     } yield SequencerConnections.tryMany(
       connections,
       sequencerTrustThreshold,
       sequencerLivenessMargin,
       submissionRequestAmplification,
+      sequencerConnectionPoolDelays,
     )
   )
 }

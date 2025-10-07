@@ -73,6 +73,9 @@ trait ConnectionPoolTestHelpers {
   protected lazy val authConfig: AuthenticationTokenManagerConfig =
     AuthenticationTokenManagerConfig()
 
+  protected lazy val sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
+    SequencerConnectionPoolDelays.default
+
   protected lazy val testCrypto: SynchronizerCrypto =
     SynchronizerCrypto(
       SymbolicCrypto
@@ -154,6 +157,8 @@ trait ConnectionPoolTestHelpers {
     SequencerConnectionXPoolConfig(
       connections = configs,
       trustThreshold = trustThreshold,
+      minRestartConnectionDelay = sequencerConnectionPoolDelays.minRestartDelay,
+      maxRestartConnectionDelay = sequencerConnectionPoolDelays.maxRestartDelay,
       expectedPSIdO = expectedSynchronizerIdO,
     )
   }
@@ -162,6 +167,7 @@ trait ConnectionPoolTestHelpers {
       nbConnections: PositiveInt,
       trustThreshold: PositiveInt,
       attributesForConnection: Int => ConnectionAttributes,
+      responsesForConnection: PartialFunction[Int, TestResponses] = Map(),
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
       testTimeouts: ProcessingTimeout = timeouts,
       blockValidation: Int => Boolean = _ => false,
@@ -172,6 +178,7 @@ trait ConnectionPoolTestHelpers {
 
     val poolFactory = new TestSequencerConnectionXPoolFactory(
       attributesForConnection,
+      responsesForConnection,
       validationBlocker,
       authConfig,
       testMember,
@@ -196,9 +203,13 @@ trait ConnectionPoolTestHelpers {
 
   protected def mkSubscriptionPoolConfig(
       trustThreshold: PositiveInt,
-      reserve: NonNegativeInt,
+      livenessMargin: NonNegativeInt,
   ): SequencerSubscriptionPoolConfig =
-    SequencerSubscriptionPoolConfig(trustThreshold, reserve)
+    SequencerSubscriptionPoolConfig(
+      trustThreshold = trustThreshold,
+      livenessMargin = livenessMargin,
+      subscriptionRequestDelay = sequencerConnectionPoolDelays.subscriptionRequestDelay,
+    )
 
   protected def withSubscriptionPool[V](
       trustThreshold: PositiveInt,
@@ -210,7 +221,6 @@ trait ConnectionPoolTestHelpers {
     val subscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
       sequencerSubscriptionFactory = new TestSequencerSubscriptionXFactory(timeouts, loggerFactory),
       subscriptionHandlerFactory = TestSubscriptionHandlerXFactory,
-      clock = wallClock,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )
@@ -232,6 +242,7 @@ trait ConnectionPoolTestHelpers {
       nbConnections: PositiveInt,
       trustThreshold: PositiveInt,
       attributesForConnection: Int => ConnectionAttributes,
+      responsesForConnection: PartialFunction[Int, TestResponses] = Map(),
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
       livenessMargin: NonNegativeInt,
   )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V =
@@ -239,6 +250,7 @@ trait ConnectionPoolTestHelpers {
       nbConnections,
       trustThreshold,
       attributesForConnection,
+      responsesForConnection,
       expectedSynchronizerIdO,
     ) { (connectionPool, _, _, _) =>
       connectionPool.start().futureValueUS.valueOrFail("initialization")
@@ -251,7 +263,7 @@ trait ConnectionPoolTestHelpers {
 
 }
 
-private object ConnectionPoolTestHelpers {
+protected object ConnectionPoolTestHelpers {
   import BaseTest.*
 
   lazy val failureUnavailable: Either[Exception, Nothing] =
@@ -366,6 +378,7 @@ private object ConnectionPoolTestHelpers {
 
   private class TestSequencerConnectionXPoolFactory(
       attributesForConnection: Int => ConnectionAttributes,
+      responsesForConnection: PartialFunction[Int, TestResponses],
       validationBlocker: TestValidationBlocker,
       authConfig: AuthenticationTokenManagerConfig,
       member: Member,
@@ -381,6 +394,7 @@ private object ConnectionPoolTestHelpers {
 
     private val connectionFactory = new TestInternalSequencerConnectionXFactory(
       attributesForConnection,
+      responsesForConnection,
       validationBlocker,
       futureSupervisor,
       timeouts,
@@ -427,6 +441,7 @@ private object ConnectionPoolTestHelpers {
 
   protected class TestInternalSequencerConnectionXFactory(
       attributesForConnection: Int => ConnectionAttributes,
+      responsesForConnection: PartialFunction[Int, TestResponses],
       validationBlocker: TestValidationBlocker,
       futureSupervisor: FutureSupervisor,
       timeouts: ProcessingTimeout,
@@ -450,13 +465,17 @@ private object ConnectionPoolTestHelpers {
         )
       )
 
-      val responses = new TestResponses(
-        apiResponses = Iterator.continually(correctApiResponse),
-        handshakeResponses = Iterator.continually(successfulHandshake),
-        synchronizerAndSeqIdResponses = Iterator.continually(correctSynchronizerIdResponse),
-        staticParametersResponses = Iterator.continually(correctStaticParametersResponse),
-        acknowledgeResponses = Iterator.continually(positiveAcknowledgeResponse),
-        validationBlocker.delayF(index),
+      val responses = responsesForConnection.applyOrElse(
+        index,
+        (_: Int) =>
+          new TestResponses(
+            apiResponses = Iterator.continually(correctApiResponse),
+            handshakeResponses = Iterator.continually(successfulHandshake),
+            synchronizerAndSeqIdResponses = Iterator.continually(correctSynchronizerIdResponse),
+            staticParametersResponses = Iterator.continually(correctStaticParametersResponse),
+            acknowledgeResponses = Iterator.continually(positiveAcknowledgeResponse),
+            validationBlocker.delayF(index),
+          ),
       )
 
       val stubFactory = new TestSequencerConnectionXStubFactory(responses, loggerFactory)

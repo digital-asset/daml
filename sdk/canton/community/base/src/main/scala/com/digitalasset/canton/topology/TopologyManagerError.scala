@@ -370,26 +370,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that the attempted key removal would create dangling topology transactions, making the node unusable."""
-  )
-  @Resolution(
-    """Add the `force = true` flag to your command if you are really sure what you are doing."""
-  )
-  object RemovingKeyWithDanglingTransactionsMustBeForced
-      extends ErrorCode(
-        id = "TOPOLOGY_REMOVING_KEY_DANGLING_TRANSACTIONS_MUST_BE_FORCED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Failure(key: Fingerprint, purpose: KeyPurpose)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause =
-            "Topology transaction would remove a key that creates conflicts and dangling transactions"
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
     """This error indicates that it has been attempted to increase the ``preparationTimeRecordTimeTolerance`` synchronizer parameter in an insecure manner.
       |Increasing this parameter may disable security checks and can therefore be a security risk.
       |"""
@@ -428,6 +408,34 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"Unable to increase preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    """This error occurs when the new parameter value is outside the defined lower and upper bounds."""
+  )
+  @Resolution(
+    """Choose a value that is within the allowed lower and upper limits.
+      |
+      |Alternatively, add the flag ``ForceFlag.AllowOutOfBoundsValue`` to force the value change.
+      |Caution: Forcing a value change may result in adverse system behaviour. Proceed only if you understand the risks.
+      |"""
+  )
+  object ValueOutOfBounds
+      extends ErrorCode(
+        id = "TOPOLOGY_VALUE_OUT_OF_BOUNDS",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(
+        value: NonNegativeFiniteDuration,
+        name: String,
+        min: NonNegativeFiniteDuration,
+        max: NonNegativeFiniteDuration,
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Parameter `$name` needs to be between $min and $max; found: $value"
         )
         with TopologyManagerError
   }
@@ -919,7 +927,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           id = "TOPOLOGY_CANNOT_VET_DUE_TO_MISSING_PACKAGES",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Missing(packages: Ref.PackageId)(implicit
+      final case class Missing(packages: Set[Ref.PackageId])(implicit
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause = "Package vetting failed due to packages not existing on the local node"

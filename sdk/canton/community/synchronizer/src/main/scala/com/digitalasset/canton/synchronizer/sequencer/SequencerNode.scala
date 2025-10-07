@@ -237,6 +237,7 @@ class SequencerNodeBootstrap(
         arguments.metrics.trafficControl.consumedCache.closeAcquired()
         arguments.metrics.eventBuffer.closeAcquired()
         arguments.metrics.memberCache.closeAcquired()
+        arguments.metrics.payloadCache.closeAcquired()
       }
     })
 
@@ -514,7 +515,7 @@ class SequencerNodeBootstrap(
                 val topologySnapshotValidator = new InitialTopologySnapshotValidator(
                   crypto.pureCrypto,
                   synchronizerTopologyStore,
-                  parameters.processingTimeouts,
+                  validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
                   loggerFactory,
                 )
                 for {
@@ -599,6 +600,7 @@ class SequencerNodeBootstrap(
                 crypto.pureCrypto,
                 parameters,
                 clock,
+                crypto.staticSynchronizerParameters,
                 futureSupervisor,
                 synchronizerLoggerFactory,
               )(topologyHeadInitializer)
@@ -1013,8 +1015,8 @@ class SequencerNode(
     val ports = Map("public" -> config.publicApi.port, "admin" -> config.adminApi.port)
 
     SequencerNodeStatus(
-      sequencer.synchronizerId.logical.unwrap,
-      sequencer.synchronizerId,
+      sequencer.psid.logical.unwrap,
+      sequencer.psid,
       uptime(),
       ports,
       activeMembers,

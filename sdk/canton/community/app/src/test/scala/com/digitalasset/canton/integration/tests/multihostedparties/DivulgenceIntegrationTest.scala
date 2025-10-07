@@ -3,80 +3,40 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import better.files.File
 import com.daml.ledger.api.v2.event.Event
+import com.daml.ledger.api.v2.transaction_filter.*
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
   TRANSACTION_SHAPE_ACS_DELTA,
   TRANSACTION_SHAPE_LEDGER_EFFECTS,
 }
-import com.daml.ledger.api.v2.transaction_filter.{
-  EventFormat,
-  Filters,
-  TransactionFormat,
-  TransactionShape,
-  UpdateFormat,
-}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.examples.java.divulgence.DivulgeIouByExercise
 import com.digitalasset.canton.examples.java.iou.Iou
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-}
-import com.digitalasset.canton.participant.admin.data.ContractImportMode
-import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
-final class DivulgenceIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
+final class DivulgenceIntegrationTest extends OfflinePartyReplicationIntegrationTestBase {
   import DivulgenceIntegrationTest.*
-
-  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
-  // A party gets activated on multiple participants without being replicated (= ACS mismatch),
-  // and we want to minimize the risk of warnings related to acs commitment mismatches
-  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
-
-  override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
-      import env.*
-      participants.local.synchronizers.connect_local(sequencer1, daName)
-      participants.local.dars.upload(CantonExamplesPath)
-      sequencer1.topology.synchronizer_parameters
-        .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
-
-      participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
-      participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
-    }
-
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
-  )
-
-  private val acsSnapshotAtOffset: String =
-    "offline_party_replication_test_acs_snapshot_at_offset.gz"
-
-  override def afterAll(): Unit =
-    try {
-      val exportFile = File(acsSnapshotAtOffset)
-      if (exportFile.exists) exportFile.delete()
-    } finally super.afterAll()
 
   "Divulgence should work as expected" in { implicit env =>
     import env.*
 
-    val alice = participant1.parties.find("Alice")
-    val bob = participant2.parties.find("Bob")
+    def contractStore(participant: LocalParticipantReference) =
+      participant.testing.state_inspection.syncPersistentStateManager
+        .acsInspection(daId)
+        .map(_.contractStore)
+        .value
+    def contractFor(
+        participant: LocalParticipantReference,
+        contractId: String,
+    ): Option[ContractInstance] =
+      contractStore(participant)
+        .lookup(LfContractId.assertFromString(contractId))
+        .value
+        .futureValueUS
 
     // baseline Iou-s to test views / stakeholders / projections on the two participants, and ensure correct party migration baseline
     val (aliceStakeholderCreatedP1, _) = participant1.createIou(alice, alice)
@@ -86,12 +46,19 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 1
       participant2.acsDeltas(bob) should have size 1
     }
+    contractFor(participant1, aliceStakeholderCreatedP1.contractId) should not be empty
+    contractFor(participant1, bobStakeholderCreatedP2.contractId) shouldBe empty
+    contractFor(participant2, aliceStakeholderCreatedP1.contractId) shouldBe empty
+    contractFor(participant2, bobStakeholderCreatedP2.contractId) should not be empty
+
     val (aliceBobStakeholderCreatedP1, _) = participant1.createIou(alice, bob)
     eventually() {
       //  ensuring that both participants see all events necessary after running the commands (these numbers are deduced from the assertions below)
       participant1.acsDeltas(alice) should have size 2
       participant2.acsDeltas(bob) should have size 2
     }
+    contractFor(participant1, aliceBobStakeholderCreatedP1.contractId) should not be empty
+    contractFor(participant2, aliceBobStakeholderCreatedP1.contractId) should not be empty
 
     // divulgence proxy contract for divulgence operations: divulging to bob
     val (divulgeIouByExerciseP2, divulgeIouByExerciseContract) =
@@ -101,17 +68,25 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 3
       participant2.acsDeltas(bob) should have size 3
     }
+    contractFor(participant1, divulgeIouByExerciseP2.contractId) should not be empty
+    contractFor(participant2, divulgeIouByExerciseP2.contractId) should not be empty
 
     // creating two iou-s with alice, which will be divulged to bob
     val (immediateDivulged1P1, immediateDivulged1Contract) =
       participant1.immediateDivulgeIou(alice, divulgeIouByExerciseContract)
-    val (immediateDivulged2P1, immediateDivulged2Contract) =
+    val (immediateDivulged2P1, _immediateDivulged2Contract) =
       participant1.immediateDivulgeIou(alice, divulgeIouByExerciseContract)
     eventually() {
       //  ensuring that both participants see all events necessary after running the commands (these numbers are deduced from the assertions below)
       participant1.acsDeltas(alice) should have size 5
       participant2.ledgerEffects(alice) should have size 6
     }
+    contractFor(participant1, immediateDivulged1P1.contractId) should not be empty
+    // Immediately divulged contracts are stored in the ContractStore
+    contractFor(participant2, immediateDivulged1P1.contractId) should not be empty
+    contractFor(participant1, immediateDivulged2P1.contractId) should not be empty
+    // Immediately divulged contracts are stored in the ContractStore
+    contractFor(participant2, immediateDivulged2P1.contractId) should not be empty
 
     // archiving the first divulged Iou
     participant1.archiveIou(alice, immediateDivulged1Contract)
@@ -129,6 +104,9 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       participant1.acsDeltas(alice) should have size 8
       participant2.ledgerEffects(alice) should have size 8
     }
+    contractFor(participant1, aliceStakeholderCreated2P1.contractId) should not be empty
+    // Retroactively divulged contracts are not stored in the ContractStore
+    contractFor(participant2, aliceStakeholderCreated2P1.contractId) shouldBe empty
 
     // participant1 alice
     val divulgeIouByExerciseP1 = participant1.acsDeltas(alice)(2)._1
@@ -257,30 +235,22 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     participant2.acsDeltas(Seq.empty) shouldBe participant2.acsDeltas(Seq(alice, bob))
     participant2.acsDeltas(Seq.empty) shouldBe participant2.acsDeltas(Seq(bob))
 
-    val ledgerEndP1 = participant1.ledger_api.state.end()
+    val source = participant1
+    val target = participant2
 
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
-      participant1,
+    val beforeActivationOffset = authorizeAliceWithTargetDisconnect(daId, source, target)
+
+    // Replicate `alice` from `source` (`participant1`) to `target` (`participant2`)
+    source.parties.export_party_acs(
       alice,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant2, PP.Submission),
-      ),
+      daId,
+      target,
+      beforeActivationOffset,
+      acsSnapshotPath,
     )
-    participant2.synchronizers.disconnect_all()
+    target.parties.import_party_acs(acsSnapshotPath)
 
-    participant1.parties.export_party_acs(
-      party = alice,
-      synchronizerId = daId,
-      targetParticipantId = participant2.id,
-      beginOffsetExclusive = ledgerEndP1,
-      exportFilePath = acsSnapshotAtOffset,
-    )
-
-    participant2.repair.import_acs(acsSnapshotAtOffset, "", ContractImportMode.Accept)
-
-    participant2.synchronizers.reconnect(daName)
+    target.synchronizers.reconnect(daName)
 
     // participant1 alice
     participant1.acsDeltas(alice) shouldBe List(

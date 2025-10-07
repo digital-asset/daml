@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion 
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 import scala.math.Ordering.Implicits.infixOrderingOps
@@ -41,8 +42,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         internedStrings,
       )
 
-    val dependencyTracker = new PackageDependencyTracker(packageId)
-
     val metadata: PackageMetadata = {
       if (!lfPackage.hasMetadata)
         throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
@@ -50,6 +49,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     val imports = decodePackageImports(lfPackage)
+
+    val dependencyTracker = new PackageDependencyTracker(packageId)
 
     val env0 = Env(
       packageId = packageId,
@@ -67,8 +68,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
 
-    val importsSet =
-      imports.map(xs => xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+    val packageImports = imports match {
+      case Right(xs) =>
+        DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+      case Left(str) =>
+        GeneratedImports(
+          reason = str,
+          pkgIds = dependencyTracker.getDependencies.diff(Set.from(stableIds)),
+        )
+    }
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -76,7 +84,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
-      imports = importsSet,
+      imports = packageImports,
     )
 
   }
@@ -197,24 +205,25 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[archive] def decodePackageImports(
       lfPackage: PLF.Package
   ): Either[String, collection.IndexedSeq[String]] = {
-    val imports = lfPackage.getImportsSumCase
-    imports match {
+    lfPackage.getImportsSumCase match {
       case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
         Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
       case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
+        val imports = lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq
         if (languageVersion < LV.Features.explicitPkgImports)
           throw Error.Parsing(
-            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq.toString()}"
+            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case set PACKAGE_IMPORTS, to ${imports}"
           )
         else
-          Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
+          Right(imports)
       case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
+        val reason = lfPackage.getNoImportedPackagesReason
         if (languageVersion < LV.Features.explicitPkgImports)
           throw Error.Parsing(
-            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${lfPackage.getNoImportedPackagesReason.toString}"
+            s"Explicit pkg imports set on unsupported lf version (version ${languageVersion}), case NO_IMPORTED_PACKAGES_REASON, set to ${reason}"
           )
         else
-          Left(lfPackage.getNoImportedPackagesReason)
+          Left(reason)
     }
   }
 
@@ -240,7 +249,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       onlySerializableDataDefs: Boolean = false,
       currentInternedExprId: Option[Int] = None,
       imports: Either[String, collection.IndexedSeq[String]] = Left(
-        "com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
+        "package made in com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
       ),
   ) {
 
@@ -353,9 +362,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         templates += ((defName, Work.run(decodeTemplate(defName, defn))))
       }
 
-      if (versionIsOlderThan(LV.Features.exceptions)) {
-        assertEmpty(lfModule.getExceptionsList, "Module.exceptions")
-      } else if (!onlySerializableDataDefs) {
+      if (!onlySerializableDataDefs) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
@@ -1159,7 +1166,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.THROW =>
-          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
           val eThrow = lfExpr.getThrow
           decodeType(eThrow.getReturnType) { returnType =>
             decodeType(eThrow.getExceptionType) { exceptionType =>
@@ -1170,7 +1176,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.TO_ANY_EXCEPTION =>
-          assertSince(LV.Features.exceptions, "Expr.to_any_exception")
           val toAnyException = lfExpr.getToAnyException
           decodeType(toAnyException.getType) { typ =>
             decodeExpr(toAnyException.getExpr, definition) { value =>
@@ -1179,7 +1184,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.FROM_ANY_EXCEPTION =>
-          assertSince(LV.Features.exceptions, "Expr.from_any_exception")
           val fromAnyException = lfExpr.getFromAnyException
           decodeType(fromAnyException.getType) { typ =>
             decodeExpr(fromAnyException.getExpr, definition) { value =>
@@ -1514,7 +1518,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Update.SumCase.TRY_CATCH =>
-          assertSince(LV.Features.exceptions, "Update.try_catch")
           val tryCatch = lfUpdate.getTryCatch
           decodeType(tryCatch.getReturnType) { typ =>
             decodeExpr(tryCatch.getTryExpr, definition) { body =>
@@ -1654,6 +1657,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 
+  @nowarn("cat=unused")
   private[this] def assertEmpty(s: util.List[_], description: => String): Unit =
     if (!s.isEmpty) throw Error.Parsing(s"Unexpected non-empty $description")
 }
@@ -1693,7 +1697,7 @@ private[lf] object DecodeV2 {
       BuiltinTypeInfo(TYPE_REP, BTTypeRep),
       BuiltinTypeInfo(BIGNUMERIC, BTBigNumeric, minVersion = LV.Features.bigNumeric),
       BuiltinTypeInfo(ROUNDING_MODE, BTRoundingMode, minVersion = LV.Features.bigNumeric),
-      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException, minVersion = LV.Features.exceptions),
+      BuiltinTypeInfo(ANY_EXCEPTION, BTAnyException),
       BuiltinTypeInfo(FAILURE_CATEGORY, BTFailureCategory),
     )
   }
@@ -1760,17 +1764,13 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
-      BuiltinFunctionInfo(SHA256_HEX, BSHA256Hex, minVersion = LV.Features.cryptoAdditions),
-      BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(
-        SECP256K1_WITH_ECDSA_BOOL,
-        BSECP256K1WithEcdsaBool,
-        minVersion = LV.Features.cryptoAdditions,
-      ),
-      BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex, minVersion = LV.Features.crypto),
-      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId, minVersion = LV.Features.crypto),
+      BuiltinFunctionInfo(SHA256_HEX, BSHA256Hex),
+      BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text),
+      BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool),
+      BuiltinFunctionInfo(SECP256K1_WITH_ECDSA_BOOL, BSECP256K1WithEcdsaBool),
+      BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex),
+      BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex),
+      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId, minVersion = cryptoUtility),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
@@ -1796,7 +1796,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(BIGNUMERIC_TO_NUMERIC, BBigNumericToNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(NUMERIC_TO_BIGNUMERIC, BNumericToBigNumeric, minVersion = bigNumeric),
       BuiltinFunctionInfo(BIGNUMERIC_TO_TEXT, BBigNumericToText, minVersion = bigNumeric),
-      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage, minVersion = exceptions),
+      BuiltinFunctionInfo(ANY_EXCEPTION_MESSAGE, BAnyExceptionMessage),
       BuiltinFunctionInfo(TYPE_REP_TYCON_NAME, BTypeRepTyConName, minVersion = unstable),
       BuiltinFunctionInfo(FAIL_WITH_STATUS, BFailWithStatus),
     )

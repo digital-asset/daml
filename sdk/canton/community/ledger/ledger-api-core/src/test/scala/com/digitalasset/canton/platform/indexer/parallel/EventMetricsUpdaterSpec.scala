@@ -8,6 +8,7 @@ import com.daml.metrics.api.{MetricHandle, MetricsContext}
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.TestAcsChangeFactory
+import com.digitalasset.canton.protocol.TestUpdateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
@@ -92,11 +93,12 @@ class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
           )
         ),
       ),
-      updateId = Ref.TransactionId.assertFromString("UpdateId"),
+      updateId = TestUpdateId("UpdateId"),
       Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       CantonTimestamp.now(),
       acsChangeFactory = TestAcsChangeFactory(),
+      internalContractIds = Map.empty,
     )
 
     "extract transaction metering" in {

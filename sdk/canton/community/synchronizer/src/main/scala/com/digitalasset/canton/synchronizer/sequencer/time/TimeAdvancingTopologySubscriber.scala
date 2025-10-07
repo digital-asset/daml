@@ -19,8 +19,11 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerClientSend,
 }
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber.mkTimeAdvanceBroadcastMessageId
-import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber.{
+  TimeAdvanceBroadcastMaxSequencingTimeWindow,
+  mkTimeAdvanceBroadcastMessageId,
+}
+import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -31,7 +34,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUnlessShutdownUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.UUID
@@ -45,13 +47,14 @@ final class TimeAdvancingTopologySubscriber(
     clock: Clock,
     sequencerClient: SequencerClientSend,
     topologyClient: SynchronizerTopologyClientWithInit,
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     thisSequencerId: SequencerId,
-    protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends TopologyTransactionProcessingSubscriber
     with NamedLogging {
+
+  private val protocolVersion = psid.protocolVersion
 
   override def observed(
       sequencedTimestamp: SequencedTime,
@@ -64,12 +67,9 @@ final class TimeAdvancingTopologySubscriber(
       val snapshot = topologyClient.currentSnapshotApproximation
 
       for {
-        dynamicSynchronizerParameters <- snapshot
-          .findDynamicSynchronizerParametersOrDefault(protocolVersion)
         maybeSequencerGroup <- snapshot.sequencerGroup()
       } yield {
-        val topologyChangeDelay =
-          dynamicSynchronizerParameters.topologyChangeDelay
+        val topologyChangeDelay = topologyClient.staticSynchronizerParameters.topologyChangeDelay
         maybeSequencerGroup.foreach { sequencerGroup =>
           if (sequencerGroup.active.contains(thisSequencerId)) {
             FutureUnlessShutdownUtil
@@ -101,7 +101,7 @@ final class TimeAdvancingTopologySubscriber(
       Batch.of(
         protocolVersion,
         Seq(
-          TopologyTransactionsBroadcast(synchronizerId, Seq.empty) ->
+          TopologyTransactionsBroadcast(psid, Seq.empty) ->
             Recipients.cc(AllMembersOfSynchronizer)
         )*
       )
@@ -137,7 +137,8 @@ final class TimeAdvancingTopologySubscriber(
               .send(
                 batch,
                 topologyTimestamp = None,
-                maxSequencingTime = sequencerClient.generateMaxSequencingTime,
+                maxSequencingTime =
+                  desiredTimestamp.value.plus(TimeAdvanceBroadcastMaxSequencingTimeWindow.duration),
                 aggregationRule = maybeAggregationRule,
                 messageId = mkTimeAdvanceBroadcastMessageId(),
                 callback = SendCallback.empty,
@@ -153,6 +154,9 @@ final class TimeAdvancingTopologySubscriber(
 }
 
 object TimeAdvancingTopologySubscriber {
+
+  val TimeAdvanceBroadcastMaxSequencingTimeWindow: NonNegativeFiniteDuration =
+    NonNegativeFiniteDuration.tryOfSeconds(30)
 
   val TimeAdvanceBroadcastMessageIdPrefix: String = "time-adv-"
 

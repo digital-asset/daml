@@ -7,6 +7,7 @@ import anorm.*
 import anorm.Column.nonNull
 import anorm.SqlParser.int
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
   Added,
   ChangedTo,
@@ -21,13 +22,17 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   AuthorizationLevel,
 }
+import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.protocol.UpdateId
 import com.digitalasset.canton.tracing.{SerializableTraceContextConverter, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.Value
+import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.Logger
 
+import java.nio.ByteBuffer
 import java.sql.PreparedStatement
 
 private[backend] object Conversions {
@@ -63,6 +68,12 @@ private[backend] object Conversions {
       case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to Boolean for column $qualified"))
     }
   }
+
+  def parties(stringInterning: StringInterning)(columName: String): RowParser[Seq[Ref.Party]] =
+    SqlParser
+      .byteArray(columName)
+      .map(IntArrayDBSerialization.decodeFromByteArray)
+      .map(_.map(stringInterning.party.externalize))
 
   // PackageId
 
@@ -169,6 +180,21 @@ private[backend] object Conversions {
       .map(_.getOrElse(TraceContext.empty))
   }
 
+  // UpdateId
+
+  implicit object UpdateIdToStatement extends ToStatement[UpdateId] {
+    override def set(s: PreparedStatement, i: Int, v: UpdateId): Unit =
+      s.setBytes(i, v.getCryptographicEvidence.toByteArray)
+  }
+
+  private implicit val columnToUpdateId: Column[UpdateId] =
+    binaryColumnToX(byteArray =>
+      UpdateId.fromProtoPrimitive(ByteString.copyFrom(byteArray)).left.map(_.message)
+    )
+
+  def updateId(columnName: String): RowParser[UpdateId] =
+    SqlParser.get[UpdateId](columnName)(columnToUpdateId)
+
   // AuthorizationEvent
 
   private lazy val authorizationLevelToIntMapping: Map[AuthorizationLevel, Int] = Map(
@@ -224,4 +250,37 @@ private[backend] object Conversions {
         authorizationEvent(eventType, level)
       }
 
+  object IntArrayDBSerialization {
+    // Ints to Byte Array (with version byte prefix)
+    def encodeToByteArray(ints: Set[Int]): Array[Byte] =
+      if (ints.nonEmpty) {
+        val buffer = ByteBuffer.allocate(1 + ints.size * 4)
+        buffer.put(1.toByte) // version byte
+        ints.foreach(buffer.putInt(_).discard)
+        buffer.array()
+      } else Array.emptyByteArray
+
+    // Ints from Byte Array (with prefix version byte)
+    def decodeFromByteArray(bytes: Array[Byte]): Seq[Int] =
+      if (bytes.sizeIs > 1) {
+        val buf = ByteBuffer.wrap(bytes)
+        // first byte = version
+        val version = buf.get().toInt
+        if (version != 1) {
+          throw new IllegalArgumentException(
+            s"Decoding the bytes to integers failed. Unknown version: $version. The first byte is used as the version byte and should be set to 1."
+          )
+        }
+
+        // remaining are 4-byte ints
+        val ints = Iterator
+          .continually(if (buf.remaining() >= 4) Some(buf.getInt()) else None)
+          .takeWhile(_.isDefined)
+          .flatten
+          .toSeq
+
+        ints
+      } else Seq.empty
+
+  }
 }

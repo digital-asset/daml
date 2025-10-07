@@ -9,7 +9,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   ParticipantAuthorizationTopologyFormat,
   TopologyFormat,
-  TransactionFilter,
   TransactionFormat,
   UpdateFormat,
 }
@@ -19,10 +18,6 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
-import scala.annotation.nowarn
-
-// TODO(#23504) remove TransactionFilter related when TransactionFilter is removed
-@nowarn("cat=deprecation")
 class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
 
   behavior of "submissionClaims"
@@ -111,52 +106,6 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     ) should contain theSameElementsAs RequiredClaims[String](
       RequiredClaim.MatchUserId(userIdL)
     )
-  }
-
-  behavior of "transactionFilterClaims"
-
-  it should "compute the correct claims in the happy path" in {
-    RequiredClaims.transactionFilterClaims[String](
-      TransactionFilter(
-        filtersByParty = Map(
-          "a" -> Filters(Nil),
-          "b" -> Filters(Nil),
-          "c" -> Filters(Nil),
-        ),
-        filtersForAnyParty = Some(Filters(Nil)),
-      )
-    ) should contain theSameElementsAs RequiredClaims[String](
-      RequiredClaim.ReadAs("a"),
-      RequiredClaim.ReadAs("b"),
-      RequiredClaim.ReadAs("c"),
-      RequiredClaim.ReadAsAnyParty(),
-    )
-  }
-
-  it should "compute the correct claims if no any party filters" in {
-    RequiredClaims.transactionFilterClaims[String](
-      TransactionFilter(
-        filtersByParty = Map(
-          "a" -> Filters(Nil),
-          "b" -> Filters(Nil),
-          "c" -> Filters(Nil),
-        ),
-        filtersForAnyParty = None,
-      )
-    ) should contain theSameElementsAs RequiredClaims[String](
-      RequiredClaim.ReadAs("a"),
-      RequiredClaim.ReadAs("b"),
-      RequiredClaim.ReadAs("c"),
-    )
-  }
-
-  it should "compute the correct claims if no any party filters and no party filters" in {
-    RequiredClaims.transactionFilterClaims[String](
-      TransactionFilter(
-        filtersByParty = Map.empty,
-        filtersForAnyParty = None,
-      )
-    ) shouldBe Nil
   }
 
   behavior of "readAsForAllParties"

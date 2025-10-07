@@ -534,4 +534,5 @@ object EncryptedViewMessageError {
       synchronizerId: PhysicalSynchronizerId,
   ) extends EncryptedViewMessageError
 
+  final case class InvalidContractIdInView(error: String) extends EncryptedViewMessageError
 }

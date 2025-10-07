@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction private[lf] (
-    version: TransactionVersion,
+    version: SerializationVersion,
     nodes: Map[NodeId, Node],
     override val roots: ImmArray[NodeId],
 ) extends HasTxNodes
@@ -683,8 +683,7 @@ object Transaction {
       usedPackages: Set[PackageId],
       timeBoundaries: Time.Range,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
-      globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[Node.Create],
+      globalKeyMapping: Map[GlobalKey, Option[ContractId]],
   ) {
     def dependsOnTime: Boolean =
       timeBoundaries != Time.Range.unconstrained

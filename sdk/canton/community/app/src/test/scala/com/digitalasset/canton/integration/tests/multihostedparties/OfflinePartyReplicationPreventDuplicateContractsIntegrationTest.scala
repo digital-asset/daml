@@ -61,6 +61,7 @@ sealed trait OfflinePartyReplicationPreventDuplicateContractsIntegrationTest
           party = alice,
           adds = Seq(target.id -> ParticipantPermission.Submission),
           store = daId,
+          requiresPartyToBeOnboarded = true,
         )
 
       target.synchronizers.disconnect_all()
@@ -80,6 +81,7 @@ sealed trait OfflinePartyReplicationPreventDuplicateContractsIntegrationTest
         party = alice,
         adds = Seq(target.id -> ParticipantPermission.Submission),
         store = daId,
+        requiresPartyToBeOnboarded = true,
       )
 
       activationOffset = source.parties.find_party_max_activation_offset(
@@ -126,7 +128,7 @@ final class OffPRPreventDupContractsFailureIntegrationTest
           (entry: LogEntry) =>
             entry.shouldBeCantonError(
               SyncServiceSynchronizerDisconnect,
-              _ should include regex "(?s)fatally disconnected because of handler returned error.*with failed activeness check is approved",
+              _ should include regex "(?s)fatally disconnected because of.*",
             ),
         ),
         (
@@ -219,7 +221,7 @@ final class OffPRPreventDupContractsIntegrationTest
 
     repair.acs.read_from_file(acsSnapshotPath) should have size 1
 
-    target.repair.import_acs(acsSnapshotPath)
+    target.parties.import_party_acs(acsSnapshotPath)
 
     target.synchronizers.reconnect(daName)
 

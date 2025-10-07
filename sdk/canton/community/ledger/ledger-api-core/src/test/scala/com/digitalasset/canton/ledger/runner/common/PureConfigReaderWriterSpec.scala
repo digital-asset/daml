@@ -388,7 +388,8 @@ class PureConfigReaderWriterSpec
       |    contract-processing-parallelism=8
       |    max-ids-per-id-page=20000
       |    max-pages-per-id-pages-buffer=1
-      |    max-parallel-id-create-queries=2
+      |    max-parallel-id-create-queries=4
+      |    id-filter-query-parallelism=2
       |    max-parallel-payload-create-queries=2
       |    max-payloads-per-payloads-page=1000
       |    max-working-memory-in-bytes-for-id-pages=104857600
@@ -411,20 +412,6 @@ class PureConfigReaderWriterSpec
       |    max-parallel-id-create-queries=4
       |    max-parallel-payload-consuming-queries=2
       |    max-parallel-payload-create-queries=2
-      |    max-parallel-payload-queries=2
-      |    max-payloads-per-payloads-page=1000
-      |    max-working-memory-in-bytes-for-id-pages=104857600
-      |    transactions-processing-parallelism=8
-      |}
-      |transaction-tree-streams {
-      |    max-ids-per-id-page=20000
-      |    max-pages-per-id-pages-buffer=1
-      |    max-parallel-id-consuming-queries=8
-      |    max-parallel-id-create-queries=8
-      |    max-parallel-id-non-consuming-queries=4
-      |    max-parallel-payload-consuming-queries=2
-      |    max-parallel-payload-create-queries=2
-      |    max-parallel-payload-non-consuming-queries=2
       |    max-parallel-payload-queries=2
       |    max-payloads-per-payloads-page=1000
       |    max-working-memory-in-bytes-for-id-pages=104857600

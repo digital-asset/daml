@@ -69,10 +69,10 @@ CREATE TABLE lapi_command_completions (
     record_time BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     user_id INTEGER NOT NULL,
-    submitters INTEGER ARRAY NOT NULL,
+    submitters BINARY LARGE OBJECT NOT NULL,
     command_id VARCHAR NOT NULL,
     -- The update ID is `NULL` for rejected transactions/reassignments.
-    update_id VARCHAR,
+    update_id BINARY VARYING,
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
     submission_id VARCHAR,
@@ -104,40 +104,238 @@ CREATE INDEX lapi_command_completions_synchronizer_record_time_idx ON lapi_comma
 CREATE INDEX lapi_command_completions_synchronizer_offset_idx ON lapi_command_completions USING btree (synchronizer_id, completion_offset);
 
 ---------------------------------------------------------------------------------------------------
+-- Events: Activate Contract
+---------------------------------------------------------------------------------------------------
+CREATE TABLE lapi_events_activate_contract (
+   -- update related columns
+   event_offset BIGINT NOT NULL,
+   update_id BINARY LARGE OBJECT NOT NULL,
+   workflow_id VARCHAR,
+   command_id VARCHAR,
+   submitters BINARY LARGE OBJECT,
+   record_time BIGINT NOT NULL,
+   synchronizer_id INTEGER NOT NULL,
+   trace_context BINARY LARGE OBJECT NOT NULL,
+   external_transaction_hash BINARY LARGE OBJECT,
+
+   -- event related columns
+   event_type SMALLINT NOT NULL, -- all event types
+   event_sequential_id BIGINT NOT NULL, -- all event types
+   node_id INTEGER NOT NULL, -- all event types
+   additional_witnesses BINARY LARGE OBJECT, -- create events
+   source_synchronizer_id INTEGER, -- assign events
+   reassignment_counter BIGINT, -- assign events
+   reassignment_id BINARY LARGE OBJECT, -- assign events
+   representative_package_id INTEGER, -- create events
+
+   -- contract related columns
+   internal_contract_id BIGINT NOT NULL, -- all event types
+   create_key_hash VARCHAR -- create
+);
+
+-- sequential_id index
+CREATE INDEX lapi_events_activate_sequential_id_idx ON lapi_events_activate_contract USING btree (event_sequential_id);
+-- event_offset index
+CREATE INDEX lapi_events_activate_offset_idx ON lapi_events_activate_contract USING btree (event_offset);
+-- internal_contract_id index
+CREATE INDEX lapi_events_activate_internal_contract_id_idx ON lapi_events_activate_contract USING btree (internal_contract_id, event_sequential_id);
+-- contract_key index
+CREATE INDEX lapi_events_activate_contract_key_idx ON lapi_events_activate_contract USING btree (create_key_hash, event_sequential_id);
+
+-- filter table for stakeholders
+CREATE TABLE lapi_filter_activate_stakeholder (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL,
+    first_per_sequential_id BOOLEAN
+);
+CREATE INDEX lapi_filter_activate_stakeholder_ps_idx  ON lapi_filter_activate_stakeholder USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_filter_activate_stakeholder_pts_idx ON lapi_filter_activate_stakeholder USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_filter_activate_stakeholder_ts_idx  ON lapi_filter_activate_stakeholder USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_filter_activate_stakeholder_s_idx   ON lapi_filter_activate_stakeholder USING btree (event_sequential_id, first_per_sequential_id);
+
+-- filter table for additional witnesses
+CREATE TABLE lapi_filter_activate_witness (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL,
+    first_per_sequential_id BOOLEAN
+);
+CREATE INDEX lapi_filter_activate_witness_ps_idx  ON lapi_filter_activate_witness USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_filter_activate_witness_pts_idx ON lapi_filter_activate_witness USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_filter_activate_witness_ts_idx  ON lapi_filter_activate_witness USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_filter_activate_witness_s_idx   ON lapi_filter_activate_witness USING btree (event_sequential_id, first_per_sequential_id);
+
+---------------------------------------------------------------------------------------------------
+-- Events: Deactivate Contract
+---------------------------------------------------------------------------------------------------
+CREATE TABLE lapi_events_deactivate_contract (
+   -- update related columns
+   event_offset BIGINT NOT NULL,
+   update_id BINARY LARGE OBJECT NOT NULL,
+   workflow_id VARCHAR,
+   command_id VARCHAR,
+   submitters BINARY LARGE OBJECT,
+   record_time BIGINT NOT NULL,
+   synchronizer_id INTEGER NOT NULL,
+   trace_context BINARY LARGE OBJECT NOT NULL,
+   external_transaction_hash BINARY LARGE OBJECT,
+
+   -- event related columns
+   event_type SMALLINT NOT NULL, -- all event types
+   event_sequential_id BIGINT NOT NULL, -- all event types
+   node_id INTEGER NOT NULL, -- all event types
+   deactivated_event_sequential_id BIGINT, -- all event types
+   additional_witnesses BINARY LARGE OBJECT, -- consuming events
+   exercise_choice INTEGER, -- consuming events
+   exercise_choice_interface INTEGER, -- consuming events
+   exercise_argument BINARY LARGE OBJECT, -- consuming events
+   exercise_result BINARY LARGE OBJECT, -- consuming events
+   exercise_actors BINARY LARGE OBJECT, -- consuming events
+   exercise_last_descendant_node_id INTEGER, -- consuming events
+   exercise_argument_compression SMALLINT, -- consuming events
+   exercise_result_compression SMALLINT, -- consuming events
+   reassignment_id BINARY LARGE OBJECT, -- unassign events
+   assignment_exclusivity BIGINT, -- unassign events
+   target_synchronizer_id INTEGER, -- unassign events
+   reassignment_counter BIGINT, -- unassign events
+
+   -- contract related columns
+   contract_id BINARY LARGE OBJECT NOT NULL, -- all event types
+   internal_contract_id BIGINT NOT NULL, -- all event types
+   template_id INTEGER NOT NULL, -- all event types
+   package_id INTEGER NOT NULL, -- all event types
+   stakeholders BINARY LARGE OBJECT NOT NULL, -- all event types
+   ledger_effective_time BIGINT -- consuming events
+);
+
+-- sequential_id index
+CREATE INDEX lapi_events_deactivate_sequential_id_idx ON lapi_events_deactivate_contract USING btree (event_sequential_id);
+-- event_offset index
+CREATE INDEX lapi_events_deactivate_offset_idx ON lapi_events_deactivate_contract USING btree (event_offset);
+-- internal_contract_id index
+CREATE INDEX lapi_events_deactivate_internal_contract_id_idx ON lapi_events_deactivate_contract USING btree (internal_contract_id, event_sequential_id);
+-- deactivation reference index
+CREATE INDEX lapi_events_deactivated_event_sequential_id_idx ON lapi_events_deactivate_contract USING btree (deactivated_event_sequential_id);
+
+-- filter table for stakeholders
+CREATE TABLE lapi_filter_deactivate_stakeholder (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL,
+    first_per_sequential_id BOOLEAN
+);
+CREATE INDEX lapi_filter_deactivate_stakeholder_ps_idx  ON lapi_filter_deactivate_stakeholder USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_filter_deactivate_stakeholder_pts_idx ON lapi_filter_deactivate_stakeholder USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_filter_deactivate_stakeholder_ts_idx  ON lapi_filter_deactivate_stakeholder USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_filter_deactivate_stakeholder_s_idx   ON lapi_filter_deactivate_stakeholder USING btree (event_sequential_id, first_per_sequential_id);
+
+-- filter table for additional witnesses
+CREATE TABLE lapi_filter_deactivate_witness (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL,
+    first_per_sequential_id BOOLEAN
+);
+CREATE INDEX lapi_filter_deactivate_witness_ps_idx  ON lapi_filter_deactivate_witness USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_filter_deactivate_witness_pts_idx ON lapi_filter_deactivate_witness USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_filter_deactivate_witness_ts_idx  ON lapi_filter_deactivate_witness USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_filter_deactivate_witness_s_idx   ON lapi_filter_deactivate_witness USING btree (event_sequential_id, first_per_sequential_id);
+
+---------------------------------------------------------------------------------------------------
+-- Events: Various Witnessed
+---------------------------------------------------------------------------------------------------
+CREATE TABLE lapi_events_various_witnessed (
+   -- tx related columns
+   event_offset BIGINT NOT NULL,
+   update_id BINARY LARGE OBJECT NOT NULL,
+   workflow_id VARCHAR,
+   command_id VARCHAR,
+   submitters BINARY LARGE OBJECT,
+   record_time BIGINT NOT NULL,
+   synchronizer_id INTEGER NOT NULL,
+   trace_context BINARY LARGE OBJECT NOT NULL,
+   external_transaction_hash BINARY LARGE OBJECT,
+
+   -- event related columns
+   event_type SMALLINT NOT NULL, -- all event types
+   event_sequential_id BIGINT NOT NULL, -- all event types
+   node_id INTEGER NOT NULL, -- all event types
+   additional_witnesses BINARY LARGE OBJECT, -- all event types
+   consuming BOOLEAN, -- exercise
+   exercise_choice INTEGER, -- exercise
+   exercise_choice_interface INTEGER, -- exercise
+   exercise_argument BINARY LARGE OBJECT, -- exercise
+   exercise_result BINARY LARGE OBJECT, -- exercise
+   exercise_actors BINARY LARGE OBJECT, -- exercise
+   exercise_last_descendant_node_id INTEGER, -- exercise
+   exercise_argument_compression SMALLINT, -- exercise
+   exercise_result_compression SMALLINT, -- exercise
+   representative_package_id INTEGER, -- create events
+
+   -- contract related columns
+   contract_id BINARY LARGE OBJECT,
+   internal_contract_id BIGINT,
+   template_id INTEGER,
+   package_id INTEGER,
+   ledger_effective_time BIGINT
+);
+
+-- sequential_id index
+CREATE INDEX lapi_events_various_sequential_id_idx ON lapi_events_various_witnessed USING btree (event_sequential_id);
+-- event_offset index
+CREATE INDEX lapi_events_various_offset_idx ON lapi_events_various_witnessed USING btree (event_offset);
+-- internal_contract_id index
+CREATE INDEX lapi_events_various_internal_contract_id_idx ON lapi_events_various_witnessed USING btree (internal_contract_id, event_sequential_id);
+
+-- filter table for additional witnesses
+CREATE TABLE lapi_filter_various_witness (
+    event_sequential_id BIGINT NOT NULL,
+    template_id INTEGER NOT NULL,
+    party_id INTEGER NOT NULL,
+    first_per_sequential_id BOOLEAN
+);
+CREATE INDEX lapi_filter_various_witness_ps_idx  ON lapi_filter_various_witness USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_filter_various_witness_pts_idx ON lapi_filter_various_witness USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_filter_various_witness_ts_idx  ON lapi_filter_various_witness USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_filter_various_witness_s_idx   ON lapi_filter_various_witness USING btree (event_sequential_id, first_per_sequential_id);
+
+---------------------------------------------------------------------------------------------------
 -- Events: create
 ---------------------------------------------------------------------------------------------------
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_events_create (
     -- * fixed-size columns first to avoid padding
-    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
-    ledger_effective_time bigint NOT NULL,    -- transaction metadata
-    node_id integer NOT NULL,                 -- event metadata
+    event_sequential_id BIGINT NOT NULL,      -- event identification: same ordering as event_offset
+    ledger_effective_time BIGINT NOT NULL,    -- transaction metadata
+    node_id INTEGER NOT NULL,                 -- event metadata
 
     -- * event identification
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    submitters INTEGER ARRAY,
+    submitters BINARY LARGE OBJECT,
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
     representative_package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
+    tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * contract data
     create_argument BINARY LARGE OBJECT NOT NULL,
-    create_signatories INTEGER ARRAY NOT NULL,
-    create_observers INTEGER ARRAY NOT NULL,
+    create_signatories BINARY LARGE OBJECT NOT NULL,
+    create_observers BINARY LARGE OBJECT NOT NULL,
     create_key_value BINARY LARGE OBJECT,
     create_key_hash VARCHAR,
-    create_key_maintainers INTEGER ARRAY,
+    create_key_maintainers BINARY LARGE OBJECT,
 
     -- * compression flags
     create_argument_compression SMALLINT,
@@ -149,7 +347,8 @@ CREATE TABLE lapi_events_create (
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
-    external_transaction_hash  BINARY LARGE OBJECT
+    external_transaction_hash  BINARY LARGE OBJECT,
+    internal_contract_id BIGINT NOT NULL
 );
 
 -- offset index: used to translate to sequential_id
@@ -167,35 +366,37 @@ CREATE INDEX lapi_events_create_create_key_hash_idx ON lapi_events_create (creat
 ---------------------------------------------------------------------------------------------------
 -- Events: consuming exercise
 ---------------------------------------------------------------------------------------------------
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_events_consuming_exercise (
     -- * fixed-size columns first to avoid padding
-    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
-    ledger_effective_time bigint NOT NULL,    -- transaction metadata
-    node_id integer NOT NULL,                 -- event metadata
+    event_sequential_id BIGINT NOT NULL,      -- event identification: same ordering as event_offset
+    ledger_effective_time BIGINT NOT NULL,    -- transaction metadata
+    node_id INTEGER NOT NULL,                 -- event metadata
 
     -- * event identification
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    submitters INTEGER ARRAY,
+    submitters BINARY LARGE OBJECT,
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
-    tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
+    tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * choice data
-    exercise_choice VARCHAR NOT NULL,
+    exercise_choice INTEGER NOT NULL,
+    exercise_choice_interface INTEGER,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
-    exercise_actors INTEGER ARRAY NOT NULL,
+    exercise_actors BINARY LARGE OBJECT NOT NULL,
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
@@ -205,8 +406,12 @@ CREATE TABLE lapi_events_consuming_exercise (
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT NOT NULL,
     record_time BIGINT NOT NULL,
-    external_transaction_hash  BINARY LARGE OBJECT
+    external_transaction_hash  BINARY LARGE OBJECT,
+    deactivated_event_sequential_id bigint
 );
+
+-- deactivations
+CREATE INDEX lapi_events_consuming_exercise_deactivated_idx ON lapi_events_consuming_exercise (deactivated_event_sequential_id, event_sequential_id);
 
 -- offset index: used to translate to sequential_id
 CREATE INDEX lapi_events_consuming_exercise_event_offset_idx ON lapi_events_consuming_exercise (event_offset);
@@ -220,34 +425,36 @@ CREATE INDEX lapi_events_consuming_exercise_contract_id_idx ON lapi_events_consu
 ---------------------------------------------------------------------------------------------------
 -- Events: non-consuming exercise
 ---------------------------------------------------------------------------------------------------
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_events_non_consuming_exercise (
     -- * fixed-size columns first to avoid padding
-    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
-    ledger_effective_time bigint NOT NULL,    -- transaction metadata
-    node_id integer NOT NULL,                 -- event metadata
+    event_sequential_id BIGINT NOT NULL,      -- event identification: same ordering as event_offset
+    ledger_effective_time BIGINT NOT NULL,    -- transaction metadata
+    node_id INTEGER NOT NULL,                 -- event metadata
 
     -- * event identification
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
-    submitters INTEGER ARRAY,
+    submitters BINARY LARGE OBJECT,
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
+    tree_event_witnesses BINARY LARGE OBJECT NOT NULL, -- informees
 
     -- * choice data
-    exercise_choice VARCHAR NOT NULL,
+    exercise_choice INTEGER NOT NULL,
+    exercise_choice_interface INTEGER,
     exercise_argument BINARY LARGE OBJECT NOT NULL,
     exercise_result BINARY LARGE OBJECT,
-    exercise_actors INTEGER ARRAY NOT NULL,
+    exercise_actors BINARY LARGE OBJECT NOT NULL,
     exercise_last_descendant_node_id INTEGER NOT NULL,
 
     -- * compression flags
@@ -267,48 +474,53 @@ CREATE INDEX lapi_events_non_consuming_exercise_event_offset_idx ON lapi_events_
 CREATE INDEX lapi_events_non_consuming_exercise_event_sequential_id_idx ON lapi_events_non_consuming_exercise (event_sequential_id);
 
 CREATE TABLE lapi_string_interning (
-    internal_id integer PRIMARY KEY NOT NULL,
+    internal_id INTEGER PRIMARY KEY NOT NULL,
     external_string VARCHAR
 );
 
 ---------------------------------------------------------------------------------------------------
 -- Events: Unassign
 ---------------------------------------------------------------------------------------------------
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_events_unassign (
     -- * fixed-size columns first to avoid padding
-    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
+    event_sequential_id BIGINT NOT NULL,      -- event identification: same ordering as event_offset
 
     -- * event identification
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
 
     submitter INTEGER NOT NULL,
-    node_id integer NOT NULL,                 -- event metadata
+    node_id INTEGER NOT NULL,                 -- event metadata
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
 
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    reassignment_id VARCHAR NOT NULL,
+    reassignment_id BINARY LARGE OBJECT NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * unassigned specific
     assignment_exclusivity BIGINT,
 
     trace_context BINARY LARGE OBJECT NOT NULL,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    deactivated_event_sequential_id bigint
 );
+
+-- sequential_id index for paging
+CREATE INDEX lapi_events_unassign_deactivated_idx ON lapi_events_unassign (deactivated_event_sequential_id, event_sequential_id);
 
 -- sequential_id index for paging
 CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassign (event_sequential_id);
@@ -322,49 +534,51 @@ CREATE INDEX lapi_events_unassign_event_offset_idx ON lapi_events_unassign (even
 ---------------------------------------------------------------------------------------------------
 -- Events: Assign
 ---------------------------------------------------------------------------------------------------
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_events_assign (
     -- * fixed-size columns first to avoid padding
-    event_sequential_id bigint NOT NULL,      -- event identification: same ordering as event_offset
+    event_sequential_id BIGINT NOT NULL,      -- event identification: same ordering as event_offset
 
     -- * event identification
     event_offset BIGINT NOT NULL,
 
     -- * transaction metadata
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     workflow_id VARCHAR,
 
     -- * submitter info (only visible on submitting participant)
     command_id VARCHAR,
 
     submitter INTEGER NOT NULL,
-    node_id integer NOT NULL,                 -- event metadata
+    node_id INTEGER NOT NULL,                 -- event metadata
 
     -- * shared event information
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_id INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
+    flat_event_witnesses BINARY LARGE OBJECT NOT NULL, -- stakeholders
 
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    reassignment_id VARCHAR NOT NULL,
+    reassignment_id BINARY LARGE OBJECT NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * assigned specific
     create_argument BINARY LARGE OBJECT NOT NULL,
-    create_signatories INTEGER ARRAY NOT NULL,
-    create_observers INTEGER ARRAY NOT NULL,
+    create_signatories BINARY LARGE OBJECT NOT NULL,
+    create_observers BINARY LARGE OBJECT NOT NULL,
     create_key_value BINARY LARGE OBJECT,
     create_key_hash VARCHAR,
-    create_key_maintainers INTEGER ARRAY,
+    create_key_maintainers BINARY LARGE OBJECT,
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT,
     ledger_effective_time BIGINT NOT NULL,
     authentication_data BINARY LARGE OBJECT NOT NULL,
 
     trace_context BINARY LARGE OBJECT NOT NULL,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    internal_contract_id BIGINT NOT NULL
 );
 
 -- sequential_id index for paging
@@ -385,7 +599,7 @@ CREATE INDEX lapi_events_assign_event_contract_id_synchronizer_id_seq_id_idx ON 
 CREATE TABLE lapi_events_party_to_participant (
     event_sequential_id BIGINT NOT NULL,
     event_offset BIGINT NOT NULL,
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     party_id INTEGER NOT NULL,
     participant_id INTEGER NOT NULL,
     participant_permission INTEGER NOT NULL,
@@ -411,6 +625,7 @@ CREATE INDEX lapi_events_party_to_participant_event_did_recordt_idx ON lapi_even
 -----------------------------
 
 -- create stakeholders
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_create_id_filter_stakeholder (
     event_sequential_id BIGINT NOT NULL,
     template_id INTEGER NOT NULL,
@@ -422,6 +637,7 @@ CREATE INDEX lapi_pe_create_id_filter_stakeholder_ps_idx ON lapi_pe_create_id_fi
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_ts_idx ON lapi_pe_create_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_stakeholder_s_idx ON lapi_pe_create_id_filter_stakeholder(event_sequential_id, first_per_sequential_id);
 
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_create_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
@@ -433,6 +649,7 @@ CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_ps_idx ON lapi_pe
 CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_ts_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_create_id_filter_non_stakeholder_informee_s_idx ON lapi_pe_create_id_filter_non_stakeholder_informee(event_sequential_id, first_per_sequential_id);
 
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_consuming_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
@@ -444,6 +661,7 @@ CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ps_idx  ON lapi_pe_consumin
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ts_idx  ON lapi_pe_consuming_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_s_idx   ON lapi_pe_consuming_id_filter_stakeholder(event_sequential_id, first_per_sequential_id);
 
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_reassignment_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
@@ -455,6 +673,7 @@ CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_ps_idx  ON lapi_pe_reass
 CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_ts_idx  ON lapi_pe_reassignment_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_s_idx   ON lapi_pe_reassignment_id_filter_stakeholder(event_sequential_id, first_per_sequential_id);
 
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_assign_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
@@ -466,6 +685,7 @@ CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ps_idx  ON lapi_pe_assign_id_f
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_ts_idx  ON lapi_pe_assign_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_assign_id_filter_stakeholder_s_idx   ON lapi_pe_assign_id_filter_stakeholder(event_sequential_id, first_per_sequential_id);
 
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_consuming_id_filter_non_stakeholder_informee (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
@@ -477,6 +697,7 @@ CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_ps_idx  ON lap
 CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_ts_idx  ON lapi_pe_consuming_id_filter_non_stakeholder_informee(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_consuming_id_filter_non_stakeholder_informee_s_idx   ON lapi_pe_consuming_id_filter_non_stakeholder_informee(event_sequential_id, first_per_sequential_id);
 
+-- deprecated, to be removed. See #28008
 CREATE TABLE lapi_pe_non_consuming_id_filter_informee (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
@@ -494,7 +715,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx   ON lapi_pe_non_con
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_update_meta(
-    update_id VARCHAR NOT NULL,
+    update_id BINARY VARYING NOT NULL,
     event_offset BIGINT NOT NULL,
     publication_time BIGINT NOT NULL,
     record_time BIGINT NOT NULL,

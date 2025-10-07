@@ -7,8 +7,8 @@ import better.files.{File as BetterFile, *}
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.config.StorageConfig.Memory
 import com.digitalasset.canton.integration.CommunityIntegrationTest
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.tests.DemoExampleIntegrationTest.referenceDemo
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest
 
@@ -34,7 +34,7 @@ sealed abstract class DemoExampleIntegrationTest
 
 final class DemoExampleReferenceIntegrationTest extends DemoExampleIntegrationTest {
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[Memory](
+    new UseReferenceBlockSequencer[Memory](
       loggerFactory,
       sequencerGroups =
         MultiSynchronizer.tryCreate(Set("sequencerBanking"), Set("sequencerMedical")),

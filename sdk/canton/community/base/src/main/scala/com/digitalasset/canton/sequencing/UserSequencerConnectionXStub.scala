@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
@@ -63,6 +64,14 @@ trait UserSequencerConnectionXStub extends NamedLogging {
     GetTrafficStateForMemberResponse,
   ]
 
+  def getTime(
+      timeout: Duration,
+      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Option[CantonTimestamp]]
+
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest, timeout: Duration)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse]
@@ -74,4 +83,5 @@ trait UserSequencerConnectionXStub extends NamedLogging {
   )(implicit
       traceContext: TraceContext
   ): Either[SequencerConnectionXStubError, SequencerSubscription[E]]
+
 }

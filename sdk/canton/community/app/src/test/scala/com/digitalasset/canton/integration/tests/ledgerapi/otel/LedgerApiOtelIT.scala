@@ -14,12 +14,15 @@ import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.api.v2.commands.CreateCommand
 import com.daml.ledger.api.v2.state_service.{GetLedgerEndRequest, StateServiceGrpc}
-import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
+  TRANSACTION_SHAPE_ACS_DELTA,
+  TRANSACTION_SHAPE_LEDGER_EFFECTS,
+}
 import com.daml.ledger.api.v2.transaction_filter.{
   EventFormat,
   Filters,
-  TransactionFilter,
   TransactionFormat,
+  UpdateFormat,
 }
 import com.daml.ledger.api.v2.update_service.*
 import com.daml.ledger.api.v2.value.{Record, RecordField, Value}
@@ -27,7 +30,7 @@ import com.digitalasset.canton.UniquePortGenerator
 import com.digitalasset.canton.config.AuthServiceConfig.Wildcard
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
 import com.digitalasset.canton.config.{CantonConfig, DbConfig, PemFile, TlsServerConfig}
-import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseOtlp}
+import com.digitalasset.canton.integration.plugins.{UseOtlp, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.ValueConversions.*
 import com.digitalasset.canton.integration.tests.ledgerapi.fixture.{CantonFixture, CreatesParties}
 import com.digitalasset.canton.integration.tests.ledgerapi.services.TestCommands
@@ -49,11 +52,9 @@ import org.scalatest.{Assertion, Succeeded}
 import org.slf4j.event.Level
 
 import java.util.UUID
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
-// TODO(#23504) remove TransactionTree related tests
 trait LedgerApiOtelITBase
     extends CantonFixture
     with CreatesParties
@@ -63,7 +64,7 @@ trait LedgerApiOtelITBase
   val otlpHeaders = Map("custom-key" -> "custom-value")
 
   registerPlugin(LedgerApiOtelOverrideConfig(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   protected def useOtlp: UseOtlp
   registerPlugin(useOtlp)
@@ -291,7 +292,6 @@ trait LedgerApiOtelITBase
     }
 }
 
-@nowarn("cat=deprecation")
 class LedgerApiOtelIT extends LedgerApiOtelITBase {
 
   protected override lazy val useOtlp: UseOtlp =
@@ -343,16 +343,6 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
         },
         origin = "com.daml.ledger.api.v2.CommandService/SubmitAndWaitForTransaction",
       )
-
-      testCommandService(
-        submit = { party =>
-          commandService
-            .submitAndWaitForTransactionTree(
-              submitAndWaitRequest(party, userId)
-            )
-        },
-        origin = "com.daml.ledger.api.v2.CommandService/SubmitAndWaitForTransactionTree",
-      )
     }
   }
 
@@ -402,7 +392,7 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
     }
   }
 
-  "CommandTransactionService" when {
+  "UpdateService" when {
     val svcName = "com.daml.ledger.api.v2.UpdateService"
 
     def submissionService = CommandServiceGrpc
@@ -415,7 +405,7 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
     def updateService =
       UpdateServiceGrpc.stub(channel).withInterceptors(TraceContextGrpc.clientInterceptor)
 
-    def extractTraceContextFromFlat(response: GetUpdatesResponse): Seq[TraceContext] =
+    def extractTraceContextFromUpdates(response: GetUpdatesResponse): Seq[TraceContext] =
       response.update.transaction
         .map(c =>
           SerializableTraceContextConverter
@@ -424,34 +414,37 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
         )
         .toList
 
-    def extractTraceContextFromTrees(response: GetTransactionTreeResponse): TraceContext =
-      SerializableTraceContextConverter
-        .fromDamlProtoSafeOpt(loggerWithoutTracing(logger))(
-          response.transaction.flatMap(_.traceContext)
-        )
-        .traceContext
-
-    def extractTraceContextFromUpdateTrees(response: GetUpdateTreesResponse): Seq[TraceContext] =
-      response.update.transactionTree
-        .map(c =>
-          SerializableTraceContextConverter
-            .fromDamlProtoSafeOpt(loggerWithoutTracing(logger))(c.traceContext)
-            .traceContext
-        )
-        .toList
-
-    def extractTraceContextFromPointwiseFlat(
-        response: GetTransactionResponse
+    def extractTraceContextFromPointwiseUpdate(
+        response: GetUpdateResponse
     ): TraceContext =
       SerializableTraceContextConverter
         .fromDamlProtoSafeOpt(loggerWithoutTracing(logger))(
-          response.transaction.flatMap(_.traceContext)
+          response.update.transaction.flatMap(_.traceContext)
         )
         .traceContext
 
     val aUserId = userId
 
-    "retrieving flat transaction with a span and trace" should {
+    def updateFormat(party: String) = Some(
+      UpdateFormat(
+        includeTransactions = Some(
+          TransactionFormat(
+            eventFormat = Some(
+              EventFormat(
+                filtersByParty = Map(party -> Filters.defaultInstance),
+                filtersForAnyParty = None,
+                verbose = false,
+              )
+            ),
+            transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+          )
+        ),
+        includeReassignments = None,
+        includeTopologyEvents = None,
+      )
+    )
+
+    "retrieving updates with a span and trace" should {
       testStreamingService[GetUpdatesResponse](
         submissionService,
         stateService
@@ -462,18 +455,11 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
             GetUpdatesRequest(
               beginExclusive = offset,
               endInclusive = None,
-              filter = Some(
-                TransactionFilter(
-                  filtersByParty = Map(party -> Filters.defaultInstance),
-                  filtersForAnyParty = None,
-                )
-              ),
-              verbose = false,
-              updateFormat = None,
+              updateFormat = updateFormat(party),
             ),
             _,
           ),
-        extractTraceContextFromFlat,
+        extractTraceContextFromUpdates,
         origin = s"$svcName/getUpdates",
         userId = aUserId,
         filterRelevantResponses =
@@ -484,61 +470,14 @@ class LedgerApiOtelIT extends LedgerApiOtelITBase {
       testPointwiseQuery(
         submissionService,
         (tId, party) =>
-          updateService.getTransactionById(
-            GetTransactionByIdRequest(
+          updateService.getUpdateById(
+            GetUpdateByIdRequest(
               updateId = tId,
-              requestingParties = Seq(party),
-              transactionFormat = None,
+              updateFormat = updateFormat(party),
             )
           ),
-        extractTraceContextFromPointwiseFlat,
+        extractTraceContextFromPointwiseUpdate,
         s"$svcName/getTransactionById",
-        aUserId,
-      )
-    }
-
-    "retrieving transaction tree with a span and trace" should {
-      testStreamingService[GetUpdateTreesResponse](
-        submissionService,
-        stateService
-          .getLedgerEnd(GetLedgerEndRequest())
-          .map(_.offset)(_),
-        (party, offset) =>
-          updateService.getUpdateTrees(
-            GetUpdatesRequest(
-              beginExclusive = offset,
-              endInclusive = None,
-              filter = Some(
-                TransactionFilter(
-                  filtersByParty = Map(party -> Filters.defaultInstance),
-                  filtersForAnyParty = None,
-                )
-              ),
-              verbose = false,
-              updateFormat = None,
-            ),
-            _,
-          ),
-        extractTraceContextFromUpdateTrees,
-        origin = s"$svcName/getUpdateTrees",
-        userId = aUserId,
-        filterRelevantResponses =
-          // Filter out offset checkpoints as they are not triggered by the command submission,
-          // hence not relevant in asserting spans/traces
-          !_.update.isOffsetCheckpoint,
-      )
-      testPointwiseQuery(
-        submissionService,
-        (tId, party) =>
-          updateService.getTransactionTreeById(
-            GetTransactionByIdRequest(
-              updateId = tId,
-              requestingParties = Seq(party),
-              transactionFormat = None,
-            )
-          ),
-        extractTraceContextFromTrees,
-        s"$svcName/getTransactionTreeById",
         aUserId,
       )
     }

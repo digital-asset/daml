@@ -103,7 +103,13 @@ object ParticipantNodePersistentState extends HasLoggerName {
     )
 
     val contractStore =
-      ContractStore.create(storage, parameters, loggerFactory)
+      ContractStore.create(
+        storage = storage,
+        processingTimeouts = parameters.processingTimeouts,
+        cachingConfigs = parameters.cachingConfigs,
+        batchingConfig = parameters.batchingConfig,
+        loggerFactory = loggerFactory,
+      )
 
     val pruningStore = ParticipantPruningStore(storage, timeouts, loggerFactory)
 

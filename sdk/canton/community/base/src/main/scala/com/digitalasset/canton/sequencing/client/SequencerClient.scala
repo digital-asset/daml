@@ -239,8 +239,8 @@ abstract class SequencerClientImpl(
     with HasCloseContext {
   import SequencerClientImpl.LinkDetails
 
-  noTracingLogger.debug(
-    s"[$member] Using connection pool: ${config.useNewConnectionPool} for synchronizer $psid"
+  noTracingLogger.info(
+    s"[$member] Using ${if (config.useNewConnectionPool) "new connection pool" else "old transports"} for synchronizer $psid"
   )
 
   override def logout()(implicit
@@ -1190,6 +1190,8 @@ class RichSequencerClientImpl(
           val subscriptionPoolConfig = SequencerSubscriptionPoolConfig(
             trustThreshold = sequencerTransports.sequencerTrustThreshold,
             livenessMargin = sequencerTransports.sequencerLivenessMargin,
+            subscriptionRequestDelay =
+              sequencerTransports.sequencerConnectionPoolDelays.subscriptionRequestDelay,
           )
           val eventBatchProcessor = new EventBatchProcessor {
             override def process(
@@ -1229,7 +1231,6 @@ class RichSequencerClientImpl(
           val sequencerSubscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
             sequencerSubscriptionFactory,
             subscriptionHandlerFactory,
-            clock,
             timeouts,
             loggerFactory,
           )
@@ -2244,6 +2245,7 @@ object SequencerClient {
       sequencerTrustThreshold: PositiveInt,
       sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
+      sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
   ) {
     def expectedSequencersO: Option[NonEmpty[Set[SequencerId]]] =
       sequencerToTransportMapO.map(_.map(_._2.sequencerId).toSet)
@@ -2267,6 +2269,7 @@ object SequencerClient {
         sequencerSignatureThreshold: PositiveInt,
         sequencerLivenessMargin: NonNegativeInt,
         submissionRequestAmplification: SubmissionRequestAmplification,
+        sequencerConnectionPoolDelays: SequencerConnectionPoolDelays,
     ): Either[String, SequencerTransports[E]] =
       sequencerTransportsMapO
         .zip(expectedSequencersO)
@@ -2291,6 +2294,7 @@ object SequencerClient {
             sequencerTrustThreshold = sequencerSignatureThreshold,
             sequencerLivenessMargin = sequencerLivenessMargin,
             submissionRequestAmplification = submissionRequestAmplification,
+            sequencerConnectionPoolDelays = sequencerConnectionPoolDelays,
           )
         )
 
@@ -2305,6 +2309,7 @@ object SequencerClient {
         sequencerTrustThreshold = PositiveInt.one,
         sequencerLivenessMargin = NonNegativeInt.zero,
         SubmissionRequestAmplification.NoAmplification,
+        SequencerConnectionPoolDelays.default,
       )
     }
 

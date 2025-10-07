@@ -87,14 +87,16 @@ module BuiltinMod {
       TEXT_TO_NUMERIC;
   val textToCodePoints: Text -> List Int64 =
     TEXT_TO_CODE_POINTS;
-  val textToContractId: forall (a: *). Text -> ContractId a =
-    TEXT_TO_CONTRACT_ID;
   val sha256Text: Text -> Text =
     SHA256_TEXT;
+  val sha256Hex: Text -> Text =
+    SHA256_HEX;
   val keccak256Text: Text -> Text =
     KECCAK256_TEXT;
   val secp256k1Bool: Text -> Text -> Text -> Bool =
     SECP256K1_BOOL;
+  val secp256k1WithEcdsaBool: Text -> Text -> Text -> Bool =
+    SECP256K1_WITH_ECDSA_BOOL;
   val textToHex: Text -> Text = TEXT_TO_HEX;
   val hexToText: Text -> Text = HEX_TO_TEXT;
   val dateToUnixDays: Date -> Int64 =

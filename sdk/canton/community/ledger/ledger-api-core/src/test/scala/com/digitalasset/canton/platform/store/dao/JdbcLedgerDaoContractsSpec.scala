@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import cats.syntax.parallel.*
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.{Active, Archived}
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
@@ -12,7 +12,6 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyUnassigned,
 }
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueText}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -36,45 +35,29 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
         stakeholders = Set(alice, bob),
         key = None,
       )
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
       result <- contractsReader.lookupContractState(
         nonTransient(tx).loneElement,
-        offset,
+        ledgerEnd.map(_.lastEventSeqId).getOrElse(0L),
       )
     } yield {
-      result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
-        (
-          active.contract.version,
-          active.contract.packageName,
-          active.contract.templateId,
-          active.contract.createArg,
-          active.stakeholders,
-          active.contract.signatories,
-        )
-      } shouldEqual Some(
-        (
-          LanguageMajorVersion.V2.maxStableVersion,
-          somePackageName,
-          someTemplateId,
-          someContractArgument,
-          Set(alice, bob),
-          Set(alice, bob),
-        )
-      )
+      result shouldBe Some(Active)
     }
   }
 
   it should "store contracts with a transient contract in the global divulgence and do not fetch it" in {
     for {
-      (offset, tx) <- store(fullyTransientWithChildren, contractActivenessChanged = false)
+      (_, tx) <- store(fullyTransientWithChildren, contractActivenessChanged = false)
+      ledgerEnd <- ledgerDao.lookupLedgerEnd()
       contractId1 = created(tx).head
       contractId2 = created(tx).tail.loneElement
       result1 <- contractsReader.lookupContractState(
         contractId1,
-        offset,
+        ledgerEnd.map(_.lastEventSeqId).getOrElse(0L),
       )
       result2 <- contractsReader.lookupContractState(
         contractId2,
-        offset,
+        ledgerEnd.map(_.lastEventSeqId).getOrElse(0L),
       )
     } yield {
       result1 shouldBe empty
@@ -92,29 +75,15 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       Some(ledgerEndAfterArchive) <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupContractState(
         contractId,
-        ledgerEndAtCreate.lastOffset,
+        ledgerEndAtCreate.lastEventSeqId,
       )
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
-        ledgerEndAfterArchive.lastOffset,
+        ledgerEndAfterArchive.lastEventSeqId,
       )
     } yield {
-      queryAfterCreate.value match {
-        case LedgerDaoContractsReader.ActiveContract(contract) =>
-          contract.version shouldBe LanguageMajorVersion.V2.maxStableVersion
-          contract.packageName shouldBe somePackageName
-          contract.templateId shouldBe someTemplateId
-          contract.createArg shouldBe someContractArgument
-          contract.stakeholders should contain theSameElementsAs Set(alice)
-        case LedgerDaoContractsReader.ArchivedContract(_) =>
-          fail("Contract should appear as active")
-      }
-      queryAfterArchive.value match {
-        case _: LedgerDaoContractsReader.ActiveContract =>
-          fail("Contract should appear as archived")
-        case LedgerDaoContractsReader.ArchivedContract(stakeholders) =>
-          stakeholders should contain theSameElementsAs Set(alice)
-      }
+      queryAfterCreate.value shouldBe Active
+      queryAfterArchive.value shouldBe Archived
     }
   }
 
@@ -142,11 +111,11 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupKeyState(
         key.globalKey,
-        ledgerEndAtCreate.value.lastOffset,
+        ledgerEndAtCreate.value.lastEventSeqId,
       )
       queryAfterArchive <- contractsReader.lookupKeyState(
         key.globalKey,
-        ledgerEndAfterArchive.value.lastOffset,
+        ledgerEndAfterArchive.value.lastEventSeqId,
       )
     } yield {
       queryAfterCreate match {
@@ -182,14 +151,14 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
 
     def fetchAll(
         keys: Seq[GlobalKey],
-        offset: Offset,
+        eventSeqId: Long,
     ): Future[(Map[GlobalKey, KeyState], Map[GlobalKey, KeyState])] = {
       val oneByOneF = keys
         .parTraverse { key =>
-          contractsReader.lookupKeyState(key, offset).map(state => key -> state)
+          contractsReader.lookupKeyState(key, eventSeqId).map(state => key -> state)
         }
         .map(_.toMap)
-      val togetherF = contractsReader.lookupKeyStatesFromDb(keys, offset)
+      val togetherF = contractsReader.lookupKeyStatesFromDb(keys, eventSeqId)
       for {
         oneByOne <- oneByOneF
         together <- togetherF
@@ -210,37 +179,44 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
 
     for {
       // have AA at offsetA
-      (textA, keyA, cidA, offsetA) <- genContractWithKey()
+      (textA, keyA, cidA, _) <- genContractWithKey()
+      eventSeqIdA <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       _ <- store(singleNonConsumingExercise(cidA))
       // have AA,BB at offsetB
-      (_, keyB, cidB, offsetB) <- genContractWithKey()
+      (_, keyB, cidB, _) <- genContractWithKey()
+      eventSeqIdB <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       // have BB at offsetPreC
-      (offsetPreC, _) <- store(txArchiveContract(alice, (cidA, None)))
+      (_, _) <- store(txArchiveContract(alice, (cidA, None)))
+      eventSeqIdPreC <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       // have BB, CC at offsetC
-      (_, keyC, cidC, offsetC) <- genContractWithKey()
+      (_, keyC, cidC, _) <- genContractWithKey()
+      eventSeqIdC <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       // have AA, BB, CC at offsetA2
-      (_, keyA2, cidA2, offsetA2) <- genContractWithKey(textA.value)
+      (_, keyA2, cidA2, _) <- genContractWithKey(textA.value)
+      eventSeqIdA2 <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       // have AA, BB at offset D
-      (offsetD, _) <- store(txArchiveContract(alice, (cidC, None)))
+      (_, _) <- store(txArchiveContract(alice, (cidC, None)))
+      eventSeqIdD <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       // have AA at offsetE
-      (offsetE, _) <- store(txArchiveContract(alice, (cidB, None)))
+      (_, _) <- store(txArchiveContract(alice, (cidB, None)))
+      eventSeqIdE <- ledgerDao.lookupLedgerEnd().map(_.value.lastEventSeqId)
       allKeys = Seq(keyA, keyB, keyC).map(_.globalKey)
-      atOffsetA <- fetchAll(allKeys, offsetA)
-      atOffsetB <- fetchAll(allKeys, offsetB)
-      atOffsetPreC <- fetchAll(allKeys, offsetPreC)
-      atOffsetC <- fetchAll(allKeys, offsetC)
-      atOffsetA2 <- fetchAll(allKeys, offsetA2)
-      atOffsetD <- fetchAll(allKeys, offsetD)
-      atOffsetE <- fetchAll(allKeys, offsetE)
+      atEventSeqIdA <- fetchAll(allKeys, eventSeqIdA)
+      atEventSeqIdB <- fetchAll(allKeys, eventSeqIdB)
+      atEventSeqIdPreC <- fetchAll(allKeys, eventSeqIdPreC)
+      atEventSeqIdC <- fetchAll(allKeys, eventSeqIdC)
+      atEventSeqIdA2 <- fetchAll(allKeys, eventSeqIdA2)
+      atEventSeqIdD <- fetchAll(allKeys, eventSeqIdD)
+      atEventSeqIdE <- fetchAll(allKeys, eventSeqIdE)
     } yield {
       keyA shouldBe keyA2
-      verifyMatch(atOffsetA, Map(keyA -> Some(cidA), keyB -> None, keyC -> None))
-      verifyMatch(atOffsetB, Map(keyA -> Some(cidA), keyB -> Some(cidB), keyC -> None))
-      verifyMatch(atOffsetPreC, Map(keyA -> None, keyB -> Some(cidB), keyC -> None))
-      verifyMatch(atOffsetC, Map(keyA -> None, keyB -> Some(cidB), keyC -> Some(cidC)))
-      verifyMatch(atOffsetA2, Map(keyA -> Some(cidA2), keyB -> Some(cidB), keyC -> Some(cidC)))
-      verifyMatch(atOffsetD, Map(keyA -> Some(cidA2), keyB -> Some(cidB), keyC -> None))
-      verifyMatch(atOffsetE, Map(keyA -> Some(cidA2), keyB -> None, keyC -> None))
+      verifyMatch(atEventSeqIdA, Map(keyA -> Some(cidA), keyB -> None, keyC -> None))
+      verifyMatch(atEventSeqIdB, Map(keyA -> Some(cidA), keyB -> Some(cidB), keyC -> None))
+      verifyMatch(atEventSeqIdPreC, Map(keyA -> None, keyB -> Some(cidB), keyC -> None))
+      verifyMatch(atEventSeqIdC, Map(keyA -> None, keyB -> Some(cidB), keyC -> Some(cidC)))
+      verifyMatch(atEventSeqIdA2, Map(keyA -> Some(cidA2), keyB -> Some(cidB), keyC -> Some(cidC)))
+      verifyMatch(atEventSeqIdD, Map(keyA -> Some(cidA2), keyB -> Some(cidB), keyC -> None))
+      verifyMatch(atEventSeqIdE, Map(keyA -> Some(cidA2), keyB -> None, keyC -> None))
     }
   }
 

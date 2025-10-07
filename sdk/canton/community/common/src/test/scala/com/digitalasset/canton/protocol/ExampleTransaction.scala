@@ -18,7 +18,7 @@ trait ExampleTransaction {
   /** Set of parties who are informees of an action (root or not) in the transaction */
   def allInformees: Set[LfPartyId] = fullInformeeTree.allInformees
 
-  /** The transaction with unsuffixed contract IDs and the transaction version */
+  /** The transaction with unsuffixed contract IDs and the serialization version */
   def versionedUnsuffixedTransaction: LfVersionedTransaction
 
   /** Map from the nodes of the transaction to their seed if they need a seed */
@@ -56,7 +56,7 @@ trait ExampleTransaction {
 
   def transactionTree: GenTransactionTree
 
-  def transactionId: TransactionId = transactionTree.transactionId
+  def transactionId: UpdateId = transactionTree.transactionId
 
   def fullInformeeTree: FullInformeeTree
 
@@ -85,7 +85,7 @@ trait ExampleTransaction {
   /** Transaction view trees for root views, in execution order */
   def rootTransactionViewTrees: Seq[FullTransactionViewTree]
 
-  /** The transaction with suffixed contract ids and the transaction version. */
+  /** The transaction with suffixed contract ids and the serialization version. */
   def versionedSuffixedTransaction: LfVersionedTransaction
 
   /** @throws IllegalArgumentException

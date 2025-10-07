@@ -33,15 +33,20 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     userIdAbsent(testee, "usr2")
     participantIdAbsent(testee, "pn-1")
     participantIdAbsent(testee, "pn-2")
+    choiceNameAbsent(testee, "ChoiceName")
+    interfaceIdAbsent(testee, "pkg:inter:face")
 
     testee.internize(
       new DomainStringIterators(
         parties = List("p1", "p2", "22::same:name").iterator,
         templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator,
+        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator
+          .map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1", "pkg-2").iterator,
         userIds = List("usr1", "usr2").iterator,
         participantIds = List("pn-1", "pn-2").iterator,
+        choiceNames = List("ChoiceName").iterator,
+        interfaceIds = List("pkg:inter:face").iterator,
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -58,6 +63,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       12 -> "u|usr2",
       13 -> "n|pn-1",
       14 -> "n|pn-2",
+      15 -> "c|ChoiceName",
+      16 -> "f|pkg:inter:face",
     )
     partyPresent(testee, "p1", 1)
     partyPresent(testee, "p2", 2)
@@ -79,6 +86,10 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     participantIdPresent(testee, "pn-1", 13)
     participantIdPresent(testee, "pn-2", 14)
     participantIdAbsent(testee, "pn-unknown")
+    choiceNamePresent(testee, "ChoiceName", 15)
+    choiceNameAbsent(testee, "CnUnknown")
+    interfaceIdPresent(testee, "pkg:inter:face", 16)
+    interfaceIdAbsent(testee, "inter:face:unknown")
   }
 
   it should "extend working view correctly" in {
@@ -95,14 +106,19 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     packageIdAbsent(testee, "pkg-2")
     userIdAbsent(testee, "usr1")
     userIdAbsent(testee, "usr2")
+    choiceNameAbsent(testee, "ChoiceName")
+    interfaceIdAbsent(testee, "pkg:inter:face")
     testee.internize(
       new DomainStringIterators(
         parties = List("p1", "p2", "22::same:name").iterator,
         templateIds = List("#22:t:a").iterator,
-        synchronizerIds = List("x::synchronizer1", "x::synchronizer2").iterator,
+        synchronizerIds =
+          List("x::synchronizer1", "x::synchronizer2").iterator.map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1").iterator,
         userIds = List("usr1").iterator,
         participantIds = List("pn-1", "pn-2").iterator,
+        choiceNames = List("ChoiceName").iterator,
+        interfaceIds = List("pkg:inter:face").iterator,
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -115,6 +131,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       8 -> "u|usr1",
       9 -> "n|pn-1",
       10 -> "n|pn-2",
+      11 -> "c|ChoiceName",
+      12 -> "f|pkg:inter:face",
     )
     partyPresent(testee, "p1", 1)
     partyPresent(testee, "p2", 2)
@@ -132,45 +150,58 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     packageIdAbsent(testee, "pkg-unknown")
     userIdPresent(testee, "usr1", 8)
     userIdAbsent(testee, "usr2")
+    choiceNamePresent(testee, "ChoiceName", 11)
+    choiceNameAbsent(testee, "CnUnknown")
+    interfaceIdPresent(testee, "pkg:inter:face", 12)
+    interfaceIdAbsent(testee, "inter:face:unknown")
     testee.internize(
       new DomainStringIterators(
         parties = List("p1", "p2").iterator,
         templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer3").iterator,
+        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer3").iterator
+          .map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1", "pkg-2").iterator,
         userIds = List("usr1", "usr2").iterator,
         participantIds = List("pn-1", "pn-2", "pn-3").iterator,
+        choiceNames = List("ChoiceName").iterator,
+        interfaceIds = List("pkg:inter:face", "pkg:inter:face2").iterator,
       )
     ) shouldBe Vector(
-      11 -> "t|#22:t:b",
-      12 -> "d|22::same:name",
-      13 -> "d|x::synchronizer3",
-      14 -> "i|pkg-2",
-      15 -> "u|usr2",
-      16 -> "n|pn-3",
+      13 -> "t|#22:t:b",
+      14 -> "d|22::same:name",
+      15 -> "d|x::synchronizer3",
+      16 -> "i|pkg-2",
+      17 -> "u|usr2",
+      18 -> "n|pn-3",
+      19 -> "f|pkg:inter:face2",
     )
     partyPresent(testee, "p1", 1)
     partyPresent(testee, "p2", 2)
     partyPresent(testee, "22::same:name", 3)
     partyAbsent(testee, "unknown")
     templatePresent(testee, "#22:t:a", 4)
-    templatePresent(testee, "#22:t:b", 11)
+    templatePresent(testee, "#22:t:b", 13)
     templateAbsent(testee, "#22:unkno:wn")
     synchronizerIdPresent(testee, "x::synchronizer1", 5)
     synchronizerIdPresent(testee, "x::synchronizer2", 6)
-    synchronizerIdPresent(testee, "22::same:name", 12)
-    synchronizerIdPresent(testee, "x::synchronizer3", 13)
+    synchronizerIdPresent(testee, "22::same:name", 14)
+    synchronizerIdPresent(testee, "x::synchronizer3", 15)
     synchronizerIdAbsent(testee, "x::synchronizerunknown")
     packageIdPresent(testee, "pkg-1", 7)
-    packageIdPresent(testee, "pkg-2", 14)
+    packageIdPresent(testee, "pkg-2", 16)
     packageIdAbsent(testee, "pkg-unknown")
     userIdPresent(testee, "usr1", 8)
-    userIdPresent(testee, "usr2", 15)
+    userIdPresent(testee, "usr2", 17)
     userIdAbsent(testee, "usr-unknown")
     participantIdPresent(testee, "pn-1", 9)
     participantIdPresent(testee, "pn-2", 10)
-    participantIdPresent(testee, "pn-3", 16)
+    participantIdPresent(testee, "pn-3", 18)
     participantIdAbsent(testee, "pn-unknown")
+    choiceNamePresent(testee, "ChoiceName", 11)
+    interfaceIdPresent(testee, "pkg:inter:face2", 19)
+    choiceNameAbsent(testee, "CnUnknown")
+    interfaceIdPresent(testee, "pkg:inter:face", 12)
+    interfaceIdAbsent(testee, "inter:face:unknown")
   }
 
   it should "correctly load prefixing entries in the view on `update`" in {
@@ -226,10 +257,12 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2").iterator,
         templateIds = List().iterator,
-        synchronizerIds = List("x::synchronizer1").iterator,
+        synchronizerIds = List("x::synchronizer1").iterator.map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1").iterator,
         userIds = List().iterator,
         participantIds = List().iterator,
+        choiceNames = List().iterator,
+        interfaceIds = List().iterator,
       )
     )
     partyPresent(testee, "p1", 1)
@@ -275,10 +308,13 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       new DomainStringIterators(
         parties = List("p1", "p2", "22::same:name").iterator,
         templateIds = List("#22:t:a", "#22:t:b").iterator,
-        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator,
+        synchronizerIds = List("22::same:name", "x::synchronizer1", "x::synchronizer2").iterator
+          .map(SynchronizerId.tryFromString),
         packageIds = List("pkg-1").iterator,
         userIds = List().iterator,
         participantIds = List().iterator,
+        choiceNames = List().iterator,
+        interfaceIds = List().iterator,
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -360,6 +396,18 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
 
   private def participantIdAbsent(view: StringInterning, participantId: String) =
     interningEntryAbsent(view.participantId, participantId, Ref.ParticipantId.assertFromString)
+
+  private def choiceNamePresent(view: StringInterning, choiceName: String, id: Int) =
+    interningEntryPresent(view.choiceName, choiceName, id, Ref.ChoiceName.assertFromString)
+
+  private def choiceNameAbsent(view: StringInterning, choiceName: String) =
+    interningEntryAbsent(view.choiceName, choiceName, Ref.ChoiceName.assertFromString)
+
+  private def interfaceIdPresent(view: StringInterning, interfaceId: String, id: Int) =
+    interningEntryPresent(view.interfaceId, interfaceId, id, Ref.Identifier.assertFromString)
+
+  private def interfaceIdAbsent(view: StringInterning, interfaceId: String) =
+    interningEntryAbsent(view.interfaceId, interfaceId, Ref.Identifier.assertFromString)
 
   private def interningEntryPresent[T](
       interningDomain: StringInterningDomain[T],

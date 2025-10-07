@@ -20,7 +20,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError.InvalidMessage
 import com.digitalasset.canton.examples.java as M
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, LoggerSuppressionHelpers}
@@ -117,7 +117,6 @@ final class ParticipantMigrateSynchronizerIntegrationTest
             .replace(targetProtocol.isAlpha)
         ),
       )
-      .addConfigTransform(ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion)
 
   private val remedy = operabilityTest("Participant.RepairService")("ProtocolVersion") _
 

@@ -17,9 +17,9 @@ import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
 import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.examples.java.cycle
 import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
   UseProgrammableSequencer,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -318,6 +318,6 @@ trait InFlightSubmissionTrackingIntegrationTest
 class InFlightSubmissionTrackingIntegrationTestPostgres
     extends InFlightSubmissionTrackingIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }

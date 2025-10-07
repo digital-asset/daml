@@ -64,23 +64,4 @@ class DbDataTypes(dbType: DbType) {
     }
   }
 
-  case object IntArray extends DbDataType {
-    override def get(resultSet: ResultSet, index: Int): Any =
-      resultSet
-        .getArray(index)
-        .getArray
-        .asInstanceOf[Array[java.lang.Integer]]
-        .toVector
-        .map(_.intValue())
-
-    override def put(value: Any): String = {
-      val array = value
-        .asInstanceOf[Vector[Int]]
-        .map(_.toString)
-      dbType match {
-        case DbType.Postgres => array.mkString("ARRAY[", ", ", "]::INTEGER[]")
-        case other => sys.error(s"Unsupported db type: $other")
-      }
-    }
-  }
 }

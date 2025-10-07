@@ -214,7 +214,7 @@ object Value {
 
     @deprecated("use the version with 3 argument", since = "2.9.0")
     def apply(
-        version: transaction.TransactionVersion,
+        version: transaction.SerializationVersion,
         packageName: Ref.PackageName,
         template: Identifier,
         arg: Value,

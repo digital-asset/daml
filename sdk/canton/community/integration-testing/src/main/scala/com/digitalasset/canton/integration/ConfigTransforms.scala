@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration
 
 import cats.syntax.option.*
-import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
@@ -15,6 +14,7 @@ import com.digitalasset.canton.config.{
   *,
 }
 import com.digitalasset.canton.console.FeatureFlag
+import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   RemoteParticipantConfig,
@@ -128,8 +128,7 @@ object ConfigTransforms {
       _.focus(_.monitoring.logging.api.warnBeyondLoad).replace(Some(10000)),
       // disable exit on fatal error in tests
       ConfigTransforms.setExitOnFatalFailures(false),
-      // TODO(i26481): adjust when the new connection pool is stable
-      ConfigTransforms.setConnectionPool(testedProtocolVersion >= ProtocolVersion.dev),
+      ConfigTransforms.setConnectionPool(true),
     )
 
   lazy val dontWarnOnDeprecatedPV: Seq[ConfigTransform] = Seq(
@@ -251,6 +250,8 @@ object ConfigTransforms {
       _.focus(_.ledgerApi.internalPort)
         .replace(nextPort.some)
         .focus(_.adminApi.internalPort)
+        .replace(nextPort.some)
+        .focus(_.httpLedgerApi.server.internalPort)
         .replace(nextPort.some)
         .focus(_.monitoring.grpcHealthServer)
         .modify(_.map(_.copy(internalPort = nextPort.some)))
@@ -861,14 +862,6 @@ object ConfigTransforms {
   def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
     _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 
-  def zeroReassignmentTimeProofFreshnessProportion: ConfigTransform =
-    ConfigTransforms.updateAllParticipantConfigs_(
-      // Always send time proofs for reassignments to avoid using outdated topology snapshots.
-      // We don't want to change the default to avoid potential time proof flooding in production.
-      _.focus(_.parameters.reassignmentsConfig.timeProofFreshnessProportion)
-        .replace(NonNegativeInt.zero)
-    )
-
   def disableConnectionPool: ConfigTransform = setConnectionPool(false)
 
   /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.
@@ -881,4 +874,27 @@ object ConfigTransforms {
     }).compose(updateAllParticipantConfigs { case (_name, config) =>
       config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
     })
+
+  /** Must be applied before the default config transformers */
+  def enableHttpLedgerApi: ConfigTransform = updateAllParticipantConfigs_(
+    _.copy(httpLedgerApi = JsonApiConfig(server = HttpServerConfig()))
+  )
+
+  /** Must be applied before the default config transformers */
+  def enableHttpLedgerApi(
+      participantName: String,
+      websocketConfig: Option[WebsocketConfig] = None,
+      pathPrefix: Option[String] = None,
+  ): ConfigTransform =
+    updateParticipantConfig(participantName)(config =>
+      config.copy(httpLedgerApi =
+        JsonApiConfig(
+          server = HttpServerConfig(
+            pathPrefix = pathPrefix
+          ),
+          websocketConfig = websocketConfig,
+        )
+      )
+    )
+
 }

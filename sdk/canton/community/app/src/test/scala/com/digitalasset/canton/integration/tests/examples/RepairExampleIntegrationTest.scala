@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.examples
 
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.CommunityIntegrationTest
-import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
+import com.digitalasset.canton.integration.plugins.{UseH2, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.{
   referenceConfiguration,
   repairConfiguration,
@@ -30,5 +30,5 @@ sealed abstract class RepairExampleIntegrationTest
 // TODO(#26093) port to DB or BFT Sequencer
 final class RepairExampleReferenceIntegrationTestH2 extends RepairExampleIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

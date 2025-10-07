@@ -12,7 +12,6 @@ import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
   TopologyTransactionsBroadcast,
@@ -30,6 +29,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   MessageId,
   Recipients,
 }
+import com.digitalasset.canton.synchronizer.sequencer.time.TimeAdvancingTopologySubscriber.TimeAdvanceBroadcastMaxSequencingTimeWindow
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.client.{
   SynchronizerTopologyClientWithInit,
@@ -70,7 +70,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           mock[SynchronizerTopologyClientWithInit],
           aPhysicalSynchronizerId,
           aSequencerId,
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -95,7 +94,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
       val clock = new SimClock(start = ts2, loggerFactory)
 
       val sequencerClient = mock[SequencerClientSend]
-      when(sequencerClient.generateMaxSequencingTime).thenReturn(CantonTimestamp.Epoch)
       when(
         sequencerClient.send(
           batch = any[Batch[DefaultOpenEnvelope]],
@@ -118,12 +116,10 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           threshold = PositiveInt.one,
         )
       when(snapshot.sequencerGroup()).thenReturn(FutureUnlessShutdown.pure(Some(sequencerGroup)))
-      val dynamicSynchronizerParameters =
-        DynamicSynchronizerParameters.defaultValues(testedProtocolVersion)
-      when(snapshot.findDynamicSynchronizerParametersOrDefault(testedProtocolVersion))
-        .thenReturn(FutureUnlessShutdown.pure(dynamicSynchronizerParameters))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
       when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
+      when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
       val subscriber =
         new TimeAdvancingTopologySubscriber(
@@ -132,7 +128,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId,
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -160,14 +155,14 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           transactions = Seq.empty,
         )
         .discard
-      clock.advance(dynamicSynchronizerParameters.topologyChangeDelay.duration)
+      clock.advance(staticSynchronizerParameters.topologyChangeDelay.duration)
 
       // then
       verify(sequencerClient)
         .send(
           batch = eqTo(expectedBatch),
           topologyTimestamp = eqTo(None),
-          maxSequencingTime = eqTo(CantonTimestamp.Epoch),
+          maxSequencingTime = eqTo(ts2.plus(TimeAdvanceBroadcastMaxSequencingTimeWindow.duration)),
           messageId = any[MessageId],
           aggregationRule = eqTo(expectedAggregationRule),
           callback = eqTo(SendCallback.empty),
@@ -195,12 +190,10 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           )
         )
       )
-      val dynamicSynchronizerParameters =
-        DynamicSynchronizerParameters.defaultValues(testedProtocolVersion)
-      when(snapshot.findDynamicSynchronizerParametersOrDefault(testedProtocolVersion))
-        .thenReturn(FutureUnlessShutdown.pure(dynamicSynchronizerParameters))
       val topologyClient = mock[SynchronizerTopologyClientWithInit]
       when(topologyClient.currentSnapshotApproximation).thenReturn(snapshot)
+      val staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParametersWith()
+      when(topologyClient.staticSynchronizerParameters).thenReturn(staticSynchronizerParameters)
 
       val subscriber =
         new TimeAdvancingTopologySubscriber(
@@ -209,7 +202,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           passiveSequencerId, // boom!
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -248,7 +240,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId,
-          testedProtocolVersion,
           loggerFactory,
         )
 
@@ -283,7 +274,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           topologyClient,
           aPhysicalSynchronizerId,
           aSequencerId, // boom!
-          testedProtocolVersion,
           loggerFactory,
         )
 

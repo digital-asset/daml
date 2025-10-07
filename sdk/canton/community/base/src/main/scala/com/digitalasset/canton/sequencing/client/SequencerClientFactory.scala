@@ -210,6 +210,7 @@ object SequencerClientFactory {
               sequencerConnections.sequencerTrustThreshold,
               sequencerConnections.sequencerLivenessMargin,
               sequencerConnections.submissionRequestAmplification,
+              sequencerConnections.sequencerConnectionPoolDelays,
             )
           )
           // Reinitialize the sequencer counter allocator to ensure that passive->active replica transitions

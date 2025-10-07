@@ -20,7 +20,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.ConsoleCommandResult
 import com.digitalasset.canton.damltests.java.simplecontractwithpayload.SimpleContractWithPayload
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -69,7 +69,7 @@ class LedgerApiStreamingTest extends CommunityIntegrationTest with SharedEnviron
     None,
   )
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   "test various stream closure scenarios and verify closure in logs, akka stream, gRPC" in {
     implicit env: TestConsoleEnvironment =>
@@ -275,8 +275,6 @@ class LedgerApiStreamingTest extends CommunityIntegrationTest with SharedEnviron
                   GetUpdatesRequest(
                     beginExclusive = 0L,
                     endInclusive = Some(twoHundredTxLedgerEnd),
-                    filter = None,
-                    verbose = false,
                     updateFormat = Some(
                       UpdateFormat(
                         includeTransactions = Some(

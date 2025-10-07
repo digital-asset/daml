@@ -200,7 +200,8 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
   *   The fingerprint of the key that was used to generate the signature.
   * @param signingAlgorithmSpec
   *   The signing algorithm scheme used to generate this signature. It is optional to ensure
-  *   backwards compatibility.
+  *   backwards compatibility with previous version where the spec is not set, but the general code
+  *   path expects you to provide it.
   * @param signatureDelegation
   *   An additional "optional" signature that includes a session key and a delegation/authorization
   *   through a signature created by a long-term key. This allows the session key to be used for
@@ -966,11 +967,17 @@ object SigningKeySpec {
       keySpecP: v30.SigningKeySpec,
       keySchemeP: v30.SigningKeyScheme,
   ): ParsingResult[SigningKeySpec] =
-    SigningKeySpec.fromProtoEnum("key_spec", keySpecP).leftFlatMap {
-      case ProtoDeserializationError.FieldNotSet(_) =>
-        SigningKeySpec.fromProtoEnumSigningKeyScheme("scheme", keySchemeP)
-      case err => Left(err)
-    }
+    // return better error if neither field is set
+    if (
+      keySpecP == v30.SigningKeySpec.SIGNING_KEY_SPEC_UNSPECIFIED && keySchemeP.isSigningKeySchemeUnspecified
+    )
+      Left(ProtoDeserializationError.FieldNotSet("key_spec and scheme"))
+    else
+      SigningKeySpec.fromProtoEnum("key_spec", keySpecP).leftFlatMap {
+        case ProtoDeserializationError.FieldNotSet(_) =>
+          SigningKeySpec.fromProtoEnumSigningKeyScheme("scheme", keySchemeP)
+        case err => Left(err)
+      }
 
   /** Converts an old SigningKeyScheme enum to the new key scheme, ensuring backward compatibility
     * with existing data.
@@ -1399,7 +1406,7 @@ object SigningPublicKey
     * format. If the [[SigningKeySpec]] is EC-based, it also validates that the public key lies on
     * the expected curve.
     */
-  private[crypto] def create(
+  def create(
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: SigningKeySpec,

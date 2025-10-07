@@ -30,12 +30,9 @@ import magnolify.scalacheck.semiauto.ArbitraryDerivation
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
-// TODO(#23504) remove
-@nowarn("cat=deprecation")
 class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   import StdGenerators.*
   import Arbitraries.*
@@ -70,8 +67,6 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
     JsMapping(converters.InterfaceView),
     JsMapping(converters.Event),
     JsMapping(converters.Transaction),
-    JsMapping(converters.TransactionTree),
-    JsMapping(converters.SubmitAndWaitTransactionTreeResponse),
     JsMapping(converters.SubmitAndWaitTransactionTreeResponseLegacy),
     JsMapping(converters.SubmitAndWaitTransactionResponse),
     JsMapping(converters.SubmitAndWaitForReassignmentResponse),
@@ -148,10 +143,6 @@ object Arbitraries {
   implicit val arbTopologyEvent: Arbitrary[lapi.topology_transaction.TopologyEvent.Event] =
     nonEmptyScalaPbOneOf(
       ArbitraryDerivation[lapi.topology_transaction.TopologyEvent.Event]
-    )
-  implicit val arbTreeEventKind: Arbitrary[lapi.transaction.TreeEvent.Kind] =
-    nonEmptyScalaPbOneOf(
-      ArbitraryDerivation[lapi.transaction.TreeEvent.Kind]
     )
   implicit val arbTreeEventLegacyKind: Arbitrary[LegacyDTOs.TreeEvent.Kind] = {
     val arb = ArbitraryDerivation[LegacyDTOs.TreeEvent.Kind]

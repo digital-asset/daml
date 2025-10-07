@@ -35,6 +35,7 @@ class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
   */
 abstract class UpgradesMatrixUnit(n: Int, k: Int)
     extends UpgradesMatrix[Error, (SubmittedTransaction, Transaction.Metadata)](
+      UpgradesMatrix.IdeLedger,
       UpgradesMatrixCasesV2MaxStable,
       Some((n, k)),
     )
@@ -72,7 +73,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
     val clientLocalContract: FatContractInstance =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
+        version = cases.serializationVersion,
         packageName = cases.clientLocalPkg.pkgName,
         template = testHelper.clientLocalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
@@ -81,7 +82,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
 
     val clientGlobalContract: FatContractInstance =
       TransactionBuilder.fatContractInstanceWithDummyDefaults(
-        version = cases.langVersion,
+        version = cases.serializationVersion,
         packageName = cases.clientGlobalPkg.pkgName,
         template = testHelper.clientGlobalTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
@@ -89,7 +90,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       )
 
     val globalContract: FatContractInstance = FatContractInstanceImpl(
-      version = cases.langVersion,
+      version = cases.serializationVersion,
       contractId = setupData.globalContractId,
       packageName = cases.templateDefsPkgName,
       templateId = testHelper.v1TplId,
@@ -145,7 +146,6 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,
@@ -170,6 +170,11 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
+        }
+      case UpgradesMatrixCases.ExpectAuthenticationError =>
+        inside(result) {
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
+            error shouldBe a[IE.Dev.AuthenticationError]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) {

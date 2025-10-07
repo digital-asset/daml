@@ -40,6 +40,7 @@ class DefaultPorts {
   /** Participant node default ports */
   val ledgerApiPort = defaultPortStart(4001)
   val participantAdminApiPort = defaultPortStart(4002)
+  val jsonLedgerApiPort = defaultPortStart(4003)
   // user-manual-entry-end: participant default ports
 
   /** External sequencer node x default ports (enterprise-only) */

@@ -25,6 +25,7 @@ import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
   SynchronizerId,
 }
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{GeneratorsLf, LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
@@ -57,6 +58,7 @@ final class GeneratorsProtocol(
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
       requiredSignatureFormats <- nonEmptySetGen[SignatureFormat]
+      topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       enableTransparencyChecks <- Arbitrary.arbitrary[Boolean]
       serial <- Arbitrary.arbitrary[NonNegativeInt]
 
@@ -67,6 +69,7 @@ final class GeneratorsProtocol(
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
         requiredSignatureFormats,
+        topologyChangeDelay,
         enableTransparencyChecks,
         protocolVersion,
         serial,
@@ -80,7 +83,6 @@ final class GeneratorsProtocol(
         confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         assignmentExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-        topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
 
         mediatorDeduplicationMargin <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
         // Because of the potential multiplication by 2 below, we want a reasonably small value
@@ -130,7 +132,6 @@ final class GeneratorsProtocol(
           confirmationResponseTimeout,
           mediatorReactionTimeout,
           assignmentExclusivityTimeout,
-          topologyChangeDelay,
           ledgerTimeRecordTimeTolerance,
           updatedMediatorDeduplicationTimeout,
           reconciliationInterval,
@@ -230,7 +231,7 @@ final class GeneratorsProtocol(
             for {
               index <- Gen.posNum[Int]
               time <- Arbitrary.arbitrary[CantonTimestamp]
-              transactionId <- Arbitrary.arbitrary[TransactionId]
+              transactionId <- Arbitrary.arbitrary[UpdateId]
             } yield {
               val discriminator = ExampleTransactionFactory.lfHash(index)
               val salt = ContractSalt.createV2(symbolicCrypto)(
@@ -265,6 +266,8 @@ final class GeneratorsProtocol(
               salt,
               relativeLedgerCreateTime,
               unsuffixedCreateNode,
+              TestContractHasher.Sync
+                .hash(unsuffixedCreateNode, contractIdSuffixer.contractHashingMethod),
             )
             .valueOr(err => throw new IllegalArgumentException(s"Failed to suffix contract: $err"))
         relativeFci = FatContractInstance.fromCreateNode(

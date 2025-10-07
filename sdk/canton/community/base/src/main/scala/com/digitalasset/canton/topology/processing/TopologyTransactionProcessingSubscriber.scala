@@ -35,10 +35,7 @@ trait TopologyTransactionProcessingSubscriber {
 
   /** This must be called whenever a topology transaction is committed. It may be called at
     * additional timestamps with `transactions` being empty. Calls must have strictly increasing
-    * `sequencedTimestamp` and `effectiveTimestamp`. The `effectiveTimestamp` must be the one
-    * computed by
-    * [[com.digitalasset.canton.topology.processing.TopologyTimestampPlusEpsilonTracker]] for
-    * `sequencedTimestamp`.
+    * `sequencedTimestamp` and `effectiveTimestamp`.
     *
     * During crash recovery previous calls of this method may be replayed. Therefore,
     * implementations must be idempotent.

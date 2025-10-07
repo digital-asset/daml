@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
-import com.digitalasset.canton.data
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
@@ -25,6 +24,8 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 }
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
+import com.digitalasset.canton.protocol.UpdateId
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.daml.lf.data.Ref.PackageRef
@@ -93,7 +94,7 @@ object UpdateToDbDto {
 
       case u: SequencerIndexMoved =>
         // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
-        Iterator(DbDto.SequencerIndexMoved(u.synchronizerId.toProtoPrimitive))
+        Iterator(DbDto.SequencerIndexMoved(u.synchronizerId))
 
       case _: EmptyAcsPublicationRequired => Iterator.empty
       case _: LogicalSynchronizerUpgradeTimeReached => Iterator.empty
@@ -132,7 +133,7 @@ object UpdateToDbDto {
         recordTime = commandRejected.recordTime.toLf,
         updateId = None,
         completionInfo = commandRejected.completionInfo,
-        synchronizerId = commandRejected.synchronizerId.toProtoPrimitive,
+        synchronizerId = commandRejected.synchronizerId,
         messageUuid = messageUuid,
         serializedTraceContext = serializedTraceContext,
         isTransaction =
@@ -184,11 +185,11 @@ object UpdateToDbDto {
     )
 
     val transactionMeta = DbDto.TransactionMeta(
-      update_id = topologyTransaction.updateId,
+      update_id = topologyTransaction.updateId.toProtoPrimitive.toByteArray,
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = topologyTransaction.recordTime.toMicros,
-      synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
+      synchronizer_id = topologyTransaction.synchronizerId,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -200,12 +201,12 @@ object UpdateToDbDto {
           DbDto.EventPartyToParticipant(
             event_sequential_id = 0, // this is filled later
             event_offset = offset.unwrap,
-            update_id = topologyTransaction.updateId,
+            update_id = topologyTransaction.updateId.toProtoPrimitive.toByteArray,
             party_id = party,
             participant_id = participant,
             participant_permission = participantPermissionInt(authorizationEvent),
             participant_authorization_event = authorizationEventInt(authorizationEvent),
-            synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
+            synchronizer_id = topologyTransaction.synchronizerId,
             record_time = topologyTransaction.recordTime.toMicros,
             trace_context = serializedTraceContext,
           )
@@ -257,11 +258,11 @@ object UpdateToDbDto {
     }
 
     val transactionMeta = DbDto.TransactionMeta(
-      update_id = transactionAccepted.updateId,
+      update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = transactionAccepted.recordTime.toMicros,
-      synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
+      synchronizer_id = transactionAccepted.synchronizerId,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -307,7 +308,7 @@ object UpdateToDbDto {
         recordTime = transactionAccepted.recordTime.toLf,
         updateId = Some(transactionAccepted.updateId),
         completionInfo = completionInfo,
-        synchronizerId = transactionAccepted.synchronizerId.toProtoPrimitive,
+        synchronizerId = transactionAccepted.synchronizerId,
         messageUuid = None,
         serializedTraceContext = serializedTraceContext,
         isTransaction = true,
@@ -359,14 +360,14 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventCreate(
         event_offset = offset.unwrap,
-        update_id = transactionAccepted.updateId,
+        update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         user_id = transactionAccepted.completionInfoO.map(_.userId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_id = nodeId.index,
-        contract_id = create.coid.toBytes.toByteArray,
+        contract_id = create.coid,
         template_id = templateId,
         package_id = create.templateId.packageId.toString,
         representative_package_id = representativePackageId.toString,
@@ -391,11 +392,17 @@ object UpdateToDbDto {
               s"missing authentication data for contract ${create.coid}"
             )
           ),
-        synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
+        synchronizer_id = transactionAccepted.synchronizerId,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
         external_transaction_hash =
           transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
+        internal_contract_id = transactionAccepted.internalContractIds.getOrElse(
+          create.coid,
+          throw new IllegalStateException(
+            s"missing internal contract id for contract ${create.coid}"
+          ),
+        ),
       )
     ) ++ withFirstMarked(
       flatWitnesses,
@@ -444,19 +451,20 @@ object UpdateToDbDto {
       DbDto.EventExercise(
         consuming = exercise.consuming,
         event_offset = offset.unwrap,
-        update_id = transactionAccepted.updateId,
+        update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         user_id = transactionAccepted.completionInfoO.map(_.userId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_id = nodeId.index,
-        contract_id = exercise.targetCoid.toBytes.toByteArray,
+        contract_id = exercise.targetCoid,
         template_id = templateId,
         package_id = exercise.templateId.packageId.toString,
         flat_event_witnesses = flatWitnesses,
         tree_event_witnesses = treeWitnesses,
-        exercise_choice = exercise.qualifiedChoiceName.toString,
+        exercise_choice = exercise.qualifiedChoiceName.choiceName,
+        exercise_choice_interface_id = exercise.qualifiedChoiceName.interfaceId.map(_.toString),
         exercise_argument =
           compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
         exercise_result = exerciseResult
@@ -466,11 +474,12 @@ object UpdateToDbDto {
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
         exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
         event_sequential_id = 0, // this is filled later
-        synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
+        synchronizer_id = transactionAccepted.synchronizerId,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
         external_transaction_hash =
           transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
+        deactivated_event_sequential_id = None, // this is filled later
       )
     ) ++ {
       if (exercise.consuming) {
@@ -556,18 +565,18 @@ object UpdateToDbDto {
         recordTime = reassignmentAccepted.recordTime.toLf,
         updateId = Some(reassignmentAccepted.updateId),
         completionInfo = completionInfo,
-        synchronizerId = reassignmentAccepted.synchronizerId.toProtoPrimitive,
+        synchronizerId = reassignmentAccepted.synchronizerId,
         messageUuid = None,
         serializedTraceContext = serializedTraceContext,
         isTransaction = false,
       )
 
     val transactionMeta = DbDto.TransactionMeta(
-      update_id = reassignmentAccepted.updateId,
+      update_id = reassignmentAccepted.updateId.toProtoPrimitive.toByteArray,
       event_offset = offset.unwrap,
       publication_time = 0, // this is filled later
       record_time = reassignmentAccepted.recordTime.toMicros,
-      synchronizer_id = reassignmentAccepted.synchronizerId.toProtoPrimitive,
+      synchronizer_id = reassignmentAccepted.synchronizerId,
       event_sequential_id_first = 0, // this is filled later
       event_sequential_id_last = 0, // this is filled later
     )
@@ -589,25 +598,24 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventUnassign(
         event_offset = offset.unwrap,
-        update_id = reassignmentAccepted.updateId,
+        update_id = reassignmentAccepted.updateId.toProtoPrimitive.toByteArray,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
         submitter = reassignmentAccepted.reassignmentInfo.submitter,
         node_id = unassign.nodeId,
-        contract_id = unassign.contractId.toBytes.toByteArray,
+        contract_id = unassign.contractId,
         template_id = templateIdWithPackageName(unassign),
         package_id = unassign.templateId.packageId.toString,
         flat_event_witnesses = flatEventWitnesses.toSet,
         event_sequential_id = 0L, // this is filled later
-        source_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
-        target_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
-        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toProtoPrimitive,
+        source_synchronizer_id = reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap,
+        target_synchronizer_id = reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap,
+        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toBytes.toByteArray,
         reassignment_counter = unassign.reassignmentCounter,
         assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
+        deactivated_event_sequential_id = None, // this is filled later
       )
     ) ++ withFirstMarked(
       flatEventWitnesses,
@@ -635,12 +643,12 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventAssign(
         event_offset = offset.unwrap,
-        update_id = reassignmentAccepted.updateId,
+        update_id = reassignmentAccepted.updateId.toProtoPrimitive.toByteArray,
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
         submitter = reassignmentAccepted.reassignmentInfo.submitter,
         node_id = assign.nodeId,
-        contract_id = assign.createNode.coid.toBytes.toByteArray,
+        contract_id = assign.createNode.coid,
         template_id = templateId,
         package_id = assign.createNode.templateId.packageId.toString,
         flat_event_witnesses = flatEventWitnesses,
@@ -659,14 +667,18 @@ object UpdateToDbDto {
         event_sequential_id = 0L, // this is filled later
         ledger_effective_time = assign.ledgerEffectiveTime.micros,
         authentication_data = assign.contractAuthenticationData.toByteArray,
-        source_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
-        target_synchronizer_id =
-          reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
-        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toProtoPrimitive,
+        source_synchronizer_id = reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap,
+        target_synchronizer_id = reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap,
+        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toBytes.toByteArray,
         reassignment_counter = assign.reassignmentCounter,
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
+        internal_contract_id = reassignmentAccepted.internalContractIds.getOrElse(
+          assign.createNode.coid,
+          throw new IllegalStateException(
+            s"missing internal contract id for contract ${assign.createNode.coid}"
+          ),
+        ),
       )
     ) ++ withFirstMarked(
       flatEventWitnesses,
@@ -697,9 +709,9 @@ object UpdateToDbDto {
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,
-      updateId: Option[data.UpdateId],
+      updateId: Option[UpdateId],
       completionInfo: CompletionInfo,
-      synchronizerId: String,
+      synchronizerId: SynchronizerId,
       messageUuid: Option[UUID],
       isTransaction: Boolean,
       serializedTraceContext: Array[Byte],
@@ -725,7 +737,7 @@ object UpdateToDbDto {
       user_id = completionInfo.userId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,
-      update_id = updateId,
+      update_id = updateId.map(_.toProtoPrimitive.toByteArray),
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,

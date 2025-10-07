@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
   NodeId,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -130,9 +130,12 @@ private[lf] object Pretty {
                 coid,
                 srcTemplateId,
                 dstTemplateId,
-                signatories,
-                observers,
-                keyOpt,
+                originalObservers,
+                originalSignatories,
+                originalKeyOpt,
+                recomputedSignatories,
+                recomputedObservers,
+                recomputedKeyOpt,
                 _,
               ) =>
             text("Validation fails when trying to upgrade the contract") & prettyContractId(
@@ -145,20 +148,22 @@ private[lf] object Pretty {
               text(
                 "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
               ) /
-              text("recomputed signatories are") & prettyParties(signatories) /
-              text("recomputed observers are") & prettyParties(observers) /
-              (keyOpt match {
+              text("original signatories are") & prettyParties(originalSignatories) /
+              text("original observers are") & prettyParties(originalObservers) /
+              (originalKeyOpt match {
+                case None => Doc.empty
+                case Some(key) =>
+                  text("original maintainers are") & prettyParties(key.maintainers) /
+                    text("original key is") & prettyValue(verbose = false)(key.value)
+              }) /
+              text("recomputed signatories are") & prettyParties(recomputedSignatories) /
+              text("recomputed observers are") & prettyParties(recomputedObservers) /
+              (recomputedKeyOpt match {
                 case None => Doc.empty
                 case Some(key) =>
                   text("recomputed maintainers are") & prettyParties(key.maintainers) /
                     text("recomputed key is") & prettyValue(verbose = false)(key.value)
               })
-          case Upgrade.DowngradeDropDefinedField(_, fieldIndex, _) =>
-            text(s"An optional contract field (field offset $fieldIndex)") /
-              text("with a value of Some may not be dropped during downgrading")
-          case Upgrade.DowngradeFailed(expectedType, actualValue) =>
-            text("Attempt to downgrade ") & prettyValue(false)(actualValue) /
-              text(s" to the variant or enum constructor type ${expectedType.pretty}")
         }
       case Crypto(error) =>
         error match {
@@ -261,6 +266,8 @@ private[lf] object Pretty {
           case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
             text("Cost budget has been exceeded:") /
               text(cause)
+          case Dev.HashingError(message) =>
+            text("Hashing error:") / text(message)
         }
     }
   }
@@ -350,7 +357,7 @@ private[lf] object Pretty {
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
-        ) & str(rtx.transaction.version.pretty) /
+        ) & str(rtx.transaction.version) /
           children
       case IdeLedger.PassTime(dt) =>
         "pass" &: str(dt)
@@ -458,10 +465,10 @@ private[lf] object Pretty {
     )
   }
 
-  def prettyOptVersion(opt: Option[TxVersion]) = {
+  def prettyOptVersion(opt: Option[SerializationVersion]) = {
     opt match {
       case Some(v) =>
-        text("version:") & str(v.pretty)
+        text("version:") & str(v)
       case None =>
         text("no-version")
     }

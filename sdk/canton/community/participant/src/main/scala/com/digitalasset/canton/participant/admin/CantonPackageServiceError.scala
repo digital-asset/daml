@@ -13,6 +13,7 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, ParentCantonError}
+import com.digitalasset.canton.ledger.api.VettedPackagesRef
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.PackageService.DarDescription
@@ -167,6 +168,45 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
     final case class Error(_reason: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(_reason)(PackageServiceErrors.InternalError)
+  }
+
+  @Explanation("Package vetting errors")
+  object Vetting extends ErrorGroup {
+
+    @Explanation(
+      """The vetted package reference does not match any package in the package store."""
+    )
+    @Resolution("""Check the provided vetted package reference and re-try the operation.""")
+    object VettingReferenceEmpty
+        extends ErrorCode(
+          id = "UNRESOLVED_VETTING_REFERENCE",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Reject(reason: String, reference: VettedPackagesRef)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"The vetted package reference $reference does not match any package in the package store. Reason: $reason"
+          )
+    }
+
+    @Explanation(
+      """The vetted package reference matches more than one package in the package store."""
+    )
+    @Resolution("""Check the provided vetted package reference and re-try the operation.""")
+    object VettingReferenceMoreThanOne
+        extends ErrorCode(
+          id = "AMBIGUOUS_VETTING_REFERENCE",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Reject(reference: VettedPackagesRef)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"The vetted package reference $reference matches more than one package in the package store."
+          )
+    }
+
   }
 
 }

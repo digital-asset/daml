@@ -561,7 +561,23 @@ scala_library(
         "//libs-scala/scala-utils",
         "//observability/metrics",
         "//observability/tracing",
+        "@canton_maven//:com_google_api_api_common",
+        "@canton_maven//:com_google_api_gax",
+        "@canton_maven//:com_google_api_gax_grpc",
+        "@canton_maven//:com_google_api_grpc_proto_google_cloud_kms_v1",
+        "@canton_maven//:com_google_auth_google_auth_library_credentials",
+        "@canton_maven//:com_google_auth_google_auth_library_oauth2_http",
+        "@canton_maven//:com_google_cloud_google_cloud_kms",
         "@canton_maven//:org_flywaydb_flyway_core",
+        "@canton_maven//:software_amazon_awssdk_auth",
+        "@canton_maven//:software_amazon_awssdk_aws_core",
+        "@canton_maven//:software_amazon_awssdk_http_client_spi",
+        "@canton_maven//:software_amazon_awssdk_identity_spi",
+        "@canton_maven//:software_amazon_awssdk_kms",
+        "@canton_maven//:software_amazon_awssdk_netty_nio_client",
+        "@canton_maven//:software_amazon_awssdk_regions",
+        "@canton_maven//:software_amazon_awssdk_sdk_core",
+        "@canton_maven//:software_amazon_awssdk_utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_auth0_java_jwt",
@@ -598,15 +614,19 @@ scala_library(
         "@maven//:io_opentelemetry_instrumentation_opentelemetry_hikaricp_3_0",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
+        "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_bouncycastle_bcpkix_jdk15on",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_jetbrains_annotations_17_0_0",
         "@maven//:org_postgresql_postgresql",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scala_lang_modules_scala_java8_compat_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
@@ -658,6 +678,7 @@ scala_library(
         "//observability/tracing",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
@@ -764,6 +785,7 @@ scala_library(
         ":base_util-external",
         ":bindings-java",
         ":community_base",
+        ":community_base_proto_scala",
         ":community_common",
         ":community_ledger_ledger-common",
         ":community_magnolify-addon",
@@ -1022,11 +1044,13 @@ scala_library(
         "//libs-scala/nonempty",
         "//libs-scala/nonempty-cats",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
         "//observability/metrics",
         "//observability/tracing",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
+        "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
@@ -1245,13 +1269,13 @@ scala_library(
     ],
 )
 
-### community/drivers/reference
+### community/reference-sequencer-driver
 
 scala_library(
     name = "community_reference-driver",
-    srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
-    resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
-    resources = glob(["community/drivers/reference/src/main/resources/**"]),
+    srcs = glob(["community/reference-sequencer-driver/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
+    resource_strip_prefix = "/canton/community/reference-sequencer-driver/src/main/resources",
+    resources = glob(["community/reference-sequencer-driver/src/main/resources/**"]),
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
@@ -1289,8 +1313,8 @@ scala_library(
 
 proto_library(
     name = "community_reference-driver_proto",
-    srcs = glob(["community/drivers/reference/src/main/protobuf/**/*.proto"]),
-    strip_import_prefix = "community/drivers/reference/src/main/protobuf",
+    srcs = glob(["community/reference-sequencer-driver/src/main/protobuf/**/*.proto"]),
+    strip_import_prefix = "community/reference-sequencer-driver/src/main/protobuf",
     deps = [
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -1690,210 +1714,4 @@ proto_jars(
         "@go_googleapis//google/rpc:error_details_proto",
         "@go_googleapis//google/rpc:status_proto",
     ],
-)
-
-google_protobuf_src = "external/com_google_protobuf/src"
-
-genrule(
-    name = "google-protobuf-haskellpb-sources",
-    srcs = ["@com_google_protobuf//:well_known_type_protos"],
-    outs = ["Google/Protobuf/" + b for b in [
-        "Any.hs",
-        "Duration.hs",
-        "Empty.hs",
-        "Wrappers.hs",
-        "Struct.hs",
-        "FieldMask.hs",
-    ]],
-    cmd = """
-        for src in \
-            external/com_google_protobuf/src/google/protobuf/any.proto \
-            external/com_google_protobuf/src/google/protobuf/duration.proto \
-            external/com_google_protobuf/src/google/protobuf/empty.proto \
-            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
-            external/com_google_protobuf/src/google/protobuf/struct.proto \
-            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
-        ; do
-            $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --proto google/protobuf/$$(basename $$src) \
-                --out $(@D)
-        done
-    """,
-    tools = [
-        "@proto3-suite//:compile-proto-file",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-google_rpc_src = "external/go_googleapis"
-
-filegroup(
-    name = "google-rpc-source-protos",
-    srcs = [
-        "@go_googleapis//google/rpc:error_details.proto",
-        "@go_googleapis//google/rpc:status.proto",
-    ],
-    visibility = ["//visibility:private"],
-)
-
-genrule(
-    name = "google-rpc-haskellpb-sources",
-    srcs = [
-        ":google-rpc-source-protos",
-        "@com_google_protobuf//:well_known_type_protos",
-    ],
-    outs = [
-        "Google/Rpc/Status.hs",
-        "Google/Rpc/ErrorDetails.hs",
-    ],
-    cmd = """
-        for src in $(locations :google-rpc-source-protos); do
-            $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
-                --proto google/rpc/$$(basename $$src) \
-                --out $(@D)
-        done
-    """,
-    tools = [
-        "@proto3-suite//:compile-proto-file",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
-    name = "ledger-api-protos-fg",
-    srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/*.proto"],
-        exclude = [
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_completion_service.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_service.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/completion.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_data.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_service.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/reassignment.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/state_service.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/topology_transaction.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/trace_context.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/transaction.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/update_service.proto",
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/topology_transaction.proto",
-        ],
-    ),
-    visibility = ["//visibility:private"],
-)
-
-# Minimal set of ledger-api services we need for hs-bindings
-ledger_api_haskellpb_sources = [
-    "V2/PackageService.hs",
-]
-
-ledger_api_value_proto_source_root = "daml-lf/ledger-api-value/src/main/protobuf"
-
-genrule(
-    name = "ledger-api-haskellpb-sources",
-    srcs = [
-        "@com_google_protobuf//:well_known_type_protos",
-        "@go_googleapis//google/rpc:status.proto",
-        ":ledger-api-protos-fg",
-        "//daml-lf/ledger-api-value:ledger-api-value-protos-fg",
-    ],
-    outs = [
-        "Com/Daml/Ledger/Api/V2/PackageService.hs",
-        "Com/Daml/Ledger/Api/V2/PackageReference.hs",
-    ],
-    cmd = """
-        for src in $(locations :ledger-api-protos-fg); do
-            $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
-                --includeDir """ + ledger_api_value_proto_source_root + """ \
-                --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v2/$$(basename $$src) \
-                --out $(@D)
-            cp -ruv $(@D)/Com/Daml/Ledger/Api/V2/* $(@D)
-        done
-    """,
-    tools = [
-        "@proto3-suite//:compile-proto-file",
-    ],
-)
-
-filegroup(
-    name = "ledger-api-protos-fg-admin",
-    srcs = glob(
-        ["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/*.proto"],
-        exclude = [
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/participant_pruning_service.proto",  # TODO: haskell grpc client for participant pruning
-            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/admin/command_inspection_service.proto",
-        ],
-    ),
-    visibility = ["//visibility:private"],
-)
-
-ledger_api_haskellpb_sources_admin = [
-    "PackageManagementService.hs",
-    "PartyManagementService.hs",
-    "ObjectMeta.hs",
-    "UserManagementService.hs",
-]
-
-genrule(
-    name = "ledger-api-haskellpb-sources-admin",
-    srcs = [
-        "@com_google_protobuf//:well_known_type_protos",
-        "@go_googleapis//google/rpc:status.proto",
-        ":ledger-api-protos-fg-admin",
-        ":ledger-api-protos-fg",
-    ],
-    outs = ["Com/Daml/Ledger/Api/V2/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
-    cmd = """
-        for src in $(locations :ledger-api-protos-fg-admin); do
-            $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
-                --includeDir """ + google_rpc_src + """ \
-                --includeDir """ + ledger_api_value_proto_source_root + """ \
-                --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/daml/ledger/api/v2/admin/$$(basename $$src) \
-                --out $(@D)
-        done
-    """,
-    tools = [
-        "@proto3-suite//:compile-proto-file",
-    ],
-)
-
-filegroup(
-    name = "all-ledger-api-haskellpb-sources",
-    srcs = [
-        ":google-protobuf-haskellpb-sources",
-        ":google-rpc-haskellpb-sources",
-        ":ledger-api-haskellpb-sources",
-        ":ledger-api-haskellpb-sources-admin",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-da_haskell_library(
-    name = "ledger-api-haskellpb",
-    srcs = [
-        ":all-ledger-api-haskellpb-sources",
-    ],
-    compiler_flags = [
-        "-O0",
-    ],
-    hackage_deps = [
-        "base",
-        "bytestring",
-        "containers",
-        "deepseq",
-        "grpc-haskell",
-        "grpc-haskell-core",
-        "proto3-suite",
-        "proto3-wire",
-        "text",
-        "vector",
-    ],
-    visibility = ["//visibility:public"],
 )

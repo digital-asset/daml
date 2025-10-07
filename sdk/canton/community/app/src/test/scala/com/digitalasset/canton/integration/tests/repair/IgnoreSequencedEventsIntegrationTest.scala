@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
+import com.digitalasset.canton.integration.plugins.{UseH2, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -359,7 +359,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         p1SequencedEventStore.delete(lastStoredEvent.counter).futureValueUS
         p1SequencedEventStore.store(Seq(tracedSignedTamperedEvent)).futureValueUS
 
-        loggerFactory.assertLogs(
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {
             participant1.synchronizers.reconnect(daName)
 
@@ -371,9 +371,16 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           },
           // The problem happens to be "ForkHappened" due to the order of checks carried out by the sequencer client.
           // Feel free to change, if another property is checked first, e.g., "SignatureInvalid".
-          _.shouldBeCantonErrorCode(ResilientSequencerSubscription.ForkHappened),
-          _.warningMessage should include("ForkHappened"),
-          _.shouldBeCantonErrorCode(SyncServiceSynchronizerDisconnect),
+          { entries =>
+            val requiredErrorMessages = Seq(
+              ResilientSequencerSubscription.ForkHappened.id,
+              "ForkHappened",
+              SyncServiceSynchronizerDisconnect.id,
+            )
+            requiredErrorMessages.forall(errMsg =>
+              entries.exists(_.message.contains(errMsg))
+            ) shouldBe true
+          },
         )
 
         eventually() {
@@ -458,17 +465,19 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
                 store = daId,
                 force = ForceFlags(ForceFlag.AlienMember),
               )
-              // Wait until p1 has processed the topology transaction.
+              // Wait until p1 and p2 have processed the topology transaction.
               eventually() {
-                participant1.topology.owner_to_key_mappings
-                  .list(
-                    store = daId,
-                    filterKeyOwnerUid = participant1.id.filterString,
-                  )
-                  .flatMap(_.item.keys)
-                  .filter(_.purpose == missingEncryptionKey.purpose)
-                  .loneElement
-                  .fingerprint shouldBe missingEncryptionKey.fingerprint
+                forAll(Seq(participant1, participant2))(
+                  _.topology.owner_to_key_mappings
+                    .list(
+                      store = daId,
+                      filterKeyOwnerUid = participant1.id.filterString,
+                    )
+                    .flatMap(_.item.keys)
+                    .filter(_.purpose == missingEncryptionKey.purpose)
+                    .loneElement
+                    .fingerprint shouldBe missingEncryptionKey.fingerprint
+                )
               }
             },
             // Participant1 will emit an error, because the key is not present.
@@ -489,8 +498,11 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
         // Note: The following ping will bring transaction processing to a halt,
         // because it can't decrypt the confirmation request.
-        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {
+            env.environment.simClock.foreach(_.advance(java.time.Duration.ofSeconds(5)))
+            participant1.synchronizers.list_connected() should not be empty
+
             clue("pinging to halt") {
               pokeAndAdvance(Future {
                 participant2.health.maybe_ping(participant1, timeout = 2.seconds)
@@ -508,7 +520,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             participant1.synchronizers.list_connected() shouldBe empty
           },
           forAtLeast(1, _) {
-            _.message should startWith("Asynchronous event processing failed")
+            _.toString should include("Can't decrypt the randomness of the view")
           },
         )
       }
@@ -564,5 +576,5 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
 class IgnoreSequencedEventsIntegrationTestH2 extends IgnoreSequencedEventsIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }

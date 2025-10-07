@@ -3,76 +3,30 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
+import com.daml.ledger.javaapi.data.*
 import com.daml.ledger.javaapi.data.codegen.HasCommands
-import com.daml.ledger.javaapi.data.{
-  Command,
-  CumulativeFilter,
-  EventFormat,
-  Filter,
-  Identifier,
-  TransactionFormat,
-  TransactionShape,
-}
-import com.digitalasset.canton.HasTempDirectory
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
-import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
-import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
+import com.digitalasset.canton.integration.EnvironmentDefinition
+import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.ContractNotFound
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
+import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
 
 import java.util.Collections
 
 sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
-    extends UseSilentSynchronizerInTest
-    with HasTempDirectory {
-
-  private val acsSnapshot = tempDirectory.toTempFile(s"${getClass.getSimpleName}.gz")
-  private val acsSnapshotPath: String = acsSnapshot.toString
-
-  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
-  // Party replication to the target participant may trigger ACS commitment mismatch warnings.
-  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
-  // test flakes, `reconciliationInterval` is set to one year.
-  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
-
-  private var alice: PartyId = _
-  private var bob: PartyId = _
+    extends OfflinePartyReplicationIntegrationTestBase {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
-      .addConfigTransforms(ConfigTransforms.useStaticTime)
+    super.environmentDefinition
       .withSetup { implicit env =>
         import env.*
-
-        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonTestsPath)
 
-        alice = participant1.parties.enable(
-          "Alice",
-          synchronizeParticipants = Seq(participant2),
-        )
-        bob = participant2.parties.enable(
-          "Bob",
-          synchronizeParticipants = Seq(participant1),
-        )
-
-        sequencers.all.foreach { s =>
-          adjustTimeouts(s)
-          s.topology.synchronizer_parameters
-            .propose_update(
-              daId,
-              _.update(reconciliationInterval = reconciliationInterval.toConfig),
-            )
-        }
+        source = participant1
+        target = participant2
       }
 
   "Explicit disclosure should work on replicated contracts" in { implicit env =>
@@ -83,8 +37,6 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       import scala.jdk.CollectionConverters.IteratorHasAsScala
       hasCommands.commands.iterator.asScala.toSeq
     }
-
-    val simClock = Some(env.environment.simClock.value)
 
     // Create a contract visible only to `alice`
     val (quote, disclosedQuote) = {
@@ -106,45 +58,30 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       (contract.id, disclosedContract)
     }
 
-    val beforeActivationOffset = participant1.ledger_api.state.end()
+    val beforeActivationOffset = authorizeAliceWithTargetDisconnect(daId, source, target)
 
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
-      participant1,
-      alice,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant2, PP.Observation),
-      ),
-    )
-
-    silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant1, simClock)
-
-    // Replicate `alice` from `participant1` to `participant2`
-    repair.party_replication.step1_hold_and_store_acs(
+    // Replicate `alice` from `source` (`participant1`) to `target` (`participant2`)
+    source.parties.export_party_acs(
       alice,
       daId,
-      participant1,
-      participant2.id,
-      acsSnapshotPath,
+      target,
       beforeActivationOffset,
+      acsSnapshotPath,
     )
-    repair.party_replication.step2_import_acs(alice, daId, participant2, acsSnapshotPath)
+    target.parties.import_party_acs(acsSnapshotPath)
 
-    resumeSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant2, simClock)
+    val beforeTargetReconnectOffset = target.ledger_api.state.end()
 
-    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
-      participant1,
-      alice,
-      PositiveInt.one,
-      Set(
-        (participant1, PP.Submission),
-        (participant2, PP.Submission),
-      ),
-    )
+    target.synchronizers.reconnect_all()
+
+    eventually(timeUntilSuccess = 2.minutes, maxPollInterval = 30.seconds) {
+      val (onboard, earliestRetryTimestamp) =
+        target.parties.complete_party_onboarding(alice, daId, target, beforeTargetReconnectOffset)
+      (onboard, earliestRetryTimestamp) shouldBe (true, None)
+    }
 
     // Verify that `alice` can see the contract with explicit disclosure
-    participant2.ledger_api.javaapi.commands.submit(
+    target.ledger_api.javaapi.commands.submit(
       actAs = Seq(alice),
       commands = quote.exercisePriceQuotation_Fetch(alice.toProtoPrimitive),
       disclosedContracts = Seq(disclosedQuote),
@@ -152,7 +89,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
 
     // Verify that `bob` can't see the contract without explicit disclosure
     assertThrowsAndLogsCommandFailures(
-      participant2.ledger_api.javaapi.commands.submit(
+      target.ledger_api.javaapi.commands.submit(
         actAs = Seq(bob),
         commands = quote.exercisePriceQuotation_Fetch(bob.toProtoPrimitive),
       ),
@@ -160,7 +97,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
     )
 
     // Verify that `bob` can see the contract with explicit disclosure
-    participant2.ledger_api.javaapi.commands.submit(
+    target.ledger_api.javaapi.commands.submit(
       actAs = Seq(bob),
       commands = quote.exercisePriceQuotation_Fetch(bob.toProtoPrimitive),
       disclosedContracts = Seq(disclosedQuote),
@@ -192,5 +129,5 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
 final class OfflinePartyReplicationExplicitDisclosureIntegrationTestPostgres
     extends OfflinePartyReplicationExplicitDisclosureIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

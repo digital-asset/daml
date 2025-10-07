@@ -7,9 +7,9 @@ package speedy
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.{CostModel => _, _}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
-  CreationTime,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
@@ -33,7 +32,7 @@ import com.digitalasset.daml.lf.transaction.{
   NodeId,
   SubmittedTransaction,
   IncompleteTransaction => IncompleteTx,
-  TransactionVersion => TxVersion,
+  SerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
@@ -157,7 +156,7 @@ private[lf] object Speedy {
   }
 
   final case class ContractInfo(
-      version: TxVersion,
+      version: SerializationVersion,
       packageName: Ref.PackageName,
       templateId: Ref.TypeConId,
       value: SValue,
@@ -182,11 +181,14 @@ private[lf] object Speedy {
         version = version,
       )
 
-    lazy val metadata = ContractMetadata(
+    lazy val metadata: ContractMetadata = ContractMetadata(
       signatories,
       observers,
       keyOpt.map(_.globalKeyWithMaintainers),
     )
+
+    lazy val valueHash: Hash =
+      SValueHash.assertHashContractInstance(packageName, templateId.qualifiedName, value)
   }
 
   private[speedy] def throwLimitError(location: String, error: IError.Dev.Limit.Error): Nothing =
@@ -366,35 +368,15 @@ private[lf] object Speedy {
         case Some(res) =>
           f.tupled(res)
         case None =>
-          // TODO(https://github.com/digital-asset/daml/issues/21667): do not treat disclosed contracts separately
-          disclosedContracts.get(coid) match {
-            case Some(contractInfo) =>
-              markDisclosedcontractAsUsed(coid)
-              f(
-                FatContractInstance.fromCreateNode(
-                  create = contractInfo.toCreateNode(coid),
-                  // These two fields aren't used by the engine so it is safe to use dummy values here. We will
-                  // eventually receive disclosures via needContract so this hack is temporary.
-                  createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue),
-                  authenticationData = Bytes.Empty,
-                ),
-                Hash.HashingMethod.TypedNormalForm,
-                _ =>
-                  throw new NotImplementedError(
-                    "The authentication of disclosed contracts is not implemented yet"
-                  ),
-              )
-            case None =>
-              needContract(
-                NameOf.qualifiedNameOfCurrentFunc,
-                coid,
-                (coinst, hashingMethod, idValidator) => {
-                  contractLookupCache =
-                    contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
-                  f(coinst, hashingMethod, idValidator)
-                },
-              )
-          }
+          needContract(
+            NameOf.qualifiedNameOfCurrentFunc,
+            coid,
+            (coinst, hashingMethod, idValidator) => {
+              contractLookupCache =
+                contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
+              f(coinst, hashingMethod, idValidator)
+            },
+          )
       }
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -467,25 +449,6 @@ private[lf] object Speedy {
     // global contract discriminators, that are discriminators from contract created in previous transactions
 
     private[this] var numInputContracts: Int = 0
-
-    private[this] var disclosedContracts_ = Map.empty[V.ContractId, ContractInfo]
-    private[speedy] def disclosedContracts: Map[V.ContractId, ContractInfo] = disclosedContracts_
-
-    private[this] var disclosedContractKeys_ = Map.empty[GlobalKey, V.ContractId]
-    private[speedy] def disclosedContractKeys: Map[GlobalKey, V.ContractId] = disclosedContractKeys_
-
-    private[speedy] def addDisclosedContracts(
-        contractId: V.ContractId,
-        contract: ContractInfo,
-    ): Unit = {
-      disclosedContracts_ = disclosedContracts.updated(contractId, contract)
-      contract.keyOpt.foreach(key =>
-        disclosedContractKeys_ = disclosedContractKeys.updated(key.globalKey, contractId)
-      )
-    }
-
-    private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
-      disclosedContracts.isDefinedAt(contractId)
 
     def getTimeBoundaries: Time.Range =
       timeBoundaries
@@ -638,22 +601,6 @@ private[lf] object Speedy {
         IError.Dev.Limit.ChoiceAuthorizers(cid, templateId, choiceName, arg, authorizers, _),
       )
 
-    // Track which disclosed contracts are used, so we can report events to the ledger
-    private[this] var usedDiclosedContracts: Set[V.ContractId] = Set.empty
-    private[this] def markDisclosedcontractAsUsed(coid: V.ContractId): Unit = {
-      usedDiclosedContracts = usedDiclosedContracts + coid
-    }
-
-    // The set of create events for the disclosed contracts that are used by the generated transaction.
-    def disclosedCreateEvents: ImmArray[Node.Create] = {
-      disclosedContracts.iterator
-        .collect {
-          case (coid, contract) if usedDiclosedContracts.contains(coid) =>
-            contract.toCreateNode(coid)
-        }
-        .to(ImmArray)
-    }
-
     @throws[IllegalArgumentException]
     def zipSameLength[X, Y](xs: ImmArray[X], ys: ImmArray[Y]): ImmArray[(X, Y)] = {
       val n1 = xs.length
@@ -670,7 +617,6 @@ private[lf] object Speedy {
         ptx.locationInfo(),
         zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
-        disclosedCreateEvents,
       )
     }
 
@@ -787,7 +733,6 @@ private[lf] object Speedy {
         locationInfo: Map[NodeId, Location],
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
-        disclosedCreateEvent: ImmArray[Node.Create],
     )
   }
 
@@ -985,7 +930,7 @@ private[lf] object Speedy {
       envBase = 0
     }
 
-    final def tmplId2TxVersion(tmplId: TypeConId): TxVersion =
+    final def tmplId2TxVersion(tmplId: TypeConId): SerializationVersion =
       Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
     final def tmplId2PackageName(tmplId: TypeConId): PackageName =
@@ -1423,8 +1368,8 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): TxVersion =
-      pkgInterface.packageLanguageVersion(tmplId.packageId)
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): SerializationVersion =
+      SerializationVersion.assign(pkgInterface.packageLanguageVersion(tmplId.packageId))
 
     def tmplId2PackageName(
         pkgInterface: PackageInterface,
@@ -1499,9 +1444,9 @@ private[lf] object Speedy {
         case _ => throw SErrorCrash("KOverApp", s"Expected SPAP, got $value")
       }
 
-      machine.updateGasBudget(_.KOverApp.cost)
+      machine.updateGasBudget(_.KOverApp.cost(vfun.actuals.size, newArgs.length))
 
-      machine.restoreBase(savedBase);
+      machine.restoreBase(savedBase)
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
     }
@@ -1618,7 +1563,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
 
-      machine.updateGasBudget(_.KPushTo.cost)
+      machine.updateGasBudget(_.KPushTo.cost(base, machine.env))
 
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
@@ -1648,7 +1593,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KFoldl.cost)
+      machine.updateGasBudget(_.KFoldl.cost(func.actuals.size))
 
       list.pop match {
         case None =>
@@ -1679,7 +1624,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KFoldr.cost)
+      machine.updateGasBudget(_.KFoldr.cost(func.actuals.size))
 
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
@@ -1737,7 +1682,7 @@ private[lf] object Speedy {
         exerciseResult: SValue,
     ): Control[Question.Update] = {
 
-      machine.updateGasBudget(_.KCloseExercise.cost)
+      machine.updateGasBudget(_.KCloseExercise.cost(exerciseResult))
 
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)

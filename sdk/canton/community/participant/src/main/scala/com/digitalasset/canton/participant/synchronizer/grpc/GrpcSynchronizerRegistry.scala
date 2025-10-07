@@ -11,7 +11,12 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CryptoConfig,
+  ProcessingTimeout,
+  TestingConfigInternal,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.{
   CryptoHandshakeValidator,
   SyncCryptoApiParticipantProvider,
@@ -47,7 +52,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
+import com.digitalasset.canton.topology.store.PackageDependencyResolver
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -74,13 +79,14 @@ class GrpcSynchronizerRegistry(
     topologyDispatcher: ParticipantTopologyDispatcher,
     cryptoApiProvider: SyncCryptoApiParticipantProvider,
     cryptoConfig: CryptoConfig,
+    topologyConfig: TopologyConfig,
     clock: Clock,
     val participantNodeParameters: ParticipantNodeParameters,
     aliasManager: SynchronizerAliasManager,
     testingConfig: TestingConfigInternal,
     recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
-    packageDependencyResolver: PackageDependencyResolverUS,
+    packageDependencyResolver: PackageDependencyResolver,
     metrics: SynchronizerAlias => ConnectedSynchronizerMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     partyNotifier: LedgerServerPartyNotifier,
@@ -162,9 +168,9 @@ class GrpcSynchronizerRegistry(
 
     val connectionPoolE = connectionPoolFactory
       .createFromOldConfig(
-        config.sequencerConnections,
-        config.synchronizerId,
-        participantNodeParameters.tracing,
+        sequencerConnections = config.sequencerConnections,
+        expectedPSIdO = config.synchronizerId,
+        tracingConfig = participantNodeParameters.tracing,
       )
       .leftMap[SynchronizerRegistryError](error =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(error.toString)
@@ -236,6 +242,7 @@ class GrpcSynchronizerRegistry(
                   config.sequencerConnections.sequencerTrustThreshold,
                   config.sequencerConnections.sequencerLivenessMargin,
                   config.sequencerConnections.submissionRequestAmplification,
+                  config.sequencerConnections.sequencerConnectionPoolDelays,
                 )
                 .leftMap(error =>
                   SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers
@@ -294,6 +301,7 @@ class GrpcSynchronizerRegistry(
             config.sequencerConnections.sequencerTrustThreshold,
             config.sequencerConnections.sequencerLivenessMargin,
             config.sequencerConnections.submissionRequestAmplification,
+            config.sequencerConnections.sequencerConnectionPoolDelays,
           )
           .map(connections => config.copy(sequencerConnections = connections))
 
@@ -311,6 +319,7 @@ class GrpcSynchronizerRegistry(
         cryptoApiProvider,
         clock,
         testingConfig,
+        topologyConfig,
         recordSequencerInteractions,
         replaySequencerConfig,
         topologyDispatcher,

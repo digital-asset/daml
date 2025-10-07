@@ -16,11 +16,11 @@ import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.*
-import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
-  UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
@@ -31,6 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
+import com.digitalasset.canton.util.TestContractHasher
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfVersioned,
@@ -805,7 +806,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(
-                ExampleTransactionFactory.transactionVersion,
+                ExampleTransactionFactory.SerializationVersion,
                 ValueRecord(None, ImmArray(None -> ValueParty(alice.toLf))),
               ),
             )
@@ -826,13 +827,22 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               stakeholders = Set(alice.toLf),
               key = Some(keyWithMaintainers.unversioned),
             )
+            val contractHash = TestContractHasher.Sync.hash(
+              unsuffixedCreateNode,
+              contractIdSuffixer.contractHashingMethod,
+            )
             val ContractIdSuffixer.RelativeSuffixResult(
               suffixedCreateNode,
               _,
               _,
               authenticationData,
             ) = contractIdSuffixer
-              .relativeSuffixForLocalContract(contractSalt, creationTime, unsuffixedCreateNode)
+              .relativeSuffixForLocalContract(
+                contractSalt,
+                creationTime,
+                unsuffixedCreateNode,
+                contractHash,
+              )
               .valueOr(err => fail(s"Failed to generate contract suffix: $err"))
 
             val suffixedContractInstance = LfFatContractInst.fromCreateNode(
@@ -871,7 +881,7 @@ sealed trait RepairServiceReferenceSequencerPostgresTest {
   self: SharedEnvironment =>
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseReferenceBlockSequencer[DbConfig.Postgres](
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(

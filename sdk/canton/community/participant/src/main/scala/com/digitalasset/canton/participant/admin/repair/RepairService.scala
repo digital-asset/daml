@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.{
   HasCloseContext,
   LifeCycle,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -82,8 +82,8 @@ import scala.concurrent.{ExecutionContext, Future}
 final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
-    packageDependencyResolver: PackageDependencyResolver,
-    contractAuthenticator: ContractAuthenticator,
+    packageDependencyResolver: PackageDependencyResolver.Impl,
+    contractValidator: ContractValidator,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -177,7 +177,7 @@ final class RepairService(
       case Some(ActiveContractStore.Purged) => addContract(reassigningFrom = None)
       case Some(ActiveContractStore.ReassignedAway(targetSynchronizer, reassignmentCounter)) =>
         log(
-          s"Marking contract ${repairContract.contract.contractId} previously unassigned targetting $targetSynchronizer as " +
+          s"Marking contract ${repairContract.contract.contractId} previously unassigned targeting $targetSynchronizer as " +
             s"assigned from $targetSynchronizer (even though contract may have been reassigned to yet another synchronizer since)."
         ).discard
 
@@ -214,15 +214,18 @@ final class RepairService(
       ignoreAlreadyAdded: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
+  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = {
+    implicit val loggingContext = LoggingContextUtil.createLoggingContext(loggerFactory)(identity)
+
     for {
-      _ <- EitherT
-        .fromEither[FutureUnlessShutdown](
-          contractAuthenticator.legacyAuthenticate(repairContract.contract)
-        )
-        .leftMap(e =>
-          log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")
-        )
+      _ <-
+        contractValidator
+          .authenticate(repairContract.contract, repairContract.representativePackageId)
+          .leftMap(e =>
+            log(
+              s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e"
+            )
+          )
       contractToAdd <- contractToAdd(
         repairContract,
         ignoreAlreadyAdded = ignoreAlreadyAdded,
@@ -230,6 +233,7 @@ final class RepairService(
         storedContract = storedContract,
       )
     } yield contractToAdd
+  }
 
   // The repair request gets inserted at the reprocessing starting point.
   // We use the prenextTimestamp such that a regular request is always the first request for a given timestamp.
@@ -403,11 +407,20 @@ final class RepairService(
                       storedContracts = storedContracts,
                     )
 
+                    internalContractIdsForContractsAdded <-
+                      logOnFailureWithInfoLevel(
+                        contractStore.value.lookupBatchedNonCachedInternalIds(
+                          contractsWithTimeOfChange.map(_._1.contract.contractId)
+                        ),
+                        "Unable to lookup internal contract ids in contract store",
+                      )
+
                     // Commit and publish added contracts via the indexer to the ledger api.
                     _ <- EitherT.right[String](
                       writeContractsAddedEvents(
                         repair,
                         contractsToAdd,
+                        internalContractIdsForContractsAdded,
                         workflowIds,
                         repairIndexer,
                       )
@@ -745,9 +758,9 @@ final class RepairService(
       contracts: Seq[ContractToAdd],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      // All referenced templates known and vetted
-      _packagesVetted <- contracts
-        .map(_.contract.templateId.packageId)
+      // Check that the representative package-id is known
+      _ <- contracts
+        .map(_.representativePackageId)
         .distinct
         .parTraverse_(packageKnown)
 
@@ -992,13 +1005,15 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = repair.transactionId.tryAsLedgerTransactionId,
+      updateId = repair.updateId,
       contractAuthenticationData = Map.empty,
       // No create nodes so no representative package IDs
       representativePackageIds = RepresentativePackageIds.Empty,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
+      // no need to pass the internal contract ids since no create nodes are involved
+      internalContractIds = Map.empty,
     )
     // not waiting for Update.persisted, since CommitRepair anyway will be waited for at the end
     repairIndexer.offer(update).map(_ => ())
@@ -1009,6 +1024,7 @@ final class RepairService(
       repairCounter: RepairCounter,
       ledgerCreateTime: CreationTime.CreatedAt,
       contractsAdded: Seq[ContractToAdd],
+      internalContractIdsForContractsAdded: Map[LfContractId, Long],
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
     val contractAuthenticationData = contractsAdded.view.map { c =>
@@ -1036,18 +1052,20 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+      updateId = randomTransactionId(syncCrypto),
       contractAuthenticationData = contractAuthenticationData,
       representativePackageIds = RepresentativePackageIds.from(representativePackageIds),
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repairCounter,
       recordTime = repair.timestamp,
+      internalContractIds = internalContractIdsForContractsAdded,
     )
   }
 
   private def writeContractsAddedEvents(
       repair: RepairRequest,
       contractsAdded: Seq[(TimeOfRepair, (CreationTime.CreatedAt, Seq[ContractToAdd]))],
+      internalContractIdsForContractsAdded: Map[LfContractId, Long],
       workflowIds: Iterator[Option[LfWorkflowId]],
       repairIndexer: FutureQueue[RepairUpdate],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
@@ -1057,11 +1075,12 @@ final class RepairService(
         repairIndexer
           .offer(
             prepareAddedEvents(
-              repair,
-              timeOfChange.repairCounter,
-              timestamp,
-              contractsToAdd,
-              () => workflowIds.next(),
+              repair = repair,
+              repairCounter = timeOfChange.repairCounter,
+              ledgerCreateTime = timestamp,
+              contractsAdded = contractsToAdd,
+              internalContractIdsForContractsAdded = internalContractIdsForContractsAdded,
+              workflowIdProvider = () => workflowIds.next(),
             )
           )
           .map(_ => ())

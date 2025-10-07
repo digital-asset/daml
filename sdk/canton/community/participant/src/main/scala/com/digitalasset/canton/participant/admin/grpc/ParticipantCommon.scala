@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxParallelTraverse_
+import cats.syntax.either.*
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.data.Offset
@@ -19,8 +20,8 @@ import com.digitalasset.canton.participant.admin.data.{
 }
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{
-  AssignRepresentativePackageIds,
   ContractIdsImportProcessor,
+  SelectRepresentativePackageIds,
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
@@ -121,26 +122,34 @@ private[admin] object ParticipantCommon {
 
   private[grpc] def importAcsNewSnapshot(
       acsSnapshot: ByteString,
-      workflowIdPrefix: String,
+      batching: BatchingConfig,
       contractImportMode: ContractImportMode,
       excludedStakeholders: Set[PartyId],
+      loggerFactory: NamedLoggerFactory,
       representativePackageIdOverride: RepresentativePackageIdOverride,
       sync: CantonSyncService,
-      batching: BatchingConfig,
-      loggerFactory: NamedLoggerFactory,
+      workflowIdPrefix: String,
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
       traceContext: TraceContext,
   ): Future[Map[String, String]] = {
 
+    val packageMetadataSnapshot = sync.getPackageMetadataSnapshot
+    val selectRepresentativePackageIds = new SelectRepresentativePackageIds(
+      representativePackageIdOverride = representativePackageIdOverride,
+      knownPackages = packageMetadataSnapshot.packages.keySet,
+      packageNameMap = packageMetadataSnapshot.packageNameMap,
+      contractImportMode = contractImportMode,
+      loggerFactory = loggerFactory,
+    )
     val importer = new AcsImporter(
       sync,
       batching,
       loggerFactory,
       workflowIdPrefix,
       contractImportMode,
-      representativePackageIdOverride,
+      selectRepresentativePackageIds,
     )
 
     importer.runImport(acsSnapshot, excludedStakeholders)
@@ -152,7 +161,7 @@ private[admin] object ParticipantCommon {
       loggerFactory: NamedLoggerFactory,
       workflowIdPrefix: String,
       contractImportMode: ContractImportMode,
-      representativePackageIdOverride: RepresentativePackageIdOverride,
+      selectRepresentativePackageIds: SelectRepresentativePackageIds,
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
@@ -190,16 +199,15 @@ private[admin] object ParticipantCommon {
             "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
           )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
 
-        // TODO(#27872): Consider extracting to class field if we want stable references inside
-        contractsWithOverriddenRpId = new AssignRepresentativePackageIds(
-          representativePackageIdOverride
-        )(repairContracts)
+        contractsWithOverriddenRpId <- selectRepresentativePackageIds(repairContracts)
+          .toEitherT[Future]
 
         activeContractsWithRemapping <-
           ContractIdsImportProcessor(
             loggerFactory,
             sync.syncPersistentStateManager,
             sync.pureCryptoApi,
+            sync.contractHasher,
             contractImportMode,
           )(contractsWithOverriddenRpId)
         (activeContractsWithValidContractIds, contractIdRemapping) =

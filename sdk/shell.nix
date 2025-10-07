@@ -9,5 +9,6 @@ pkgs.mkShell {
     vale
     python3.pkgs.docutils
     sphinx
+    yq
   ];
 }

@@ -1,0 +1,13 @@
+sdk-version: 3.4.0-snapshot.20251001.14245.0.v20f88882
+module-prefixes: !java.util.LinkedHashMap
+   dvp-assets-1.0.0: DvpAssetsV1
+build-options: 
+- --target=2.1
+name: dvp-asset-factory
+data-dependencies: 
+- ../../../../scala-2.13/resource_managed/test/dvp-assets-1.0.0.dar
+source: AssetFactory.daml
+version: 1.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

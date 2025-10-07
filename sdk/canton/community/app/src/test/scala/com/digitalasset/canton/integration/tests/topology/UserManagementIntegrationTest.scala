@@ -10,7 +10,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -469,11 +469,11 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 }
 
 class UserManagementReferenceIntegrationTestDefault extends UserManagementIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 }
 
 class UserManagementReferenceIntegrationTestPostgres extends UserManagementIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
 trait UserManagementNoExtraAdminIntegrationTest
@@ -502,5 +502,5 @@ trait UserManagementNoExtraAdminIntegrationTest
 
 class UserManagementNoExtraAdminReferenceIntegrationTestPostgres
     extends UserManagementNoExtraAdminIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

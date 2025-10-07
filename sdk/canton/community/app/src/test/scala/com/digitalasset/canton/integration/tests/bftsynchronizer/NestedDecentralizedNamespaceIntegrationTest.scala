@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.bftsynchronizer
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -20,7 +20,7 @@ class NestedDecentralizedNamespaceIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M2.withSetup { implicit env =>

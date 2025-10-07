@@ -100,8 +100,16 @@ class EncryptedCryptoPrivateStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     for {
-      storedKeys <- store
-        .listPrivateKeys(purpose, encrypted = true)
+      storedKeys <- store.listPrivateKeys(purpose, encrypted = true)
+      keys <- storedKeys.toList.parTraverse(decryptStoredKey(kms, _))
+    } yield keys.toSet
+
+  @VisibleForTesting
+  private[canton] def listPrivateKeys()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    for {
+      storedKeys <- store.listPrivateKeys()
       keys <- storedKeys.toList.parTraverse(decryptStoredKey(kms, _))
     } yield keys.toSet
 

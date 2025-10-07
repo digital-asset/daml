@@ -67,6 +67,36 @@ class DamlLfEncoderTest
         "DA.Types", // stable package
       )
 
+      val stableModules = Set[DottedName](
+        "DA.Exception.ArithmeticError",
+        "DA.Exception.AssertionFailed",
+        "DA.Exception.GeneralError",
+        "DA.Exception.PreconditionFailed",
+        "DA.Internal.Erased",
+        "DA.Internal.NatSyn",
+        "DA.Internal.PromotedText",
+        "DA.Types",
+        "GHC.Prim",
+        "GHC.Tuple",
+        "GHC.Types",
+        "DA.Action.State.Type",
+        "DA.Date.Types",
+        "DA.Internal.Any",
+        "DA.Internal.Down",
+        "DA.Internal.Fail.Types",
+        "DA.Internal.Interface.AnyView.Types",
+        "DA.Internal.Template",
+        "DA.Logic.Types",
+        "DA.Monoid.Types",
+        "DA.NonEmpty.Types",
+        "DA.Random.Types",
+        "DA.Semigroup.Types",
+        "DA.Set.Types",
+        "DA.Stack.Types",
+        "DA.Time.Types",
+        "DA.Validation.Types",
+      )
+
       val versions = Table(
         "versions" -> "modules",
         "2.1" -> modules_2_1,
@@ -82,8 +112,8 @@ class DamlLfEncoderTest
 
         val findModules = dar.toOption.toList.flatMap(getNonEmptyModules).toSet
 
-        findModules diff expectedModules shouldBe Set()
-        expectedModules diff findModules shouldBe Set()
+        (findModules diff expectedModules) diff stableModules shouldBe Set()
+        (expectedModules diff findModules) diff stableModules shouldBe Set()
 
       }
     }
@@ -122,7 +152,7 @@ class DamlLfEncoderTest
     val builtinMod = ModuleName.assertFromString("BuiltinMod")
 
     "contains all builtins " in {
-      forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_1 <= _): _*)) {
+      forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_dev < _): _*)) {
         version =>
           val Right(dar) =
             UniversalArchiveDecoder
