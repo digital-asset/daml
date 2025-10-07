@@ -812,22 +812,25 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      try {
-        val hexArg = Ref.HexString.assertFromString(getSText(args, 0))
-        val arg = Ref.HexString.decode(hexArg).toStringUtf8
+      val arg = getSText(args, 0)
 
-        Control.Value(SText(arg))
-      } catch {
-        case _: IllegalArgumentException =>
-          Control.Error(
-            IE.Crypto(
-              IE.Crypto.MalformedByteEncoding(
-                getSText(args, 0),
-                cause = "can not parse hex string argument",
+      Ref.HexString
+        .fromString(arg)
+        .fold(
+          _ =>
+            Control.Error(
+              IE.Crypto(
+                IE.Crypto.MalformedByteEncoding(
+                  arg,
+                  cause = "can not parse hex string argument",
+                )
               )
-            )
-          )
-      }
+            ),
+          hexArg => {
+            val result = Ref.HexString.decode(hexArg).toStringUtf8
+            Control.Value(SText(result))
+          },
+        )
     }
   }
 
