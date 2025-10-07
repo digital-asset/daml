@@ -399,8 +399,9 @@ class ContractsService(
           Source.future(fv).mapConcat(identity).map(\/.right)
         }
 
-        private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
+        private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) = synchronized {
           dao.transact(cio).unsafeToFuture()
+        }
 
         private[this] def timed[A](
             timer: Timer,
