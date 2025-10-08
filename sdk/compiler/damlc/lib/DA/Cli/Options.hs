@@ -97,11 +97,11 @@ lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
-    <> value LF.versionDefault
+    <> value LF.defaultVersion
     <> internal
   where
     renderVersion v =
-      let def = if v == LF.versionDefault then " (default)" else ""
+      let def = if v == LF.defaultVersion then " (default)" else ""
       in Pretty.renderPretty v ++ def
     versionsStr = intercalate ", " (map renderVersion LF.supportedOutputVersions)
     select = \case
