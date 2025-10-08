@@ -12,14 +12,13 @@ import DA.Text (fromCodePoints)
 import Daml.Script
 
 replaceChar : Text
-replaceChar = fromCodePoints [256, 253]
+replaceChar = fromCodePoints [255, 253]
 
 replaceHex : BytesHex
-replaceHex = "c480c3bd"
+replaceHex = "c3bfc3bd"
 
 main =
   script do
-    debugRaw ("DEBUGGY: " <> (toHex replaceChar))
     ((toHex "") === "")
     ((fromHex "") === (None : Optional Text))
     ((toHex "Hello world!") === "48656c6c6f20776f726c6421")
