@@ -163,7 +163,7 @@ object LanguageVersion {
     */
   def StableVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] =
     majorLanguageVersion match {
-      case Major.V2 => VersionRange(v2_1, v2_1)
+      case Major.V2 => VersionRange(v2_1, v2_2)
       case _ => notSupported(majorLanguageVersion)
     }
 
