@@ -94,8 +94,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
       newVettedPackages = packageIds.map(pkgId =>
         protocol.VettedPackages.VettedPackage(pkgId, None, None)
       ) ++ vettedPackages(participantUid)
+      synchronizerId <- getSynchronizerId
       _ <- topologyWriteServiceStub.authorize(
-        makeAuthorizeRequest(participantUid, newVettedPackages)
+        makeAuthorizeRequest(participantUid, synchronizerId, newVettedPackages)
       )
     } yield ()
   }
@@ -107,14 +108,16 @@ class AdminLedgerClient private[grpcLedgerClient] (
       newVettedPackages = vettedPackages(participantUid).filterNot(pkg =>
         packageIdsSet.contains(pkg.packageId)
       )
+      synchronizerId <- getSynchronizerId
       _ <- topologyWriteServiceStub.authorize(
-        makeAuthorizeRequest(participantUid, newVettedPackages)
+        makeAuthorizeRequest(participantUid, synchronizerId, newVettedPackages)
       )
     } yield ()
   }
 
   private[this] def makeAuthorizeRequest(
       participantId: String,
+      synchronizerId: String,
       vettedPackages: Iterable[protocol.VettedPackages.VettedPackage],
   ): admin_topology.AuthorizeRequest =
     admin_topology.AuthorizeRequest(
@@ -144,7 +147,11 @@ class AdminLedgerClient private[grpcLedgerClient] (
       signedBy = Seq.empty,
       store = Some(
         admin_topology.StoreId(
-          admin_topology.StoreId.Store.Authorized(admin_topology.StoreId.Authorized())
+          admin_topology.StoreId.Store.Synchronizer(
+            admin_topology.Synchronizer(
+              admin_topology.Synchronizer.Kind.Id(synchronizerId)
+            )
+          )
         )
       ),
       waitToBecomeEffective = None,
