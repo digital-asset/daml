@@ -742,7 +742,6 @@ class Engine(val config: EngineConfig) {
         // we set transitiveDependencies to Set.empty because our logic does not generate it anymore
         Error.Package.DarSelfConsistency(
           mainPackageId = mainPackageId,
-          transitiveDependencies = Set.empty,
           missingDependencies = mentioned.diff(included),
           extraDependencies = included.diff(mentioned),
         ),

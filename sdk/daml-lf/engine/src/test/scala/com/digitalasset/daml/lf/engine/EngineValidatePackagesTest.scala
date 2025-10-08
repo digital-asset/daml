@@ -168,7 +168,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        _,
                         missingDeps,
                         extraDeps,
                       )
@@ -211,7 +210,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        _,
                         missingDeps,
                         extraDeps,
                       )
@@ -254,7 +252,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 case Left(
                       err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
-                        _,
                         missingDeps,
                         extraDeps,
                       )
