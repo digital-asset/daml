@@ -16,7 +16,7 @@ import scala.collection.immutable.ArraySeq
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
     forbidLocalContractIds: Boolean,
-    shouldCheckDataSerializable: Boolean = true,
+    forbidTrailingNones: Boolean,
 ) {
 
   @throws[TranslationFailed.Error]
@@ -66,8 +66,11 @@ private[lf] final class ValueTranslator(
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw TranslationFailed.TypeMismatch(ty0, value0, msg)
 
+        def invalidValueError(msg: String) =
+          throw TranslationFailed.InvalidValue(value0, msg)
+
         def destruct(typ: Type): TypeDestructor.SerializableTypeF[Type] =
-          Destructor.destruct(typ, shouldCheckDataSerializable) match {
+          Destructor.destruct(typ) match {
             case Right(value) => value
             case Left(TypeDestructor.Error.TypeError(err)) =>
               typeError(err)
@@ -100,6 +103,11 @@ private[lf] final class ValueTranslator(
           case (PartyF, ValueParty(p)) =>
             SValue.SParty(p)
           case (NumericF(s), ValueNumeric(d)) =>
+            val dScale = Numeric.scale(d)
+            if (dScale != s)
+              typeError(
+                s"Non-normalized Numeric: the type expects scale $s, but the value has scale ${dScale}"
+              )
             Numeric.fromBigDecimal(s, d) match {
               case Right(value) => SValue.SNumeric(value)
               case Left(message) => typeError(message)
@@ -172,17 +180,14 @@ private[lf] final class ValueTranslator(
               ) =>
             // Fail if the record ID or any label is present in the record value.
             if (mbId.isDefined)
-              throw TranslationFailed.InvalidValue(
-                value0,
-                s"Unexpected type id ${mbId} in record value.",
-              )
+              invalidValueError(s"Unexpected type id ${mbId} in record value.")
             sourceElements.foreach { case (mbLabel, _) =>
               mbLabel.foreach(label =>
-                throw TranslationFailed.InvalidValue(
-                  value0,
-                  s"Unexpected label ${label} in record value.",
-                )
+                invalidValueError(s"Unexpected label ${label} in record value.")
               )
+            }
+            if (forbidTrailingNones && sourceElements.toSeq.lastOption.exists(_._2 == ValueNone)) {
+              invalidValueError("Unexpected trailing None in record.")
             }
 
             // This code implements the compatibility transformation used for up/down-grading
