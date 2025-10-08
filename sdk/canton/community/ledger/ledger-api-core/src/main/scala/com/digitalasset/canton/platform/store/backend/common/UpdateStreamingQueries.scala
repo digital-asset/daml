@@ -63,15 +63,73 @@ object EventPayloadSourceForUpdatesLedgerEffectsLegacy {
 }
 
 class UpdateStreamingQueries(
-    stringInterning: StringInterning
+    stringInterning: StringInterning,
+    queryStrategy: QueryStrategy,
 ) {
 
   def fetchEventIds(target: EventIdSource)(
-      stakeholderO: Option[Party],
+      witnessO: Option[Party],
       templateIdO: Option[NameTypeConRef],
       eventTypes: Set[PersistentEventType],
-  )(connection: Connection): PaginationInput => Vector[Long] =
-    ??? // TODO(#28002): Implement
+  )(connection: Connection): IdFilterPaginationInput => Vector[Long] = {
+    def idFilter(tableName: String): Option[CompositeSql] = Option.when(eventTypes.nonEmpty)(
+      cSQL"""
+          EXISTS (
+            SELECT 1
+            FROM #$tableName data_table
+            WHERE
+              filters.event_sequential_id = data_table.event_sequential_id
+              AND data_table.event_type ${queryStrategy.anyOfSmallInts(eventTypes.map(_.asInt))}
+          )"""
+    )
+    target match {
+      case EventIdSource.ActivateStakeholder =>
+        UpdateStreamingQueries.fetchEventIds(
+          tableName = "lapi_filter_activate_stakeholder",
+          witnessO = witnessO,
+          templateIdO = templateIdO,
+          idFilter = idFilter("lapi_events_activate_contract"),
+          stringInterning = stringInterning,
+          hasFirstPerSequentialId = true,
+        )(connection)
+      case EventIdSource.ActivateWitnesses =>
+        UpdateStreamingQueries.fetchEventIds(
+          tableName = "lapi_filter_activate_witness",
+          witnessO = witnessO,
+          templateIdO = templateIdO,
+          idFilter = idFilter("lapi_events_activate_contract"),
+          stringInterning = stringInterning,
+          hasFirstPerSequentialId = true,
+        )(connection)
+      case EventIdSource.DeactivateStakeholder =>
+        UpdateStreamingQueries.fetchEventIds(
+          tableName = "lapi_filter_deactivate_stakeholder",
+          witnessO = witnessO,
+          templateIdO = templateIdO,
+          idFilter = idFilter("lapi_events_deactivate_contract"),
+          stringInterning = stringInterning,
+          hasFirstPerSequentialId = true,
+        )(connection)
+      case EventIdSource.DeactivateWitnesses =>
+        UpdateStreamingQueries.fetchEventIds(
+          tableName = "lapi_filter_deactivate_witness",
+          witnessO = witnessO,
+          templateIdO = templateIdO,
+          idFilter = idFilter("lapi_events_deactivate_contract"),
+          stringInterning = stringInterning,
+          hasFirstPerSequentialId = true,
+        )(connection)
+      case EventIdSource.VariousWitnesses =>
+        UpdateStreamingQueries.fetchEventIds(
+          tableName = "lapi_filter_various_witness",
+          witnessO = witnessO,
+          templateIdO = templateIdO,
+          idFilter = idFilter("lapi_events_various_witnessed"),
+          stringInterning = stringInterning,
+          hasFirstPerSequentialId = true,
+        )(connection)
+    }
+  }
 
   def fetchEventIdsLegacy(target: EventIdSourceLegacy)(
       stakeholderO: Option[Party],
@@ -138,7 +196,23 @@ class UpdateStreamingQueries(
       templateIdO: Option[NameTypeConRef],
       activeAtEventSeqId: Long,
   )(connection: Connection): IdFilterPaginationInput => Vector[Long] =
-    ??? // TODO(#28002): Implement
+    UpdateStreamingQueries.fetchEventIds(
+      tableName = "lapi_filter_activate_stakeholder",
+      witnessO = stakeholderO,
+      templateIdO = templateIdO,
+      idFilter = Some(
+        cSQL"""
+          NOT EXISTS (
+            SELECT 1
+            FROM lapi_events_deactivate_contract deactivate_evs
+            WHERE
+              filters.event_sequential_id = deactivate_evs.deactivated_event_sequential_id
+              AND deactivate_evs.event_sequential_id <= $activeAtEventSeqId
+          )"""
+      ),
+      stringInterning = stringInterning,
+      hasFirstPerSequentialId = true,
+    )(connection)
 
   def fetchActiveIdsOfCreateEventsForStakeholderLegacy(
       stakeholderO: Option[Ref.Party],

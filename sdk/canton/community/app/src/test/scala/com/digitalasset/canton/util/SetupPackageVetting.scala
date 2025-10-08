@@ -132,6 +132,7 @@ class SetupPackageVetting(
           .foreach { darPath =>
             participant.dars.upload(
               darPath,
+              synchronizerId = None,
               vetAllPackages = false,
               synchronizeVetting = false,
             )

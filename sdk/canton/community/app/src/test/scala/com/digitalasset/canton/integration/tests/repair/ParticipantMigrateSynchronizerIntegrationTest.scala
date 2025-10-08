@@ -133,8 +133,8 @@ final class ParticipantMigrateSynchronizerIntegrationTest
       ignoreDeprecatedProtocolMessage(
         participant.synchronizers.connect_local(sequencer1, alias = daName)
       )
-      participant.dars.upload(CantonExamplesPath)
-      participant.dars.upload(CantonTestsPath)
+      participant.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participant.dars.upload(CantonTestsPath, synchronizerId = daId)
     }
 
     val alice = participant1.parties.enable(
@@ -151,6 +151,10 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     // temporarily connect to synchronizer 2 and allocate parties there
     participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
     participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
+    Seq(participant1, participant2).foreach { participant =>
+      participant.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+      participant.dars.upload(CantonTestsPath, synchronizerId = acmeId)
+    }
     participant1.parties.enable(
       "Alice",
       synchronizeParticipants = Seq(participant2),
@@ -573,8 +577,10 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
       Seq(participant1, participant2, participant3).foreach { participant =>
         participant.synchronizers.connect_local(sequencer1, daName)
         participant.synchronizers.connect_local(sequencer2, acmeName)
-        participant.dars.upload(CantonExamplesPath)
-        participant.dars.upload(CantonTestsPath).discard
+        participant.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+        participant.dars.upload(CantonTestsPath, synchronizerId = daId).discard
+        participant.dars.upload(CantonTestsPath, synchronizerId = acmeId).discard
       }
 
       sequencer1.topology.synchronizer_parameters

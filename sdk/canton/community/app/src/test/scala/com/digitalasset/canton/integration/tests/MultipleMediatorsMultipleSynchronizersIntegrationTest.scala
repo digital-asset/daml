@@ -82,7 +82,8 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
 
         participant1.synchronizers.connect_local(sequencer1, alias = synchronizer1)
         participant1.synchronizers.connect_local(sequencer2, alias = synchronizer2)
-        participant1.dars.upload(CantonExamplesPath)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         participantSeesMediators(participant1, Set(Set(mediator1.id), Set(mediator3.id)))
 

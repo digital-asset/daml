@@ -454,7 +454,7 @@ object LedgerApiCommands {
         PackageManagementServiceGrpc.stub(channel)
     }
 
-    final case class UploadDarFile(darPath: String)
+    final case class UploadDarFile(darPath: String, synchronizerId: Option[SynchronizerId])
         extends BaseCommand[UploadDarFileRequest, UploadDarFileResponse, Unit] {
 
       override protected def createRequest(): Either[String, UploadDarFileRequest] =
@@ -464,6 +464,7 @@ object LedgerApiCommands {
           bytes,
           submissionId = "",
           vettingChange = UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+          synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
         )
       override protected def submitRequest(
           service: PackageManagementServiceStub,
@@ -478,13 +479,17 @@ object LedgerApiCommands {
 
     }
 
-    final case class ValidateDarFile(darPath: String)
+    final case class ValidateDarFile(darPath: String, synchronizerId: Option[SynchronizerId])
         extends BaseCommand[ValidateDarFileRequest, ValidateDarFileResponse, Unit] {
 
       override protected def createRequest(): Either[String, ValidateDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield ValidateDarFileRequest(bytes, submissionId = "")
+        } yield ValidateDarFileRequest(
+          bytes,
+          submissionId = "",
+          synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+        )
 
       override protected def submitRequest(
           service: PackageManagementServiceStub,

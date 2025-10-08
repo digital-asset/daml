@@ -121,6 +121,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
+    final case class NotFoundForSynchronizer(synchronizerId: SynchronizerId)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Topology store for synchronizer $synchronizerId is not known."
+        )
+        with TopologyManagerError
+
     final case class NoSynchronizerStoreAvailable()(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(

@@ -99,6 +99,18 @@ message UploadDarFileRequest {
 
   // How to vet packages in the DAR being uploaded
   VettingChange vetting_change = 3;
+
+  // Only used if VettingChange is set to VETTING_CHANGE_VET_ALL_PACKAGES, in
+  // order to specify which synchronizer to vet on.
+  //
+  // If synchronizer_id is set, the synchronizer with this ID will be used. If
+  // synchronizer_id is unset and the participant is only connected to a single
+  // synchronizer, that synchronizer will be used by default. If synchronizer_id
+  // is unset and the participant is connected to multiple synchronizers, the
+  // request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+  //
+  // Optional
+  string synchronizer_id = 4;
 }
 
 // A message that is received when the upload operation succeeded.
@@ -116,6 +128,15 @@ message ValidateDarFileRequest {
   // Unique submission identifier.
   // Optional, defaults to a random identifier.
   string submission_id = 2;
+
+  // If synchronizer_id is set, the synchronizer with this ID will be used. If
+  // synchronizer_id is unset and the participant is only connected to a single
+  // synchronizer, that synchronizer will be used by default. If synchronizer_id
+  // is unset and the participant is connected to multiple synchronizers, the
+  // request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+  //
+  // Optional
+  string synchronizer_id = 4;
 }
 
 message ValidateDarFileResponse {}
@@ -198,8 +219,14 @@ message UpdateVettedPackagesRequest {
   // Use this flag to preview a change before applying it.
   bool dry_run = 2;
 
-  // The sychronizer on which the ``VettedPackages`` of this participant node
-  // should be changed.
+  // If set, the requested changes will take place on the specified
+  // synchronizer. If synchronizer_id is unset and the participant is only
+  // connected to a single synchronizer, that synchronizer will be used by
+  // default. If synchronizer_id is unset and the participant is connected to
+  // multiple synchronizers, the request will error out with
+  // PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+  //
+  // Optional
   string synchronizer_id = 3;
 
   // The serial of the last ``VettedPackages`` topology transaction of this

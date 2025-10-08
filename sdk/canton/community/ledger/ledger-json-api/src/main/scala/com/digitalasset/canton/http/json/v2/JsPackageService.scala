@@ -103,15 +103,17 @@ class JsPackageService(
       .resultToRight
 
   private def upload(caller: CallerContext) = {
-    (tracedInput: TracedInput[(Source[util.ByteString, Any], Option[Boolean])]) =>
+    (tracedInput: TracedInput[(Source[util.ByteString, Any], Option[Boolean], Option[String])]) =>
       implicit val traceContext: TraceContext = tracedInput.traceContext
-      val inputStream = tracedInput.in._1.runWith(StreamConverters.asInputStream())(materializer)
+      val (bytesSource, vetAllPackagesO, synchronizerIdO) = tracedInput.in
+      val inputStream = bytesSource.runWith(StreamConverters.asInputStream())(materializer)
       val bs = protobuf.ByteString.readFrom(inputStream)
       packageManagementClient
         .uploadDarFile(
           darFile = bs,
           token = caller.token(),
-          vetAllPackages = tracedInput.in._2.getOrElse(true),
+          vetAllPackages = vetAllPackagesO.getOrElse(true),
+          synchronizerId = synchronizerIdO,
         )
         .map { _ =>
           package_management_service.UploadDarFileResponse()
@@ -148,9 +150,9 @@ object JsPackageService extends DocumentationEndpoints {
     packages.post
       .in(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()).toEndpointIO)
       .in(query[Option[Boolean]]("vetAllPackages"))
+      .in(query[Option[String]]("synchronizerId"))
       .out(jsonBody[package_management_service.UploadDarFileResponse])
       .description("Upload a DAR to the participant node")
-
   val listPackagesEndpoint =
     packages.get
       .out(jsonBody[package_service.ListPackagesResponse])

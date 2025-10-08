@@ -155,7 +155,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
             inputMapper(
               metrics,
               mapInSpan(
-                UpdateToDbDto(
+                UpdateToDbDtoLegacy(
                   participantId = participantId,
                   translation = translation,
                   compressionStrategy = compressionStrategy,

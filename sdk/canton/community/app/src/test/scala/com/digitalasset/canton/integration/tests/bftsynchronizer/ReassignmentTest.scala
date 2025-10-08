@@ -127,8 +127,9 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       val payer = alice
       val owner = bob
 
-      clue("Upload dar") {
-        Seq(participant1, participant2).foreach(_.dars.upload(CantonExamplesPath))
+      clue(s"Upload and vet dar on $synchronizerId1") {
+        Seq(participant1, participant2).dars
+          .upload(CantonExamplesPath, synchronizerId = synchronizerId1)
       }
 
       contractId = clue(s"create Iou contract on $synchronizer2") {
@@ -160,6 +161,9 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       clue(s"connect $participant2 to $synchronizer2") {
         participant2.synchronizers.connect_local(sequencer4, alias = synchronizer2)
       }
+      clue(s"upload and vet dar on $synchronizer2")
+      Seq(participant1, participant2).dars
+        .upload(CantonExamplesPath, synchronizerId = synchronizerId2)
       participant1.parties.enable(
         "alice",
         synchronizeParticipants = Seq(participant2),

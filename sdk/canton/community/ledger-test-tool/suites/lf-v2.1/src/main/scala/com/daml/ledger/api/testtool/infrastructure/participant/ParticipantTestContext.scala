@@ -66,6 +66,7 @@ import com.digitalasset.base.error.ErrorCode
 import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.util.MonadUtil
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 
@@ -103,18 +104,26 @@ trait ParticipantTestContext extends UserManagementTestContext {
   def time(): Future[Instant]
   def setTime(currentTime: Instant, newTime: Instant): Future[Unit]
   def listKnownPackages(): Future[Seq[PackageDetails]]
-  def validateDarFile(bytes: ByteString): Future[Unit] =
-    validateDarFile(ValidateDarFileRequest(bytes, ""))
-  def validateDarFile(request: ValidateDarFileRequest): Future[Unit]
-  def uploadDarFile(bytes: ByteString): Future[Unit] =
-    uploadDarFile(
-      UploadDarFileRequest(
-        bytes,
-        "",
-        UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+
+  def uploadDarFileAndVetOnConnectedSynchronizers(bytes: ByteString): Future[Unit] = for {
+    connected <- connectedSynchronizers()
+    _ <- MonadUtil.sequentialTraverse(connected)(synchronizerId =>
+      uploadDarFile(
+        UploadDarFileRequest(
+          darFile = bytes,
+          submissionId = "",
+          UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+          synchronizerId = synchronizerId,
+        )
       )
     )
-  def uploadDarRequest(bytes: ByteString): UploadDarFileRequest
+  } yield ()
+
+  def validateDarFile(bytes: ByteString): Future[Unit] =
+    validateDarFile(ValidateDarFileRequest(bytes, "", ""))
+  def validateDarFile(request: ValidateDarFileRequest): Future[Unit]
+
+  def uploadDarRequest(bytes: ByteString, synchronizerId: String): UploadDarFileRequest
   def uploadDarFile(request: UploadDarFileRequest): Future[Unit]
   def getParticipantId(): Future[String]
   def listPackages(): Future[Seq[String]]

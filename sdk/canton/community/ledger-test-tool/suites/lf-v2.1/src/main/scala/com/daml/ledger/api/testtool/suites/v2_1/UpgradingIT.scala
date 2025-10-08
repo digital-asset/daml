@@ -934,13 +934,8 @@ object UpgradingIT {
       expectedTemplatesInResponses: Set[Ref.TypeConRef] = Set.empty,
   ) extends TemplateOrInterfaceWithImpls
 
-  private def upload(ledger: ParticipantTestContext, darPath: String)(implicit
-      ec: ExecutionContext
-  ): Future[Unit] =
-    ledger
-      .uploadDarFile(Dars.read(darPath))
-      // Wait for the package vetting topology transaction to finish
-      .map(_ => Thread.sleep(1000L))
+  private def upload(ledger: ParticipantTestContext, darPath: String): Future[Unit] =
+    ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(darPath))
 
   implicit class EnrichedTypeConRef(val typeConRef: Ref.TypeConRef) {
     def toScalaPbIdentifier: ScalaPbIdentifier =

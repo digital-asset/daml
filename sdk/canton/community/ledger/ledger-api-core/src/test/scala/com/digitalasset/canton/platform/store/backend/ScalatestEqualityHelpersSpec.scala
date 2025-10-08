@@ -6,9 +6,9 @@ package com.digitalasset.canton.platform.store.backend
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-class DbDtoEqSpec extends AnyWordSpec with Matchers {
+class ScalatestEqualityHelpersSpec extends AnyWordSpec with Matchers {
 
-  import DbDtoEq.*
+  import ScalatestEqualityHelpers.*
 
   "DbDtoEq" should {
 

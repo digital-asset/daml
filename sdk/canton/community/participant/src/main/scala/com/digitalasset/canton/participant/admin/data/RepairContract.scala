@@ -70,7 +70,7 @@ object RepairContract {
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
-      // TODO(#27872): Require populated representativePackageId starting with 3.4
+      // TODO(#25385): Assume populated representativePackageId starting with 3.4
       representativePackageId <- Option(event.representativePackageId)
         .filter(_.nonEmpty)
         .traverse(LfPackageId.fromString)

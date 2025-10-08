@@ -107,9 +107,327 @@ private[store] object StorageBackendTestValues {
       is_local = Some(isLocal),
     )
 
+  def dtosCreate(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitters: Option[Set[String]] = Some(Set("submitter1", "submitter2")),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+      external_transaction_hash: Option[Array[Byte]] = Some(someExternalTransactionHashBinary),
+
+      // event related columns
+      event_sequential_id: Long = 500L,
+      node_id: Int = 15,
+      additional_witnesses: Set[String] = Set("witness1", "witness2"),
+      representative_package_id: String = "representativepackage",
+
+      // contract related columns
+      notPersistedContractId: ContractId = hashCid("c1"),
+      internal_contract_id: Long = 10,
+      create_key_hash: Option[String] = Some("keyhash"),
+  )(
+      stakeholders: Set[String] = Set("stakeholder1", "stakeholder2"),
+      template_id: String = "tem:pl:ate",
+  ): Seq[DbDto] = DbDto
+    .createDbDtos(
+      event_offset = event_offset,
+      update_id = update_id,
+      workflow_id = workflow_id,
+      command_id = command_id,
+      submitters = submitters,
+      record_time = record_time,
+      synchronizer_id = synchronizer_id,
+      trace_context = trace_context,
+      external_transaction_hash = external_transaction_hash,
+      event_sequential_id = event_sequential_id,
+      node_id = node_id,
+      additional_witnesses = additional_witnesses,
+      representative_package_id = representative_package_id,
+      notPersistedContractId = notPersistedContractId,
+      internal_contract_id = internal_contract_id,
+      create_key_hash = create_key_hash,
+    )(
+      stakeholders = stakeholders,
+      template_id = template_id,
+    )
+    .toSeq
+
+  def dtosAssign(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitter: Option[String] = Some("submitter1"),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+
+      // event related columns
+      event_sequential_id: Long = 500L,
+      node_id: Int = 15,
+      source_synchronizer_id: SynchronizerId = someSynchronizerId2,
+      reassignment_counter: Long = 345,
+      reassignment_id: Array[Byte] = reassignmentId,
+      representative_package_id: String = "representativepackage",
+
+      // contract related columns
+      notPersistedContractId: ContractId = hashCid("c1"),
+      internal_contract_id: Long = 10,
+  )(
+      stakeholders: Set[String] = Set("stakeholder1", "stakeholder2"),
+      template_id: String = "tem:pl:ate",
+  ): Seq[DbDto] = DbDto
+    .assignDbDtos(
+      event_offset = event_offset,
+      update_id = update_id,
+      workflow_id = workflow_id,
+      command_id = command_id,
+      submitter = submitter,
+      record_time = record_time,
+      synchronizer_id = synchronizer_id,
+      trace_context = trace_context,
+      event_sequential_id = event_sequential_id,
+      node_id = node_id,
+      source_synchronizer_id = source_synchronizer_id,
+      reassignment_counter = reassignment_counter,
+      reassignment_id = reassignment_id,
+      representative_package_id = representative_package_id,
+      notPersistedContractId = notPersistedContractId,
+      internal_contract_id = internal_contract_id,
+    )(
+      stakeholders = stakeholders,
+      template_id = template_id,
+    )
+    .toSeq
+
+  def dtosConsumingExercise(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitters: Option[Set[String]] = Some(Set("submitter1", "submitter2")),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+      external_transaction_hash: Option[Array[Byte]] = Some(someExternalTransactionHashBinary),
+
+      // event related columns
+      event_sequential_id: Long = 500L,
+      node_id: Int = 15,
+      deactivated_event_sequential_id: Option[Long] = Some(600L),
+      additional_witnesses: Set[String] = Set("witness1", "witness2"),
+      exercise_choice: String = "choice",
+      exercise_choice_interface_id: Option[String] = Some("in:ter:face"),
+      exercise_argument: Array[Byte] = Array(1, 2, 3),
+      exercise_result: Option[Array[Byte]] = Some(Array(2, 3, 4)),
+      exercise_actors: Set[String] = Set("actor1", "actor2"),
+      exercise_last_descendant_node_id: Int = 3,
+      exercise_argument_compression: Option[Int] = Some(1),
+      exercise_result_compression: Option[Int] = Some(2),
+
+      // contract related columns
+      contract_id: ContractId = hashCid("c1"),
+      internal_contract_id: Option[Long] = Some(10),
+      template_id: String = "#tem:pl:ate",
+      package_id: String = "package",
+      stakeholders: Set[String] = Set("stakeholder1", "stakeholder2"),
+      ledger_effective_time: Long = 123456,
+  ): Seq[DbDto] = DbDto
+    .consumingExerciseDbDtos(
+      event_offset = event_offset,
+      update_id = update_id,
+      workflow_id = workflow_id,
+      command_id = command_id,
+      submitters = submitters,
+      record_time = record_time,
+      synchronizer_id = synchronizer_id,
+      trace_context = trace_context,
+      external_transaction_hash = external_transaction_hash,
+      event_sequential_id = event_sequential_id,
+      node_id = node_id,
+      deactivated_event_sequential_id = deactivated_event_sequential_id,
+      additional_witnesses = additional_witnesses,
+      exercise_choice = exercise_choice,
+      exercise_choice_interface_id = exercise_choice_interface_id,
+      exercise_argument = exercise_argument,
+      exercise_result = exercise_result,
+      exercise_actors = exercise_actors,
+      exercise_last_descendant_node_id = exercise_last_descendant_node_id,
+      exercise_argument_compression = exercise_argument_compression,
+      exercise_result_compression = exercise_result_compression,
+      contract_id = contract_id,
+      internal_contract_id = internal_contract_id,
+      template_id = template_id,
+      package_id = package_id,
+      stakeholders = stakeholders,
+      ledger_effective_time = ledger_effective_time,
+    )
+    .toSeq
+
+  def dtosUnassign(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitter: Option[String] = Some("submitter1"),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+
+      // event related columns
+      event_sequential_id: Long = 500L,
+      node_id: Int = 15,
+      deactivated_event_sequential_id: Option[Long] = Some(67),
+      reassignment_id: Array[Byte] = reassignmentId,
+      assignment_exclusivity: Option[Long] = Some(111333),
+      target_synchronizer_id: SynchronizerId = someSynchronizerId2,
+      reassignment_counter: Long = 345,
+
+      // contract related columns
+      contract_id: ContractId = hashCid("c1"),
+      internal_contract_id: Option[Long] = Some(10),
+      template_id: String = "#tem:pl:ate",
+      package_id: String = "package",
+      stakeholders: Set[String] = Set("stakeholder1", "stakeholder2"),
+  ): Seq[DbDto] = DbDto
+    .unassignDbDtos(
+      event_offset = event_offset,
+      update_id = update_id,
+      workflow_id = workflow_id,
+      command_id = command_id,
+      submitter = submitter,
+      record_time = record_time,
+      synchronizer_id = synchronizer_id,
+      trace_context = trace_context,
+      event_sequential_id = event_sequential_id,
+      node_id = node_id,
+      deactivated_event_sequential_id = deactivated_event_sequential_id,
+      reassignment_id = reassignment_id,
+      assignment_exclusivity = assignment_exclusivity,
+      target_synchronizer_id = target_synchronizer_id,
+      reassignment_counter = reassignment_counter,
+      contract_id = contract_id,
+      internal_contract_id = internal_contract_id,
+      template_id = template_id,
+      package_id = package_id,
+      stakeholders = stakeholders,
+    )
+    .toSeq
+
+  def dtosWitnessedCreate(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitters: Option[Set[String]] = Some(Set("submitter1", "submitter2")),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+      external_transaction_hash: Option[Array[Byte]] = Some(someExternalTransactionHashBinary),
+
+      // event related columns
+      event_sequential_id: Long = 500L,
+      node_id: Int = 15,
+      additional_witnesses: Set[String] = Set("witness1", "witness2"),
+      representative_package_id: String = "representativepackage",
+
+      // contract related columns
+      internal_contract_id: Long = 10,
+  )(template_id: String = "tem:pl:ate"): Seq[DbDto] = DbDto
+    .witnessedCreateDbDtos(
+      event_offset = event_offset,
+      update_id = update_id,
+      workflow_id = workflow_id,
+      command_id = command_id,
+      submitters = submitters,
+      record_time = record_time,
+      synchronizer_id = synchronizer_id,
+      trace_context = trace_context,
+      external_transaction_hash = external_transaction_hash,
+      event_sequential_id = event_sequential_id,
+      node_id = node_id,
+      additional_witnesses = additional_witnesses,
+      representative_package_id = representative_package_id,
+      internal_contract_id = internal_contract_id,
+    )(
+      template_id = template_id
+    )
+    .toSeq
+
+  def dtosWitnessedExercised(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitters: Option[Set[String]] = Some(Set("submitter1", "submitter2")),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+      external_transaction_hash: Option[Array[Byte]] = Some(someExternalTransactionHashBinary),
+
+      // event related columns
+      event_sequential_id: Long = 500L,
+      node_id: Int = 15,
+      additional_witnesses: Set[String] = Set("witness1", "witness2"),
+      consuming: Boolean = true,
+      exercise_choice: String = "choice",
+      exercise_choice_interface_id: Option[String] = Some("in:ter:face"),
+      exercise_argument: Array[Byte] = Array(1, 2, 3),
+      exercise_result: Option[Array[Byte]] = Some(Array(2, 3, 4)),
+      exercise_actors: Set[String] = Set("actor1", "actor2"),
+      exercise_last_descendant_node_id: Int = 3,
+      exercise_argument_compression: Option[Int] = Some(1),
+      exercise_result_compression: Option[Int] = Some(2),
+
+      // contract related columns
+      contract_id: ContractId = hashCid("c1"),
+      internal_contract_id: Option[Long] = Some(10),
+      template_id: String = "#tem:pl:ate",
+      package_id: String = "package",
+      ledger_effective_time: Long = 123456,
+  ): Seq[DbDto] = DbDto
+    .witnessedExercisedDbDtos(
+      event_offset = event_offset,
+      update_id = update_id,
+      workflow_id = workflow_id,
+      command_id = command_id,
+      submitters = submitters,
+      record_time = record_time,
+      synchronizer_id = synchronizer_id,
+      trace_context = trace_context,
+      external_transaction_hash = external_transaction_hash,
+      event_sequential_id = event_sequential_id,
+      node_id = node_id,
+      additional_witnesses = additional_witnesses,
+      consuming = consuming,
+      exercise_choice = exercise_choice,
+      exercise_choice_interface_id = exercise_choice_interface_id,
+      exercise_argument = exercise_argument,
+      exercise_result = exercise_result,
+      exercise_actors = exercise_actors,
+      exercise_last_descendant_node_id = exercise_last_descendant_node_id,
+      exercise_argument_compression = exercise_argument_compression,
+      exercise_result_compression = exercise_result_compression,
+      contract_id = contract_id,
+      internal_contract_id = internal_contract_id,
+      template_id = template_id,
+      package_id = package_id,
+      ledger_effective_time = ledger_effective_time,
+    )
+    .toSeq
+
   /** A simple create event. Corresponds to a transaction with a single create node.
     */
-  def dtoCreate(
+  def dtoCreateLegacy(
       offset: Offset,
       eventSequentialId: Long,
       contractId: ContractId,
@@ -173,7 +491,7 @@ private[store] object StorageBackendTestValues {
     * @param actor
     *   The choice actor, who is also the submitter
     */
-  def dtoExercise(
+  def dtoExerciseLegacy(
       offset: Offset,
       eventSequentialId: Long,
       consuming: Boolean,
@@ -222,7 +540,7 @@ private[store] object StorageBackendTestValues {
     )
   }
 
-  def dtoAssign(
+  def dtoAssignLegacy(
       offset: Offset,
       eventSequentialId: Long,
       contractId: ContractId,
@@ -270,7 +588,7 @@ private[store] object StorageBackendTestValues {
     )
   }
 
-  def dtoUnassign(
+  def dtoUnassignLegacy(
       offset: Offset,
       eventSequentialId: Long,
       contractId: ContractId,

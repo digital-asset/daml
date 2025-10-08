@@ -47,8 +47,8 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
         alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant1))
         bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
 
-        participant1.dars.upload(CantonExamplesPath)
-        participant2.dars.upload(CantonExamplesPath)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant2.dars.upload(CantonExamplesPath, synchronizerId = daId)
         val commands = Seq.fill[Command](3)(createIouWithObserver(bob))
         submitAndReturnIous(participant1, bank, commands).discard
       }

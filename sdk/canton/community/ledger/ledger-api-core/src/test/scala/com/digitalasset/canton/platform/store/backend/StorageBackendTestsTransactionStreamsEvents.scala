@@ -45,7 +45,7 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   it should "return the correct created_at" in {
 
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = contractId1,
@@ -67,14 +67,14 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   def testExternalTransactionHash(hash: Option[Array[Byte]]) = {
     val creates = Vector(
-      dtoCreate(
+      dtoCreateLegacy(
         offset(1),
         1L,
         contractId = contractId1,
         signatory = signatory,
         externalTransactionHash = hash,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset(1),
         2L,
         consuming = true,
@@ -82,7 +82,7 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
         signatory = signatory,
         externalTransactionHash = hash,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset(1),
         2L,
         consuming = false,
@@ -160,10 +160,10 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   it should "return the correct stream contents for acs" in {
     val creates = Vector(
-      dtoCreate(offset(1), 1L, contractId = contractId1, signatory = signatory),
-      dtoCreate(offset(1), 2L, contractId = contractId2, signatory = signatory),
-      dtoCreate(offset(1), 3L, contractId = contractId3, signatory = signatory),
-      dtoCreate(offset(1), 4L, contractId = contractId4, signatory = signatory),
+      dtoCreateLegacy(offset(1), 1L, contractId = contractId1, signatory = signatory),
+      dtoCreateLegacy(offset(1), 2L, contractId = contractId2, signatory = signatory),
+      dtoCreateLegacy(offset(1), 3L, contractId = contractId3, signatory = signatory),
+      dtoCreateLegacy(offset(1), 4L, contractId = contractId4, signatory = signatory),
     )
 
     ingestDtos(creates)

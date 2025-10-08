@@ -36,30 +36,40 @@ trait HasCycleUtils {
       }
     }
 
-    def p2acs(): Seq[LedgerApiTypeWrappers.WrappedCreatedEvent] =
-      participant2.ledger_api.state.acs
-        .of_party(partyId)
-        .filter(_.templateId.isModuleEntity("Cycle", "Cycle"))
-        .map(entry => WrappedCreatedEvent(entry.event))
-
-    p2acs() shouldBe empty
+    participantAcs(participant2, partyId) shouldBe empty
 
     clue("creating cycle " + commandId) {
-      createCycleContract(participant1, partyId, "I SHALL CREATE", commandId)
-    }
-    val coid = participant2.ledger_api.javaapi.state.acs.await(M.Cycle.COMPANION)(partyId)
-    val cycleEx = coid.id.exerciseArchive().commands.loneElement
-    clue("submitting response") {
-      participant2.ledger_api.javaapi.commands.submit(
-        Seq(partyId),
-        Seq(cycleEx),
-        commandId = (if (commandId.isEmpty) "" else s"$commandId-response"),
+      createCycleContract(
+        participant1,
+        partyId,
+        "I SHALL CREATE",
+        commandId,
       )
     }
+
+    val coid = participant2.ledger_api.javaapi.state.acs.await(M.Cycle.COMPANION)(partyId)
+    clue("submitting response") {
+      archiveCycleContract(
+        participant2,
+        partyId,
+        coid,
+        commandId,
+      )
+    }
+
     eventually() {
-      p2acs() shouldBe empty
+      participantAcs(participant2, partyId) shouldBe empty
     }
   }
+
+  private def participantAcs(
+      participant: ParticipantReference,
+      partyId: PartyId,
+  ): Seq[LedgerApiTypeWrappers.WrappedCreatedEvent] =
+    participant.ledger_api.state.acs
+      .of_party(partyId)
+      .filter(_.templateId.isModuleEntity("Cycle", "Cycle"))
+      .map(entry => WrappedCreatedEvent(entry.event))
 
   def createCycleCommand(party: Party, id: String): Command =
     Command.fromJavaProto(
@@ -69,6 +79,21 @@ trait HasCycleUtils {
         .loneElement
         .toProtoCommand
     )
+
+  def cleanupCycles(
+      partyId: PartyId,
+      participant: ParticipantReference,
+      commandId: String = "",
+  ): Unit = {
+    val coids = participant.ledger_api.javaapi.state.acs.filter(M.Cycle.COMPANION)(partyId)
+    clue("submitting responses for cleanup") {
+      archiveCycleContracts(participant, partyId, coids, commandId)
+    }
+
+    eventually() {
+      participantAcs(participant, partyId) shouldBe empty
+    }
+  }
 
   def createCycleContract(
       participant: ParticipantReference,
@@ -102,5 +127,33 @@ trait HasCycleUtils {
     val cycles = ids.map(new M.Cycle(_, partyId.toProtoPrimitive).create.commands.loneElement)
     participant.ledger_api.javaapi.commands
       .submit(Seq(partyId), cycles, commandId = commandId, optTimeout = optTimeout)
+  }
+
+  def archiveCycleContract(
+      participant: ParticipantReference,
+      partyId: PartyId,
+      coid: Cycle.Contract,
+      commandId: String = "",
+  ): Unit = {
+    val cycleEx = coid.id.exerciseArchive().commands.loneElement
+    participant.ledger_api.javaapi.commands.submit(
+      Seq(partyId),
+      Seq(cycleEx),
+      commandId = (if (commandId.isEmpty) "" else s"$commandId-response"),
+    )
+  }
+
+  def archiveCycleContracts(
+      participant: ParticipantReference,
+      partyId: PartyId,
+      coids: Seq[Cycle.Contract],
+      commandId: String = "",
+  ): Unit = {
+    val cycleExs = coids.map(_.id.exerciseArchive().commands.loneElement)
+    participant.ledger_api.javaapi.commands.submit(
+      Seq(partyId),
+      cycleExs,
+      commandId = (if (commandId.isEmpty) "" else s"$commandId-responses"),
+    )
   }
 }

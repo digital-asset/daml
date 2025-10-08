@@ -604,6 +604,13 @@ trait VettedPackagesSnapshotClient {
       participantId: ParticipantId,
       packageIds: Set[PackageId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[PackageId]]
+
+  /** @return
+    *   all vetted packages
+    */
+  def vettedPackages(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[VettedPackage]]
 }
 
 trait SynchronizerGovernanceSnapshotClient {
@@ -1103,6 +1110,11 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with Vet
       val vettedIds = vettedPackages.keySet
       packageIds -- vettedIds
     }
+
+  override def vettedPackages(participantId: ParticipantId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[VettedPackage]] =
+    loadVettedPackages(participantId).map(vettedPackages => vettedPackages.values.toSet)
 }
 
 trait SynchronizerGovernanceSnapshotLoader extends SynchronizerGovernanceSnapshotClient {

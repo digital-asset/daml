@@ -237,7 +237,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       _ <- indexViewContractsReader
         .lookupKeyState(event.key, event.eventSeqId)
         .map {
-          case KeyAssigned(contractId, _) if contractId == event.contractId && event.created =>
+          case KeyAssigned(contractId) if contractId == event.contractId && event.created =>
           case KeyUnassigned if !event.created =>
           case actual =>
             fail(
@@ -378,13 +378,9 @@ private object MutableCacheBackedContractStoreRaceTests {
   private val toContractStateEvent: SimplifiedContractStateEvent => ContractStateEvent = {
     case SimplifiedContractStateEvent(_eventSeqId, contract, created, key) =>
       if (created)
-        ContractStateEvent.Created(contract)
+        ContractStateEvent.Created(contract.contractId, Some(key))
       else
-        ContractStateEvent.Archived(
-          contractId = contract.contractId,
-          globalKey = Some(key),
-          stakeholders = stakeholders, // Not used
-        )
+        ContractStateEvent.Archived(contract.contractId, Some(key))
   }
 
   final case class ContractLifecycle(
@@ -477,7 +473,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           case Some((_, contractId)) =>
             contractStateStore(contractId).archivedAt match {
               case Some(archivedAt) if archivedAt <= notEarlierThanEventSeqId => KeyUnassigned
-              case _ => KeyAssigned(contractId, stakeholders)
+              case _ => KeyAssigned(contractId)
             }
           case None => KeyUnassigned
         })

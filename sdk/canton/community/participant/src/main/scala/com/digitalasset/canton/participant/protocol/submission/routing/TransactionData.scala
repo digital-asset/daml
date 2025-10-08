@@ -11,7 +11,12 @@ import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
 import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SubmitterInfo}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfSerializationVersion, LfVersionedTransaction, Stakeholders}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfSerializationVersion,
+  LfVersionedTransaction,
+  Stakeholders,
+}
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
@@ -20,6 +25,7 @@ import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.ExecutionContext
+
 import TransactionRoutingError.MalformedInputErrors
 
 /** Bundle together some data needed to route the transaction.

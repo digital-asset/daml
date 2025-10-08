@@ -11,7 +11,9 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.TlsServerConfig.logTlsProtocolsAndCipherSuites
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.grpc.ratelimiting.StreamCounterCheck
 import com.digitalasset.canton.tracing.TracingConfig
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.*
 import io.grpc.netty.shaded.io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
 import io.grpc.netty.shaded.io.netty.handler.ssl.{SslContext, SslContextBuilder}
@@ -33,6 +35,7 @@ trait CantonServerBuilder {
   def build: Server
 
   def maxInboundMessageSize(bytes: NonNegativeInt): CantonServerBuilder
+
 }
 
 trait CantonMutableHandlerRegistry extends AutoCloseable {
@@ -49,6 +52,10 @@ trait CantonMutableHandlerRegistry extends AutoCloseable {
   def removeService(service: ServerServiceDefinition): CantonMutableHandlerRegistry
 
   def removeServiceU(service: ServerServiceDefinition): Unit = removeService(service).discard
+
+  @VisibleForTesting
+  def streamCounterCheck: Option[StreamCounterCheck]
+
 }
 
 object CantonServerBuilder {
@@ -92,6 +99,10 @@ object CantonServerBuilder {
               .removeService(registry.getServices.get(registry.getServices.size() - 1))
               .discard[Boolean]
           }
+
+        override def streamCounterCheck: Option[StreamCounterCheck] =
+          interceptors.streamCounterCheck
+
       }
 
     override def addService(service: BindableService, withLogging: Boolean): CantonServerBuilder = {
@@ -178,6 +189,7 @@ object CantonServerBuilder {
         config.jwksCacheConfig,
         telemetry,
         additionalInterceptors,
+        config.stream,
       ),
     )
   }

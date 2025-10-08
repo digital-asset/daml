@@ -21,7 +21,7 @@ private[backend] trait StorageBackendTestsTimestamps extends Matchers with Stora
   it should "correctly read ledger effective time using rawEvents" in {
     val let = timestampFromInstant(Instant.now)
     val cid = hashCid("#1")
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = cid,

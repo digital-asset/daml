@@ -110,6 +110,9 @@ final case class SequencerConnections private (
       s"Sequencer trust threshold $sequencerTrustThreshold cannot be greater than number of sequencer connections ${aliasToConnection.size}",
     )
 
+  def withLivenessMargin(sequencerLivenessMargin: NonNegativeInt): SequencerConnections =
+    this.copy(sequencerLivenessMargin = sequencerLivenessMargin)
+
   override protected def pretty: Pretty[SequencerConnections] =
     prettyOfClass(
       param("connections", _.aliasToConnection.forgetNE),

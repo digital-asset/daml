@@ -80,7 +80,7 @@ class LedgerTimeAwareCommandExecutorSpec
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      version = LfSerializationVersion.minVersion,
+      version = LfSerializationVersion.V1,
     )
   )
   private val synchronizerRank =

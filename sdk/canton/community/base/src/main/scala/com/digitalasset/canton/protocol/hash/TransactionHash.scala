@@ -19,7 +19,7 @@ object TransactionHash {
         nodeHashVersion: HashingSchemeVersion,
         version: SerializationVersion,
     ) extends NodeHashingError(
-          s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF versions: ${NodeBuilder.HashingVersionToSupportedLFSerializationVersionMapping
+          s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF serialization versions: ${NodeBuilder.HashingVersionToSupportedLFSerializationVersionMapping
               .getOrElse(nodeHashVersion, Set.empty)
               .mkString(", ")}"
         )

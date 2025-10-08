@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.interfaces
 
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus.ExistingContractStatus
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.google.common.annotations.VisibleForTesting
@@ -64,7 +63,7 @@ object LedgerDaoContractsReader {
 
   sealed trait KeyState extends Product with Serializable
 
-  final case class KeyAssigned(contractId: ContractId, stakeholders: Set[Party]) extends KeyState
+  final case class KeyAssigned(contractId: ContractId) extends KeyState
 
   final case object KeyUnassigned extends KeyState
 }

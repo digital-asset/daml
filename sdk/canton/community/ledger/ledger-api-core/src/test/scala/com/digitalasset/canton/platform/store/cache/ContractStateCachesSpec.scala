@@ -12,10 +12,8 @@ import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.Le
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{CreationTime, Node as LfNode}
-import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueRecord}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.ValueInt64
 import org.mockito.MockitoSugar
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -116,47 +114,17 @@ class ContractStateCachesSpec
     def createEvent(
         withKey: Boolean
     ): ContractStateEvent.Created = {
-      val cId = contractIdx.incrementAndGet()
-
+      val cId = contractId(contractIdx.incrementAndGet())
       val templateId = Identifier.assertFromString(s"some:template:name")
       val packageName = Ref.PackageName.assertFromString("pkg-name")
-      val contractArgument = ValueRecord(
-        Some(templateId),
-        ImmArray(None -> ValueInt64(cId)),
-      )
-      val signatories = Set(Ref.Party.assertFromString(s"party-$cId"))
-      val stakeholders = signatories
-
-      val key =
-        if (withKey)
-          Some(
-            KeyWithMaintainers.assertBuild(
-              templateId,
-              ValueInt64(keyIdx.incrementAndGet()),
-              Set.empty,
-              packageName,
-            )
-          )
-        else
-          None
-
-      val contractInstance =
-        FatContract.fromCreateNode(
-          LfNode.Create(
-            coid = contractId(cId),
-            packageName = Ref.PackageName.assertFromString("pkg-name"),
-            templateId = Identifier.assertFromString(s"some:template:name"),
-            arg = contractArgument,
-            signatories = signatories,
-            stakeholders = stakeholders,
-            keyOpt = key,
-            version = LanguageVersion.Major.V2.maxStableVersion,
-          ),
-          createTime = CreationTime.CreatedAt(Time.Timestamp(cId)),
-          authenticationData = Bytes.Empty,
+      val key = Option.when(withKey)(
+        Key.assertBuild(
+          templateId,
+          ValueInt64(keyIdx.incrementAndGet()),
+          packageName,
         )
-
-      ContractStateEvent.Created(contractInstance)
+      )
+      ContractStateEvent.Created(cId, key)
     }
 
     def archiveEvent(
@@ -165,15 +133,11 @@ class ContractStateCachesSpec
       ContractStateEvent.Archived(
         contractId = create.contractId,
         globalKey = create.globalKey,
-        stakeholders = create.contract.stakeholders,
       )
   }
 
   private def keyAssigned(create: ContractStateEvent.Created) =
-    ContractKeyStateValue.Assigned(
-      create.contractId,
-      create.contract.stakeholders,
-    )
+    ContractKeyStateValue.Assigned(create.contractId)
 
   private def contractId(id: Long): ContractId =
     ContractId.V1(Hash.hashPrivateKey(id.toString))

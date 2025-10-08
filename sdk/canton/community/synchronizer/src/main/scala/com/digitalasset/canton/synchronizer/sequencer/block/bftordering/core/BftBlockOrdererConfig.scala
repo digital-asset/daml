@@ -20,6 +20,7 @@ import com.digitalasset.canton.config.{
   PemFileOrString,
   ServerConfig,
   StorageConfig,
+  StreamLimitConfig,
   TlsClientConfig,
   TlsServerConfig,
   UniformCantonConfigValidation,
@@ -206,7 +207,9 @@ object BftBlockOrdererConfig {
         TlsClientConfig(trustCollectionFile = None, clientCert = None, enabled = true)
       ),
       tls: Option[TlsServerConfig] = None,
-      override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+      override val maxInboundMessageSize: NonNegativeInt =
+        ServerConfig.defaultMaxInboundMessageSize,
+      override val stream: Option[StreamLimitConfig] = None,
   ) extends ServerConfig
       with UniformCantonConfigValidation {
     override val maxTokenLifetime: config.NonNegativeDuration =

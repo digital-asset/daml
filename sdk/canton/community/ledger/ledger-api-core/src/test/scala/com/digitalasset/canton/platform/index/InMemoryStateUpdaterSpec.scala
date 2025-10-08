@@ -57,14 +57,18 @@ import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateSerializationVersion
 import com.digitalasset.daml.lf.transaction.test.{
   NodeIdTransactionBuilder,
   TestNodeBuilder,
   TransactionBuilder,
 }
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId}
+import com.digitalasset.daml.lf.transaction.{
+  CommittedTransaction,
+  Node,
+  NodeId,
+  SerializationVersion as LfSerializationVersion,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -876,7 +880,7 @@ object InMemoryStateUpdaterSpec {
         argument = Value.ValueUnit,
         signatories = Set(party1),
         observers = Set(party2),
-        version = CreateSerializationVersion.Version(LanguageVersion.v2_dev),
+        version = CreateSerializationVersion.Version(LfSerializationVersion.VDev),
       )
   }
   private val someCreateNode = genCreateNode

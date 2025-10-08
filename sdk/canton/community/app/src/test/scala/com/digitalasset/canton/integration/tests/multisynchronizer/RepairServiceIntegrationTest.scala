@@ -66,7 +66,8 @@ abstract class RepairServiceIntegrationTest
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.synchronizers.connect_local(sequencer3, alias = acmeName)
 
-        participant1.dars.upload(CantonExamplesPath)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         payer = participant1.parties.enable(payerName, synchronizer = daName)
         participant1.parties.enable(payerName, synchronizer = acmeName)

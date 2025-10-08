@@ -100,6 +100,7 @@ class ApiPackageManagementServiceSpec
             ByteString.EMPTY,
             aSubmissionId,
             UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+            synchronizerId = "",
           )
         )
         .thereafter { _ =>
@@ -125,6 +126,7 @@ class ApiPackageManagementServiceSpec
                 ByteString.EMPTY,
                 aSubmissionId,
                 UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+                synchronizerId = "",
               )
             )
             .map(_ => succeed)
@@ -141,7 +143,7 @@ class ApiPackageManagementServiceSpec
     "validate a dar" in {
       val apiService = createApiService()
       apiService
-        .validateDarFile(ValidateDarFileRequest(ByteString.EMPTY, aSubmissionId))
+        .validateDarFile(ValidateDarFileRequest(ByteString.EMPTY, aSubmissionId, ""))
         .map { case ValidateDarFileResponse() => succeed }
     }
   }
@@ -162,6 +164,7 @@ object ApiPackageManagementServiceSpec {
         dar: Seq[ByteString],
         submissionId: Ref.SubmissionId,
         vettingChange: UploadDarVettingChange,
+        synchronizerId: Option[SynchronizerId],
     )(implicit
         traceContext: TraceContext
     ): Future[SubmissionResult] = {
@@ -173,7 +176,11 @@ object ApiPackageManagementServiceSpec {
       Future.successful(state.SubmissionResult.Acknowledged)
     }
 
-    override def validateDar(dar: ByteString, darName: String)(implicit
+    override def validateDar(
+        dar: ByteString,
+        darName: String,
+        synchronizerId: Option[SynchronizerId],
+    )(implicit
         traceContext: TraceContext
     ): Future[SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
@@ -282,7 +289,7 @@ object ApiPackageManagementServiceSpec {
         opts: ListVettedPackagesOpts
     )(implicit
         traceContext: TraceContext
-    ): Future[Option[(Seq[EnrichedVettedPackage], PositiveInt)]] =
+    ): Future[Seq[(Seq[EnrichedVettedPackage], SynchronizerId, PositiveInt)]] =
       throw new UnsupportedOperationException()
 
     override def updateVettedPackages(

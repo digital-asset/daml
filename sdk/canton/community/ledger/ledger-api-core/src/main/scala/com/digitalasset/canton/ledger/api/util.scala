@@ -26,6 +26,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -233,15 +234,10 @@ final case class ListVettedPackagesOpts(
     topologyStateFilter: Option[TopologyStateFilter],
 ) {
   def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = { (pkgId: Ref.PackageId) =>
-    val matchesMetadata =
-      packageFilter
-        .map(_.toPredicate(metadata)(pkgId))
-        .getOrElse(true)
+    val matchesMetadata = packageFilter.forall(_.toPredicate(metadata)(pkgId))
 
     val matchesTopologyState =
-      topologyStateFilter
-        .map(_.toPredicate(metadata)(pkgId))
-        .getOrElse(true)
+      topologyStateFilter.forall(_.toPredicate(metadata)(pkgId))
 
     matchesMetadata && matchesTopologyState
   }
@@ -307,7 +303,6 @@ final case class TopologyStateFilter(
       synchronizerIds.map(_.toString),
     )
 
-  // TODO(#27750) Implement filtering by synch/participant
   @nowarn
   def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean =
     (_: Ref.PackageId) => true
@@ -333,6 +328,7 @@ object TopologyStateFilter {
 final case class UpdateVettedPackagesOpts(
     changes: Seq[VettedPackagesChange],
     dryRun: Boolean,
+    synchronizerIdO: Option[SynchronizerId],
 ) {
   def toTargetStates: Seq[SinglePackageTargetVetting[VettedPackagesRef]] =
     for {
@@ -348,10 +344,13 @@ final case class UpdateVettedPackagesOpts(
 object UpdateVettedPackagesOpts {
   def fromProto(
       req: package_management_service.UpdateVettedPackagesRequest
-  ): ParsingResult[UpdateVettedPackagesOpts] =
-    req.changes
+  ): ParsingResult[UpdateVettedPackagesOpts] = for {
+    vettingChanges <- req.changes
       .traverse(VettedPackagesChange.fromProto)
-      .map(UpdateVettedPackagesOpts(_, req.dryRun))
+    synchronizerIdO <- OptionUtil
+      .emptyStringAsNone(req.synchronizerId)
+      .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+  } yield UpdateVettedPackagesOpts(vettingChanges, req.dryRun, synchronizerIdO)
 }
 
 sealed trait VettedPackagesChange {
@@ -432,6 +431,7 @@ object UploadDarVettingChange {
     change match {
       case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_UNSPECIFIED =>
         Right(default)
+
       case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES =>
         Right(VetAllPackages)
       case package_management_service.UploadDarFileRequest.VettingChange.VETTING_CHANGE_DONT_VET_ANY_PACKAGES =>

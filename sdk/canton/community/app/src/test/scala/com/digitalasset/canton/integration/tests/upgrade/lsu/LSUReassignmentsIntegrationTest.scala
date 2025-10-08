@@ -62,7 +62,8 @@ abstract class LSUReassignmentsIntegrationTest extends LSUBase {
         )
         participants.all.synchronizers.connect_local(sequencer2, acmeName)
 
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         synchronizerOwners1.foreach(
           _.topology.synchronizer_parameters.propose_update(
