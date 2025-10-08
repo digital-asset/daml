@@ -8,3 +8,9 @@ spec:
     - path: daml-new-dpm/daml-new${EXE}
       name: new
       desc: Create a new Daml package
+      exec-args: ["new"]
+    - path: daml-new-dpm/daml-new${EXE}
+      name: init
+      desc: Configure a folder as a Daml Package
+      exec-args: ["init"]
+    

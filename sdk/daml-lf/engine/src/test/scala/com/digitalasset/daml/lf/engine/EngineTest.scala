@@ -4,12 +4,26 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.io.File
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.logging.LoggingContext
+import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
+import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
+import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
+import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.command._
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.engine.Error.Interpretation
+import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.speedy.{InitialSeeding, SValue, svalue}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -26,34 +40,20 @@ import com.digitalasset.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx,
 }
+import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
-import Value._
-import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.speedy.{DisclosedContract, InitialSeeding, SValue, svalue}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
-import com.digitalasset.daml.lf.engine.Error.Interpretation
-import com.digitalasset.daml.lf.engine.Error.Interpretation.DamlException
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion, PackageInterface}
-import com.digitalasset.daml.lf.stablepackages.StablePackages
-import com.daml.logging.LoggingContext
-import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
-import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
-import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import org.scalactic.Equality
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.{Assertion, EitherValues}
-import org.scalatest.wordspec.AnyWordSpec
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.Inside._
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, EitherValues}
 
+import java.io.File
 import scala.annotation.nowarn
 import scala.collection.immutable.{ArraySeq, HashMap}
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
 class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
@@ -3066,35 +3066,5 @@ class EngineTestHelpers(
         nodeSeeds :++ meta.nodeSeeds,
       )
     }
-  }
-
-  def buildDisclosedContract(
-      pkg: Package,
-      templateId: Ref.TypeConId,
-      coid: ContractId,
-      signatory: Ref.Party,
-      arg: SValue,
-      keyOpt: Option[Value] = None,
-  ) = {
-    val version = SerializationVersion.assign(pkg.languageVersion)
-    DisclosedContract(
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = coid,
-          packageName = pkg.pkgName,
-          templateId = templateId,
-          arg = arg.toNormalizedValue,
-          signatories = Set(signatory),
-          stakeholders = Set(signatory),
-          keyOpt = keyOpt.map(key =>
-            GlobalKeyWithMaintainers.assertBuild(templateId, key, Set(signatory), pkg.pkgName)
-          ),
-          version = version,
-        ),
-        CreationTime.CreatedAt(Time.Timestamp.now()),
-        Bytes.Empty,
-      ),
-      arg,
-    )
   }
 }

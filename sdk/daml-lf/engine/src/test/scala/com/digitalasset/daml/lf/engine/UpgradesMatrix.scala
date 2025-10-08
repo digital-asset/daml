@@ -1990,7 +1990,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       )
 
     def makeApiCommands(
-        @nowarn("cat=unused") underlyingLedger: UpgradesMatrix.UnderlyingLedger,
+        underlyingLedger: UpgradesMatrix.UnderlyingLedger,
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
@@ -2016,8 +2016,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
         contractOrigin,
         creationPackageStatus,
       ) match {
-        // TODO(https://github.com/digital-asset/daml/issues/21667):
-        //   restrict this blacklisting to the IDE ledger only once canton uses contract IDs v12
         case (
               DifferentlyNamedTemplateArg | DifferentlyNamedFieldInRecordArg |
               DifferentlyRankedConstructorInVariantArg | DifferentlyRankedConstructorInEnumArg,
@@ -2026,7 +2024,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               _,
               Global | Disclosed,
               _,
-            ) /* if underlyingLedger == UpgradesMatrix.IdeLedger */ =>
+            ) if underlyingLedger == UpgradesMatrix.IdeLedger =>
           None
         case (_, _, _, _, Local, CreationPackageUnvetted) =>
           None // local contracts cannot be created from unvetted packages

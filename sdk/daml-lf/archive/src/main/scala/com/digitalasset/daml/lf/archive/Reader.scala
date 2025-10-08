@@ -29,6 +29,7 @@ object ArchivePayload {
       pkgId: PackageId,
       proto: DamlLf2.Package,
       minor: language.LanguageMinorVersion,
+      patch: Int,
   ) extends ArchivePayload {
     val version = LanguageVersion(LanguageMajorVersion.V2, minor)
   }
@@ -72,16 +73,19 @@ object Reader {
   ): Either[Error, ArchivePayload] =
     lf.getSumCase match {
       case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
-        lf1PackageParser
-          .fromByteString(lf.getDamlLf1)
-          .map(
-            ArchivePayload.Lf1(hash, _, LanguageMinorVersion(lf.getMinor))
-          )
+        if (lf.getPatch != 0)
+          Left(Error.Parsing("Patch version is not supported for LF1"))
+        else
+          lf1PackageParser
+            .fromByteString(lf.getDamlLf1)
+            .map(
+              ArchivePayload.Lf1(hash, _, LanguageMinorVersion(lf.getMinor))
+            )
       case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
         val minor = LanguageMinorVersion(lf.getMinor)
         lf2PackageParser(minor)
           .fromByteString(lf.getDamlLf2)
-          .map(ArchivePayload.Lf2(hash, _, LanguageMinorVersion(lf.getMinor)))
+          .map(ArchivePayload.Lf2(hash, _, LanguageMinorVersion(lf.getMinor), lf.getPatch))
       case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
         Left(Error.Parsing("Unrecognized or Unsupported LF version"))
     }
