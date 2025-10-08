@@ -3,6 +3,110 @@
 
 load("@os_info//:os_info.bzl", "is_intel")
 
+# Define each version as a dictionary with structured data.
+_versions_definitions = [
+    {
+        "major": "2",
+        "minor": "1",
+        "status": "stable",
+    },
+    {
+        "major": "2",
+        "minor": "2",
+        "status": "stable",
+        "default": True,
+    },
+    # {
+    #     "major": "2",
+    #     "minor": "3",
+    #     "status": "staging",
+    # },
+    {
+        "major": "2",
+        "minor": "dev",
+        "status": "dev",
+    },
+]
+
+def _to_dotted_version(v):
+    """Converts a single version dictionary to a string like "2.2"."""
+    return "{}.{}".format(v["major"], v["minor"])
+
+def _to_dotted_versions(versions):
+    """Converts a list of version dictionaries to a list of strings."""
+    return [_to_dotted_version(v) for v in versions]
+
+def _get_versions(filter_statuses = None):
+    """Helper to filter versions based on a list of statuses."""
+    if filter_statuses == None:
+        return _versions_definitions
+    return [v for v in _versions_definitions if v["status"] in filter_statuses]
+
+def _get_dotted_versions(filter_statuses=None):
+    """Filters versions and returns them as a list of dotted strings."""
+    versions_as_dicts = _get_versions(filter_statuses)
+    return _to_dotted_versions(versions_as_dicts)
+
+def _init_versions():
+    """
+    Performs all version calculations and returns them in a struct.
+    This encapsulates all logic to avoid top-level 'if' statements.
+    """
+    raw_all_versions = _get_versions()
+    all_versions = _get_dotted_versions()
+    stable_versions = _get_dotted_versions(["stable"])
+
+    if not stable_versions:
+        fail("No stable versions were found. Cannot determine the latest stable version.")
+    latest_stable = stable_versions[-1]
+
+    _default_definitions = [v for v in _versions_definitions if v.get("default")]
+    if len(_default_definitions) != 1:
+        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(_default_definitions)))
+    default_version = _to_dotted_version(_default_definitions[0])
+
+    _dev_definitions = _get_versions(["dev"])
+    if len(_dev_definitions) != 1:
+        fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(_dev_definitions)))
+    dev_version = _to_dotted_version(_dev_definitions[0])
+
+    _staging_versions_list = _get_dotted_versions(["staging"])
+    if _staging_versions_list:
+        staging_version = _staging_versions_list[-1]
+    else:
+        staging_version = latest_stable
+
+    return struct(
+        raw_all = raw_all_versions,
+        all = all_versions,
+        stable = stable_versions,
+        latest_stable = latest_stable,
+        default = default_version,
+        dev = dev_version,
+        staging = staging_version,
+    )
+
+# --- Public interface of this .bzl file ---
+
+# Call the private function once to compute all version variables.
+_versions = _init_versions()
+
+# Export the public API from the returned struct.
+RAW_ALL_VERSIONS = _versions.raw_all
+ALL_VERSIONS = _versions.all
+STABLE_VERSIONS = _versions.stable
+LATEST_STABLE_VERSION = _versions.latest_stable
+DEFAULT_VERSION = _versions.default
+DEV_VERSION = _versions.dev
+STAGING_VERSION = _versions.staging
+
+# renames for backwards compatibility
+# usage depricated, use versions above
+ENGINE_LF_DEV_VERSIONS = [DEV_VERSION]
+ENGINE_LF_VERSIONS = ALL_VERSIONS
+COMPILER_LF_VERSIONS = ALL_VERSIONS
+### End of definitions that rest of file points to
+
 def mangle_for_java(name):
     return name.replace(".", "_")
 
@@ -62,7 +166,7 @@ def version_in(
 
 # The lastest stable version for each major LF version.
 lf_version_latest = {
-    "2": "2.1",
+    "2": LATEST_STABLE_VERSION,
 }
 
 # The following dictionary aliases LF versions to keywords:
@@ -76,11 +180,11 @@ lf_version_latest = {
 # make a new LF release, we bump latest and once we make it the compiler default
 # we bump default.
 lf_version_configuration = {
-    "default": "2.2",
+    "default": DEFAULT_VERSION,
     # latest = latest MAJOR version?
     "latest": lf_version_latest.get("2"),
-    "preview": "2.2",
-    "dev": "2.dev",
+    "preview": STAGING_VERSION,
+    "dev": DEV_VERSION,
 }
 
 # The Daml-LF version used by default by the compiler if it matches the
@@ -108,16 +212,6 @@ def lf_versions_aggregate(versions):
 # in a stable LF version.
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
-# LF dev versions supported by archive reader
-ENGINE_LF_DEV_VERSIONS = ["2.dev"]
-
-# All LF versions supported by the engine
-ENGINE_LF_VERSIONS = ["2.1", "2.2"] + ENGINE_LF_DEV_VERSIONS
-
-# The subset of LF versions accepted by the compiler's --target option.
-# Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["2.1", "2.2"] + ENGINE_LF_DEV_VERSIONS
-
 # LF Versions supported by the dar reader
 READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ENGINE_LF_VERSIONS
 
@@ -139,3 +233,4 @@ LF_DEFAULT_DEV_VERSION = [
     for v in ENGINE_LF_DEV_VERSIONS
     if _major_str(v) == LF_DEFAULT_MAJOR_VERSION
 ][0]
+

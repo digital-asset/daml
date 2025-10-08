@@ -35,7 +35,7 @@ main = withSdkVersions $ do
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
-        let targetDevVersion = LF.version2_dev
+        let targetDevVersion = LF.devVersion
         let exceptionsVersion = minExceptionVersion LF.V2
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-2.dev.dar")
@@ -81,7 +81,7 @@ lfVersionTestPairsV2 =
             sortOn LF.versionMinor $
                 filter (hasMajorVersion LF.V2) LF.supportedOutputVersions
         nPlusOnePairs = zip supportedOutputVersions (tail supportedOutputVersions)
-        selfPair = (LF.version2_dev, LF.version2_dev)
+        selfPair = (LF.devVersion, LF.devVersion)
      in selfPair : nPlusOnePairs
   where
     hasMajorVersion major v = LF.versionMajor v == major

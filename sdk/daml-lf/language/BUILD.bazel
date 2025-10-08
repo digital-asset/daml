@@ -8,6 +8,16 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "RAW_ALL_VERSIONS",
+    "ALL_VERSIONS",
+    "STABLE_VERSIONS",
+    "LATEST_STABLE_VERSION",
+    "DEFAULT_VERSION",
+    "DEV_VERSION",
+    "STAGING_VERSION",
+)
 
 da_scala_library(
     name = "language",
@@ -37,4 +47,41 @@ da_scala_test(
         ":language",
         "//daml-lf/data",
     ],
+)
+
+
+_VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
+
+# A genrule to produce a JSON file from our Starlark data.
+# This acts as a stable interface for our generator script.
+genrule(
+    name = "version_data_json",
+    outs = ["versions.json"],
+    cmd = """
+cat << EOF > $@
+{json}
+EOF
+""".format(
+        # We pass a dictionary to the JSON generator.
+        # This makes the input file self-documenting.
+        json = json.encode({
+            "RAW_ALL": RAW_ALL_VERSIONS,
+            "ALL": ALL_VERSIONS,
+            "STABLE": STABLE_VERSIONS,
+            "LATEST_STABLE": LATEST_STABLE_VERSION,
+            "DEFAULT": DEFAULT_VERSION,
+            "DEV": DEV_VERSION,
+            "STAGING": STAGING_VERSION,
+        }),
+    ),
+    visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+py_binary(
+    name = "generate_haskell_versions",
+    srcs = ["generate_haskell_versions.py"],
+    # If you have dependencies like `six`, add them here.
+    # For this script, we only use standard libraries.
+    deps = [],
+    visibility = _VERSION_GENERATING_PACKAGES,
 )
