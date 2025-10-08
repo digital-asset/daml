@@ -340,7 +340,7 @@ private[lf] object IdeLedgerRunner {
               disclosuresByCoid.get(coid) match {
                 case Some(fcoinst) =>
                   callback(
-                    fcoinst.nonVerbose,
+                    fcoinst.nonVerboseWithoutTrailingNones,
                     Hash.HashingMethod.TypedNormalForm,
                     _ => true, // The IDE ledger doesn't authenticate disclosed contracts
                   )
@@ -352,7 +352,7 @@ private[lf] object IdeLedgerRunner {
                     readAs,
                     (fcoinst: FatContractInstance) =>
                       callback(
-                        fcoinst.nonVerbose,
+                        fcoinst.nonVerboseWithoutTrailingNones,
                         Hash.HashingMethod.TypedNormalForm,
                         _ => true, // The IDE ledger doesn't authenticate input contracts
                       ),

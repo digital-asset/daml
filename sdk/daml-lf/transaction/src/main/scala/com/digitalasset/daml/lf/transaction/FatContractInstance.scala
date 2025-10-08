@@ -55,7 +55,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     version = version,
   )
 
-  def nonVerbose: FatContractInstance
+  def nonVerboseWithoutTrailingNones: FatContractInstance
 }
 
 private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
@@ -120,12 +120,12 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     copy(authenticationData = authenticationData)
   }
 
-  override def nonVerbose: FatContractInstance = FatContractInstanceImpl(
+  override def nonVerboseWithoutTrailingNones: FatContractInstance = FatContractInstanceImpl(
     version,
     contractId,
     packageName,
     templateId,
-    createArg.nonVerbose,
+    createArg.nonVerboseWithoutTrailingNones,
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers.map(_.nonVerbose),
