@@ -423,6 +423,38 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     @Explanation(
+      """This error occurs when trying to hash an ill-formed contract."""
+    )
+    @Resolution(
+      "Ensure that the contract being hashed is a valid contract."
+    )
+    object ContractHashingError
+      extends ErrorCode(
+        id = "CONTRACT_HASHING_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+
+      final case class Reject(
+        override val cause: String,
+        err: LfInterpretationError.ContractHashingError,
+      )(implicit
+        loggingContext: ErrorLoggingContext
+      ) extends DamlErrorWithDefiniteAnswer(
+        cause = cause
+      ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          withEncodedValue(err.createArg) { encodedCreateArg =>
+            Seq(
+              (ErrorResource.ContractId, err.coid.coid),
+              (ErrorResource.TemplateId, err.dstTemplateId.toString),
+              (ErrorResource.ContractArg, encodedCreateArg),
+            )
+          }
+      }
+    }
+
+    @Explanation(
       """This error occurs if a user attempts to provide a key hash for a disclosed contract which we have already cached to be different."""
     )
     @Resolution(
@@ -833,7 +865,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       object ValidationFailed
           extends ErrorCode(
             id = "INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED",
-            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+            ErrorCategory.InvalidIndependentOfSystemState,
           ) {
         final case class Reject(
             override val cause: String,
@@ -875,6 +907,66 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               ++ encodeParties(err.recomputedObservers)
               ++ optKeyResources(err.recomputedKeyOpt)
           }
+        }
+      }
+
+      @Explanation("Contract is malformed or doesn't match the expected type")
+      @Resolution(
+        "Verify that the template used for loading the contract is upgrade-compatible with the template that created it."
+      )
+      object TranslationFailed
+        extends ErrorCode(
+          id = "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+        final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.Upgrade.TranslationFailed,
+        )(implicit
+          loggingContext: ErrorLoggingContext
+        ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+
+          override def resources: Seq[(ErrorResource, String)] =
+            withEncodedValue(err.createArg) { encodedArg =>
+              Seq(
+                (ErrorResource.ContractId.nullable, err.coid.fold("NULL")(_.coid)),
+                (ErrorResource.TemplateId, err.srcTemplateId.toString),
+                (ErrorResource.TemplateId, err.dstTemplateId.toString),
+                (ErrorResource.ContractArg, encodedArg),
+              )
+            }
+        }
+      }
+
+      @Explanation("Cannot authenticate contract")
+      @Resolution(
+        "Verify that the template used for loading the contract is upgrade-compatible with the template that created it."
+      )
+      object AuthenticationFailed
+        extends ErrorCode(
+          id = "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+        final case class Reject(
+          override val cause: String,
+          err: LfInterpretationError.Upgrade.AuthenticationFailed,
+        )(implicit
+          loggingContext: ErrorLoggingContext
+        ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        ) {
+
+          override def resources: Seq[(ErrorResource, String)] =
+            withEncodedValue(err.createArg) { encodedArg =>
+              Seq(
+                (ErrorResource.ContractId, err.coid.coid),
+                (ErrorResource.TemplateId, err.srcTemplateId.toString),
+                (ErrorResource.TemplateId, err.dstTemplateId.toString),
+                (ErrorResource.ContractArg, encodedArg),
+              )
+            }
         }
       }
     }
