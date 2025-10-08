@@ -82,6 +82,12 @@ object LanguageVersion {
     val default = v2_1
     val packageUpgrades = v2_1
 
+    val flatArchive = v2_2
+    val kindInterning = flatArchive
+    val exprInterning = flatArchive
+
+    val explicitPkgImports = v2_2
+
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
 
@@ -95,12 +101,6 @@ object LanguageVersion {
     val bigNumeric = v2_dev
 
     val contractKeys = v2_dev
-
-    val flatArchive = v2_dev
-    val kindInterning = flatArchive
-    val exprInterning = flatArchive
-
-    val explicitPkgImports = v2_dev
 
     val complexAnyType = v2_dev
 
