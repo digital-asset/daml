@@ -770,7 +770,7 @@ class Engine(val config: EngineConfig) {
 
       // meat of the package checks, to check if included = mentioned
       _ <- Either.cond(
-        included.equals(mentioned),
+        included == mentioned,
         (),
         // we set transitiveDependencies to Set.empty because our logic does not generate it anymore
         Error.Package.DarSelfConsistency(
