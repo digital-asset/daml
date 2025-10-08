@@ -2626,7 +2626,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     }
   }
 
-  "legacy contracts" should {
+  "contract authentication" should {
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
     val simpleCid = toContractId("simple")
@@ -2710,7 +2710,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       (Hash.HashingMethod.TypedNormalForm, expectedTypedNormalFormHash),
     )
 
-    "be authenticated on fetch" in {
+    "happen on fetch" in {
       forEvery(cases) { case (hashingMethod, expectedHash) =>
         var idValidatorCalledWithExpectedHash = false
         val result = run(
@@ -2737,7 +2737,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       }
     }
 
-    "be authenticated on exercise" in {
+    "happen on exercise" in {
       forEvery(cases) { case (hashingMethod, expectedHash) =>
         var idValidatorCalledWithExpectedHash = false
         val result = run(
