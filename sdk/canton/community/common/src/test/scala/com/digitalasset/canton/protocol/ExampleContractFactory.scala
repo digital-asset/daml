@@ -9,7 +9,6 @@ import com.digitalasset.canton.util.{LfTransactionBuilder, TestContractHasher}
 import com.digitalasset.canton.{LfPartyId, protocol}
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -49,7 +48,7 @@ object ExampleContractFactory extends EitherValues {
       signatories: Set[Ref.Party] = Set(signatory),
       stakeholders: Set[Ref.Party] = Set(signatory, observer, extra),
       keyOpt: Option[GlobalKeyWithMaintainers] = None,
-      version: LanguageVersion = LanguageVersion.default,
+      version: LfSerializationVersion = LfTransactionBuilder.defaultSerializationVersion,
       cantonContractIdVersion: CantonContractIdV1Version = CantonContractIdVersion.maxV1,
       overrideContractId: Option[ContractId] = None,
   ): GenContractInstance { type InstCreatedAtTime <: Time } = {

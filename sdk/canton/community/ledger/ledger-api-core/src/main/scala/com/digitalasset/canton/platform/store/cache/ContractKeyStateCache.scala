@@ -35,8 +35,7 @@ sealed trait ContractKeyStateValue extends Product with Serializable
 
 object ContractKeyStateValue {
 
-  final case class Assigned(contractId: ContractId, createWitnesses: Set[Party])
-      extends ContractKeyStateValue
+  final case class Assigned(contractId: ContractId) extends ContractKeyStateValue
 
   final case object Unassigned extends ContractKeyStateValue
 }

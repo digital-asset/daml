@@ -3,7 +3,11 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
-import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfSerializationVersion,
+  LfVersionedTransaction,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.*
@@ -40,7 +44,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
    version needs high protocol version).
    */
   lazy val fixtureSerializationVersion: LfSerializationVersion =
-    LfSerializationVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions.collect {
+    LfSerializationVersionToProtocolVersions.lfSerializationVersionToMinimumProtocolVersions.collect {
       case (txVersion, protocolVersion) if protocolVersion <= BaseTest.testedProtocolVersion =>
         txVersion
     }.last
@@ -84,11 +88,10 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
 
   object Transactions {
 
-    private[this] val DefaultLfVersion =
-      LfLanguageVersion.StableVersions(LfLanguageVersion.Major.V2).max
+    private[this] val DefaultLfSerializationVersion = LfSerializationVersion.V1
 
     def buildExerciseNode(
-        version: LfLanguageVersion,
+        version: LfSerializationVersion,
         inputContractId: LfContractId,
         signatory: LfPartyId,
         observer: LfPartyId,
@@ -122,7 +125,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
       val correctPackages: Seq[VettedPackage] = VettedPackage.unbounded(Seq(defaultPackageId))
 
       def tx(
-          version: LfLanguageVersion = DefaultLfVersion
+          version: LfSerializationVersion = DefaultLfSerializationVersion
       ): LfVersionedTransaction = {
         import SimpleTopology.*
         TreeTransactionBuilder.toVersionedTransaction(
@@ -140,7 +143,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
     }
 
     final case class ThreeExercises(
-        version: LfLanguageVersion = DefaultLfVersion
+        version: LfSerializationVersion = DefaultLfSerializationVersion
     ) {
 
       import SimpleTopology.*
@@ -168,7 +171,7 @@ private[submission] object SynchronizerSelectionFixture extends TestIdFactory {
     }
 
     final case class ExerciseByInterface(
-        version: LfLanguageVersion = DefaultLfVersion
+        version: LfSerializationVersion = DefaultLfSerializationVersion
     ) {
       import ExerciseByInterface.*
       import SimpleTopology.*

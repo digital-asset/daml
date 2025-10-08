@@ -103,12 +103,13 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       dar: Seq[ByteString],
       submissionId: Ref.SubmissionId,
       vettingChange: UploadDarVettingChange,
+      synchronizerId: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
     Timed.future(
       metrics.services.write.uploadPackages,
-      delegate.uploadDar(dar, submissionId, vettingChange),
+      delegate.uploadDar(dar, submissionId, vettingChange, synchronizerId),
     )
 
   override def allocateParty(
@@ -182,12 +183,16 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       delegate.getLfArchive(packageId),
     )
 
-  override def validateDar(dar: ByteString, darName: String)(implicit
+  override def validateDar(
+      dar: ByteString,
+      darName: String,
+      synchronizerId: Option[SynchronizerId],
+  )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
     Timed.future(
       metrics.services.read.validateDar,
-      delegate.validateDar(dar, darName),
+      delegate.validateDar(dar, darName, synchronizerId),
     )
 
   override def updateVettedPackages(
@@ -204,7 +209,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       opts: ListVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[(Seq[EnrichedVettedPackage], PositiveInt)]] =
+  ): Future[Seq[(Seq[EnrichedVettedPackage], SynchronizerId, PositiveInt)]] =
     Timed.future(
       metrics.services.read.listVettedPackages,
       delegate.listVettedPackages(opts),

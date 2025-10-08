@@ -30,6 +30,25 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration.Duration
 import scala.math.Ordering.Implicits.infixOrderingOps
 
+/** Configuration to limit the number of open streams per service
+  *
+  * @param limits
+  *   map of service name to maximum number of parallel open streams
+  * @param warnOnUndefinedLimits
+  *   emit warning if a limit is not configured for a stream
+  */
+final case class StreamLimitConfig(
+    limits: Map[String, NonNegativeInt] = Map.empty,
+    warnOnUndefinedLimits: Boolean = true,
+) extends UniformCantonConfigValidation
+
+object StreamLimitConfig {
+  implicit val streamLimitConfigCantonConfigValidator: CantonConfigValidator[StreamLimitConfig] = {
+    import CantonConfigValidatorInstances.*
+    CantonConfigValidatorDerivation[StreamLimitConfig]
+  }
+}
+
 /** Configuration for hosting a server api */
 trait ServerConfig extends Product with Serializable {
 
@@ -94,6 +113,9 @@ trait ServerConfig extends Product with Serializable {
   /** settings for the jwks cache */
   def jwksCacheConfig: JwksCacheConfig
 
+  /** configure limits for open streams per service */
+  def stream: Option[StreamLimitConfig]
+
   /** Use the configuration to instantiate the interceptors for this server */
   def instantiateServerInterceptors(
       tracingConfig: TracingConfig,
@@ -107,6 +129,7 @@ trait ServerConfig extends Product with Serializable {
       jwksCacheConfig: JwksCacheConfig,
       telemetry: Telemetry,
       additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
+      streamLimits: Option[StreamLimitConfig],
   ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
@@ -119,6 +142,7 @@ trait ServerConfig extends Product with Serializable {
     jwksCacheConfig,
     telemetry,
     additionalInterceptors,
+    streamLimits,
   )
 
 }
@@ -144,6 +168,7 @@ final case class AdminServerConfig(
     override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
     override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf),
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
+    override val stream: Option[StreamLimitConfig] = None,
 ) extends ServerConfig
     with UniformCantonConfigValidation {
   def clientConfig: FullClientConfig =

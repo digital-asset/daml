@@ -7,14 +7,14 @@ import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Thereafter
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{Thereafter, TryUtil}
 
 import java.util.concurrent.Semaphore
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 /** Mix-in for keeping track of a set of the readers. Used for implementing the
   * [[HasSynchronizeWithClosing]] logic: Each computation acquires one permit before it starts and
@@ -59,14 +59,12 @@ trait HasSynchronizeWithReaders extends HasSynchronizeWithClosing {
       name: String
   )(f: => F[A])(implicit traceContext: TraceContext, F: Thereafter[F]): UnlessShutdown[F[A]] =
     addReader(name).map { handle =>
-      Try(f) match {
-        case Success(fa) =>
-          fa.thereafter { _ =>
-            removeReader(handle)
-          }
-        case Failure(error) =>
+      TryUtil.tryCatchInterrupted(f) match {
+        case Failure(exception) =>
           removeReader(handle)
-          throw error
+          throw exception
+        case Success(value) =>
+          value.thereafter(_ => removeReader(handle))
       }
     }
 
@@ -113,32 +111,50 @@ trait HasSynchronizeWithReaders extends HasSynchronizeWithClosing {
     val deadline = synchronizeWithClosingPatience.fromNow
 
     @tailrec def poll(patienceMillis: Long): Boolean = {
-      val acquired = readerSemaphore.tryAcquire(
-        // Grab all of the permits at once
-        Int.MaxValue,
-        patienceMillis,
-        java.util.concurrent.TimeUnit.MILLISECONDS,
-      )
-      if (acquired) true
-      else {
-        val timeLeft = deadline.timeLeft
-        if (timeLeft < zeroDuration) {
-          logger.warn(
-            s"Timeout $synchronizeWithClosingPatience expired, but readers are still active. Shutting down forcibly."
+      val acquireE =
+        try {
+          Right(
+            readerSemaphore.tryAcquire(
+              // Grab all the permits at once
+              Int.MaxValue,
+              patienceMillis,
+              java.util.concurrent.TimeUnit.MILLISECONDS,
+            )
           )
-          logger.debug(s"Active readers: ${readerUnderapproximation.keys.mkString(",")}")
-          dumpRunning()
-          false
-        } else {
-          val readerCount = Int.MaxValue - readerSemaphore.availablePermits()
-          val nextPatienceMillis =
-            (patienceMillis * 2) min maxSleepMillis min timeLeft.toMillis
-          logger.debug(
-            s"At least $readerCount active readers prevent closing. Next log message in ${nextPatienceMillis}ms. Active readers: ${readerUnderapproximation.keys
-                .mkString(",")}"
-          )
-          poll(nextPatienceMillis)
+        } catch {
+          case exception: InterruptedException =>
+            Left(exception)
         }
+
+      acquireE match {
+        case Left(interruptException) =>
+          logger.warn(
+            s"Thread was interrupted while acquiring the reader semaphore. Forcibly shutting down.",
+            interruptException,
+          )
+          false
+        case Right(acquired) =>
+          if (acquired) true
+          else {
+            val timeLeft = deadline.timeLeft
+            if (timeLeft < zeroDuration) {
+              logger.warn(
+                s"Timeout $synchronizeWithClosingPatience expired, but readers are still active. Shutting down forcibly."
+              )
+              logger.debug(s"Active readers: ${readerUnderapproximation.keys.mkString(",")}")
+              dumpRunning()
+              false
+            } else {
+              val readerCount = Int.MaxValue - readerSemaphore.availablePermits()
+              val nextPatienceMillis =
+                (patienceMillis * 2) min maxSleepMillis min timeLeft.toMillis
+              logger.debug(
+                s"At least $readerCount active readers prevent closing. Next log message in ${nextPatienceMillis}ms. Active readers: ${readerUnderapproximation.keys
+                    .mkString(",")}"
+              )
+              poll(nextPatienceMillis)
+            }
+          }
       }
     }
 

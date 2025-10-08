@@ -34,7 +34,7 @@ private[platform] class MutableCacheBackedContractStore(
       loggingContext: LoggingContextWithTrace
   ): Future[Option[FatContract]] =
     lookupContractState(contractId)
-      .flatMap(contractStateToResponse(readers))
+      .map(contractStateToResponse(readers))
 
   override def lookupContractState(
       contractId: ContractId
@@ -67,7 +67,7 @@ private[platform] class MutableCacheBackedContractStore(
       .get(key)
       .map(Future.successful)
       .getOrElse(readThroughKeyCache(key))
-      .map(keyStateToResponse(_, readers))
+      .flatMap(keyStateToResponse(_, readers))
 
   private def readThroughContractsCache(contractId: ContractId)(implicit
       loggingContext: LoggingContextWithTrace
@@ -81,28 +81,31 @@ private[platform] class MutableCacheBackedContractStore(
   private def keyStateToResponse(
       value: ContractKeyStateValue,
       readers: Set[Party],
-  ): Option[ContractId] = value match {
-    case Assigned(contractId, createWitnesses) if nonEmptyIntersection(readers, createWitnesses) =>
-      Some(contractId)
-    case _: Assigned | Unassigned => Option.empty
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[ContractId]] = value match {
+    case Assigned(contractId) =>
+      lookupContractState(contractId).map(
+        contractStateToResponse(readers)(_).map(_.contractId)
+      )
+
+    case _: Assigned | Unassigned => Future.successful(None)
   }
 
   private def contractStateToResponse(readers: Set[Party])(
       value: index.ContractState
-  ): Future[Option[FatContract]] =
+  ): Option[FatContract] =
     value match {
       case ContractState.Active(contract) if nonEmptyIntersection(contract.stakeholders, readers) =>
-        Future.successful(Some(contract))
+        Some(contract)
       case _ =>
-        Future.successful(Option.empty)
+        None
     }
 
   private val toContractCacheValue: Option[ExistingContractStatus] => ContractStateStatus =
     _.getOrElse(ContractStateStatus.NotFound)
 
   private val toKeyCacheValue: KeyState => ContractKeyStateValue = {
-    case LedgerDaoContractsReader.KeyAssigned(contractId, stakeholders) =>
-      Assigned(contractId, stakeholders)
+    case LedgerDaoContractsReader.KeyAssigned(contractId) =>
+      Assigned(contractId)
     case LedgerDaoContractsReader.KeyUnassigned =>
       Unassigned
   }

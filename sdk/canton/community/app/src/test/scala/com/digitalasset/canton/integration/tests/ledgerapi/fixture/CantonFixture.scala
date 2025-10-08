@@ -85,7 +85,7 @@ trait CantonFixtureAbstract
 
         createChannel(participant1)
 
-        participant1.dars.upload(CantonTestsPath)
+        participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
       }
 
   protected val channels = TrieMap[String, CloseableChannel]()

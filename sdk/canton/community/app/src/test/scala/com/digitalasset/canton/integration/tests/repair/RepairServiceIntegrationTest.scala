@@ -46,6 +46,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
 import org.scalatest.{Assertion, Tag}
 
+import java.time.Duration
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.concurrent.{Future, Promise}
@@ -97,7 +98,8 @@ sealed trait RepairServiceIntegrationTest
 
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
       participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
-      participant1.dars.upload(cantonTestsPath)
+      participant1.dars.upload(cantonTestsPath, synchronizerId = daId)
+      participant1.dars.upload(cantonTestsPath, synchronizerId = acmeId)
       eventually()(assert(participant1.synchronizers.is_connected(daId)))
 
       participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
@@ -404,6 +406,37 @@ sealed trait RepairServiceIntegrationTestStableLf
             _.commandFailureMessage should include(
               "Failed to authenticate contract with id"
             ),
+          )
+        }
+      }
+
+      // TODO(#24610): Add test cases for ContractImportMode.ACCEPT to showcase that authentication is bypassed
+      "contract authentication fails" in { implicit env =>
+        withParticipantsInitialized { (alice, bob) =>
+          import env.*
+
+          val contract = withSynchronizerConnected(daName) {
+            createContractInstance(participant1, daName, daId, alice, bob, "YEN")
+          }
+
+          val modifiedContract = {
+            val fci = contract.contract
+            contract.copy(contract =
+              LfFatContractInst.fromCreateNode(
+                fci.toCreateNode,
+                fci.createdAt.copy(fci.createdAt.time.add(Duration.ofSeconds(1337L))),
+                fci.authenticationData,
+              )
+            )
+          }
+
+          loggerFactory.assertThrowsAndLogs[CommandFailure](
+            participant1.repair.add(
+              acmeId,
+              testedProtocolVersion,
+              Seq(modifiedContract),
+            ),
+            _.commandFailureMessage should include(s"Failed to authenticate contract with id"),
           )
         }
       }
@@ -806,7 +839,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(
-                ExampleTransactionFactory.SerializationVersion,
+                ExampleTransactionFactory.serializationVersion,
                 ValueRecord(None, ImmArray(None -> ValueParty(alice.toLf))),
               ),
             )

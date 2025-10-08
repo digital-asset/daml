@@ -202,7 +202,7 @@ trait TrafficControlTest
     val clock = env.environment.simClock.value
     // Re-fill the base rate to give some credit to the mediator, still won't be enough for the submission request though
     clock.advance(trafficControlParameters.maxBaseTrafficAccumulationDuration.asJava)
-    participant1.ledger_api.packages.upload_dar(CantonTestsPath)
+    participant1.ledger_api.packages.upload_dar(CantonTestsPath, synchronizerId = daId)
 
     val alice = participant1.parties.enable(
       "Alice",

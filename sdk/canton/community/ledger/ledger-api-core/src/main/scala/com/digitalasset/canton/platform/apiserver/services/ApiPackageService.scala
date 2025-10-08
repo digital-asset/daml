@@ -138,13 +138,13 @@ private[apiserver] final class ApiPackageService(
           .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
         result <- packageSyncService.listVettedPackages(opts)
       } yield ListVettedPackagesResponse(
-        vettedPackages = result.toList.map { case (packages, serial) =>
+        vettedPackages = result.map { case (packages, synchronizerId, serial) =>
           VettedPackages(
             packages = packages.map(_.toProtoLAPI),
             // TODO(#27750) Populate these fields and assert over them when
-            // updates and queries can specify target synchronizers
+            // updates and queries can specify target participants
             participantId = "",
-            synchronizerId = "",
+            synchronizerId = synchronizerId.toProtoPrimitive,
             topologySerial = Some(PriorTopologySerialExists(serial.value).toProtoLAPI),
           )
         },

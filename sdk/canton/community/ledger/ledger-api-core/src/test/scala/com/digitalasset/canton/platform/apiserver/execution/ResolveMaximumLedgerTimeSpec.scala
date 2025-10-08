@@ -90,7 +90,7 @@ class ResolveMaximumLedgerTimeSpec
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      version = LfSerializationVersion.minVersion,
+      version = LfSerializationVersion.V1,
     )
 
   private def contractId(id: Int): ContractId =

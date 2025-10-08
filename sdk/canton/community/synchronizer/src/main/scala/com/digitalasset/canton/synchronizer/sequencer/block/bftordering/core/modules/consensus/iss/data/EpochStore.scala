@@ -58,7 +58,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
   protected def addPrePrepareActionName(prePrepare: SignedMessage[PrePrepare]): String =
     s"add PrePrepare ${prePrepare.message.blockMetadata.blockNumber} epoch: ${prePrepare.message.blockMetadata.epochNumber}"
 
-  def addPrepares(prepares: Seq[SignedMessage[Prepare]])(implicit
+  def addPreparesAtomically(prepares: Seq[SignedMessage[Prepare]])(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]
 
@@ -91,7 +91,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
       s"add ViewChange for ${viewChange.viewNumber} and blockMetadata ${viewChange.blockMetadata}"
   }
 
-  def addOrderedBlock(
+  def addOrderedBlockAtomically(
       prePrepare: SignedMessage[PrePrepare],
       commitMessages: Seq[SignedMessage[Commit]],
   )(implicit

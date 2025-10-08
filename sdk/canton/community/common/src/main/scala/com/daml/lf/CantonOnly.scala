@@ -6,8 +6,8 @@ package com.digitalasset.daml.lf
 import com.digitalasset.canton.protocol.{
   LfNode,
   LfNodeId,
-  LfTransaction,
   LfSerializationVersion,
+  LfTransaction,
   LfVersionedTransaction,
 }
 import com.digitalasset.daml.lf.data.ImmArray

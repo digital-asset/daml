@@ -64,9 +64,9 @@ class InvalidPackagePreferenceIntegrationTest
   "setup the stage" in { implicit env =>
     import env.*
     pureCryptoRef.set(sequencer1.crypto.pureCrypto)
+    participant1.synchronizers.connect_local(sequencer1, alias = daName)
     participant1.dars.upload(UpgradingBaseTest.UpgradeV1)
     participant1.dars.upload(UpgradingBaseTest.UpgradeV2)
-    participants.all.synchronizers.connect_local(sequencer1, alias = daName)
     participant1.parties.enable("alice")
   }
 

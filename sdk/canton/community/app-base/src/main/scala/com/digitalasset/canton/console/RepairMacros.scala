@@ -315,7 +315,16 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         val files = darsDir.list
         files.filter(_.name.endsWith(".dar")).foreach { file =>
           logger.info(s"Uploading DAR file $file")
-          node.dars.upload(file.pathAsString, synchronizeVetting = false).discard[String]
+          node.dars
+            .upload(
+              file.pathAsString,
+              // Do not vet, because the DAR may not have been vetted on the
+              // previous participant, and because vetting all recovered DARs
+              // may not be possible.
+              vetAllPackages = false,
+              synchronizeVetting = false,
+            )
+            .discard[String]
         }
       }
   }

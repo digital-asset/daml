@@ -8,8 +8,10 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Sequen
   Ids,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  CommonEventProperties,
   Entry,
   RawCreatedEventLegacy,
+  ThinCreatedEventProperties,
   UnassignProperties,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.PaginationInput
@@ -18,6 +20,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.{Ref, Time}
+import org.scalactic.Equality
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -29,7 +32,9 @@ private[backend] trait StorageBackendTestsReassignmentEvents
   this: AnyFlatSpec =>
 
   import StorageBackendTestValues.*
-  import DbDtoEq.*
+  import ScalatestEqualityHelpers.eqOptArray
+
+  implicit val dbDtoEq: Equality[DbDto] = ScalatestEqualityHelpers.DbDtoEq
 
   private val emptyTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
@@ -355,7 +360,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
   it should "return the correct assign events" in {
     val dbDtos = Vector(
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
@@ -363,7 +368,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         nodeId = 24,
         internalContractId = 42L,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
@@ -477,14 +482,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
   it should "return the correct unassign events" in {
     val dbDtos = Vector(
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         commandId = "command id 1",
         nodeId = 24,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
@@ -578,14 +583,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     TraceContext.withNewTraceContext("test") { aTraceContext =>
       val serializableTraceContext = SerializableTraceContext(aTraceContext).toDamlProto.toByteArray
       val dbDtos = Vector(
-        dtoAssign(
+        dtoAssignLegacy(
           offset = offset(1),
           eventSequentialId = 1L,
           contractId = hashCid("#1"),
           commandId = "command id 1",
           traceContext = emptyTraceContext,
         ),
-        dtoAssign(
+        dtoAssignLegacy(
           offset = offset(2),
           eventSequentialId = 2L,
           contractId = hashCid("#2"),
@@ -613,14 +618,14 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     TraceContext.withNewTraceContext("test") { aTraceContext =>
       val serializableTraceContext = SerializableTraceContext(aTraceContext).toDamlProto.toByteArray
       val dbDtos = Vector(
-        dtoUnassign(
+        dtoUnassignLegacy(
           offset = offset(1),
           eventSequentialId = 1L,
           contractId = hashCid("#1"),
           commandId = "command id 1",
           traceContext = emptyTraceContext,
         ),
-        dtoUnassign(
+        dtoUnassignLegacy(
           offset = offset(2),
           eventSequentialId = 2L,
           contractId = hashCid("#2"),
@@ -646,9 +651,9 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
   behavior of "active contract batch lookup for contracts"
 
-  it should "return the correct active contracts from create events, and only if not archived/unassigned" in {
+  it should "return the correct active contracts from create events, and only if not archived/unassigned legacy" in {
     val dbDtos = Vector(
-      dtoCreate(
+      dtoCreateLegacy(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
@@ -657,7 +662,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         authenticationData = someAuthenticationDataBytes,
         internalContractId = 42L,
       ),
-      dtoCreate(
+      dtoCreateLegacy(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
@@ -667,27 +672,27 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         representativePackageId = someRepresentativePackageId,
         internalContractId = 43L,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset = offset(3),
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
         synchronizerId = someSynchronizerId2,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(4),
         eventSequentialId = 4L,
         contractId = hashCid("#2"),
         sourceSynchronizerId = someSynchronizerId2,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
         synchronizerId = someSynchronizerId,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
@@ -769,15 +774,80 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     )
   }
 
+  it should "return the correct active contracts from create events" in {
+    val dbDtos = Vector(
+      dtosCreate(
+        event_offset = 1,
+        event_sequential_id = 1L,
+        notPersistedContractId = hashCid("#1"),
+        command_id = Some("command id 1"),
+        synchronizer_id = someSynchronizerId,
+      )(),
+      dtosAssign(
+        event_offset = 2,
+        event_sequential_id = 2L,
+        notPersistedContractId = hashCid("#2"),
+        command_id = Some("command id 2"),
+      )(),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(updateLedgerEnd(offset(11), 11L))
+
+    executeSql(
+      backend.event.activeContractBatch(
+        eventSequentialIds = List(1, 2),
+        allFilterParties = Some(Set(Ref.Party.assertFromString("stakeholder1"))),
+        endInclusive = 6,
+      )
+    ) should contain theSameElementsInOrderAs Vector(
+      EventStorageBackend.RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 1L,
+          offset = 1,
+          nodeId = 15,
+          workflowId = Some("workflow-id"),
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = "representativepackage",
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = Some(Set("stakeholder1")),
+          reassignmentCounter = 0L,
+          acsDelta = true,
+        ),
+      ),
+      EventStorageBackend.RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 2L,
+          offset = 2,
+          nodeId = 15,
+          workflowId = Some("workflow-id"),
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = "representativepackage",
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = Some(Set("stakeholder1")),
+          reassignmentCounter = 345L,
+          acsDelta = true,
+        ),
+      ),
+    )
+  }
+
   it should "return the correct active contracts from assign events, and only if not archived/unassigned" in {
     val dbDtos = Vector(
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
         sourceSynchronizerId = someSynchronizerId,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#1"),
@@ -785,7 +855,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         targetSynchronizerId = someSynchronizerId,
         internalContractId = 42L,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(3),
         eventSequentialId = 3L,
         contractId = hashCid("#2"),
@@ -793,27 +863,27 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         targetSynchronizerId = someSynchronizerId,
         internalContractId = 43L,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset = offset(4),
         eventSequentialId = 4L,
         consuming = true,
         contractId = hashCid("#2"),
         synchronizerId = someSynchronizerId2,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(5),
         eventSequentialId = 5L,
         contractId = hashCid("#2"),
         sourceSynchronizerId = someSynchronizerId2,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
         synchronizerId = someSynchronizerId,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
@@ -914,7 +984,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     val synchronizerId4 = SynchronizerId.tryFromString("x::synchronizer4")
 
     val dbDtos = Vector(
-      dtoCreate(
+      dtoCreateLegacy(
         offset = offset(1),
         eventSequentialId = 1L,
         contractId = hashCid("#1"),
@@ -922,7 +992,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         synchronizerId = synchronizerId1,
         authenticationData = someAuthenticationDataBytes,
       ),
-      dtoCreate(
+      dtoCreateLegacy(
         offset = offset(2),
         eventSequentialId = 2L,
         contractId = hashCid("#2"),
@@ -930,72 +1000,72 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         synchronizerId = synchronizerId1,
         authenticationData = someAuthenticationDataBytes,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset = offset(3),
         eventSequentialId = 3L,
         consuming = true,
         contractId = hashCid("#2"),
         synchronizerId = synchronizerId2,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(4),
         eventSequentialId = 4L,
         contractId = hashCid("#2"),
         sourceSynchronizerId = synchronizerId2,
         targetSynchronizerId = synchronizerId1,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(5),
         eventSequentialId = 5L,
         contractId = hashCid("#2"),
         sourceSynchronizerId = synchronizerId2,
         targetSynchronizerId = synchronizerId1,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(6),
         eventSequentialId = 6L,
         contractId = hashCid("#2"),
         sourceSynchronizerId = synchronizerId3,
         targetSynchronizerId = synchronizerId4,
       ),
-      dtoExercise(
+      dtoExerciseLegacy(
         offset = offset(10),
         eventSequentialId = 10L,
         consuming = true,
         contractId = hashCid("#2"),
         synchronizerId = synchronizerId1,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(11),
         eventSequentialId = 11L,
         contractId = hashCid("#1"),
         sourceSynchronizerId = synchronizerId1,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(12),
         eventSequentialId = 12L,
         contractId = hashCid("#1"),
         targetSynchronizerId = synchronizerId2,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(13),
         eventSequentialId = 13L,
         contractId = hashCid("#2"),
         targetSynchronizerId = synchronizerId2,
       ),
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset = offset(14),
         eventSequentialId = 14L,
         contractId = hashCid("#2"),
         sourceSynchronizerId = synchronizerId2,
       ),
-      dtoAssign(
+      dtoAssignLegacy(
         offset = offset(15),
         eventSequentialId = 15L,
         contractId = hashCid("#2"),
         targetSynchronizerId = synchronizerId2,
       ),
-      dtoCreate(
+      dtoCreateLegacy(
         offset = offset(16),
         eventSequentialId = 16L,
         contractId = hashCid("#3"),
@@ -1110,7 +1180,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       actual: Option[Array[Byte]],
       expected: Option[Array[Byte]],
   ): Option[Array[Byte]] = {
-    actual should equal(expected)
+    actual shouldEqual expected
     expected
   }
 

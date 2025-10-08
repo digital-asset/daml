@@ -21,7 +21,7 @@ final class SimulationEpochStore(failOnViewChange: Boolean)
     SimulationFuture(action)(value)
   override def close(): Unit = ()
 
-  override def addOrderedBlock(
+  override def addOrderedBlockAtomically(
       prePrepare: SignedMessage[ConsensusMessage.PrePrepare],
       commitMessages: Seq[SignedMessage[ConsensusMessage.Commit]],
   )(implicit traceContext: TraceContext): SimulationFuture[Unit] = {
@@ -33,6 +33,6 @@ final class SimulationEpochStore(failOnViewChange: Boolean)
       }
     }
 
-    super.addOrderedBlock(prePrepare, commitMessages)
+    super.addOrderedBlockAtomically(prePrepare, commitMessages)
   }
 }

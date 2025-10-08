@@ -89,9 +89,9 @@ trait InteractiveSubmissionIntegrationTestSetup
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
         import env.*
-        participants.all.dars.upload(CantonExamplesPath)
-        participants.all.dars.upload(CantonTestsPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
 
         aliceE = cpn.parties.external.enable("Alice")
       }
@@ -844,11 +844,11 @@ class InteractiveSubmissionMultiSynchronizerIntegrationTest
     EnvironmentDefinition.P1_S1M1_S1M1_S1M1
       .withSetup { implicit env =>
         import env.*
-        participants.all.dars.upload(CantonExamplesPath)
-        participants.all.dars.upload(CantonTestsPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
         participants.all.synchronizers.connect_local(sequencer3, alias = repairSynchronizerName)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
 
@@ -939,14 +939,12 @@ class InteractiveSubmissionIntegrationTestTimeouts
     loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
       cpn.synchronizers.reconnect_all(),
       LogEntry.assertLogSeq(
+        Seq.empty,
         Seq(
-          (
-            _.warningMessage should (include("Response message for request") and include(
-              "timed out"
-            )),
-            "expected timed out message",
-          )
-        )
+          _.warningMessage should (include("Response message for request") and include(
+            "timed out"
+          ))
+        ),
       ),
     )
   }

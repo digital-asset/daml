@@ -71,7 +71,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
   }
 
   "SerializableContract.fromFatContract" when {
-    val serializationVersion = LfLanguageVersion.v2_dev
+    val serializationVersion = LfSerializationVersion.V1
 
     val createdAt = LfTimestamp.Epoch
     val contractSalt = TestSalt.generateSalt(0)

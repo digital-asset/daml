@@ -92,13 +92,14 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
 
         participants.local.start()
         participants.local.synchronizers.connect_local(sequencer1, daName)
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
         alice = participant1.parties.enable(
           aliceName,
           synchronizeParticipants = Seq(participant2),
           synchronizer = Some(daName),
         )
         participant1.synchronizers.connect_local(sequencer2, acmeName)
+        participant1.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         participant1.parties.enable(aliceName, synchronizer = Some(acmeName)).discard
       }
 

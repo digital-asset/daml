@@ -59,8 +59,8 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
           )
         )
 
-        participants.all.dars.upload(CantonExamplesPath)
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        participants.all.dars.upload(CantonExamplesPath)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
 

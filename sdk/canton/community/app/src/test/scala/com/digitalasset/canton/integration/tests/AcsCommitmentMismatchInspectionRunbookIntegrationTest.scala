@@ -89,7 +89,8 @@ trait AcsCommitmentMismatchInspectionRunbookIntegrationTest
         connect(participant1, minObservationDuration)
         connect(participant2, minObservationDuration)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.foreach(_.dars.upload(CantonExamplesPath, synchronizerId = daId))
+        participants.all.foreach(_.dars.upload(CantonExamplesPath, synchronizerId = acmeId))
         passTopologyRegistrationTimeout(env)
       }
 

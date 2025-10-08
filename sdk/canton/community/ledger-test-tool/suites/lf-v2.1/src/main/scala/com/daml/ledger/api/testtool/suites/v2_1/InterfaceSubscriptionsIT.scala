@@ -781,7 +781,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
     implicit val loggingContext: LoggingContext = LoggingContext.ForTesting
 
     for {
-      _ <- ledger.uploadDarFile(Dars.read(Carbonv1TestDar.path))
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(Carbonv1TestDar.path))
 
       txReq <- getTransactionsRequest(
         transactionFormat(
@@ -802,7 +802,7 @@ abstract class InterfaceSubscriptionsITBase(prefix: String) extends LedgerTestSu
       )
       _ = assertEquals(transactionFuture.isCompleted, false)
 
-      _ <- ledger.uploadDarFile(Dars.read(Carbonv2TestDar.path))
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(Carbonv2TestDar.path))
 
       _ = assertEquals(transactionFuture.isCompleted, false)
 

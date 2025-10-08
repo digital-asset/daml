@@ -244,7 +244,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Store a block that will be sent by the serving node.
       val commitCert = aCommitCert()
       context.pipeToSelf(
-        epochStore.addOrderedBlock(commitCert.prePrepare, commitCert.commits)
+        epochStore.addOrderedBlockAtomically(commitCert.prePrepare, commitCert.commits)
       )(
         _.map(_ => None).getOrElse(fail("Storing the pre-prepare failed"))
       )

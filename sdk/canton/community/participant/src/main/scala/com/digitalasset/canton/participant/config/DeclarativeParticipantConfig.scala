@@ -87,6 +87,7 @@ final case class DeclarativeDarConfig(
     location: String,
     requestHeaders: Map[String, String] = Map(),
     expectedMainPackage: Option[String] = None,
+    synchronizers: Seq[String] = Seq.empty,
 ) extends UniformCantonConfigValidation
 
 sealed trait ParticipantPermissionConfig extends UniformCantonConfigValidation {

@@ -82,7 +82,8 @@ object ExampleTransactionFactory {
   val packageName: PackageName = LfTransactionBuilder.defaultPackageName
   val someOptUsedPackages: Option[Set[LfPackageId]] = Some(Set(packageId))
   val defaultGlobalKey: LfGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val serializationVersion: LfLanguageVersion = LfTransactionBuilder.defaultSerializationVersion
+  val serializationVersion: LfSerializationVersion =
+    LfTransactionBuilder.defaultSerializationVersion
 
   private val random = new Random(0)
 
@@ -189,15 +190,15 @@ object ExampleTransactionFactory {
     LfVersioned(serializationVersion, LfGlobalKeyWithMaintainers(key, maintainers))
 
   def fetchNode(
-                 cid: LfContractId,
-                 actingParties: Set[LfPartyId] = Set.empty,
-                 signatories: Set[LfPartyId] = Set.empty,
-                 observers: Set[LfPartyId] = Set.empty,
-                 key: Option[LfGlobalKeyWithMaintainers] = None,
-                 byKey: Boolean = false,
-                 version: LfLanguageVersion = serializationVersion,
-                 templateId: LfTemplateId = templateId,
-                 interfaceId: Option[LfTemplateId] = None,
+      cid: LfContractId,
+      actingParties: Set[LfPartyId] = Set.empty,
+      signatories: Set[LfPartyId] = Set.empty,
+      observers: Set[LfPartyId] = Set.empty,
+      key: Option[LfGlobalKeyWithMaintainers] = None,
+      byKey: Boolean = false,
+      version: LfSerializationVersion = serializationVersion,
+      templateId: LfTemplateId = templateId,
+      interfaceId: Option[LfTemplateId] = None,
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
@@ -571,7 +572,7 @@ class ExampleTransactionFactory(
           suffixedId(-1, 1, cantonContractIdVersion) -> suffixedId(-1, 1, cantonContractIdVersion),
         ),
       ),
-      SingleFetch(version = LfLanguageVersion.v2_dev),
+      SingleFetch(version = LfSerializationVersion.VDev),
       SingleExercise(seed = deriveNodeSeed(0)),
       SingleExerciseWithNonstakeholderActor(seed = deriveNodeSeed(0)),
       MultipleRoots,
@@ -652,7 +653,7 @@ class ExampleTransactionFactory(
     val metadata = ContractMetadata.tryCreate(
       signatories,
       signatories ++ observers,
-      maybeKeyWithMaintainers.map(LfVersioned(SerializationVersion, _)),
+      maybeKeyWithMaintainers.map(LfVersioned(serializationVersion, _)),
     )
     val viewParticipantDataSalt = participantDataSalt(viewIndex)
     val contractSalt = cantonContractIdVersion match {
@@ -793,7 +794,7 @@ class ExampleTransactionFactory(
       coreInputContracts,
       createWithSerialization,
       createdInSubviewArchivedInCore,
-      resolvedKeys.fmap(LfVersioned(SerializationVersion, _)),
+      resolvedKeys.fmap(LfVersioned(serializationVersion, _)),
       actionDescription,
       RollbackContext.empty,
       participantDataSalt(viewIndex),
@@ -1060,7 +1061,7 @@ class ExampleTransactionFactory(
 
     override def versionedSuffixedTransaction: LfVersionedTransaction =
       LfVersionedTransaction(
-        version = SerializationVersion,
+        version = serializationVersion,
         roots = ImmArray.empty,
         nodes = HashMap.empty,
       )
@@ -1397,7 +1398,7 @@ class ExampleTransactionFactory(
       interpretedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       relativizedContractId: LfContractId = suffixedId(-1, 0, cantonContractIdVersion),
       fetchedContractInstance: LfThinContractInst = contractInstance(),
-      version: LfLanguageVersion = SerializationVersion,
+      version: LfSerializationVersion = serializationVersion,
       authenticationData: Either[
         Salt,
         (ContractAuthenticationData, Eval[ContractAuthenticationData]),
@@ -1625,7 +1626,7 @@ class ExampleTransactionFactory(
         relativizedContractId = create0.relativizedContractId,
         fetchedContractInstance = create0.relativeContractInstance,
         // ensure we test merging transactions with different versions
-        version = LfLanguageVersion.v2_dev,
+        version = LfSerializationVersion.VDev,
         authenticationData = Right(
           create0.relativeAuthenticationData ->
             Eval.later(absolutizeAuthenticationData(transactionId, create0.createInfo))

@@ -4,15 +4,15 @@
 package com.digitalasset.canton.version
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.protocol.LfLanguageVersion
+import com.digitalasset.canton.protocol.LfSerializationVersion
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.math.Ordered.orderingToOrdered
 import scala.util.Try
 
-class DamlLfVersionToProtocolVersionsTest extends AnyWordSpec with BaseTest {
+class LfSerializationVersionToProtocolVersionsTest extends AnyWordSpec with BaseTest {
 
-  val supportedSerializationVersions = LfLanguageVersion.AllV2.filter(_ >= LfLanguageVersion.v2_1)
+  val supportedSerializationVersions =
+    List(LfSerializationVersion.V1, LfSerializationVersion.VDev)
 
   "DamlLFVersionToProtocolVersions" should {
     supportedSerializationVersions.foreach { version =>

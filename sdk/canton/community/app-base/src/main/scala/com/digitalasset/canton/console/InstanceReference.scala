@@ -58,7 +58,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.time.{DelegatingSimClock, SimClock}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ErrorUtil
@@ -583,8 +582,8 @@ abstract class ParticipantReference(
           case item if connected.contains(item.physicalSynchronizerId) =>
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
-                // ensure that vetted packages on the synchronizer match the ones in the authorized store
-                val onSynchronizer = participant.topology.vetted_packages
+                // ensure that vetted packages in this participant's synchronizer store match the vetted packages in other participants' synchronizers' stores
+                val onSynchronizerOfOtherParticipant = participant.topology.vetted_packages
                   .list(
                     store = item.synchronizerId,
                     filterParticipant = id.filterString,
@@ -593,19 +592,21 @@ abstract class ParticipantReference(
                   .flatMap(_.item.packages)
                   .toSet
 
-                // Vetted packages from the participant's authorized store
-                val onParticipantAuthorizedStore = topology.vetted_packages
+                // Vetted packages from the participant's synchronizer store
+                val onSynchronizerOfThisParticipant = topology.vetted_packages
                   .list(
-                    store = TopologyStoreId.Authorized,
+                    store = item.synchronizerId,
                     filterParticipant = id.filterString,
                   )
                   .flatMap(_.item.packages)
                   .toSet
 
-                val ret = onParticipantAuthorizedStore == onSynchronizer
+                val ret = onSynchronizerOfOtherParticipant == onSynchronizerOfThisParticipant
                 if (!ret) {
                   logger.debug(
-                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.physicalSynchronizerId}: vetted -- onSynchronizer is ${onParticipantAuthorizedStore -- onSynchronizer} while onSynchronizer -- vetted is ${onSynchronizer -- onParticipantAuthorizedStore}"
+                    show"""Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.physicalSynchronizerId}:
+                          |thisParticipant -- otherParticipant is ${onSynchronizerOfThisParticipant -- onSynchronizerOfOtherParticipant}
+                          |otherParticipant -- thisParticipant is ${onSynchronizerOfOtherParticipant -- onSynchronizerOfThisParticipant}""".stripMargin
                   )
                 }
                 ret

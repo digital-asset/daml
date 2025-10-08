@@ -49,7 +49,8 @@ participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.try
 
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
-participants.all.dars.upload(darPath)
+Seq(participant1, participant2, participant3).dars.upload(darPath, synchronizerId = iouId)
+Seq(participant2, participant3).dars.upload(darPath, synchronizerId = paintId)
 // architecture-handbook-entry-end: topology
 
 // architecture-handbook-entry-begin: imports

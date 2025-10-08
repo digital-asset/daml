@@ -448,6 +448,7 @@ trait BaseTest
   // TODO(#25385): Consider deduplicating the upgrade test DARs below
   lazy val FooV1Path: String = BaseTest.FooV1Path
   lazy val FooV2Path: String = BaseTest.FooV2Path
+  lazy val FooV3Path: String = BaseTest.FooV3Path
   lazy val UpgradeTestsPath: String = BaseTest.UpgradeTestsPath
   lazy val UpgradeTestsCompatPath: String = BaseTest.UpgradeTestsCompatPath
   lazy val UpgradeTestsIncompatPath: String = BaseTest.UpgradeTestsIncompatPath
@@ -597,6 +598,7 @@ object BaseTest {
   // TODO(#25385): Deduplicate these upgrading test DARs
   lazy val FooV1Path: String = getResourcePath("foo-0.0.1.dar")
   lazy val FooV2Path: String = getResourcePath("foo-0.0.2.dar")
+  lazy val FooV3Path: String = getResourcePath("foo-0.0.3.dar")
   lazy val UpgradeTestsPath: String = getResourcePath("UpgradeTests-3.4.0.dar")
   lazy val UpgradeTestsCompatPath: String = getResourcePath("UpgradeTests-4.0.0.dar")
   lazy val UpgradeTestsIncompatPath: String = getResourcePath("UpgradeTests-5.0.0.dar")

@@ -8,30 +8,10 @@ import IFoo
 -- This template is an upgrade on the Foo in V1/Foo.daml
 template Foo with
     owner : Party
+    otherParty: Party
     extra : Optional Int -- new optional field
   where
     signatory owner
 
     interface instance IFoo for Foo where
       view = FooView with owner = owner
-
--- A new template with custom types for key, choice arg and choice return type
--- Ensure all these types can be resolved via package name.
-data Key = Key with value : Party deriving (Show, Eq)
-data Arg = Arg with value : Int deriving (Show, Eq)
-data Ret = Ret with value : Int deriving (Show, Eq)
-
-template Quux
-  with
-    owner : Party
-  where
-    signatory owner
--- TODO(#20994) uncomment these
---    key (Key owner) : Key
---    maintainer key.value
-
-    choice Incr: Ret
-      with a : Arg
-      controller owner
-      do
-        pure Ret with value = a.value + 1

@@ -46,9 +46,9 @@ final class TimeBasedInteractiveIntegrationTest
       .addConfigTransform(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
+        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonExamplesPath)
         participants.all.dars.upload(CantonTestsPath)
-        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
 

@@ -11,12 +11,13 @@ bootstrap.synchronizer(
   staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
 )
 
+// connect participants to synchronizer
+Seq(participant1, participant2).foreach(_.synchronizers.connect_local(sequencer1, alias = "lostSynchronizer"))
+
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
 participants.all.dars.upload(darPath)
 
-// connect participants to synchronizer
-Seq(participant1, participant2).foreach(_.synchronizers.connect_local(sequencer1, alias = "lostSynchronizer"))
 
 // setup parties
 val Alice = participant1.parties.enable("Alice")

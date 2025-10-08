@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.data.Ref.IdentifierConverter
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-// TODO(#24866): Revisit test coverage for [[PackageMetadata]] and cover [[PackageMetadata.from]] as well
 class PackageMetadataSpec extends AnyWordSpec with Matchers {
 
   "PackageMetadata.combine" should {
@@ -141,6 +140,40 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
       }.getMessage shouldBe {
         s"Conflicting versioned package names for the same package id $pkgId1. Previous (${(pkgName1, pkg1Version1)}) vs uploaded(${(pkgName1, pkg1Version2)})"
       }
+    }
+
+    "allow two different package-ids for same (package-name, version)" in new Scope {
+      private val pkgMeta1 = PackageMetadata(
+        packageIdVersionMap = Map(pkgId1 -> (pkgName1, pkg1Version1)),
+        packageNameMap = Map(
+          pkgName1 -> PackageResolution(
+            LocalPackagePreference(pkg1Version1, pkgId1),
+            NonEmpty(Set, pkgId1),
+          )
+        ),
+      )
+
+      private val pkgMeta2 = PackageMetadata(
+        packageIdVersionMap = Map(pkgId2 -> (pkgName1, pkg1Version1)),
+        packageNameMap = Map(
+          pkgName1 -> PackageResolution(
+            LocalPackagePreference(pkg1Version1, pkgId2),
+            NonEmpty(Set, pkgId2),
+          )
+        ),
+      )
+
+      private val result: PackageMetadata = pkgMeta1 |+| pkgMeta2
+      result.packageIdVersionMap shouldBe Map(
+        pkgId1 -> (pkgName1, pkg1Version1),
+        pkgId2 -> (pkgName1, pkg1Version1),
+      )
+      result.packageNameMap shouldBe Map(
+        pkgName1 -> PackageResolution(
+          LocalPackagePreference(pkg1Version1, pkgId2),
+          NonEmpty(Set, pkgId1, pkgId2),
+        )
+      )
     }
   }
 

@@ -345,8 +345,8 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
   "vetted_packages.propose" in { implicit env =>
     import env.*
     val packageIds = participant1.topology.vetted_packages
-      .list(store = TopologyStoreId.Authorized)
-      .head
+      .list(store = daId, filterParticipant = participant1.filterString)
+      .loneElement
       .item
       .packages
 
@@ -355,18 +355,23 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     // remove all packages
     participant1.topology.vetted_packages.propose(
       participant1.id,
-      packages = Nil,
+      store = daId,
+      packages = packageIds,
       force = ForceFlags(ForceFlag.AllowUnvetPackage),
       operation = TopologyChangeOp.Remove,
     )
     val result = participant1.topology.vetted_packages
-      .list(store = TopologyStoreId.Authorized)
+      .list(store = daId, filterParticipant = participant1.filterString)
     result should have size 0
 
-    participant1.topology.vetted_packages.propose(participant1.id, packages = packageIds)
+    participant1.topology.vetted_packages.propose(
+      participant1.id,
+      store = daId,
+      packages = packageIds,
+    )
     val packageIds3 = participant1.topology.vetted_packages
-      .list(store = TopologyStoreId.Authorized)
-      .head
+      .list(store = daId, filterParticipant = participant1.filterString)
+      .loneElement
       .item
       .packages
     packageIds3 should contain theSameElementsAs packageIds
@@ -374,21 +379,26 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     // Set vetted packages to empty but do not remove the mapping
     participant1.topology.vetted_packages.propose(
       participant1.id,
+      store = daId,
       packages = Seq.empty,
       force = ForceFlag.AllowUnvetPackage,
     )
     val packageIds4 = participant1.topology.vetted_packages
-      .list(store = TopologyStoreId.Authorized)
-      .head
+      .list(store = daId, filterParticipant = participant1.filterString)
+      .loneElement
       .item
       .packages
     packageIds4 shouldBe empty
 
     // Set it back so the next test is happy
-    participant1.topology.vetted_packages.propose(participant1.id, packages = packageIds)
+    participant1.topology.vetted_packages.propose(
+      participant1.id,
+      store = daId,
+      packages = packageIds,
+    )
     val packageIds5 = participant1.topology.vetted_packages
-      .list(store = TopologyStoreId.Authorized)
-      .head
+      .list(store = daId, filterParticipant = participant1.filterString)
+      .loneElement
       .item
       .packages
     packageIds5 should contain theSameElementsAs packageIds
@@ -398,7 +408,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     import env.*
     def getVettedPackages() = participant1.topology.vetted_packages
       .list(
-        store = TopologyStoreId.Authorized,
+        store = daId,
         filterParticipant = participant1.id.filterString,
       )
       .loneElement
@@ -415,10 +425,10 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     // first check that we indeed would add new packages
     startingPackages.size should be <= adds.size
 
-    participant1.dars.upload(CantonTestsPath, vetAllPackages = false)
+    participant1.dars.upload(CantonTestsPath)
 
     // vet some more packages
-    participant1.topology.vetted_packages.propose_delta(participant1.id, adds = adds)
+    participant1.topology.vetted_packages.propose_delta(participant1.id, store = daId, adds = adds)
 
     val newPackageIdsResult = getVettedPackages()
     newPackageIdsResult.context.serial shouldBe startingSerial.increment
@@ -430,6 +440,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     // unvet the starting packages
     participant1.topology.vetted_packages.propose_delta(
       participant1.id,
+      store = daId,
       removes = startingPackages,
       force = ForceFlags(ForceFlag.AllowUnvetPackage, ForceFlag.AllowUnvettedDependencies),
     )
@@ -445,6 +456,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       .thrownBy(
         participant1.topology.vetted_packages.propose_delta(
           participant1.id,
+          store = daId,
           adds = VettedPackage.unbounded(startingPackages),
           removes = startingPackages,
           force = ForceFlags(ForceFlag.AllowUnvetPackage),
