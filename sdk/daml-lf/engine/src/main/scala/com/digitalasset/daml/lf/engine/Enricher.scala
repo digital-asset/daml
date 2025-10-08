@@ -4,9 +4,12 @@
 package com.digitalasset.daml.lf
 package engine
 
+import cats.data.NonEmptySet
+import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef, QualifiedName}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
@@ -205,16 +208,17 @@ final class Enricher(
     forbidLocalContractIds = forbidLocalContractIds,
   )
 
+  private[this] def toValue(sValue: SValue): Value =
+    sValue.toValue(
+      keepTypeInfo = addTypeInfo,
+      keepFieldName = addFieldNames,
+      keepTrailingNoneFields = addTrailingNoneFields,
+    )
+
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
     preprocessor
       .translateValue(typ, value)
-      .map(
-        _.toValue(
-          keepTypeInfo = addTypeInfo,
-          keepFieldName = addFieldNames,
-          keepTrailingNoneFields = addTrailingNoneFields,
-        )
-      )
+      .map(toValue)
 
   def enrichVersionedValue(
       typ: Ast.Type,
@@ -237,6 +241,27 @@ final class Enricher(
     enrichCreate(contract.toCreateNode).map(create =>
       FatContractInstance.fromCreateNode(create, contract.createdAt, contract.authenticationData)
     )
+
+  /** Verifies that [contract] hashes to the same value according to all packages in [packageIds] (i.e. renders to
+    * the same value modulo package IDs) and returns the contract enriched by one of [packageIds], chosen
+    * deterministically.
+    *
+    * Returns a Left if:
+    *   - the contract hashes to different values according to different packages
+    *   - the contract contains a key.
+    *
+    * Returns a ResultError if the enrichment fails for unexpected reasons (e.g. typechecking fails).
+    */
+  def enrichContractWithPackage(
+      contract: FatContractInstance,
+      packageIds: NonEmptySet[PackageId],
+  ): Result[Either[String, FatContractInstance]] = {
+    enrichCreateWithPackages(contract.toCreateNode, packageIds).map(createOrError =>
+      createOrError.map(create =>
+        FatContractInstance.fromCreateNode(create, contract.createdAt, contract.authenticationData)
+      )
+    )
+  }
 
   def enrichVersionedContract(
       contract: Value.VersionedThinContractInstance
@@ -376,6 +401,63 @@ final class Enricher(
       arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
       key <- enrichContractKey(create.keyOpt)
     } yield create.copy(arg = arg, keyOpt = key)
+
+  /** Verifies that [create] hashes to the same value according to all packages in [packageIds] (i.e. renders to
+    * the same value modulo package IDs) and returns the Create node enriched by one of [packageIds], chosen
+    * deterministically.
+    *
+    * Returns a Left if:
+    *   - the contract hashes to different values according to different packages
+    *   - the contract contains a key.
+    *
+    * Returns a ResultError if the enrichment fails for unexpected reasons (e.g. typechecking fails).
+    */
+  def enrichCreateWithPackages(
+      create: Node.Create,
+      packageIds: NonEmptySet[PackageId],
+  ): Result[Either[String, Node.Create]] = {
+    import Result.ResultInstances._
+    import cats.implicits._
+
+    def translateWithPackage(pkgId: PackageId): Result[(PackageId, SValue)] =
+      for {
+        _ <-
+          if (!compiledPackages.contains(pkgId))
+            loadPackage(pkgId, language.Reference.Package(PackageRef.Id(pkgId)))
+          else ResultDone(())
+        res <- preprocessor.translateValue(
+          Ast.TTyCon(Identifier(pkgId, create.templateId.qualifiedName)),
+          create.arg,
+        )
+      } yield pkgId -> res
+
+    def hashSValue(pkgId: PackageId, sValue: SValue): Either[Hash.HashingError, Hash] =
+      SValueHash.hashContractInstance(
+        compiledPackages.signatures(pkgId).pkgName,
+        create.templateId.qualifiedName,
+        sValue,
+      )
+
+    create.keyOpt match {
+      case Some(_) =>
+        ResultDone(Left("enrichCreateWithPackages does not support contract keys"))
+      case None =>
+        val packageIdList = packageIds.toNonEmptyList
+        val targetPkgId = packageIdList.iterator.min
+        for {
+          result <- translateWithPackage(targetPkgId)
+          others <- packageIdList.filter(_ != targetPkgId).traverse(translateWithPackage)
+        } yield {
+          val (_, resultSValue) = result
+          val resultHash = hashSValue(targetPkgId, resultSValue)
+          val otherHashes = others.iterator.map { case (pkgId, sval) => hashSValue(pkgId, sval) }
+          if (otherHashes.forall(_ == resultHash))
+            Right(create.copy(arg = toValue(resultSValue)))
+          else
+            Left(s"Contract ${create.coid} renders to different values")
+        }
+    }
+  }
 
   private def enrichNode(node: Node): Result[Node] =
     node match {

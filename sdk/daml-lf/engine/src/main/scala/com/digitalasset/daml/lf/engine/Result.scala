@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
+import cats.Applicative
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, FrontStack, ImmArray}
@@ -295,8 +296,19 @@ object Result {
     else
       ResultError(err)
 
-  implicit val resultInstance: Monad[Result] = new Monad[Result] {
-    override def point[A](a: => A): Result[A] = ResultDone(a)
-    override def bind[A, B](fa: Result[A])(f: A => Result[B]): Result[B] = fa.flatMap(f)
+  object ResultInstances {
+
+    implicit val resultMonadInstance: Monad[Result] = new Monad[Result] {
+      override def point[A](a: => A): Result[A] = ResultDone(a)
+
+      override def bind[A, B](fa: Result[A])(f: A => Result[B]): Result[B] = fa.flatMap(f)
+    }
+
+    implicit val resultApplicativeInstance: Applicative[Result] = new Applicative[Result] {
+      override def pure[A](x: A): Result[A] = point(x)
+
+      override def ap[A, B](ff: Result[A => B])(fa: Result[A]): Result[B] =
+        fa.flatMap(a => ff.map(f => f(a)))
+    }
   }
 }
