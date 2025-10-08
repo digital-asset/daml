@@ -139,3 +139,34 @@ LF_DEFAULT_DEV_VERSION = [
     for v in ENGINE_LF_DEV_VERSIONS
     if _major_str(v) == LF_DEFAULT_MAJOR_VERSION
 ][0]
+
+# Define each version as a dictionary with structured data.
+# This makes it easy for our generation script to understand the intent.
+_VERSIONS_DEFINITIONS = [
+    {
+        "major": "2",
+        "minor": "1",
+        "status": "stable",
+    },
+    {
+        "major": "2",
+        "minor": "2",
+        "status": "staging",
+    },
+    {
+        "major": "2",
+        "minor": "dev",
+        "status": "dev",
+    },
+]
+
+def _get_versions(filter_statuses = None):
+    """Helper to filter versions based on a list of statuses."""
+    if filter_statuses == None:
+        return _VERSIONS_DEFINITIONS
+    return [v for v in _VERSIONS_DEFINITIONS if v["status"] in filter_statuses]
+
+# Public interface of this .bzl file
+# These are the variables you will load into your BUILD files.
+ALL_VERSIONS = _get_versions()
+STABLE_VERSIONS = _get_versions(["stable"])
