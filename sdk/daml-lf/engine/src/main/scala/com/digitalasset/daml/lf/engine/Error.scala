@@ -68,14 +68,12 @@ object Error {
 
     final case class DarSelfConsistency(
         mainPackageId: Ref.PackageId,
-        transitiveDependencies: Set[Ref.PackageId],
         missingDependencies: Set[Ref.PackageId],
         extraDependencies: Set[Ref.PackageId],
     ) extends Error
         with OptionalLogReporting {
       def message: String =
-        s"For package $mainPackageId, the set of package dependencies ${transitiveDependencies
-            .mkString("{'", "', '", "'}")} is not self consistent, " +
+        s"For package $mainPackageId, the set of package dependencies is not self consistent, " +
           (if (missingDependencies.nonEmpty)
              s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")} "
            else "") +
