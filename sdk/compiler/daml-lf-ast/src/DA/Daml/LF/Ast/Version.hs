@@ -201,7 +201,9 @@ featureFlatArchive = Feature
 featurePackageImports :: Feature
 featurePackageImports = Feature
     { featureName = "Explicit package imports"
-    , featureVersionReq = VersionReq $ \_ -> allMinorVersionsAfter (PointStable 2)
+    , featureVersionReq = VersionReq $ \case
+          V1 -> noMinorVersion
+          V2 -> allMinorVersionsAfter (PointStable 2)
     , featureCppFlag = Just "DAML_PackageImports"
     }
 
