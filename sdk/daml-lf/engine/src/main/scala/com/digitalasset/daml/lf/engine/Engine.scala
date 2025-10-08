@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party, TypeConId}
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Graphs
 import com.digitalasset.daml.lf.speedy.{
   InitialSeeding,
   Question,
@@ -54,7 +55,6 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
@@ -712,44 +712,11 @@ class Engine(val config: EngineConfig) {
     * preloaded.
     */
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
-
-    /*
-     * Computes the transitive closure for a starting node in a graph.
-     * The graph is represented as a map from a node to a set of its direct neighbors.
-     *
-     * @param graph The graph, represented as an adjacency map.
-     * @param startNode The node from which to start the traversal.
-     * @tparam A The type of the nodes in the graph.
-     * @return A set containing all nodes reachable from the startNode (inclusive).
-     */
-    def transitiveClosure[A](graph: Map[A, Set[A]], startNode: A): Set[A] = {
-
-      @tailrec
-      def go(toVisit: Set[A], visited: Set[A]): Set[A] = {
-        if (toVisit.isEmpty) {
-          visited
-        } else {
-          val current = toVisit.head
-          val restToVisit = toVisit.tail
-
-          if (visited.contains(current)) {
-            go(restToVisit, visited)
-          } else {
-            val neighbors = graph.getOrElse(current, Set.empty[A])
-            val newToVisit = restToVisit ++ neighbors
-            val newVisited = visited + current
-            go(newToVisit, newVisited)
-          }
-        }
-      }
-      go(Set(startNode), Set.empty[A])
-    }
-
     val pkgIdDepGraph: Map[PackageId, Set[PackageId]] =
       dar.all.toMap.view.mapValues(_.imports.pkgIds).toMap
     val mainPackageId: PackageId = dar.main._1
 
-    val mentioned = transitiveClosure(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
+    val mentioned = Graphs.transitiveClosure(pkgIdDepGraph, mainPackageId).diff(stablePackageIds)
     val included = pkgIdDepGraph.keys.toSet.diff(stablePackageIds)
     val darPackages = dar.all.toMap
 

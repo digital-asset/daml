@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data.{InsertOrdSet, Relation}
+import scala.annotation.tailrec
 
 object Graphs {
 
@@ -42,4 +43,35 @@ object Graphs {
     )
   }
 
+  /*
+   * Computes the transitive closure for a starting node in a graph.
+   * The graph is represented as a map from a node to a set of its direct neighbors.
+   *
+   * @param graph The graph, represented as an adjacency map.
+   * @param startNode The node from which to start the traversal.
+   * @tparam A The type of the nodes in the graph.
+   * @return A set containing all nodes reachable from the startNode (inclusive).
+   */
+  def transitiveClosure[A](graph: Graph[A], startNode: A): Set[A] = {
+
+    @tailrec
+    def go(toVisit: Set[A], visited: Set[A]): Set[A] = {
+      if (toVisit.isEmpty) {
+        visited
+      } else {
+        val current = toVisit.head
+        val restToVisit = toVisit.tail
+
+        if (visited.contains(current)) {
+          go(restToVisit, visited)
+        } else {
+          val neighbors: Set[A] = Relation.lookup(graph, current)
+          val newToVisit = restToVisit ++ neighbors
+          val newVisited = visited + current
+          go(newToVisit, newVisited)
+        }
+      }
+    }
+    go(Set(startNode), Set.empty[A])
+  }
 }
