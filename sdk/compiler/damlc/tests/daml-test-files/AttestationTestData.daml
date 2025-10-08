@@ -9,12 +9,15 @@ module AttestationTestData
   (TestMessage,
    TestData(..),
    serializeTestMessage,
-   signerAddress,
-   signerPrivateKey,
+   derEncodedSignerPrivateKey,
+   derEncodedSignerPublicKey,
+   derEncodeSignature,
+   decodeDerSignature,
    testData,
   ) where
 
 import DA.Crypto.Text
+import DA.Either (eitherToOptional)
 import DA.Optional (fromSome)
 import DA.Text (parseInt)
 
@@ -52,20 +55,56 @@ toUInt32Hex n | 0 <= n = packHexBytes (toHex n) 4
 toUInt32Hex _ = None
 
 toUInt256Hex : Text -> Optional UInt256Hex
-toUInt256Hex n = packHexBytes (toHex (fromSome (parseInt n))) 32 -- FIXME:
+toUInt256Hex n = packHexBytes (toHex (fromSome (parseInt n))) 32
 
-serializeTestMessage : TestMessage -> BytesHex
-serializeTestMessage (TestMessage amount hookData localDepositor localToken maxFee nonce remoteDomain remoteRecipient remoteToken version) =
-  "2bcc5ce7" <> (fromSome (toUInt32Hex (fromSome (parseInt version)))) <> (fromSome (toUInt256Hex amount)) <> (fromSome (toUInt32Hex (fromSome (parseInt remoteDomain)))) <> remoteToken <> remoteRecipient <> (fromSome (toBytes32Hex localToken)) <> (fromSome (toBytes32Hex localDepositor)) <> (fromSome (toUInt256Hex maxFee)) <> nonce <> (fromSome (toUInt32Hex (byteCount hookData))) <> hookData
+derEncodeSignature : BytesHex -> Optional BytesHex
+derEncodeSignature sig | isHex sig && byteCount sig == 65 =
+  Some(
+    "3044"
+      <> "0220" <> (fromSome (eitherToOptional (sliceHexBytes sig 1 33)))
+      <> "0220" <> (fromSome (eitherToOptional (sliceHexBytes sig 33 65)))
+  )
+derEncodeSignature _ =
+  None
+
+decodeDerSignature : BytesHex -> Optional BytesHex
+decodeDerSignature sig | isHex sig && byteCount sig == 70 && sliceHexBytes sig 1 3 == Right "3045" && sliceHexBytes sig 3 5 == Right "0221" && sliceHexBytes sig 38 40 == Right "0220" =
+  Some((fromSome (eitherToOptional (sliceHexBytes sig 5 37))) <> (fromSome (eitherToOptional (sliceHexBytes sig 39 71))))
+decodeDerSignature _ =
+  None
 
 signerAddress : BytesHex
 signerAddress = "589d3e40069df16c429522acab02c9dafd955833"
 
 signerPrivateKey : BytesHex
-signerPrivateKey = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee" -- convert to a DER format
+signerPrivateKey = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdee"
 
+-- DER encoding of private key and compressed public key
+derEncodedSignerPrivateKey : BytesHex
+derEncodedSignerPrivateKey = "306f020100301006072a8648ce3d020106052b8104000a0458305602010104201234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdeea00706052b8104000aa1260324000421023c1cb1e7c051c22b536101810b60cf1019c68e524f919149ab73591d0dc05631"
+
+-- uncompressed public key
 signerPublicKey : BytesHex
-signerPublicKey = "043c1cb1e7c051c22b536101810b60cf1019c68e524f919149ab73591d0dc05631e657768c4189a7a69170649309c5b8703e2e37e35055a84b6b72f6322cdd3498" -- convert to a DER format
+signerPublicKey = "043c1cb1e7c051c22b536101810b60cf1019c68e524f919149ab73591d0dc05631e657768c4189a7a69170649309c5b8703e2e37e35055a84b6b72f6322cdd3498"
+
+-- DER encoding of compressed public key
+derEncodedSignerPublicKey : BytesHex
+derEncodedSignerPublicKey = "3038301006072a8648ce3d020106052b8104000a0324000421023c1cb1e7c051c22b536101810b60cf1019c68e524f919149ab73591d0dc05631"
+
+serializeTestMessage : TestMessage -> BytesHex
+serializeTestMessage (TestMessage amount hookData localDepositor localToken maxFee nonce remoteDomain remoteRecipient remoteToken version) =
+  "2bcc5ce7"
+    <> (fromSome (toUInt32Hex (fromSome (parseInt version))))
+    <> (fromSome (toUInt256Hex amount))
+    <> (fromSome (toUInt32Hex (fromSome (parseInt remoteDomain))))
+    <> (fromSome (toBytes32Hex remoteToken))
+    <> (fromSome (toBytes32Hex remoteRecipient))
+    <> (fromSome (toBytes32Hex localToken))
+    <> (fromSome (toBytes32Hex localDepositor))
+    <> (fromSome (toUInt256Hex maxFee))
+    <> (fromSome (toBytes32Hex nonce))
+    <> (fromSome (toUInt32Hex (byteCount hookData)))
+    <> hookData
 
 testData : [TestData]
 testData = [
@@ -84,4 +123,19 @@ testData = [
     encodedMessage = "2bcc5ce700000001000000000000000000000000000000000000000000000000000000b26ab5c46d00002711000000000000000000000000a0b86a33e6f8ec61cc62f1b0cb2ad6dfe3c10e8b9c4fcdc01a43f9be5bbe1532488cc4fe0430d92de1108f7ccd8845e83733535d000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48e1c9f3ce60b6c8872c018e28f75c6b4cdd19400544d34025a3fcf98daafaa669000000000000000000000000000000000000000000000000000000100eb951adbc97a5d0e2eea5cc008e3ba80d550a781bdb118c142915a2897019240601fb700000002e78df9bc78f17fcb62277af72e10b126e51d52b075fcce149dc4f08cd0959d6cac362d7fff64667f6a6232ac78a84"
     messageHash = "40e3e5b2d92a6a3235dc0b8f60ab7dd684ed80aee4e322e2372f8f13e47123d7"
     signature = "23ac6caa0a25872c81c3eac30fede66302768cd83e6c7504c0c6b9c39e715c923756685f95bb886645cbe3b52f8e98b09780bb2e93083df048bd0a7bc33a252b1c"
+  , TestData with
+      message = TestMessage with
+        amount = "561106014905"
+        hookData = "bc"
+        localDepositor = "a2deb102068695f461eaf1b77ac7cc639f801dba8e9312e70693b2ec97c289f9"
+        localToken = "000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+        maxFee = "5611060149"
+        nonce = "df579ba3b31ff0836ab10f63f90ce76b6ab89fd48ae7b1641795f30561958e1c"
+        remoteDomain = "10001"
+        remoteRecipient = "c1314fd86559b15db1fd04a3fcea54c60982a1a3753527b482dc4d71dc0e1fbe"
+        remoteToken = "000000000000000000000000a0b86a33e6f8ec61cc62f1b0cb2ad6dfe3c10e8b"
+        version = "1"
+      encodedMessage = "2bcc5ce70000000100000000000000000000000000000000000000000000000000000082a48652b900002711000000000000000000000000a0b86a33e6f8ec61cc62f1b0cb2ad6dfe3c10e8bc1314fd86559b15db1fd04a3fcea54c60982a1a3753527b482dc4d71dc0e1fbe000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48a2deb102068695f461eaf1b77ac7cc639f801dba8e9312e70693b2ec97c289f9000000000000000000000000000000000000000000000000000000014e71fbb5df579ba3b31ff0836ab10f63f90ce76b6ab89fd48ae7b1641795f30561958e1c00000001bc"
+      messageHash = "8bfe0a0e047c35898c76b73ad8c5a412d875c35ee9bca829adb18d0e8c55c0b2"
+      signature = "fc04b425e95ef0402258b40a3dedd53baee5d2c686dc2f2f679d635837f43f3e5b009355b63e4487d7ad88816bbb55ae172c6cd74497894fa83f8c7b7c58db481c"
   ]

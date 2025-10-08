@@ -11,6 +11,7 @@ import AttestationTestData
 import DA.Assert ((===))
 import DA.Crypto.Text
 import DA.Foldable (forA_)
+import DA.Optional (fromSome)
 import Daml.Script
 
 template ValidateTestMessageSignature with
@@ -20,20 +21,20 @@ template ValidateTestMessageSignature with
     owner : Party
   where
     signatory owner
-    ensure secp256k1 signature messageHash publicKey
+    ensure secp256k1WithEcdsaOnly signature messageHash publicKey
 
 main =
   script do
     forA_ testData \test -> do
       ((serializeTestMessage test.message) === test.encodedMessage)
       ((keccak256 (serializeTestMessage test.message)) === test.messageHash)
-      actualSig <- secp256k1signWithEcdsaOnly signerPrivateKey test.messageHash
-      (actualSig === test.signature)
-      --alice <- allocateParty "Alice"
-      --submit alice do
-      --  createCmd ValidateTestMessageSignature with
-      --    publicKey = signerPublicKey
-      --    messageHash = test.messageHash
-      --    signature = test.signature
-      --    owner = alice
+      derEncodedSig <- secp256k1signWithEcdsaOnly derEncodedSignerPrivateKey test.messageHash
+      --((Some derEncodedSig) === (derEncodeSignature test.signature))
+      alice <- allocateParty "Alice"
+      submit alice do
+        createCmd ValidateTestMessageSignature with
+          publicKey = derEncodedSignerPublicKey
+          messageHash = test.messageHash
+          signature = fromSome (derEncodeSignature test.signature) -- derEncodedSig
+          owner = alice
     pure ()
