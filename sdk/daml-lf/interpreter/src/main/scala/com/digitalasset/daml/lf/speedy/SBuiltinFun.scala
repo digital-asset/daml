@@ -35,6 +35,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
+import java.nio.charset.StandardCharsets
 import java.security.{
   InvalidKeyException,
   KeyFactory,
@@ -827,7 +828,8 @@ private[lf] object SBuiltinFun {
               )
             ),
           hexArg => {
-            val result = Ref.HexString.decode(hexArg).toStringUtf8
+            val result =
+              new String(Ref.HexString.decode(hexArg).toByteArray, StandardCharsets.UTF_8)
             Control.Value(SText(result))
           },
         )
