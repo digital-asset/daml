@@ -33,6 +33,19 @@ final class Bytes private (protected val value: ByteString) extends AnyVal {
 
   def slice(begin: Int, end: Int): Bytes = new Bytes(value.substring(begin, end))
 
+  def unsignedByteAt(index: Int): Int = {
+    val n = value.byteAt(index).toInt
+    if (n >= 0) {
+      n
+    } else {
+      256 + n
+    }
+  }
+
+  def tail: Bytes = new Bytes(value.substring(1))
+
+  def drop(n: Int): Bytes = new Bytes(value.substring(n))
+
   override def toString: String = s"Bytes($toHexString)"
 
   def ++(that: Bytes) = new Bytes(this.value.concat(that.value))
@@ -72,6 +85,9 @@ object Bytes {
 
   def fromStringUtf8(s: String): Bytes =
     Bytes.fromByteString(com.google.protobuf.ByteString.copyFromUtf8(s))
+
+  def fromByte(b: Byte): Bytes =
+    Bytes.fromByteArray(Array(b))
 
   def assertFromString(s: String): Bytes =
     assertRight(fromString(s))
