@@ -184,7 +184,7 @@ mkFetchDowngradedSome trailer f = ("Fail to downgrade a contract with Somes when
     b <- allocatePartyOn "bob" participant0
     res <- f a b
     case res of
-      Left (DevError TranslationError _) -> pure ()
+      Left (UpgradeError (TranslationFailed _ _ _ _) _) -> pure ()
       res -> assertFail $ "Expected UpgradeError, got " <> show res
 
 fetchDowngradedSomeGlobal : (Text, Test)

@@ -575,13 +575,24 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       ) {
         case Left(
               SError.SErrorDamlException(
-                IE.Dev(
-                  _,
-                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                IE.Upgrade(
+                  IE.Upgrade.TranslationFailed(
+                    Some(coid),
+                    srcTemplateId,
+                    dstTemplateId,
+                    createArg,
+                    IE.Upgrade.TranslationFailed.TypeMismatch(expectedType, actualValue, message),
+                  )
                 )
               )
             ) =>
-          reason should include(
+          coid shouldBe theCid
+          srcTemplateId shouldBe i"'-pkg1-':M:T"
+          dstTemplateId shouldBe i"'-pkg1-':M:T"
+          createArg shouldBe v_missingField
+          expectedType shouldBe TTyCon(i"'-pkg1-':M:T")
+          actualValue shouldBe v_missingField
+          message should include(
             "Unexpected non-optional extra template field type encountered during upgrading."
           )
       }
@@ -675,8 +686,17 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractObservers = List.empty,
           globalContractKeyWithMaintainers = None,
         )
-      ) { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-        error shouldBe a[IE.Dev.AuthenticationError]
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Upgrade(
+                  IE.Upgrade.AuthenticationFailed(_, srcTemplateId, dstTemplateId, createArg, _)
+                )
+              )
+            ) =>
+          srcTemplateId shouldBe i"'-pkg0-':M:T"
+          dstTemplateId shouldBe i"'-pkg5-':M:T"
+          createArg shouldBe makeRecord(ValueParty(alice), ValueParty(alice), ValueInt64(42))
       }
     }
   }
@@ -759,13 +779,24 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(res) {
         case Left(
               SError.SErrorDamlException(
-                IE.Dev(
-                  _,
-                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                IE.Upgrade(
+                  IE.Upgrade.TranslationFailed(
+                    Some(coid),
+                    srcTemplateId,
+                    dstTemplateId,
+                    createArg,
+                    IE.Upgrade.TranslationFailed.TypeMismatch(expectedType, actualValue, message),
+                  )
                 )
               )
             ) =>
-          reason should include(
+          coid shouldBe theCid
+          srcTemplateId shouldBe i"'-pkg1-':M:T"
+          dstTemplateId shouldBe i"'-pkg1-':M:T"
+          createArg shouldBe v1_extraText
+          expectedType shouldBe TTyCon(i"'-pkg1-':M:T")
+          actualValue shouldBe v1_extraText
+          message should include(
             "Found non-optional extra field at index 3, cannot remove for downgrading."
           )
       }
@@ -819,13 +850,24 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         inside(res) {
           case Left(
                 SError.SErrorDamlException(
-                  IE.Dev(
-                    _,
-                    IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                  IE.Upgrade(
+                    IE.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      IE.Upgrade.TranslationFailed.TypeMismatch(expectedType, actualValue, message),
+                    )
                   )
                 )
               ) =>
-            reason should include(
+            coid shouldBe theCid
+            srcTemplateId shouldBe i"'-pkg3-':M:T"
+            dstTemplateId shouldBe i"'-pkg2-':M:T"
+            createArg shouldBe v1_extraSome
+            expectedType shouldBe TTyCon(i"'-pkg2-':M:T")
+            actualValue shouldBe v1_extraSome
+            message should include(
               "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading."
             )
         }
@@ -922,13 +964,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ) {
           case Left(
                 SError.SErrorDamlException(
-                  IE.Dev(
-                    _,
-                    IE.Dev.TranslationError(error),
+                  IE.Upgrade(
+                    IE.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
                   )
                 )
               ) =>
-            error shouldBe a[IE.Dev.TranslationError.LookupError]
+            coid shouldBe theCid
+            srcTemplateId shouldBe i"'-variant-v1-':M:T"
+            dstTemplateId shouldBe i"'-variant-v2-':M:T"
+            createArg shouldBe v1Arg
+            error shouldBe a[IE.Upgrade.TranslationFailed.LookupError]
         }
       }
     }
@@ -971,13 +1022,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ) {
           case Left(
                 SError.SErrorDamlException(
-                  IE.Dev(
-                    _,
-                    IE.Dev.TranslationError(error),
+                  IE.Upgrade(
+                    IE.Upgrade.TranslationFailed(
+                      Some(coid),
+                      srcTemplateId,
+                      dstTemplateId,
+                      createArg,
+                      error,
+                    )
                   )
                 )
               ) =>
-            error shouldBe a[IE.Dev.TranslationError.LookupError]
+            coid shouldBe theCid
+            srcTemplateId shouldBe i"'-enum-v1-':M:T"
+            dstTemplateId shouldBe i"'-enum-v2-':M:T"
+            createArg shouldBe v1Arg
+            error shouldBe a[IE.Upgrade.TranslationFailed.LookupError]
         }
       }
     }

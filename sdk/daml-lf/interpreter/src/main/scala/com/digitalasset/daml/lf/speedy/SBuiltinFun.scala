@@ -1532,7 +1532,7 @@ private[lf] object SBuiltinFun {
           language.Reference.Template(dstTmplId.toRef),
         ) { () =>
           ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-            importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+            importCreateArg(machine, Some(coid), srcTmplId, dstTmplId, srcArg) { dstSArg =>
               fetchValidateDstContract(
                 machine,
                 coid,
@@ -1772,8 +1772,9 @@ private[lf] object SBuiltinFun {
         // This isn't ideal as it's a large uncached computation in a non Update primitive.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
-          Control.Value(SOptional(Some(templateArg)))
+        importCreateArg(machine, None, srcTplId, dstTplId, srcArg.toNormalizedValue) {
+          templateArg =>
+            Control.Value(SOptional(Some(templateArg)))
         }
       } else {
         Control.Value(SValue.SValue.None)
@@ -2606,7 +2607,7 @@ private[lf] object SBuiltinFun {
           dstTmplId.packageId,
           language.Reference.Template(dstTmplId.toRef),
         )(() => {
-          importValue(machine, Ast.TTyCon(dstTmplId), srcArg) { dstSArg =>
+          importCreateArg(machine, Some(coid), srcTmplId, dstTmplId, srcArg) { dstSArg =>
             fetchValidateDstContract(
               machine,
               coid,
@@ -2708,7 +2709,7 @@ private[lf] object SBuiltinFun {
         ) { () =>
           mbTypedNormalFormAuthenticator match {
             case Some(authenticator) =>
-              authenticateContractInfo(authenticator, coid, dstContract) { () =>
+              authenticateContractInfo(authenticator, coid, srcTmplId, dstContract) { () =>
                 k(dstTmplId, dstTmplArg, dstContract)
               }
             case None => k(dstTmplId, dstTmplArg, dstContract)
@@ -2757,18 +2758,28 @@ private[lf] object SBuiltinFun {
               k()
             } else {
               Control.Error(
-                IE.Dev(
-                  NameOf.qualifiedNameOfCurrentFunc,
-                  IE.Dev
-                    .AuthenticationError(coid, coinst.createArg, s"failed to authenticate contract"),
+                IE.Upgrade(
+                  IE.Upgrade
+                    .AuthenticationFailed(
+                      coid = coid,
+                      srcTemplateId = coinst.templateId,
+                      dstTemplateId = coinst.templateId,
+                      createArg = coinst.createArg,
+                      msg = "failed to authenticate contract",
+                    )
                 )
               )
             }
           case Left(msg) =>
             Control.Error(
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.AuthenticationError(coid, coinst.createArg, msg),
+              IE.Upgrade(
+                IE.Upgrade.AuthenticationFailed(
+                  coid = coid,
+                  srcTemplateId = coinst.templateId,
+                  dstTemplateId = coinst.templateId,
+                  createArg = coinst.createArg,
+                  msg = msg,
+                )
               )
             )
         }
@@ -2781,6 +2792,7 @@ private[lf] object SBuiltinFun {
   private def authenticateContractInfo(
       authenticator: Hash => Boolean,
       coid: V.ContractId,
+      srcTemplateId: TypeConId,
       contractInfo: ContractInfo,
   )(k: () => Control[Question.Update]) =
     if (
@@ -2795,14 +2807,14 @@ private[lf] object SBuiltinFun {
       k()
     } else {
       Control.Error(
-        IE.Dev(
-          NameOf.qualifiedNameOfCurrentFunc,
-          IE.Dev
-            .AuthenticationError(
-              coid,
-              contractInfo.value.toNormalizedValue,
-              s"failed to authenticate contract",
-            ),
+        IE.Upgrade(
+          IE.Upgrade.AuthenticationFailed(
+            coid = coid,
+            srcTemplateId = srcTemplateId,
+            dstTemplateId = contractInfo.templateId,
+            createArg = contractInfo.value.toNormalizedValue,
+            msg = s"failed to authenticate contract",
+          )
         )
       )
     }
@@ -2851,13 +2863,30 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def importValue[Q](machine: Machine[Q], typ: Ast.Type, value: V)(
-      f: SValue => Control[Q]
+  /** Type-checks [createArg] against [dstTmplId] and converts it to an SValue. The [coid] and [srcTmplId] parameters
+    *  are used for error reporting only.
+    */
+  private def importCreateArg[Q](
+      machine: Machine[Q],
+      coidOpt: Option[V.ContractId],
+      srcTmplId: TypeConId,
+      dstTmplId: TypeConId,
+      createArg: V,
+  )(
+      k: SValue => Control[Q]
   ): Control[Q] = {
-    machine.importValue(typ, value) match {
-      case Right(value) => f(value)
-      case Left(error) => Control.Error(error)
-    }
+    new ValueTranslator(machine.compiledPackages.pkgInterface, forbidLocalContractIds = true)
+      .translateValue(Ast.TTyCon(dstTmplId), createArg)
+      .fold(
+        translationError =>
+          Control.Error(
+            IE.Upgrade(
+              IE.Upgrade
+                .TranslationFailed(coidOpt, srcTmplId, dstTmplId, createArg, translationError)
+            )
+          ),
+        k,
+      )
   }
 
   // Get the contract info for a contract, computing if not in our cache

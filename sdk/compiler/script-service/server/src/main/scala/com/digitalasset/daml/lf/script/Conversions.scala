@@ -141,6 +141,16 @@ final class Conversions(
                     .setConsumedBy(proto.NodeId.newBuilder.setId(consumedBy.toString).build)
                     .build
                 )
+              case ContractHashingError(contractId, dstTemplateId, createArg, message) =>
+                builder.setContractHashingError(
+                  proto.ScriptError.ContractHashingError.newBuilder
+                    .setContractRef(mkContractRef(contractId, dstTemplateId))
+                    .setDstTemplateId(convertIdentifier(dstTemplateId))
+                    .setCreateArg(convertValue(createArg))
+                    .setMessage(message)
+                    .build
+                )
+
               case DisclosedContractKeyHashingError(contractId, globalKey, hash) =>
                 builder.setDisclosedContractKeyHashingError(
                   proto.ScriptError.DisclosedContractKeyHashingError.newBuilder
@@ -265,15 +275,6 @@ final class Conversions(
                       cgfBuilder.setByInterface(convertIdentifier(ifaceId))
                     )
                     builder.setChoiceGuardFailed(cgfBuilder.build)
-                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle translation errors properly
-                  case Dev.TranslationError(translationError) =>
-                    builder.setCrash(s"translation error: ${translationError}")
-                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle authentication errors properly
-                  case Dev.AuthenticationError(coid, value, msg) =>
-                    builder.setCrash(s"authentication error: $coid, $value, $msg")
-                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle hashing errors properly
-                  case Dev.HashingError(msg) =>
-                    builder.setCrash(s"hashing error: $msg")
                   case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
                     builder.setCrash(cause)
                 }

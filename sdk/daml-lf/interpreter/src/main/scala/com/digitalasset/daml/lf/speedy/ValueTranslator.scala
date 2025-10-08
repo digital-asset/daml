@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.interpretation.Error.Dev.TranslationError
+import com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LookupError, TypeDestructor}
 import com.digitalasset.daml.lf.value.Value
@@ -19,11 +19,11 @@ private[lf] final class ValueTranslator(
     shouldCheckDataSerializable: Boolean = true,
 ) {
 
-  @throws[TranslationError.Error]
+  @throws[TranslationFailed.Error]
   private[this] def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
     case Left(error) =>
-      throw TranslationError.LookupError(error)
+      throw TranslationFailed.LookupError(error)
 
   }
 
@@ -31,17 +31,17 @@ private[lf] final class ValueTranslator(
     if (forbidLocalContractIds) {
       case cid: ContractId.V1 =>
         if (cid.suffix.isEmpty)
-          throw TranslationError.NonSuffixedV1ContractId(cid)
+          throw TranslationFailed.NonSuffixedV1ContractId(cid)
 
       case cid: ContractId.V2 =>
         // We forbid only local contract IDs in Engine commands, but not relative contract IDs
         // because relative contract IDs may appear in reinterpretation of projections
         if (cid.suffix.isEmpty)
-          throw TranslationError.NonSuffixedV2ContractId(cid)
+          throw TranslationFailed.NonSuffixedV2ContractId(cid)
     }
     else { _ => () }
 
-  @throws[TranslationError.Error]
+  @throws[TranslationFailed.Error]
   def unsafeTranslateCid(cid: ContractId): SValue.SContractId = {
     validateCid(cid)
     SValue.SContractId(cid)
@@ -49,7 +49,7 @@ private[lf] final class ValueTranslator(
 
   // For efficiency reasons we do not produce here the monad Result[SValue] but rather throw
   // exceptions in case of error or package missing.
-  @throws[TranslationError.Error]
+  @throws[TranslationFailed.Error]
   def unsafeTranslateValue(
       ty: Type,
       value: Value,
@@ -59,12 +59,12 @@ private[lf] final class ValueTranslator(
 
     def go(ty0: Type, value0: Value, nesting: Int): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
-        throw TranslationError.ValueNesting(value)
+        throw TranslationFailed.ValueNesting(value)
 
       } else {
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
-          throw TranslationError.TypeMismatch(ty0, value0, msg)
+          throw TranslationFailed.TypeMismatch(ty0, value0, msg)
 
         def destruct(typ: Type): TypeDestructor.SerializableTypeF[Type] =
           Destructor.destruct(typ, shouldCheckDataSerializable) match {
@@ -72,7 +72,7 @@ private[lf] final class ValueTranslator(
             case Left(TypeDestructor.Error.TypeError(err)) =>
               typeError(err)
             case Left(TypeDestructor.Error.LookupError(err)) =>
-              throw TranslationError.LookupError(err)
+              throw TranslationFailed.LookupError(err)
           }
 
         def checkUserTypeId(targetType: Ref.TypeConId, mbSourceType: Option[Ref.TypeConId]): Unit =
@@ -136,7 +136,7 @@ private[lf] final class ValueTranslator(
                 )
               } catch {
                 case _: RuntimeException =>
-                  throw TranslationError.InvalidValue(
+                  throw TranslationFailed.InvalidValue(
                     value0,
                     s"Unexpected non-strictly ordered GenMap value",
                   )
@@ -172,13 +172,13 @@ private[lf] final class ValueTranslator(
               ) =>
             // Fail if the record ID or any label is present in the record value.
             if (mbId.isDefined)
-              throw TranslationError.InvalidValue(
+              throw TranslationFailed.InvalidValue(
                 value0,
                 s"Unexpected type id ${mbId} in record value.",
               )
             sourceElements.foreach { case (mbLabel, _) =>
               mbLabel.foreach(label =>
-                throw TranslationError.InvalidValue(
+                throw TranslationFailed.InvalidValue(
                   value0,
                   s"Unexpected label ${label} in record value.",
                 )
@@ -251,11 +251,11 @@ private[lf] final class ValueTranslator(
   def translateValue(
       ty: Type,
       value: Value,
-  ): Either[TranslationError.Error, SValue] =
+  ): Either[TranslationFailed.Error, SValue] =
     try {
       Right(unsafeTranslateValue(ty, value))
     } catch {
-      case e: TranslationError.Error =>
+      case e: TranslationFailed.Error =>
         Left(e)
     }
 }

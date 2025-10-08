@@ -342,6 +342,13 @@ class IdeLedgerClient(
           NonEmpty(Seq, cid),
           Some(SubmitError.ContractNotFound.AdditionalInfo.NotActive(cid, tid)),
         )
+      case e @ ContractHashingError(coid, dstTemplateId, createArg, _) =>
+        SubmitError.ContractHashingError(
+          coid,
+          dstTemplateId,
+          createArg,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case DisclosedContractKeyHashingError(cid, key, hash) =>
         SubmitError.DisclosedContractKeyHashingError(cid, key, hash.toString)
       case DuplicateContractKey(key) => SubmitError.DuplicateContractKey(Some(key))
@@ -378,6 +385,22 @@ class IdeLedgerClient(
           innerError.recomputedSignatories,
           innerError.recomputedObservers,
           innerError.recomputedKeyOpt,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(innerError: Upgrade.TranslationFailed) =>
+        SubmitError.UpgradeError.TranslationFailed(
+          innerError.coid,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          innerError.createArg,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
+      case e @ Upgrade(innerError: Upgrade.AuthenticationFailed) =>
+        SubmitError.UpgradeError.AuthenticationFailed(
+          innerError.coid,
+          innerError.srcTemplateId,
+          innerError.dstTemplateId,
+          innerError.createArg,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
       case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>

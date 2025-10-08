@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.interpretation.Error.Dev.TranslationError
+import com.digitalasset.daml.lf.interpretation.Error.Upgrade.TranslationFailed
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -203,8 +203,8 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       forAll(cases) { (typ, value) =>
         inside(Try(unsafeTranslateValue(typ, value))) {
-          case Failure(error: TranslationError.Error) =>
-            error shouldBe a[TranslationError.InvalidValue]
+          case Failure(error: TranslationFailed.Error) =>
+            error shouldBe a[TranslationFailed.InvalidValue]
         }
       }
     }
@@ -220,7 +220,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val TEnumUpgradable = t"Mod:Enum"
 
-      val testCases = Table[Ast.Type, Value, PartialFunction[TranslationError.Error, _]](
+      val testCases = Table[Ast.Type, Value, PartialFunction[TranslationFailed.Error, _]](
         ("type", "value", "error"),
         (
           TRecordUpgradable,
@@ -232,7 +232,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "" -> none,
             ),
           ),
-          { case TranslationError.TypeMismatch(typ, value, _) =>
+          { case TranslationFailed.TypeMismatch(typ, value, _) =>
             typ shouldBe t"Text"
             value shouldBe aParty
           },
@@ -243,7 +243,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
             "",
             ImmArray(), // missing a non-optional field
           ),
-          { case TranslationError.TypeMismatch(typ, _, _) =>
+          { case TranslationFailed.TypeMismatch(typ, _, _) =>
             typ shouldBe TRecordUpgradable
           },
         ),
@@ -258,14 +258,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "" -> aInt, // extra non-optional field
             ),
           ),
-          { case TranslationError.TypeMismatch(typ, _, _) =>
+          { case TranslationFailed.TypeMismatch(typ, _, _) =>
             typ shouldBe TRecordUpgradable
           },
         ),
         (
           TVariantUpgradable,
           ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
-          { case TranslationError.TypeMismatch(typ, value, _) =>
+          { case TranslationFailed.TypeMismatch(typ, value, _) =>
             typ shouldBe t"Text"
             value shouldBe aInt
           },
@@ -274,7 +274,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TVariantUpgradable,
           ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
           {
-            case TranslationError.LookupError(
+            case TranslationFailed.LookupError(
                   LookupError.NotFound(
                     Reference.DataVariantConstructor(_, consName),
                     Reference.DataVariantConstructor(_, _),
@@ -287,7 +287,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TEnumUpgradable,
           ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
           {
-            case TranslationError.LookupError(
+            case TranslationFailed.LookupError(
                   LookupError.NotFound(
                     Reference.DataEnumConstructor(_, consName),
                     Reference.DataEnumConstructor(_, _),
@@ -300,7 +300,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TVariantUpgradable,
           ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
           {
-            case TranslationError.LookupError(
+            case TranslationFailed.LookupError(
                   LookupError.NotFound(
                     Reference.DataVariantConstructor(_, consName),
                     Reference.DataVariantConstructor(_, _),
@@ -313,7 +313,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TEnumUpgradable,
           ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
           {
-            case TranslationError.LookupError(
+            case TranslationFailed.LookupError(
                   LookupError.NotFound(
                     Reference.DataEnumConstructor(_, consName),
                     Reference.DataEnumConstructor(_, _),
@@ -325,7 +325,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
       forEvery(testCases)((typ, value, checkError) =>
         inside(Try(unsafeTranslateValue(typ, value))) {
-          case Failure(error: TranslationError.Error) =>
+          case Failure(error: TranslationFailed.Error) =>
             checkError(error)
         }
       )
@@ -350,7 +350,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       ) =
         (Success(sValue(extraFieldDefined, anotherExtraFieldDefined)), value)
       def upgradeCaseFailure(s: String, value: Value) =
-        (Failure(TranslationError.TypeMismatch(typ, value, s)), value)
+        (Failure(TranslationFailed.TypeMismatch(typ, value, s)), value)
       val testCases = Table(
         ("", "record"),
         upgradeCaseSuccess(
@@ -488,7 +488,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           ),
         )
       )
-      inside(res) { case Failure(TranslationError.TypeMismatch(typ, value, _)) =>
+      inside(res) { case Failure(TranslationFailed.TypeMismatch(typ, value, _)) =>
         typ shouldBe t"Text"
         value shouldBe ValueParty("Alice")
       }
@@ -498,7 +498,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       forAll(testCases) { (typ1, value1, _) =>
         forAll(testCases) { (_, value2, _) =>
           if (value1 != value2) {
-            a[TranslationError.Error] shouldBe thrownBy(
+            a[TranslationFailed.Error] shouldBe thrownBy(
               unsafeTranslateValue(typ1, value2)
             )
           }
@@ -518,7 +518,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         }
       val notTooBig = mkMyList(49)
       val tooBig = mkMyList(50)
-      val failure = Failure(TranslationError.ValueNesting(tooBig))
+      val failure = Failure(TranslationFailed.ValueNesting(tooBig))
 
       Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
       Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
@@ -595,9 +595,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         crypto.Hash.hashPrivateKey("an illegal Contract ID"),
       )
       val failureV1 =
-        Failure(TranslationError.NonSuffixedV1ContractId(illegalCidV1))
+        Failure(TranslationFailed.NonSuffixedV1ContractId(illegalCidV1))
       val failureV2 =
-        Failure(TranslationError.NonSuffixedV2ContractId(illegalCidV2))
+        Failure(TranslationFailed.NonSuffixedV2ContractId(illegalCidV2))
 
       forEvery(testCasesForCid(legalCidV1))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
@@ -650,7 +650,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       forAll(testCases) { (typ, value) =>
-        a[TranslationError.InvalidValue] shouldBe thrownBy(
+        a[TranslationFailed.InvalidValue] shouldBe thrownBy(
           unsafeTranslateValue(typ, value)
         )
       }
@@ -695,7 +695,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       forAll(testCases) { (typ, value) =>
-        a[TranslationError.InvalidValue] shouldBe thrownBy(
+        a[TranslationFailed.InvalidValue] shouldBe thrownBy(
           unsafeTranslateValue(typ, value)
         )
       }
