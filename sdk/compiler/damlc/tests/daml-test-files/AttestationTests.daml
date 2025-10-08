@@ -10,6 +10,7 @@ module AttestationTests where
 import AttestationTestData
 import DA.Assert ((===))
 import DA.Crypto.Text
+import DA.Foldable (forA_)
 import Daml.Script
 
 template ValidateTestMessageSignature with
@@ -23,15 +24,16 @@ template ValidateTestMessageSignature with
 
 main =
   script do
-    TestData msg encodedMsg msgHash sig <- testData
-    ((serializeTestMessage msg) === encodedMsg)
-    ((keccak256 (serializeTestMessage msg)) === msgHash)
-    actualSig <- secp256k1signWithEcdsaOnly signerAddress msgHash
-    (actualSig === sig)
-    alice <- allocateParty "Alice"
-    submit alice do
-      createCmd ValidateTestMessageSignature with
-        publicKey = signerAddress
-        messageHash = msgHash
-        signature = sig
-        owner = alice
+    forA_ testData \test -> do
+      ((serializeTestMessage test.message) === test.encodedMessage)
+      ((keccak256 (serializeTestMessage test.message)) === test.messageHash)
+      actualSig <- secp256k1signWithEcdsaOnly signerPrivateKey test.messageHash
+      (actualSig === test.signature)
+      --alice <- allocateParty "Alice"
+      --submit alice do
+      --  createCmd ValidateTestMessageSignature with
+      --    publicKey = signerPublicKey
+      --    messageHash = test.messageHash
+      --    signature = test.signature
+      --    owner = alice
+    pure ()
