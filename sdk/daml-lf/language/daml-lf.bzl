@@ -76,7 +76,7 @@ lf_version_latest = {
 # make a new LF release, we bump latest and once we make it the compiler default
 # we bump default.
 lf_version_configuration = {
-    "default": "2.1",
+    "default": "2.2",
     # latest = latest MAJOR version?
     "latest": lf_version_latest.get("2"),
     "preview": "2.2",

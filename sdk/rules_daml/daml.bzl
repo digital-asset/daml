@@ -400,11 +400,13 @@ def daml_compile(
 def daml_compile_with_dalf(
         name,
         version = _default_project_version,
+        target = None,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml, and extract the main DALF."
     daml_compile(
         name = name,
         version = version,
+        target = target,
         **kwargs
     )
     _extract_main_dalf(
