@@ -137,7 +137,7 @@ featureUnstable = Feature
     , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
-    
+
 featureTextMap :: Feature
 featureTextMap = Feature
     { featureName = "TextMap type"

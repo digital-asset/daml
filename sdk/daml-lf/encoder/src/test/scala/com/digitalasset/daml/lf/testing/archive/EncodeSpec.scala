@@ -19,6 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class EncodeV21Spec extends EncodeSpec(LanguageVersion.v2_1)
+class EncodeV22Spec extends EncodeSpec(LanguageVersion.v2_2)
 class EncodeV2devSpec extends EncodeSpec(LanguageVersion.v2_dev)
 
 abstract class EncodeSpec(languageVersion: LanguageVersion)
