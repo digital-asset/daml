@@ -25,6 +25,12 @@ object PostgresQueryStrategy extends QueryStrategy {
     cSQL"= ANY($longArray::bigint[])"
   }
 
+  override def anyOfSmallInts(ints: Iterable[Int]): CompositeSql = {
+    val intArray: Array[java.lang.Integer] =
+      ints.view.map(Int.box).toArray
+    cSQL"= ANY($intArray::smallint[])"
+  }
+
   override def anyOfStrings(strings: Iterable[String]): CompositeSql = {
     val stringArray: Array[String] =
       strings.toArray

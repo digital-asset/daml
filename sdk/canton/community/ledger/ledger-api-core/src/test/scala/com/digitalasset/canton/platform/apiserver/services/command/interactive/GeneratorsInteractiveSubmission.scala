@@ -16,13 +16,13 @@ import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPackageId, LfParty
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   GlobalKey,
   Node,
   NodeId,
+  SerializationVersion as LfSerializationVersion,
   SubmittedTransaction,
   Transaction,
   VersionedTransaction,
@@ -49,7 +49,7 @@ final class GeneratorsInteractiveSubmission(
     case node: Node.Create =>
       node
         .copy(
-          version = LanguageVersion.v2_1,
+          version = LfSerializationVersion.V1,
           keyOpt = None,
           // signatories should be a subset of stakeholders for the node to be valid
           // take a random size subset of stakeholders, but 1 minimum
@@ -59,7 +59,7 @@ final class GeneratorsInteractiveSubmission(
     case node: Node.Exercise =>
       node
         .copy(
-          version = LanguageVersion.v2_1,
+          version = LfSerializationVersion.V1,
           keyOpt = None,
           byKey = false,
           choiceAuthorizers = None,
@@ -68,7 +68,7 @@ final class GeneratorsInteractiveSubmission(
     case node: Node.Fetch =>
       node
         .copy(
-          version = LanguageVersion.v2_1,
+          version = LfSerializationVersion.V1,
           keyOpt = None,
           byKey = false,
         )
@@ -89,7 +89,7 @@ final class GeneratorsInteractiveSubmission(
 
   private val versionedTransactionGenerator = for {
     transaction <- noDanglingRefGenTransaction
-  } yield VersionedTransaction(LanguageVersion.v2_1, transaction.nodes, transaction.roots)
+  } yield VersionedTransaction(LfSerializationVersion.V1, transaction.nodes, transaction.roots)
 
   implicit val transactionArb: Arbitrary[VersionedTransaction] = Arbitrary(
     versionedTransactionGenerator
@@ -190,7 +190,7 @@ final class GeneratorsInteractiveSubmission(
 
   private def inputContractsGen(overrideCid: Value.ContractId): Gen[LfFatContractInst] = for {
     create <- ValueGenerators
-      .malformedCreateNodeGenWithVersion(LanguageVersion.v2_1)
+      .malformedCreateNodeGenWithVersion(LfSerializationVersion.V1)
       .map(normalizeNodeForV1)
     createdAt <- Arbitrary.arbitrary[Time.Timestamp]
     authenticationData <- Arbitrary.arbitrary[Array[Byte]].map(Bytes.fromByteArray)

@@ -1909,9 +1909,11 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |Additionally, Dars uploaded using the ledger Api will be vetted, but the system will not wait
           |for the Dars to be successfully registered with all connected synchronizers. As such, if a Dar is uploaded and then
           |used immediately thereafter, a command might bounce due to missing package vettings.""")
-      def upload_dar(darPath: String): Unit =
+      def upload_dar(darPath: String, synchronizerId: Option[SynchronizerId] = None): Unit =
         consoleEnvironment.run {
-          ledgerApiCommand(LedgerApiCommands.PackageManagementService.UploadDarFile(darPath))
+          ledgerApiCommand(
+            LedgerApiCommands.PackageManagementService.UploadDarFile(darPath, synchronizerId)
+          )
         }
 
       @Help.Summary("List Daml Packages")
@@ -1927,7 +1929,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       )
       def validate_dar(darPath: String): Unit =
         consoleEnvironment.run {
-          ledgerApiCommand(LedgerApiCommands.PackageManagementService.ValidateDarFile(darPath))
+          ledgerApiCommand(
+            LedgerApiCommands.PackageManagementService.ValidateDarFile(darPath, None)
+          )
         }
     }
 

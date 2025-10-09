@@ -137,7 +137,7 @@ featureUnstable = Feature
     , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
-    
+
 featureTextMap :: Feature
 featureTextMap = Feature
     { featureName = "TextMap type"
@@ -192,14 +192,16 @@ featureContractKeys = Feature
 featureFlatArchive :: Feature
 featureFlatArchive = Feature
     { featureName = "Flat Archive"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq $ \case
+          V2 -> allMinorVersionsAfter (PointStable 2)
     , featureCppFlag = Just "DAML_FLATARCHIVE"
     }
 
 featurePackageImports :: Feature
 featurePackageImports = Feature
     { featureName = "Explicit package imports"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq $ \case
+          V2 -> allMinorVersionsAfter (PointStable 2)
     , featureCppFlag = Just "DAML_PackageImports"
     }
 

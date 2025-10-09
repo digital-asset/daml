@@ -32,7 +32,7 @@ import io.grpc.Context.CancellableContext
 import io.grpc.stub.{AbstractStub, StreamObserver}
 
 import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -402,6 +402,24 @@ object CantonGrpcUtil {
         override def retryable: Option[ErrorCategoryRetry] = Some(ErrorCategoryRetry(10.seconds))
       }
     }
+
+    /** Error used by the Admin API server limits */
+    @Explanation(
+      """The node is at capacity and therefore limits the number of parallel requests."""
+    )
+    @Resolution("""Retry with exponential backoff.""")
+    object Overloaded
+        extends ErrorCode(id = "SERVER_OVERLOADED", ErrorCategory.ContentionOnSharedResources) {
+      final case class TooManyStreams(methodName: String)(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends CantonError.Impl(
+            cause =
+              s"Reached the limit of concurrent streams for $methodName. Please try again later"
+          ) {
+        override def retryable = Some(ErrorCategoryRetry(5.seconds))
+      }
+    }
+
   }
 
   implicit class GrpcFUSExtended[A](val f: FutureUnlessShutdown[A]) extends AnyVal {

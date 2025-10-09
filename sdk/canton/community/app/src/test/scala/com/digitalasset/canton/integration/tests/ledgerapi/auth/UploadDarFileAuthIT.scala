@@ -25,6 +25,7 @@ final class UploadDarFileAuthIT extends AdminServiceCallAuthTests {
       darData,
       submissionId = "",
       UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+      synchronizerId = "",
     )
   }
 

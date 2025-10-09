@@ -8,28 +8,32 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.daml.logging.LoggingContext
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.{HashOps, HmacOps}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.*
 import com.digitalasset.canton.participant.sync.StaticSynchronizerParametersGetter
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ContractHasher
+import com.digitalasset.canton.util.{ContractHasher, ContractValidator, MonadUtil}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.transaction.Versioned
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
-sealed abstract class ContractIdsImportProcessor(
+sealed abstract class ContractAuthenticationImportProcessor(
     staticParametersGetter: StaticSynchronizerParametersGetter
 ) extends NamedLogging {
+  protected implicit def executionContext: ExecutionContext
+
   def process(contracts: Seq[RepairContract])(implicit
-      ec: ExecutionContext,
-      tc: TraceContext,
-  ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])]
+      tc: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, (Seq[RepairContract], Map[LfContractId, LfContractId])]
 
   /*
     In the context of a migration combining ACS import and synchronizer change (such as the one we perform
@@ -47,25 +51,30 @@ sealed abstract class ContractIdsImportProcessor(
       .flatMap(CantonContractIdVersion.maximumSupportedVersion)
 }
 
-object ContractIdsImportProcessor {
+object ContractAuthenticationImportProcessor {
 
   /** Verify that all contract IDs have a version greater or equal to the contract ID version
-    * associated with the protocol version of the synchronizer to which the contract is assigned. If
-    * any contract ID fails, the whole process fails.
+    * associated with the protocol version of the synchronizer to which the contract is assigned.
+    * Furthermore, perform full contract validation. If these checks fail for any contract, the
+    * whole import is aborted.
     */
-  private final class VerifyContractIdSuffixes(
+  private final class ValidateContracts(
       staticParametersGetter: StaticSynchronizerParametersGetter,
+      contractValidator: ContractValidator,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends ContractIdsImportProcessor(staticParametersGetter) {
+  )(protected implicit val executionContext: ExecutionContext)
+      extends ContractAuthenticationImportProcessor(staticParametersGetter) {
+    private val processParallelism = Threading.detectNumberOfThreads(noTracingLogger)
 
-    private def verifyContractIdSuffix(
+    private def validateContract(
         contract: RepairContract
-    ): Either[String, RepairContract] =
-      for {
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, RepairContract] = {
+      val validatedContractIdVersionE = for {
         maxSynchronizerVersion <- getMaximumSupportedContractIdVersion(contract.synchronizerId)
         activeContractVersion <- CantonContractIdVersion
           .extractCantonContractIdVersion(contract.contract.contractId)
-          .leftMap(_.toString)
         _ <- Either.cond(
           maxSynchronizerVersion >= activeContractVersion,
           (),
@@ -73,13 +82,28 @@ object ContractIdsImportProcessor {
         )
       } yield contract
 
+      for {
+        _ <- validatedContractIdVersionE.toEitherT[FutureUnlessShutdown]
+        _ <- {
+          implicit val loggingContext: LoggingContext = LoggingContext.empty
+          contractValidator
+            .authenticate(contract.contract, contract.representativePackageId)
+            .leftMap { e =>
+              s"Failed to authenticate contract with id: ${contract.contract.contractId}: $e"
+            }
+        }
+      } yield contract
+    }
+
     override def process(contracts: Seq[RepairContract])(implicit
-        ec: ExecutionContext,
-        tc: TraceContext,
-    ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
-      EitherT
-        .fromEither[Future](contracts.traverse(verifyContractIdSuffix))
-        .map((_, Map.empty))
+        tc: TraceContext
+    ): EitherT[
+      FutureUnlessShutdown,
+      String,
+      (Seq[RepairContract], Map[LfContractId, LfContractId]),
+    ] = MonadUtil
+      .parTraverseWithLimit(processParallelism)(contracts)(validateContract)
+      .map((_, Map.empty))
   }
 
   private final case class DiscriminatorWithContractId(
@@ -99,7 +123,8 @@ object ContractIdsImportProcessor {
       cryptoOps: HashOps & HmacOps,
       hasher: ContractHasher,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends ContractIdsImportProcessor(staticParametersGetter) {
+  )(implicit protected val executionContext: ExecutionContext)
+      extends ContractAuthenticationImportProcessor(staticParametersGetter) {
 
     private val unicumGenerator = new UnicumGenerator(cryptoOps)
 
@@ -125,7 +150,7 @@ object ContractIdsImportProcessor {
     private def recomputeContractIdSuffix(
         repairContract: RepairContract,
         contractIdVersion: CantonContractIdVersion,
-    )(implicit tc: TraceContext, ec: ExecutionContext): EitherT[Future, String, RepairContract] = {
+    )(implicit tc: TraceContext): EitherT[Future, String, RepairContract] = {
       val contract = repairContract.contract
 
       for {
@@ -201,8 +226,7 @@ object ContractIdsImportProcessor {
     // If the contract ID is already valid return the contract as is, eagerly and synchronously.
     // If the contract ID is not valid it will recompute it, lazily and asynchronously.
     private def recomputeBrokenContractIdSuffix(contract: RepairContract)(implicit
-        ec: ExecutionContext,
-        tc: TraceContext,
+        tc: TraceContext
     ): Eval[EitherT[Future, String, RepairContract]] =
       getMaximumSupportedContractIdVersion(contract.synchronizerId).fold(
         error => Eval.now(EitherT.leftT[Future, RepairContract](error)),
@@ -244,8 +268,7 @@ object ContractIdsImportProcessor {
     }
 
     private def recomputeBrokenContractIdSuffixes(contracts: Seq[RepairContract])(implicit
-        ec: ExecutionContext,
-        tc: TraceContext,
+        tc: TraceContext
     ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] = {
       // Associate every contract ID with a lazy deferred computation that will recompute the contract ID if necessary
       // It's lazy so that every single contract ID is associated with a computation, before the first one finishes.
@@ -269,33 +292,39 @@ object ContractIdsImportProcessor {
     }
 
     override def process(contracts: Seq[RepairContract])(implicit
-        ec: ExecutionContext,
-        tc: TraceContext,
-    ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
+        tc: TraceContext
+    ): EitherT[
+      FutureUnlessShutdown,
+      String,
+      (Seq[RepairContract], Map[LfContractId, LfContractId]),
+    ] =
       for {
-        _ <- EitherT.fromEither[Future](ensureDiscriminatorUniqueness(contracts))
-        completedRemapping <- recomputeBrokenContractIdSuffixes(contracts)
+        _ <- ensureDiscriminatorUniqueness(contracts).toEitherT[FutureUnlessShutdown]
+        completedRemapping <- recomputeBrokenContractIdSuffixes(contracts).mapK(
+          FutureUnlessShutdown.outcomeK
+        )
       } yield completedRemapping
   }
 
-  /** Ensures that all contract IDs comply with the scheme associated to the synchronizer where the
-    * contracts are assigned.
+  /** Ensures that all contracts are validated and their contract IDs comply with the scheme
+    * associated to the synchronizer where the contracts are assigned.
     */
   def apply(
       loggerFactory: NamedLoggerFactory,
       staticParametersGetter: StaticSynchronizerParametersGetter,
       cryptoOps: HashOps & HmacOps,
       hasher: ContractHasher,
+      contractValidator: ContractValidator,
       contractImportMode: ContractImportMode,
   )(contracts: Seq[RepairContract])(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
+  ): EitherT[FutureUnlessShutdown, String, (Seq[RepairContract], Map[LfContractId, LfContractId])] =
     contractImportMode match {
-      // Accept contract IDs as they are.
+      // Accept contracts as they are.
       case ContractImportMode.Accept => EitherT.rightT((contracts, Map.empty))
       case ContractImportMode.Validation =>
-        new VerifyContractIdSuffixes(staticParametersGetter, loggerFactory)
+        new ValidateContracts(staticParametersGetter, contractValidator, loggerFactory)
           .process(contracts)
       case ContractImportMode.Recomputation =>
         new RecomputeContractIdSuffixes(staticParametersGetter, cryptoOps, hasher, loggerFactory)

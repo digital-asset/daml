@@ -6,12 +6,17 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.RowParser
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
-  RawAcsDeltaEvent,
   RawAcsDeltaEventLegacy,
+  RawArchivedEvent,
   RawArchivedEventLegacy,
   RawCreatedEventLegacy,
+  RawThinCreatedEvent,
 }
-import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
+import com.digitalasset.canton.platform.store.backend.PersistentEventType
+import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
+  CompositeSql,
+  SqlStringInterpolation,
+}
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -28,13 +33,109 @@ class EventReaderQueries(stringInterning: StringInterning) {
   case class SelectTable(tableName: String, selectColumns: String)
 
   def fetchContractIdEvents(
-      contractId: ContractId,
+      internalContractId: Long,
       requestingParties: Option[Set[Party]],
       endEventSequentialId: EventSequentialId,
   )(
       connection: Connection
-  ): Vector[Entry[RawAcsDeltaEvent]] =
-    ??? // TODO(#28002): Implement
+  ): (Option[RawThinCreatedEvent], Option[RawArchivedEvent]) = {
+    def queryByInternalContractId(
+        tableName: String,
+        eventType: PersistentEventType,
+        ascending: Boolean,
+    )(columns: CompositeSql) =
+      SQL"""
+         SELECT $columns
+         FROM #$tableName
+         WHERE
+           internal_contract_id = $internalContractId
+           AND event_sequential_id <= $endEventSequentialId
+           AND event_type = ${eventType.asInt}
+         ORDER BY event_sequential_id #${if (ascending) "ASC" else "DESC"}
+         LIMIT 1
+         """
+
+    def lookupActivateCreated: Option[RawThinCreatedEvent] =
+      RowDefs
+        .rawThinCreatedEventParser(
+          stringInterning = stringInterning,
+          allQueryingPartiesO = requestingParties,
+          witnessIsAcsDelta = true,
+          eventIsAcsDelta = true,
+        )
+        .queryMultipleRows(
+          queryByInternalContractId(
+            tableName = "lapi_events_activate_contract",
+            eventType = PersistentEventType.Create,
+            ascending = true,
+          )
+        )(connection)
+        .headOption
+
+    def lookupDeactivateArchived: Option[RawArchivedEvent] =
+      RowDefs
+        .rawArchivedEventParser(
+          stringInterning = stringInterning,
+          allQueryingPartiesO = requestingParties,
+          acsDelta = true,
+        )
+        .queryMultipleRows(
+          queryByInternalContractId(
+            tableName = "lapi_events_deactivate_contract",
+            eventType = PersistentEventType.ConsumingExercise,
+            ascending = false,
+          )
+        )(connection)
+        .headOption
+
+    def lookupWitnessedCreated: Option[RawThinCreatedEvent] =
+      RowDefs
+        .rawThinCreatedEventParser(
+          stringInterning = stringInterning,
+          allQueryingPartiesO = requestingParties,
+          witnessIsAcsDelta = false,
+          eventIsAcsDelta = false,
+        )
+        .queryMultipleRows(
+          queryByInternalContractId(
+            tableName = "lapi_events_various_witnessed",
+            eventType = PersistentEventType.WitnessedCreate,
+            ascending = true,
+          )
+        )(connection)
+        .headOption
+
+    def lookupTransienArchived(createOffset: Long): Option[RawArchivedEvent] =
+      RowDefs
+        .rawArchivedEventParser(
+          stringInterning = stringInterning,
+          allQueryingPartiesO = requestingParties,
+          acsDelta = false,
+        )
+        .queryMultipleRows(columns => SQL"""
+               SELECT $columns
+               FROM lapi_events_various_witnessed
+               WHERE
+                 internal_contract_id = $internalContractId
+                 AND event_sequential_id <= $endEventSequentialId
+                 AND event_type = ${PersistentEventType.WitnessedConsumingExercise.asInt}
+                 AND event_offset = $createOffset
+               ORDER BY event_sequential_id
+               LIMIT 1
+               """)(connection)
+        .headOption
+
+    lookupActivateCreated
+      .map(create => Some(create) -> lookupDeactivateArchived)
+      .orElse(
+        lookupWitnessedCreated.flatMap(create =>
+          lookupTransienArchived(
+            create.transactionProperties.commonEventProperties.offset
+          ).map(transientArchive => Some(create) -> Some(transientArchive))
+        )
+      )
+      .getOrElse(None -> None)
+  }
 
   def fetchContractIdEventsLegacy(
       contractId: ContractId,

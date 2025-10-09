@@ -130,34 +130,48 @@ class SequencerSubscriptionX[HandlerError] private[sequencing] (
     reason match {
       case Success(SubscriptionCloseReason.Closed) =>
         logger.trace("Closing sequencer subscription")
-        connection.fatal("Normal closing")
+      // Normal closing of this subscription can be triggered either by:
+      // - closing of the subscription pool, which closed all the subscriptions; in this case, the connection pool
+      //   will also be closed and will take care of the connections
+      // - failure of a connection, and the subscription pool closed the associated subscription; in this case, the
+      //   connection will already be closed if need be
+      // We therefore don't need to explicitly close the connection.
+
       case Success(SubscriptionCloseReason.Shutdown) =>
         logger.info("Closing sequencer subscription due to an ongoing shutdown")
-        connection.fatal("Shutdown")
+      // If we reach here, it is due to a concurrent closing of the subscription (see previous case) and a subscription
+      // error. Again, we don't need to explicitly close the connection.
+
       case Success(SubscriptionCloseReason.HandlerError(_: ApplicationHandlerShutdown.type)) =>
         logger.info("Closing sequencer subscription due to handler shutdown")
         connection.fatal("Subscription handler shutdown")
+
       case Success(SubscriptionCloseReason.HandlerError(exception: ApplicationHandlerException)) =>
         logger.error(
           s"Permanently closing sequencer subscription due to handler exception (this indicates a bug): $exception"
         )
         connection.fatal(exception.toString)
+
       case Success(SubscriptionCloseReason.HandlerError(ApplicationHandlerPassive(reason))) =>
         logger.info(
           s"Permanently closing sequencer subscription because instance became passive: $reason"
         )
         connection.fatal("Instance became passive")
+
       case Success(Fatal(reason)) if isClosing =>
         logger.info(
           s"Permanently closing sequencer subscription after an error due to an ongoing shutdown: $reason"
         )
         connection.fatal("Error during shutdown")
+
       case Success(ex: HandlerException) =>
         logger.error(s"Permanently closing sequencer subscription due to handler exception: $ex")
         connection.fatal(ex.toString)
+
       case Success(error) =>
         logger.warn(s"Permanently closing sequencer subscription due to error: $error")
         connection.fatal(error.toString)
+
       case Failure(exception) =>
         logger.error(s"Permanently closing sequencer subscription due to exception", exception)
         connection.fatal(exception.toString)

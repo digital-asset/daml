@@ -176,6 +176,7 @@ importDamlPreprocessor = fmap onModule
         onModule y = y {
           GHC.hsmodImports =
             newImport True "GHC.Types" :
+            newImport True "GHC.Err" :
             newImport True "DA.Internal.Desugar" :
             newImport False "DA.Internal.RebindableSyntax" : GHC.hsmodImports y
           }

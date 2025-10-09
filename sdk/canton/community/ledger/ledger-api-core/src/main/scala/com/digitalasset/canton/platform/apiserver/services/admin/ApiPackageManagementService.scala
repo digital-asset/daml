@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
+import cats.data.EitherT
+import cats.implicits.{toBifunctorOps, toTraverseOps}
 import com.daml.ledger.api.v2.admin.package_management_service.*
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v2.package_reference.VettedPackages
@@ -22,11 +24,14 @@ import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.platform.apiserver.services.logging
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.EitherUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{EitherTUtil, OptionUtil}
 import com.digitalasset.daml.lf.data.Ref
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -80,12 +85,27 @@ private[apiserver] final class ApiPackageManagementService private (
       logging.submissionId(submissionIdGenerator(request.submissionId))
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Validating DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
-      packageSyncService
-        .validateDar(dar = request.darFile, darName = "defaultDarName")
-        .flatMap {
-          case SubmissionResult.Acknowledged => Future.successful(ValidateDarFileResponse())
-          case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
-        }
+      for {
+        synchronizerIdO <-
+          EitherTUtil.toFuture(
+            CantonGrpcUtil.mapErrNew(
+              OptionUtil
+                .emptyStringAsNone(request.synchronizerId)
+                .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+                .leftMap(ProtoDeserializationFailure.Wrap(_))
+            )
+          )
+        result <- packageSyncService
+          .validateDar(
+            dar = request.darFile,
+            darName = "defaultDarName",
+            synchronizerId = synchronizerIdO,
+          )
+          .flatMap {
+            case SubmissionResult.Acknowledged => Future.successful(ValidateDarFileResponse())
+            case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
+          }
+      } yield result
     }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
@@ -95,18 +115,32 @@ private[apiserver] final class ApiPackageManagementService private (
     ) { implicit loggingContext: LoggingContextWithTrace =>
       logger.info(s"Uploading DAR file, ${loggingContext.serializeFiltered("submissionId")}.")
 
-      for {
-        uploadDarVettingChange <- UploadDarOpts
-          .fromProto("vetting_change", request.vettingChange)
-          .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
-        result <- packageSyncService
-          .uploadDar(Seq(request.darFile), submissionId, uploadDarVettingChange)
-          .flatMap {
-            case SubmissionResult.Acknowledged => Future.successful(UploadDarFileResponse())
-            case err: SubmissionResult.SynchronousError => Future.failed(err.exception)
-          }
-          .thereafter(logger.logErrorsOnCall[UploadDarFileResponse])
-      } yield result
+      val resultET = for {
+        synchronizerIdO <-
+          CantonGrpcUtil.mapErrNew(
+            OptionUtil
+              .emptyStringAsNone(request.synchronizerId)
+              .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+              .leftMap(ProtoDeserializationFailure.Wrap(_))
+          )
+        uploadDarVettingChange <- CantonGrpcUtil
+          .mapErrNew(
+            UploadDarOpts
+              .fromProto("vetting_change", request.vettingChange)
+              .leftMap(ProtoDeserializationFailure.Wrap(_))
+          )
+        uploadResult <- EitherT.right(
+          packageSyncService
+            .uploadDar(Seq(request.darFile), submissionId, uploadDarVettingChange, synchronizerIdO)
+        )
+        response <- uploadResult match {
+          case SubmissionResult.Acknowledged =>
+            EitherT.rightT[Future, StatusRuntimeException](UploadDarFileResponse())
+          case err: SubmissionResult.SynchronousError =>
+            EitherT.leftT[Future, UploadDarFileResponse](err.exception)
+        }
+      } yield response
+      EitherTUtil.toFuture(resultET).thereafter(logger.logErrorsOnCall[UploadDarFileResponse])
     }
   }
 

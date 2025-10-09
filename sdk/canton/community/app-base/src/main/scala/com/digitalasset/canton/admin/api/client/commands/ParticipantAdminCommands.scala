@@ -186,6 +186,7 @@ object ParticipantAdminCommands {
     final case class DarData(darPath: String, description: String, expectedMainPackageId: String)
     final case class UploadDar(
         dars: Seq[DarData],
+        synchronizerId: Option[SynchronizerId],
         vetAllPackages: Boolean,
         synchronizeVetting: Boolean,
         requestHeaders: Map[String, String],
@@ -213,6 +214,7 @@ object ParticipantAdminCommands {
               _,
               synchronizeVetting = synchronizeVetting,
               vetAllPackages = vetAllPackages,
+              synchronizerId = synchronizerId.map(_.toProtoPrimitive),
             )
           )
 
@@ -257,6 +259,7 @@ object ParticipantAdminCommands {
     object UploadDar {
       def apply(
           darPath: String,
+          synchronizerId: Option[SynchronizerId],
           vetAllPackages: Boolean,
           synchronizeVetting: Boolean,
           description: String,
@@ -265,8 +268,9 @@ object ParticipantAdminCommands {
           logger: TracedLogger,
       ): UploadDar = UploadDar(
         Seq(DarData(darPath, description, expectedMainPackageId)),
-        vetAllPackages,
-        synchronizeVetting,
+        synchronizerId,
+        vetAllPackages = vetAllPackages,
+        synchronizeVetting = synchronizeVetting,
         requestHeaders,
         logger,
       )
@@ -275,6 +279,7 @@ object ParticipantAdminCommands {
 
     final case class ValidateDar(
         darPath: Option[String],
+        synchronizerId: Option[SynchronizerId],
         logger: TracedLogger,
     ) extends PackageCommand[v30.ValidateDarRequest, v30.ValidateDarResponse, String] {
 
@@ -291,6 +296,7 @@ object ParticipantAdminCommands {
         } yield v30.ValidateDarRequest(
           darData,
           filename,
+          synchronizerId = synchronizerId.map(_.toProtoPrimitive),
         )
 
       override protected def submitRequest(
@@ -428,10 +434,13 @@ object ParticipantAdminCommands {
 
     }
 
-    final case class VetDar(darDash: String, synchronize: Boolean)
-        extends PackageCommand[v30.VetDarRequest, v30.VetDarResponse, Unit] {
+    final case class VetDar(
+        darDash: String,
+        synchronize: Boolean,
+        synchronizer: Option[SynchronizerId],
+    ) extends PackageCommand[v30.VetDarRequest, v30.VetDarResponse, Unit] {
       override protected def createRequest(): Either[String, v30.VetDarRequest] = Right(
-        v30.VetDarRequest(darDash, synchronize)
+        v30.VetDarRequest(darDash, synchronize, synchronizer.map(_.toProtoPrimitive))
       )
 
       override protected def submitRequest(
@@ -445,11 +454,11 @@ object ParticipantAdminCommands {
 
     // TODO(#14432): Add `synchronize` flag which makes the call block until the unvetting operation
     //               is observed by the participant on all connected synchronizers.
-    final case class UnvetDar(mainPackageId: String)
+    final case class UnvetDar(mainPackageId: String, synchronizerId: Option[SynchronizerId])
         extends PackageCommand[v30.UnvetDarRequest, v30.UnvetDarResponse, Unit] {
 
       override protected def createRequest(): Either[String, v30.UnvetDarRequest] = Right(
-        v30.UnvetDarRequest(mainPackageId)
+        v30.UnvetDarRequest(mainPackageId, synchronizerId.map(_.toProtoPrimitive))
       )
 
       override protected def submitRequest(

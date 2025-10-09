@@ -358,7 +358,6 @@ class AcquiredInterfacesIntegrationTest extends CommunityIntegrationTest with Sh
 
           participant1.dars.upload(
             UpgradingBaseTest.TokenV3,
-            vetAllPackages = false,
             synchronizeVetting = false,
           )
 

@@ -16,8 +16,12 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKey, Node}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  GlobalKey,
+  Node,
+  SerializationVersion as LfSerializationVersion,
+}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -252,7 +256,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,
-      version = LanguageMajorVersion.V2.maxStableVersion,
+      version = LfSerializationVersion.V1,
     )
 
   private def active(ledgerEffectiveTime: Timestamp): ContractState =

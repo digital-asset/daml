@@ -20,15 +20,18 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Reading.InvalidDar
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation.ValidationError
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Package.AllowedLanguageVersions
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
 import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
 import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PackageServiceTest}
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageTestUtils
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageTestUtils.ArchiveOps
+import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.daml.lf.archive.{DarParser, DarReader}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.google.protobuf.ByteString
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
@@ -37,7 +40,7 @@ import org.scalatest.time.{Seconds, Span}
 import java.util.zip.ZipInputStream
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 trait PackageUploadIntegrationTest
     extends CommunityIntegrationTest
@@ -59,8 +62,8 @@ trait PackageUploadIntegrationTest
       synchronizerAlias: SynchronizerAlias,
   ): Unit =
     if (!ref.synchronizers.list_connected().map(_.synchronizerAlias).contains(synchronizerAlias)) {
-      ref.dars.upload(CantonTestsPath)
       ref.synchronizers.connect_local(sequencerConnection, alias = synchronizerAlias)
+      ref.dars.upload(CantonTestsPath, synchronizerId = Some(sequencerConnection.synchronizer_id))
     }
 
   private var cantonTestsMainPackageId, cantonExamplesMainPkgId: String = _
@@ -70,23 +73,27 @@ trait PackageUploadIntegrationTest
     "enable the package" in { implicit env =>
       import env.*
 
-      def inAuthStore() = inStore(TopologyStoreId.Authorized, participant1)
+      inStore(daId, participant1) shouldBe empty
 
-      def onSynchronizer() = inStore(daId, participant1)
-
-      onSynchronizer() shouldBe empty
-
-      clue("uploading tests " + CantonTestsPath) {
-        participant1.dars.upload(CantonTestsPath)
+      clue("uploading tests without vetting " + CantonTestsPath) {
+        participant1.dars.upload(
+          CantonTestsPath,
+          vetAllPackages = false,
+          synchronizeVetting = false,
+        )
       }
+
+      inStore(daId, participant1) shouldBe empty
+
       clue("connecting to synchronizer") {
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
       }
 
+      clue("uploading tests " + CantonTestsPath) {
+        participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
+      }
+
       assertPackageUsable(participant1, participant1, daId)
-
-      onSynchronizer() shouldBe inAuthStore()
-
     }
 
     "properly deal with empty zips" in { implicit env =>
@@ -107,26 +114,26 @@ trait PackageUploadIntegrationTest
     "not struggle with multiple uploads of the same dar" in { implicit env =>
       import env.*
 
-      def inAuthStore() = inStore(TopologyStoreId.Authorized, participant1)
+      def inSynchronizerStore() = inStore(TopologyStoreId.Synchronizer(daId), participant1)
 
       def packages() = participant1.packages.list()
 
-      participant1.dars.upload(CantonTestsPath)
+      participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
 
-      val beforeVettingTx = inAuthStore()
+      val beforeReuploadTx = inSynchronizerStore()
       val beforeNumPx = packages()
 
       clue("uploading tests multiple times") {
         (1 to 5).foreach { _ =>
-          participant1.dars.upload(CantonTestsPath)
+          participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
         }
       }
 
-      val afterVettingTx = inAuthStore()
+      val afterVettingTx = inSynchronizerStore()
       val afterNumPx = packages()
 
       beforeNumPx.toSet shouldBe afterNumPx.toSet
-      beforeVettingTx shouldBe afterVettingTx
+      beforeReuploadTx shouldBe afterVettingTx
 
     }
   }
@@ -139,26 +146,12 @@ trait PackageUploadIntegrationTest
       ensureParticipantIsConnectedUploaded(participant1, sequencer1, daName)
 
       participant2.synchronizers.connect_local(sequencer1, alias = daName)
-      participant2.dars.upload(CantonExamplesPath)
-      participant2.dars.upload(CantonTestsPath)
+      participant2.dars.upload(CantonExamplesPath, synchronizerId = daId)
+      participant2.dars.upload(CantonTestsPath, synchronizerId = daId)
 
       assertPackageUsable(participant1, participant2, daId)
       assertPackageUsable(participant2, participant1, daId)
 
-    }
-  }
-
-  "uploading before reconnect" must {
-    "enable the package on all synchronizers" in { implicit env =>
-      import env.*
-
-      participant3.synchronizers.connect_local(sequencer1, alias = daName)
-      participant3.synchronizers.disconnect(daName)
-      participant3.dars.upload(CantonTestsPath)
-      participant3.synchronizers.reconnect(daName)
-      participant3.packages.synchronize_vetting()
-
-      assertPackageUsable(participant3, participant1, daId)
     }
   }
 
@@ -178,6 +171,7 @@ trait PackageUploadIntegrationTest
 
         participant4.start()
         participant4.synchronizers.reconnect_all()
+        participant4.dars.upload(CantonTestsPath, synchronizerId = daId)
         participant4.packages.synchronize_vetting()
 
         assertPackageUsable(participant4, participant4, daId)
@@ -239,6 +233,7 @@ trait PackageUploadIntegrationTest
     "show content of dars" in { implicit env =>
       import env.*
 
+      participant3.synchronizers.connect_local(sequencer1, alias = daName)
       participant3.dars.upload(CantonExamplesPath)
 
       val items = participant3.dars.list(filterName = "CantonExamples")
@@ -261,6 +256,8 @@ trait PackageUploadIntegrationTest
   "DAR validation" should {
     "successfully validate the DAR without uploading" in { implicit env =>
       import env.*
+
+      participants.all.foreach(_.synchronizers.connect_local(sequencer1, alias = daName))
 
       // Validate a DAR against all participants
       val darHashes = participants.all.dars.validate(CantonExamplesPath)
@@ -336,7 +333,7 @@ trait PackageUploadIntegrationTest
                 // Be explicit about ensuring and waiting for vetting
                 .upload(
                   file.pathAsString,
-                  vetAllPackages = true,
+                  synchronizerId = daId,
                   synchronizeVetting = vettingSyncEnabled,
                 )
             }
@@ -346,32 +343,65 @@ trait PackageUploadIntegrationTest
                   darMetadata.description.description shouldBe darPath.nameWithoutExtension
                   darMetadata.description.mainPackageId shouldBe mainPackageId
                   // If successful, the DAR's main package should also be vetted
-                  (inStore(TopologyStoreId.Authorized, participant1) should contain(
-                    mainPackageId
-                  )).discard
-                  Success(Success(mainPackageId))
-                case failure @ Failure(_) =>
+                  inStore(daId, participant1).contains(mainPackageId) shouldBe vettingSyncEnabled
+                  Success((darPath, Success(mainPackageId)))
+                case Failure(t) =>
                   // When vetting is enabled, uploads can fail due to rejected vetting operations that were run concurrently
                   (inStore(
-                    TopologyStoreId.Authorized,
+                    daId,
                     participant1,
                   ) should not contain mainPackageId).discard
                   // Wrap in Success to ensure all futures are waited for in the Future.traverse
-                  Success(failure)
+                  Success((darPath, Failure(t)))
               }
           }
         }
-        // Unlift the inner Try. If there was a failure during upload, this will explode
-        .map(_.map(_.success.value))
+        .map(
+          _.map { case (darPath: File, result: Try[Ref.PackageId]) =>
+            // Unlift the inner Try.
+            // When vetting synchronization is enabled, explode on failure since
+            // that shouldn't happen when synchronization is enabled.
+            if (vettingSyncEnabled) Right(result.success.value)
+            // If a failure occurs vetting synchronization is NOT enabled,
+            // return the darPath on failure. The log assertion below will check
+            // that a serial mismatch was emitted that references that DAR path.
+            else
+              inside(result) {
+                case Failure(failed: CommandFailure) =>
+                  Left(darPath.canonicalPath)
+                case Success(value) => Right(value)
+              }
+          }
+        )
 
-      // If we reach this code, uploadedPackages should contain all the packages that we uploaded
-      val uploadedPackages = testParallelUploads().futureValue(Timeout(Span(30, Seconds)))
-      uploadedPackages should have size darsDiscriminatorList.size.toLong
+      // If we reach this code, uploadedPackages should have resulted in a package uploaded or
+      // a command failure due to serial mismatch due to concurrent vetting proposals
+      val uploadedPackagesResults =
+        loggerFactory.assertLogsUnorderedOptionalFromResult(
+          testParallelUploads().futureValue(Timeout(Span(30, Seconds))),
+          (results: Seq[Either[String, Ref.PackageId]]) =>
+            results.collect { case Left(path) =>
+              (
+                LogEntryOptionality.Required,
+                logEntry =>
+                  logEntry.shouldBeOneOfCommandFailure(
+                    Seq(
+                      TopologyManagerError.SerialMismatch,
+                      TopologyManagerError.ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce,
+                    ),
+                    path,
+                  ),
+              )
+            },
+        )
+
+      uploadedPackagesResults should have size darsDiscriminatorList.size.toLong
 
       if (!vettingSyncEnabled) {
         // Wait for vetting transactions to finish if the command was not run with
         // vetting synchronization enabled
         participant1.packages.synchronize_vetting()
+        participant1.topology.synchronisation.await_idle()
       }
     }
 
@@ -414,14 +444,18 @@ trait PackageUploadIntegrationTest
       }.unzip
 
       def getVettingSerial = participant1.topology.vetted_packages
-        .list(TopologyStoreId.Authorized)
+        .list(daId, filterParticipant = participant1.filterString)
         .loneElement
         .context
         .serial
 
       val vettedPackagesSerialBefore = getVettingSerial
 
-      participant1.dars.upload_many(darFiles, vetAllPackages = true, synchronizeVetting = true)
+      participant1.dars.upload_many(
+        darFiles,
+        synchronizerId = Some(daId),
+        synchronizeVetting = true,
+      )
 
       val darDescription = participant1.dars.list()
       darDescription
@@ -430,9 +464,14 @@ trait PackageUploadIntegrationTest
 
       // If successful, the DAR's main package should also be vetted
       mainPackages should contain
-      inStore(TopologyStoreId.Authorized, participant1) should contain allElementsOf mainPackages
+      inStore(
+        daId,
+        participant1,
+      ) should contain allElementsOf mainPackages
 
-      getVettingSerial shouldBe vettedPackagesSerialBefore.increment
+      eventually() {
+        getVettingSerial shouldBe vettedPackagesSerialBefore.increment
+      }
     }
   }
 
@@ -512,6 +551,7 @@ trait PackageUploadIntegrationTest
       )
 
       // Now, remove the CantonExamples DAR
+      participant4.packages.synchronize_vetting()
       participant4.dars.remove(cantonExamplesMainPkgId)
       // Check that CantonExamples main package-id was removed
       participant4.packages
@@ -530,6 +570,7 @@ trait PackageUploadIntegrationTest
       participant5.topology.vetted_packages
         .propose_delta(
           participant5.id,
+          store = daId,
           adds = Seq(
             VettedPackage(
               cantonExamplesMainPkgId,

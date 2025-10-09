@@ -866,7 +866,7 @@ object ConfigTransforms {
 
   /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.
     */
-  private def setConnectionPool(value: Boolean): ConfigTransform =
+  def setConnectionPool(value: Boolean): ConfigTransform =
     updateAllSequencerConfigs { case (_name, config) =>
       config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
     }.compose(updateAllMediatorConfigs { case (_name, config) =>

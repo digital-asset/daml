@@ -87,9 +87,9 @@ trait EpochStoreTest extends AsyncWordSpec {
           _ <- store.startEpoch(epochInfo0)
           // idempotent writes are supported
           _ <- store.startEpoch(epochInfo0)
-          _ <- store.addOrderedBlock(prePrepare0, commitMessages0)
+          _ <- store.addOrderedBlockAtomically(prePrepare0, commitMessages0)
           // idempotent writes are supported
-          _ <- store.addOrderedBlock(prePrepare0, commitMessages0)
+          _ <- store.addOrderedBlockAtomically(prePrepare0, commitMessages0)
 
           e0 <- store.latestEpoch(includeInProgress = false)
           e1 <- store.latestEpoch(includeInProgress = true)
@@ -106,7 +106,7 @@ trait EpochStoreTest extends AsyncWordSpec {
           e7 <- store.loadEpochInfo(EpochNumber.First)
 
           _ <- store.startEpoch(epochInfo1)
-          _ <- store.addOrderedBlock(prePrepare1, commitMessages1)
+          _ <- store.addOrderedBlockAtomically(prePrepare1, commitMessages1)
           e8 <- store.latestEpoch(includeInProgress = false)
           e9 <- store.latestEpoch(includeInProgress = true)
           e10 <- store.loadEpochInfo(epochInfo1.number)
@@ -152,7 +152,7 @@ trait EpochStoreTest extends AsyncWordSpec {
             blockNumber: Long,
             viewNumber: Long = ViewNumber.First,
         ) =
-          store.addOrderedBlock(
+          store.addOrderedBlockAtomically(
             prePrepare(epochNumber, blockNumber, viewNumber),
             commitMessages(epochNumber, blockNumber, viewNumber),
           )
@@ -161,7 +161,7 @@ trait EpochStoreTest extends AsyncWordSpec {
           _ <- store.startEpoch(activeEpoch0Info)
 
           _ <- store.addPrePrepare(prePrepare(EpochNumber.First, BlockNumber.First))
-          _ <- store.addPrepares(Seq(prepare(EpochNumber.First, BlockNumber.First)))
+          _ <- store.addPreparesAtomically(Seq(prepare(EpochNumber.First, BlockNumber.First)))
 
           _ <- addOrderedBlock(EpochNumber.First, BlockNumber.First)
           _ <- addOrderedBlock(EpochNumber.First, 1L)
@@ -169,7 +169,7 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           // these will appear in loadEpochProgress as pbftMessagesForIncompleteBlocks because block 3 is not complete
           _ <- store.addPrePrepare(prePrepare(EpochNumber.First, 3L))
-          _ <- store.addPrepares(Seq(prepare(EpochNumber.First, 3L)))
+          _ <- store.addPreparesAtomically(Seq(prepare(EpochNumber.First, 3L)))
 
           // view change messages will appear always because we don't check in the DB if the segment has finished
           _ <- store.addViewChangeMessage(viewChange(EpochNumber.First, 0L))
@@ -179,7 +179,7 @@ trait EpochStoreTest extends AsyncWordSpec {
           _ <- store.addPrePrepare(
             prePrepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1)
           )
-          _ <- store.addPrepares(
+          _ <- store.addPreparesAtomically(
             Seq(prepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1))
           )
 
@@ -254,22 +254,22 @@ trait EpochStoreTest extends AsyncWordSpec {
         val epoch3 = EpochInfo.mk(3L, 3L, 3)
         for {
           _ <- store.startEpoch(epoch0)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(EpochNumber.First, BlockNumber.First),
             commitMessages(EpochNumber.First, BlockNumber.First),
           )
           _ <- store.startEpoch(epoch2)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(epochNumber = 2L, blockNumber = 2L),
             commitMessages(epochNumber = 2L, blockNumber = 2L),
           )
           _ <- store.startEpoch(epoch1)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(epochNumber = 1L, blockNumber = 1L),
             commitMessages(epochNumber = 1L, blockNumber = 1L),
           )
           _ <- store.startEpoch(epoch3)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(epochNumber = 3L, blockNumber = 3L),
             commitMessages(epochNumber = 3L, blockNumber = 3L),
           )
@@ -307,11 +307,11 @@ trait EpochStoreTest extends AsyncWordSpec {
 
         for {
           _ <- store.startEpoch(epoch0)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(epochNumber = EpochNumber.First, blockNumber = BlockNumber.First),
             Seq.empty,
           )
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(epochNumber = EpochNumber.First, blockNumber = BlockNumber(1)),
             Seq.empty,
           )
@@ -333,7 +333,7 @@ trait EpochStoreTest extends AsyncWordSpec {
           _ = numberOfRecords0 shouldBe (EpochStore.NumberOfRecords.empty)
 
           _ <- store.startEpoch(epoch0)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(EpochNumber.First, BlockNumber.First),
             commitMessages(EpochNumber.First, BlockNumber.First),
           )
@@ -346,7 +346,7 @@ trait EpochStoreTest extends AsyncWordSpec {
           ))
 
           _ <- store.startEpoch(epoch1)
-          _ <- store.addOrderedBlock(
+          _ <- store.addOrderedBlockAtomically(
             prePrepare(epochNumber = 1L, blockNumber = 1L),
             commitMessages(epochNumber = 1L, blockNumber = 1L),
           )
@@ -360,7 +360,7 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           _ <- store.startEpoch(epoch2)
           _ <- store.addPrePrepare(prePrepare(EpochNumber(2L), 3L))
-          _ <- store.addPrepares(Seq(prepare(EpochNumber(2L), 3L)))
+          _ <- store.addPreparesAtomically(Seq(prepare(EpochNumber(2L), 3L)))
           _ <- store.addViewChangeMessage(viewChange(EpochNumber(2L), 3L))
           _ <- store.addViewChangeMessage(newView(EpochNumber(2L), 3L))
 

@@ -351,6 +351,11 @@ paths:
         required: false
         schema:
           type: boolean
+      - name: synchronizerId
+        in: query
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           application/octet-stream:
@@ -367,7 +372,8 @@ paths:
                 $ref: '#/components/schemas/UploadDarFileResponse'
         '400':
           description: 'Invalid value for: body, Invalid value for: query parameter
-            vetAllPackages, Invalid value for: headers'
+            vetAllPackages, Invalid value for: query parameter synchronizerId, Invalid
+            value for: headers'
           content:
             text/plain:
               schema:
@@ -6837,8 +6843,14 @@ components:
           type: boolean
         synchronizerId:
           description: |-
-            The sychronizer on which the ``VettedPackages`` of this participant node
-            should be changed.
+            If set, the requested changes will take place on the specified
+            synchronizer. If synchronizer_id is unset and the participant is only
+            connected to a single synchronizer, that synchronizer will be used by
+            default. If synchronizer_id is unset and the participant is connected to
+            multiple synchronizers, the request will error out with
+            PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+            Optional
           type: string
         expectedTopologySerial:
           $ref: '#/components/schemas/PriorTopologySerial'

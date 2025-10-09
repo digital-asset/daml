@@ -119,9 +119,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
     } yield {
       queryAfterCreate match {
-        case LedgerDaoContractsReader.KeyAssigned(fetchedContractId, stakeholders) =>
+        case LedgerDaoContractsReader.KeyAssigned(fetchedContractId) =>
           fetchedContractId shouldBe contractId
-          stakeholders shouldBe Set(alice, bob)
         case _ => fail("Key should be assigned")
       }
       queryAfterArchive shouldBe LedgerDaoContractsReader.KeyUnassigned
@@ -172,7 +171,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       val (oneByOne, together) = results
       oneByOne shouldBe together
       oneByOne.map {
-        case (k, KeyAssigned(cid, _)) => (k, Some(cid))
+        case (k, KeyAssigned(cid)) => (k, Some(cid))
         case (k, KeyUnassigned) => (k, None)
       } shouldBe expected.map { case (k, v) => (k.globalKey, v) }
     }

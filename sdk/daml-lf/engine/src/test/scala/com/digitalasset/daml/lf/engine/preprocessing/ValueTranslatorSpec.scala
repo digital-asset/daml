@@ -6,13 +6,7 @@ package engine
 package preprocessing
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{
-  Ast,
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  Reference,
-}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -27,9 +21,10 @@ import com.digitalasset.daml.lf.speedy.Compiler
 import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpecV2 extends ValueTranslatorSpec(LanguageMajorVersion.V2)
+class ValueTranslatorSpecV2_1 extends ValueTranslatorSpec(LanguageVersion.v2_1)
+class ValueTranslatorSpecV2_2 extends ValueTranslatorSpec(LanguageVersion.v2_2)
 
-class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
+class ValueTranslatorSpec(languageVersion: LanguageVersion)
     extends AnyWordSpec
     with Inside
     with Matchers
@@ -49,7 +44,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   val none = Value.ValueNone
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.defaultFor(languageVersion.major)
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parserParameters.defaultPackageId
@@ -83,7 +78,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   val upgradablePkgId = Ref.PackageId.assertFromString("-upgradable-v1-")
   val upgradablePkg = {
     implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-      ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+      ParserParameters(upgradablePkgId, languageVersion)
     p"""metadata ( 'upgradable' : '1.0.0' )
       module Mod {
         record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b, fieldC: Option c };
@@ -96,7 +91,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(majorLanguageVersion)
+    Compiler.Config.Default(languageVersion.major)
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
   assert(compiledPackage.addPackage(upgradablePkgId, upgradablePkg) == ResultDone.Unit)
@@ -228,7 +223,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     "return proper mismatch error for upgrades" in {
 
       implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+        ParserParameters(upgradablePkgId, languageVersion)
 
       val TRecordUpgradable = t"Mod:Record Int64 Text Party Unit"
 

@@ -106,7 +106,7 @@ CREATE TABLE lapi_events_activate_contract (
    source_synchronizer_id integer, -- assign events
    reassignment_counter bigint, -- assign events
    reassignment_id bytea, -- assign events
-   representative_package_id integer, -- create events
+   representative_package_id integer not null, -- create events
 
    -- contract related columns
    internal_contract_id bigint not null, -- all event types
@@ -195,6 +195,9 @@ CREATE INDEX lapi_events_deactivate_sequential_id_idx ON lapi_events_deactivate_
 CREATE INDEX lapi_events_deactivate_offset_idx ON lapi_events_deactivate_contract USING btree (event_offset);
 -- internal_contract_id index
 CREATE INDEX lapi_events_deactivate_internal_contract_id_idx ON lapi_events_deactivate_contract USING btree (internal_contract_id, event_sequential_id) WHERE internal_contract_id IS NOT NULL;
+-- internal_contract_id index serving only the consuming exercises (PersistentEventType.ConsumingExercise)
+-- this index is needed by batched contract lookups for interpretation and event_query_service
+CREATE INDEX lapi_events_deactivate_internal_contract_id_archive_idx ON lapi_events_deactivate_contract USING btree (internal_contract_id, event_sequential_id) WHERE internal_contract_id IS NOT NULL AND event_type = 3;
 -- deactivation reference index
 CREATE INDEX lapi_events_deactivated_event_sequential_id_idx ON lapi_events_deactivate_contract USING btree (deactivated_event_sequential_id) INCLUDE (event_sequential_id) WHERE deactivated_event_sequential_id IS NOT NULL;
 

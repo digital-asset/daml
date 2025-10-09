@@ -56,7 +56,7 @@ class ContractStateCaches(
       case created: ContractStateEvent.Created =>
         created.globalKey.foreach(key =>
           keyMappingsBuilder.addOne(
-            key -> Assigned(created.contractId, created.contract.stakeholders)
+            key -> Assigned(created.contractId)
           )
         )
         contractMappingsBuilder.addOne(created.contractId -> Active)

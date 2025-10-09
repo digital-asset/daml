@@ -126,7 +126,7 @@ CREATE TABLE lapi_events_activate_contract (
    source_synchronizer_id INTEGER, -- assign events
    reassignment_counter BIGINT, -- assign events
    reassignment_id BINARY LARGE OBJECT, -- assign events
-   representative_package_id INTEGER, -- create events
+   representative_package_id INTEGER NOT NULL, -- create events
 
    -- contract related columns
    internal_contract_id BIGINT NOT NULL, -- all event types

@@ -46,7 +46,7 @@ import com.digitalasset.canton.{
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
+import com.digitalasset.daml.lf.language.Ast.{DeclaredImports, Expr, GenPackage, PackageMetadata}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
@@ -72,7 +72,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       directDeps = Set.empty,
       languageVersion = LanguageVersion.default,
       metadata = packageMetadata,
-      imports = Right(Set.empty),
+      imports = DeclaredImports(Set.empty),
       isUtilityPackage = true,
     )
   val packageResolver: PackageResolver = _ => _ => FutureUnlessShutdown.pure(Some(genPackage))

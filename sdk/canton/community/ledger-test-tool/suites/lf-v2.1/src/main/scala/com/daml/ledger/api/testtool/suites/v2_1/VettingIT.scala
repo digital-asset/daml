@@ -31,6 +31,7 @@ import com.daml.ledger.api.v2.package_reference.VettedPackages
 import com.daml.ledger.api.v2.package_service.{
   ListVettedPackagesRequest,
   ListVettedPackagesResponse,
+  TopologyStateFilter,
 }
 import com.daml.ledger.test.java.vetting_alt.alt.AltT
 import com.daml.ledger.test.java.vetting_dep.dep.DepT
@@ -41,7 +42,6 @@ import com.digitalasset.canton.ledger.api.{
   DontVetAnyPackages,
   PackageMetadataFilter,
   PriorTopologySerialExists,
-  VetAllPackages,
 }
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError
 import com.digitalasset.canton.topology.TopologyManagerError.ParticipantTopologyManagerError
@@ -53,12 +53,9 @@ import org.scalatest.Inspectors.*
 import org.scalatest.compatible.Assertion
 import org.scalatest.matchers.should.Matchers.*
 
+import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
-
-final case class MyException(msg: String) extends Throwable(msg) {
-  override def toString: String = msg
-}
 
 class VettingIT extends LedgerTestSuite {
   private val vettingDepPkgId = Ref.PackageId.assertFromString(DepT.PACKAGE_ID)
@@ -70,6 +67,12 @@ class VettingIT extends LedgerTestSuite {
 
   private val vettingDepName = "vetting-dep"
   private val vettingMainName = "vetting-main"
+
+  private val synchronizer1Id: AtomicReference[Option[String]] =
+    new AtomicReference[Option[String]](None)
+  private def synchronizerIdOrFail = synchronizer1Id
+    .get()
+    .getOrElse(throw new IllegalStateException("synchronizerId not yet discovered"))
 
   private def assertListResponseHasPkgIds(
       response: ListVettedPackagesResponse,
@@ -160,7 +163,9 @@ class VettingIT extends LedgerTestSuite {
   ): ListVettedPackagesRequest =
     ListVettedPackagesRequest(
       Some(PackageMetadataFilter(ids, namePrefixes).toProtoLAPI),
-      None,
+      Some(
+        TopologyStateFilter(participantIds = Seq.empty, synchronizerIds = Seq(synchronizerIdOrFail))
+      ),
       "",
       0,
     )
@@ -192,7 +197,7 @@ class VettingIT extends LedgerTestSuite {
     UpdateVettedPackagesRequest(
       operations.map(VettedPackagesChange(_)),
       dryRun,
-      "",
+      synchronizerIdOrFail,
       Some(PriorTopologySerialExists(0).toProtoLAPI),
     )
 
@@ -309,6 +314,23 @@ class VettingIT extends LedgerTestSuite {
     )
       .map(_ => ())
 
+  private def setSynchronizerId(
+      ledger: ParticipantTestContext
+  )(implicit ec: ExecutionContext): Future[Unit] =
+    ledger.connectedSynchronizers().map { connected =>
+      connected.find(_.startsWith("synchronizer1")).foreach { syncId =>
+        synchronizer1Id.set(Some(syncId))
+      }
+    }
+
+  private def uploadDarFileDontVetRequest(path: String) =
+    UploadDarFileRequest(
+      darFile = Dars.read(path),
+      "",
+      DontVetAnyPackages.toProto,
+      "",
+    )
+
   test(
     "PVListVettedPackagesBasic",
     "Listing all, listing by name, listing by pkgId, listing by pkgId and name",
@@ -316,17 +338,12 @@ class VettingIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
+      _ <- setSynchronizerId(ledger)
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(VettingDepDar.path))
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(VettingMainDar_1_0_0.path))
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(VettingMainDar_2_0_0.path))
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingDepDar.path), "", VetAllPackages.toProto)
-      )
-      _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingMainDar_1_0_0.path), "", VetAllPackages.toProto)
-      )
-      _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingMainDar_2_0_0.path), "", VetAllPackages.toProto)
-      )
-      _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingAltDar.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingAltDar.path)
       )
 
       allResponse <- ledger.listVettedPackages(listAllRequest)
@@ -373,11 +390,12 @@ class VettingIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
-      _ <- ledger.uploadDarFile(
+      _ <- setSynchronizerId(ledger)
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(
         Dars.read(VettingMainDar_2_0_0.path)
       ) // Should vet vetting-dep dependency
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingAltDar.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingAltDar.path)
       )
 
       allResponse <- ledger.listVettedPackages(listAllRequest)
@@ -399,17 +417,18 @@ class VettingIT extends LedgerTestSuite {
       runConcurrently = false,
     )(implicit ec => { case Participants(Participant(ledger, _)) =>
       for {
+        _ <- setSynchronizerId(ledger)
         _ <- ledger.uploadDarFile(
-          UploadDarFileRequest(Dars.read(VettingDepDar.path), "", DontVetAnyPackages.toProto)
+          uploadDarFileDontVetRequest(VettingDepDar.path)
         )
         _ <- ledger.uploadDarFile(
-          UploadDarFileRequest(Dars.read(VettingMainDar_1_0_0.path), "", DontVetAnyPackages.toProto)
+          uploadDarFileDontVetRequest(VettingMainDar_1_0_0.path)
         )
         _ <- ledger.uploadDarFile(
-          UploadDarFileRequest(Dars.read(VettingMainDar_2_0_0.path), "", DontVetAnyPackages.toProto)
+          uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
         )
         _ <- ledger.uploadDarFile(
-          UploadDarFileRequest(Dars.read(VettingAltDar.path), "", DontVetAnyPackages.toProto)
+          uploadDarFileDontVetRequest(VettingAltDar.path)
         )
         _ <- unvetAllDARMains(ledger)
         _ <- act(ec)(ledger)
@@ -589,14 +608,15 @@ class VettingIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
+      _ <- setSynchronizerId(ledger)
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingDepDar.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingDepDar.path)
       )
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingMainDar_2_0_0.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
       )
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingAltDar.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingAltDar.path)
       )
 
       allResponse <- ledger.listVettedPackages(listAllRequest)
@@ -614,11 +634,12 @@ class VettingIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
+      _ <- setSynchronizerId(ledger)
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingMainDar_2_0_0.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
       )
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingAltDar.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingAltDar.path)
       )
       dryRunUpdateResponse <- ledger.updateVettedPackages(
         vetPkgIdsRequest(
@@ -657,8 +678,12 @@ class VettingIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
+      _ <- setSynchronizerId(ledger)
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingMainDar_1_0_0.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingMainDar_1_0_0.path)
+      )
+      _ <- ledger.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingAltDar.path)
       )
       _ <- vetAllInDar(ledger, VettingDepDar.path)
 
@@ -671,11 +696,17 @@ class VettingIT extends LedgerTestSuite {
 
       listAfterBounds1 <- ledger.listVettedPackages(listAllRequest)
 
-      _ <- vetPkgsMatchingRef(
-        ledger,
-        VettedPackagesRef(vettingMainPkgIdV2, "", ""),
-        Some(Timestamp.of(2, 0)),
-        Some(Timestamp.of(3, 0)),
+      _ <- ledger.updateVettedPackages(
+        changeOpRequest(
+          refsToVetOp(
+            Seq(
+              VettedPackagesRef(vettingMainPkgIdV2, "", ""),
+              VettedPackagesRef(vettingAltPkgId, "", ""),
+            ),
+            Some(Timestamp.of(2, 0)),
+            Some(Timestamp.of(3, 0)),
+          )
+        )
       )
 
       listAfterBounds2 <- ledger.listVettedPackages(listAllRequest)
@@ -695,6 +726,13 @@ class VettingIT extends LedgerTestSuite {
         Some(Timestamp.of(2, 0)),
         Some(Timestamp.of(3, 0)),
       )
+
+      assertListResponseHasPkgIdWithBounds(
+        listAfterBounds2,
+        vettingAltPkgId,
+        Some(Timestamp.of(2, 0)),
+        Some(Timestamp.of(3, 0)),
+      )
     }
   })
 
@@ -705,15 +743,12 @@ class VettingIT extends LedgerTestSuite {
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
+      _ <- setSynchronizerId(ledger)
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(Dars.read(VettingMainDar_2_0_0.path), "", DontVetAnyPackages.toProto)
+        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
       )
       _ <- ledger.uploadDarFile(
-        UploadDarFileRequest(
-          Dars.read(VettingMainDar_Split_Lineage_2_0_0.path),
-          "",
-          DontVetAnyPackages.toProto,
-        )
+        uploadDarFileDontVetRequest(VettingMainDar_Split_Lineage_2_0_0.path)
       )
 
       // Dry-run vetting without dependencies (should fail)
@@ -777,7 +812,7 @@ class VettingIT extends LedgerTestSuite {
     limitation = TestConstraints.GrpcOnly(reason = "ValidateDarFile is not available in JSON API"),
   )(implicit ec => { case Participants(Participant(ledger, _)) =>
     for {
-      _ <- ledger.uploadDarFile(Dars.read(VettingMainDar_2_0_0.path))
+      _ <- ledger.uploadDarFileAndVetOnConnectedSynchronizers(Dars.read(VettingMainDar_2_0_0.path))
       _ <- ledger
         .validateDarFile(Dars.read(VettingMainDar_Split_Lineage_2_0_0.path))
         .mustFailWith(

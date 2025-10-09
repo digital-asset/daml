@@ -32,6 +32,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventInt,
   participantPermissionInt,
 }
+import com.digitalasset.canton.platform.store.backend.DbDto.IdFilter
 import com.digitalasset.canton.platform.store.backend.StorageBackendTestValues.someExternalTransactionHash
 import com.digitalasset.canton.platform.store.backend.UpdateToDbDto.templateIdWithPackageName
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
@@ -203,7 +204,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     // We only care about distinguishing between repair and sequencer transactions for create nodes
     // since for create nodes the representative package-id assignment policies are different between the two
-    def handleTransactionAcceptedSingleCreateNode(
+    def handleAcsDeltaTransactionAcceptedWithSingleCreateNode(
         isAcsDelta: Boolean,
         isRepairTransaction: Boolean,
     ): Unit = {
@@ -220,7 +221,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         val externalTransactionHash = someExternalTransactionHash
         val builder = TxBuilder()
         val contractId = builder.newCid
-        val internalContractIds = Map(contractId -> 0L)
+        val internalContractIds = Map(contractId -> 42L)
         val contractTemplate = Ref.Identifier.assertFromString("P:M:T")
         val keyValue = Value.ValueUnit
         val createNode = builder
@@ -264,28 +265,32 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             )
         val dtos = updateToDtos(update)
 
-        val dtoCreate = DbDto.EventCreate(
+        val dtoCreate = DbDto.EventActivate(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Option.when(!isRepairTransaction)(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Option.when(!isRepairTransaction)(completionInfo.userId),
+          command_id = Option.when(!isRepairTransaction)(completionInfo.commandId),
           submitters = Option.when(!isRepairTransaction)(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash =
+            Option.when(!isRepairTransaction)(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.Create.asInt,
+          event_sequential_id = 0,
           node_id = createNodeId.index,
-          contract_id = createNode.coid,
-          template_id = templateIdWithPackageName(createNode),
-          package_id = createNode.templateId.packageId,
-          flat_event_witnesses =
-            if (isAcsDelta) Set("signatory1", "signatory2", "signatory3", "observer")
-            else Set.empty, // stakeholders
-          tree_event_witnesses =
-            Set("signatory1", "signatory2", "signatory3", "observer"), // informees
-          create_argument = emptyArray,
-          create_signatories = Set("signatory1", "signatory2", "signatory3"),
-          create_observers = Set("observer"),
-          create_key_value = Some(emptyArray),
-          create_key_maintainers = Some(Set("signatory2", "signatory3")),
+          additional_witnesses = Some(
+            if (isAcsDelta) Set.empty
+            else Set("signatory1", "signatory2", "signatory3", "observer")
+          ),
+          source_synchronizer_id = None,
+          reassignment_counter = None,
+          reassignment_id = None,
+          representative_package_id =
+            if (isRepairTransaction) someRepresentativePackageId
+            else createNode.templateId.packageId,
+          notPersistedContractId = createNode.coid,
+          internal_contract_id = 42L,
           create_key_hash = Some(
             GlobalKey
               .assertBuild(contractTemplate, keyValue, createNode.packageName)
@@ -293,19 +298,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
               .bytes
               .toHexString
           ),
-          create_argument_compression = compressionAlgorithmId,
-          create_key_value_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-          authentication_data = someContractAuthenticationData.toByteArray,
-          synchronizer_id = someSynchronizerId1,
-          trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
-          external_transaction_hash =
-            Option.when(!isRepairTransaction)(externalTransactionHash.unwrap.toByteArray),
-          representative_package_id =
-            if (isRepairTransaction) someRepresentativePackageId
-            else createNode.templateId.packageId,
-          internal_contract_id = 0L,
         )
         val dtoCompletion = DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -347,57 +339,73 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         Set(dtos(1), dtos(2), dtos(3), dtos(4)) should contain theSameElementsAs
           (if (isAcsDelta)
              Set(
-               DbDto.IdFilterCreateStakeholder(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "signatory1",
-                 first_per_sequential_id = true,
-               ),
-               DbDto.IdFilterCreateStakeholder(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "signatory2",
-                 first_per_sequential_id = false,
-               ),
-               DbDto.IdFilterCreateStakeholder(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "signatory3",
-                 first_per_sequential_id = false,
-               ),
-               DbDto
-                 .IdFilterCreateStakeholder(
+               DbDto.IdFilterActivateStakeholder(
+                 IdFilter(
                    0L,
                    templateIdWithPackageName(createNode),
-                   "observer",
+                   "signatory1",
+                   first_per_sequential_id = true,
+                 )
+               ),
+               DbDto.IdFilterActivateStakeholder(
+                 IdFilter(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "signatory2",
                    first_per_sequential_id = false,
+                 )
+               ),
+               DbDto.IdFilterActivateStakeholder(
+                 IdFilter(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "signatory3",
+                   first_per_sequential_id = false,
+                 )
+               ),
+               DbDto
+                 .IdFilterActivateStakeholder(
+                   IdFilter(
+                     0L,
+                     templateIdWithPackageName(createNode),
+                     "observer",
+                     first_per_sequential_id = false,
+                   )
                  ),
              )
            else
              Set(
-               DbDto.IdFilterCreateNonStakeholderInformee(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "signatory1",
-                 first_per_sequential_id = true,
+               DbDto.IdFilterActivateWitness(
+                 IdFilter(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "signatory1",
+                   first_per_sequential_id = true,
+                 )
                ),
-               DbDto.IdFilterCreateNonStakeholderInformee(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "signatory2",
-                 first_per_sequential_id = false,
+               DbDto.IdFilterActivateWitness(
+                 IdFilter(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "signatory2",
+                   first_per_sequential_id = false,
+                 )
                ),
-               DbDto.IdFilterCreateNonStakeholderInformee(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "signatory3",
-                 first_per_sequential_id = false,
+               DbDto.IdFilterActivateWitness(
+                 IdFilter(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "signatory3",
+                   first_per_sequential_id = false,
+                 )
                ),
-               DbDto.IdFilterCreateNonStakeholderInformee(
-                 0L,
-                 templateIdWithPackageName(createNode),
-                 "observer",
-                 first_per_sequential_id = false,
+               DbDto.IdFilterActivateWitness(
+                 IdFilter(
+                   0L,
+                   templateIdWithPackageName(createNode),
+                   "observer",
+                   first_per_sequential_id = false,
+                 )
                ),
              ))
 
@@ -408,154 +416,406 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       }
     }
 
-    handleTransactionAcceptedSingleCreateNode(isAcsDelta = false, isRepairTransaction = false)
-    handleTransactionAcceptedSingleCreateNode(isAcsDelta = true, isRepairTransaction = false)
-    handleTransactionAcceptedSingleCreateNode(isAcsDelta = true, isRepairTransaction = true)
+    handleAcsDeltaTransactionAcceptedWithSingleCreateNode(
+      isAcsDelta = true,
+      isRepairTransaction = false,
+    )
+    handleAcsDeltaTransactionAcceptedWithSingleCreateNode(
+      isAcsDelta = true,
+      isRepairTransaction = true,
+    )
 
-    def handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta: Boolean): Unit = {
-      s"handle TransactionAccepted (single consuming exercise node, isAcsDelta = $isAcsDelta)" in {
-        val completionInfo = someCompletionInfo
-        val transactionMeta = someTransactionMeta
-        val externalTransactionHash = someExternalTransactionHash
-        val builder = TxBuilder()
-        val exerciseNode = {
-          val createNode = builder.create(
-            id = builder.newCid,
-            templateId = "M:T",
-            argument = Value.ValueUnit,
-            signatories = List("signatory"),
-            observers = List("observer"),
-          )
-          builder.exercise(
-            contract = createNode,
-            choice = "someChoice",
-            consuming = true,
-            actingParties = Set("signatory"),
-            argument = Value.ValueUnit,
-            result = Some(Value.ValueUnit),
-            choiceObservers = Set.empty,
-            byKey = false,
-          )
-        }
-        val exerciseNodeId = builder.add(exerciseNode)
-        val transaction = builder.buildCommitted()
-        val update = state.Update.SequencedTransactionAccepted(
+    "handle SequencedTransactionAccepted (single create node, isAcsDelta = false)" in {
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val externalTransactionHash = someExternalTransactionHash
+      val builder = TxBuilder()
+      val contractId = builder.newCid
+      val contractTemplate = Ref.Identifier.assertFromString("P:M:T")
+      val keyValue = Value.ValueUnit
+      val createNode = builder
+        .create(
+          id = contractId,
+          templateId = contractTemplate,
+          argument = Value.ValueUnit,
+          signatories = Set("signatory1", "signatory2", "signatory3"),
+          observers = Set("observer"),
+          key = CreateKey.KeyWithMaintainers(keyValue, Set("signatory2", "signatory3")),
+        )
+      val createNodeId = builder.add(createNode)
+      val transaction = builder.buildCommitted()
+      val update =
+        state.Update.SequencedTransactionAccepted(
           completionInfoO = Some(completionInfo),
           transactionMeta = transactionMeta,
           transaction = transaction,
           updateId = updateId,
-          contractAuthenticationData = Map.empty,
+          contractAuthenticationData = Map(contractId -> someContractAuthenticationData),
           synchronizerId = someSynchronizerId1,
-          recordTime = CantonTimestamp.ofEpochMicro(120),
+          recordTime = someRecordTime,
           externalTransactionHash = Some(externalTransactionHash),
-          acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
-          internalContractIds = Map.empty,
+          acsChangeFactory = TestAcsChangeFactory(false),
+          internalContractIds = Map(contractId -> 42L),
         )
-        val dtos = updateToDtos(update)
+      val dtos = updateToDtos(update)
 
-        dtos.head shouldEqual
-          DbDto.EventExercise(
-            consuming = true,
-            event_offset = someOffset.unwrap,
-            update_id = updateIdByteArray,
-            ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-            command_id = Some(completionInfo.commandId),
-            workflow_id = transactionMeta.workflowId,
-            user_id = Some(completionInfo.userId),
-            submitters = Some(completionInfo.actAs.toSet),
-            node_id = exerciseNodeId.index,
-            contract_id = exerciseNode.targetCoid,
-            template_id = templateIdWithPackageName(exerciseNode),
-            package_id = exerciseNode.templateId.packageId,
-            flat_event_witnesses =
-              if (isAcsDelta) Set("signatory", "observer") else Set.empty, // stakeholders
-            tree_event_witnesses = Set("signatory", "observer"), // informees
-            exercise_choice = exerciseNode.choiceId,
-            exercise_choice_interface_id = None,
-            exercise_argument = emptyArray,
-            exercise_result = Some(emptyArray),
-            exercise_actors = Set("signatory"),
-            exercise_last_descendant_node_id = exerciseNodeId.index,
-            exercise_argument_compression = compressionAlgorithmId,
-            exercise_result_compression = compressionAlgorithmId,
-            event_sequential_id = 0,
-            synchronizer_id = someSynchronizerId1,
-            trace_context = serializedEmptyTraceContext,
-            record_time = 120,
-            external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-            deactivated_event_sequential_id = None,
-          )
-        dtos(3) shouldEqual
-          DbDto.CommandCompletion(
-            completion_offset = someOffset.unwrap,
-            record_time = 120,
-            publication_time = 0,
-            user_id = completionInfo.userId,
-            submitters = completionInfo.actAs.toSet,
-            command_id = completionInfo.commandId,
-            update_id = Some(updateIdByteArray),
-            rejection_status_code = None,
-            rejection_status_message = None,
-            rejection_status_details = None,
-            submission_id = completionInfo.submissionId,
-            deduplication_offset = None,
-            deduplication_duration_nanos = None,
-            deduplication_duration_seconds = None,
-            synchronizer_id = someSynchronizerId1,
-            message_uuid = None,
-            is_transaction = true,
-            trace_context = serializedEmptyTraceContext,
-          )
-        dtos(4) shouldEqual
-          DbDto.TransactionMeta(
-            update_id = updateIdByteArray,
-            event_offset = someOffset.unwrap,
-            publication_time = 0,
-            record_time = 120,
-            synchronizer_id = someSynchronizerId1,
-            event_sequential_id_first = 0,
-            event_sequential_id_last = 0,
-          )
+      val dtoCreate = DbDto.EventVariousWitnessed(
+        event_offset = someOffset.unwrap,
+        update_id = updateIdByteArray,
+        workflow_id = transactionMeta.workflowId,
+        command_id = Some(completionInfo.commandId),
+        submitters = Some(completionInfo.actAs.toSet),
+        record_time = someRecordTime.toMicros,
+        synchronizer_id = someSynchronizerId1,
+        trace_context = serializedEmptyTraceContext,
+        external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+        event_type = PersistentEventType.WitnessedCreate.asInt,
+        event_sequential_id = 0,
+        node_id = createNodeId.index,
+        additional_witnesses = Set("signatory1", "signatory2", "signatory3", "observer"),
+        consuming = None,
+        exercise_choice = None,
+        exercise_choice_interface_id = None,
+        exercise_argument = None,
+        exercise_result = None,
+        exercise_actors = None,
+        exercise_last_descendant_node_id = None,
+        exercise_argument_compression = None,
+        exercise_result_compression = None,
+        representative_package_id = Some(createNode.templateId.packageId),
+        contract_id = None,
+        internal_contract_id = Some(42L),
+        template_id = None,
+        package_id = None,
+        ledger_effective_time = None,
+      )
+      val dtoCompletion = DbDto.CommandCompletion(
+        completion_offset = someOffset.unwrap,
+        record_time = someRecordTime.toMicros,
+        publication_time = 0,
+        user_id = completionInfo.userId,
+        submitters = completionInfo.actAs.toSet,
+        command_id = completionInfo.commandId,
+        update_id = Some(updateIdByteArray),
+        rejection_status_code = None,
+        rejection_status_message = None,
+        rejection_status_details = None,
+        submission_id = completionInfo.submissionId,
+        deduplication_offset = None,
+        deduplication_duration_nanos = None,
+        deduplication_duration_seconds = None,
+        synchronizer_id = someSynchronizerId1,
+        message_uuid = None,
+        is_transaction = true,
+        trace_context = serializedEmptyTraceContext,
+      )
+      val dtoTransactionMeta = DbDto.TransactionMeta(
+        update_id = updateIdByteArray,
+        event_offset = someOffset.unwrap,
+        publication_time = 0,
+        record_time = someRecordTime.toMicros,
+        synchronizer_id = someSynchronizerId1,
+        event_sequential_id_first = 0,
+        event_sequential_id_last = 0,
+      )
 
-        Set(dtos(1), dtos(2)) should contain theSameElementsAs
-          (if (isAcsDelta)
-             Set(
-               DbDto.IdFilterConsumingStakeholder(
-                 event_sequential_id = 0,
-                 template_id = templateIdWithPackageName(exerciseNode),
-                 party_id = "signatory",
-                 first_per_sequential_id = true,
-               ),
-               DbDto.IdFilterConsumingStakeholder(
-                 event_sequential_id = 0,
-                 template_id = templateIdWithPackageName(exerciseNode),
-                 party_id = "observer",
-                 first_per_sequential_id = false,
-               ),
-             )
-           else
-             Set(
-               DbDto.IdFilterConsumingNonStakeholderInformee(
-                 event_sequential_id = 0,
-                 template_id = templateIdWithPackageName(exerciseNode),
-                 party_id = "signatory",
-                 first_per_sequential_id = true,
-               ),
-               DbDto.IdFilterConsumingNonStakeholderInformee(
-                 event_sequential_id = 0,
-                 template_id = templateIdWithPackageName(exerciseNode),
-                 party_id = "observer",
-                 first_per_sequential_id = false,
-               ),
-             ))
+      dtos.head shouldEqual dtoCreate
+      dtos(5) shouldEqual dtoCompletion
+      dtos(6) shouldEqual dtoTransactionMeta
+      Set(dtos(1), dtos(2), dtos(3), dtos(4)) should contain theSameElementsAs
+        Set(
+          DbDto.IdFilterVariousWitness(
+            IdFilter(
+              0L,
+              templateIdWithPackageName(createNode),
+              "signatory1",
+              first_per_sequential_id = true,
+            )
+          ),
+          DbDto.IdFilterVariousWitness(
+            IdFilter(
+              0L,
+              templateIdWithPackageName(createNode),
+              "signatory2",
+              first_per_sequential_id = false,
+            )
+          ),
+          DbDto.IdFilterVariousWitness(
+            IdFilter(
+              0L,
+              templateIdWithPackageName(createNode),
+              "signatory3",
+              first_per_sequential_id = false,
+            )
+          ),
+          DbDto.IdFilterVariousWitness(
+            IdFilter(
+              0L,
+              templateIdWithPackageName(createNode),
+              "observer",
+              first_per_sequential_id = false,
+            )
+          ),
+        )
 
-        dtos.size shouldEqual 5
-
-      }
+      dtos.size shouldEqual 7
     }
 
-    handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta = true)
-    handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta = false)
+    s"handle TransactionAccepted (single consuming exercise node, isAcsDelta = true)" in {
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val externalTransactionHash = someExternalTransactionHash
+      val builder = TxBuilder()
+      val exerciseNode = {
+        val createNode = builder.create(
+          id = builder.newCid,
+          templateId = "M:T",
+          argument = Value.ValueUnit,
+          signatories = List("signatory"),
+          observers = List("observer"),
+        )
+        builder.exercise(
+          contract = createNode,
+          choice = "someChoice",
+          consuming = true,
+          actingParties = Set("signatory"),
+          argument = Value.ValueUnit,
+          result = Some(Value.ValueUnit),
+          choiceObservers = Set.empty,
+          byKey = false,
+        )
+      }
+      val exerciseNodeId = builder.add(exerciseNode)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.SequencedTransactionAccepted(
+        completionInfoO = Some(completionInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        updateId = updateId,
+        contractAuthenticationData = Map.empty,
+        synchronizerId = someSynchronizerId1,
+        recordTime = CantonTimestamp.ofEpochMicro(120),
+        externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory(true),
+        internalContractIds = Map.empty,
+      )
+      val dtos = updateToDtos(update)
+
+      dtos.head shouldEqual
+        DbDto.EventDeactivate(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = 120,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.ConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeId.index,
+          deactivated_event_sequential_id = None,
+          additional_witnesses = Some(Set.empty),
+          exercise_choice = exerciseNode.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          reassignment_id = None,
+          assignment_exclusivity = None,
+          target_synchronizer_id = None,
+          reassignment_counter = None,
+          contract_id = exerciseNode.targetCoid,
+          internal_contract_id = None,
+          template_id = templateIdWithPackageName(exerciseNode),
+          package_id = exerciseNode.templateId.packageId,
+          stakeholders = Set("signatory", "observer"),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        )
+      dtos(3) shouldEqual
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.unwrap,
+          record_time = 120,
+          publication_time = 0,
+          user_id = completionInfo.userId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
+          update_id = Some(updateIdByteArray),
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
+          submission_id = completionInfo.submissionId,
+          deduplication_offset = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
+          synchronizer_id = someSynchronizerId1,
+          message_uuid = None,
+          is_transaction = true,
+          trace_context = serializedEmptyTraceContext,
+        )
+      dtos(4) shouldEqual
+        DbDto.TransactionMeta(
+          update_id = updateIdByteArray,
+          event_offset = someOffset.unwrap,
+          publication_time = 0,
+          record_time = 120,
+          synchronizer_id = someSynchronizerId1,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        )
+
+      Set(dtos(1), dtos(2)) should contain theSameElementsAs
+        Set(
+          DbDto.IdFilterDeactivateStakeholder(
+            IdFilter(
+              event_sequential_id = 0,
+              template_id = templateIdWithPackageName(exerciseNode),
+              party_id = "signatory",
+              first_per_sequential_id = true,
+            )
+          ),
+          DbDto.IdFilterDeactivateStakeholder(
+            IdFilter(
+              event_sequential_id = 0,
+              template_id = templateIdWithPackageName(exerciseNode),
+              party_id = "observer",
+              first_per_sequential_id = false,
+            )
+          ),
+        )
+
+      dtos.size shouldEqual 5
+    }
+
+    s"handle TransactionAccepted (single consuming exercise node, isAcsDelta = false)" in {
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val externalTransactionHash = someExternalTransactionHash
+      val builder = TxBuilder()
+      val exerciseNode = {
+        val createNode = builder.create(
+          id = builder.newCid,
+          templateId = "M:T",
+          argument = Value.ValueUnit,
+          signatories = List("signatory"),
+          observers = List("observer"),
+        )
+        builder.exercise(
+          contract = createNode,
+          choice = "someChoice",
+          consuming = true,
+          actingParties = Set("signatory"),
+          argument = Value.ValueUnit,
+          result = Some(Value.ValueUnit),
+          choiceObservers = Set.empty,
+          byKey = false,
+        )
+      }
+      val exerciseNodeId = builder.add(exerciseNode)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.SequencedTransactionAccepted(
+        completionInfoO = Some(completionInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        updateId = updateId,
+        contractAuthenticationData = Map.empty,
+        synchronizerId = someSynchronizerId1,
+        recordTime = CantonTimestamp.ofEpochMicro(120),
+        externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory(false),
+        internalContractIds = Map.empty,
+      )
+      val dtos = updateToDtos(update)
+
+      dtos.head shouldEqual
+        DbDto.EventVariousWitnessed(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = 120,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.WitnessedConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeId.index,
+          additional_witnesses = Set("signatory", "observer"),
+          consuming = Some(true),
+          exercise_choice = exerciseNode.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNode.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNode)),
+          package_id = Some(exerciseNode.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        )
+      dtos(3) shouldEqual
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.unwrap,
+          record_time = 120,
+          publication_time = 0,
+          user_id = completionInfo.userId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
+          update_id = Some(updateIdByteArray),
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
+          submission_id = completionInfo.submissionId,
+          deduplication_offset = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
+          synchronizer_id = someSynchronizerId1,
+          message_uuid = None,
+          is_transaction = true,
+          trace_context = serializedEmptyTraceContext,
+        )
+      dtos(4) shouldEqual
+        DbDto.TransactionMeta(
+          update_id = updateIdByteArray,
+          event_offset = someOffset.unwrap,
+          publication_time = 0,
+          record_time = 120,
+          synchronizer_id = someSynchronizerId1,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        )
+
+      Set(dtos(1), dtos(2)) should contain theSameElementsAs
+        Set(
+          DbDto.IdFilterVariousWitness(
+            IdFilter(
+              event_sequential_id = 0,
+              template_id = templateIdWithPackageName(exerciseNode),
+              party_id = "signatory",
+              first_per_sequential_id = true,
+            )
+          ),
+          DbDto.IdFilterVariousWitness(
+            IdFilter(
+              event_sequential_id = 0,
+              template_id = templateIdWithPackageName(exerciseNode),
+              party_id = "observer",
+              first_per_sequential_id = false,
+            )
+          ),
+        )
+
+      dtos.size shouldEqual 5
+    }
 
     "handle TransactionAccepted (single non-consuming exercise node)" in {
       val completionInfo = someCompletionInfo
@@ -598,41 +858,482 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
-        DbDto.EventExercise(
-          consuming = false,
+        DbDto.EventVariousWitnessed(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
+          command_id = Some(completionInfo.commandId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_id = exerciseNodeId.index,
-          contract_id = exerciseNode.targetCoid,
-          template_id = templateIdWithPackageName(exerciseNode),
-          package_id = exerciseNode.templateId.packageId,
-          flat_event_witnesses = Set.empty, // stakeholders
-          tree_event_witnesses = Set("signatory"), // informees
-          exercise_choice = exerciseNode.choiceId,
-          exercise_choice_interface_id = None,
-          exercise_argument = emptyArray,
-          exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeId.index,
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
+          record_time = someRecordTime.toMicros,
           synchronizer_id = someSynchronizerId1,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
           external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-          deactivated_event_sequential_id = None,
-        ),
-        DbDto.IdFilterNonConsumingInformee(
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
           event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNode),
-          party_id = "signatory",
-          first_per_sequential_id = true,
+          node_id = exerciseNodeId.index,
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
+          exercise_choice = exerciseNode.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNode.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNode)),
+          package_id = Some(exerciseNode.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNode),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.unwrap,
+          record_time = someRecordTime.toMicros,
+          publication_time = 0,
+          user_id = completionInfo.userId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
+          update_id = Some(updateIdByteArray),
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
+          submission_id = completionInfo.submissionId,
+          deduplication_offset = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
+          synchronizer_id = someSynchronizerId1,
+          message_uuid = None,
+          is_transaction = true,
+          trace_context = serializedEmptyTraceContext,
+        ),
+        DbDto.TransactionMeta(
+          update_id = updateIdByteArray,
+          event_offset = someOffset.unwrap,
+          publication_time = 0,
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        ),
+      )
+    }
+
+    "handle TransactionAccepted (create node divulged)" in {
+      // Previous transaction
+      // └─ #1 Create
+      // Transaction
+      // └─ #2 Exercise (choice A)
+      //    ├─ #3 Exercise (choice B)
+      //    └─ #4 Create (C)
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val externalTransactionHash = someExternalTransactionHash
+      val builder = TxBuilder()
+      val createNode = builder.create(
+        id = builder.newCid,
+        templateId = "M:T",
+        argument = Value.ValueUnit,
+        signatories = List("signatory"),
+        observers = List("observer"),
+      )
+      val exerciseNodeA = builder.exercise(
+        contract = createNode,
+        choice = "A",
+        consuming = false,
+        actingParties = Set("signatory"),
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = false,
+      )
+      val exerciseNodeB = builder.exercise(
+        contract = createNode,
+        choice = "B",
+        consuming = false,
+        actingParties = Set("signatory"),
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = false,
+      )
+      val createNodeC = builder.create(
+        id = builder.newCid,
+        templateId = "M:T2",
+        argument = Value.ValueUnit,
+        signatories = List("signatory2"),
+        observers = Set.empty,
+      )
+      val exerciseNodeAId = builder.add(exerciseNodeA)
+      val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
+      val createNodeCId = builder.add(createNodeC, exerciseNodeAId)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.SequencedTransactionAccepted(
+        completionInfoO = Some(completionInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        updateId = updateId,
+        contractAuthenticationData = Map.empty,
+        synchronizerId = someSynchronizerId1,
+        recordTime = someRecordTime,
+        externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory(false),
+        internalContractIds = Map(createNodeC.coid -> 42L),
+      )
+      val dtos = updateToDtos(update)
+
+      dtos should contain theSameElementsInOrderAs List(
+        DbDto.EventVariousWitnessed(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeAId.index,
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
+          exercise_choice = exerciseNodeA.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(createNodeCId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeA.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeA)),
+          package_id = Some(exerciseNodeA.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeA),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.EventVariousWitnessed(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeBId.index,
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
+          exercise_choice = exerciseNodeB.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeBId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeB.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeB)),
+          package_id = Some(exerciseNodeB.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeB),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.EventVariousWitnessed(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.WitnessedCreate.asInt,
+          event_sequential_id = 0,
+          node_id = createNodeCId.index,
+          additional_witnesses = Set("signatory", "signatory2"),
+          consuming = None,
+          exercise_choice = None,
+          exercise_choice_interface_id = None,
+          exercise_argument = None,
+          exercise_result = None,
+          exercise_actors = None,
+          exercise_last_descendant_node_id = None,
+          exercise_argument_compression = None,
+          exercise_result_compression = None,
+          representative_package_id = Some(createNode.templateId.packageId),
+          contract_id = None,
+          internal_contract_id = Some(42L),
+          template_id = None,
+          package_id = None,
+          ledger_effective_time = None,
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(createNodeC),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(createNodeC),
+            party_id = "signatory2",
+            first_per_sequential_id = false,
+          )
+        ),
+        DbDto.CommandCompletion(
+          completion_offset = someOffset.unwrap,
+          record_time = someRecordTime.toMicros,
+          publication_time = 0,
+          user_id = completionInfo.userId,
+          submitters = completionInfo.actAs.toSet,
+          command_id = completionInfo.commandId,
+          update_id = Some(updateIdByteArray),
+          rejection_status_code = None,
+          rejection_status_message = None,
+          rejection_status_details = None,
+          submission_id = completionInfo.submissionId,
+          deduplication_offset = None,
+          deduplication_duration_nanos = None,
+          deduplication_duration_seconds = None,
+          synchronizer_id = someSynchronizerId1,
+          message_uuid = None,
+          is_transaction = true,
+          trace_context = serializedEmptyTraceContext,
+        ),
+        DbDto.TransactionMeta(
+          update_id = updateIdByteArray,
+          event_offset = someOffset.unwrap,
+          publication_time = 0,
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          event_sequential_id_first = 0,
+          event_sequential_id_last = 0,
+        ),
+      )
+    }
+
+    "handle TransactionAccepted (nested create node, ACSDelta = true)" in {
+      // Previous transaction
+      // └─ #1 Create
+      // Transaction
+      // └─ #2 Exercise (choice A)
+      //    ├─ #3 Exercise (choice B)
+      //    └─ #4 Create (C)
+      val completionInfo = someCompletionInfo
+      val transactionMeta = someTransactionMeta
+      val externalTransactionHash = someExternalTransactionHash
+      val builder = TxBuilder()
+      val createNode = builder.create(
+        id = builder.newCid,
+        templateId = "M:T",
+        argument = Value.ValueUnit,
+        signatories = List("signatory"),
+        observers = List("observer"),
+      )
+      val exerciseNodeA = builder.exercise(
+        contract = createNode,
+        choice = "A",
+        consuming = false,
+        actingParties = Set("signatory"),
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = false,
+      )
+      val exerciseNodeB = builder.exercise(
+        contract = createNode,
+        choice = "B",
+        consuming = false,
+        actingParties = Set("signatory"),
+        argument = Value.ValueUnit,
+        result = Some(Value.ValueUnit),
+        choiceObservers = Set.empty,
+        byKey = false,
+      )
+      val createNodeC = builder.create(
+        id = builder.newCid,
+        templateId = "M:T2",
+        argument = Value.ValueUnit,
+        signatories = List("signatory2"),
+        observers = Set.empty,
+        key = CreateKey.KeyWithMaintainers(Value.ValueUnit, Set("signatory2")),
+      )
+      val exerciseNodeAId = builder.add(exerciseNodeA)
+      val exerciseNodeBId = builder.add(exerciseNodeB, exerciseNodeAId)
+      val createNodeCId = builder.add(createNodeC, exerciseNodeAId)
+      val transaction = builder.buildCommitted()
+      val update = state.Update.SequencedTransactionAccepted(
+        completionInfoO = Some(completionInfo),
+        transactionMeta = transactionMeta,
+        transaction = transaction,
+        updateId = updateId,
+        contractAuthenticationData = Map.empty,
+        synchronizerId = someSynchronizerId1,
+        recordTime = someRecordTime,
+        externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory(true),
+        internalContractIds = Map(createNodeC.coid -> 42L),
+      )
+      val dtos = updateToDtos(update)
+
+      dtos should contain theSameElementsInOrderAs List(
+        DbDto.EventVariousWitnessed(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeAId.index,
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
+          exercise_choice = exerciseNodeA.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(createNodeCId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeA.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeA)),
+          package_id = Some(exerciseNodeA.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeA),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.EventVariousWitnessed(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeBId.index,
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
+          exercise_choice = exerciseNodeB.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeBId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeB.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeB)),
+          package_id = Some(exerciseNodeB.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeB),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.EventActivate(
+          event_offset = someOffset.unwrap,
+          update_id = updateIdByteArray,
+          workflow_id = transactionMeta.workflowId,
+          command_id = Some(completionInfo.commandId),
+          submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.Create.asInt,
+          event_sequential_id = 0,
+          node_id = createNodeCId.index,
+          additional_witnesses = Some(Set("signatory")),
+          source_synchronizer_id = None,
+          reassignment_counter = None,
+          reassignment_id = None,
+          representative_package_id = createNodeC.templateId.packageId,
+          notPersistedContractId = createNodeC.coid,
+          internal_contract_id = 42L,
+          create_key_hash = Some(
+            GlobalKey
+              .assertBuild(
+                Ref.Identifier.assertFromString("P:M:T2"),
+                Value.ValueUnit,
+                createNodeC.packageName,
+              )
+              .hash
+              .bytes
+              .toHexString
+          ),
+        ),
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(createNodeC),
+            party_id = "signatory2",
+            first_per_sequential_id = true,
+          )
+        ),
+        DbDto.IdFilterActivateWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(createNodeC),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -745,149 +1446,157 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
-        DbDto.EventExercise(
-          consuming = false,
+        DbDto.EventVariousWitnessed(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
+          command_id = Some(completionInfo.commandId),
           submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
           node_id = exerciseNodeAId.index,
-          contract_id = exerciseNodeA.targetCoid,
-          template_id = templateIdWithPackageName(exerciseNodeA),
-          package_id = exerciseNodeA.templateId.packageId,
-          flat_event_witnesses = Set.empty, // stakeholders
-          tree_event_witnesses = Set("signatory"), // informees
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
           exercise_choice = exerciseNodeA.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = emptyArray,
+          exercise_argument = Some(emptyArray),
           exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeDId.index,
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeDId.index),
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-          synchronizer_id = someSynchronizerId1,
-          trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
-          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-          deactivated_event_sequential_id = None,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeA.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeA)),
+          package_id = Some(exerciseNodeA.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
         ),
-        DbDto.IdFilterNonConsumingInformee(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNodeA),
-          party_id = "signatory",
-          first_per_sequential_id = true,
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeA),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.EventExercise(
-          consuming = false,
+        DbDto.EventVariousWitnessed(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
+          command_id = Some(completionInfo.commandId),
           submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
           node_id = exerciseNodeBId.index,
-          contract_id = exerciseNodeB.targetCoid,
-          template_id = templateIdWithPackageName(exerciseNodeB),
-          package_id = exerciseNodeB.templateId.packageId,
-          flat_event_witnesses = Set.empty, // stakeholders
-          tree_event_witnesses = Set("signatory"), // informees
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
           exercise_choice = exerciseNodeB.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = emptyArray,
+          exercise_argument = Some(emptyArray),
           exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeBId.index,
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeBId.index),
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-          synchronizer_id = someSynchronizerId1,
-          trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
-          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-          deactivated_event_sequential_id = None,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeB.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeB)),
+          package_id = Some(exerciseNodeB.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
         ),
-        DbDto.IdFilterNonConsumingInformee(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNodeB),
-          party_id = "signatory",
-          first_per_sequential_id = true,
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeB),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.EventExercise(
-          consuming = false,
+        DbDto.EventVariousWitnessed(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
+          command_id = Some(completionInfo.commandId),
           submitters = Some(completionInfo.actAs.toSet),
+          record_time = someRecordTime.toMicros,
+          synchronizer_id = someSynchronizerId1,
+          trace_context = serializedEmptyTraceContext,
+          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
+          event_sequential_id = 0,
           node_id = exerciseNodeCId.index,
-          contract_id = exerciseNodeC.targetCoid,
-          template_id = templateIdWithPackageName(exerciseNodeC),
-          package_id = exerciseNodeC.templateId.packageId,
-          flat_event_witnesses = Set.empty, // stakeholders
-          tree_event_witnesses = Set("signatory"), // informees
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
           exercise_choice = exerciseNodeC.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = emptyArray,
+          exercise_argument = Some(emptyArray),
           exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeDId.index,
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeDId.index),
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
-          synchronizer_id = someSynchronizerId1,
-          trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
-          external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-          deactivated_event_sequential_id = None,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeC.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeC)),
+          package_id = Some(exerciseNodeC.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
         ),
-        DbDto.IdFilterNonConsumingInformee(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNodeC),
-          party_id = "signatory",
-          first_per_sequential_id = true,
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeC),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.EventExercise(
-          consuming = false,
+        DbDto.EventVariousWitnessed(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
+          command_id = Some(completionInfo.commandId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_id = exerciseNodeDId.index,
-          contract_id = exerciseNodeD.targetCoid,
-          template_id = templateIdWithPackageName(exerciseNodeD),
-          package_id = exerciseNodeD.templateId.packageId,
-          flat_event_witnesses = Set.empty, // stakeholders
-          tree_event_witnesses = Set("signatory"), // informees
-          exercise_choice = exerciseNodeD.choiceId,
-          exercise_choice_interface_id = None,
-          exercise_argument = emptyArray,
-          exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeDId.index,
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
+          record_time = someRecordTime.toMicros,
           synchronizer_id = someSynchronizerId1,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
           external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-          deactivated_event_sequential_id = None,
-        ),
-        DbDto.IdFilterNonConsumingInformee(
+          event_type = PersistentEventType.NonConsumingExercise.asInt,
           event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNodeD),
-          party_id = "signatory",
-          first_per_sequential_id = true,
+          node_id = exerciseNodeDId.index,
+          additional_witnesses = Set("signatory"),
+          consuming = Some(false),
+          exercise_choice = exerciseNodeD.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeDId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          representative_package_id = None,
+          contract_id = Some(exerciseNodeD.targetCoid),
+          internal_contract_id = None,
+          template_id = Some(templateIdWithPackageName(exerciseNodeD)),
+          package_id = Some(exerciseNodeD.templateId.packageId),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
+        ),
+        DbDto.IdFilterVariousWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNodeD),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -1045,53 +1754,63 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
-        DbDto.EventExercise(
-          consuming = true,
+        DbDto.EventDeactivate(
           event_offset = someOffset.unwrap,
           update_id = updateIdByteArray,
-          ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-          command_id = Some(completionInfo.commandId),
           workflow_id = transactionMeta.workflowId,
-          user_id = Some(completionInfo.userId),
+          command_id = Some(completionInfo.commandId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_id = exerciseNodeId.index,
-          contract_id = exerciseNode.targetCoid,
-          template_id = templateIdWithPackageName(exerciseNode),
-          package_id = exerciseNode.templateId.packageId,
-          flat_event_witnesses = Set("signatory", "observer"),
-          tree_event_witnesses = Set("signatory", "observer", "divulgee"),
-          exercise_choice = exerciseNode.choiceId,
-          exercise_choice_interface_id = None,
-          exercise_argument = emptyArray,
-          exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeId.index,
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
-          event_sequential_id = 0,
+          record_time = someRecordTime.toMicros,
           synchronizer_id = someSynchronizerId1,
           trace_context = serializedEmptyTraceContext,
-          record_time = someRecordTime.toMicros,
           external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          event_type = PersistentEventType.ConsumingExercise.asInt,
+          event_sequential_id = 0,
+          node_id = exerciseNodeId.index,
           deactivated_event_sequential_id = None,
-        ),
-        DbDto.IdFilterConsumingStakeholder(
-          event_sequential_id = 0,
+          additional_witnesses = Some(Set("divulgee")),
+          exercise_choice = exerciseNode.choiceId,
+          exercise_choice_interface_id = None,
+          exercise_argument = Some(emptyArray),
+          exercise_result = Some(emptyArray),
+          exercise_actors = Some(Set("signatory")),
+          exercise_last_descendant_node_id = Some(exerciseNodeId.index),
+          exercise_argument_compression = compressionAlgorithmId,
+          exercise_result_compression = compressionAlgorithmId,
+          reassignment_id = None,
+          assignment_exclusivity = None,
+          target_synchronizer_id = None,
+          reassignment_counter = None,
+          contract_id = exerciseNode.targetCoid,
+          internal_contract_id = None,
           template_id = templateIdWithPackageName(exerciseNode),
-          party_id = "signatory",
-          first_per_sequential_id = true,
+          package_id = exerciseNode.templateId.packageId,
+          stakeholders = Set("signatory", "observer"),
+          ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
         ),
-        DbDto.IdFilterConsumingStakeholder(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNode),
-          party_id = "observer",
-          first_per_sequential_id = false,
+        DbDto.IdFilterDeactivateStakeholder(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNode),
+            party_id = "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.IdFilterConsumingNonStakeholderInformee(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNode),
-          party_id = "divulgee",
-          first_per_sequential_id = true,
+        DbDto.IdFilterDeactivateStakeholder(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNode),
+            party_id = "observer",
+            first_per_sequential_id = false,
+          )
+        ),
+        DbDto.IdFilterDeactivateWitness(
+          IdFilter(
+            event_sequential_id = 0,
+            template_id = templateIdWithPackageName(exerciseNode),
+            party_id = "divulgee",
+            first_per_sequential_id = true,
+          )
         ),
         DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
@@ -1170,98 +1889,103 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventCreate(
+      dtos.head shouldEqual DbDto.EventActivate(
         event_offset = someOffset.unwrap,
         update_id = updateIdByteArray,
-        ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-        command_id = Some(completionInfo.commandId),
         workflow_id = transactionMeta.workflowId,
-        user_id = Some(completionInfo.userId),
+        command_id = Some(completionInfo.commandId),
         submitters = Some(completionInfo.actAs.toSet),
-        node_id = createNodeId.index,
-        contract_id = createNode.coid,
-        template_id = templateIdWithPackageName(createNode),
-        package_id = createNode.templateId.packageId.toString,
-        flat_event_witnesses = Set("signatory", "observer"),
-        tree_event_witnesses = Set("signatory", "observer"),
-        create_argument = emptyArray,
-        create_signatories = Set("signatory"),
-        create_observers = Set("observer"),
-        create_key_value = None,
-        create_key_maintainers = None,
-        create_key_hash = None,
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = None,
-        event_sequential_id = 0,
-        authentication_data = someContractAuthenticationData.toByteArray,
+        record_time = someRecordTime.toMicros,
         synchronizer_id = someSynchronizerId1,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+        event_type = PersistentEventType.Create.asInt,
+        event_sequential_id = 0,
+        node_id = createNodeId.index,
+        additional_witnesses = Some(Set.empty),
+        source_synchronizer_id = None,
+        reassignment_counter = None,
+        reassignment_id = None,
         representative_package_id = createNode.templateId.packageId,
+        notPersistedContractId = createNode.coid,
         internal_contract_id = 42L,
+        create_key_hash = None,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "signatory",
-          first_per_sequential_id = true,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.IdFilterCreateStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "observer",
-          first_per_sequential_id = false,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "observer",
+            first_per_sequential_id = false,
+          )
         ),
       )
-      dtos(3) shouldEqual DbDto.EventExercise(
-        consuming = true,
+      dtos(3) shouldEqual DbDto.EventDeactivate(
         event_offset = someOffset.unwrap,
         update_id = updateIdByteArray,
-        ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-        command_id = Some(completionInfo.commandId),
         workflow_id = transactionMeta.workflowId,
-        user_id = Some(completionInfo.userId),
+        command_id = Some(completionInfo.commandId),
         submitters = Some(completionInfo.actAs.toSet),
-        node_id = exerciseNodeId.index,
-        contract_id = exerciseNode.targetCoid,
-        template_id = templateIdWithPackageName(exerciseNode),
-        package_id = exerciseNode.templateId.packageId,
-        flat_event_witnesses = Set("signatory", "observer"),
-        tree_event_witnesses = Set("signatory", "observer", "divulgee"),
-        exercise_choice = exerciseNode.choiceId,
-        exercise_choice_interface_id = Some(interfaceId.toString),
-        exercise_argument = emptyArray,
-        exercise_result = Some(emptyArray),
-        exercise_actors = Set("signatory"),
-        exercise_last_descendant_node_id = exerciseNodeId.index,
-        exercise_argument_compression = compressionAlgorithmId,
-        exercise_result_compression = compressionAlgorithmId,
-        event_sequential_id = 0,
+        record_time = someRecordTime.toMicros,
         synchronizer_id = someSynchronizerId1,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+        event_type = PersistentEventType.ConsumingExercise.asInt,
+        event_sequential_id = 0,
+        node_id = exerciseNodeId.index,
         deactivated_event_sequential_id = None,
-      )
-      dtos(4) shouldEqual DbDto.IdFilterConsumingStakeholder(
-        event_sequential_id = 0,
+        additional_witnesses = Some(Set("divulgee")),
+        exercise_choice = Some(exerciseNode.choiceId),
+        exercise_choice_interface_id = Some(interfaceId.toString),
+        exercise_argument = Some(emptyArray),
+        exercise_result = Some(emptyArray),
+        exercise_actors = Some(Set("signatory")),
+        exercise_last_descendant_node_id = Some(exerciseNodeId.index),
+        exercise_argument_compression = compressionAlgorithmId,
+        exercise_result_compression = compressionAlgorithmId,
+        reassignment_id = None,
+        assignment_exclusivity = None,
+        target_synchronizer_id = None,
+        reassignment_counter = None,
+        contract_id = exerciseNode.targetCoid,
+        internal_contract_id = None,
         template_id = templateIdWithPackageName(exerciseNode),
-        party_id = "signatory",
-        first_per_sequential_id = true,
+        package_id = exerciseNode.templateId.packageId,
+        stakeholders = Set("signatory", "observer"),
+        ledger_effective_time = Some(transactionMeta.ledgerEffectiveTime.micros),
       )
-      dtos(5) shouldEqual DbDto.IdFilterConsumingStakeholder(
-        event_sequential_id = 0,
-        template_id = templateIdWithPackageName(exerciseNode),
-        party_id = "observer",
-        first_per_sequential_id = false,
+      dtos(4) shouldEqual DbDto.IdFilterDeactivateStakeholder(
+        IdFilter(
+          event_sequential_id = 0,
+          template_id = templateIdWithPackageName(exerciseNode),
+          party_id = "signatory",
+          first_per_sequential_id = true,
+        )
       )
-      dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
-        event_sequential_id = 0,
-        template_id = templateIdWithPackageName(exerciseNode),
-        party_id = "divulgee",
-        first_per_sequential_id = true,
+      dtos(5) shouldEqual DbDto.IdFilterDeactivateStakeholder(
+        IdFilter(
+          event_sequential_id = 0,
+          template_id = templateIdWithPackageName(exerciseNode),
+          party_id = "observer",
+          first_per_sequential_id = false,
+        )
+      )
+      dtos(6) shouldEqual DbDto.IdFilterDeactivateWitness(
+        IdFilter(
+          event_sequential_id = 0,
+          template_id = templateIdWithPackageName(exerciseNode),
+          party_id = "divulgee",
+          first_per_sequential_id = true,
+        )
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.unwrap,
@@ -1402,49 +2126,44 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventCreate(
+      dtos.head shouldEqual DbDto.EventActivate(
         event_offset = someOffset.unwrap,
         update_id = updateIdByteArray,
-        ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-        command_id = None,
         workflow_id = transactionMeta.workflowId,
-        user_id = None,
+        command_id = None,
         submitters = None,
-        node_id = createNodeId.index,
-        contract_id = createNode.coid,
-        template_id = templateIdWithPackageName(createNode),
-        package_id = createNode.templateId.packageId.toString,
-        flat_event_witnesses = Set("signatory", "observer"),
-        tree_event_witnesses = Set("signatory", "observer"),
-        create_argument = emptyArray,
-        create_signatories = Set("signatory"),
-        create_observers = Set("observer"),
-        create_key_value = None,
-        create_key_maintainers = None,
-        create_key_hash = None,
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = None,
-        event_sequential_id = 0,
-        authentication_data = someContractAuthenticationData.toByteArray,
+        record_time = someRecordTime.toMicros,
         synchronizer_id = someSynchronizerId1,
         trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.toMicros,
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+        event_type = PersistentEventType.Create.asInt,
+        event_sequential_id = 0,
+        node_id = createNodeId.index,
+        additional_witnesses = Some(Set.empty),
+        source_synchronizer_id = None,
+        reassignment_counter = None,
+        reassignment_id = None,
         representative_package_id = createNode.templateId.packageId,
+        notPersistedContractId = createNode.coid,
         internal_contract_id = 42L,
+        create_key_hash = None,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "signatory",
-          first_per_sequential_id = true,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.IdFilterCreateStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "observer",
-          first_per_sequential_id = false,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "observer",
+            first_per_sequential_id = false,
+          )
         ),
       )
       dtos.size shouldEqual 4
@@ -1552,49 +2271,44 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           )
           val dtos = updateToDtos(update)
 
-          dtos.head shouldEqual DbDto.EventCreate(
+          dtos.head shouldEqual DbDto.EventActivate(
             event_offset = someOffset.unwrap,
             update_id = updateIdByteArray,
-            ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-            command_id = Some(completionInfo.commandId),
             workflow_id = transactionMeta.workflowId,
-            user_id = Some(completionInfo.userId),
+            command_id = Some(completionInfo.commandId),
             submitters = Some(completionInfo.actAs.toSet),
-            node_id = createNodeId.index,
-            contract_id = createNode.coid,
-            template_id = templateIdWithPackageName(createNode),
-            package_id = createNode.templateId.packageId.toString,
-            flat_event_witnesses = Set("signatory", "observer"), // stakeholders
-            tree_event_witnesses = Set("signatory", "observer"), // informees
-            create_argument = emptyArray,
-            create_signatories = Set("signatory"),
-            create_observers = Set("observer"),
-            create_key_value = None,
-            create_key_maintainers = None,
-            create_key_hash = None,
-            create_argument_compression = compressionAlgorithmId,
-            create_key_value_compression = None,
-            event_sequential_id = 0,
-            authentication_data = someContractAuthenticationData.toByteArray,
+            record_time = someRecordTime.toMicros,
             synchronizer_id = someSynchronizerId1,
             trace_context = serializedEmptyTraceContext,
-            record_time = someRecordTime.toMicros,
             external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+            event_type = PersistentEventType.Create.asInt,
+            event_sequential_id = 0,
+            node_id = createNodeId.index,
+            additional_witnesses = Some(Set.empty),
+            source_synchronizer_id = None,
+            reassignment_counter = None,
+            reassignment_id = None,
             representative_package_id = createNode.templateId.packageId,
+            notPersistedContractId = createNode.coid,
             internal_contract_id = 42L,
+            create_key_hash = None,
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.IdFilterCreateStakeholder(
-              0L,
-              templateIdWithPackageName(createNode),
-              "signatory",
-              first_per_sequential_id = true,
+            DbDto.IdFilterActivateStakeholder(
+              IdFilter(
+                0L,
+                templateIdWithPackageName(createNode),
+                "signatory",
+                first_per_sequential_id = true,
+              )
             ),
-            DbDto.IdFilterCreateStakeholder(
-              0L,
-              templateIdWithPackageName(createNode),
-              "observer",
-              first_per_sequential_id = false,
+            DbDto.IdFilterActivateStakeholder(
+              IdFilter(
+                0L,
+                templateIdWithPackageName(createNode),
+                "observer",
+                first_per_sequential_id = false,
+              )
             ),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
@@ -1672,35 +2386,27 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
       val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventAssign(
+      dtos.head shouldEqual DbDto.EventActivate(
         event_offset = someOffset.unwrap,
         update_id = update.updateId.toProtoPrimitive.toByteArray,
-        command_id = Some(completionInfo.commandId),
         workflow_id = Some(someWorkflowId),
-        submitter = Option(someParty),
-        node_id = 0,
-        contract_id = createNode.coid,
-        template_id = templateIdWithPackageName(createNode),
-        package_id = createNode.templateId.packageId.toString,
-        flat_event_witnesses = Set("signatory", "observer", "observer2"),
-        create_argument = emptyArray,
-        create_signatories = Set("signatory"),
-        create_observers = Set("observer", "observer2"),
-        create_key_value = None,
-        create_key_maintainers = None,
-        create_key_hash = None,
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = None,
-        event_sequential_id = 0,
-        ledger_effective_time = 17000000,
-        authentication_data = someContractAuthenticationData.toByteArray,
-        source_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer1"),
-        target_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer2"),
-        reassignment_id = ReassignmentId.tryCreate("001000000000").toBytes.toByteArray,
-        reassignment_counter = 1500L,
-        trace_context = serializedEmptyTraceContext,
+        command_id = Some(completionInfo.commandId),
+        submitters = Option(Set(someParty)),
         record_time = someRecordTime.toMicros,
+        synchronizer_id = SynchronizerId.tryFromString("x::synchronizer2"),
+        trace_context = serializedEmptyTraceContext,
+        external_transaction_hash = None,
+        event_type = PersistentEventType.Assign.asInt,
+        event_sequential_id = 0,
+        node_id = 0,
+        additional_witnesses = None,
+        source_synchronizer_id = Some(SynchronizerId.tryFromString("x::synchronizer1")),
+        reassignment_counter = Some(1500L),
+        reassignment_id = Some(ReassignmentId.tryCreate("001000000000").toBytes.toByteArray),
+        representative_package_id = createNode.templateId.packageId,
+        notPersistedContractId = createNode.coid,
         internal_contract_id = 42L,
+        create_key_hash = None,
       )
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.unwrap,
@@ -1732,23 +2438,29 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterAssignStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "signatory",
-          first_per_sequential_id = true,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "signatory",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.IdFilterAssignStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "observer",
-          first_per_sequential_id = false,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "observer",
+            first_per_sequential_id = false,
+          )
         ),
-        DbDto.IdFilterAssignStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "observer2",
-          first_per_sequential_id = false,
+        DbDto.IdFilterActivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "observer2",
+            first_per_sequential_id = false,
+          )
         ),
       )
       dtos.size shouldEqual 6
@@ -1799,26 +2511,39 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
       val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventUnassign(
+      dtos.head shouldEqual DbDto.EventDeactivate(
         event_offset = someOffset.unwrap,
         update_id = update.updateId.toProtoPrimitive.toByteArray,
-        command_id = Some(completionInfo.commandId),
         workflow_id = Some(someWorkflowId),
-        submitter = someParty,
+        command_id = Some(completionInfo.commandId),
+        submitters = Some(Set(someParty)),
+        record_time = 120L,
+        synchronizer_id = SynchronizerId.tryFromString("x::synchronizer1"),
+        trace_context = serializedEmptyTraceContext,
+        external_transaction_hash = None,
+        event_type = PersistentEventType.Unassign.asInt,
+        event_sequential_id = 0,
         node_id = 0,
+        deactivated_event_sequential_id = None,
+        additional_witnesses = None,
+        exercise_choice = None,
+        exercise_choice_interface_id = None,
+        exercise_argument = None,
+        exercise_result = None,
+        exercise_actors = None,
+        exercise_last_descendant_node_id = None,
+        exercise_argument_compression = None,
+        exercise_result_compression = None,
+        reassignment_id = Some(ReassignmentId.tryCreate("001000000000").toBytes.toByteArray),
+        assignment_exclusivity = Some(123456L),
+        target_synchronizer_id = Some(SynchronizerId.tryFromString("x::synchronizer2")),
+        reassignment_counter = Some(1500L),
         contract_id = createNode.coid,
+        internal_contract_id = None,
         template_id = templateIdWithPackageName(createNode),
         package_id = createNode.templateId.packageId,
-        flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
-        event_sequential_id = 0,
-        source_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer1"),
-        target_synchronizer_id = SynchronizerId.tryFromString("x::synchronizer2"),
-        reassignment_id = ReassignmentId.tryCreate("001000000000").toBytes.toByteArray,
-        reassignment_counter = 1500L,
-        assignment_exclusivity = Some(123456L),
-        trace_context = serializedEmptyTraceContext,
-        record_time = 120L,
-        deactivated_event_sequential_id = None,
+        stakeholders = Set("signatory12", "observer23", "asdasdasd"),
+        ledger_effective_time = None,
       )
       dtos(4) shouldEqual DbDto.CommandCompletion(
         completion_offset = someOffset.unwrap,
@@ -1850,23 +2575,29 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterUnassignStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "signatory12",
-          first_per_sequential_id = true,
+        DbDto.IdFilterDeactivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "signatory12",
+            first_per_sequential_id = true,
+          )
         ),
-        DbDto.IdFilterUnassignStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "observer23",
-          first_per_sequential_id = false,
+        DbDto.IdFilterDeactivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "observer23",
+            first_per_sequential_id = false,
+          )
         ),
-        DbDto.IdFilterUnassignStakeholder(
-          0L,
-          templateIdWithPackageName(createNode),
-          "asdasdasd",
-          first_per_sequential_id = false,
+        DbDto.IdFilterDeactivateStakeholder(
+          IdFilter(
+            0L,
+            templateIdWithPackageName(createNode),
+            "asdasdasd",
+            first_per_sequential_id = false,
+          )
         ),
       )
       dtos.size shouldEqual 6
@@ -2105,7 +2836,7 @@ object UpdateToDbDtoSpec {
   private val someContractAuthenticationData = Bytes.assertFromString("00abcd")
   private val someRepresentativePackageId = Ref.PackageId.assertFromString("rp-id")
 
-  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = ScalatestEqualityHelpers.DbDtoEq
 
   private val serializedEmptyTraceContext =
     SerializableTraceContext(emptyTraceContext).toDamlProto.toByteArray

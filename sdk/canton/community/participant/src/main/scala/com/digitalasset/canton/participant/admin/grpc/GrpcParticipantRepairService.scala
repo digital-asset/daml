@@ -29,7 +29,7 @@ import com.digitalasset.canton.participant.admin.grpc.GrpcParticipantRepairServi
 }
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{
-  ContractIdsImportProcessor,
+  ContractAuthenticationImportProcessor,
   RepairServiceError,
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -513,8 +513,8 @@ final class GrpcParticipantRepairService(
       contractImportMode: ContractImportMode,
   )(implicit traceContext: TraceContext): Future[Map[String, String]] = {
     val resultET = for {
-      repairContracts <- EitherT
-        .fromEither[Future](contracts)
+      repairContracts <- contracts
+        .toEitherT[FutureUnlessShutdown]
         .ensure( // TODO(#23073) - Remove this restriction once #27325 has been re-implemented
           "Found at least one contract with a non-zero reassignment counter. ACS import does not yet support it."
         )(_.forall(_.reassignmentCounter == ReassignmentCounter.Genesis))
@@ -522,11 +522,12 @@ final class GrpcParticipantRepairService(
       workflowIdPrefixO = Option.when(workflowIdPrefix != "")(workflowIdPrefix)
 
       activeContractsWithRemapping <-
-        ContractIdsImportProcessor(
+        ContractAuthenticationImportProcessor(
           loggerFactory,
           sync.syncPersistentStateManager,
           sync.pureCryptoApi,
           sync.contractHasher,
+          sync.contractValidator,
           contractImportMode,
         )(repairContracts)
       (activeContractsWithValidContractIds, contractIdRemapping) =
@@ -539,18 +540,19 @@ final class GrpcParticipantRepairService(
             batching.maxAcsImportBatchSize,
           )(contracts)(
             writeContractsBatchOld(workflowIdPrefixO)(synchronizerId, _)
+              .mapK(FutureUnlessShutdown.outcomeK)
           )
       }
 
     } yield contractIdRemapping
 
     resultET.value.flatMap {
-      case Left(error) => Future.failed(ImportAcsError.Error(error).asGrpcError)
+      case Left(error) => FutureUnlessShutdown.failed(ImportAcsError.Error(error).asGrpcError)
       case Right(contractIdRemapping) =>
-        Future.successful(
+        FutureUnlessShutdown.pure(
           contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
         )
-    }
+    }.asGrpcFuture
   }
 
   private def writeContractsBatchOld(

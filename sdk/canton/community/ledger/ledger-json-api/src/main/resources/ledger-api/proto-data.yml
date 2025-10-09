@@ -2745,8 +2745,14 @@ messages:
 
           Use this flag to preview a change before applying it.
         synchronizer_id: |-
-          The sychronizer on which the ``VettedPackages`` of this participant node
-          should be changed.
+          If set, the requested changes will take place on the specified
+          synchronizer. If synchronizer_id is unset and the participant is only
+          connected to a single synchronizer, that synchronizer will be used by
+          default. If synchronizer_id is unset and the participant is connected to
+          multiple synchronizers, the request will error out with
+          PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
         expected_topology_serial: |-
           The serial of the last ``VettedPackages`` topology transaction of this
           participant and on this synchronizer.
@@ -2780,6 +2786,17 @@ messages:
           Unique submission identifier.
           Optional, defaults to a random identifier.
         vetting_change: How to vet packages in the DAR being uploaded
+        synchronizer_id: |-
+          Only used if VettingChange is set to VETTING_CHANGE_VET_ALL_PACKAGES, in
+          order to specify which synchronizer to vet on.
+
+          If synchronizer_id is set, the synchronizer with this ID will be used. If
+          synchronizer_id is unset and the participant is only connected to a single
+          synchronizer, that synchronizer will be used by default. If synchronizer_id
+          is unset and the participant is connected to multiple synchronizers, the
+          request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
   UploadDarFileResponse:
     message:
       comments: A message that is received when the upload operation succeeded.
@@ -2845,6 +2862,14 @@ messages:
         submission_id: |-
           Unique submission identifier.
           Optional, defaults to a random identifier.
+        synchronizer_id: |-
+          If synchronizer_id is set, the synchronizer with this ID will be used. If
+          synchronizer_id is unset and the participant is only connected to a single
+          synchronizer, that synchronizer will be used by default. If synchronizer_id
+          is unset and the participant is connected to multiple synchronizers, the
+          request will error out with PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
   ValidateDarFileResponse:
     message:
       comments: null

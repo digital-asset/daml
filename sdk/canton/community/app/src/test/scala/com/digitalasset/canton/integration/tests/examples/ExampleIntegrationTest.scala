@@ -63,7 +63,8 @@ trait HasConsoleScriptRunner { this: NamedLogging =>
     ConsoleScriptRunner.run(env, scriptPath.toJava, logger = logger).value.discard
 }
 
-object ExampleIntegrationTest {
+object `ExampleIntegrationTest` {
+  lazy val dockerImagesPath: File = "docker" / "canton" / "images"
   lazy val examplesPath: File = "community" / "app" / "src" / "pack" / "examples"
   lazy val simpleTopology: File = examplesPath / "01-simple-topology"
   lazy val referenceConfiguration: File = "community" / "app" / "src" / "pack" / "config"
@@ -74,7 +75,6 @@ object ExampleIntegrationTest {
   lazy val advancedConfTestEnv: File =
     "community" / "app" / "src" / "test" / "resources" / "advancedConfDef.env"
   lazy val bftSequencerConfigurationFolder: File = examplesPath / "11-bft-sequencer"
-
   def ensureSystemProperties(kvs: (String, String)*): Unit = blocking(synchronized {
     kvs.foreach { case (key, value) =>
       Option(System.getProperty(key)) match {

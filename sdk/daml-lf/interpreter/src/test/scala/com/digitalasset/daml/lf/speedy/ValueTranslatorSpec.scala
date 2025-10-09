@@ -20,12 +20,16 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpecForbidTrailingNones
-    extends ValueTranslatorSpec(LanguageMajorVersion.V2, forbidTrailingNones = true)
-class ValueTranslatorSpecAllowTrailingNones
-    extends ValueTranslatorSpec(LanguageMajorVersion.V2, forbidTrailingNones = false)
+class ValueTranslatorSpec_ForbidTrailingNones_V2_1
+    extends ValueTranslatorSpec(LanguageVersion.v2_1, forbidTrailingNones = true)
+class ValueTranslatorSpec_ForbidTrailingNones_V2_2
+    extends ValueTranslatorSpec(LanguageVersion.v2_2, forbidTrailingNones = true)
+class ValueTranslatorSpec_AllowTrailingNones_V2_1
+    extends ValueTranslatorSpec(LanguageVersion.v2_1, forbidTrailingNones = false)
+class ValueTranslatorSpec_AllowTrailingNones_V2_2
+    extends ValueTranslatorSpec(LanguageVersion.v2_2, forbidTrailingNones = false)
 
-class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrailingNones: Boolean)
+class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones: Boolean)
     extends AnyWordSpec
     with Inside
     with Matchers
@@ -45,7 +49,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrai
   val none = Value.ValueNone
 
   private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
+    ParserParameters.defaultFor(languageVersion.major)
 
   private[this] implicit val defaultPackageId: Ref.PackageId =
     parserParameters.defaultPackageId
@@ -79,7 +83,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrai
   val upgradablePkgId = Ref.PackageId.assertFromString("-upgradable-v1-")
   val upgradablePkg = {
     implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-      ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+      ParserParameters(upgradablePkgId, languageVersion)
     p"""metadata ( 'upgradable' : '1.0.0' )
       module Mod {
         record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b, fieldC: Option c };
@@ -97,7 +101,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrai
         defaultPackageId -> pkg,
         upgradablePkgId -> upgradablePkg,
       ),
-      Compiler.Config.Default(majorLanguageVersion),
+      Compiler.Config.Default(languageVersion.major),
     )
 
   "translateValue" should {
@@ -216,7 +220,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrai
     "return proper mismatch error for upgrades" in {
 
       implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+        ParserParameters(upgradablePkgId, languageVersion)
 
       val TRecordUpgradable = t"Mod:Record Int64 Text Party Unit"
 
@@ -630,7 +634,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrai
 
     "reject records with typeCon IDs" in {
       implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+        ParserParameters(upgradablePkgId, languageVersion)
 
       val testCases = Table[Ast.Type, Value](
         ("type", "value"),
@@ -673,7 +677,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion, forbidTrai
 
     "reject records with labels" in {
       implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+        ParserParameters(upgradablePkgId, languageVersion)
 
       val testCases = Table[Ast.Type, Value](
         ("type", "value"),

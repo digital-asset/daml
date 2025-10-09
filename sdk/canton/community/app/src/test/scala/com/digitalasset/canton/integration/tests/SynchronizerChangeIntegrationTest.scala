@@ -151,7 +151,12 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
     )
 
     darPaths.foreach { darPath =>
-      participants.all.foreach(_.dars.upload(darPath))
+      participants.all.foreach { p =>
+        p.dars.upload(darPath, synchronizerId = iouSynchronizerId)
+      }
+      Seq(participant4, participant5).foreach(p =>
+        p.dars.upload(darPath, synchronizerId = paintSynchronizerId)
+      )
     }
 
     // Advance the simClock to trigger time-proof requests, if present

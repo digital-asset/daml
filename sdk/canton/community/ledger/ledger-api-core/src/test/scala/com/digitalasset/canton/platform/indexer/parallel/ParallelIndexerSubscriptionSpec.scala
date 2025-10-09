@@ -37,7 +37,11 @@ import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscrip
   ZeroLedgerEnd,
 }
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
-import com.digitalasset.canton.platform.store.backend.{DbDto, DbDtoEq, ParameterStorageBackend}
+import com.digitalasset.canton.platform.store.backend.{
+  DbDto,
+  ParameterStorageBackend,
+  ScalatestEqualityHelpers,
+}
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.protocol.TestUpdateId
@@ -72,7 +76,7 @@ class ParallelIndexerSubscriptionSpec
     with Matchers
     with NamedLogging {
 
-  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = ScalatestEqualityHelpers.DbDtoEq
   implicit val traceContext: TraceContext = TraceContext.empty
   private val serializableTraceContext =
     SerializableTraceContext(traceContext).toDamlProto.toByteArray

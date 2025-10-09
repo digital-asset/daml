@@ -120,7 +120,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         connect(participant2, minObservationDuration2)
         connect(participant3, minObservationDuration2)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         passTopologyRegistrationTimeout(env)
       }
 
@@ -197,7 +198,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     val tickNoCommitments1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tickNoCommitments1.forgetRefinement.plus(interval.multipliedBy(3)))
     logger.info(s"Upload a package to trigger some vetting transactions")
-    participant1.dars.upload(CantonTestsPath)
+    participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
+    participant1.dars.upload(CantonTestsPath, synchronizerId = acmeId)
     simClock.advance(interval.plus(JDuration.ofSeconds(1)))
 
     val start = tickNoCommitments1.forgetRefinement.toInstant

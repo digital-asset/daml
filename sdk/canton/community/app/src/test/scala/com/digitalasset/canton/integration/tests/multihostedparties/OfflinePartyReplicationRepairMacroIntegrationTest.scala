@@ -51,7 +51,8 @@ sealed trait OfflinePartyReplicationRepairMacroIntegrationTest
         participant2.synchronizers.connect_local(sequencer4, alias = acmeName)
         participant3.synchronizers.connect_local(sequencer4, alias = acmeName)
 
-        participants.all.dars.upload(CantonExamplesPath)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
 
         // Allocate parties
         alice = participant1.parties.enable(

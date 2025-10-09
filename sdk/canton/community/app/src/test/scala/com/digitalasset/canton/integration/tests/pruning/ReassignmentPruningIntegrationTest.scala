@@ -89,7 +89,8 @@ sealed trait ReassignmentPruningIntegrationTest
         bank = participant2.parties.enable("bank", synchronizer = daName)
         participant2.parties.enable("bank", synchronizer = acmeName)
 
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
         participant1.health.ping(participant2.id)
       }
 
