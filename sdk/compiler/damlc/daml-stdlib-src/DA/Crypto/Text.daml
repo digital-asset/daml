@@ -161,8 +161,18 @@ class HasFromHex a where
   -- | Converts a hex encoded string into a typed data value.
   fromHex: BytesHex -> a
 
+-- Only decode `BytesHex` instances that result in UTF8 text strings with no Unicode replacement characters. This ensures
+-- that `toHex` can always be applied to the non-empty results of `fromHex`.
 instance HasFromHex (Optional Text) where
-  fromHex hex | isBytesHex hex = Some (primitive @"BEDecodeHex" (Text.asciiToLower hex))
+  fromHex hex | isBytesHex hex =
+    let lowerCase = Text.asciiToLower hex
+        txt = primitive @"BEDecodeHex" lowerCase
+    in
+      if lowerCase == toHex txt
+        then
+          Some txt
+        else
+          None
   fromHex _ = None
 
 -- TODO: https://github.com/digital-asset/daml/issues/20954: refactor to use safe arithmetic Int operations
