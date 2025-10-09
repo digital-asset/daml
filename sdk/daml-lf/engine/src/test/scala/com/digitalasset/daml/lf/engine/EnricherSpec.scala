@@ -4,17 +4,20 @@
 package com.digitalasset.daml.lf
 package engine
 
+import cats.Order
+import cats.data.NonEmptySet
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon, Type}
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
   CreateSerializationVersion,
 }
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon, Type}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.test.{
   TestNodeBuilder,
   TransactionBuilder,
@@ -23,6 +26,7 @@ import com.digitalasset.daml.lf.transaction.test.{
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, SerializationVersion}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
+import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
@@ -32,6 +36,7 @@ class EnricherSpecV2 extends EnricherSpec(LanguageMajorVersion.V2)
 class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
+    with Inside
     with TableDrivenPropertyChecks {
 
   import TransactionBuilder.Implicits.{defaultPackageId => _, _}
@@ -43,10 +48,11 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     defaultParserParameters.defaultPackageId
 
   val nonEmptySuffix = Bytes.assertFromString("00")
+
   private def cid(key: String): ContractId =
     ContractId.V1.assertBuild(Hash.hashPrivateKey(key), nonEmptySuffix)
 
-  val pkg =
+  val pkg = {
     p"""metadata ( 'pkg' : '1.0.0' )
 
         module Mod {
@@ -100,14 +106,62 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         }
 
     """
+  }
+
+  val pkgId1 = Ref.PackageId.assertFromString("-pkg-id-1-")
+  val pkg1 =
+    p""" metadata ( 'test-pkg' : '1.0.0' )
+        module M {
+          record @serializable T = { p: Party };
+          template (this : T) = {
+            precondition True;
+            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            observers Nil @Party;
+          };
+        }
+    """ (defaultParserParameters.copy(defaultPackageId = pkgId1))
+
+  // A valid upgrade of pkg1
+  val pkgId2 = Ref.PackageId.assertFromString("-pkg-id-2-")
+  val pkg2 =
+    p""" metadata ( 'test-pkg' : '2.0.0' )
+        module M {
+          record @serializable T = { p: Party, extra: Option Int64 };
+          template (this : T) = {
+            precondition True;
+            signatories Cons @Party [M:T {p} this] (Nil @Party);
+            observers Nil @Party;
+          };
+        }
+    """ (defaultParserParameters.copy(defaultPackageId = pkgId2))
+
+  // An invalid upgrade of pkg1: field p has been renamed to renamed_p
+  val pkgId3 = Ref.PackageId.assertFromString("-pkg-id-3-")
+  val pkg3 =
+    p""" metadata ( 'test-pkg' : '3.0.0' )
+        module M {
+          record @serializable T = { renamed_p: Party };
+          template (this : T) = {
+            precondition True;
+            signatories Cons @Party [M:T {renamed_p} this] (Nil @Party);
+            observers Nil @Party;
+          };
+        }
+    """ (defaultParserParameters.copy(defaultPackageId = pkgId3))
 
   private[this] val engine = Engine.DevEngine(majorLanguageVersion)
 
-  engine
-    .preloadPackage(defaultPackageId, pkg)
-    .consume()
-    .left
-    .foreach(err => sys.error(err.message))
+  def preloadPackage(pkgId: Ref.PackageId, pkg: Ast.Package): Unit =
+    engine
+      .preloadPackage(pkgId, pkg)
+      .consume()
+      .left
+      .foreach(err => sys.error(err.message))
+
+  preloadPackage(defaultPackageId, pkg)
+  preloadPackage(pkgId1, pkg1)
+  preloadPackage(pkgId2, pkg2)
+  preloadPackage(pkgId3, pkg3)
 
   "enrichValue" should {
 
@@ -337,6 +391,45 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
       enrichValue(tVariant, normalizedVariant) shouldBe ResultDone(normalizedVariant)
       enrichValue(tEnum, normalizedEnum) shouldBe ResultDone(normalizedEnum)
     }
-  }
 
+    // enrichContractWithPackages test cases
+    {
+      val enrich = new Enricher(
+        engine,
+        addTypeInfo = true,
+        addFieldNames = true,
+        addTrailingNoneFields = false,
+      )
+      val alice = Ref.Party.assertFromString("alice")
+      val fcoinst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
+        version = SerializationVersion.minVersion,
+        packageName = Ref.PackageName.assertFromString("test-pkg"),
+        template = Ref.TypeConId(pkgId1, "M:T"),
+        arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
+        signatories = Set(alice),
+      )
+
+      implicit val `Package ID Order`: Order[PackageId] =
+        Order.fromOrdering(PackageId.ordering)
+
+      "enrich a fat contract instance with packages that agree on the enrichment" in {
+        // pkgId1 and pkgId2 agree on the enrichment
+        inside(enrich.enrichContractWithPackages(fcoinst, NonEmptySet.of(pkgId1, pkgId2))) {
+          case ResultDone(Right(enriched)) =>
+            enriched.createArg shouldBe ValueRecord(
+              Some(Ref.TypeConId(pkgId1, "M:T")),
+              ImmArray("p" -> ValueParty(alice)),
+            )
+        }
+      }
+
+      "fail to enrich a fat contract instance with packages that disagree on the enrichment" in {
+        // pkgId1 and pkgId2 disagree on the enrichment
+        inside(enrich.enrichContractWithPackages(fcoinst, NonEmptySet.of(pkgId1, pkgId3))) {
+          case ResultDone(result) =>
+            result shouldBe a[Left[_, _]]
+        }
+      }
+    }
+  }
 }

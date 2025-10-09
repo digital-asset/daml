@@ -252,7 +252,7 @@ final class Enricher(
     *
     * Returns a ResultError if the enrichment fails for unexpected reasons (e.g. typechecking fails).
     */
-  def enrichContractWithPackage(
+  def enrichContractWithPackages(
       contract: FatContractInstance,
       packageIds: NonEmptySet[PackageId],
   ): Result[Either[String, FatContractInstance]] = {

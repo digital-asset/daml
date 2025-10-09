@@ -305,7 +305,7 @@ object Result {
     }
 
     implicit val resultApplicativeInstance: Applicative[Result] = new Applicative[Result] {
-      override def pure[A](x: A): Result[A] = point(x)
+      override def pure[A](x: A): Result[A] = ResultDone(x)
 
       override def ap[A, B](ff: Result[A => B])(fa: Result[A]): Result[B] =
         fa.flatMap(a => ff.map(f => f(a)))

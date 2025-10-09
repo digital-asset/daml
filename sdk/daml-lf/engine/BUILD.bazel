@@ -136,6 +136,8 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
         "@maven//:com_lihaoyi_sourcecode",
     ],
     scalacopts = lf_scalacopts,
