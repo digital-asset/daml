@@ -375,13 +375,17 @@ truncatedErrorMessage :: SubmitError -> Text
 data UpgradeErrorType
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-validationfailed-35370
-ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
+ValidationFailed :: AnyContractId -> TemplateTypeRep -> TemplateTypeRep -> Text -> Text -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> [Party] -> [Party] -> Optional (AnyContractKey, [Party]) -> UpgradeErrorType
 
 coid :: UpgradeErrorType -> AnyContractId
 
 srcTemplateId :: UpgradeErrorType -> TemplateTypeRep
 
 dstTemplateId :: UpgradeErrorType -> TemplateTypeRep
+
+srcPackageName :: UpgradeErrorType -> Text
+
+dstPackageName :: UpgradeErrorType -> Text
 
 originalSignatories :: UpgradeErrorType -> [Party]
 
