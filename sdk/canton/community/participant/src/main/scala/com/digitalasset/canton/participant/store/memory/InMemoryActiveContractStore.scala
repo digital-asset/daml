@@ -224,7 +224,7 @@ class InMemoryActiveContractStore(
       reassignments: Seq[
         (LfContractId, ReassignmentTag[SynchronizerId], ReassignmentCounter, TimeOfChange)
       ]
-  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Seq[
+  )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Seq[
     (LfContractId, Int, ReassignmentCounter, TimeOfChange)
   ]] = {
     val synchronizers = reassignments.map { case (_, synchronizer, _, _) =>

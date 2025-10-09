@@ -45,6 +45,7 @@ import com.digitalasset.canton.platform.store.utils.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.FullIdentifier
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -53,8 +54,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.Source
 
-import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 import scala.util.chaining.*
 
 /** Streams ACS events (active contracts) in a two step process consisting of:
@@ -122,7 +123,7 @@ class ACSReader(
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
     val (activeAtOffset, activeAtEventSeqId) = activeAt
-    def withValidatedActiveAt[T](query: => T)(implicit connection: Connection) =
+    def withValidatedActiveAt[T](query: => Future[T]) =
       queryValidRange.withOffsetNotBeforePruning(
         activeAtOffset,
         pruned =>
@@ -222,21 +223,22 @@ class ACSReader(
     ): Future[Vector[RawActiveContractLegacy]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreatedLegacy) {
-            implicit connection =>
-              val result = withValidatedActiveAt(
+          withValidatedActiveAt(
+            dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreatedLegacy) {
+              implicit connection =>
                 eventStorageBackend.activeContractCreateEventBatchLegacy(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
                   endInclusive = activeAtEventSeqId,
                 )(connection)
-              )
-              logger.debug(
-                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
+            }
+          ).thereafterP { case Success(result) =>
+            logger
+              .debug(
+                s"getActiveContractBatch returned ${result.size}/${ids.size} ${ids.lastOption
                     .map(last => s"until $last")
                     .getOrElse("")}"
               )
-              result
           }
         )
       )
@@ -246,21 +248,20 @@ class ACSReader(
     ): Future[Vector[RawActiveContractLegacy]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssignedLegacy) {
-            implicit connection =>
-              val result = withValidatedActiveAt(
-                eventStorageBackend.activeContractAssignEventBatchLegacy(
-                  eventSequentialIds = ids,
-                  allFilterParties = allFilterParties,
-                  endInclusive = activeAtEventSeqId,
-                )(connection)
+          withValidatedActiveAt(
+            dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssignedLegacy)(
+              eventStorageBackend.activeContractAssignEventBatchLegacy(
+                eventSequentialIds = ids,
+                allFilterParties = allFilterParties,
+                endInclusive = activeAtEventSeqId,
               )
-              logger.debug(
-                s"getActiveContractBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              result
+            )
+          ).thereafterP { case Success(result) =>
+            logger.debug(
+              s"getActiveContractBatch returned ${result.size}/${ids.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+            )
           }
         )
       )
@@ -306,22 +307,23 @@ class ACSReader(
       else
         localPayloadQueriesLimiter.execute(
           globalPayloadQueriesLimiter.execute(
-            dispatcher.executeSql(
-              metrics.index.db.reassignmentStream.fetchEventAssignPayloadsLegacy
-            ) { implicit connection =>
-              val result = withValidatedActiveAt(
+            withValidatedActiveAt(
+              dispatcher.executeSql(
+                metrics.index.db.reassignmentStream.fetchEventAssignPayloadsLegacy
+              )(
                 eventStorageBackend.assignEventBatchLegacy(
                   eventSequentialIds = Ids(ids),
                   allFilterParties = allFilterParties,
-                )(connection)
+                )
               )
-              logger.debug(
-                s"assignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-              result
-            }
+            )
+              .thereafterP { case Success(result) =>
+                logger.debug(
+                  s"assignEventBatch returned ${result.size}/${ids.size} ${ids.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                )
+              }
           )
         )
 
@@ -330,21 +332,21 @@ class ACSReader(
     ): Future[Vector[Entry[RawUnassignEventLegacy]]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
-          dispatcher.executeSql(
-            metrics.index.db.reassignmentStream.fetchEventUnassignPayloadsLegacy
-          ) { implicit connection =>
-            val result = withValidatedActiveAt(
+          withValidatedActiveAt(
+            dispatcher.executeSql(
+              metrics.index.db.reassignmentStream.fetchEventUnassignPayloadsLegacy
+            )(
               eventStorageBackend.unassignEventBatchLegacy(
                 eventSequentialIds = Ids(ids),
                 allFilterParties = allFilterParties,
-              )(connection)
+              )
             )
+          ).thereafterP { case Success(result) =>
             logger.debug(
-              s"unassignEventBatch returned ${ids.size}/${result.size} ${ids.lastOption
+              s"unassignEventBatch returned ${result.size}/${ids.size} ${ids.lastOption
                   .map(last => s"until $last")
                   .getOrElse("")}"
             )
-            result
           }
         )
       )
@@ -391,29 +393,31 @@ class ACSReader(
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
-          dispatcher
-            .executeSql(metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloadsLegacy) {
-              implicit connection =>
-                val result = withValidatedActiveAt(
-                  eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(
-                    EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
-                  )(
-                    eventSequentialIds = Ids(ids),
-                    requestingParties = allFilterParties,
-                  )(connection)
-                )
-                logger.debug(
-                  s"fetchEventPayloads for Create returned ${ids.size}/${result.size} ${ids.lastOption
-                      .map(last => s"until $last")
-                      .getOrElse("")}"
-                )
-                result.view.collect { entry =>
-                  entry.event match {
-                    case created: RawCreatedEventLegacy =>
-                      entry.copy(event = created)
-                  }
-                }.toVector
-            }
+          withValidatedActiveAt(
+            dispatcher.executeSql(
+              metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloadsLegacy
+            )(
+              eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(
+                EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
+              )(
+                eventSequentialIds = Ids(ids),
+                requestingParties = allFilterParties,
+              )
+            )
+          ).map(result =>
+            result.view.collect { entry =>
+              entry.event match {
+                case created: RawCreatedEventLegacy =>
+                  entry.copy(event = created)
+              }
+            }.toVector
+          ).thereafterP { case Success(result) =>
+            logger.debug(
+              s"fetchEventPayloads for Create returned ${result.size}/${ids.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+            )
+          }
         )
 
     def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEventLegacy]]): Future[

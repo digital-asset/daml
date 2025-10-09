@@ -224,11 +224,13 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         )
       case Error.Package.DarSelfConsistency(
             mainPackageId,
+            transitiveDependencies,
             missingDependencies,
             extraDependencies,
           ) =>
         DarSelfConsistency.Error(
           mainPackageId,
+          transitiveDependencies,
           missingDependencies,
           extraDependencies,
         )
@@ -279,6 +281,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         ) {
       final case class Error(
           mainPackageId: Ref.PackageId,
+          transitiveDependencies: Set[Ref.PackageId],
           missingDependencies: Set[Ref.PackageId],
           extraDependencies: Set[Ref.PackageId],
       )(implicit
@@ -288,6 +291,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
               "The set of packages in the dar is not self-consistent and is missing dependencies or has extra dependencies",
             extraContext = Map(
               "mainPackageId" -> mainPackageId,
+              "transitiveDependencies" -> transitiveDependencies,
               "missingDependencies" -> missingDependencies,
               "extraDependencies" -> extraDependencies,
             ),

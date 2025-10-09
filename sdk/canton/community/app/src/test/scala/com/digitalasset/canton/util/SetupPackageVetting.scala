@@ -194,7 +194,6 @@ class SetupPackageVetting(
 
 object SetupPackageVetting {
   val AllUnvettingFlags: ForceFlags = ForceFlags(
-    ForceFlag.AllowUnvetPackage,
     ForceFlag.AllowUnvettedDependencies,
     ForceFlag.AllowUnvetPackageWithActiveContracts,
   )

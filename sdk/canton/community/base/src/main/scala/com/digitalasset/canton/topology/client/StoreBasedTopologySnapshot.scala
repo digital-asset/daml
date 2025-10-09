@@ -831,7 +831,7 @@ class StoreBasedTopologySnapshot(
       }
     }
 
-  override def isSynchronizerUpgradeOngoing()(implicit
+  override def synchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]] =
     findTransactions(

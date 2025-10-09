@@ -28,7 +28,12 @@ import com.digitalasset.canton.platform.store.dao.events.{
   LfValueTranslation,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.{DbSupport, DbType, FlywayMigrations}
+import com.digitalasset.canton.platform.store.{
+  DbSupport,
+  DbType,
+  FlywayMigrations,
+  PruningOffsetService,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref
@@ -158,6 +163,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           loadPackage = (packageId, _) => loadPackage(packageId),
           loggerFactory = loggerFactory,
         ),
+        pruningOffsetService = pruningOffsetService,
       )
     }
   }
@@ -167,6 +173,9 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
   protected final var ledgerDao: LedgerDao = _
   protected var ledgerEndCache: MutableLedgerEndCache = _
   protected var stringInterningView: StringInterningView = _
+  protected val pruningOffsetService: PruningOffsetService = mock[PruningOffsetService]
+  when(pruningOffsetService.pruningOffset(any[TraceContext]))
+    .thenReturn(Future.successful(None))
 
   // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
   private var resource: Resource[LedgerDao] = _

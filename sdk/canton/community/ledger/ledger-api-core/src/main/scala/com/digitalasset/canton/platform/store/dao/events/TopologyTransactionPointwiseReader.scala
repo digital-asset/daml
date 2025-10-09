@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.digitalasset.canton.ledger.api.TopologyFormat
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
@@ -13,6 +14,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawPar
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -21,6 +23,7 @@ final class TopologyTransactionPointwiseReader(
     val eventStorageBackend: EventStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
+    val queryValidRange: QueryValidRange,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -45,19 +48,19 @@ final class TopologyTransactionPointwiseReader(
       fetchRawEvents: Future[Vector[RawParticipantAuthorization]],
       requestingParties: Option[Set[Party]], // None is a party-wildcard
       toResponse: Vector[RawParticipantAuthorization] => Future[Option[TopologyTransaction]],
-  ): Future[Option[TopologyTransaction]] =
-    for {
-      // Fetching all events from the event sequential id range
-      rawEvents <- fetchRawEvents
+  )(implicit traceContext: TraceContext): Future[Option[TopologyTransaction]] =
+    // Fetching all events from the event sequential id range
+    fetchRawEvents
       // Filter out events that do not include the parties
-      filteredEvents = rawEvents.filter(event =>
-        requestingParties.fold(true)(parties => parties.map(_.toString).contains(event.partyId))
+      .map(
+        _.filter(event =>
+          requestingParties.fold(true)(parties => parties.map(_.toString).contains(event.partyId))
+        )
       )
+      // Checking if events are not pruned
+      .flatMap(queryValidRange.filterPrunedEvents[RawParticipantAuthorization](_.offset))
       // Convert to api response
-      response <- toResponse(filteredEvents)
-    } yield {
-      response
-    }
+      .flatMap(filteredEventsPruned => toResponse(filteredEventsPruned.toVector))
 
   def lookupTopologyTransaction(
       eventSeqIdRange: (Long, Long),

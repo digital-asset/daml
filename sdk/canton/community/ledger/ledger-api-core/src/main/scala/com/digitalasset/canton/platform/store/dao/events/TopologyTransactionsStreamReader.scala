@@ -117,18 +117,19 @@ class TopologyTransactionsStreamReader(
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
-              dbDispatcher.executeSql(dbMetric) { implicit connection =>
-                queryValidRange.withRangeNotPruned(
-                  minOffsetInclusive = queryRange.startInclusiveOffset,
-                  maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: Offset) =>
-                    s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
-                    s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
-                        .fold(0L)(_.unwrap)}",
-                ) {
-                  payloadDbQuery.fetchPayloads(eventSequentialIds = Ids(ids))(connection)
-                }
+              queryValidRange.withRangeNotPruned(
+                minOffsetInclusive = queryRange.startInclusiveOffset,
+                maxOffsetInclusive = queryRange.endInclusiveOffset,
+                errorPruning = (prunedOffset: Offset) =>
+                  s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
+                  s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                      .fold(0L)(_.unwrap)}",
+              ) {
+                dbDispatcher.executeSql(dbMetric)(
+                  payloadDbQuery.fetchPayloads(eventSequentialIds = Ids(ids))
+                )
+
               }
             }
           }

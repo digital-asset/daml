@@ -87,7 +87,8 @@ final class UseLedgerApiTestToolTest extends AnyFlatSpec with Matchers with Base
     )
   }
 
-  "releasesFromArtifactory" should "be able to fetch the lapitt for each release from artifactory" in {
+  // TODO(#28361): Re-enable after cleaning up the unnecessary release test list
+  "releasesFromArtifactory" should "be able to fetch the lapitt for each release from artifactory" ignore {
     val releasedToolVersions = releasesFromArtifactory(logger)
 
     releasedToolVersions should not be empty

@@ -42,7 +42,12 @@ import com.digitalasset.canton.participant.config.{
   ParticipantNodeConfig,
   TestingTimeServiceConfig,
 }
-import com.digitalasset.canton.participant.store.{ContractStore, ParticipantNodePersistentState}
+import com.digitalasset.canton.participant.store.{
+  ContractStore,
+  ParticipantNodePersistentState,
+  ParticipantPruningStore,
+  PruningOffsetServiceImpl,
+}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.{
   LedgerApiServerBootstrapUtils,
@@ -103,7 +108,8 @@ class LedgerApiServer(
     cantonParameterConfig: ParticipantNodeParameters,
     testingTimeService: Option[TimeServiceBackend],
     adminTokenDispenser: CantonAdminTokenDispenser,
-    cantonContractStore: ContractStore,
+    cantonContractStore: Eval[ContractStore],
+    participantPruningStore: Eval[ParticipantPruningStore],
     enableCommandInspection: Boolean,
     tracerProvider: TracerProvider,
     grpcApiMetrics: LedgerApiServerMetrics,
@@ -257,7 +263,9 @@ class LedgerApiServer(
             )(
               loggingContext
             ),
-        cantonContractStore = cantonContractStore,
+        cantonContractStore = cantonContractStore.value,
+        pruningOffsetService =
+          PruningOffsetServiceImpl(participantPruningStore.value, loggerFactory),
       )
       _ = timedSyncService.registerInternalIndexService(new InternalIndexService {
         override def activeContracts(
@@ -580,7 +588,8 @@ object LedgerApiServer {
       cantonParameterConfig = parameters,
       testingTimeService = ledgerTestingTimeService,
       adminTokenDispenser = adminTokenDispenser,
-      cantonContractStore = participantNodePersistentState.map(_.contractStore).value,
+      cantonContractStore = participantNodePersistentState.map(_.contractStore),
+      participantPruningStore = participantNodePersistentState.map(_.pruningStore),
       enableCommandInspection = config.ledgerApi.enableCommandInspection,
       tracerProvider = tracerProvider,
       grpcApiMetrics = metrics,

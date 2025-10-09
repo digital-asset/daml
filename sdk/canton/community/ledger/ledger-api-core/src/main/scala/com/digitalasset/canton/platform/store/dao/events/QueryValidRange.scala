@@ -5,15 +5,19 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
+import com.digitalasset.canton.platform.store.PruningOffsetService
+import com.digitalasset.canton.platform.store.cache.LedgerEndCache
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.*
 
-import java.sql.Connection
+import scala.concurrent.{ExecutionContext, Future}
 
 trait QueryValidRange {
   def withRangeNotPruned[T](
@@ -21,25 +25,33 @@ trait QueryValidRange {
       maxOffsetInclusive: Offset,
       errorPruning: Offset => String,
       errorLedgerEnd: Option[Offset] => String,
-  )(query: => T)(implicit
-      conn: Connection,
-      loggingContext: LoggingContextWithTrace,
-  ): T
+  )(query: => Future[T])(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[T]
 
   def withOffsetNotBeforePruning[T](
       offset: Offset,
       errorPruning: Offset => String,
       errorLedgerEnd: Option[Offset] => String,
-  )(query: => T)(implicit
-      conn: Connection,
-      loggingContext: LoggingContextWithTrace,
-  ): T
+  )(query: => Future[T])(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[T]
+
+  def filterPrunedEvents[T](offset: T => Offset)(
+      events: Seq[T]
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): Future[Seq[T]]
 
 }
 
 final case class QueryValidRangeImpl(
-    storageBackend: ParameterStorageBackend,
-    val loggerFactory: NamedLoggerFactory,
+    ledgerEndCache: LedgerEndCache,
+    pruningOffsetService: PruningOffsetService,
+    loggerFactory: NamedLoggerFactory,
+)(implicit
+    ec: ExecutionContext
 ) extends QueryValidRange
     with NamedLogging {
 
@@ -72,49 +84,49 @@ final case class QueryValidRangeImpl(
       maxOffsetInclusive: Offset,
       errorPruning: Offset => String,
       errorLedgerEnd: Option[Offset] => String,
-  )(query: => T)(implicit
-      conn: Connection,
-      loggingContext: LoggingContextWithTrace,
-  ): T = {
+  )(query: => Future[T])(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[T] = {
     assert(Option(maxOffsetInclusive) >= minOffsetInclusive.decrement)
-    val result = query
-    val params = storageBackend.prunedUpToInclusiveAndLedgerEnd(conn)
-
-    params.pruneUptoInclusive
-      .filter(_ >= minOffsetInclusive)
-      .foreach(pruningOffsetUpToInclusive =>
-        throw RequestValidationErrors.ParticipantPrunedDataAccessed
+    val ledgerEnd = ledgerEndCache().map(_.lastOffset)
+    if (Option(maxOffsetInclusive) > ledgerEnd) {
+      Future.failed(
+        RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
           .Reject(
-            cause = errorPruning(pruningOffsetUpToInclusive),
-            earliestOffset = pruningOffsetUpToInclusive.unwrap,
+            cause = errorLedgerEnd(ledgerEnd),
+            latestOffset = ledgerEnd.fold(0L)(_.unwrap),
           )(
             ErrorLoggingContext(logger, loggingContext)
           )
           .asGrpcError
       )
-
-    if (Option(maxOffsetInclusive) > params.ledgerEnd) {
-      throw RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
-        .Reject(
-          cause = errorLedgerEnd(params.ledgerEnd),
-          latestOffset = params.ledgerEnd.fold(0L)(_.unwrap),
-        )(
-          ErrorLoggingContext(logger, loggingContext)
-        )
-        .asGrpcError
-    }
-
-    result
+    } else
+      query.thereafterF(_ =>
+        pruningOffsetService.pruningOffset
+          .map(pruningOffsetO =>
+            pruningOffsetO
+              .filter(_ >= minOffsetInclusive)
+              .foreach(pruningOffsetUpToInclusive =>
+                throw RequestValidationErrors.ParticipantPrunedDataAccessed
+                  .Reject(
+                    cause = errorPruning(pruningOffsetUpToInclusive),
+                    earliestOffset = pruningOffsetUpToInclusive.unwrap,
+                  )(
+                    ErrorLoggingContext(logger, loggingContext)
+                  )
+                  .asGrpcError
+              )
+          )
+      )
   }
 
   override def withOffsetNotBeforePruning[T](
       offset: Offset,
       errorPruning: Offset => String,
       errorLedgerEnd: Option[Offset] => String,
-  )(query: => T)(implicit
-      conn: Connection,
-      loggingContext: LoggingContextWithTrace,
-  ): T =
+  )(query: => Future[T])(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[T] =
     withRangeNotPruned(
       // as the range not pruned forms a condition that the minOffsetInclusive is greater than the pruning offset,
       // by setting this to the offset + 1 we ensure that the offset is greater than or equal to the pruning offset.
@@ -123,4 +135,43 @@ final case class QueryValidRangeImpl(
       errorPruning = errorPruning,
       errorLedgerEnd = errorLedgerEnd,
     )(query)
+
+  /** Filters out events that are at or below the participant's pruning offset.
+    *
+    * @param offset
+    *   function to extract the offset from an event
+    * @param events
+    *   the events to filter
+    * @tparam T
+    *   the type of the events
+    * @return
+    *   a future of the filtered events
+    */
+  def filterPrunedEvents[T](offset: T => Offset)(
+      events: Seq[T]
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): Future[Seq[T]] = {
+    val ledgerEnd = ledgerEndCache().map(_.lastOffset)
+    val beyondLegerEndO = events.find(event => Option(offset(event)) > ledgerEnd)
+    beyondLegerEndO match {
+      case Some(event) =>
+        Future.failed(
+          RequestValidationErrors.ParticipantDataAccessedAfterLedgerEnd
+            .Reject(
+              cause =
+                s"Offset of event to be filtered ${offset(event)} is beyond ledger end $ledgerEnd",
+              latestOffset = ledgerEnd.fold(0L)(_.unwrap),
+            )(errorLoggingContext)
+            .asGrpcError
+        )
+      case None =>
+        pruningOffsetService.pruningOffset
+          .map(participantPrunedUpTo =>
+            events.filter(event => Option(offset(event)) > participantPrunedUpTo)
+          )
+    }
+  }
+
 }

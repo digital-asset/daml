@@ -6,6 +6,8 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.metrics.Timed
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -19,6 +21,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 import com.digitalasset.canton.platform.{InternalEventFormat, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,6 +30,7 @@ final class ReassignmentPointwiseReader(
     val eventStorageBackend: EventStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
+    val queryValidRange: QueryValidRange,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -106,17 +110,17 @@ final class ReassignmentPointwiseReader(
       fetchRawEvents: Future[Vector[Entry[T]]],
       templatePartiesFilter: TemplatePartiesFilter,
       toResponse: Seq[Entry[T]] => Future[Option[Reassignment]],
-  ): Future[Option[Reassignment]] =
-    for {
-      // Fetching all events from the event sequential id range
-      rawEvents <- fetchRawEvents
+  )(implicit traceContext: TraceContext): Future[Option[Reassignment]] =
+    // Fetching all events from the event sequential id range
+    fetchRawEvents
       // Filtering by template filters
-      filteredRawEvents = UpdateReader.filterRawEvents(templatePartiesFilter)(rawEvents)
+      .map(UpdateReader.filterRawEvents(templatePartiesFilter))
+      // Checking if events are not pruned
+      .flatMap(
+        queryValidRange.filterPrunedEvents[Entry[T]](entry => Offset.tryFromLong(entry.offset))
+      )
       // Deserialization of lf values
-      deserialized <- toResponse(filteredRawEvents)
-    } yield {
-      deserialized
-    }
+      .flatMap(toResponse)
 
   def lookupReassignmentBy(
       eventSeqIdRange: (Long, Long),

@@ -132,7 +132,7 @@ class ConnectedSynchronizer(
     private[sync] val persistent: SyncPersistentState,
     val ephemeral: SyncEphemeralState,
     val packageService: PackageService,
-    synchronizerCrypto: SynchronizerCryptoClient,
+    val synchronizerCrypto: SynchronizerCryptoClient,
     contractValidator: ContractValidator,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
