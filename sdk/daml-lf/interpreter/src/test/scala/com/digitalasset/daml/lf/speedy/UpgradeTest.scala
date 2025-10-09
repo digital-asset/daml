@@ -734,22 +734,34 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             availablePackages = availablePackages,
             globalContractPackageName = Ref.PackageName.assertFromString("wrong"),
             globalContractTemplateId = i"'-pkg0-':M:T",
-            globalContractArg = makeRecord(ValueParty(alice)),
+            globalContractArg = v1_base,
             globalContractSignatories = List(alice),
             globalContractObservers = List.empty,
             globalContractKeyWithMaintainers = None,
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
           )
         ) {
           case Left(
                 SError.SErrorDamlException(
                   IE.Upgrade(
-                    IE.Upgrade.AuthenticationFailed(_, srcTemplateId, dstTemplateId, createArg, _)
+                    IE.Upgrade.ValidationFailed(
+                      coid,
+                      srcTemplateId,
+                      dstTemplateId,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                    )
                   )
                 )
               ) =>
+            coid shouldBe theCid
             srcTemplateId shouldBe i"'-pkg0-':M:T"
-            dstTemplateId shouldBe i"'-pkg5-':M:T"
-            createArg shouldBe makeRecord(ValueParty(alice), ValueParty(alice), ValueInt64(42))
+            dstTemplateId shouldBe i"'-pkg1-':M:T"
         }
       }
     }
