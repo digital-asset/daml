@@ -24,6 +24,7 @@ Here is a complete list of modules in the standard library:
 * :doc:`DA.Assert <DA-Assert>`
 * :doc:`DA.Bifunctor <DA-Bifunctor>`
 * :doc:`DA.Crypto.Text <DA-Crypto-Text>`
+* :doc:`DA.External <DA-External>`
 * :doc:`DA.Date <DA-Date>`
 * :doc:`DA.Either <DA-Either>`
 * :doc:`DA.Exception <DA-Exception>`

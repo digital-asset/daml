@@ -2023,6 +2023,20 @@ class SBuiltinTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
       }
     }
   }
+
+  "Text functions" - {
+    "EXTERNAL_CALL" - {
+      "returns Some for valid hex with normalized lowercase" in {
+        eval(e"""EXTERNAL_CALL "echo" "A1b2" "CAFEBABE" """) shouldBe Right(
+          SOptional(Some(SText("cafebabe")))
+        )
+      }
+      "returns None for invalid hex" in {
+        eval(e"""EXTERNAL_CALL "echo" "not-hex" "00" """) shouldBe Right(SOptional(None))
+        eval(e"""EXTERNAL_CALL "echo" "00" "not-hex" """) shouldBe Right(SOptional(None))
+      }
+    }
+  }
 }
 
 final class SBuiltinTestHelpers {

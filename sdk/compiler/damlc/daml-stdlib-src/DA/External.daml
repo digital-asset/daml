@@ -1,0 +1,46 @@
+module DA.External
+  ( externalCall
+  , BytesHex
+  , isHex
+  , isBytesHex
+  ) where
+
+import GHC.Types (primitive)
+import DA.Text qualified as Text
+
+type BytesHex = Text
+
+isHex : Text -> Bool
+isHex = Text.isPred (\t -> t >= "0" && t <= "9" || t >= "a" && t <= "f" || t >= "A" && t <= "F")
+
+isBytesHex : Text -> Bool
+isBytesHex hex = Text.length hex % 2 == 0 && isHex hex
+
+-- | Make an external HTTP call to a deterministic service.
+-- 
+-- This function throws an error if:
+-- - The config or input hex strings are invalid (wrong format or odd length)
+-- - The HTTP call fails (network error, timeout, non-200 response, etc.)
+--
+-- When an error occurs, the transaction will abort with a detailed error message
+-- including HTTP status codes, request IDs, and function context.
+--
+-- Parameters:
+--   - functionId: Identifier for the external function to call
+--   - configHex: Configuration hash as hex string (even length, validates service version)
+--   - inputHex: Input data as hex string (even length)
+--
+-- Returns: The response from the external service as a hex string
+--
+-- Example:
+--   let result = externalCall "price-feed" "a1b2c3d4" "00112233"
+--   in processResult result
+externalCall : Text -> BytesHex -> BytesHex -> BytesHex
+externalCall functionId configHex inputHex
+  | not (isBytesHex configHex) = error ("External call failed: Invalid hex encoding in config: " <> configHex)
+  | not (isBytesHex inputHex) = error ("External call failed: Invalid hex encoding in input: " <> inputHex)
+  | otherwise = 
+      case primitive @"BEExternalCall" functionId (Text.asciiToLower configHex) (Text.asciiToLower inputHex) of
+        Some result -> result
+        None -> error ("External call failed: Unexpected None from primitive (functionId=" <> functionId <> ")")
+
