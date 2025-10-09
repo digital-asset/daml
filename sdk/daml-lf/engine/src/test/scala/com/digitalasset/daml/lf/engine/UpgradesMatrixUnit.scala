@@ -58,7 +58,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     new ValueTranslator(
       cases.compiledPackages.pkgInterface,
       forbidLocalContractIds = true,
-      forbidTrailingNones = true,
+      forbidTrailingNones = false,
     )
       .translateValue(typ, value) match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
