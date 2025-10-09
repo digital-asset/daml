@@ -106,6 +106,9 @@ object LanguageVersion {
 
     val cryptoUtility = v2_dev
 
+    /** UNSAFE_FROM_INTERFACE is removed starting from 2.2, included */
+    val unsafeFromInterfaceRemoved = v2_2
+
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
       * feature flag once the decision to add them permanently has been made.

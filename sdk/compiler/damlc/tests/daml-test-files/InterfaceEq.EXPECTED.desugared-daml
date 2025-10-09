@@ -1,6 +1,7 @@
 module InterfaceEq where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script
@@ -159,7 +160,9 @@ instance DA.Internal.Desugar.HasToInterface T I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface T I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 data GHC.Types.DamlTemplate => U
   = U {p : Party, f : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -244,7 +247,9 @@ instance DA.Internal.Desugar.HasToInterface U I where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface U I where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 main
   = script
       do p <- allocateParty "p"
