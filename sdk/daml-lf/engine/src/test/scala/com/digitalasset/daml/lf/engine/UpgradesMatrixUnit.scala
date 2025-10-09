@@ -55,7 +55,11 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     )
 
   def normalize(value: Value, typ: Ast.Type): Value = {
-    new ValueTranslator(cases.compiledPackages.pkgInterface, forbidLocalContractIds = true)
+    new ValueTranslator(
+      cases.compiledPackages.pkgInterface,
+      forbidLocalContractIds = true,
+      forbidTrailingNones = false,
+    )
       .translateValue(typ, value) match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
       case Right(sValue) => sValue.toNormalizedValue

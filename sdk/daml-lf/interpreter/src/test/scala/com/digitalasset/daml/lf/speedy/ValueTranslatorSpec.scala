@@ -20,10 +20,16 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpecV2_1 extends ValueTranslatorSpec(LanguageVersion.v2_1)
-class ValueTranslatorSpecV2_2 extends ValueTranslatorSpec(LanguageVersion.v2_2)
+class ValueTranslatorSpec_ForbidTrailingNones_V2_1
+    extends ValueTranslatorSpec(LanguageVersion.v2_1, forbidTrailingNones = true)
+class ValueTranslatorSpec_ForbidTrailingNones_V2_2
+    extends ValueTranslatorSpec(LanguageVersion.v2_2, forbidTrailingNones = true)
+class ValueTranslatorSpec_AllowTrailingNones_V2_1
+    extends ValueTranslatorSpec(LanguageVersion.v2_1, forbidTrailingNones = false)
+class ValueTranslatorSpec_AllowTrailingNones_V2_2
+    extends ValueTranslatorSpec(LanguageVersion.v2_2, forbidTrailingNones = false)
 
-class ValueTranslatorSpec(languageVersion: LanguageVersion)
+class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones: Boolean)
     extends AnyWordSpec
     with Inside
     with Matchers
@@ -103,6 +109,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
     val valueTranslator = new ValueTranslator(
       compiledPackage.pkgInterface,
       forbidLocalContractIds = false,
+      forbidTrailingNones = forbidTrailingNones,
     )
     import valueTranslator.unsafeTranslateValue
 
@@ -124,7 +131,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
       (TText, ValueText("daml"), SText("daml")),
       (
         TNumeric(Ast.TNat(Numeric.Scale.assertFromInt(10))),
-        ValueNumeric(Numeric.assertFromString("10.")),
+        ValueNumeric(Numeric.assertFromString("10.0000000000")),
         SNumeric(Numeric.assertFromString("10.0000000000")),
       ),
       (TParty, ValueParty("Alice"), SParty("Alice")),
@@ -230,7 +237,6 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
             ImmArray(
               "" -> aInt,
               "" -> someParty, // Here the field has type Party instead of Text
-              "" -> none,
             ),
           ),
           { case TranslationFailed.TypeMismatch(typ, value, _) =>
@@ -269,6 +275,14 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
           { case TranslationFailed.TypeMismatch(typ, value, _) =>
             typ shouldBe t"Text"
             value shouldBe aInt
+          },
+        ),
+        (
+          TNumeric(Ast.TNat(Numeric.Scale.assertFromInt(10))),
+          ValueNumeric(Numeric.assertFromString("10.000")), // scale != 10
+          { case TranslationFailed.TypeMismatch(typ, value, _) =>
+            typ shouldBe t"Numeric 10"
+            value shouldBe ValueNumeric(Numeric.assertFromString("10.000"))
           },
         ),
         (
@@ -334,6 +348,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
 
     "handle different representation of the same upgraded/downgraded record" in {
       val typ = t"Mod:Upgradeable"
+
       def sValue(extraFieldDefined: Boolean, anotherExtraFieldDefined: Boolean) =
         SRecord(
           "Mod:Upgradeable",
@@ -344,14 +359,17 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
             SOptional(Some(SText("b")).filter(Function.const(anotherExtraFieldDefined))),
           ),
         )
+
       def upgradeCaseSuccess(
           extraFieldDefined: Boolean,
           anotherExtraFieldDefined: Boolean,
           value: Value,
       ) =
         (Success(sValue(extraFieldDefined, anotherExtraFieldDefined)), value)
+
       def upgradeCaseFailure(s: String, value: Value) =
         (Failure(TranslationFailed.TypeMismatch(typ, value, s)), value)
+
       val testCases = Table(
         ("", "record"),
         upgradeCaseSuccess(
@@ -388,54 +406,6 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
             ),
           ),
         ),
-        upgradeCaseSuccess(
-          false,
-          false,
-          ValueRecord(
-            "",
-            ImmArray(
-              "" -> ValueInt64(1),
-              "" -> ValueOptional(None),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          false,
-          ValueRecord(
-            "",
-            ImmArray(
-              "" -> ValueInt64(1),
-              "" -> ValueOptional(None),
-              "" -> ValueOptional(None),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          false,
-          ValueRecord(
-            "",
-            ImmArray(
-              "" -> ValueInt64(1),
-              "" -> ValueOptional(None),
-              "" -> ValueOptional(None),
-              "" -> ValueOptional(None),
-            ),
-          ),
-        ),
-        upgradeCaseFailure(
-          "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading.",
-          ValueRecord(
-            "",
-            ImmArray(
-              "" -> ValueInt64(1),
-              "" -> ValueOptional(None),
-              "" -> ValueOptional(None),
-              "" -> ValueOptional(Some(ValueText("bad"))),
-            ),
-          ),
-        ),
         upgradeCaseFailure(
           "Found non-optional extra field at index 3, cannot remove for downgrading.",
           ValueRecord(
@@ -455,6 +425,51 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
       )
 
       forEvery(testCases)((result, value) => Try(unsafeTranslateValue(typ, value)) shouldBe result)
+    }
+
+    if (!forbidTrailingNones) {
+      "handle different representation of the same upgraded/downgraded record with trailing nones" in {
+        val typ = t"Mod:Upgradeable"
+        val sValue =
+          SRecord(
+            "Mod:Upgradeable",
+            ImmArray("field", "extraField", "anotherExtraField"),
+            ArraySeq(
+              SInt64(1),
+              SOptional(None),
+              SOptional(None),
+            ),
+          )
+
+        val testCases = Table(
+          "record",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+            ),
+          ),
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        )
+        forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(sValue))
+      }
     }
 
     "handle different representation of the same variant" in {
@@ -517,6 +532,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
             ValueRecord("", ImmArray("" -> ValueInt64(n.toLong), "" -> v)),
           )
         }
+
       val notTooBig = mkMyList(49)
       val tooBig = mkMyList(50)
       val failure = Failure(TranslationFailed.ValueNesting(tooBig))
@@ -552,6 +568,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
         forbidLocalContractIds = false,
+        forbidTrailingNones = forbidTrailingNones,
       )
       val unsuffixedCidV1 = ContractId.V1
         .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty)
@@ -579,6 +596,7 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
         forbidLocalContractIds = true,
+        forbidTrailingNones = forbidTrailingNones,
       )
       val legalCidV1 =
         ContractId.V1.assertBuild(
@@ -699,6 +717,85 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
         a[TranslationFailed.InvalidValue] shouldBe thrownBy(
           unsafeTranslateValue(typ, value)
         )
+      }
+    }
+
+    val trailingNonesTestCases = {
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+
+      Table[Ast.Type, Value](
+        ("type", "value"),
+        (
+          t"Mod:Record Int64 Text Int64 Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(Some(ValueText("a"))),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        (
+          t"Mod:Record Int64 Text Int64 Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        (
+          t"Mod:Record Int64 Text Int64 Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(Some(ValueInt64(2))),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        (
+          t"Mod:Record (Mod:Record Int64 Text Int64 Unit) Text Int64 Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueRecord(
+                "",
+                ImmArray(
+                  "" -> ValueInt64(1),
+                  "" -> ValueOptional(None),
+                  "" -> ValueOptional(None),
+                  "" -> ValueOptional(None),
+                ),
+              ),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(Some(ValueInt64(2))),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+      )
+    }
+
+    if (forbidTrailingNones) {
+      "reject records with trailing Nones" in {
+        forAll(trailingNonesTestCases) { (typ, value) =>
+          a[TranslationFailed.InvalidValue] shouldBe thrownBy(
+            unsafeTranslateValue(typ, value)
+          )
+        }
+      }
+    } else {
+      "allow records with trailing Nones" in {
+        forAll(trailingNonesTestCases) { (typ, value) =>
+          Try(unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+        }
       }
     }
   }

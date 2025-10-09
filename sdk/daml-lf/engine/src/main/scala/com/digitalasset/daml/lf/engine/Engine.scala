@@ -846,6 +846,7 @@ class Engine(val config: EngineConfig) {
           sValue <- new ValueTranslator(
             compiledPackages.pkgInterface,
             forbidLocalContractIds = true,
+            forbidTrailingNones = true,
           )
             .translateValue(Ast.TTyCon(templateId), createArg)
             .left

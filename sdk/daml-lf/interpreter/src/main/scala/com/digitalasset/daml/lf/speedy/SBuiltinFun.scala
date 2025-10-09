@@ -1528,6 +1528,7 @@ private[lf] object SBuiltinFun {
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
+        forbidTrailingNones: Boolean,
     ): Control[Question.Update] = {
       resolvePackageName(machine, srcPackageName) { pkgId =>
         val dstTmplId = srcTmplId.copy(pkg = pkgId)
@@ -1537,7 +1538,14 @@ private[lf] object SBuiltinFun {
           language.Reference.Template(dstTmplId.toRef),
         ) { () =>
           ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
-            importCreateArg(machine, Some(coid), srcTmplId, dstTmplId, srcArg) { dstSArg =>
+            importCreateArg(
+              machine,
+              Some(coid),
+              srcTmplId,
+              dstTmplId,
+              srcArg,
+              forbidTrailingNones = forbidTrailingNones,
+            ) { dstSArg =>
               fetchValidateDstContract(
                 machine,
                 coid,
@@ -1574,6 +1582,7 @@ private[lf] object SBuiltinFun {
               srcMetadata = srcContractInfo.metadata,
               srcArg = srcContractInfo.arg,
               mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
+              forbidTrailingNones = true,
             )
           }
         }
@@ -1594,6 +1603,10 @@ private[lf] object SBuiltinFun {
                 mbTypedNormalFormAuthenticator = hashingMethod match {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
                   case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
+                },
+                forbidTrailingNones = hashingMethod match {
+                  case HashingMethod.Legacy => false
+                  case HashingMethod.UpgradeFriendly | HashingMethod.TypedNormalForm => true
                 },
               )
             }
@@ -1777,9 +1790,15 @@ private[lf] object SBuiltinFun {
         // This isn't ideal as it's a large uncached computation in a non Update primitive.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importCreateArg(machine, None, srcTplId, dstTplId, srcArg.toNormalizedValue) {
-          templateArg =>
-            Control.Value(SOptional(Some(templateArg)))
+        importCreateArg(
+          machine,
+          None,
+          srcTplId,
+          dstTplId,
+          srcArg.toNormalizedValue,
+          forbidTrailingNones = true,
+        ) { templateArg =>
+          Control.Value(SOptional(Some(templateArg)))
         }
       } else {
         Control.Value(SValue.SValue.None)
@@ -2601,6 +2620,7 @@ private[lf] object SBuiltinFun {
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
+        forbidTrailingNones: Boolean,
     ): Control[Question.Update] = {
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
         Control.Error(
@@ -2612,7 +2632,14 @@ private[lf] object SBuiltinFun {
           dstTmplId.packageId,
           language.Reference.Template(dstTmplId.toRef),
         )(() => {
-          importCreateArg(machine, Some(coid), srcTmplId, dstTmplId, srcArg) { dstSArg =>
+          importCreateArg(
+            machine,
+            Some(coid),
+            srcTmplId,
+            dstTmplId,
+            srcArg,
+            forbidTrailingNones = forbidTrailingNones,
+          ) { dstSArg =>
             fetchValidateDstContract(
               machine,
               coid,
@@ -2651,6 +2678,7 @@ private[lf] object SBuiltinFun {
                 srcMetadata = srcContractInfo.metadata,
                 srcArg = srcContractInfo.arg,
                 mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
+                forbidTrailingNones = true,
               )
             }
           }
@@ -2671,6 +2699,10 @@ private[lf] object SBuiltinFun {
                 mbTypedNormalFormAuthenticator = hashingMethod match {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
                   case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
+                },
+                forbidTrailingNones = hashingMethod match {
+                  case HashingMethod.Legacy => false
+                  case HashingMethod.UpgradeFriendly | HashingMethod.TypedNormalForm => true
                 },
               )
             }
@@ -2877,10 +2909,15 @@ private[lf] object SBuiltinFun {
       srcTmplId: TypeConId,
       dstTmplId: TypeConId,
       createArg: V,
+      forbidTrailingNones: Boolean,
   )(
       k: SValue => Control[Q]
   ): Control[Q] = {
-    new ValueTranslator(machine.compiledPackages.pkgInterface, forbidLocalContractIds = true)
+    new ValueTranslator(
+      machine.compiledPackages.pkgInterface,
+      forbidLocalContractIds = true,
+      forbidTrailingNones = forbidTrailingNones,
+    )
       .translateValue(Ast.TTyCon(dstTmplId), createArg)
       .fold(
         translationError =>
