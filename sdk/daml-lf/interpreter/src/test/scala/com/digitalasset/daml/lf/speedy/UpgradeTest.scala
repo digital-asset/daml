@@ -712,12 +712,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         "availablePackages",
         // with creation package available
         Map(
+          utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId0 -> pkg0,
           pkgId1 -> pkg1,
         ),
         // with creation package unavailable
         Map(
+          utilPkgId -> utilPkg,
           ifacePkgId -> ifacePkg,
           pkgId1 -> pkg1,
         ),
