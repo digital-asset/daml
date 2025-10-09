@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package testing.snapshot
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import scopt.{OptionParser, Read}
 
 import java.nio.file.{Path, Paths}
@@ -75,7 +76,13 @@ object ReplayProfile {
       Ref.Name.assertFromString(name),
     )
     val originalBenchmark =
-      TransactionSnapshot.loadBenchmark(config.ledgerEntries, choice, 0, Some(config.profileDir))
+      TransactionSnapshot.loadBenchmark(
+        config.ledgerEntries,
+        choice,
+        0,
+        Some(config.profileDir),
+        contractIdVersion = ContractIdVersion.V1,
+      )
     val benchmark = config.darFile match {
       case Some(path) =>
         val loadedPackages = TransactionSnapshot.loadDar(path)

@@ -24,8 +24,8 @@ import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
 }
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
-  SubmittedTransaction,
   SerializationVersion,
+  SubmittedTransaction,
 }
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
@@ -37,6 +37,7 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.ContractIdVersion
 
 import java.io.File
 import org.scalatest.Inside
@@ -113,6 +114,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private val let: Time.Timestamp = Time.Timestamp.now()
   private val participant: ParticipantId = ParticipantId.assertFromString("participant")
   private val submissionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("submissionSeed")
+  private val contractIdVersion = ContractIdVersion.V1
 
   private val testEngine: Engine =
     Engine.DevEngine(majorLanguageVersion)
@@ -130,6 +132,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
           cmds = ApiCommands(ImmArray(command), let, "commands-tag"),
           participantId = participant,
           submissionSeed = submissionSeed,
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(pcs = defaultContracts, pkgs = allPackages)

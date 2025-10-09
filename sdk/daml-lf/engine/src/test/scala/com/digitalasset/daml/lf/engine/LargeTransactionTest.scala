@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.transaction.{
   SubmittedTransaction,
   VersionedTransaction,
 }
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command._
 import com.daml.logging.LoggingContext
@@ -30,10 +30,15 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class LargeTransactionTestV2 extends LargeTransactionTest(LanguageMajorVersion.V2)
+class LargeTransactionTestV2_V1
+    extends LargeTransactionTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
+class LargeTransactionTestV2_V2
+    extends LargeTransactionTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
 
-class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
+class LargeTransactionTest(
+    majorLanguageVersion: LanguageMajorVersion,
+    contractIdVersion: ContractIdVersion,
+) extends AnyWordSpec
     with Matchers
     with BazelRunfiles {
 
@@ -300,6 +305,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
         cmds = ApiCommands(ImmArray(cmd), effectiveAt, cmdReference),
         participantId = participant,
         submissionSeed = seed,
+        contractIdVersion = contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(

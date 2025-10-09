@@ -23,6 +23,7 @@ import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.ContractIdVersion
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
@@ -88,6 +89,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   val submitters = Set(party)
   val time = Time.Timestamp.now()
   val seed = hash("ReinterpretTests")
+  val contractIdVersion = ContractIdVersion.V1
 
   private def reinterpretCommand(theCommand: ReplayCommand): Either[Error, SubmittedTransaction] = {
     val res = engine
@@ -97,6 +99,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         Some(seed),
         time,
         time,
+        contractIdVersion,
       )
       .consume(pcs = defaultContracts, pkgs = allPackages)
     res match {
@@ -218,6 +221,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
           Some(seed),
           time,
           time,
+          contractIdVersion,
         )
         .consume(pkgs = trackPackageQueries)
       pkgIds.toSet shouldBe queriedPackageIds

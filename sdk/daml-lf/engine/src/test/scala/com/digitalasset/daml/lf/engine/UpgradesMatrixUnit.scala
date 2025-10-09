@@ -148,6 +148,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
         participantId = participant,
         submissionSeed = submissionSeed,
+        contractIdVersion = cases.contractIdVersion,
         prefetchKeys = Seq.empty,
       )
       .consume(
