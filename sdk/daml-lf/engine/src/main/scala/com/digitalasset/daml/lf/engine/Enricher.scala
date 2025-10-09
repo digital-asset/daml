@@ -8,19 +8,10 @@ import cats.data.NonEmptySet
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef, QualifiedName}
+import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-  Transaction,
-  Versioned,
-  VersionedTransaction,
-}
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 
 // Provide methods to add missing information in values (and value containers):
@@ -243,8 +234,7 @@ final class Enricher(
     )
 
   /** Verifies that [contract] hashes to the same value according to all packages in [packageIds] (i.e. renders to
-    * the same value modulo package IDs) and returns the contract enriched by one of [packageIds], chosen
-    * deterministically.
+    * the same value modulo package IDs) and returns the contract enriched by the smallest package ID.
     *
     * Returns a Left if:
     *   - the contract hashes to different values according to different packages
@@ -403,8 +393,7 @@ final class Enricher(
     } yield create.copy(arg = arg, keyOpt = key)
 
   /** Verifies that [create] hashes to the same value according to all packages in [packageIds] (i.e. renders to
-    * the same value modulo package IDs) and returns the Create node enriched by one of [packageIds], chosen
-    * deterministically.
+    * the same value modulo package IDs) and returns the Create node enriched by the smallest package ID.
     *
     * Returns a Left if:
     *   - the contract hashes to different values according to different packages
@@ -431,12 +420,28 @@ final class Enricher(
         )
       } yield pkgId -> res
 
-    def hashSValue(pkgId: PackageId, sValue: SValue): Either[Hash.HashingError, Hash] =
-      SValueHash.hashContractInstance(
-        compiledPackages.signatures(pkgId).pkgName,
-        create.templateId.qualifiedName,
-        sValue,
-      )
+    def hashSValue(pkgId: PackageId, sValue: SValue): Result[Hash] =
+      SValueHash
+        .hashContractInstance(
+          compiledPackages.signatures(pkgId).pkgName,
+          create.templateId.qualifiedName,
+          sValue,
+        )
+        .left
+        .map(error =>
+          Error.Interpretation(
+            Error.Interpretation.DamlException(
+              IError.ContractHashingError(
+                create.coid,
+                create.templateId.copy(pkg = pkgId),
+                create.arg,
+                error.msg,
+              )
+            ),
+            None,
+          )
+        )
+        .fold(ResultError(_), ResultDone(_))
 
     create.keyOpt match {
       case Some(_) =>
@@ -446,15 +451,19 @@ final class Enricher(
         val targetPkgId = packageIdList.iterator.min
         for {
           result <- translateWithPackage(targetPkgId)
+          (_, resultSValue) = result
           others <- packageIdList.filter(_ != targetPkgId).traverse(translateWithPackage)
+          resultHash <- hashSValue(targetPkgId, resultSValue)
+          otherHashes <- others.traverse { case (pkgId, sval) => hashSValue(pkgId, sval) }
         } yield {
-          val (_, resultSValue) = result
-          val resultHash = hashSValue(targetPkgId, resultSValue)
-          val otherHashes = others.iterator.map { case (pkgId, sval) => hashSValue(pkgId, sval) }
-          if (otherHashes.forall(_ == resultHash))
-            Right(create.copy(arg = toValue(resultSValue)))
-          else
-            Left(s"Contract ${create.coid} renders to different values")
+          otherHashes.find(_ != resultHash) match {
+            case Some(otherPkgId) =>
+              Left(
+                s"Contract ${create.coid} enriches to different values for packages ${targetPkgId} and ${otherPkgId}"
+              )
+            case None =>
+              Right(create.copy(arg = toValue(resultSValue)))
+          }
         }
     }
   }

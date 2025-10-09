@@ -414,17 +414,18 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
 
       "enrich a fat contract instance with packages that agree on the enrichment" in {
         // pkgId1 and pkgId2 agree on the enrichment
+        val expectedPkgId = Order[PackageId].min(pkgId1, pkgId2)
         inside(enrich.enrichContractWithPackages(fcoinst, NonEmptySet.of(pkgId1, pkgId2))) {
           case ResultDone(Right(enriched)) =>
             enriched.createArg shouldBe ValueRecord(
-              Some(Ref.TypeConId(pkgId1, "M:T")),
+              Some(Ref.TypeConId(expectedPkgId, "M:T")),
               ImmArray("p" -> ValueParty(alice)),
             )
         }
       }
 
       "fail to enrich a fat contract instance with packages that disagree on the enrichment" in {
-        // pkgId1 and pkgId2 disagree on the enrichment
+        // pkgId1 and pkgId3 disagree on the enrichment
         inside(enrich.enrichContractWithPackages(fcoinst, NonEmptySet.of(pkgId1, pkgId3))) {
           case ResultDone(result) =>
             result shouldBe a[Left[_, _]]
