@@ -6,6 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.speedy.Speedy.Env
 import data.{FrontStack, Ref}
+import scala.util.Try
 
 abstract class CostModel {
 
@@ -58,6 +59,7 @@ abstract class CostModel {
   val BSHA256Text: CostFunction1[Text]
   val BSHA256Hex: CostFunction1[Text]
   val BKECCAK256Text: CostFunction1[Text]
+  val BExternalCall: CostFunction1[Text]
   val BSECP256K1Bool: CostFunction3[Text, Text, Text]
   val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text]
   val BSECP256K1ValidateKey: CostFunction1[Text]
@@ -271,6 +273,7 @@ object CostModel {
     override val BSHA256Text: CostFunction1[Text] = CostFunction1.Null
     override val BSHA256Hex: CostFunction1[Text] = CostFunction1.Null
     override val BKECCAK256Text: CostFunction1[Text] = CostFunction1.Null
+    override val BExternalCall: CostFunction1[Text] = CostFunction1.Null
     override val BSECP256K1Bool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] = CostFunction3.Null
     override val BSECP256K1ValidateKey: CostFunction1[Text] = CostFunction1.Null
@@ -853,6 +856,48 @@ object CostModel {
       CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
     override val BKECCAK256Text: CostFunction1[Text] =
       CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
+    /** Dynamic cost configuration for external calls.
+      *
+      * The cost for each external call is determined by looking up environment variables
+      * or system properties per function ID. This allows different functions to have
+      * different costs based on their computational requirements.
+      *
+      * **Configuration lookup order:**
+      * 1. Environment variable: `DAML_EXTERNAL_CALL_COST_<FUNCTION_ID>` (function ID in uppercase)
+      * 2. System property: `daml.external.call.cost.<functionId>` (function ID in lowercase)
+      * 3. Default: 0 (if neither is set or if the value cannot be parsed)
+      *
+      * **Examples:**
+      * {{{
+      * // Set cost for "echo" function via environment variable
+      * export DAML_EXTERNAL_CALL_COST_ECHO=1000
+      *
+      * // Set cost for "oracle" function via system property
+      * -Ddaml.external.call.cost.oracle=5000
+      * }}}
+      *
+      * **Note:** Function IDs in environment variable names are case-sensitive and should be
+      * uppercase. System property names use lowercase function IDs. Invalid values (non-numeric)
+      * are silently ignored and the default cost of 0 is used.
+      *
+      * @param functionId The function identifier (e.g., "echo", "oracle", "price-feed")
+      * @return The configured cost for the function, or 0 if not configured
+      */
+    override val BExternalCall: CostFunction1[Text] = new CostFunction1[Text] {
+      override def cost(functionId: String): Cost = {
+        // Try environment variable first: DAML_EXTERNAL_CALL_COST_<FUNCTION_ID> (uppercase)
+        val envVarName = s"DAML_EXTERNAL_CALL_COST_${functionId.toUpperCase(java.util.Locale.ROOT)}"
+        val envValue = sys.env.get(envVarName)
+
+        // Try system property: daml.external.call.cost.<functionId> (lowercase)
+        val sysPropName = s"daml.external.call.cost.${functionId.toLowerCase(java.util.Locale.ROOT)}"
+        val sysPropValue = sys.props.get(sysPropName)
+
+        // Use first available value, or default to 0
+        val costStr = envValue.orElse(sysPropValue)
+        costStr.flatMap(s => Try(s.trim.toLong).toOption).getOrElse(0L)
+      }
+    }
     override val BSECP256K1Bool: CostFunction3[Text, Text, Text] =
       CostFunction3.Constant(SBoolSize)
     override val BSECP256K1WithEcdsaBool: CostFunction3[Text, Text, Text] =

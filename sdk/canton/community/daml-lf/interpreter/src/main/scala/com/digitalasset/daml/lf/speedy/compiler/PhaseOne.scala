@@ -425,6 +425,7 @@ private[lf] final class PhaseOne(
           case BKECCAK256Text => SBKECCAK256Text
           case BDecodeHex => SBDecodeHex
           case BEncodeHex => SBEncodeHex
+          case BExternalCall => SBExternalCall
 
           // List functions
           case BFoldl => SBFoldl

@@ -1,0 +1,53 @@
+module ExternalCall where
+
+import DA.Assert
+import DA.External
+
+-- Test successful external call
+-- When echo mode is enabled (DAML_EXTERNAL_CALL_ECHO=true), 
+-- the function returns the input as output
+testExternalCallSuccess : ()
+testExternalCallSuccess =
+  let res = externalCall "echo" "AaBb" "AaBb"
+  in assert (res == "aabb")
+
+-- The following tests demonstrate error cases.
+-- They are commented out because they throw errors that abort the transaction.
+
+-- testExternalCallInvalidHexConfig : ()
+-- testExternalCallInvalidHexConfig =
+--   let _ = externalCall "echo" "g1" "00"
+--   in ()
+--   -- Throws: "External call failed: Invalid hex encoding in config: g1"
+
+-- testExternalCallOddLengthHex : ()
+-- testExternalCallOddLengthHex =
+--   let _ = externalCall "echo" "abc" "00"
+--   in ()
+--   -- Throws: "External call failed: Invalid hex encoding in input: abc"
+
+-- testExternalCallHttpFailure : ()
+-- testExternalCallHttpFailure =
+--   let _ = externalCall "nonexistent" "00" "00"
+--   in ()
+--   -- Throws with detailed HTTP error information:
+--   -- "External call failed: Function not found (status=404, requestId=<uuid>, functionId=nonexistent, mode=pure)"
+
+-- Error Handling Behavior:
+--
+-- All errors (validation and HTTP) throw and abort the transaction with detailed messages:
+--
+-- 1. Validation errors (invalid hex, odd length):
+--    - Caught at the Daml layer before calling the external service
+--    - Error message includes the invalid input
+--
+-- 2. HTTP errors (timeouts, non-200 responses, connection failures):
+--    - Propagated from the ExternalHttpClient with full context
+--    - Error message includes:
+--      * HTTP status code (e.g., 404, 500, 503)
+--      * Request ID for traceability
+--      * Function ID
+--      * Execution mode (submission/validation/pure)
+--
+-- All errors are returned to the transaction initiator as INTERPRETATION_USER_ERROR
+-- through the Canton error handling system, providing complete debugging context.

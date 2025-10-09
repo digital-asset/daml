@@ -911,6 +911,46 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case object SBExternalCall extends SBuiltinFun(3) {
+    override private[speedy] def execute[Q](
+        args: ArraySeq[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
+      val functionId = getSText(args, 0)
+      val configRaw = getSText(args, 1)
+      val inputRaw = getSText(args, 2)
+      val configHex = configRaw.trim.toLowerCase(java.util.Locale.ROOT)
+      val inputHex = inputRaw.trim.toLowerCase(java.util.Locale.ROOT)
+
+      machine.updateGasBudget(_.BExternalCall.cost(functionId))
+
+      val mode: String = machine match {
+        case um: UpdateMachine => if (um.validating) "validation" else "submission"
+        case _: PureMachine => "pure"
+      }
+
+      (Ref.HexString.fromString(configHex), Ref.HexString.fromString(inputHex)) match {
+        case (Right(_), Right(_)) =>
+          // Use production-ready HTTP client with retry logic, JWT auth, TLS support, etc.
+          ExternalHttpClient.callWithRetry(functionId, configHex, inputHex, mode) match {
+            case Right(responseBody) =>
+              Control.Value(SOptional(Some(SText(responseBody))))
+            case Left(error) =>
+              // Propagate error with full context for proper error handling
+              val errorMsg = s"External call failed: ${error.message}" +
+                s" (status=${error.statusCode}" +
+                error.requestId.map(id => s", requestId=$id").getOrElse("") +
+                s", functionId=$functionId, mode=$mode)"
+              Control.Error(IE.UserError(errorMsg))
+          }
+        case _ =>
+          Control.Error(
+            IE.UserError(s"External call failed: Invalid hex encoding in config or input")
+          )
+      }
+    }
+  }
+
   final case object SBFoldl extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: ArraySeq[SValue],

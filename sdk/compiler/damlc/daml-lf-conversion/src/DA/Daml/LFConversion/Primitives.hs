@@ -104,6 +104,8 @@ convertPrim _ "BEEncodeHex" (TText :-> TText) =
     pure $ EBuiltinFun BEEncodeHex
 convertPrim _ "BEDecodeHex" (TText :-> TText) =
     pure $ EBuiltinFun BEDecodeHex
+convertPrim _ "BEExternalCall" (TText :-> TText :-> TText :-> TOptional TText) =
+    pure $ EBuiltinFun BEExternalCall
 convertPrim _ "BETextToParty" (TText :-> TOptional TParty) =
     pure $ EBuiltinFun BETextToParty
 convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =

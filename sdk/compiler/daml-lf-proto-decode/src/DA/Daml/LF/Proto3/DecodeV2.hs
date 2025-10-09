@@ -442,6 +442,7 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionSHA256_TEXT  -> pure BESha256Text
   LF2.BuiltinFunctionSHA256_HEX  -> pure BESha256Hex
   LF2.BuiltinFunctionKECCAK256_TEXT -> pure BEKecCak256Text
+  LF2.BuiltinFunctionEXTERNAL_CALL -> pure BEExternalCall
   LF2.BuiltinFunctionSECP256K1_BOOL -> pure BESecp256k1Bool
   LF2.BuiltinFunctionSECP256K1_WITH_ECDSA_BOOL -> pure BESecp256k1WithEcdsaBool
   LF2.BuiltinFunctionSECP256K1_VALIDATE_KEY -> pure BESecp256k1ValidateKey
