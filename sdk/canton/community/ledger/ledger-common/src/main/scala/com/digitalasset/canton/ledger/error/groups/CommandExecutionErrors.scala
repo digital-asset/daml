@@ -875,6 +875,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
+              (ErrorResource.PackageName, err.srcPackageName),
+              (ErrorResource.PackageName, err.dstPackageName),
             )
             ++ encodeParties(err.originalSignatories)
             ++ encodeParties(err.originalObservers)

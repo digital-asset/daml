@@ -2870,7 +2870,7 @@ private[lf] object SBuiltinFun {
       srcTemplateId: TypeConId,
       recomputedTemplateId: TypeConId,
       srcPkgName: Ref.PackageName,
-      recomputedPkgName: Ref.PackageName,
+      dstPkgName: Ref.PackageName,
       original: ContractMetadata,
       recomputed: ContractMetadata,
   )(
@@ -2888,8 +2888,8 @@ private[lf] object SBuiltinFun {
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
-      Option.when(srcPkgName != recomputedPkgName)(
-        s"package name mismatch: $srcPkgName vs $recomputedPkgName"
+      Option.when(srcPkgName != dstPkgName)(
+        s"package name mismatch: $srcPkgName vs $dstPkgName"
       ),
     ).flatten match {
       case Nil => k()
@@ -2900,6 +2900,8 @@ private[lf] object SBuiltinFun {
               coid = coid,
               srcTemplateId = srcTemplateId,
               dstTemplateId = recomputedTemplateId,
+              srcPackageName = srcPkgName,
+              dstPackageName = dstPkgName,
               originalSignatories = original.signatories,
               originalObservers = original.observers,
               originalKeyOpt = original.keyOpt,

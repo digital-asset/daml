@@ -319,6 +319,8 @@ object GrpcErrorParser {
                 (ErrorResource.ContractId, coid),
                 (ErrorResource.TemplateId, srcTemplateId),
                 (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.PackageName, srcPackageName),
+                (ErrorResource.PackageName, dstPackageName),
                 (ErrorResource.Parties, originalSignatories),
                 (ErrorResource.Parties, originalObservers),
                 (NullableContractKey, decodeNullableValue.unlift(originalGlobalKey)),
@@ -334,8 +336,10 @@ object GrpcErrorParser {
             val dstTid = Identifier.assertFromString(dstTemplateId)
             SubmitError.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
+              srcTid,
               dstTid,
+              PackageName.assertFromString(srcPackageName),
+              PackageName.assertFromString(dstPackageName),
               parseParties(originalSignatories),
               parseParties(originalObservers),
               parseGlobalKeyWithMaintainers(

@@ -448,6 +448,8 @@ object SubmitError {
         coid: ContractId,
         srcTemplateId: Identifier,
         dstTemplateId: Identifier,
+        srcPackageName: PackageName,
+        dstPackageName: PackageName,
         originalSignatories: Set[Party],
         originalObservers: Set[Party],
         originalOptKey: Option[GlobalKeyWithMaintainers],
@@ -465,6 +467,8 @@ object SubmitError {
             ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(srcTemplateId), coid)),
             ("srcTemplateId", fromTemplateTypeRep(srcTemplateId)),
             ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
+            ("srcPackageName", SText(srcPackageName)),
+            ("dstPackageName", SText(dstPackageName)),
             (
               "originalSignatories",
               SList(originalSignatories.toList.map(SParty).to(FrontStack)),

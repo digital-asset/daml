@@ -725,6 +725,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
+      val wrongPackageName = Ref.PackageName.assertFromString("wrong")
+
       forEvery(availablePackagesCases) { availablePackages =>
         inside(
           go(
@@ -732,7 +734,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             // We cannot test the case where the creation package is unavailable because this test case tests the upgrade
             // of a local contract, which requires the creation package in order to be created.
             availablePackages = availablePackages,
-            globalContractPackageName = Ref.PackageName.assertFromString("wrong"),
+            globalContractPackageName = wrongPackageName,
             globalContractTemplateId = i"'-pkg0-':M:T",
             globalContractArg = v1_base,
             globalContractSignatories = List(alice),
@@ -748,6 +750,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                       coid,
                       srcTemplateId,
                       dstTemplateId,
+                      srcPackageName,
+                      dstPackageName,
                       _,
                       _,
                       _,
@@ -762,6 +766,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             coid shouldBe theCid
             srcTemplateId shouldBe i"'-pkg0-':M:T"
             dstTemplateId shouldBe i"'-pkg1-':M:T"
+            srcPackageName shouldBe wrongPackageName
+            dstPackageName shouldBe pkg1.pkgName
         }
       }
     }
