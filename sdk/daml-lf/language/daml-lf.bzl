@@ -68,7 +68,7 @@ lf_version_latest = {
 # The following dictionary aliases LF versions to keywords:
 # - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
-# - "preview" is the keyword fort he next LF version, *not stable*,
+# - "preview" is the keyword fort the next LF version, *not stable*,
 #    usable for beta testing,
 # The following dictionary is always defined for "default" and "latest". It
 # contains "preview" iff a preview version is available. If it exists,
