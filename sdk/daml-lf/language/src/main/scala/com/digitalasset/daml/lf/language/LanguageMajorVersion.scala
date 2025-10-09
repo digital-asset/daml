@@ -21,7 +21,7 @@ sealed abstract class LanguageMajorVersion(val pretty: String, minorAscending: L
     LanguageVersion(this, LanguageMinorVersion(minorAscending.head))
   // second last is stable
   val maxStableVersion =
-    LanguageVersion(this, LanguageMinorVersion(minorAscending.takeRight(2).head))
+    LanguageVersion(this, LanguageMinorVersion(minorAscending.last))
 
   final def dev: LanguageVersion = {
     LanguageVersion(this, LanguageMinorVersion("dev"))
@@ -59,7 +59,6 @@ object LanguageMajorVersion {
   case object V2
       extends LanguageMajorVersion(
         pretty = "2",
-        // every minor but last is stable, last one is staging
         minorAscending = List("1", "2"),
       )
 
