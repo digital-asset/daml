@@ -696,7 +696,7 @@ fetchTemplateWithUnexpectedKey = test $ do
   res <- a `trySubmit` exerciseCmd @V2.ContractKeyPresenceTemplate v2cid V2.DummyChoice
   case res of
     -- We expect the original key to be present and the recomputed key to be absent.
-    Left (UpgradeError (ValidationFailed _ _ _ _ _ (Some _) _ _ None) _) -> pure ()
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ _ _ (Some _) _ _ None) _) -> pure ()
     other -> assertFail ("Expected failure with missing absent key and present recomputed key, but got: " <> show other)
 
 fetchTemplateWithUnexpectedlyMissingKey : Test
@@ -707,7 +707,7 @@ fetchTemplateWithUnexpectedlyMissingKey = test $ do
   res <- a `trySubmit` exerciseExactCmd @V1.ContractKeyPresenceTemplate v1cid V1.DummyChoice
   case res of
     -- We expect the original key to be absent and the recomputed key to be present.
-    Left (UpgradeError (ValidationFailed _ _ _ _ _ None _ _ (Some _)) _) -> pure ()
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ _ _ None _ _ (Some _)) _) -> pure ()
     other -> assertFail ("Expected failure with present original key and absent recomputed key, but got: " <> show other)
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -715,7 +715,7 @@ fetchTemplateWithUnexpectedlyMissingKey = test $ do
 expectMetadataChangedError : forall t k a. (HasTemplateTypeRep t, HasFromAnyContractKey t k, Eq k) => k -> [Party] -> Either SubmitError a -> Script ()
 expectMetadataChangedError key maintainers r = case r of
     Right _ -> assertFail "Expected failure but got success"
-    Left (UpgradeError (ValidationFailed _ _ _ _ _ _ _ _ (Some (foundKey, foundMaintainers))) msg)
+    Left (UpgradeError (ValidationFailed _ _ _ _ _ _ _ _ _ _ (Some (foundKey, foundMaintainers))) msg)
       | fromAnyContractKey @t foundKey == Some key &&
         sort maintainers == sort foundMaintainers &&
         "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
