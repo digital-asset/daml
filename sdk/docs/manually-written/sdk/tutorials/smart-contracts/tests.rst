@@ -70,7 +70,7 @@ In a script, you can submit commands and queries from multiple parties on a fres
 
 There are two main ways to run a Daml Script:
 - Click the ``Script results`` lens in VS Code: it provides the table and transaction views, which are useful for debugging.
-- Run the ``dpm test`` command of the Daml assistant, which is useful for regression checks and coverage.
+- Run the ``dpm test`` command, which is useful for regression checks and coverage.
 
 Run a script in VS Code
 ~~~~~~~~~~~~~~~~~~~~~~~
