@@ -58,6 +58,8 @@ final case class SequencerMemberId(private val id: Int) extends PrettyPrinting {
 }
 
 object SequencerMemberId {
+  val Broadcast: SequencerMemberId = SequencerMemberId(-1)
+
   implicit val sequencerMemberIdOrdering: Ordering[SequencerMemberId] =
     Ordering.by[SequencerMemberId, Int](_.id)
   implicit val sequencerMemberIdOrder: Order[SequencerMemberId] = fromOrdering(
@@ -720,7 +722,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             val events = cache
               .slice(start, cache.size)
               .view
-              .filter(_.event.members.contains(memberId))
+              .filter(event =>
+                event.event.members.contains(memberId) || event.event.members
+                  .contains(SequencerMemberId.Broadcast)
+              )
               .take(limit)
               .toSeq
 

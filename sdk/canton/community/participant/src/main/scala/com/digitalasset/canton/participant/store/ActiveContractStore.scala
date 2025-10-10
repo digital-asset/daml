@@ -336,7 +336,7 @@ trait ActiveContractStore
 
   protected def getSynchronizerIndices(
       synchronizers: Seq[SynchronizerId]
-  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Map[
+  )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Map[
     SynchronizerId,
     IndexedSynchronizer,
   ]] =

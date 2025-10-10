@@ -887,9 +887,15 @@ class TestingOwnerWithKeys(
       )
     )
 
-    val p1_dtc = mkAdd(SynchronizerTrustCertificate(participant1, synchronizerId))
-    val p2_dtc = mkAdd(SynchronizerTrustCertificate(participant2, synchronizerId))
-    val p3_dtc = mkAdd(SynchronizerTrustCertificate(participant3, synchronizerId))
+    val p1_dtc = mkAdd(
+      SynchronizerTrustCertificate(participant1, synchronizerId)
+    )
+    val p2_dtc = mkAdd(
+      SynchronizerTrustCertificate(participant2, synchronizerId)
+    )
+    val p3_dtc = mkAdd(
+      SynchronizerTrustCertificate(participant3, synchronizerId)
+    )
     val p1_otk = mkAddMultiKey(
       OwnerToKeyMapping
         .tryCreate(participant1, NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key1)),

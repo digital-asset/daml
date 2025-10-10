@@ -70,6 +70,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 
+import java.security.KeyPair
 import java.time.Instant
 import java.util.List as JList
 import scala.concurrent.{ExecutionContext, Future}
@@ -180,9 +181,15 @@ trait ParticipantTestContext extends UserManagementTestContext {
   ): Future[Party]
 
   def allocateExternalPartyRequest(
+      keyPair: KeyPair,
       partyIdHint: Option[String] = None,
-      synchronizerId: String = "",
-  ): AllocateExternalPartyRequest
+      synchronizer: String = "",
+  ): Future[AllocateExternalPartyRequest]
+
+  def generateExternalPartyTopologyRequest(
+      namespacePublicKey: Array[Byte],
+      partyIdHint: Option[String] = None,
+  ): Future[GenerateExternalPartyTopologyResponse]
 
   def allocateExternalParty(
       request: AllocateExternalPartyRequest,

@@ -5,7 +5,7 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.party_management_service
 import com.daml.ledger.api.v2.admin.party_management_service.GenerateExternalPartyTopologyRequest
-import com.daml.ledger.api.v2.interactive.interactive_submission_service
+import com.daml.ledger.api.v2.crypto as lapicrypto
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.{
   deriveRelaxedCodec,
@@ -241,10 +241,10 @@ object JsPartyManagementCodecs {
   import JsInteractiveSubmissionServiceCodecs.signatureRW
   import JsSchema.Crypto.*
 
-  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatSchema: Schema[lapicrypto.SignatureFormat] =
     Schema.string
 
-  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpec: Schema[lapicrypto.SigningAlgorithmSpec] =
     Schema.string
 
   implicit val partyDetails: Codec[party_management_service.PartyDetails] = deriveRelaxedCodec

@@ -310,6 +310,7 @@ final class PreparedTransactionEncoder(
       transactionUUID: UUID,
       mediatorGroup: Int,
       inputContracts: Seq[ExternalInputContract],
+      maxRecordTime: Option[lf.data.Time.Timestamp],
   ): PartialTransformer[PrepareTransactionData, iss.Metadata] =
     Transformer
       .definePartial[PrepareTransactionData, iss.Metadata]
@@ -341,6 +342,10 @@ final class PreparedTransactionEncoder(
       .withFieldComputed(
         _.maxLedgerEffectiveTime,
         _.transactionMeta.timeBoundaries.maxConstraint.map(_.transformInto[Long]),
+      )
+      .withFieldConst(
+        _.maxRecordTime,
+        maxRecordTime.map(_.transformInto[Long]),
       )
       .buildTransformer
 
@@ -378,6 +383,7 @@ final class PreparedTransactionEncoder(
         transactionUUID,
         mediatorGroup,
         prepareTransactionData.inputContracts.values.toSeq,
+        prepareTransactionData.maxRecordTime,
       )
     val versionedTransaction = lf.transaction.VersionedTransaction(
       prepareTransactionData.transaction.version,

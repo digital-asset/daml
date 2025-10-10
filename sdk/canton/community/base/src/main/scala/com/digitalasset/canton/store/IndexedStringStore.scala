@@ -48,7 +48,7 @@ abstract class IndexedStringFromDb[A <: IndexedString[B], B] {
 
   def indexed(
       indexedStringStore: IndexedStringStore
-  )(item: B)(implicit ec: ExecutionContext): FutureUnlessShutdown[A] =
+  )(item: B)(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[A] =
     indexedStringStore
       .getOrCreateIndex(dbTyp, asString(item))
       .map(buildIndexed(item, _))
@@ -58,16 +58,22 @@ abstract class IndexedStringFromDb[A <: IndexedString[B], B] {
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
-  ): OptionT[FutureUnlessShutdown, A] =
+  ): OptionT[FutureUnlessShutdown, A] = {
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+
     fromDbIndexET(indexedStringStore)(index).leftMap { err =>
       loggingContext.logger.error(
         s"Corrupt log id: $index for $dbTyp within context $context: $err"
       )(loggingContext.traceContext)
     }.toOption
+  }
 
   def fromDbIndexET(
       indexedStringStore: IndexedStringStore
-  )(index: Int)(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, String, A] =
+  )(index: Int)(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, A] =
     EitherT(indexedStringStore.getForIndex(dbTyp, index).map { strO =>
       for {
         str <- strO.toRight("No entry for given index")
@@ -180,8 +186,12 @@ object IndexedStringType {
 
 /** uid index such that we can store integers instead of long strings in our database */
 trait IndexedStringStore extends AutoCloseable {
-  def getOrCreateIndex(dbTyp: IndexedStringType, str: String300): FutureUnlessShutdown[Int]
-  def getForIndex(dbTyp: IndexedStringType, idx: Int): FutureUnlessShutdown[Option[String300]]
+  def getOrCreateIndex(dbTyp: IndexedStringType, str: String300)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Int]
+  def getForIndex(dbTyp: IndexedStringType, idx: Int)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[String300]]
 }
 
 object IndexedStringStore {
@@ -190,10 +200,7 @@ object IndexedStringStore {
       config: CacheConfig,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit
-      ec: ExecutionContext,
-      tc: TraceContext,
-  ): IndexedStringStore =
+  )(implicit ec: ExecutionContext): IndexedStringStore =
     storage match {
       case _: MemoryStorage => InMemoryIndexedStringStore()
       case jdbc: DbStorage =>
@@ -209,7 +216,7 @@ class IndexedStringCache(
     parent: IndexedStringStore,
     config: CacheConfig,
     val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext, tc: TraceContext)
+)(implicit ec: ExecutionContext)
     extends IndexedStringStore
     with NamedLogging {
 
@@ -248,13 +255,13 @@ class IndexedStringCache(
   override def getForIndex(
       dbTyp: IndexedStringType,
       idx: Int,
-  ): FutureUnlessShutdown[Option[String300]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[String300]] =
     index2strFUS.get((idx, dbTyp))
 
   override def getOrCreateIndex(
       dbTyp: IndexedStringType,
       str: String300,
-  ): FutureUnlessShutdown[Int] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     str2Index.get((str, dbTyp))
 
   override def close(): Unit = {

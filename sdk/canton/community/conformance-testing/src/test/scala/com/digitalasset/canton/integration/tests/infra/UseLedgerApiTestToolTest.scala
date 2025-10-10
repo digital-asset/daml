@@ -20,33 +20,30 @@ import scala.util.matching.Regex
 
 final class UseLedgerApiTestToolTest extends AnyFlatSpec with Matchers with BaseTest {
   private val versions = Seq(
-    "3.0.0-snapshot.20240209.12523.0.v2fa088f9",
-    "3.0.0-snapshot.20240212.12541.0.v38aabe2f",
-    "3.1.0-snapshot.20240404.13035.0.v35213e4a",
-    "3.1.0-snapshot.20240405.13039.0.vc7eec3f0",
-    "3.1.1-snapshot.20240407.13039.0.vc7eec3f0",
-    "3.1.10-snapshot.20240408.13039.0.vc7eec3f0",
-    "3.2.0-ad-hoc.20240827.13957.0.v70727775",
-    "3.2.0-snapshot.20240826.13949.0.ve03dfcdf",
-    "3.2.0-snapshot.20240828.13964.0.v26cc6ace",
     "3.3.0-snapshot.20250416.15779.0.v6cccc0c4",
+    "3.3.0-ad-hoc.20250905.16091.0.v704bf59d",
+    "3.3.0-snapshot.20251007.16123.0.v670c8fae",
+    "3.3.1-snapshot.20251007.16123.0.v670c8fae", // not existing just for testing patches
+    "3.3.10-snapshot.20251007.16123.0.v670c8fae", // not existing just for testing patches
+    "3.4.0-snapshot.20250429.15866.0.vc8f10812",
+    "3.4.0-snapshot.20251003.17075.0.v69d92264",
     "dev",
   )
 
   "findAllReleases" should "find the major.minor.patch releases correctly" in {
-    findAllReleases(versions) shouldBe Seq("3.0.0", "3.1.0", "3.1.1", "3.1.10", "3.2.0", "3.3.0")
+    findAllReleases(versions) shouldBe Seq("3.3.0", "3.3.1", "3.3.10", "3.4.0")
   }
 
   "findMatchingVersions" should "find and sort (by date) all the versions matching the given release" in {
-    findMatchingVersions(versions, "3.1.0") shouldBe Seq(
-      "3.1.0-snapshot.20240404.13035.0.v35213e4a",
-      "3.1.0-snapshot.20240405.13039.0.vc7eec3f0",
+    findMatchingVersions(versions, "3.3.0") shouldBe Seq(
+      "3.3.0-snapshot.20250416.15779.0.v6cccc0c4",
+      "3.3.0-ad-hoc.20250905.16091.0.v704bf59d",
+      "3.3.0-snapshot.20251007.16123.0.v670c8fae",
     )
 
-    findMatchingVersions(versions, "3.2.0") shouldBe Seq(
-      "3.2.0-snapshot.20240826.13949.0.ve03dfcdf",
-      "3.2.0-ad-hoc.20240827.13957.0.v70727775",
-      "3.2.0-snapshot.20240828.13964.0.v26cc6ace",
+    findMatchingVersions(versions, "3.4.0") shouldBe Seq(
+      "3.4.0-snapshot.20250429.15866.0.vc8f10812",
+      "3.4.0-snapshot.20251003.17075.0.v69d92264",
     )
   }
 
@@ -97,10 +94,14 @@ final class UseLedgerApiTestToolTest extends AnyFlatSpec with Matchers with Base
     val currentMajorMinor =
       ReleaseVersion(ReleaseVersion.current.major, ReleaseVersion.current.minor, 0)
 
-    val releaseVersions3 = allReleases.filter { case (major, _) => major == 3 }
+    // We only test releases starting from 3.3.0, as earlier releases are no longer supported
+    // TODO(#16458): update the earliest tested release once Canton 3 is stable
+    val releases33andLater = allReleases.filter { case (major, minor) =>
+      major == 3 && minor >= 3
+    }
 
     extractedVersions
       .filter(_ <= currentMajorMinor)
-      .map(_.majorMinor) should contain allElementsOf releaseVersions3.dropRight(1)
+      .map(_.majorMinor) should contain allElementsOf releases33andLater.dropRight(1)
   }
 }

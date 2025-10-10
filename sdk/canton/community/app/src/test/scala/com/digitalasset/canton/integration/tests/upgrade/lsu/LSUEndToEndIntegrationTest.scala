@@ -18,7 +18,6 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnections
 
@@ -78,7 +77,7 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
     "work end-to-end" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
 
       participant1.health.ping(participant2)
 

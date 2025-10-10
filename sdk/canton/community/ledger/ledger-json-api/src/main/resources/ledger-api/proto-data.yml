@@ -30,7 +30,15 @@ messages:
           Required
         onboarding_transactions: |-
           TopologyTransactions to onboard the external party
-          Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+          Can contain:
+          - A namespace for the party.
+          This can be either a single NamespaceDelegation,
+          or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToKeyMapping to register the party's signing keys.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToParticipant to register the hosting relationship of the party.
+          Must be provided.
           Required
         multi_hash_signatures: |-
           Optional signatures of the combined hash of all onboarding_transactions
@@ -601,7 +609,7 @@ messages:
       fieldComments:
         version: |-
           [docs-entry-end: DamlTransaction.Node]
-          Transaction version, will be >= max(nodes version)
+          serialization version, will be >= max(nodes version)
         roots: Root nodes of the transaction
         nodes: List of nodes in the transaction
         node_seeds: Node seeds are values associated with certain nodes used for generating
@@ -1751,6 +1759,13 @@ messages:
         Transaction Metadata
         Refer to the hashing documentation for information on how it should be hashed.
       fieldComments:
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer `synchronizer_id`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Unsigned in 3.3 to avoid a breaking protocol change
+          Will be signed in 3.4+
+          Set max_record_time in the PreparedTransactionRequest to get this field set accordingly
         synchronizer_id: ''
         preparation_time: ''
         min_ledger_effective_time: ''
@@ -2010,6 +2025,15 @@ messages:
           The change ID can be used for matching the intended ledger changes with all their completions.
           Must be a valid LedgerString (as described in ``value.proto``).
           Required
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Use this to limit the time-to-life of a prepared transaction,
+          which is useful to know when it can definitely not be accepted
+          anymore and resorting to preparing another transaction for the same
+          intent is safe again.
+          Optional
         synchronizer_id: |-
           Must be a valid synchronizer id
           If not set, a suitable synchronizer that this node is connected to will be chosen

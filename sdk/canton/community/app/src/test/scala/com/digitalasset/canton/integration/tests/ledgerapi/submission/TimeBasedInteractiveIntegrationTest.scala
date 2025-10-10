@@ -10,7 +10,9 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.admin.api.client.data.TemplateId.fromIdentifier
 import com.digitalasset.canton.damltests.java.cycle.Cycle
 import com.digitalasset.canton.damltests.java.statictimetest.Pass
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.integration.plugins.UseProgrammableSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.defaultConfirmingParticipant
 import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
@@ -20,10 +22,18 @@ import com.digitalasset.canton.integration.{
   HasCycleUtils,
   SharedEnvironment,
 }
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.TimeoutError
+import com.digitalasset.canton.synchronizer.sequencer.{
+  HasProgrammableSequencer,
+  SendDecision,
+  SendPolicy,
+}
 import com.digitalasset.canton.topology.{ExternalParty, ForceFlags}
 import com.digitalasset.canton.{HasExecutionContext, config}
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.Status
+import org.slf4j.event.Level
 import scalapb.TimestampConverters
 
 import java.time.{Duration, Instant}
@@ -37,7 +47,8 @@ final class TimeBasedInteractiveIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest
     with HasCycleUtils
-    with HasExecutionContext {
+    with HasExecutionContext
+    with HasProgrammableSequencer {
 
   private val oneDay = Duration.ofHours(24)
 
@@ -51,6 +62,8 @@ final class TimeBasedInteractiveIntegrationTest
         participants.all.dars.upload(CantonTestsPath)
       }
       .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+
+  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
   private var aliceE: ExternalParty = _
 
@@ -169,6 +182,78 @@ final class TimeBasedInteractiveIntegrationTest
       )
       simClock.advance(preparationTimeRecordTimeTolerance.dividedBy(2))
       execAndWait(prepared, signatures).discard
+    }
+
+    "respect max record time" in { implicit env =>
+      import env.*
+      val simClock = env.environment.simClock.value
+
+      def test(sequenceAt: CantonTimestamp => CantonTimestamp, expectSuccess: Boolean): Unit = {
+        // Set max record time below ledgerTimeRecordTimeTolerance
+        val maxRecordTime = simClock.now.add(ledgerTimeRecordTimeTolerance.dividedBy(2))
+        val prepared =
+          cpn.ledger_api.interactive_submission.prepare(
+            Seq(aliceE),
+            Seq(createCycleCommand(aliceE, "test")),
+            maxRecordTime = Some(maxRecordTime),
+          )
+
+        val signatures = Map(
+          aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
+        )
+
+        getProgrammableSequencer(sequencer1.name).withSendPolicy(
+          "Delay sequencing of submission request",
+          SendPolicy.processTimeProofs { implicit traceContext => submissionRequest =>
+            if (submissionRequest.isConfirmationRequest && submissionRequest.sender == epn.id) {
+              // When we receive the confirmation request, advance time to the desired sequencing time
+              simClock.advanceTo(sequenceAt(maxRecordTime))
+            }
+            SendDecision.Process
+          },
+        ) {
+
+          // exec will pick LET = clock.now
+          // and max sequencing time
+          // = Min(LET + ledgerTimeRecordTimeTolerance, maxRecordTime)
+          // = Min(clock.now + ledgerTimeRecordTimeTolerance, clock.now + ledgerTimeRecordTimeTolerance / 2)
+          // = maxRecordTime
+          if (expectSuccess) {
+            execAndWait(prepared, signatures)
+          } else {
+            loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
+              {
+                val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
+                // Request a time proof to advance synchronizer time on the participant so it realizes
+                // that the request has timed out and emits a completion event
+                epn.underlying.value.sync
+                  .lookupSynchronizerTimeTracker(synchronizer1Id)
+                  .value
+                  .requestTick(maxRecordTime.immediateSuccessor, immediately = true)
+                val completion = findCompletion(submissionId, ledgerEnd, aliceE, epn)
+                completion.status.value.code shouldBe io.grpc.Status.Code.ABORTED.value()
+                completion.status.value.message should include(TimeoutError.code.id)
+                ()
+              },
+              LogEntry.assertLogSeq(
+                Seq(
+                  (
+                    _.warningMessage should include("Submission timed out"),
+                    "expected submission timed out warning",
+                  )
+                )
+              ),
+            )
+          }
+        }
+      }
+
+      // Expect success when the event goes just before the max record time
+      // Technically exactly at max record time is fine but because there's concurrent ticks going on, testing at exactly
+      // max sequencing time ends up not going through if a tick gets sequenced before
+      test(_.minusMillis(1), expectSuccess = true)
+      // Expect failure when the event goes through right after max record time
+      test(_.immediateSuccessor, expectSuccess = false)
     }
 
     "rejects execution requests outside the submission tolerance" in { implicit env =>

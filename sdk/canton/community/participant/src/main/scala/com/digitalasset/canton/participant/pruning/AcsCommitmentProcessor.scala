@@ -221,6 +221,7 @@ class AcsCommitmentProcessor private (
     batchingConfig: BatchingConfig,
     maxCommitmentSendDelayMillis: Option[NonNegativeInt],
     increasePerceivedComputationTimeForCommitments: Option[java.time.Duration],
+    doNotAwaitOnCheckingIncomingCommitments: Boolean,
 )(implicit ec: ExecutionContext)
     extends AcsChangeListener
     with FlagCloseable
@@ -1036,7 +1037,7 @@ class AcsCommitmentProcessor private (
       batch: Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]],
   )(implicit traceContext: TraceContext): HandlerResult = {
 
-    if (batch.lengthCompare(1) != 0) {
+    if (batch.sizeIs != 1) {
       Errors.InternalError
         .MultipleCommitmentsInBatch(psid.logical, timestamp, batch.length)
         .discard
@@ -1342,8 +1343,8 @@ class AcsCommitmentProcessor private (
 
   private def checkCommitment(
       commitment: AcsCommitment
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    dbQueue
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val fut = dbQueue
       .executeUS(
         {
           // Make sure that the ready-for-remote check is atomic with buffering the commitment
@@ -1359,6 +1360,15 @@ class AcsCommitmentProcessor private (
         s"check commitment readiness at ${commitment.period} by ${commitment.sender}",
       )
       .flatten
+
+    if (doNotAwaitOnCheckingIncomingCommitments) {
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+        fut,
+        s"check incoming commitment for ${commitment.period} by ${commitment.sender}",
+      )
+      FutureUnlessShutdown.unit
+    } else fut
+  }
 
   private def indicateReadyForRemote(timestamp: CantonTimestampSecond)(implicit
       traceContext: TraceContext
@@ -2214,6 +2224,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       batchingConfig: BatchingConfig,
       maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
       increasePerceivedComputationTimeForCommitments: Option[java.time.Duration] = None,
+      doNotAwaitOnCheckingIncomingCommitments: Boolean,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -2273,6 +2284,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         batchingConfig,
         maxCommitmentSendDelayMillis,
         increasePerceivedComputationTimeForCommitments,
+        doNotAwaitOnCheckingIncomingCommitments,
       )
       // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
       // because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.

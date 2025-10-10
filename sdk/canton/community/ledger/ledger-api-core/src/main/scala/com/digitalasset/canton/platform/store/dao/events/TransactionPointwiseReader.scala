@@ -8,14 +8,19 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawAcsDeltaEventLegacy,
+  RawCreatedEventLegacy,
   RawEventLegacy,
   RawLedgerEffectsEventLegacy,
 }
@@ -25,7 +30,13 @@ import com.digitalasset.canton.platform.store.backend.common.{
 }
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTransaction
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
-import com.digitalasset.canton.platform.{InternalTransactionFormat, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{
+  FatContract,
+  InternalTransactionFormat,
+  Party,
+  TemplatePartiesFilter,
+}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,6 +46,8 @@ final class TransactionPointwiseReader(
     val eventStorageBackend: EventStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
+    val queryValidRange: QueryValidRange,
+    val contractStore: ContractStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -127,7 +140,7 @@ final class TransactionPointwiseReader(
   private def deserializeEntryAcsDelta(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
-  )(entry: Entry[RawAcsDeltaEventLegacy])(implicit
+  )(entry: (Entry[RawAcsDeltaEventLegacy], Option[FatContract]))(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[Event]] =
@@ -136,7 +149,7 @@ final class TransactionPointwiseReader(
   private def deserializeEntryLedgerEffects(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
-  )(entry: Entry[RawLedgerEffectsEventLegacy])(implicit
+  )(entry: (Entry[RawLedgerEffectsEventLegacy], Option[FatContract]))(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
   ): Future[Entry[Event]] =
@@ -147,26 +160,50 @@ final class TransactionPointwiseReader(
   private def fetchAndFilterEvents[T <: RawEventLegacy](
       fetchRawEvents: Future[Vector[Entry[T]]],
       templatePartiesFilter: TemplatePartiesFilter,
-      deserializeEntry: Entry[T] => Future[Entry[Event]],
+      deserializeEntry: ((Entry[T], Option[FatContract])) => Future[Entry[Event]],
       timer: MetricHandle.Timer,
-  ): Future[Seq[Entry[Event]]] =
-    for {
-      // Fetching all events from the event sequential id range
-      rawEvents <- fetchRawEvents
+  )(implicit traceContext: TraceContext): Future[Seq[Entry[Event]]] =
+    // Fetching all events from the event sequential id range
+    fetchRawEvents
       // Filtering by template filters
-      filteredRawEvents = UpdateReader.filterRawEvents(templatePartiesFilter)(rawEvents)
-      // Deserialization of lf values
-      deserialized <- Timed.future(
-        timer = timer,
-        future = Future.delegate {
-          implicit val ec: ExecutionContext =
-            directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
-          MonadUtil.sequentialTraverse(filteredRawEvents)(deserializeEntry)
-        },
+      .map(UpdateReader.filterRawEvents(templatePartiesFilter))
+      // Checking if events are not pruned
+      .flatMap(
+        queryValidRange.filterPrunedEvents[Entry[T]](entry => Offset.tryFromLong(entry.offset))
       )
-    } yield {
-      deserialized
-    }
+      .flatMap(rawEventsPruned =>
+        for {
+          // Fetching all contracts for the filtered assigned events
+          contractsM <- contractStore
+            .lookupBatchedNonCached(
+              rawEventsPruned.collect(_.event match {
+                case created: RawCreatedEventLegacy => created.internalContractId
+              })
+            )
+            .map(_.view.mapValues(_.inst).toMap)
+            .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+          // Deserialization of lf values
+          deserialized <-
+            Timed.future(
+              timer = timer,
+              future = Future.delegate {
+                implicit val ec: ExecutionContext =
+                  directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+                MonadUtil.sequentialTraverse(rawEventsPruned)(entry =>
+                  entry.event match {
+                    case created: RawCreatedEventLegacy =>
+                      val fatContractO = contractsM.get(created.internalContractId)
+                      deserializeEntry(entry -> fatContractO)
+                    case _ =>
+                      deserializeEntry(entry -> None)
+                  }
+                )
+              },
+            )
+        } yield {
+          deserialized
+        }
+      )
 
   def lookupTransactionBy(
       eventSeqIdRange: (Long, Long),

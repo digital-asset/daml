@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services.admin
 
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.apiserver.services.tracking.StreamTracker
@@ -10,27 +11,29 @@ import com.digitalasset.daml.lf.data.Ref
 
 object PartyAllocation {
 
-  final case class TrackerKey private (val submissionId: Ref.SubmissionId)
-  object TrackerKey {
-    def of(
-        party: String,
-        participantId: Ref.ParticipantId,
-        authorizationEvent: AuthorizationEvent,
-    ): TrackerKey = {
-      import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
-
+  final case class TrackerKey(
+      party: String,
+      participantId: Ref.ParticipantId,
+      authorizationEvent: AuthorizationEvent,
+  ) {
+    lazy val submissionId = {
       val builder = Hash.build(HashPurpose.PartyUpdateId, HashAlgorithm.Sha256)
       builder.add(party.split("::")(0))
       builder.add(participantId)
       builder.add(authorizationEvent.toString)
       val hash = builder.finish()
 
-      TrackerKey(Ref.SubmissionId.assertFromString(hash.toHexString))
+      Ref.SubmissionId.assertFromString(hash.toHexString)
     }
 
-    private[admin] def forTests(submissionId: Ref.SubmissionId) = TrackerKey(submissionId)
+    // Override hashCode and equals to only consider submissionId for equality and hashing
+    // Needed for when they key is used in HashMaps etc...
+    override def hashCode(): Int = submissionId.hashCode
+    override def equals(obj: Any): Boolean = obj match {
+      case otherTrackerKey: TrackerKey => submissionId.equals(otherTrackerKey.submissionId)
+      case _ => false
+    }
   }
-
   final case class Completed(submissionId: TrackerKey, partyDetails: IndexerPartyDetails)
 
   type Tracker = StreamTracker[TrackerKey, Completed]

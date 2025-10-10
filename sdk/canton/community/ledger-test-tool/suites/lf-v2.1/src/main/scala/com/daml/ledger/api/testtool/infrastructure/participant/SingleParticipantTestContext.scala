@@ -53,7 +53,6 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
-import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionAndWaitForTransactionRequest,
   ExecuteSubmissionAndWaitForTransactionResponse,
@@ -80,7 +79,7 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.*
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.update_service.*
-import com.daml.ledger.api.v2.value as v1
+import com.daml.ledger.api.v2.{crypto as lapicrypto, value as v1}
 import com.daml.ledger.javaapi.data.codegen.{ContractCompanion, ContractId, Exercised, Update}
 import com.daml.ledger.javaapi.data.{
   Command,
@@ -91,24 +90,12 @@ import com.daml.ledger.javaapi.data.{
   Value,
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.nonempty.NonEmpty
 import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
-import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
-import com.digitalasset.canton.interactive.ExternalPartyUtils
 import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects, toProto}
-import com.digitalasset.canton.logging.SuppressingLogger
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, WallClock}
-import com.digitalasset.canton.topology.{
-  ExternalParty as CantonExternalParty,
-  ParticipantId,
-  PartyId,
-  UniqueIdentifier,
-}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.ByteString
 import io.grpc.StatusRuntimeException
@@ -117,6 +104,7 @@ import io.grpc.protobuf.StatusProto
 import io.grpc.stub.StreamObserver
 import io.scalaland.chimney.dsl.*
 
+import java.security.{KeyPair, KeyPairGenerator, Signature}
 import java.time.{Clock, Instant}
 import java.util.List as JList
 import scala.concurrent.duration.DurationInt
@@ -142,8 +130,7 @@ final class SingleParticipantTestContext private[participant] (
     val features: Features,
     val participantId: String,
 )(protected[participant] implicit val ec: ExecutionContext)
-    extends ParticipantTestContext
-    with ExternalPartyUtils {
+    extends ParticipantTestContext {
   private val logger = ContextualizedLogger.get(getClass)
 
   private[this] val identifierPrefix =
@@ -312,29 +299,66 @@ final class SingleParticipantTestContext private[participant] (
   override def allocateParty(): Future[Party] =
     allocateParty(partyIdHint = Some(nextPartyHintId()))
 
+  override def generateExternalPartyTopologyRequest(
+      namespacePublicKey: Array[Byte],
+      partyIdHint: Option[String] = None,
+  ): Future[GenerateExternalPartyTopologyResponse] =
+    for {
+      syncIds <- getConnectedSynchronizers(None, None)
+      syncId = syncIds.headOption.getOrElse(throw new Exception("No synchronizer connected"))
+      onboardingTransactions <- generateExternalPartyTopology(
+        GenerateExternalPartyTopologyRequest(
+          synchronizer = syncId,
+          partyHint = partyIdHint.getOrElse(nextPartyHintId()),
+          publicKey = Some(
+            lapicrypto.SigningPublicKey(
+              format =
+                lapicrypto.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO,
+              keyData = ByteString.copyFrom(namespacePublicKey),
+              keySpec = lapicrypto.SigningKeySpec.SIGNING_KEY_SPEC_EC_CURVE25519,
+            )
+          ),
+          localParticipantObservationOnly = false,
+          otherConfirmingParticipantUids = Seq(),
+          confirmationThreshold = 1,
+          observingParticipantUids = Seq(),
+        )
+      )
+    } yield onboardingTransactions
+
   override def allocateExternalPartyRequest(
+      keyPair: KeyPair,
       partyIdHint: Option[String] = None,
       synchronizer: String = "",
-  ): AllocateExternalPartyRequest = {
-    val (onboardingTransactions, _) = generateExternalPartyOnboardingTransactions(
-      partyIdHint.getOrElse(nextPartyHintId()),
-      Seq(ParticipantId.tryFromProtoPrimitive(s"PAR::$participantId")),
-      shareNamespaceAndSigningKey = true,
-    )
-    AllocateExternalPartyRequest(
-      synchronizer = synchronizer,
-      onboardingTransactions = onboardingTransactions.transactionsWithSingleSignature.map {
-        case (transaction, signatures) =>
+  ): Future[AllocateExternalPartyRequest] = {
+    val signing = Signature.getInstance("Ed25519")
+    signing.initSign(keyPair.getPrivate)
+    for {
+      onboardingTransactions <- generateExternalPartyTopologyRequest(
+        keyPair.getPublic.getEncoded,
+        partyIdHint,
+      )
+    } yield {
+      signing.update(onboardingTransactions.multiHash.toByteArray)
+      AllocateExternalPartyRequest(
+        synchronizer = synchronizer,
+        onboardingTransactions = onboardingTransactions.topologyTransactions.map { transaction =>
           AllocateExternalPartyRequest.SignedTransaction(
-            transaction.getCryptographicEvidence,
-            signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+            transaction,
+            Seq.empty,
           )
-      },
-      multiHashSignatures = onboardingTransactions.multiTransactionSignatures.map(
-        _.toProtoV30.transformInto[iss.Signature]
-      ),
-      identityProviderId = "",
-    )
+        },
+        multiHashSignatures = Seq(
+          lapicrypto.Signature(
+            format = lapicrypto.SignatureFormat.SIGNATURE_FORMAT_RAW,
+            signature = ByteString.copyFrom(signing.sign()),
+            signedBy = onboardingTransactions.publicKeyFingerprint,
+            signingAlgorithmSpec = lapicrypto.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519,
+          )
+        ),
+        identityProviderId = "",
+      )
+    }
   }
 
   override def allocateExternalParty(
@@ -353,7 +377,9 @@ final class SingleParticipantTestContext private[participant] (
   override def allocateExternalPartyFromHint(
       partyIdHint: Option[String],
       minSynchronizers: Int,
-  ): Future[ExternalParty] =
+  ): Future[ExternalParty] = {
+    val keyGen = KeyPairGenerator.getInstance("Ed25519")
+    val keyPair = keyGen.generateKeyPair()
     for {
       connectedSynchronizerIds <- connectedSynchronizers()
       result <- MonadUtil.foldLeftM[Future, Option[AllocateExternalPartyResponse], String](
@@ -365,23 +391,23 @@ final class SingleParticipantTestContext private[participant] (
             .map(_.partyId)
             .map(PartyId.tryFromProtoPrimitive)
             .map(_.identifier.unwrap)
-        services.partyManagement
-          .allocateExternalParty(
-            allocateExternalPartyRequest(
-              partyIdHint
-                // otherwise use the dynamically generated party id as the party id hint, to allocate
-                // the same party across all synchronizers
-                .orElse(previouslyAllocatedPartyIdHint),
-              synchronizer = synchronizerId,
-            )
-          )
+        allocateExternalPartyRequest(
+          keyPair,
+          partyIdHint
+            // otherwise use the dynamically generated party id as the party id hint, to allocate
+            // the same party across all synchronizers
+            .orElse(previouslyAllocatedPartyIdHint),
+          synchronizer = synchronizerId,
+        ).flatMap(services.partyManagement.allocateExternalParty)
           .map(Some(_))
       }
     } yield Party.external(
       result.head.partyId,
-      NonEmpty.mk(Seq, UniqueIdentifier.tryFromProtoPrimitive(result.head.partyId).fingerprint),
+      UniqueIdentifier.tryFromProtoPrimitive(result.head.partyId).fingerprint,
+      keyPair,
       connectedSynchronizerIds.toList,
     )
+  }
 
   override def allocateParty(
       partyIdHint: Option[String] = None,
@@ -1189,31 +1215,24 @@ final class SingleParticipantTestContext private[participant] (
       packageIdSelectionPreference = Seq.empty,
       verboseHashing = false,
       prefetchContractKeys = Seq.empty,
+      maxRecordTime = Option.empty,
     )
 
   override def executeSubmissionRequest(
       party: ExternalParty,
       preparedTx: PrepareSubmissionResponse,
   ): ExecuteSubmissionRequest = {
-    import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
-    import io.scalaland.chimney.dsl.*
-    val signature = signTxAs(
-      preparedTx.preparedTransactionHash,
-      CantonExternalParty(
-        partyId = PartyId.tryFromProtoPrimitive(party.getValue),
-        signingFingerprints = party.signingFingerprints,
-      ),
-    )
+    val signature = party.signProto(preparedTx.preparedTransactionHash)
     ExecuteSubmissionRequest(
       preparedTransaction = preparedTx.preparedTransaction,
       partySignatures = Some(
         PartySignatures(
-          signature.toSeq.map { case (partyId, signatures) =>
+          Seq(
             SinglePartySignatures(
-              partyId.toProtoPrimitive,
-              signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+              party.underlying.getValue,
+              Seq(signature),
             )
-          }
+          )
         )
       ),
       deduplicationPeriod = ExecuteSubmissionRequest.DeduplicationPeriod.Empty,
@@ -1469,11 +1488,4 @@ final class SingleParticipantTestContext private[participant] (
     NonNegativeFiniteDuration.tryCreate(
       features.offsetCheckpoint.getMaxOffsetCheckpointEmissionDelay.asJava
     )
-
-  override val externalPartyExecutionContext: ExecutionContext = ec
-  override implicit protected val traceContext: TraceContext = TraceContext.empty
-  override val loggerFactory: SuppressingLogger = SuppressingLogger(getClass)
-  override val futureSupervisor: FutureSupervisor = FutureSupervisor.Noop
-  override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
-  override val wallClock: WallClock = new WallClock(timeouts, loggerFactory)
 }

@@ -12,10 +12,19 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSou
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
 /** See com.digitalasset.canton.platform.indexer.JdbcIndexer for semantics on these configurations.
+  *
+  *   - enableCompression: switches on compression for both consuming and non-consuming exercises,
+  *     equivalent to setting both enableCompressionConsumingExercise and
+  *     enableCompressionNonConsumingExercise to true. This is to maintain backward compatibility
+  *     with existing config files.
+  *   - enableCompressionConsumingExercise: switches on compression for consuming exercises
+  *   - enableCompressionNonConsumingExercise: switches on compression for non-consuming exercises
   */
 final case class IndexerConfig(
     batchingParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultBatchingParallelism),
     enableCompression: Boolean = DefaultEnableCompression,
+    enableCompressionConsumingExercise: Boolean = DefaultEnableCompression,
+    enableCompressionNonConsumingExercise: Boolean = DefaultEnableCompression,
     ingestionParallelism: NonNegativeInt = NonNegativeInt.tryCreate(DefaultIngestionParallelism),
     inputMappingParallelism: NonNegativeInt =
       NonNegativeInt.tryCreate(DefaultInputMappingParallelism),

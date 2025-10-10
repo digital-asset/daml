@@ -307,7 +307,6 @@ private class TranscodePackageMetadataBackedResolver(
 
     (for {
       userPreferences <-
-        // TODO(#27499): Support conflicting preferences (two package-ids with the same package-name)
         TranscodePackageIdResolver.resolvePackageNames(userPreferences, packageMetadataSnapshot)
       localPreferences <- packageNames.forgetNE.toList.traverse { packageName =>
         packageNameMap
@@ -366,6 +365,7 @@ object TranscodePackageIdResolver {
           .toRight(show"Package-id $packageId not known")
           .map(_ -> packageId)
       }
+      // TODO(#27500): support multiple preferences per package-name
       .map(_.toMap)
   }
 

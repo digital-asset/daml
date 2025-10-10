@@ -25,7 +25,6 @@ import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
 import com.digitalasset.canton.platform.config.IndexServiceConfig
 import com.digitalasset.canton.platform.index.IndexServiceOwner.GetPackagePreferenceForViewsUpgrading
-import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.common.MismatchException
 import com.digitalasset.canton.platform.store.cache.*
 import com.digitalasset.canton.platform.store.dao.events.{
@@ -39,6 +38,7 @@ import com.digitalasset.canton.platform.store.dao.{
   LedgerReadDao,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
+import com.digitalasset.canton.platform.store.{DbSupport, PruningOffsetService}
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
@@ -67,7 +67,8 @@ final class IndexServiceOwner(
     lfValueTranslation: LfValueTranslation,
     queryExecutionContext: ExecutionContextExecutorService,
     commandExecutionContext: ExecutionContextExecutorService,
-    cantonContractStore: ContractStore,
+    participantContractStore: ContractStore,
+    pruningOffsetService: PruningOffsetService,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
   private val initializationRetryDelay = 100.millis
@@ -79,6 +80,7 @@ final class IndexServiceOwner(
       stringInterning = inMemoryState.stringInterningView,
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
+      pruningOffsetService = pruningOffsetService,
       queryExecutionContext = queryExecutionContext,
       commandExecutionContext = commandExecutionContext,
     )
@@ -90,7 +92,7 @@ final class IndexServiceOwner(
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
-        contractStore = cantonContractStore,
+        contractStore = participantContractStore,
       )(commandExecutionContext)
 
       bufferedTransactionsReader = BufferedUpdateReader(
@@ -194,6 +196,7 @@ final class IndexServiceOwner(
       ledgerEndCache: LedgerEndCache,
       stringInterning: StringInterning,
       contractLoader: ContractLoader,
+      pruningOffsetService: PruningOffsetService,
       lfValueTranslation: LfValueTranslation,
       queryExecutionContext: ExecutionContextExecutorService,
       commandExecutionContext: ExecutionContextExecutorService,
@@ -216,7 +219,9 @@ final class IndexServiceOwner(
       incompleteOffsets = incompleteOffsets,
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
-    )
+      pruningOffsetService = pruningOffsetService,
+      contractStore = participantContractStore,
+    )(queryExecutionContext)
 
   private object InMemoryStateNotInitialized extends NoStackTrace
 }

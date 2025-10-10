@@ -2063,7 +2063,14 @@ object UpdateToDbDtoLegacySpec {
   private val compressionAlgorithmId = Some(123)
   private val compressionStrategy: CompressionStrategy = {
     val noCompression = new FieldCompressionStrategy(compressionAlgorithmId, x => x)
-    CompressionStrategy(noCompression, noCompression, noCompression, noCompression)
+    CompressionStrategy(
+      noCompression,
+      noCompression,
+      noCompression,
+      noCompression,
+      noCompression,
+      noCompression,
+    )
   }
 
   private val someParticipantId =

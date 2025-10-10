@@ -482,7 +482,7 @@ final class BlockChunkProcessor(
         warnIfApproximate = false,
       )
       synchronizerSuccessorO <- snapshot.ipsSnapshot
-        .isSynchronizerUpgradeOngoing()
+        .synchronizerUpgradeOngoing()
         .map(_.map { case (successor, _) => successor })
       allAcknowledgements = fixedTsChanges.collect { case (_, t @ Traced(Acknowledgment(_, ack))) =>
         t.map(_ => ack)

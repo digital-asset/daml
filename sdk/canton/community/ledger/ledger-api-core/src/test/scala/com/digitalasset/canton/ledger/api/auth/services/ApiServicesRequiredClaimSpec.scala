@@ -683,6 +683,7 @@ object ApiServicesRequiredClaimSpec {
       packageIdSelectionPreference = Seq.empty,
       verboseHashing = true,
       prefetchContractKeys = Seq.empty,
+      maxRecordTime = Option.empty,
     )
 
   val preparedTransaction = PreparedTransaction(
@@ -703,6 +704,7 @@ object ApiServicesRequiredClaimSpec {
         minLedgerEffectiveTime = None,
         maxLedgerEffectiveTime = None,
         globalKeyMapping = Seq.empty,
+        maxRecordTime = Option.empty,
       )
     ),
   )

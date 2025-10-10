@@ -211,9 +211,7 @@ private[upgrade] object LogicalUpgradeUtils {
       genesisStateFile: File,
   ) {
     def uid: UniqueIdentifier =
-      UniqueIdentifier.tryFromProtoPrimitive(
-        uidFile.contentAsString
-      )
+      UniqueIdentifier.tryFromProtoPrimitive(uidFile.contentAsString)
 
     def keys: Seq[(ByteString, Option[String])] =
       keyFiles.map { file =>

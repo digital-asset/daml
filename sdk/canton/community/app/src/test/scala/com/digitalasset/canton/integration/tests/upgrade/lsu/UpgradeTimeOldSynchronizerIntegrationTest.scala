@@ -64,10 +64,9 @@ class UpgradeTimeOldSynchronizerIntegrationTest
 
       participant1.synchronizers.connect_local(sequencer1, daName)
 
-      synchronizerOwners1.foreach { owner =>
-        owner.topology.synchronizer_upgrade.announcement
-          .propose(successorPSId, upgradeTime)
-      }
+      synchronizerOwners1.foreach(
+        _.topology.synchronizer_upgrade.announcement.propose(successorPSId, upgradeTime)
+      )
 
       eventually() {
         participant1.topology.synchronizer_upgrade.announcement
@@ -163,9 +162,13 @@ class UpgradeTimeOldSynchronizerIntegrationTest
       logger.debug("Ping failed")
       participant1.testing.fetch_synchronizer_times()
 
-      // TODO(#26580): Test also cancelling and updating the upgrade announcement, e.g.:
-      //  - cancel the upgrade announcement and check that the time is not offset (or that offsetting got removed and this was logged)
-      //  - update the upgrade announcement to a later time and check that the time offsetting is updated accordingly
+      val dynamicSynchronizerParameters = participant1.topology.synchronizer_parameters.latest(daId)
+
+      sequencer1.underlying.value.sequencer.timeTracker
+        .fetchTime()
+        .futureValueUS should be >= upgradeTime.plus(
+        dynamicSynchronizerParameters.decisionTimeout.asJava
+      )
 
       val cleanSynchronizerIndex = participant1.underlying.value.sync.stateInspection
         .getAcsInspection(daId)

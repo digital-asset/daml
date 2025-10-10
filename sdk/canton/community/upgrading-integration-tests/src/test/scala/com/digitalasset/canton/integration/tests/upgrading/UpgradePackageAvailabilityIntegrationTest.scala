@@ -17,7 +17,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
-import com.digitalasset.canton.topology.{ForceFlag, ForceFlags, PartyId}
+import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.Optional
@@ -62,12 +62,10 @@ sealed abstract class UpgradePackageAvailabilityIntegrationTest
       participant3.topology.vetted_packages.propose_delta(
         participant3,
         removes = Seq(Ref.PackageId.assertFromString(v1.upgrade.Quote.PACKAGE_ID)),
-        force = ForceFlags(ForceFlag.AllowUnvetPackage),
       )
 
       // Participant 4 (dan) has only ever had V2 loaded
       participant4.dars.upload(UpgradingBaseTest.UpgradeV2)
-
     }
 
   private def discloseQuote(

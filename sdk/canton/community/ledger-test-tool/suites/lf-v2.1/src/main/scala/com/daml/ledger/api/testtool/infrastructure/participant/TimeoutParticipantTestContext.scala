@@ -67,6 +67,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 
+import java.security.KeyPair
 import java.time.Instant
 import java.util.List as JList
 import java.util.concurrent.TimeoutException
@@ -229,10 +230,19 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
 
   override def allocateExternalPartyRequest(
+      keyPair: KeyPair,
       partyIdHint: Option[String] = None,
-      synchronizerId: String = "",
-  ): AllocateExternalPartyRequest =
-    delegate.allocateExternalPartyRequest(partyIdHint, synchronizerId)
+      synchronizer: String = "",
+  ): Future[AllocateExternalPartyRequest] =
+    delegate.allocateExternalPartyRequest(keyPair, partyIdHint, synchronizer)
+
+  override def generateExternalPartyTopologyRequest(
+      namespacePublicKey: Array[Byte],
+      partyIdHint: Option[String] = None,
+  ): Future[GenerateExternalPartyTopologyResponse] = withTimeout(
+    s"Generate topology transactions to allocate external party $partyIdHint",
+    delegate.generateExternalPartyTopologyRequest(namespacePublicKey, partyIdHint),
+  )
 
   override def allocateParty(
       partyIdHint: Option[String] = None,

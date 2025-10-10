@@ -9,7 +9,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.tracing.TraceContext
 
-/** Class to enrich [[com.digitalasset.canton.logging.ErrorLoggingContext]] with
+/** Class to enrich [[com.daml.logging.LoggingContext]] with
   * [[com.digitalasset.canton.tracing.TraceContext]]
   */
 class LoggingContextWithTrace(

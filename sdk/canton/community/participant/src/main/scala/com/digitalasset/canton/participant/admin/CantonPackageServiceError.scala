@@ -11,6 +11,7 @@ import com.digitalasset.base.error.{
   Explanation,
   Resolution,
 }
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PackageServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, ParentCantonError}
 import com.digitalasset.canton.ledger.api.VettedPackagesRef
@@ -236,14 +237,12 @@ object CantonPackageServiceError extends PackageServiceErrorGroup {
           id = "AMBIGUOUS_VETTING_REFERENCE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Reject(reference: VettedPackagesRef)(implicit
-          val loggingContext: ErrorLoggingContext
+      final case class Reject(reference: VettedPackagesRef, matchingPackages: Set[LfPackageId])(
+          implicit val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
-              s"The vetted package reference $reference matches more than one package in the package store."
+              show"The package reference $reference matches multiple packages: ${matchingPackages.toSeq}"
           )
     }
-
   }
-
 }

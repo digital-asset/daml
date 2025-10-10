@@ -12,7 +12,7 @@ import uuid
 from google.protobuf.json_format import MessageToJson
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2_grpc
 from com.daml.ledger.api.v2.interactive import interactive_submission_service_pb2
-from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2
+from com.daml.ledger.api.v2 import commands_pb2, value_pb2, completion_pb2, crypto_pb2
 from external_party_onboarding_admin_api import onboard_external_party
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
@@ -164,11 +164,11 @@ def execute_and_get_contract_id(
                 interactive_submission_service_pb2.SinglePartySignatures(
                     party=party,
                     signatures=[
-                        interactive_submission_service_pb2.Signature(
-                            format=interactive_submission_service_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
+                        crypto_pb2.Signature(
+                            format=crypto_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
                             signature=signature,
                             signed_by=pub_fingerprint,
-                            signing_algorithm_spec=interactive_submission_service_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
+                            signing_algorithm_spec=crypto_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
                         )
                     ],
                 )

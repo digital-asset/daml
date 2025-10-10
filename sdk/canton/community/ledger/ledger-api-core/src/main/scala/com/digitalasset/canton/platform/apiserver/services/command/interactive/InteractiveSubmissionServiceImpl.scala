@@ -16,6 +16,7 @@ import com.daml.ledger.api.v2.update_service.GetUpdateResponse
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
@@ -175,13 +176,19 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
 
-      evaluateAndHash(seedService.nextSeed(), request.commands, request.verboseHashing)
+      evaluateAndHash(
+        seedService.nextSeed(),
+        request.commands,
+        request.verboseHashing,
+        request.maxRecordTime,
+      )
     }
 
   private def evaluateAndHash(
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
       verboseHashing: Boolean,
+      maxRecordTime: Option[LfTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ErrorLoggingContext,
@@ -212,6 +219,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           commands,
           config.contractLookupParallelism,
           hashTracer,
+          maxRecordTime,
         )
         .leftWiden[RpcError]
       hashingDetails = hashTracer match {

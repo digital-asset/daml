@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive.
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PreparedTransaction
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
@@ -25,8 +26,11 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.platform.apiserver.execution.CommandExecutionResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.ExternalTransactionProcessor.PrepareResult
+import com.digitalasset.canton.platform.store.dao.events.InputContractPackages
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.util.collection.MapsUtil
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -89,91 +93,76 @@ class ExternalTransactionProcessor(
 
   private def lookupAndEnrichInputContracts(
       transaction: Transaction,
-      disclosedContracts: Seq[DisclosedContract],
+      disclosedContracts: Map[ContractId, LfFatContractInst],
       contractLookupParallelism: PositiveInt,
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace,
       executionContext: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, String, Map[ContractId, ExternalInputContract]] = {
-    val disclosedContractsByCoid =
-      disclosedContracts.groupMap(_.fatContractInstance.contractId)(_.fatContractInstance)
+
+    def lookupContract(coid: ContractId): FutureUnlessShutdown[LfFatContractInst] =
+      disclosedContracts.get(coid) match {
+        case Some(inst) =>
+          FutureUnlessShutdown.pure(inst)
+        case None =>
+          FutureUnlessShutdown
+            .outcomeF(contractStore.lookupContractState(coid))
+            .flatMap[LfFatContractInst] {
+
+              case active: ContractState.Active =>
+                FutureUnlessShutdown.pure(active.contractInstance)
+
+              // Engine interpretation likely would have failed if that was the case
+              // However it's possible that the contract was archived or pruned in the meantime
+              // That's not an issue however because if that was the case the transaction would have failed later
+              // anyway during conflict detection.
+              case ContractState.NotFound =>
+                FutureUnlessShutdown
+                  .failed(
+                    ConsistencyErrors.ContractNotFound
+                      .Reject(
+                        s"Contract was not found in the participant contract store. You must either explicitly disclose the contract, or prepare the transaction via a participant that has knowledge of it",
+                        coid,
+                      )
+                      .asGrpcError
+                  )
+              case ContractState.Archived =>
+                FutureUnlessShutdown
+                  .failed(
+                    CommandExecutionErrors.Interpreter.ContractNotActive
+                      .Reject(
+                        "Input contract has seemingly already been archived immediately after interpretation of the transaction",
+                        coid,
+                        None,
+                      )
+                      .asGrpcError
+                  )
+            }
+      }
 
     MonadUtil
-      .parTraverseWithLimit(contractLookupParallelism)(transaction.inputContracts.toList) {
-        inputCoid =>
-          // First check the disclosed contracts
-          disclosedContractsByCoid.get(inputCoid) match {
-            // We expect a single disclosed contract for a coid
-            case Some(Seq(originalFci)) =>
-              EitherT.liftF[FutureUnlessShutdown, String, (ContractId, ExternalInputContract)](
-                enricher.enrichContract(originalFci).map { enrichedFci =>
-                  val externalInputContract = ExternalInputContract(
-                    originalContract = originalFci,
-                    enrichedContract = enrichedFci,
-                  )
-                  externalInputContract.contractId -> externalInputContract
-                }
-              )
-            case Some(_) =>
-              EitherT.leftT[FutureUnlessShutdown, (ContractId, ExternalInputContract)](
-                s"Contract ID $inputCoid is not unique"
-              )
-            // If the contract is not disclosed, look it up from the store
-            case None =>
-              EitherT {
-                FutureUnlessShutdown
-                  .outcomeF(
-                    contractStore
-                      .lookupContractState(inputCoid)
-                  )
-                  .flatMap {
-                    case active: ContractState.Active =>
-                      val originalFci = active.contractInstance
-                      enricher
-                        .enrichContract(originalFci)
-                        .map { enrichedFci =>
-                          val externalInputContract = ExternalInputContract(
-                            originalContract = originalFci,
-                            enrichedContract = enrichedFci,
-                          )
-                          Right(externalInputContract.contractId -> externalInputContract)
-                        }
-                    // Engine interpretation likely would have failed if that was the case
-                    // However it's possible that the contract was archived or pruned in the meantime
-                    // That's not an issue however because if that was the case the transaction would have failed later
-                    // anyway during conflict detection.
-                    case ContractState.NotFound =>
-                      FutureUnlessShutdown
-                        .failed[Either[String, (ContractId, ExternalInputContract)]](
-                          ConsistencyErrors.ContractNotFound
-                            .Reject(
-                              s"Contract was not found in the participant contract store. You must either explicitly disclose the contract, or prepare the transaction via a participant that has knowledge of it",
-                              inputCoid,
-                            )
-                            .asGrpcError
-                        )
-                    case ContractState.Archived =>
-                      FutureUnlessShutdown
-                        .failed[Either[String, (ContractId, ExternalInputContract)]](
-                          CommandExecutionErrors.Interpreter.ContractNotActive
-                            .Reject(
-                              "Input contract has seemingly already been archived immediately after interpretation of the transaction",
-                              inputCoid,
-                              None,
-                            )
-                            .asGrpcError
-                        )
-                  }
-              }
-          }
+      .parTraverseWithLimit(contractLookupParallelism)(
+        InputContractPackages.forTransaction(transaction).toList
+      ) { case (inputCoid, targetPackageIds) =>
+        for {
+          original <- EitherT.right[String](lookupContract(inputCoid))
+          enriched <- enricher.enrichContract(original, targetPackageIds)
+        } yield {
+          inputCoid -> ExternalInputContract(
+            originalContract = original,
+            enrichedContract = enriched,
+          )
+        }
       }
       .map(_.toMap)
+
   }
 
   private def enrich(
       commandExecutionResult: CommandExecutionResult,
-      commands: ApiCommands,
+      disclosedContracts: Seq[DisclosedContract],
       contractLookupParallelism: PositiveInt,
+      maxRecordTime: Option[LfTimestamp],
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace,
       executionContext: ExecutionContext,
@@ -189,10 +178,21 @@ class ExternalTransactionProcessor(
           commandExecutionResult.commandInterpretationResult.transaction
         )
       )
+      disclosedContractMap <- EitherT.fromEither[FutureUnlessShutdown](
+        MapsUtil
+          .toNonConflictingMap(
+            disclosedContracts.map(_.fatContractInstance).map(c => c.contractId -> c)
+          )
+          .leftMap(err =>
+            CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(
+              s"Disclosed contracts contain non-unique contract IDs: $err"
+            )
+          )
+      )
       // Compute input contracts by looking them up either from disclosed contracts or the local store
       inputContracts <- lookupAndEnrichInputContracts(
         enrichedTransaction.transaction,
-        commands.disclosedContracts.toList,
+        disclosedContractMap,
         contractLookupParallelism,
       )
         .leftMap(CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(_))
@@ -207,6 +207,7 @@ class ExternalTransactionProcessor(
         synchronizerId = synchronizerId.logical,
         mediatorGroup = 0,
         transactionUUID = UUID.randomUUID(),
+        maxRecordTime = maxRecordTime,
       )
     } yield transactionData
 
@@ -217,6 +218,7 @@ class ExternalTransactionProcessor(
       commands: ApiCommands,
       contractLookupParallelism: PositiveInt,
       hashTracer: HashTracer,
+      maxRecordTime: Option[LfTimestamp],
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace,
       executionContext: ExecutionContext,
@@ -227,7 +229,12 @@ class ExternalTransactionProcessor(
   ] =
     for {
       // Enrich first
-      enriched <- enrich(commandExecutionResult, commands, contractLookupParallelism)
+      enriched <- enrich(
+        commandExecutionResult,
+        commands.disclosedContracts.toList,
+        contractLookupParallelism,
+        maxRecordTime,
+      )
       // Then encode
       encoded <- EitherT
         .liftF[

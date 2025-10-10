@@ -763,25 +763,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that the topology transactions weren't processed in the allotted time."""
-  )
-  @Resolution(
-    "Contact the node administrator to check the result of processing the topology transactions."
-  )
-  object TimeoutWaitingForTransaction
-      extends ErrorCode(
-        id = "TOPOLOGY_TIMEOUT_WAITING_FOR_TRANSACTION",
-        ErrorCategory.DeadlineExceededRequestStateUnknown,
-      ) {
-    final case class Failure()(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"The topology transactions weren't processed in the allotted time."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
     "This error indicates that there already exists a temporary topology store with the desired identifier."
   )
   @Resolution(
@@ -840,22 +821,44 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation("This error indicates that the successor synchronizer id is not valid.")
-  @Resolution(
-    "Change the successor synchronizer ID to have a protocol version that is the same as or newer than the current synchronizer's."
-  )
+  @Resolution("""Change the physical synchronizer id of the successor so that it satisfies:
+      |- it is greater than the current physical synchronizer id
+      |- it is greater than all previous synchronizer announcements
+      |""")
   object InvalidSynchronizerSuccessor
       extends ErrorCode(id = "TOPOLOGY_INVALID_SUCCESSOR", InvalidIndependentOfSystemState) {
     final case class Reject(
-        currentSynchronizerId: PhysicalSynchronizerId,
         successorSynchronizerId: PhysicalSynchronizerId,
+        details: String,
     )(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
           cause =
-            s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
+            s"The declared successor $successorSynchronizerId of synchronizer is not valid: $details"
         )
         with TopologyManagerError
 
+    object Reject {
+      def conflictWithCurrentPSId(
+          currentSynchronizerId: PhysicalSynchronizerId,
+          successorSynchronizerId: PhysicalSynchronizerId,
+      )(implicit loggingContext: ErrorLoggingContext): Reject =
+        Reject(
+          successorSynchronizerId,
+          s"successor id is not greater than current synchronizer id $currentSynchronizerId",
+        )
+
+      def conflictWithPreviousAnnouncement(
+          successorSynchronizerId: PhysicalSynchronizerId,
+          previouslyAnnouncedSuccessor: PhysicalSynchronizerId,
+      )(implicit loggingContext: ErrorLoggingContext): Reject =
+        Reject(
+          successorSynchronizerId = successorSynchronizerId,
+          details =
+            s"conflicts with previous announcement with successor $previouslyAnnouncedSuccessor",
+        )
+    }
   }
+
   @Explanation(
     "This error indicates that the synchronizer upgrade announcement specified an invalid upgrade time."
   )
@@ -881,24 +884,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   abstract class ParticipantErrorGroup extends ErrorGroup()
 
   object ParticipantTopologyManagerError extends ParticipantErrorGroup {
-    @Explanation(
-      """This error indicates that a dangerous package vetting command was rejected.
-        |This is the case when a command is revoking the vetting of a package.
-        |Use the force flag to revoke the vetting of a package."""
-    )
-    @Resolution("Set the ForceFlag.PackageVettingRevocation if you really know what you are doing.")
-    object DangerousVettingCommandsRequireForce
-        extends ErrorCode(
-          id = "TOPOLOGY_DANGEROUS_VETTING_COMMAND_REQUIRES_FORCE_FLAG",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Reject()(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(
-            cause = "Revoking a vetted package requires ForceFlag.PackageVettingRevocation"
-          )
-          with TopologyManagerError
-    }
-
     @Explanation(
       """This error indicates a vetting request failed due to dependencies not being vetted.
         |On every vetting request, the set supplied packages is analysed for dependencies. The

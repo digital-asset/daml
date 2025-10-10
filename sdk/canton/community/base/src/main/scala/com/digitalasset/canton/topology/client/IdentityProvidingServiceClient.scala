@@ -478,6 +478,13 @@ trait ParticipantTopologySnapshotClient {
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean]
 
+  def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]]
+
   /** Checks whether the provided participant exists, is active and can login at the given point in
     * time
     *
@@ -689,7 +696,7 @@ trait SynchronizerUpgradeClient {
     * synchronizer id of the successor of this synchronizer and the upgrade time. Otherwise, returns
     * None.
     */
-  def isSynchronizerUpgradeOngoing()(implicit
+  def synchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]]
 
@@ -878,6 +885,19 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   ): FutureUnlessShutdown[Boolean] =
     findParticipantState(participantId).map(_.isDefined)
 
+  override def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]] = for {
+    participantAttributesMap <- loadParticipantStates(participants.toSeq)
+  } yield {
+    participantAttributesMap.collect {
+      case (pid, attributes) if attributes.features.contains(feature) => pid
+    }.toSet
+  }
+
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
@@ -901,7 +921,6 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]]
-
 }
 
 private[client] trait PartyTopologySnapshotBaseClient {

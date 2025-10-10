@@ -377,10 +377,14 @@ class SequencerConnectionXPoolImpl private[sequencing] (
             }
         } yield {
           configRef.set(newConfig)
+          logger.info(s"Configuration updated to: $newConfig")
 
           // If the trust threshold is now reached, process it
           bootstrapIfThresholdReachedO.foreach(initializePool)
 
+          logger.debug(
+            s"Configuration update triggers the following connection changes: $changedConnections"
+          )
           updateTrackedConnections(
             toBeAdded = changedConnections.added,
             toBeRemoved = changedConnections.removed,
@@ -725,18 +729,21 @@ class GrpcSequencerConnectionXPoolFactory(
   import SequencerConnectionXPool.{SequencerConnectionXPoolConfig, SequencerConnectionXPoolError}
 
   override def create(
-      initialConfig: SequencerConnectionXPoolConfig
+      initialConfig: SequencerConnectionXPoolConfig,
+      name: String,
   )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
   ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] = {
+    val loggerWithPoolName = loggerFactory.append("pool", name)
+
     val connectionFactory = new GrpcInternalSequencerConnectionXFactory(
       clientProtocolVersions,
       minimumProtocolVersion,
       futureSupervisor,
       timeouts,
-      loggerFactory,
+      loggerWithPoolName,
     )
 
     for {
@@ -752,7 +759,7 @@ class GrpcSequencerConnectionXPoolFactory(
         seedForRandomnessO,
         futureSupervisor,
         timeouts,
-        loggerFactory,
+        loggerWithPoolName,
       )
     }
   }
@@ -761,6 +768,7 @@ class GrpcSequencerConnectionXPoolFactory(
       sequencerConnections: SequencerConnections,
       expectedPSIdO: Option[PhysicalSynchronizerId],
       tracingConfig: TracingConfig,
+      name: String,
   )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,
@@ -774,6 +782,6 @@ class GrpcSequencerConnectionXPoolFactory(
     )
     logger.debug(s"poolConfig = $poolConfig")
 
-    create(poolConfig)
+    create(poolConfig, name)
   }
 }

@@ -266,109 +266,103 @@ final class SyncStateInspection(
     EitherT.right(disabledCleaningF)
   }
 
-  // TODO(#26061) Fix this computation
-  def allProtocolVersions: Map[SynchronizerId, ProtocolVersion] =
-    syncPersistentStateManager.getAll.keySet
-      .map(id => id.logical -> id.protocolVersion)
-      .toMap
-
-  /*
-   TODO(#26061) If this method cannot be removed, ensure this is correct.
-   In particular, it does not make sense to do every step for each PS.
-   */
   def exportAcsDumpActiveContracts(
       outputStream: OutputStream,
       filterSynchronizerId: SynchronizerId => Boolean,
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
-      contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
       skipCleanTimestampCheck: Boolean,
       partiesOffboarding: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] = {
-    val allSynchronizers = syncPersistentStateManager.getAll
+    // To disable/re-enable background pruning
+    val allSynchronizers: Map[PhysicalSynchronizerId, SyncPersistentState] =
+      syncPersistentStateManager.getAll
+
+    // For the ACS export
+    val latestSynchronizers = syncPersistentStateManager.getAllLatest
+
+    def writeACSToStream(synchronizerId: SynchronizerId, state: SyncPersistentState) = {
+      val pv = state.staticSynchronizerParameters.protocolVersion
+
+      val acsInspection = state.acsInspection
+      val timeOfSnapshotO = timestamp.map(TimeOfChange.apply)
+      for {
+        result <- acsInspection
+          .forEachVisibleActiveContract(
+            synchronizerId.logical,
+            parties,
+            timeOfSnapshotO,
+            skipCleanTocCheck = skipCleanTimestampCheck,
+          ) { case (contractInst, reassignmentCounter) =>
+            (for {
+              contract <- SerializableContract.fromLfFatContractInst(contractInst.inst)
+              activeContract = ActiveContractOld.create(
+                synchronizerId,
+                contract,
+                reassignmentCounter,
+              )(pv)
+
+              _ <- activeContract.writeDelimitedTo(outputStream)
+            } yield ()) match {
+              case Left(errorMessage) =>
+                Left(
+                  AcsInspectionError.SerializationIssue(
+                    synchronizerId.logical,
+                    contractInst.contractId,
+                    errorMessage,
+                  )
+                )
+              case Right(_) =>
+                outputStream.flush()
+                Either.unit
+            }
+          }
+
+        _ <- result match {
+          case Some((allStakeholders, snapshotToc)) if partiesOffboarding =>
+            for {
+              connectedSynchronizer <- EitherT.fromOption[FutureUnlessShutdown](
+                connectedSynchronizersLookup.get(synchronizerId),
+                AcsInspectionError.OffboardingParty(
+                  synchronizerId.logical,
+                  s"Unable to get topology client for synchronizer $synchronizerId; check synchronizer connectivity.",
+                ),
+              )
+
+              _ <- acsInspection.checkOffboardingSnapshot(
+                participantId,
+                offboardedParties = parties,
+                allStakeholders = allStakeholders,
+                snapshotToc = snapshotToc,
+                topologyClient = connectedSynchronizer.topologyClient,
+              )
+            } yield ()
+
+          // Snapshot is empty or partiesOffboarding is false
+          case _ => EitherTUtil.unitUS[AcsInspectionError]
+        }
+      } yield ()
+    }
 
     // disable journal cleaning for the duration of the dump
-    disableJournalCleaningForFilter(allSynchronizers, filterSynchronizerId)
-      .mapK(FutureUnlessShutdown.outcomeK)
-      .flatMap { _ =>
-        MonadUtil.sequentialTraverse_(allSynchronizers) {
-          case (synchronizerId, state) if filterSynchronizerId(synchronizerId.logical) =>
-            val (synchronizerIdForExport, protocolVersion) =
-              contractSynchronizerRenames.getOrElse(
-                synchronizerId.logical,
-                (synchronizerId.logical, state.staticSynchronizerParameters.protocolVersion),
-              )
-            val acsInspection = state.acsInspection
-            val timeOfSnapshotO = timestamp.map(TimeOfChange.apply)
-            val ret = for {
-              result <- acsInspection
-                .forEachVisibleActiveContract(
-                  synchronizerId.logical,
-                  parties,
-                  timeOfSnapshotO,
-                  skipCleanTocCheck = skipCleanTimestampCheck,
-                ) { case (contractInst, reassignmentCounter) =>
-                  (for {
-                    contract <- SerializableContract.fromLfFatContractInst(contractInst.inst)
-                    activeContract =
-                      ActiveContractOld.create(
-                        synchronizerIdForExport,
-                        contract,
-                        reassignmentCounter,
-                      )(
-                        protocolVersion
-                      )
-                    _ <- activeContract.writeDelimitedTo(outputStream)
-                  } yield ()) match {
-                    case Left(errorMessage) =>
-                      Left(
-                        AcsInspectionError.SerializationIssue(
-                          synchronizerId.logical,
-                          contractInst.contractId,
-                          errorMessage,
-                        )
-                      )
-                    case Right(_) =>
-                      outputStream.flush()
-                      Either.unit
-                  }
-                }
-
-              _ <- result match {
-                case Some((allStakeholders, snapshotToc)) if partiesOffboarding =>
-                  for {
-                    connectedSynchronizer <- EitherT.fromOption[FutureUnlessShutdown](
-                      connectedSynchronizersLookup.get(synchronizerId),
-                      AcsInspectionError.OffboardingParty(
-                        synchronizerId.logical,
-                        s"Unable to get topology client for synchronizer $synchronizerId; check synchronizer connectivity.",
-                      ),
-                    )
-
-                    _ <- acsInspection.checkOffboardingSnapshot(
-                      participantId,
-                      offboardedParties = parties,
-                      allStakeholders = allStakeholders,
-                      snapshotToc = snapshotToc,
-                      topologyClient = connectedSynchronizer.topologyClient,
-                    )
-                  } yield ()
-
-                // Snapshot is empty or partiesOffboarding is false
-                case _ => EitherTUtil.unitUS[AcsInspectionError]
-              }
-
-            } yield ()
-            // re-enable journal cleaning after the dump
-            ret.thereafter { _ =>
-              journalCleaningControl.enable(synchronizerId)
-            }
-          case _ =>
-            EitherTUtil.unitUS
+    val res: EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
+      disableJournalCleaningForFilter(allSynchronizers, filterSynchronizerId)
+        .mapK(FutureUnlessShutdown.outcomeK)
+        .flatMap { _ =>
+          MonadUtil.sequentialTraverse_(latestSynchronizers) {
+            case (synchronizerId, state) if filterSynchronizerId(synchronizerId) =>
+              writeACSToStream(synchronizerId, state)
+            case _ =>
+              EitherTUtil.unitUS
+          }
         }
-      }
+
+    // re-enable journal cleaning after the dump
+    res.thereafter { _ =>
+      allSynchronizers.keys.foreach(journalCleaningControl.enable)
+    }
   }
 
   def contractCount(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =

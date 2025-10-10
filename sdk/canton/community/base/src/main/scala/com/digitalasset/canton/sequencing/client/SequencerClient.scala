@@ -51,6 +51,7 @@ import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.{
   HasSequencerSubscriptionFactoryPekko,
   SubscriptionControl,
 }
+import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
 import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSubscriptionPoolConfig
 import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements.FetchCleanTimestamp
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
@@ -192,8 +193,9 @@ trait RichSequencerClient extends SequencerClient {
   def healthComponent: CloseableHealthComponent
 
   def changeTransport(
-      sequencerTransports: SequencerTransports[?]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+      sequencerTransports: SequencerTransports[?],
+      newConnectionPoolConfigO: Option[SequencerConnectionXPoolConfig],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit]
 
   /** Future which is completed when the client is not functional any more and is ready to be
     * closed. The value with which the future is completed will indicate the reason for completion.
@@ -1187,12 +1189,8 @@ class RichSequencerClientImpl(
         )
 
         if (config.useNewConnectionPool) {
-          val subscriptionPoolConfig = SequencerSubscriptionPoolConfig(
-            trustThreshold = sequencerTransports.sequencerTrustThreshold,
-            livenessMargin = sequencerTransports.sequencerLivenessMargin,
-            subscriptionRequestDelay =
-              sequencerTransports.sequencerConnectionPoolDelays.subscriptionRequestDelay,
-          )
+          val subscriptionPoolConfig =
+            SequencerSubscriptionPoolConfig.fromSequencerTransports(sequencerTransports)
           val eventBatchProcessor = new EventBatchProcessor {
             override def process(
                 eventBatch: Seq[SequencedSerializedEvent]
@@ -1688,17 +1686,45 @@ class RichSequencerClientImpl(
         }(EitherT.leftT[FutureUnlessShutdown, Unit](_))
       }
 
-  def changeTransport(
-      sequencerTransports: SequencerTransports[?]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    sequencerAggregator.changeMessageAggregationConfig(
-      MessageAggregationConfig(
-        sequencerTransports.expectedSequencersO,
-        sequencerTransports.sequencerTrustThreshold,
+  override def changeTransport(
+      sequencerTransports: SequencerTransports[?],
+      newConnectionPoolConfigO: Option[SequencerConnectionXPoolConfig],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    for {
+      _ <-
+        EitherT.fromEither[FutureUnlessShutdown](if (config.useNewConnectionPool) {
+          val newConnectionPoolConfig = newConnectionPoolConfigO.getOrElse(
+            ErrorUtil.invalidState(
+              "Connection pool enabled, yet connection pool config not provided"
+            )
+          )
+
+          for {
+            _ <- connectionPool
+              .updateConfig(newConnectionPoolConfig)
+              .leftMap(error => s"Failed to update connection pool configuration: $error")
+          } yield {
+            sequencerSubscriptionPoolRef.get.foreach { subscriptionPool =>
+              val newSubscriptionPoolConfig =
+                SequencerSubscriptionPoolConfig.fromSequencerTransports(sequencerTransports)
+              subscriptionPool.updateConfig(newSubscriptionPoolConfig)
+            }
+          }
+        } else Either.unit)
+
+      _ = sequencerAggregator.changeMessageAggregationConfig(
+        MessageAggregationConfig(
+          sequencerTransports.expectedSequencersO,
+          sequencerTransports.sequencerTrustThreshold,
+        )
       )
-    )
-    FutureUnlessShutdown.outcomeF(sequencersTransportState.changeTransport(sequencerTransports))
-  }
+
+      _ <- EitherT.right(
+        FutureUnlessShutdown.outcomeF(
+          sequencersTransportState.changeTransport(sequencerTransports)
+        )
+      )
+    } yield ()
 
   private val subscriptionPoolCompletePromise = Promise[SequencerClient.CloseReason]()
 

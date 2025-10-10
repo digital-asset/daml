@@ -49,7 +49,8 @@ sealed trait GenContractInstance extends PrettyPrinting {
 }
 
 object ContractInstance {
-  private final case class ContractInstanceImpl[Time <: CreationTime](
+  // TODO(#28382) revert removal of private access modifier
+  final case class ContractInstanceImpl[Time <: CreationTime](
       override val inst: FatContractInstance { type CreatedAtTime = Time },
       override val metadata: ContractMetadata,
       override val serialization: ByteString,

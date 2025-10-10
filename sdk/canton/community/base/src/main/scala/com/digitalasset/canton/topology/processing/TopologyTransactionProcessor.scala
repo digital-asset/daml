@@ -32,6 +32,7 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
   SynchronizerUpgradeAnnouncement,
+  TopologyChangeOp,
   ValidatingTopologyMappingChecks,
 }
 import com.digitalasset.canton.topology.{
@@ -479,12 +480,14 @@ class TopologyTransactionProcessor(
        */
       validUpgradeAnnouncements = validTransactions
         .mapFilter(_.selectMapping[SynchronizerUpgradeAnnouncement])
-        .map(_.mapping)
 
-      // TODO(#26580) Handle cancellation
-      _ = validUpgradeAnnouncements.foreach(announcement =>
-        terminateProcessing.notifyUpgradeAnnouncement(announcement.successor)
-      )
+      _ = validUpgradeAnnouncements.foreach { announcement =>
+        announcement.operation match {
+          case TopologyChangeOp.Replace =>
+            terminateProcessing.notifyUpgradeAnnouncement(announcement.mapping.successor)
+          case TopologyChangeOp.Remove => terminateProcessing.notifyUpgradeCancellation()
+        }
+      }
 
       _ <- synchronizeWithClosing("notify-topology-transaction-observers")(
         MonadUtil.sequentialTraverse(listeners.get()) { listenerGroup =>

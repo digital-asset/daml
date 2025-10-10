@@ -10,8 +10,8 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   InteractiveSubmissionServiceGrpc,
   MinLedgerTime,
 }
-import com.daml.ledger.api.v2.package_reference
 import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
+import com.daml.ledger.api.v2.{crypto as lapicrypto, package_reference}
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
@@ -184,6 +184,7 @@ final case class JsPrepareSubmissionRequest(
     packageIdSelectionPreference: Seq[String],
     verboseHashing: Boolean = false,
     prefetchContractKeys: Seq[js.PrefetchContractKey] = Seq.empty,
+    maxRecordTime: Option[com.google.protobuf.timestamp.Timestamp],
 )
 
 final case class JsPrepareSubmissionResponse(
@@ -386,19 +387,17 @@ object JsInteractiveSubmissionServiceCodecs {
       : Codec[interactive_submission_service.SinglePartySignatures] =
     deriveRelaxedCodec
 
-  implicit val signatureRW: Codec[interactive_submission_service.Signature] =
+  implicit val signatureRW: Codec[lapicrypto.Signature] =
     deriveRelaxedCodec
 
-  implicit val signingAlgorithmSpecEncoder
-      : Encoder[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpecEncoder: Encoder[lapicrypto.SigningAlgorithmSpec] =
     stringEncoderForEnum()
-  implicit val signingAlgorithmSpecDecoder
-      : Decoder[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpecDecoder: Decoder[lapicrypto.SigningAlgorithmSpec] =
     stringDecoderForEnum()
 
-  implicit val signatureFormatDecoder: Decoder[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatDecoder: Decoder[lapicrypto.SignatureFormat] =
     stringDecoderForEnum()
-  implicit val signatureFormatEncoder: Encoder[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatEncoder: Encoder[lapicrypto.SignatureFormat] =
     stringEncoderForEnum()
 
   implicit val jsExecuteSubmissionRequestRW: Codec[JsExecuteSubmissionRequest] =
@@ -432,10 +431,10 @@ object JsInteractiveSubmissionServiceCodecs {
     deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
-  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
+  implicit val signatureFormatSchema: Schema[lapicrypto.SignatureFormat] =
     stringSchemaForEnum()
 
-  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val signingAlgorithmSpec: Schema[lapicrypto.SigningAlgorithmSpec] =
     stringSchemaForEnum()
 
   implicit val timeSchema: Schema[interactive_submission_service.MinLedgerTime.Time] =

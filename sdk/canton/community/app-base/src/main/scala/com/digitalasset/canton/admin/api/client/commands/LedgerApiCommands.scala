@@ -70,6 +70,7 @@ import com.daml.ledger.api.v2.command_submission_service.{
 }
 import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.crypto as lapicrypto
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
 import com.daml.ledger.api.v2.event_query_service.{
@@ -77,7 +78,6 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
-import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionServiceStub
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionAndWaitForTransactionRequest,
@@ -308,11 +308,11 @@ object LedgerApiCommands {
             onboardingTransactions = transactions.map { case (transaction, signatures) =>
               AllocateExternalPartyRequest.SignedTransaction(
                 transaction.getCryptographicEvidence,
-                signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+                signatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
               )
             },
             multiHashSignatures =
-              multiHashSignatures.map(_.toProtoV30.transformInto[iss.Signature]),
+              multiHashSignatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
             identityProviderId = "",
           )
         )
@@ -1581,6 +1581,7 @@ object LedgerApiCommands {
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
         prefetchContractKeys: Seq[PrefetchContractKey],
+        maxRecordTime: Option[CantonTimestamp],
     ) extends BaseCommand[
           PrepareSubmissionRequest,
           PrepareSubmissionResponse,
@@ -1604,6 +1605,7 @@ object LedgerApiCommands {
             packageIdSelectionPreference = packageIdSelectionPreference,
             verboseHashing = verboseHashing,
             prefetchContractKeys = prefetchContractKeys,
+            maxRecordTime = maxRecordTime.map(_.toProtoTimestamp),
           )
         )
 
@@ -1638,13 +1640,12 @@ object LedgerApiCommands {
 
       import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
       import io.scalaland.chimney.dsl.*
-      import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 
       private def makePartySignatures: PartySignatures = PartySignatures(
         transactionSignatures.map { case (party, signatures) =>
           SinglePartySignatures(
             party = party.toProtoPrimitive,
-            signatures = signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+            signatures = signatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
           )
         }.toSeq
       )

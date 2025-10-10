@@ -259,7 +259,7 @@ class PackageOpsImpl(
                   currentlyVettedPackages = currentPackages.map(_.packageId).toSet,
                   nextPackageIds = newAllPackages.map(_.packageId).toSet,
                   dryRunSnapshot = dryRunSnapshot,
-                  forceFlags = ForceFlags(ForceFlag.AllowUnvetPackage),
+                  forceFlags = ForceFlags.none,
                 )
                 .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
                 .map(_ => Option.empty[Set[VettedPackage]])
@@ -272,7 +272,7 @@ class PackageOpsImpl(
                 currentPackages,
                 newAllPackages,
                 currentSerial,
-                ForceFlags(ForceFlag.AllowUnvetPackage),
+                ForceFlags.none,
               )
             }
           // only synchronize with the connected synchronizers if a new VettedPackages transaction was actually issued

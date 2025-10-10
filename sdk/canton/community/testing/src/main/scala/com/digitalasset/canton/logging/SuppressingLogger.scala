@@ -127,6 +127,20 @@ class SuppressingLogger private[logging] (
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
     assertLogs(rule)(checkThrowable[T](the[Throwable] thrownBy within), assertions*)
 
+  def assertThrowsAndLogsSuppressingAsync[T <: Throwable](rule: SuppressionRule)(
+      within: => Future[_],
+      assertions: (LogEntry => Assertion)*
+  )(implicit c: ClassTag[T], pos: source.Position): Future[Assertion] =
+    assertLogs(rule)(
+      within.transform {
+        case Success(_) =>
+          fail(s"An exception of type $c was expected, but no exception was thrown.")
+        case Failure(c(_)) => Success(succeed)
+        case Failure(t) => fail(s"Exception has wrong type. Expected type: $c. Got: $t.", t)
+      }(directExecutionContext),
+      assertions *,
+    )
+
   def assertThrowsAndLogsAsync[T <: Throwable](
       within: => Future[_],
       assertion: T => Assertion,

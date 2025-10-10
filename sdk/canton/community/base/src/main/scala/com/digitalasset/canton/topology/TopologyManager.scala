@@ -28,7 +28,7 @@ import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKey
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
   IncreaseOfPreparationTimeRecordTimeTolerance,
-  ParticipantTopologyManagerError,
+  InvalidSynchronizerSuccessor,
   ValueOutOfBounds,
 }
 import com.digitalasset.canton.topology.processing.{
@@ -43,6 +43,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.{
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{
+  TimeQuery,
   TopologyStore,
   TopologyStoreId,
   ValidatedTopologyTransaction,
@@ -63,7 +64,8 @@ import com.digitalasset.canton.{LfPackageId, config}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.unused
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
+import scala.math.Ordered.orderingToOrdered
 
 trait TopologyManagerObserver {
   def addedNewTransactions(
@@ -405,9 +407,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     )
     for {
       existingTransaction <- findExistingTransaction(mapping)
-      tx <- build(op, mapping, serial, protocolVersion, existingTransaction).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      tx <- build(op, mapping, serial, protocolVersion, existingTransaction)
       signedTx <- signTransaction(
         tx,
         signingKeys,
@@ -504,7 +504,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       existingTransaction: Option[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyManagerError, TopologyTransaction[Op, M]] = {
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, TopologyTransaction[Op, M]] = {
     val existingTransactionTuple =
       existingTransaction.map(t => (t.operation, t.mapping, t.serial, t.signatures))
     for {
@@ -514,7 +514,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           EitherT.rightT(PositiveInt.one)
         case (None, Some(proposed)) =>
           // didn't find an existing transaction, therefore the proposed serial must be 1
-          EitherT.cond[Future][TopologyManagerError, PositiveInt](
+          EitherT.cond[FutureUnlessShutdown][TopologyManagerError, PositiveInt](
             proposed == PositiveInt.one,
             PositiveInt.one,
             TopologyManagerError.SerialMismatch.Failure(PositiveInt.one, proposed),
@@ -525,7 +525,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           // auto-select existing
           EitherT.rightT(existingSerial)
         case (Some((`op`, `mapping`, existingSerial, signatures)), Some(proposed)) =>
-          EitherT.cond[Future](
+          EitherT.cond[FutureUnlessShutdown](
             existingSerial == proposed,
             existingSerial,
             TopologyManagerError.MappingAlreadyExists
@@ -538,12 +538,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         case (Some((_, _, existingSerial, _)), Some(proposed)) =>
           // check that the proposed serial matches existing+1
           val next = existingSerial.increment
-          EitherT.cond[Future](
+          EitherT.cond[FutureUnlessShutdown](
             next == proposed,
             next,
             TopologyManagerError.SerialMismatch.Failure(next, proposed),
           )
-      }): EitherT[Future, TopologyManagerError, PositiveInt]
+      }): EitherT[FutureUnlessShutdown, TopologyManagerError, PositiveInt]
     } yield TopologyTransaction(op, theSerial, mapping, protocolVersion)
   }
 
@@ -736,14 +736,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         )
 
         transactionsInStore <- EitherT
-          .liftF(
-            store.findLatestTransactionsAndProposalsByTxHash(
-              transactions.map(_.hash).toSet
-            )
-          )
-        existingHashes = transactionsInStore
-          .map(tx => tx.hash -> tx)
-          .toMap
+          .liftF(store.findLatestTransactionsAndProposalsByTxHash(transactions.map(_.hash).toSet))
+
+        existingHashes = transactionsInStore.map(tx => tx.hash -> tx).toMap
+
         // find transactions that provide new signatures
         (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition {
           tx =>
@@ -833,6 +829,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
 
     case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
+
     case VettedPackages(participantId, newPackages) =>
       checkPackageVettingIsNotDangerous(
         participantId,
@@ -840,6 +837,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         forceChanges,
         transaction.mapping.code,
       )
+
     case PartyToParticipant(partyId, threshold, participants) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
@@ -848,6 +846,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         forceChanges,
         transaction.transaction.operation,
       )
+
+    case upgradeAnnouncement: SynchronizerUpgradeAnnouncement =>
+      if (transaction.operation == TopologyChangeOp.Replace)
+        checkSynchronizerUpgradeAnnouncementIsNotDangerous(upgradeAnnouncement, transaction.serial)
+      else EitherT.pure(())
+
     case _ => EitherT.rightT(())
   }
 
@@ -950,26 +954,55 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
             .getOrElse(Nil)
             .toSet
         }
-      _ <- checkPackageVettingRevocation(currentlyVettedPackages, newPackageIds, forceChanges)
       _ <- checkTransactionIsForCurrentNode(participantId, forceChanges, topologyMappingCode)
       _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, None, forceChanges)
     } yield ()
 
-  private def checkPackageVettingRevocation(
-      currentlyVettedPackages: Set[LfPackageId],
-      nextPackageIds: Set[LfPackageId],
-      forceChanges: ForceFlags,
+  private def checkSynchronizerUpgradeAnnouncementIsNotDangerous(
+      upgradeAnnouncement: SynchronizerUpgradeAnnouncement,
+      serial: PositiveInt,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val removed = currentlyVettedPackages -- nextPackageIds
-    val force = forceChanges.permits(ForceFlag.AllowUnvetPackage)
-    val changeIsDangerous = removed.nonEmpty
-    EitherT.cond(
-      !changeIsDangerous || force,
-      (),
-      ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce.Reject(),
-    )
+
+    val resF = store
+      .inspect(
+        proposals = false,
+        timeQuery = TimeQuery.Range(None, None),
+        asOfExclusiveO = None,
+        op = None,
+        types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
+        idFilter = None,
+        namespaceFilter = None,
+      )
+      .map { result =>
+        result
+          .collectOfMapping[SynchronizerUpgradeAnnouncement]
+          .result
+          .maxByOption(_.serial) match {
+          case None => ().asRight
+
+          case Some(latestUpgradeAnnouncement) =>
+            // If the latest is another upgrade, we want the PSId to be strictly greater
+            if (serial == latestUpgradeAnnouncement.serial)
+              ().asRight
+            else {
+              val previouslyAnnouncedSuccessorPSId =
+                latestUpgradeAnnouncement.mapping.successorSynchronizerId
+
+              Either.cond(
+                previouslyAnnouncedSuccessorPSId < upgradeAnnouncement.successorSynchronizerId,
+                (),
+                InvalidSynchronizerSuccessor.Reject.conflictWithPreviousAnnouncement(
+                  successorSynchronizerId = upgradeAnnouncement.successorSynchronizerId,
+                  previouslyAnnouncedSuccessor = previouslyAnnouncedSuccessorPSId,
+                ),
+              )
+            }
+        }
+      }
+
+    EitherT(resF)
   }
 
   private def checkPartyToParticipantIsNotDangerous(

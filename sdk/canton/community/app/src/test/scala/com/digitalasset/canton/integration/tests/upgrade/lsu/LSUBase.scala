@@ -4,7 +4,9 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.{NonNegativeFiniteDuration, RequireTypes}
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UsePostgres
@@ -13,8 +15,7 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.Syn
 import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
-import com.digitalasset.canton.version.ProtocolVersion.ProtocolVersionWithStatus
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionAnnotation}
+import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 /** This trait provides helpers for the logical synchronizer upgrade tests. The main goal is to
@@ -33,7 +34,8 @@ trait LSUBase
   protected var newSynchronizerNodes: SynchronizerNodes = _
   protected def newOldSequencers: Map[String, String]
   protected def newOldMediators: Map[String, String]
-  protected val newOldNodesResolution: Map[String, String] = newOldSequencers ++ newOldMediators
+  protected def newOldNodesResolution: Map[String, String] =
+    newOldSequencers ++ newOldMediators
 
   protected def upgradeTime: CantonTimestamp
 
@@ -50,6 +52,24 @@ trait LSUBase
       ConfigTransforms.useStaticTime,
     )
 
+  protected def fixtureWithDefaults(upgradeTime: CantonTimestamp = upgradeTime)(implicit
+      env: TestConsoleEnvironment
+  ): Fixture = {
+    val currentPSId = env.daId
+
+    Fixture(
+      currentPSId = currentPSId,
+      upgradeTime = upgradeTime,
+      oldSynchronizerNodes = oldSynchronizerNodes,
+      newSynchronizerNodes = newSynchronizerNodes,
+      newOldNodesResolution = newOldNodesResolution,
+      oldSynchronizerOwners = env.synchronizerOwners1,
+      newPV = ProtocolVersion.dev,
+      // increasing the serial as well, so that the test also works when running with PV=dev
+      newSerial = currentPSId.serial.increment.toNonNegative,
+    )
+  }
+
   /** Perform synchronizer side of the LSU:
     *
     *   - Upgrade announcement
@@ -58,16 +78,14 @@ trait LSUBase
     */
   protected def performSynchronizerNodesLSU(
       fixture: Fixture
-  )(implicit env: TestConsoleEnvironment): Unit = {
-    import env.*
-
-    synchronizerOwners1.foreach(
-      _.topology.synchronizer_upgrade.announcement.propose(fixture.newPSId, upgradeTime)
+  ): Unit = {
+    fixture.oldSynchronizerOwners.foreach(
+      _.topology.synchronizer_upgrade.announcement.propose(fixture.newPSId, fixture.upgradeTime)
     )
 
     migrateSynchronizerNodes(fixture)
 
-    oldSynchronizerNodes.sequencers.zip(newSynchronizerNodes.sequencers).foreach {
+    fixture.oldSynchronizerNodes.sequencers.zip(fixture.newSynchronizerNodes.sequencers).foreach {
       case (oldSequencer, newSequencer) =>
         oldSequencer.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
           sequencerId = oldSequencer.id,
@@ -85,37 +103,41 @@ trait LSUBase
   ): Unit = {
     exportNodesData(
       SynchronizerNodes(
-        sequencers = oldSynchronizerNodes.sequencers,
-        mediators = oldSynchronizerNodes.mediators,
+        sequencers = fixture.oldSynchronizerNodes.sequencers,
+        mediators = fixture.oldSynchronizerNodes.mediators,
       )
     )
 
     // Migrate nodes preserving their data (and IDs)
-    newSynchronizerNodes.all.foreach { newNode =>
+    fixture.newSynchronizerNodes.all.foreach { newNode =>
       migrateNode(
         migratedNode = newNode,
         newStaticSynchronizerParameters = fixture.newStaticSynchronizerParameters,
         synchronizerId = fixture.currentPSId,
-        newSequencers = newSynchronizerNodes.sequencers,
+        newSequencers = fixture.newSynchronizerNodes.sequencers,
         exportDirectory = baseExportDirectory,
-        sourceNodeNames = newOldNodesResolution,
+        sourceNodeNames = fixture.newOldNodesResolution,
       )
     }
   }
 }
 
 private[lsu] object LSUBase {
-  final case class Fixture(currentPSId: PhysicalSynchronizerId, upgradeTime: CantonTimestamp) {
-    val newPV: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] = ProtocolVersion.dev
-
-    // increasing the serial as well, so that the test also works when running with PV=dev
-    val newSerial: RequireTypes.NonNegativeNumeric[Int] = currentPSId.serial.increment.toNonNegative
-
+  final case class Fixture(
+      currentPSId: PhysicalSynchronizerId,
+      upgradeTime: CantonTimestamp,
+      oldSynchronizerNodes: SynchronizerNodes,
+      newSynchronizerNodes: SynchronizerNodes,
+      newOldNodesResolution: Map[String, String],
+      oldSynchronizerOwners: Set[InstanceReference],
+      newPV: ProtocolVersion,
+      newSerial: NonNegativeInt,
+  ) {
     val newStaticSynchronizerParameters: StaticSynchronizerParameters =
       StaticSynchronizerParameters.defaultsWithoutKMS(
         newPV,
         newSerial,
-        topologyChangeDelay = NonNegativeFiniteDuration.Zero,
+        topologyChangeDelay = config.NonNegativeFiniteDuration.Zero,
       )
 
     val newPSId: PhysicalSynchronizerId =

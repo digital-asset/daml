@@ -7,6 +7,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.ArrayBuffer
@@ -27,7 +28,7 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
   override def getOrCreateIndex(
       dbTyp: IndexedStringType,
       str: String300,
-  ): FutureUnlessShutdown[Int] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     FutureUnlessShutdown.pure(getOrCreateIndexForTesting(dbTyp, str))
 
   /** @throws java.lang.IllegalArgumentException
@@ -51,7 +52,7 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
   override def getForIndex(
       dbTyp: IndexedStringType,
       idx: Int,
-  ): FutureUnlessShutdown[Option[String300]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[String300]] =
     FutureUnlessShutdown.pure {
       blocking {
         synchronized {

@@ -385,10 +385,7 @@ trait PackageUploadIntegrationTest
                 LogEntryOptionality.Required,
                 logEntry =>
                   logEntry.shouldBeOneOfCommandFailure(
-                    Seq(
-                      TopologyManagerError.SerialMismatch,
-                      TopologyManagerError.ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce,
-                    ),
+                    Seq(TopologyManagerError.SerialMismatch),
                     path,
                   ),
               )

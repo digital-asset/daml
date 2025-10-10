@@ -619,12 +619,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           additional_witnesses = Some(Set.empty),
           exercise_choice = exerciseNode.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdConsumingArg, emptyArray)),
+          exercise_result = Some(compressArrayWith(compressionAlgorithmIdConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdConsumingRes,
           reassignment_id = None,
           assignment_exclusivity = None,
           target_synchronizer_id = None,
@@ -749,12 +750,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(true),
           exercise_choice = exerciseNode.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdConsumingArg, emptyArray)),
+          exercise_result = Some(compressArrayWith(compressionAlgorithmIdConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNode.targetCoid),
           internal_contract_id = None,
@@ -875,12 +877,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNode.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNode.targetCoid),
           internal_contract_id = None,
@@ -1009,12 +1013,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeA.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(createNodeCId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeA.targetCoid),
           internal_contract_id = None,
@@ -1047,12 +1053,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeB.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeBId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeB.targetCoid),
           internal_contract_id = None,
@@ -1228,12 +1236,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeA.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(createNodeCId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeA.targetCoid),
           internal_contract_id = None,
@@ -1266,12 +1276,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeB.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeBId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeB.targetCoid),
           internal_contract_id = None,
@@ -1463,12 +1475,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeA.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeDId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeA.targetCoid),
           internal_contract_id = None,
@@ -1501,12 +1515,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeB.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeBId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeB.targetCoid),
           internal_contract_id = None,
@@ -1539,12 +1555,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeC.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeDId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeC.targetCoid),
           internal_contract_id = None,
@@ -1577,12 +1595,14 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           consuming = Some(false),
           exercise_choice = exerciseNodeD.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingArg, emptyArray)),
+          exercise_result =
+            Some(compressArrayWith(compressionAlgorithmIdNonConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeDId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdNonConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdNonConsumingRes,
           representative_package_id = None,
           contract_id = Some(exerciseNodeD.targetCoid),
           internal_contract_id = None,
@@ -1771,12 +1791,13 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           additional_witnesses = Some(Set("divulgee")),
           exercise_choice = exerciseNode.choiceId,
           exercise_choice_interface_id = None,
-          exercise_argument = Some(emptyArray),
-          exercise_result = Some(emptyArray),
+          exercise_argument =
+            Some(compressArrayWith(compressionAlgorithmIdConsumingArg, emptyArray)),
+          exercise_result = Some(compressArrayWith(compressionAlgorithmIdConsumingRes, emptyArray)),
           exercise_actors = Some(Set("signatory")),
           exercise_last_descendant_node_id = Some(exerciseNodeId.index),
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
+          exercise_argument_compression = compressionAlgorithmIdConsumingArg,
+          exercise_result_compression = compressionAlgorithmIdConsumingRes,
           reassignment_id = None,
           assignment_exclusivity = None,
           target_synchronizer_id = None,
@@ -1946,12 +1967,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         additional_witnesses = Some(Set("divulgee")),
         exercise_choice = Some(exerciseNode.choiceId),
         exercise_choice_interface_id = Some(interfaceId.toString),
-        exercise_argument = Some(emptyArray),
-        exercise_result = Some(emptyArray),
+        exercise_argument = Some(compressArrayWith(compressionAlgorithmIdConsumingArg, emptyArray)),
+        exercise_result = Some(compressArrayWith(compressionAlgorithmIdConsumingRes, emptyArray)),
         exercise_actors = Some(Set("signatory")),
         exercise_last_descendant_node_id = Some(exerciseNodeId.index),
-        exercise_argument_compression = compressionAlgorithmId,
-        exercise_result_compression = compressionAlgorithmId,
+        exercise_argument_compression = compressionAlgorithmIdConsumingArg,
+        exercise_result_compression = compressionAlgorithmIdConsumingRes,
         reassignment_id = None,
         assignment_exclusivity = None,
         target_synchronizer_id = None,
@@ -2791,11 +2812,34 @@ object UpdateToDbDtoSpec {
 
   // These test do not check the correctness of compression.
   // All values are compressed using a dummy (identity) algorithm in this suite.
-  private val compressionAlgorithmId = Some(123)
-  private val compressionStrategy: CompressionStrategy = {
-    val noCompression = new FieldCompressionStrategy(compressionAlgorithmId, x => x)
-    CompressionStrategy(noCompression, noCompression, noCompression, noCompression)
-  }
+  private val compressionAlgorithmIdInvalid = Some(12)
+  private val compressionAlgorithmIdConsumingArg = Some(13)
+  private val compressionAlgorithmIdConsumingRes = Some(14)
+  private val compressionAlgorithmIdNonConsumingArg = Some(15)
+  private val compressionAlgorithmIdNonConsumingRes = Some(16)
+  private val compressionStrategy: CompressionStrategy = CompressionStrategy(
+    new FieldCompressionStrategy(compressionAlgorithmIdInvalid, x => x),
+    new FieldCompressionStrategy(compressionAlgorithmIdInvalid, x => x),
+    new FieldCompressionStrategy(
+      compressionAlgorithmIdConsumingArg,
+      compressArrayWith(compressionAlgorithmIdConsumingArg, _),
+    ),
+    new FieldCompressionStrategy(
+      compressionAlgorithmIdConsumingRes,
+      compressArrayWith(compressionAlgorithmIdConsumingRes, _),
+    ),
+    new FieldCompressionStrategy(
+      compressionAlgorithmIdNonConsumingArg,
+      compressArrayWith(compressionAlgorithmIdNonConsumingArg, _),
+    ),
+    new FieldCompressionStrategy(
+      compressionAlgorithmIdNonConsumingRes,
+      compressArrayWith(compressionAlgorithmIdNonConsumingRes, _),
+    ),
+  )
+
+  private def compressArrayWith(id: Option[Int], x: Array[Byte]) =
+    x ++ Array(id.getOrElse(-1).toByte)
 
   private val someParticipantId =
     Ref.ParticipantId.assertFromString("UpdateToDbDtoSpecParticipant")

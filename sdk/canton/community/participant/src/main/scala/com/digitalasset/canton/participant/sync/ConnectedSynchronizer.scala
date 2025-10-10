@@ -132,7 +132,7 @@ class ConnectedSynchronizer(
     private[sync] val persistent: SyncPersistentState,
     val ephemeral: SyncEphemeralState,
     val packageService: PackageService,
-    synchronizerCrypto: SynchronizerCryptoClient,
+    val synchronizerCrypto: SynchronizerCryptoClient,
     contractValidator: ContractValidator,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
@@ -221,6 +221,7 @@ class ConnectedSynchronizer(
     packageResolver = packageResolver,
     testingConfig = testingConfig,
     promiseUSFactory,
+    parameters.loggingConfig.api.messagePayloads,
   )
 
   private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
@@ -1045,6 +1046,8 @@ object ConnectedSynchronizer {
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           parameters.batchingConfig,
+          doNotAwaitOnCheckingIncomingCommitments =
+            parameters.doNotAwaitOnCheckingIncomingCommitments,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick

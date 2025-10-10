@@ -431,7 +431,7 @@ class SequencerRuntime(
         .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
       // Note: we use head snapshot as we want the latest announced upgrade anyway, an overlapping update is idempotent
       synchronizerUpgradeO <- EitherT.right(
-        topologyClient.headSnapshot.isSynchronizerUpgradeOngoing()
+        topologyClient.headSnapshot.synchronizerUpgradeOngoing()
       )
     } yield {
       synchronizerUpgradeO.foreach { case (successor, effectiveTime) =>

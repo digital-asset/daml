@@ -16,7 +16,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseReferenceBlockSequencer,
 }
 import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.SynchronizerNodes
-import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import monocle.macros.syntax.lens.*
 
 /*
@@ -75,7 +74,7 @@ abstract class LSURestartIntegrationTest extends LSUBase {
     "work when participants are restarted" in { implicit env =>
       import env.*
 
-      val fixture = Fixture(daId, upgradeTime)
+      val fixture = fixtureWithDefaults()
 
       participant1.health.ping(participant1)
 

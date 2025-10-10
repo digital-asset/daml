@@ -54,6 +54,8 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
       case AllMembersOfSynchronizer => AllMembersOfSynchronizer
     }
 
+  lazy val isBroadcast: Boolean = allRecipients.contains(AllMembersOfSynchronizer)
+
   private[protocol] def toProtoV30: v30.CompressedBatch = {
     val batch = v30.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV30))
     val compressed = ByteStringUtil.compressGzip(checkedToByteString(batch))

@@ -27,7 +27,11 @@ import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
 
 object InteractiveSubmissionService {
-  final case class PrepareRequest(commands: Commands, verboseHashing: Boolean)
+  final case class PrepareRequest(
+      commands: Commands,
+      verboseHashing: Boolean,
+      maxRecordTime: Option[LfTimestamp],
+  )
 
   final case class ExecuteRequest(
       userId: UserId,

@@ -66,14 +66,14 @@ class DbReassignmentStore(
 
   private def indexedSynchronizerF[T[_]: SingletonTraverse](
       synchronizerId: T[SynchronizerId]
-  ): FutureUnlessShutdown[T[IndexedSynchronizer]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[T[IndexedSynchronizer]] =
     synchronizerId.traverseSingleton((_, synchronizerId) =>
       IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId)
     )
 
   private def indexedSynchronizerET[E, T[_]: SingletonTraverse](
       synchronizerId: T[SynchronizerId]
-  ): EitherT[FutureUnlessShutdown, E, T[IndexedSynchronizer]] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, E, T[IndexedSynchronizer]] =
     EitherT.right[E](indexedSynchronizerF(synchronizerId))
 
   private def synchronizerIdF(

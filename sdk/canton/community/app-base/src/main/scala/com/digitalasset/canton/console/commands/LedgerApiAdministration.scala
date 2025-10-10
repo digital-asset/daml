@@ -673,6 +673,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           verboseHashing: Boolean = false,
           prefetchContractKeys: Seq[PrefetchContractKey] = Seq.empty,
+          maxRecordTime: Option[CantonTimestamp] = None,
       ): PrepareResponseProto =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -688,6 +689,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               userPackageSelectionPreference,
               verboseHashing,
               prefetchContractKeys,
+              maxRecordTime,
             )
           )
         }
@@ -2465,6 +2467,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             verboseHashing: Boolean = false,
             prefetchContractKeys: Seq[javab.data.PrefetchContractKey] = Seq.empty,
+            maxRecordTime: Option[CantonTimestamp] = None,
         ): PrepareResponseProto =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -2480,6 +2483,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 userPackageSelectionPreference,
                 verboseHashing,
                 prefetchContractKeys.map(k => PrefetchContractKey.fromJavaProto(k.toProto)),
+                maxRecordTime,
               )
             )
           }

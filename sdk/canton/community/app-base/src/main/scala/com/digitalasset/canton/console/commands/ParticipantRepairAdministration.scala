@@ -192,8 +192,6 @@ class ParticipantRepairAdministration(
       outputFile: String = ParticipantRepairAdministration.ExportAcsDefaultFile,
       filterSynchronizerId: Option[SynchronizerId] = None,
       timestamp: Option[Instant] = None,
-      contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)] =
-        Map.empty,
       force: Boolean = false,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =
@@ -211,7 +209,6 @@ class ParticipantRepairAdministration(
                 filterSynchronizerId,
                 timestamp,
                 responseObserver,
-                contractSynchronizerRenames,
                 force = force,
               )
           )

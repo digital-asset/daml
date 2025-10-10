@@ -76,6 +76,7 @@ generate_grpc_service() {
 echo "Generating python code from protobuf definitions"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/commands.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/completion.proto"
+generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/crypto.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/event.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/offset_checkpoint.proto"
 generate_grpc_code "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/reassignment.proto"

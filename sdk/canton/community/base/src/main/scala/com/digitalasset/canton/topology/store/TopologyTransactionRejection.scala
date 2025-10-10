@@ -262,7 +262,7 @@ object TopologyTransactionRejection {
       s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidSynchronizerSuccessor.Reject(
+      TopologyManagerError.InvalidSynchronizerSuccessor.Reject.conflictWithCurrentPSId(
         currentSynchronizerId,
         successorSynchronizerId,
       )

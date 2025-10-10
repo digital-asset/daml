@@ -18,6 +18,10 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgrade.UpgradabilityCheckResult
 import com.digitalasset.canton.resource.DbExceptionRetryPolicy
+import com.digitalasset.canton.topology.transaction.{
+  SynchronizerUpgradeAnnouncement,
+  TopologyMapping,
+}
 import com.digitalasset.canton.topology.{
   KnownPhysicalSynchronizerId,
   PhysicalSynchronizerId,
@@ -133,8 +137,48 @@ final class LogicalSynchronizerUpgrade(
 
     logger.info(s"Upgrade from $currentPSId to $successorPSId")
 
+    // Ensure upgraded is not attempted if announcement was revoked
+    def ensureUpgradeOngoing(): EitherT[FutureUnlessShutdown, String, Unit] = for {
+      topologyStore <- EitherT.fromOption[FutureUnlessShutdown](
+        syncPersistentStateManager.get(currentPSId).map(_.topologyManager.store),
+        "Unable to find topology store",
+      )
+
+      announcements <- EitherT
+        .liftF(
+          topologyStore.findPositiveTransactions(
+            asOf = synchronizerSuccessor.upgradeTime,
+            asOfInclusive = false,
+            isProposal = false,
+            types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
+            filterUid = None,
+            filterNamespace = None,
+          )
+        )
+        .map(_.collectOfMapping[SynchronizerUpgradeAnnouncement])
+        .map(_.result.map(_.transaction.mapping))
+
+      _ <- announcements match {
+        case Seq() => EitherT.leftT[FutureUnlessShutdown, Unit]("No synchronizer upgrade ongoing")
+        case Seq(head) =>
+          EitherT.cond[FutureUnlessShutdown](
+            head.successor == synchronizerSuccessor,
+            (),
+            s"Expected synchronizer successor to be $synchronizerSuccessor but found ${head.successor} in topology state",
+          )
+        case _more =>
+          EitherT.liftF[FutureUnlessShutdown, String, Unit](
+            FutureUnlessShutdown.failed(
+              new IllegalStateException("Found several SynchronizerUpgradeAnnouncement")
+            )
+          )
+      }
+    } yield ()
+
     performIfNotUpgradedYet(successorPSId)(
       for {
+        _ <- ensureUpgradeOngoing()
+
         upgradabilityCheckResult <- EitherT[FutureUnlessShutdown, String, UpgradabilityCheckResult](
           retryPolicy.unlessShutdown(
             upgradabilityCheck(alias, currentPSId, synchronizerSuccessor),
