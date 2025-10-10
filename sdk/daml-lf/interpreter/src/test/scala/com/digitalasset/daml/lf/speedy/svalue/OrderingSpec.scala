@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.speedy
 package svalue
 
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Ref, Text, Time}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.test.ValueGenerators.comparableCoidsGen
@@ -80,7 +80,7 @@ class OrderingSpec
       ("comparable value subset", "generator"),
       Seq(
         r("Int64", VA.int64)(SInt64),
-        r("Text", VA.text)(SText),
+        r("Text", VA.text)(x => SText(Text.assertFromString(x))),
         r("Int64 Option List", VA.list(VA.optional(VA.int64))) { loi =>
           SList(loi.map(oi => SOptional(oi map SInt64)).to(FrontStack))
         },

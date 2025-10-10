@@ -189,7 +189,8 @@ object Ref {
 
   final case class QualifiedName private (module: ModuleName, name: DottedName)
       extends Ordered[QualifiedName] {
-    override def toString: String = module.toString + ":" + name.toString
+    def toText: Text = Text.unsafeFromString(module.toString + ":" + name.toString)
+    override def toString: String = toText
     def qualifiedName: String = toString
 
     override def compare(that: QualifiedName): Int = {
@@ -221,7 +222,9 @@ object Ref {
 
   final case class FullReference[X](pkg: X, qualifiedName: QualifiedName) {
 
-    override def toString = s"$pkg:${qualifiedName.toString}"
+    def toText: Text = Text.unsafeFromString(s"$pkg:${qualifiedName.toText}")
+
+    override def toString = toText
 
     // to keep backward compatibility of Identifier#packageId
     def packageId(implicit ev: X <:< PackageId): PackageId = ev(pkg)
@@ -237,6 +240,7 @@ object Ref {
 
     def toRef(implicit ev: X <:< PackageId): TypeConRef =
       copy(pkg = PackageRef.Id(pkg))
+
   }
 
   object FullReference {

@@ -34,7 +34,7 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def n(scale: Int, x: BigDecimal): Numeric = Numeric.assertFromBigDecimal(scale, x)
   private def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))
-  private def s(scale: Int, x: BigDecimal): String = Numeric.toString(n(scale, x))
+  private def s(scale: Int, x: BigDecimal): String = Numeric.toText(n(scale, x))
   private def s(scale: Int, str: String): String = s(scale, BigDecimal(str))
 
   private def tenPowerOf(i: Int, scale: Int) =
@@ -116,7 +116,7 @@ class SBuiltinBigNumericTest(majorLanguageVersion: LanguageMajorVersion)
         forEvery(testCases) { (exp, regexp) =>
           val p = regexp.r.pattern
           inside(eval(e"BIGNUMERIC_TO_TEXT $exp")) {
-            case Right(SText(x)) if p.matcher(x).find() =>
+            case Right(SText(x)) if p.matcher(x.toString).find() =>
           }
         }
       }

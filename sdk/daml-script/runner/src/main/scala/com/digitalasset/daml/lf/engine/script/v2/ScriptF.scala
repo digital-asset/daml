@@ -9,7 +9,7 @@ package v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Text, Utf8}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -133,12 +133,12 @@ object ScriptF {
         mat: Materializer,
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = {
-      def makeFailureStatus(name: Identifier, msg: String) =
+      def makeFailureStatus(name: Identifier, msg: Text) =
         Future.failed(
           free.InterpretationError(
             SError.SErrorDamlException(
               IE.FailureStatus(
-                "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
+                Text.assertFromString("UNHANDLED_EXCEPTION/" + name.qualifiedName.toString),
                 Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
                 msg,
                 Map(),
@@ -162,14 +162,17 @@ object ScriptF {
               ),
               true,
             ) =>
-          makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
+          makeFailureStatus(
+            userAlreadyExists,
+            Text.assertFromString("User already exists: " + userId),
+          )
         case (
               SAnyException(
                 SRecord(`userNotFound`, _, ArraySeq(SRecord(_, _, ArraySeq(SText(userId)))))
               ),
               true,
             ) =>
-          makeFailureStatus(userNotFound, "User not found: " + userId)
+          makeFailureStatus(userNotFound, Text.assertFromString("User not found: " + userId))
         case _ => Future.successful(SBThrow(SEValue(exc)))
       }
     }
@@ -318,7 +321,9 @@ object ScriptF {
           case (Right(_), MustFail) =>
             Future.failed(
               SError.SErrorDamlException(
-                interpretation.Error.UserError("Expected submit to fail but it succeeded")
+                interpretation.Error.UserError(
+                  Text.assertFromString("Expected submit to fail but it succeeded")
+                )
               )
             )
           case (Right((commandResults, tree)), _) =>
@@ -414,7 +419,7 @@ object ScriptF {
                 makeTuple(
                   _,
                   Converter.fromTemplateTypeRep(c.templateId),
-                  SText(c.blob.toHexString),
+                  SText(HexString.toText(c.blob.toHexString)),
                 )
               )
           )
@@ -667,7 +672,13 @@ object ScriptF {
       val message = HexString.decode(HexString.assertFromString(msg))
       val messageDigest = HexString.assertFromString(Utf8.sha256(message))
 
-      SEValue(SText(MessageSignatureUtil.sign(messageDigest, privateKey, deterministicRandomSrc)))
+      SEValue(
+        SText(
+          HexString.toText(
+            MessageSignatureUtil.sign(messageDigest, privateKey, deterministicRandomSrc)
+          )
+        )
+      )
     }
   }
 
@@ -686,7 +697,11 @@ object ScriptF {
       val privateKey = KeyFactory.getInstance("EC").generatePrivate(keySpec)
       val message = HexString.assertFromString(msg)
 
-      SEValue(SText(MessageSignatureUtil.sign(message, privateKey, deterministicRandomSrc)))
+      SEValue(
+        SText(
+          HexString.toText(MessageSignatureUtil.sign(message, privateKey, deterministicRandomSrc))
+        )
+      )
     }
   }
 
@@ -697,8 +712,10 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] = Future {
       val keyPair = MessageSignatureUtil.generateKeyPair
-      val privateKey = HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded))
-      val publicKey = HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded))
+      val privateKey =
+        HexString.toText(HexString.encode(Bytes.fromByteArray(keyPair.getPrivate.getEncoded)))
+      val publicKey =
+        HexString.toText(HexString.encode(Bytes.fromByteArray(keyPair.getPublic.getEncoded)))
 
       import com.daml.script.converter.Converter.record
       SEValue(
@@ -723,7 +740,8 @@ object ScriptF {
       val errorOption =
         UserId.fromString(userName) match {
           case Right(_) => None // valid
-          case Left(message) => Some(SText(message)) // invalid; with error message
+          case Left(message) =>
+            Some(SText(Text.assertFromString(message))) // invalid; with error message
         }
       Future.successful(SEValue(SOptional(errorOption)))
     }
@@ -975,9 +993,9 @@ object ScriptF {
               ArraySeq(
                 record(
                   StablePackagesV2.Tuple3,
-                  ("_1", SText(cmdName)),
-                  ("_2", SText(name)),
-                  ("_3", SText(msg)),
+                  ("_1", SText(Text.assertFromString(cmdName))),
+                  ("_2", SText(Text.assertFromString(name))),
+                  ("_3", SText(Text.assertFromString(msg))),
                 )
               ),
             )

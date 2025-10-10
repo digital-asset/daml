@@ -3,7 +3,7 @@
 
 package com.daml.script.converter
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Text}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -25,7 +25,7 @@ object Converter {
   def toContractId(v: SValue): ErrorOr[ContractId] =
     v.expect("ContractId", { case SContractId(cid) => cid })
 
-  def toText(v: SValue): ErrorOr[String] =
+  def toText(v: SValue): ErrorOr[Text] =
     v.expect("SText", { case SText(s) => s })
 
   // Helper to make constructing an SRecord more convenient

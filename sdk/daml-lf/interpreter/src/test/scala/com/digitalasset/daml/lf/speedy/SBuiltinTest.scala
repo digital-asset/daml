@@ -41,6 +41,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     with TableDrivenPropertyChecks
     with Inside {
 
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
+
   val helpers = new SBuiltinTestHelpers(majorLanguageVersion)
   import helpers.{parserParameters => _, _}
 
@@ -51,7 +53,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   def n(scale: Int, x: BigDecimal): Numeric = Numeric.assertFromBigDecimal(scale, x)
   def n(scale: Int, str: String): Numeric = n(scale, BigDecimal(str))
-  def s(scale: Int, x: BigDecimal): String = Numeric.toString(n(scale, x))
+  def s(scale: Int, x: BigDecimal): String = Numeric.toText(n(scale, x))
   def s(scale: Int, str: String): String = s(scale, BigDecimal(str))
   def w(scale: Int): String = s(scale, 1)
 
@@ -573,7 +575,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     "SHA256_HEX" - {
       "with non-hex data should fail" in {
-        val testCases = Table(
+        val testCases = Table[Text](
           "input",
           "DeadBeef",
           """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
@@ -638,7 +640,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "accepts legal code points" in {
         val testCases = Table(
           "codePoints",
-          0x000000, // smallest code point
+          0x000001, // smallest code point
           0x000061,
           0x00007f, // biggest ASCII code point
           0x000080, // smallest non-ASCII code point
@@ -1922,17 +1924,17 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           ) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Crypto(IE.Crypto.MalformedKey(`invalidPublicKey`, reason))
+                    IE.Crypto(IE.Crypto.MalformedKey(x, reason))
                   )
-                ) =>
+                ) if x.toString == invalidPublicKey =>
               reason should startWith("java.security.InvalidKeyException")
           }
           inside(eval(e"""SECP256K1_BOOL "$signatureDigest" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Crypto(IE.Crypto.MalformedKey(`invalidPublicKey`, reason))
+                    IE.Crypto(IE.Crypto.MalformedKey(x, reason))
                   )
-                ) =>
+                ) if x.toString == invalidPublicKey =>
               reason should startWith("java.security.InvalidKeyException")
           }
         }
@@ -1981,17 +1983,17 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           ) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Crypto(IE.Crypto.MalformedSignature(`invalidSignature`, reason))
+                    IE.Crypto(IE.Crypto.MalformedSignature(x, reason))
                   )
-                ) =>
+                ) if x.toString == invalidSignature =>
               reason should be("error decoding signature bytes.")
           }
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    IE.Crypto(IE.Crypto.MalformedSignature(`invalidSignature`, reason))
+                    IE.Crypto(IE.Crypto.MalformedSignature(x, reason))
                   )
-                ) =>
+                ) if x.toString == invalidSignature =>
               reason should be("error decoding signature bytes.")
           }
         }
@@ -2301,7 +2303,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
-  def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArraySeq(SText(k), v))
+  def mapEntry(k: Text, v: SValue) = SStruct(entryFields, ArraySeq(SText(k), v))
 
   def lit2string(x: SValue): String =
     x match {

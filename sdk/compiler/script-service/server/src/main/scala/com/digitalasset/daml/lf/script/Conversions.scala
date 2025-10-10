@@ -257,6 +257,8 @@ final class Conversions(
                 )
               case Dev(_, devError) if devMode =>
                 devError match {
+                  case Dev.MalformedText(text, _) =>
+                    builder.setCrash(s"""malformed text: "$text" """)
                   case Dev.Conformance(_, _, _) =>
                     builder.setCrash("conformance fails")
                   case Dev.Limit(limitError) =>
@@ -877,7 +879,7 @@ final class Conversions(
             .build
         )
       case V.ValueInt64(v) => builder.setInt64(v)
-      case V.ValueNumeric(d) => builder.setNumeric(Numeric.toString(d))
+      case V.ValueNumeric(d) => builder.setNumeric(Numeric.toText(d))
       case V.ValueText(t) => builder.setText(t)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)

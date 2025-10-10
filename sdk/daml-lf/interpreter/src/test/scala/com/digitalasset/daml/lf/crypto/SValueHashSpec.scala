@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package crypto
 
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Text, Time}
 import com.digitalasset.daml.lf.speedy.{SValue => SV}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -24,6 +24,8 @@ class SValueHashSpec
     with TableDrivenPropertyChecks
     with Inside
     with BazelRunfiles {
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
   private val packageId1 = Ref.PackageId.assertFromString("package-1")
@@ -75,7 +77,7 @@ class SValueHashSpec
         "fUnit" -> SV.SUnit,
         "fOpt0" -> SV.SOptional(None),
         "fOpt1" -> SV.SOptional(Some(SV.SText("Some"))),
-        "fList" -> SV.SList(FrontStack("A", "B", "C").map(SV.SText)),
+        "fList" -> SV.SList(FrontStack[Text]("A", "B", "C").map(SV.SText)),
         "fVariant" -> SV.SVariant(
           defRef(name = "Variant"),
           Ref.Name.assertFromString("VariantCons"),
@@ -187,7 +189,7 @@ class SValueHashSpec
       list(true, false),
     )
 
-    def textMap(entries: (String, Boolean)*) =
+    def textMap(entries: (Text, Boolean)*) =
       SV.SMap(
         isTextMap = true,
         entries.map { case (k, v) => SV.SText(k) -> SV.SBool(v) },
@@ -195,16 +197,16 @@ class SValueHashSpec
 
     val textMaps = List[SV](
       textMap(),
-      textMap("a" -> false),
-      textMap("a" -> true),
-      textMap("b" -> false),
-      textMap("a" -> false, "b" -> false),
-      textMap("a" -> true, "b" -> false),
-      textMap("a" -> false, "b" -> true),
-      textMap("a" -> false, "c" -> false),
+      textMap(toText("a") -> false),
+      textMap(toText("a") -> true),
+      textMap(toText("b") -> false),
+      textMap(toText("a") -> false, toText("b") -> false),
+      textMap(toText("a") -> true, toText("b") -> false),
+      textMap(toText("a") -> false, toText("b") -> true),
+      textMap(toText("a") -> false, toText("c") -> false),
     )
 
-    def genMap(entries: (String, Boolean)*) =
+    def genMap(entries: (Text, Boolean)*) =
       SV.SMap(
         isTextMap = false,
         entries.map { case (k, v) => SV.SText(k) -> SV.SBool(v) },
@@ -212,13 +214,13 @@ class SValueHashSpec
 
     val genMaps = List[SV](
       genMap(),
-      genMap("a" -> false),
-      genMap("a" -> true),
-      genMap("b" -> false),
-      genMap("a" -> false, "b" -> false),
-      genMap("a" -> true, "b" -> false),
-      genMap("a" -> false, "b" -> true),
-      genMap("a" -> false, "c" -> false),
+      genMap(toText("a") -> false),
+      genMap(toText("a") -> true),
+      genMap(toText("b") -> false),
+      genMap(toText("a") -> false, toText("b") -> false),
+      genMap(toText("a") -> true, toText("b") -> false),
+      genMap(toText("a") -> false, toText("b") -> true),
+      genMap(toText("a") -> false, toText("c") -> false),
     )
 
     val optionals0 =
@@ -584,11 +586,11 @@ class SValueHashSpec
       }
 
       "not produce collision in GenMap values" in {
-        def genMap(elements: (String, Long)*) =
+        def genMap(elements: (Text, Long)*) =
           SV.SMap(isTextMap = false, elements.map { case (k, v) => SV.SText(k) -> SV.SInt64(v) })
 
-        val value1 = genMap("A" -> 0, "B" -> 0)
-        val value2 = genMap("A" -> 0, "B" -> 1)
+        val value1 = genMap(toText("A") -> 0, toText("B") -> 0)
+        val value2 = genMap(toText("A") -> 0, toText("B") -> 1)
 
         val templateName = defQualName("module", "name")
 

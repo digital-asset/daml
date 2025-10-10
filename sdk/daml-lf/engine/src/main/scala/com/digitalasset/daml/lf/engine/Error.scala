@@ -126,6 +126,11 @@ object Error {
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
     }
 
+    final case class MalformedText(text: String, reason: String) extends Error {
+      override def message: String =
+        s"Provided text '$text' is malformed: $reason"
+    }
+
     final case class IllegalContractId(cid: Value.ContractId, reason: IllegalContractId.Reason)
         extends Error {
       override def message: String =

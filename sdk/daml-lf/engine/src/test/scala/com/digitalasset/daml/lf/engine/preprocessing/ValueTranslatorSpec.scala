@@ -19,6 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import com.digitalasset.daml.lf.speedy.Compiler
 
 import scala.collection.immutable.ArraySeq
+import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
 class ValueTranslatorSpecV2_1 extends ValueTranslatorSpec(LanguageVersion.v2_1)
@@ -29,6 +30,8 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
     with Inside
     with Matchers
     with TableDrivenPropertyChecks {
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{

@@ -357,7 +357,7 @@ object ValueCoder {
             case ValueInt64(i) =>
               builder.setInt64(i).build()
             case ValueNumeric(d) =>
-              builder.setNumeric(Numeric.toString(d)).build()
+              builder.setNumeric(Numeric.toText(d)).build()
             case ValueText(t) =>
               builder.setText(t).build()
             case ValueParty(p) =>

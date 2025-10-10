@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Text}
 import com.digitalasset.daml.lf.speedy.SValue.{SInt64, SMap, SPAP, SText}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -15,9 +15,12 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.annotation.tailrec
 import scala.collection.IndexedSeqView
 import scala.collection.immutable.ArraySeq
+import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
 class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenPropertyChecks {
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   "SValue#toValue" should {
 

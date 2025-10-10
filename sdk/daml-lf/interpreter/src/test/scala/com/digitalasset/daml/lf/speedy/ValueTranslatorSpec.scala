@@ -18,6 +18,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.ArraySeq
+import scala.language.implicitConversions
 import scala.util.{Failure, Success, Try}
 
 class ValueTranslatorSpec_ForbidTrailingNones_V2_1
@@ -40,6 +41,8 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
     defaultPackageId => _,
     _,
   }
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   val aInt = ValueInt64(42)
   val aText = ValueText("42")

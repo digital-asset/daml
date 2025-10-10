@@ -143,7 +143,7 @@ object Hash {
     numeric => Bytes.fromByteArray(numeric.unscaledValue().toByteArray)
 
   private[lf] val stringNumericToBytes: data.Numeric => Bytes =
-    numeric => Utf8.getBytes(data.Numeric.toString(numeric))
+    numeric => Utf8.getBytes(data.Numeric.toText(numeric))
 
   private[crypto] abstract class Builder(
       numericToBytes: data.Numeric => Bytes
@@ -215,7 +215,7 @@ object Hash {
     }
 
     final def addNumeric(v: data.Numeric): this.type =
-      addBytes(numericToBytes(v), s"${data.Numeric.toString(v)} (numeric)")
+      addBytes(numericToBytes(v), s"${data.Numeric.toText(v)} (numeric)")
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(a.length))(f)

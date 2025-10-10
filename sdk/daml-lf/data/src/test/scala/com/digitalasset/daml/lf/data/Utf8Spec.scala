@@ -10,8 +10,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.jdk.CollectionConverters._
 import scala.util.Random
+import scala.language.implicitConversions
 
 class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyChecks {
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   private def codepointToString(cp: Int): String =
     Character.toChars(cp).mkString
@@ -36,6 +39,9 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
   private val strings =
     Gen.listOf(codepoints).map(_.mkString)
 
+  private val texts =
+    Gen.listOf(codepoints.filter(_ != "\u0000")).map(_.mkString)
+
   // All the legal codepoints in increasing order converted in string
   private val legalCodePoints =
     ((Character.MIN_CODE_POINT to Character.MIN_HIGH_SURROGATE) ++
@@ -53,7 +59,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       def naiveExplode(s: String) =
         s.codePoints().iterator().asScala.map(codepointToString(_)).to(ImmArray)
 
-      forAll(strings) { s =>
+      forAll(texts) { s =>
         naiveExplode(s) shouldBe Utf8.explode(s)
       }
 

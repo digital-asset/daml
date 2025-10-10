@@ -69,6 +69,13 @@ private[lf] final class ValueTranslator(
         def invalidValueError(msg: String) =
           throw TranslationFailed.InvalidValue(value0, msg)
 
+        def textFromString(s: String): Text =
+          Text
+            .fromString(s)
+            .getOrElse(
+              invalidValueError(s"Unexpected string with null character")
+            )
+
         def destruct(typ: Type): TypeDestructor.SerializableTypeF[Type] =
           Destructor.destruct(typ) match {
             case Right(value) => value
@@ -99,7 +106,7 @@ private[lf] final class ValueTranslator(
           case (DateF, ValueDate(t)) =>
             SValue.SDate(t)
           case (TextF, ValueText(t)) =>
-            SValue.SText(t)
+            SValue.SText(textFromString(t))
           case (PartyF, ValueParty(p)) =>
             SValue.SParty(p)
           case (NumericF(s), ValueNumeric(d)) =>
@@ -157,7 +164,7 @@ private[lf] final class ValueTranslator(
               SValue.SMap(
                 isTextMap = true,
                 entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                  SValue.SText(k) -> go(a, v, newNesting)
+                  SValue.SText(textFromString(k)) -> go(a, v, newNesting)
                 }.toList,
               )
             }

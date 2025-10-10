@@ -5,10 +5,10 @@ package com.digitalasset.daml.lf.engine.script
 package v2
 package ledgerinteraction
 
-import com.digitalasset.daml.lf.data.FrontStack
+import com.digitalasset.daml.lf.data.{FrontStack, Text}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
-import com.digitalasset.daml.lf.language.{Ast}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
@@ -77,7 +77,13 @@ object SubmitError {
             unknownRank,
             (
               "unknownErrorMessage",
-              SText(s"Outdated daml-script library failed to represent $name error as SubmitError"),
+              SText(
+                Text.assertFromString(
+                  Text.assertFromString(
+                    s"Outdated daml-script library failed to represent $name error as SubmitError"
+                  )
+                )
+              ),
             ),
           )
         }
@@ -108,7 +114,7 @@ object SubmitError {
         "ContractNotFound",
         (
           "unknownContractIds",
-          fromNonEmptySet(cids, { cid: ContractId => SText(cid.coid) }),
+          fromNonEmptySet(cids, { cid: ContractId => SText(Text.assertFromString(cid.coid)) }),
         ),
         (
           "additionalDebuggingInfo",
@@ -121,7 +127,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UnresolvedPackageName",
-        ("packageName", SText(packageName)),
+        ("packageName", SText(Text.assertFromString(packageName))),
       )
   }
 
@@ -173,7 +179,7 @@ object SubmitError {
             ),
             (
               "effectiveAt",
-              SText(effectiveAt.toString),
+              SText(Text.assertFromString(effectiveAt.toString)),
             ),
           )
       }
@@ -223,7 +229,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "AuthorizationError",
-        ("authorizationErrorMessage", SText(message)),
+        ("authorizationErrorMessage", SText(Text.assertFromString(message))),
       )
   }
 
@@ -239,7 +245,7 @@ object SubmitError {
         ("coid", fromAnyContractId(env.scriptIds, toApiIdentifier(dstTemplateId), coid)),
         ("dstTemplateId", fromTemplateTypeRep(dstTemplateId)),
         ("createArg", fromAnyTemplate(env.valueTranslator, dstTemplateId, createArg).toOption.get),
-        ("contractHashingErrorMessage", SText(message)),
+        ("contractHashingErrorMessage", SText(Text.assertFromString(message))),
       )
     }
   }
@@ -257,7 +263,7 @@ object SubmitError {
           fromAnyContractId(env.scriptIds, toApiIdentifier(key.templateId), contractId),
         ),
         ("expectedKey", globalKeyToAnyContractKey(env, key)),
-        ("givenKeyHash", SText(givenKeyHash)),
+        ("givenKeyHash", SText(Text.assertFromString(givenKeyHash))),
       )
   }
 
@@ -293,7 +299,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UserError",
-        ("userErrorMessage", SText(message)),
+        ("userErrorMessage", SText(Text.assertFromString(message))),
       )
   }
 
@@ -389,7 +395,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "ContractIdComparability",
-        ("globalExistingContractId", SText(contractId)),
+        ("globalExistingContractId", SText(Text.assertFromString(contractId))),
       )
   }
 
@@ -495,7 +501,7 @@ object SubmitError {
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
+          ("errorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
@@ -529,7 +535,7 @@ object SubmitError {
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
+          ("errorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
@@ -558,7 +564,7 @@ object SubmitError {
         SubmitErrorConverters(env).damlScriptError(
           "UpgradeError",
           ("errorType", upgradeErrorType),
-          ("errorMessage", SText(message)),
+          ("errorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
@@ -575,12 +581,17 @@ object SubmitError {
           "failureStatus",
           record(
             StablePackagesV2.FailureStatus,
-            ("errorId", SText(failureStatus.errorId)),
+            ("errorId", SText(Text.assertFromString(failureStatus.errorId))),
             ("category", SInt64(failureStatus.failureCategory.toLong)),
-            ("message", SText(failureStatus.errorMessage)),
+            ("message", SText(Text.assertFromString(failureStatus.errorMessage))),
             (
               "meta",
-              SMap(true, failureStatus.metadata.map { case (k, v) => (SText(k), SText(v)) }),
+              SMap(
+                true,
+                failureStatus.metadata.map { case (k, v) =>
+                  (SText(Text.assertFromString(k)), SText(Text.assertFromString(v)))
+                },
+              ),
             ),
           ),
         ),
@@ -591,24 +602,34 @@ object SubmitError {
     final case class MalformedByteEncoding(value: String, message: String) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
         val errorType =
-          damlScriptCryptoErrorType(env, "MalformedByteEncoding", 0, "value" -> SText(value))
+          damlScriptCryptoErrorType(
+            env,
+            "MalformedByteEncoding",
+            0,
+            "value" -> SText(Text.assertFromString(value)),
+          )
 
         SubmitErrorConverters(env).damlScriptError(
           "CryptoError",
           ("cryptoErrorType", errorType),
-          ("cryptoErrorMessage", SText(message)),
+          ("cryptoErrorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
 
     final case class MalformedKey(key: String, message: String) extends SubmitError {
       override def toDamlSubmitError(env: Env): SValue = {
-        val errorType = damlScriptCryptoErrorType(env, "MalformedKey", 1, "keyValue" -> SText(key))
+        val errorType = damlScriptCryptoErrorType(
+          env,
+          "MalformedKey",
+          1,
+          "keyValue" -> SText(Text.assertFromString(key)),
+        )
 
         SubmitErrorConverters(env).damlScriptError(
           "CryptoError",
           ("cryptoErrorType", errorType),
-          ("cryptoErrorMessage", SText(message)),
+          ("cryptoErrorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
@@ -619,13 +640,13 @@ object SubmitError {
           env,
           "MalformedSignature",
           2,
-          "signatureValue" -> SText(signature),
+          "signatureValue" -> SText(Text.assertFromString(signature)),
         )
 
         SubmitErrorConverters(env).damlScriptError(
           "CryptoError",
           ("cryptoErrorType", errorType),
-          ("cryptoErrorMessage", SText(message)),
+          ("cryptoErrorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
@@ -636,13 +657,13 @@ object SubmitError {
           env,
           "MalformedContractId",
           2,
-          "contractIdValue" -> SText(value),
+          "contractIdValue" -> SText(Text.assertFromString(value)),
         )
 
         SubmitErrorConverters(env).damlScriptError(
           "CryptoError",
           ("cryptoErrorType", errorType),
-          ("cryptoErrorMessage", SText(message)),
+          ("cryptoErrorMessage", SText(Text.assertFromString(message))),
         )
       }
     }
@@ -677,7 +698,7 @@ object SubmitError {
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
         ("devErrorType", devErrorType),
-        ("devErrorMessage", SText(message)),
+        ("devErrorMessage", SText(Text.assertFromString(message))),
       )
     }
   }
@@ -686,7 +707,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UnknownError",
-        ("unknownErrorMessage", SText(message)),
+        ("unknownErrorMessage", SText(Text.assertFromString(message))),
       )
   }
 
@@ -694,8 +715,8 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "TruncatedError",
-        ("truncatedErrorType", SText(errType)),
-        ("truncatedErrorMessage", SText(message)),
+        ("truncatedErrorType", SText(Text.assertFromString(errType))),
+        ("truncatedErrorMessage", SText(Text.assertFromString(message))),
       )
   }
 }

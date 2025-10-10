@@ -156,7 +156,7 @@ private[lf] object SBuiltinFun {
       case otherwise => unexpectedType(i, "SInt64", otherwise)
     }
 
-  final protected def getSText(args: ArraySeq[SValue], i: Int): String =
+  final protected def getSText(args: ArraySeq[SValue], i: Int): Text =
     args(i) match {
       case SText(value) => value
       case otherwise => unexpectedType(i, "SText", otherwise)
@@ -480,23 +480,22 @@ private[lf] object SBuiltinFun {
 
       machine.updateGasBudget(_.BAppendText.cost(arg0, arg1))
 
-      SText(arg0 + arg1)
+      SText(Text.concat(arg0, arg1))
     }
   }
 
-  private[this] def litToText(location: String, x: SValue): String =
+  private[this] def litToText(location: String, x: SValue): Text =
     x match {
-      case SBool(b) => b.toString
-      case SInt64(i) => i.toString
-      case STimestamp(t) => t.toString
+      case SBool(b) => Text.fromBool(b)
+      case SInt64(i) => Text.fromLong(i)
+      case STimestamp(t) => t.toText
       case SText(t) => t
-      case SParty(p) => p
-      case SUnit => s"<unit>"
-      case SDate(date) => date.toString
-      case SBigNumeric(x) => Numeric.toUnscaledString(x)
-      case SNumeric(x) => Numeric.toUnscaledString(x)
-      case _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap | _: SOptional |
-          _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
+      case SParty(p) => Ref.Party.toText(p)
+      case SDate(date) => date.toText
+      case SNumeric(x) => Numeric.toUnscaledText(x)
+      case SBigNumeric(x) => Text.assertFromString(Numeric.toUnscaledText(x))
+      case SUnit | _: SContractId | SToken | _: SAny | _: SEnum | _: SList | _: SMap |
+          _: SOptional | _: SPAP | _: SRecord | _: SStruct | _: STypeRep | _: SVariant =>
         throw SErrorCrash(location, s"litToText: unexpected $x")
     }
 
@@ -528,7 +527,7 @@ private[lf] object SBuiltinFun {
 
       machine.updateGasBudget(_.BPartyToText.cost(arg0))
 
-      SText(s"'${arg0: String}'")
+      SText(Text.assertFromString(s"'$arg0'"))
     }
   }
 
@@ -629,11 +628,11 @@ private[lf] object SBuiltinFun {
 
   final case object SBTextToCodePoints extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: ArraySeq[SValue], machine: Machine[_]): SList = {
-      val string = getSText(args, 0)
+      val text = getSText(args, 0)
 
-      machine.updateGasBudget(_.BTextToCodePoints.cost(string))
+      machine.updateGasBudget(_.BTextToCodePoints.cost(text))
 
-      val codePoints = Utf8.unpack(string)
+      val codePoints = Utf8.unpack(text)
       SList(FrontStack.from(codePoints.map(SInt64)))
     }
   }
@@ -643,10 +642,10 @@ private[lf] object SBuiltinFun {
         args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
-      val value = getSText(args, 0)
-      V.ContractId.fromString(value) match {
+      val text = getSText(args, 0)
+      V.ContractId.fromString(text) match {
         case Right(cid) if cid.isAbsolute => Control.Value(SContractId(cid))
-        case _ => Control.Error(IE.Crypto(IE.Crypto.MalformedContractId(value)))
+        case _ => Control.Error(IE.Crypto(IE.Crypto.MalformedContractId(text)))
       }
     }
   }
@@ -688,9 +687,8 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Q] = {
       try {
-        Control.Value(
-          SText(crypto.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
-        )
+        val hexStr = crypto.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0)))
+        Control.Value(SText(HexString.toText(hexStr)))
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
@@ -828,8 +826,9 @@ private[lf] object SBuiltinFun {
               )
             ),
           hexArg => {
-            val result =
+            val result = Text.assertFromString(
               new String(Ref.HexString.decode(hexArg).toByteArray, StandardCharsets.UTF_8)
+            )
             Control.Value(SText(result))
           },
         )
@@ -846,7 +845,7 @@ private[lf] object SBuiltinFun {
       machine.updateGasBudget(_.BEncodeHex.cost(arg0))
 
       val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg0))
-      SText(hexArg)
+      SText(Ref.HexString.toText(hexArg))
     }
   }
 
@@ -2201,6 +2200,16 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case class SBMalformedTextLit(value: String, cause: String) extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: ArraySeq[SValue],
+        machine: Machine[Q],
+    ): Control.Error = {
+      val _ = getSUnit(args, 0)
+      Control.Error(IE.Dev(getClass.getSimpleName, IE.Dev.MalformedText(value, cause)))
+    }
+  }
+
   /** $userError :: Text -> Error */
   final case object SBUserError extends SBuiltinFun(1) {
 
@@ -2335,7 +2344,7 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SOptional = {
       getSTypeRep(args, 0) match {
-        case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
+        case Ast.TTyCon(name) => SOptional(Some(SText(name.toText)))
         case _ => SOptional(None)
       }
     }
@@ -2462,7 +2471,9 @@ private[lf] object SBuiltinFun {
     def apply(name: String): compileTime.SExpr =
       mapping.getOrElse(
         name,
-        SBUserError(compileTime.SEValue(SText(s"experimental $name not supported."))),
+        SBUserError(
+          compileTime.SEValue(SText(Text.assertFromString(s"experimental $name not supported.")))
+        ),
       )
 
   }

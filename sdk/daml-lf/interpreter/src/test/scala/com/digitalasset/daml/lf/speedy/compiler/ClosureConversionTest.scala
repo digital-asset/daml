@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 package compiler
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Ref, Text}
 import com.digitalasset.daml.lf.speedy.compiler.Anf.flattenToAnf
 import com.digitalasset.daml.lf.speedy.compiler.ClosureConversion.closureConvert
 import com.digitalasset.daml.lf.speedy.{SExpr => expr}
@@ -215,7 +215,7 @@ class ClosureConversionTest extends AnyFreeSpec with Matchers with TableDrivenPr
 
   }
 
-  private val leaf = SEValue(v.SText("leaf"))
+  private val leaf = SEValue(v.SText(Text.assertFromString("leaf")))
   private val label: Profile.Label = expr.AnonymousClosure
   private val pat: expr.SCasePat = expr.SCPCons
   private val loc = Ref.Location(

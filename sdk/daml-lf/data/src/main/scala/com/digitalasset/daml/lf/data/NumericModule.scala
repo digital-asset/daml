@@ -73,7 +73,7 @@ abstract class NumericModule {
     Either.cond(
       x.precision <= maxPrecision,
       cast(x),
-      s"Out-of-bounds (Numeric ${x.scale}) ${toString(x)}",
+      s"Out-of-bounds (Numeric ${x.scale}) ${toText(x)}",
     )
 
   /** Negate the input.
@@ -124,7 +124,7 @@ abstract class NumericModule {
     */
   final def toLong(x: Numeric): Either[String, Long] =
     Try(x.setScale(0, RoundingMode.DOWN).longValueExact()).toEither.left.map(_ =>
-      s"(Numeric ${x.scale}) ${toString(x)} does not fit into an Int64"
+      s"(Numeric ${x.scale}) ${toText(x)} does not fit into an Int64"
     )
 
   /** Rounds the `x` to the closest multiple of ``10^targetScale`` using the
@@ -153,7 +153,7 @@ abstract class NumericModule {
     */
   final def fromBigDecimal(scale: Scale, x: BigDecimal): Either[String, Numeric] =
     if (!(x.stripTrailingZeros.scale <= scale))
-      Left(s"Cannot represent ${toString(x)} as (Numeric $scale) without loss of precision")
+      Left(s"Cannot represent ${toText(x)} as (Numeric $scale) without loss of precision")
     else
       checkForOverflow(x.setScale(scale, RoundingMode.UNNECESSARY))
 
@@ -188,10 +188,12 @@ abstract class NumericModule {
     * - the decimal point (".") to separate the integral part from the decimal part,
     * - the decimal part of `x` with '0' padded to match the scale. The number of decimal digits must be the same as the scale.
     */
-  final def toString(x: BigDecimal): String = {
+  final def toText(x: BigDecimal): Text = {
     val s = x.toPlainString
-    if (x.scale <= 0) s + "." else s
+    Text.unsafeFromString(if (x.scale <= 0) s + "." else s)
   }
+
+  final def toString(x: BigDecimal): String = toText(x)
 
   private val validScaledFormat =
     """-?([1-9]\d*|0)\.(\d*)""".r
@@ -262,7 +264,7 @@ abstract class NumericModule {
   final def assertFromUnscaledBigDecimal(x: BigDec): Numeric =
     assertRight(fromUnscaledBigDecimal(x))
 
-  final def toUnscaledString(x: BigDecimal): String = {
+  final def toUnscaledText(x: BigDecimal): Text = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
     // it was created from had them), and use the plain notation rather
     // than scientific notation.
@@ -272,8 +274,10 @@ abstract class NumericModule {
     // we've been using in Haskell to render Decimals
     // http://hackage.haskell.org/package/scientific-0.3.6.2/docs/Data-Scientific.html#v:formatScientific
     val s = x.stripTrailingZeros.toPlainString
-    if (s.contains(".")) s else s + ".0"
+    Text.unsafeFromString(if (s.contains(".")) s else s + ".0")
   }
+
+  final def toUnscaledString(x: BigDecimal): String = toUnscaledText(x)
 
   /** Checks that a BigDecimal falls between `minValue(scale)` and
     * `maxValue(scale)`, and round the number according to `scale`. Note

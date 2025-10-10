@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package interpretation
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Ref, Text}
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConId}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId}
@@ -23,7 +23,7 @@ object Error {
   final case class UnhandledException(exceptionType: Ast.Type, value: Value) extends Error
 
   /** User initiated error, via e.g. 'abort' or 'assert' */
-  final case class UserError(message: String) extends Error
+  final case class UserError(message: data.Text) extends Error
 
   final case class ContractNotFound(cid: Value.ContractId) extends Error
 
@@ -159,10 +159,10 @@ object Error {
     * @param metadata Key value metadata placed in the ErrorInfoDetail of the resulting GrpcStatus
     */
   final case class FailureStatus(
-      errorId: String,
+      errorId: Text,
       failureCategory: Int,
-      errorMessage: String,
-      metadata: Map[String, String],
+      errorMessage: Text,
+      metadata: Map[Text, Text],
   ) extends Error
 
   sealed case class Upgrade(error: Upgrade.Error) extends Error
@@ -227,13 +227,13 @@ object Error {
   object Crypto {
     sealed abstract class Error extends Serializable with Product
 
-    final case class MalformedByteEncoding(value: String, cause: String) extends Error
+    final case class MalformedByteEncoding(value: data.Text, cause: String) extends Error
 
-    final case class MalformedKey(key: String, cause: String) extends Error
+    final case class MalformedKey(key: data.Text, cause: String) extends Error
 
-    final case class MalformedSignature(signature: String, cause: String) extends Error
+    final case class MalformedSignature(signature: data.Text, cause: String) extends Error
 
-    final case class MalformedContractId(value: String) extends Error
+    final case class MalformedContractId(value: data.Text) extends Error
   }
 
   // Error that can be thrown by dev or PoC feature only
@@ -243,7 +243,9 @@ object Error {
 
     sealed abstract class Error extends Serializable with Product
 
-    sealed case class Conformance(
+    final case class MalformedText(value: String, cause: String) extends Error
+
+    final case class Conformance(
         provided: Node.Create,
         recomputed: Node.Create,
         details: String,

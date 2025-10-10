@@ -21,14 +21,14 @@ object Utf8 {
   // The Daml-LF strings are supposed to be UTF-8.
   // However standard "exploding" java/scala methods like
   // _.toList split in Character which are not Unicode codepoint.
-  def explode(s: String): ImmArray[String] = {
+  def explode(s: Text): ImmArray[Text] = {
     val len = s.length
-    val arr = ImmArray.newBuilder[String]
+    val arr = ImmArray.newBuilder[Text]
     var i = 0
     while (i < len) {
       // if s(i) is a high surrogate the current codepoint uses 2 chars
       val next = if (s(i).isHighSurrogate) i + 2 else i + 1
-      discard(arr += s.substring(i, next))
+      discard(arr += Text.unsafeFromString(s.substring(i, next)))
       i = next
     }
     arr.result()
@@ -37,14 +37,16 @@ object Utf8 {
   def getBytes(s: String): Bytes =
     Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
-  def sha256(bytes: Bytes): String = {
+  def sha256(bytes: Bytes): Text = {
     val digest = MessageDigestPrototype.Sha256.newDigest
     digest.update(bytes.toByteBuffer)
-    BaseEncoding.base16().lowerCase().encode(digest.digest())
+    Text.unsafeFromString(
+      BaseEncoding.base16().lowerCase().encode(digest.digest())
+    )
   }
 
-  def implode(ts: ImmArray[String]): String =
-    ts.toSeq.mkString
+  def implode(ts: ImmArray[Text]): Text =
+    Text.unsafeFromString(ts.toSeq.mkString)
 
   val Ordering: Ordering[String] = (xs: String, ys: String) => {
     val lim = xs.length min ys.length
@@ -74,13 +76,14 @@ object Utf8 {
 
   // Converts the List of Unicode code points into a String if all code points are legal.
   // Returns the first illegal code point as Left otherwise.
-  def pack(codePoints: ImmArray[Long]): Either[Long, String] = {
+  def pack(codePoints: ImmArray[Long]): Either[Long, Text] = {
     val builder = new StringBuilder()
     var illegalCodePoint = Option.empty[Long]
     val iterator = codePoints.iterator
     while (iterator.nonEmpty && illegalCodePoint.isEmpty) {
       val cp = iterator.next()
       if (
+        0 <= cp &&
         Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
         Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE
       ) {
@@ -97,7 +100,7 @@ object Utf8 {
         illegalCodePoint = Some(cp)
       }
     }
-    illegalCodePoint.toLeft(builder.result())
+    illegalCodePoint.toLeft(Text.unsafeFromString(builder.result()))
   }
 
 }

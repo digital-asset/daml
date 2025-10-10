@@ -230,7 +230,7 @@ private[admin] object ParticipantCommon {
         case Left(error) => FutureUnlessShutdown.failed(ImportAcsError.Error(error).asGrpcError)
         case Right(contractIdRemapping) =>
           FutureUnlessShutdown.pure(
-            contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid, newCid.coid) }
+            contractIdRemapping.map { case (oldCid, newCid) => (oldCid.coid.toString, newCid.coid.toString) }
           )
       }.asGrpcFuture
     }

@@ -368,13 +368,13 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   }
 
   def toOptionalParticipantName(v: SValue): Either[String, Option[Participant]] = v match {
-    case SOptional(Some(SText(t))) => Right(Some(Participant(t)))
+    case SOptional(Some(SText(t))) => Right(Some(Participant(t.toString)))
     case SOptional(None) => Right(None)
     case _ => Left(s"Expected optional participant name but got $v")
   }
 
   def toParticipantName(v: SValue): Either[String, Participant] = v match {
-    case SText(t) => Right(Participant(t))
+    case SText(t) => Right(Participant(t.toString))
     case _ => Left(s"Expected participant name but got $v")
   }
 
@@ -453,7 +453,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def fromUserId(scriptIds: ScriptIds, userId: UserId): SValue =
     record(
       scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", "UserId"),
-      ("unpack", SText(userId)),
+      ("unpack", SText(UserId.toText(userId))),
     )
 
   def toUser(v: SValue): Either[String, User] =

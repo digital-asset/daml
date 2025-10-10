@@ -5,8 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party}
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Text}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -31,6 +30,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
+import scala.language.implicitConversions
 
 class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
@@ -40,6 +40,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     with Inside
     with Matchers
     with TableDrivenPropertyChecks {
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   import SpeedyTestLib.loggingContext
 
@@ -55,12 +57,12 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
   }
 
-  private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
+  private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Ref.Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
     SEApp(se, ArraySeq(SParty(p)))
   }
 
-  private val alice = Party.assertFromString("Alice")
+  private val alice = Ref.Party.assertFromString("Alice")
 
   private def runUpdateExpr(
       compiledPackages: PureCompiledPackages,
@@ -78,7 +80,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def runUpdateApp(
       compiledPackages: PureCompiledPackages,
-      packageResolution: Map[PackageName, PackageId],
+      packageResolution: Map[Ref.PackageName, Ref.PackageId],
       expr: Expr,
       args: ArraySeq[SValue],
       getContract: PartialFunction[Value.ContractId, FatContractInstance],
@@ -95,7 +97,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def runUpdateExpr(
       compiledPackages: PureCompiledPackages,
-      packageResolution: Map[PackageName, PackageId],
+      packageResolution: Map[Ref.PackageName, Ref.PackageId],
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
@@ -558,7 +560,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   } """)
 
-    val testCases = Table[String, String](
+    val testCases = Table[String, Text](
       ("expression", "expected"),
       ("M:example1", "RESULT: Happy Path"),
       ("M:example2", "HANDLED: oops1"),
@@ -567,10 +569,10 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       ("M:example5", "HANDLED: throw-in-throw"),
     )
 
-    forEvery(testCases) { (exp: String, str: String) =>
-      s"eval[$exp] --> $str" in {
+    forEvery(testCases) { (exp: String, text: Text) =>
+      s"eval[$exp] --> $text" in {
         inside(runUpdateExpr(pkgs, e"$exp")) { case Right(v) =>
-          v shouldBe SValue.SText(str)
+          v shouldBe SValue.SText(text)
         }
       }
     }
@@ -714,7 +716,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   "rollback of creates" - {
 
-    val party = Party.assertFromString("Alice")
+    val party = Ref.Party.assertFromString("Alice")
     val example: Expr = e"M:causeRollback"
     val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 

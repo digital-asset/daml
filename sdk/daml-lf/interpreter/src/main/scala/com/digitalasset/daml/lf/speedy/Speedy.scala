@@ -843,10 +843,14 @@ private[lf] object Speedy {
             )
         }
 
-        def buildFailureStatus(exceptionId: Identifier, message: String) =
+        val unhandledExceptionPrefix = Text.assertFromString("UNHANDLED_EXCEPTION/")
+
+        def buildFailureStatus(exceptionId: Identifier, message: Text) =
           Control.Error(
             interpretation.Error.FailureStatus(
-              "UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString,
+              Text.assertFromString(
+                Text.concat(unhandledExceptionPrefix, exceptionId.qualifiedName.toText)
+              ),
               FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
               message,
               Map(),
@@ -874,7 +878,9 @@ private[lf] object Speedy {
           case Some(originalExceptionId) =>
             buildFailureStatus(
               originalExceptionId,
-              s"<Failed to calculate message as ${exceptionId.qualifiedName.toString} was thrown during conversion>",
+              Text.assertFromString(
+                s"<Failed to calculate message as ${exceptionId.qualifiedName.toString} was thrown during conversion>"
+              ),
             )
         }
       } else Control.Error(IError.UnhandledException(excep.ty, excep.value.toUnnormalizedValue))

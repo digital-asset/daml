@@ -72,9 +72,6 @@ printables =
     printableChars =
       " !#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
-control_NUL =
-  "\NUL" ==> "\"\\NUL\""
-
 control_SOH =
   "\SOH" ==> "\"\\SOH\""
 
@@ -193,6 +190,6 @@ control_US =
   "\US" ==> "\"\\US\""
 
 exhaustive = script do
-  forA_ [0..255] \i -> do
+  forA_ [1..255] \i -> do
     debugRaw ("exhaustive [" <> show i <> "/255]")
     debugRaw (show (fromCodePoints [i]))

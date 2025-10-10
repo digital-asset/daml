@@ -164,7 +164,7 @@ object SValueHash {
             .addString(v)
         case SValue.SText(v) =>
           addByte(TEXT_TAG, "TEXT_TAG")
-            .addString(v)
+            .addString(v.toString)
         case SValue.SContractId(cid) =>
           addByte(CONTRACT_ID_TAG, "CONTRACT_ID_TAG")
             .addCid(cid)
@@ -251,7 +251,7 @@ object SValueHash {
     private def addTextMap(entries: TreeMap[SValue, SValue]): this.type =
       iterateOver(entries.iterator, entries.size) { (acc, entry) =>
         entry match {
-          case (SText(k), v) => acc.addString(k).addSValue(v)
+          case (SText(k), v) => acc.addString(k.toString).addSValue(v)
           case _ => throw new IllegalArgumentException("Unexpected non-text key in text map")
         }
       }

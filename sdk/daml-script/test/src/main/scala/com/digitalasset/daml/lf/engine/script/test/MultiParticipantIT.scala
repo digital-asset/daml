@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.engine.script
 package test
 
-import com.digitalasset.daml.lf.data.FrontStack
+import com.digitalasset.daml.lf.data.{FrontStack, Text}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
@@ -14,6 +14,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.{Failure, Success}
+import scala.language.implicitConversions
 
 class MultiParticipantITV2 extends MultiParticipantIT(LanguageMajorVersion.V2)
 
@@ -22,6 +23,8 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
     with AbstractScriptTest
     with Inside
     with Matchers {
+
+  private[this] implicit def toText(s: String): Text = Text.assertFromString(s)
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock

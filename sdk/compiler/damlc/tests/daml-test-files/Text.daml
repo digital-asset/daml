@@ -293,17 +293,6 @@ testParseDecimal = script do
 testReverse = script do
   T.reverse "Daml" === "lmaD"
 
-testNuls = script do
-  "\0" === "\0"
-  "£" === "£"
-  "£\0" === "£\0"
-  "\0Daml" === "\0Daml"
-  "Da\0ml" === "Da\0ml"
-  T.reverse "Da\0⛄ml" === "lm⛄\0aD"
-  T.reverse "\0\1\2\3" === "\3\2\1\0"
-  parseInt (T.drop 1 "\0\&123") === Some 123
-  T.splitOn "\0" "Hello\0World" === ["Hello","World"]
-
 testCodePoints = script do
     T.toCodePoints "Hello" === [72, 101, 108, 108, 111]
     T.fromCodePoints [87, 111, 114, 108, 100] === "World"
@@ -311,15 +300,15 @@ testCodePoints = script do
 testAsciiToLower = script do
   T.asciiToLower "HELLO WORLD" === "hello world"
   T.asciiToLower "HELLO world" === "hello world"
-  T.asciiToLower "\0Daml" === "\0daml"
-  T.asciiToLower "Da\0⛄ml" === "da\0⛄ml"
+  T.asciiToLower "\CRDaml" === "\CRdaml"
+  T.asciiToLower "Da\CR⛄ml" === "da\CR⛄ml"
   T.asciiToLower "ÁÈÏÕǓ" === "ÁÈÏÕǓ" -- non-ASCII characters are unchanged
 
 testAsciiToUpper = script do
   T.asciiToUpper "hello world" === "HELLO WORLD"
   T.asciiToUpper "HELLO world" === "HELLO WORLD"
-  T.asciiToUpper "\0daml" === "\0DAML"
-  T.asciiToUpper "da\0⛄ml" === "DA\0⛄ML"
+  T.asciiToUpper "\CRdaml" === "\CRDAML"
+  T.asciiToUpper "da\CR⛄ml" === "DA\CR⛄ML"
   T.asciiToUpper "áèïõǔ" === "áèïõǔ" -- non-ASCII characters are unchanged
 
 testIsEmpty = script do

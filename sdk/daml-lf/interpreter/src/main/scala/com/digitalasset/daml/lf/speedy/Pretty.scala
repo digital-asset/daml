@@ -220,6 +220,8 @@ private[lf] object Pretty {
         }
       case Dev(_, error) =>
         error match {
+          case Dev.MalformedText(string, cause) =>
+            text(s"""Malformed text "$string": $cause"""")
           case Dev.Conformance(provided, recomputed, details) =>
             text(
               s"""Contract Conformance fails ($details):

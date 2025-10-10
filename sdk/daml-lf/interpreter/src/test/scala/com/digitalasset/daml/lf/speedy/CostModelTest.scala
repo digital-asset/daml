@@ -184,6 +184,23 @@ object CostModelTest {
     chars <- Gen.listOfN(m + 1, Gen.asciiChar)
   } yield chars.mkString
 
+  private def codepointToString(cp: Int): String =
+    Character.toChars(cp).mkString
+
+  private val lowCodepoints =
+    Gen
+      .chooseNum(Character.MIN_CODE_POINT + 1, Character.MIN_HIGH_SURROGATE - 1)
+      .map(codepointToString)
+  private val highCodepoints =
+    Gen.chooseNum(Character.MAX_LOW_SURROGATE + 1, Character.MAX_CODE_POINT).map(codepointToString)
+  private val twoWordsCodepoints =
+    Gen.chooseNum(Character.MAX_VALUE + 1, Character.MAX_CODE_POINT).map(codepointToString)
+
+  private val codepoints =
+    Gen.oneOf(twoWordsCodepoints, lowCodepoints, highCodepoints)
+
+  def genText: Gen[Text] = Gen.listOf(codepoints).map(_.mkString).map(Text.assertFromString)
+
   def genParty: Gen[Ref.Party] = genNonEmptyAsciiString.map(Ref.Party.assertFromString)
 
   def genName: Gen[Ref.Name] = genNonEmptyAsciiString.map(Ref.Name.assertFromString)
@@ -562,6 +579,14 @@ object Sized {
       }
     }
 
+  implicit lazy val SizedText: Sized[Text] = new SizedVariableLengthAtom[Text] {
+    override def length(x: Text): Int = SizedString.length(x)
+
+    override def approximateFootprint(n: Int): Long = SizedString.approximateFootprint(n)
+
+    override def gen(n: Int): Gen[Text] = genText
+  }
+
   implicit lazy val SizedDate: Sized[Time.Date] =
     new SizedFixSizeAtom[Time.Date](ValueGenerators.dateGen, CostModelV0.DateSize)
 
@@ -605,8 +630,8 @@ object Sized {
       CostModelV0.SNumericWrapperSize,
     )
 
-  implicit lazy val SizedSText: SizedWrapper1[SValue.SText, String] =
-    new SizedWrapper1[SValue.SText, String](
+  implicit lazy val SizedSText: SizedWrapper1[SValue.SText, Text] =
+    new SizedWrapper1[SValue.SText, Text](
       SValue.SText.apply,
       _.value,
       CostModelV0.STextWrapperSize,
@@ -757,7 +782,7 @@ object Sized {
         SizedSBool.gen(n),
         SizedSInt64.gen(n),
         SizedSNumeric.gen(n),
-        SizedSText.gen(n).filter(_.value.nonEmpty),
+        SizedSText.gen(n).filter(_.value.toString.nonEmpty),
         SizedSDate.gen(n),
         SizedSTimestamp.gen(n),
         SizedSEnum.gen(n),

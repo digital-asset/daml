@@ -544,7 +544,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         case BLInt64(value) =>
           builder.setInt64(value)
         case BLNumeric(value) =>
-          builder.setNumericInternedStr(stringsTable.insert(Numeric.toString(value)))
+          builder.setNumericInternedStr(stringsTable.insert(Numeric.toText(value)))
         case BLText(value) =>
           setString(value, builder.setTextInternedStr)
         case BLTimestamp(value) =>

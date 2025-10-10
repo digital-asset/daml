@@ -1066,7 +1066,7 @@ object DebuggingHelpers extends LazyLogging {
       .flatMap(lookup)
       .collect {
         case (active, sc) if active =>
-          (sc.contractId.coid, sc.templateId.qualifiedName.toString())
+          (sc.contractId.coid.toString, sc.templateId.qualifiedName.toString())
       }
       .toMap
     val lapiAcs =

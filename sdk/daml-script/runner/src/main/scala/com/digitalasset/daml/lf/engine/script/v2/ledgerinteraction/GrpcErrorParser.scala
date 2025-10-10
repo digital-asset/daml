@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Text
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
@@ -414,7 +415,12 @@ object GrpcErrorParser {
               .findFirstMatchIn(message)
               .map(_.group(1))
           } yield SubmitError.FailureStatusError(
-            IE.FailureStatus(errorId, category, messageWithoutPrefix, metadata),
+            IE.FailureStatus(
+              Text.assertFromString(errorId),
+              category,
+              Text.assertFromString(messageWithoutPrefix),
+              metadata.map { case (x, y) => Text.assertFromString(x) -> Text.assertFromString(y) },
+            ),
             trace,
           )
         oStatus.getOrElse(new SubmitError.TruncatedError("FailureStatusError", message))

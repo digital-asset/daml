@@ -109,7 +109,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
             SExpr.SEAppAtomicSaturatedBuiltin(
               SBuiltinFun.SBRecUpdMulti(tyCon, List(1, 0)),
               ArraySeq(
-                SExpr.SEValue(SValue.SText("")),
+                SExpr.SEValue(SValue.SText(Text.Empty)),
                 SExpr.SELocA(0),
                 SExpr.SEValue(SValue.SBool(false)),
               ),
@@ -166,15 +166,19 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     )
   val alice: Party = Ref.Party.assertFromString("Alice")
 
-  def contract(label: String = "", precondition: Boolean = true): SValue.SRecord = SValue.SRecord(
-    recordCon,
-    ImmArray(
-      Ref.Name.assertFromString("precond"),
-      Ref.Name.assertFromString("label"),
-      Ref.Name.assertFromString("party"),
-    ),
-    ArraySeq(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
-  )
+  def contract(label: Text = Text.Empty, precondition: Boolean = true): SValue.SRecord =
+    SValue.SRecord(
+      recordCon,
+      ImmArray(
+        Ref.Name.assertFromString(
+          "prec" +
+            "ond"
+        ),
+        Ref.Name.assertFromString("label"),
+        Ref.Name.assertFromString("party"),
+      ),
+      ArraySeq(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
+    )
 
   def tokenApp(sexpr: SExpr): SExpr =
     SExpr.SEApp(sexpr, ArraySeq(SValue.SToken))

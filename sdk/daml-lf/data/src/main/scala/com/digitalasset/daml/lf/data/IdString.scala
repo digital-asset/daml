@@ -11,7 +11,7 @@ import scalaz.{Equal, Order}
 import scala.collection.Factory
 import scala.collection.immutable.ArraySeq
 
-sealed trait StringModule[T] {
+sealed trait StringModule[T <: String] {
 
   def fromString(s: String): Either[String, T]
 
@@ -32,6 +32,8 @@ sealed trait StringModule[T] {
   def ArraySeq: Factory[T, ArraySeq[T]]
 
   def toStringMap[V](map: Map[T, V]): Map[String, V]
+
+  final def toText(s: T): Text = Text.unsafeFromString(s)
 }
 
 sealed trait HexStringModule[T <: String] extends StringModule[T] {

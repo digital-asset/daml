@@ -304,7 +304,9 @@ object SValue {
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
       val array = ArraySeq(
         SText(
-          s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+          Text.assertFromString(
+            s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+          )
         )
       )
       SAny(valueArithmeticError.typ, SRecord(valueArithmeticError.tyCon, fields, array))
@@ -367,7 +369,7 @@ object SValue {
     def checkScale(s: Long): Either[String, Int] =
       Either.cond(test = s.abs <= MaxScale, right = s.toInt, left = "invalide scale")
   }
-  final case class SText(value: String) extends SBuiltinLit
+  final case class SText(value: Text) extends SBuiltinLit
   final case class STimestamp(value: Time.Timestamp) extends SBuiltinLit
   final case class SParty(value: Party) extends SBuiltinLit
   final case class SBool(value: Boolean) extends SBuiltinLit

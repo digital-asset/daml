@@ -537,7 +537,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           ) {
         override def resources: Seq[(ErrorResource, String)] =
           Seq(
-            (ErrorResource.ExceptionText, err.message)
+            (ErrorResource.ExceptionText, err.message.toString)
           )
       }
     }
@@ -970,7 +970,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.CryptoValue, err.value)
+              (ErrorResource.CryptoValue, err.value.toString)
             )
         }
       }
@@ -995,7 +995,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.CryptoValue, err.key)
+              (ErrorResource.CryptoValue, err.key.toString)
             )
         }
       }
@@ -1020,7 +1020,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.CryptoValue, err.signature)
+              (ErrorResource.CryptoValue, err.signature.toString)
             )
         }
       }
@@ -1045,7 +1045,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
           override def resources: Seq[(ErrorResource, String)] =
             Seq(
-              (ErrorResource.CryptoValue, err.value)
+              (ErrorResource.CryptoValue, err.value.toString)
             )
         }
       }

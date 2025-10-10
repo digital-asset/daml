@@ -7,7 +7,7 @@ package compiler
 
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Text, Time}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{
   LanguageMajorVersion,
@@ -879,7 +879,11 @@ private[lf] final class Compiler(
         let(env, s.SEApp(env.toSEVar(getMessagePos), List(env.toSEVar(exceptionPos)))) {
           (messagePos, env) =>
             SBFailWithStatus(
-              s.SEValue(SText("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)),
+              s.SEValue(
+                SText(
+                  Text.assertFromString("UNHANDLED_EXCEPTION/" + exceptionId.qualifiedName.toString)
+                )
+              ),
               s.SEValue(SInt64(FCInvalidGivenCurrentSystemStateOther.cantonCategoryId.toLong)),
               env.toSEVar(messagePos),
               s.SEValue(SMap(true)),

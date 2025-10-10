@@ -26,7 +26,10 @@ object Time {
   case class Date private (days: Int) extends Ordered[Date] {
 
     override def toString: String =
-      Date.formatter.format(LocalDate.ofEpochDay(days.toLong))
+      toText
+
+    def toText: Text =
+      Text.unsafeFromString(Date.formatter.format(LocalDate.ofEpochDay(days.toLong)))
 
     override def compare(that: Date): Int =
       days.compareTo(that.days)
@@ -89,7 +92,10 @@ object Time {
   case class Timestamp private (micros: Long) extends Ordered[Timestamp] {
 
     override def toString: String =
-      Timestamp.formatter.format(toInstant)
+      toText
+
+    def toText: Text =
+      Text.unsafeFromString(Timestamp.formatter.format(toInstant))
 
     def compare(that: Timestamp): Int =
       micros.compareTo(that.micros)

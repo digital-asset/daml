@@ -104,7 +104,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           record(
             damlTree("Exercised"),
             ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId)),
-            ("choice", SText(choiceName)),
+            ("choice", SText(Name.toText(choiceName))),
             ("argument", anyChoice),
             ("childEvents", SList(evs.to(FrontStack))),
           ),
@@ -434,8 +434,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Packages", "PackageName")
     record(
       packageNameTy,
-      ("name", SText(packageName.name.toString)),
-      ("version", SText(packageName.version.toString)),
+      ("name", SText(Text.assertFromString(packageName.name))),
+      ("version", SText(Text.assertFromString(packageName.version.toString))),
     )
   }
 }

@@ -6,7 +6,7 @@ package speedy
 package compiler
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Struct}
+import com.digitalasset.daml.lf.data.{ImmArray, Struct, Text}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LookupError, PackageInterface}
 import com.digitalasset.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
@@ -517,15 +517,20 @@ private[lf] final class PhaseOne(
     }
 
   private[this] def compileBuiltinLit(lit: BuiltinLit): SExpr =
-    SEValue(lit match {
-      case BLInt64(i) => SInt64(i)
-      case BLNumeric(d) => SNumeric(d)
-      case BLText(t) => SText(t)
-      case BLTimestamp(ts) => STimestamp(ts)
-      case BLDate(d) => SDate(d)
-      case BLRoundingMode(roundingMode) => SInt64(roundingMode.ordinal.toLong)
-      case BLFailureCategory(failureCategory) => SInt64(failureCategory.cantonCategoryId.toLong)
-    })
+    lit match {
+      case BLInt64(i) => SEValue(SInt64(i))
+      case BLNumeric(d) => SEValue(SNumeric(d))
+      case BLText(t) =>
+        Text.fromString(t) match {
+          case Right(text) => SEValue(SText(text))
+          case Left(err) => SEApp(SEBuiltin(SBMalformedTextLit(t, err)), List(SEValue(SUnit)))
+        }
+      case BLTimestamp(ts) => SEValue(STimestamp(ts))
+      case BLDate(d) => SEValue(SDate(d))
+      case BLRoundingMode(roundingMode) => SEValue(SInt64(roundingMode.ordinal.toLong))
+      case BLFailureCategory(failureCategory) =>
+        SEValue(SInt64(failureCategory.cantonCategoryId.toLong))
+    }
 
   // ERecUpd(_, f2, ERecUpd(_, f1, e0, e1), e2) => (e0, [f1, f2], [e1, e2])
   private[this] def collectRecUpds(exp: Expr): (Expr, List[Name], List[Expr]) = {

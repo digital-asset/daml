@@ -161,7 +161,7 @@ object CostModel {
 
   type Int64 = Long
   type Numeric = data.Numeric
-  type Text = String
+  type Text = data.Text
   type Date = data.Time.Date
   type Timestamp = data.Time.Timestamp
   type STextMap = SValue.SMap
@@ -805,7 +805,7 @@ object CostModel {
       CostFunction1.Constant(SInt64Size)
     override val BAppendText: CostFunction2[Text, Text] = {
       val poly = LinearPolynomial(STextWrapperSize, StringSize.b)
-      (x: String, y: String) => poly.calculate(x.length + y.length)
+      (x: Text, y: Text) => poly.calculate(x.length + y.length)
     }
     override val BError: CostConstant = CostConstant(
       roundTo8(OBJECT_HEADER_BYTES + REFERENCE_BYTES)
@@ -845,7 +845,7 @@ object CostModel {
       CostFunction2.Constant(SOptionalSize + SNumericWrapperSize + NumericSize)
     override val BTextToCodePoints: CostFunction1[Text] = {
       val poly = LinearPolynomial(SListSize.a, FrontStackSize.b + SInt64Size)
-      (text: String) => poly.calculate(text.length)
+      (text: Text) => poly.calculate(text.length)
     }
     override val BSHA256Text: CostFunction1[Text] =
       CostFunction1.Constant(STextWrapperSize + AsciiStringSize.calculate(64))
@@ -859,9 +859,9 @@ object CostModel {
       CostFunction3.Constant(SBoolSize)
     override val BDecodeHex: CostFunction1[Text] = {
       val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b / 2)
-      (t: String) => poly.calculate(t.length)
+      (t: Text) => poly.calculate(t.length)
     }
-    override val BEncodeHex: CostFunction1[Text] = { (t: String) =>
+    override val BEncodeHex: CostFunction1[Text] = { (t: Text) =>
       STextWrapperSize + StringSize.a + StringSize.b * t.length / 2
     }
     override val BTextToContractId: CostFunction1[Text] =
@@ -871,7 +871,7 @@ object CostModel {
     override val BExplodeText: CostFunction1[Text] = {
       val poly =
         LinearPolynomial(SListSize.a, SListSize.b + STextWrapperSize + StringSize.calculate(1))
-      (text: String) => poly.calculate(text.length)
+      (text: Text) => poly.calculate(text.length)
     }
     override val BImplodeText: CostFunction1[FrontStack[SValue]] = {
       val poly = LinearPolynomial(STextWrapperSize + StringSize.a, StringSize.b)

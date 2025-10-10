@@ -240,7 +240,7 @@ object Value {
   type NodeIdx = Int
 
   sealed abstract class ContractId extends Product with Serializable with CidContainer[ContractId] {
-    def coid: String
+    def coid: Text
     def toBytes: Bytes
     def version: ContractIdVersion
     def isAbsolute: Boolean
@@ -254,7 +254,7 @@ object Value {
         extends ContractId
         with data.NoCopy {
       override lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
-      lazy val coid: Ref.HexString = toBytes.toHexString
+      lazy val coid: Text = Ref.HexString.toText(toBytes.toHexString)
       override def toString: String = s"ContractId($coid)"
       override def version: ContractIdVersion = ContractIdVersion.V1
       override def isAbsolute: Boolean = suffix.nonEmpty
@@ -306,7 +306,7 @@ object Value {
 
     final case class V2 private (local: Bytes, suffix: Bytes) extends ContractId with data.NoCopy {
       override lazy val toBytes: Bytes = V2.prefix ++ local ++ suffix
-      lazy val coid: Ref.HexString = toBytes.toHexString
+      lazy val coid: Text = Ref.HexString.toText(toBytes.toHexString)
       override def toString: String = s"ContractId($coid)"
       override def version: ContractIdVersion = ContractIdVersion.V2
 

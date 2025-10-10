@@ -190,7 +190,7 @@ private[canton] class PrimitiveHashBuilder(purpose: HashPurpose, hashTracer: Has
     addByte(if (b) 1.toByte else 0.toByte, _ => s"${b.toString} (bool)")
 
   final def addNumeric(v: data.Numeric): this.type =
-    add(ByteString.copyFromUtf8(data.Numeric.toString(v)), s"${data.Numeric.toString(v)} (numeric)")
+    add(ByteString.copyFromUtf8(data.Numeric.toText(v)), s"${data.Numeric.toText(v)} (numeric)")
 
   final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
     a.foldLeft[this.type](add(a.length))(f)
