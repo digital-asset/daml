@@ -62,11 +62,13 @@ derEncodeSignature sig | isHex sig && byteCount sig == 65 =
       derPrefix = if rByte0 < 128 then "3044" else "3045"
       rPrefix = if rByte0 < 128 then "0220" else "022100"
       sPrefix = "0220"
+      rValue = (fromSome (eitherToOptional (sliceHexBytes sig 1 33)))
+      sValue = (fromSome (eitherToOptional (sliceHexBytes sig 33 65)))
   in
     Some(
       derPrefix
-        <> rPrefix <> (fromSome (eitherToOptional (sliceHexBytes sig 1 33)))
-        <> sPrefix <> (fromSome (eitherToOptional (sliceHexBytes sig 33 65)))
+        <> rPrefix <> rValue
+        <> sPrefix <> sValue
     )
 derEncodeSignature _ =
   None

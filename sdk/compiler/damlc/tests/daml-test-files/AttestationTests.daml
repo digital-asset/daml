@@ -35,7 +35,7 @@ main =
         createCmd ValidateTestMessageSignature with
           publicKey = derEncodedSignerPublicKey
           messageHash = test.messageHash
-          signature = fromSome (derEncodeSignature test.signature) -- derEncodedSig
+          signature = fromSome (derEncodeSignature test.signature)
           owner = alice
       submit alice do
         createCmd ValidateTestMessageSignature with
