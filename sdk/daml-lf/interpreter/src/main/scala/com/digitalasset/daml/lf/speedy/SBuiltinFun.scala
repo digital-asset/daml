@@ -1547,13 +1547,14 @@ private[lf] object SBuiltinFun {
               forbidTrailingNones = forbidTrailingNones,
             ) { dstSArg =>
               fetchValidateDstContract(
-                machine,
-                coid,
-                srcTmplId,
-                srcMetadata,
-                dstTmplId,
-                dstSArg,
-                mbTypedNormalFormAuthenticator,
+                machine = machine,
+                coid = coid,
+                srcTmplId = srcTmplId,
+                srcContractMetadata = srcMetadata,
+                srcPackageName = srcPackageName,
+                dstTmplId = dstTmplId,
+                dstTmplArg = dstSArg,
+                mbTypedNormalFormAuthenticator = mbTypedNormalFormAuthenticator,
               ) { case (dstTmplId, dstArg, _) =>
                 k(SAny(Ast.TTyCon(dstTmplId), dstArg))
               }
@@ -2618,6 +2619,7 @@ private[lf] object SBuiltinFun {
     def processSrcContract(
         srcTmplId: TypeConId,
         srcMetadata: ContractMetadata,
+        srcPackageName: PackageName,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
         forbidTrailingNones: Boolean,
@@ -2641,13 +2643,14 @@ private[lf] object SBuiltinFun {
             forbidTrailingNones = forbidTrailingNones,
           ) { dstSArg =>
             fetchValidateDstContract(
-              machine,
-              coid,
-              srcTmplId,
-              srcMetadata,
-              dstTmplId,
-              dstSArg,
-              mbTypedNormalFormAuthenticator,
+              machine = machine,
+              coid = coid,
+              srcTmplId = srcTmplId,
+              srcContractMetadata = srcMetadata,
+              srcPackageName = srcPackageName,
+              dstTmplId = dstTmplId,
+              dstTmplArg = dstSArg,
+              mbTypedNormalFormAuthenticator = mbTypedNormalFormAuthenticator,
             )({ case (_, _, dstContract) =>
               k(dstContract.value)
             })
@@ -2676,6 +2679,7 @@ private[lf] object SBuiltinFun {
               processSrcContract(
                 srcTmplId = srcTmplId,
                 srcMetadata = srcContractInfo.metadata,
+                srcPackageName = srcContractInfo.packageName,
                 srcArg = srcContractInfo.arg,
                 mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
                 forbidTrailingNones = true,
@@ -2695,6 +2699,7 @@ private[lf] object SBuiltinFun {
                   coinst.nonSignatoryStakeholders,
                   coinst.contractKeyWithMaintainers,
                 ),
+                srcPackageName = coinst.packageName,
                 srcArg = coinst.createArg,
                 mbTypedNormalFormAuthenticator = hashingMethod match {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
@@ -2724,6 +2729,7 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       srcTmplId: TypeConId,
       srcContractMetadata: ContractMetadata,
+      srcPackageName: PackageName,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
       mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
@@ -2741,6 +2747,8 @@ private[lf] object SBuiltinFun {
           coid,
           srcTmplId,
           dstTmplId,
+          srcPackageName,
+          dstContract.packageName,
           srcContractMetadata,
           dstContract.metadata,
         ) { () =>
@@ -2861,6 +2869,8 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       srcTemplateId: TypeConId,
       recomputedTemplateId: TypeConId,
+      srcPackageName: PackageName,
+      recomputedPackageName: PackageName,
       original: ContractMetadata,
       recomputed: ContractMetadata,
   )(
@@ -2878,6 +2888,9 @@ private[lf] object SBuiltinFun {
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
+      Option.when(recomputedPackageName != srcPackageName)(
+        s"package name mismatch: $recomputedPackageName vs $srcPackageName"
+      ),
     ).flatten match {
       case Nil => k()
       case errors =>
