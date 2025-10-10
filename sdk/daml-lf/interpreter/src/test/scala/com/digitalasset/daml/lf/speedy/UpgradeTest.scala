@@ -706,6 +706,71 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           createArg shouldBe makeRecord(ValueParty(alice), ValueParty(alice), ValueInt64(42))
       }
     }
+
+    "inconsistent packageName in FatContractInstance -- should be rejected" in {
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId0 -> pkg0,
+          pkgId1 -> pkg1,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+        ),
+      )
+
+      val wrongPackageName = Ref.PackageName.assertFromString("wrong")
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        inside(
+          go(
+            e"'-pkg1-':M:do_fetch",
+            // We cannot test the case where the creation package is unavailable because this test case tests the upgrade
+            // of a local contract, which requires the creation package in order to be created.
+            availablePackages = availablePackages,
+            globalContractPackageName = wrongPackageName,
+            globalContractTemplateId = i"'-pkg0-':M:T",
+            globalContractArg = v1_base,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List.empty,
+            globalContractKeyWithMaintainers = None,
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
+          )
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Upgrade(
+                    IE.Upgrade.ValidationFailed(
+                      coid,
+                      srcTemplateId,
+                      dstTemplateId,
+                      srcPackageName,
+                      dstPackageName,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                    )
+                  )
+                )
+              ) =>
+            coid shouldBe theCid
+            srcTemplateId shouldBe i"'-pkg0-':M:T"
+            dstTemplateId shouldBe i"'-pkg1-':M:T"
+            srcPackageName shouldBe wrongPackageName
+            dstPackageName shouldBe pkg1.pkgName
+        }
+      }
+    }
   }
 
   "downgrade attempted" - {

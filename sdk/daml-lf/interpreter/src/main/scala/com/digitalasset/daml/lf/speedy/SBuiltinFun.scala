@@ -1550,6 +1550,7 @@ private[lf] object SBuiltinFun {
                 machine,
                 coid,
                 srcTmplId,
+                srcPackageName,
                 srcMetadata,
                 dstTmplId,
                 dstSArg,
@@ -2617,6 +2618,7 @@ private[lf] object SBuiltinFun {
 
     def processSrcContract(
         srcTmplId: TypeConId,
+        srcPkgName: Ref.PackageName,
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
@@ -2644,6 +2646,7 @@ private[lf] object SBuiltinFun {
               machine,
               coid,
               srcTmplId,
+              srcPkgName,
               srcMetadata,
               dstTmplId,
               dstSArg,
@@ -2675,6 +2678,7 @@ private[lf] object SBuiltinFun {
             ) { srcContractInfo =>
               processSrcContract(
                 srcTmplId = srcTmplId,
+                srcPkgName = srcContractInfo.packageName,
                 srcMetadata = srcContractInfo.metadata,
                 srcArg = srcContractInfo.arg,
                 mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
@@ -2690,6 +2694,7 @@ private[lf] object SBuiltinFun {
             ensureContractActive(machine, coid, coinst.templateId) {
               processSrcContract(
                 srcTmplId = coinst.templateId,
+                srcPkgName = coinst.packageName,
                 srcMetadata = ContractMetadata(
                   coinst.signatories,
                   coinst.nonSignatoryStakeholders,
@@ -2723,6 +2728,7 @@ private[lf] object SBuiltinFun {
       machine: UpdateMachine,
       coid: V.ContractId,
       srcTmplId: TypeConId,
+      srcPkgName: Ref.PackageName,
       srcContractMetadata: ContractMetadata,
       dstTmplId: TypeConId,
       dstTmplArg: SValue,
@@ -2741,6 +2747,8 @@ private[lf] object SBuiltinFun {
           coid,
           srcTmplId,
           dstTmplId,
+          srcPkgName,
+          dstContract.packageName,
           srcContractMetadata,
           dstContract.metadata,
         ) { () =>
@@ -2861,6 +2869,8 @@ private[lf] object SBuiltinFun {
       coid: V.ContractId,
       srcTemplateId: TypeConId,
       recomputedTemplateId: TypeConId,
+      srcPkgName: Ref.PackageName,
+      dstPkgName: Ref.PackageName,
       original: ContractMetadata,
       recomputed: ContractMetadata,
   )(
@@ -2878,6 +2888,9 @@ private[lf] object SBuiltinFun {
       check(_.stakeholders, "stakeholders"),
       check(_.keyOpt.map(_.maintainers), "key maintainers"),
       check(_.keyOpt.map(_.globalKey.key), "key value"),
+      Option.when(srcPkgName != dstPkgName)(
+        s"package name mismatch: $srcPkgName vs $dstPkgName"
+      ),
     ).flatten match {
       case Nil => k()
       case errors =>
@@ -2887,6 +2900,8 @@ private[lf] object SBuiltinFun {
               coid = coid,
               srcTemplateId = srcTemplateId,
               dstTemplateId = recomputedTemplateId,
+              srcPackageName = srcPkgName,
+              dstPackageName = dstPkgName,
               originalSignatories = original.signatories,
               originalObservers = original.observers,
               originalKeyOpt = original.keyOpt,

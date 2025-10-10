@@ -135,8 +135,10 @@ private[lf] object Pretty {
                 coid,
                 srcTemplateId,
                 dstTemplateId,
-                originalObservers,
+                srcPackageName,
+                dstPackageName,
                 originalSignatories,
+                originalObservers,
                 originalKeyOpt,
                 recomputedSignatories,
                 recomputedObservers,
@@ -151,8 +153,9 @@ private[lf] object Pretty {
               dstTemplateId
             ) /
               text(
-                "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+                """Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers, nor the package name have changed""".stripMargin
               ) /
+              text("original package name is") & text(srcPackageName) /
               text("original signatories are") & prettyParties(originalSignatories) /
               text("original observers are") & prettyParties(originalObservers) /
               (originalKeyOpt match {
@@ -161,6 +164,7 @@ private[lf] object Pretty {
                   text("original maintainers are") & prettyParties(key.maintainers) /
                     text("original key is") & prettyValue(verbose = false)(key.value)
               }) /
+              text("target package name is") & text(dstPackageName) /
               text("recomputed signatories are") & prettyParties(recomputedSignatories) /
               text("recomputed observers are") & prettyParties(recomputedObservers) /
               (recomputedKeyOpt match {

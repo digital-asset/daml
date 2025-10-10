@@ -174,6 +174,8 @@ object Error {
         coid: ContractId,
         srcTemplateId: TypeConId,
         dstTemplateId: TypeConId,
+        srcPackageName: Ref.PackageName,
+        dstPackageName: Ref.PackageName,
         originalSignatories: Set[Party],
         originalObservers: Set[Party],
         originalKeyOpt: Option[GlobalKeyWithMaintainers],

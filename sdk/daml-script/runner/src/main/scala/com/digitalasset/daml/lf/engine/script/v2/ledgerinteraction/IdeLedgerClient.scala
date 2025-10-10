@@ -379,6 +379,8 @@ class IdeLedgerClient(
           innerError.coid,
           innerError.srcTemplateId,
           innerError.dstTemplateId,
+          innerError.srcPackageName,
+          innerError.dstPackageName,
           innerError.originalSignatories,
           innerError.originalObservers,
           innerError.originalKeyOpt,

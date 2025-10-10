@@ -847,7 +847,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     object UpgradeError extends ErrorGroup {
       @Explanation("Validation fails when trying to upgrade the contract")
       @Resolution(
-        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers, nor the package name have changed"
       )
       object ValidationFailed
           extends ErrorCode(
@@ -875,6 +875,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
+              (ErrorResource.PackageName, err.srcPackageName),
+              (ErrorResource.PackageName, err.dstPackageName),
             )
             ++ encodeParties(err.originalSignatories)
             ++ encodeParties(err.originalObservers)
