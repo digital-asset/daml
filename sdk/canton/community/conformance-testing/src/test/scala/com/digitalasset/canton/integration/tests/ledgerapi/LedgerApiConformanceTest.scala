@@ -176,36 +176,6 @@ object LedgerApiConformanceBase {
   )
 }
 
-class MyTest extends TestByName(Seq("VettingIT"))
-//class MyTest extends TestByName(Seq("VettingIT"))
-
-// Can be used to run a single conformance test locally during development,
-// passing the test name via environment variable, e.g.
-//
-// $ LAPI_RUN_CONFORMANCE_TEST=EventQueryServiceIT:TXEventsByContractIdBasic sbt "conformance-testing/testOnly com.digitalasset.canton.integration.tests.ledgerapi.TestByEnvVar"
-class TestByEnvVar extends TestByName(sys.env.get("LAPI_RUN_CONFORMANCE_TEST").toList)
-
-// Subclass this to provide mechanisms for running a specific tests by name.
-class TestByName(
-    providedName: Seq[String],
-    synchronizers: Int = 1,
-    envDef: EnvironmentDefinition = EnvironmentDefinition.P1_S1M1,
-) extends SingleVersionLedgerApiConformanceBase {
-  registerPlugin(new UsePostgres(loggerFactory))
-
-  override def connectedSynchronizersCount = synchronizers
-  override def environmentDefinition = envDef
-    .withSetup(setupLedgerApiConformanceEnvironment)
-
-  "Ledger Api Test Tool" can {
-    providedName.foreach { testName =>
-      s"run test = $testName" in { implicit env =>
-        ledgerApiTestToolPlugin.runSuitesSerially(suites = testName, exclude = Nil)
-      }
-    }
-  }
-}
-
 trait LedgerApiShardedConformanceBase extends SingleVersionLedgerApiConformanceBase {
 
   override def connectedSynchronizersCount = 1

@@ -15,6 +15,7 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.messages.command.submission
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -56,7 +57,7 @@ class SubmitRequestValidator(
       maxDeduplicationDuration: Duration,
   )(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, submission.SubmitRequest] =
+  ): Either[StatusRuntimeException, InteractiveSubmissionService.PrepareRequest] =
     for {
       validatedCommands <- commandsValidator.validatePrepareRequest(
         req,
@@ -64,7 +65,12 @@ class SubmitRequestValidator(
         currentUtcTime,
         maxDeduplicationDuration,
       )
-    } yield submission.SubmitRequest(validatedCommands)
+      maxRecordTime <- req.maxRecordTime.traverse(commandsValidator.validateLfTime)
+    } yield InteractiveSubmissionService.PrepareRequest(
+      validatedCommands,
+      req.verboseHashing,
+      maxRecordTime,
+    )
 
   private def validatePartySignatures(
       proto: PartySignatures

@@ -19,6 +19,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat,
   WildcardFilter,
 }
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -28,7 +29,6 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
 }
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.OnboardingTransactions
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.{
   ParticipantSelector,
   defaultConfirmingParticipant,
@@ -40,17 +40,15 @@ import com.digitalasset.canton.integration.{
   ConfigTransforms,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.interactive.ExternalPartyUtils
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
+import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{ExternalParty, PartyId, PhysicalSynchronizerId}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.topology.{ExternalParty, ForceFlags, PartyId, SynchronizerId}
 import com.google.protobuf.ByteString
 import monocle.Monocle.toAppliedFocusOps
 import org.scalatest.Suite
 
 import java.util.UUID
-import scala.concurrent.ExecutionContext
 
 object BaseInteractiveSubmissionTest {
   type ParticipantSelector = TestConsoleEnvironment => LocalParticipantReference
@@ -60,14 +58,9 @@ object BaseInteractiveSubmissionTest {
   val defaultConfirmingParticipant: ParticipantSelector = _.participant3
 }
 
-trait BaseInteractiveSubmissionTest
-    extends ExternalPartyUtils
-    with BaseTest
-    with HasExecutionContext {
+trait BaseInteractiveSubmissionTest extends BaseTest {
 
   this: Suite & NamedLogging =>
-
-  override val externalPartyExecutionContext: ExecutionContext = parallelExecutionContext
 
   protected def ppn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
     defaultPreparingParticipant(env)
@@ -86,56 +79,31 @@ trait BaseInteractiveSubmissionTest
     ),
   )
 
-  protected def loadOnboardingTransactions(
-      externalParty: ExternalParty,
-      confirming: ParticipantReference,
-      synchronizerId: PhysicalSynchronizerId,
-      onboardingTransactions: OnboardingTransactions,
-      extraConfirming: Seq[ParticipantReference] = Seq.empty,
-      observing: Seq[ParticipantReference] = Seq.empty,
+  protected def offboardParty(
+      party: ExternalParty,
+      participant: LocalParticipantReference,
+      synchronizerId: SynchronizerId,
   )(implicit env: TestConsoleEnvironment): Unit = {
-    // Start by loading the transactions signed by the party
-    confirming.topology.transactions.load(
-      onboardingTransactions.toSeq,
-      store = synchronizerId,
+    import env.*
+
+    val partyToParticipantTx = participant.topology.party_to_participant_mappings
+      .list(synchronizerId, filterParty = party.toProtoPrimitive)
+      .loneElement
+    val partyToParticipantMapping = partyToParticipantTx.item
+    val removeTopologyTx = TopologyTransaction(
+      TopologyChangeOp.Remove,
+      partyToParticipantTx.context.serial.increment,
+      partyToParticipantMapping,
+      testedProtocolVersion,
     )
 
-    val partyId = externalParty.partyId
-    val allParticipants = Seq(confirming) ++ extraConfirming ++ observing
-
-    // Then each hosting participant must sign and load the PartyToParticipant transaction
-    allParticipants.map { hp =>
-      // Eventually because it could take some time before the transaction makes it to all participants
-      val partyToParticipantProposal = eventually() {
-        hp.topology.party_to_participant_mappings
-          .list(
-            synchronizerId,
-            proposals = true,
-            filterParty = partyId.toProtoPrimitive,
-          )
-          .loneElement
-      }
-
-      // In practice, participant operators are expected to inspect the transaction here before authorizing it
-      val transactionHash = partyToParticipantProposal.context.transactionHash
-      hp.topology.transactions.authorize[PartyToParticipant](
-        transactionHash,
-        mustBeFullyAuthorized = false,
-        store = synchronizerId,
-      )
-    }
-
-    allParticipants.foreach { hp =>
-      // Wait until all participants agree the hosting is effective
-      env.utils.retry_until_true(
-        hp.topology.party_to_participant_mappings
-          .list(
-            synchronizerId,
-            filterParty = partyId.toProtoPrimitive,
-          )
-          .nonEmpty
-      )
-    }
+    val removeCharlieSignedTopologyTx =
+      global_secret.sign(removeTopologyTx, party, testedProtocolVersion)
+    participant.topology.transactions.load(
+      Seq(removeCharlieSignedTopologyTx),
+      synchronizerId,
+      forceFlags = ForceFlags(DisablePartyWithActiveContracts),
+    )
   }
 
   protected def exec(

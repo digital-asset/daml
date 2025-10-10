@@ -194,8 +194,8 @@ create table med_response_aggregations (
 create table common_sequenced_events (
   -- discriminate between different users of the sequenced events tables
   physical_synchronizer_idx integer not null,
-  -- Proto serialized signed message
-  sequenced_event bytea not null,
+  -- Proto serialized signed message with EXTERNAL TOAST storage strategy (compressed content is not attempted to be compressed again by PostgreSQL server)
+  sequenced_event bytea STORAGE EXTERNAL not null,
   -- Explicit fields to query the messages, which are stored as blobs
   type varchar collate "C" not null check(type in ('del', 'err', 'ign')),
   -- Timestamp of the time of change in microsecond precision relative to EPOCH

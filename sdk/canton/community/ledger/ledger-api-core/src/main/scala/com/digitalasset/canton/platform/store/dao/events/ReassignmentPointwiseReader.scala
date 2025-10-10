@@ -6,19 +6,28 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.metrics.Timed
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawAssignEventLegacy,
-  RawEventLegacy,
   RawReassignmentEventLegacy,
   RawUnassignEventLegacy,
 }
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
-import com.digitalasset.canton.platform.{InternalEventFormat, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{
+  FatContract,
+  InternalEventFormat,
+  Party,
+  TemplatePartiesFilter,
+}
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,6 +36,8 @@ final class ReassignmentPointwiseReader(
     val eventStorageBackend: EventStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
+    val queryValidRange: QueryValidRange,
+    val contractStore: ContractStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -66,7 +77,7 @@ final class ReassignmentPointwiseReader(
   }
 
   private def toApiAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEntries: Seq[Entry[RawAssignEventLegacy]]
+      rawAssignEntries: Seq[(Entry[RawAssignEventLegacy], Option[FatContract])]
   )(implicit lc: LoggingContextWithTrace): Future[Option[Reassignment]] =
     Timed.future(
       future = Future.delegate {
@@ -79,8 +90,8 @@ final class ReassignmentPointwiseReader(
 
   def entriesToReassignment(
       eventProjectionProperties: EventProjectionProperties
-  )(
-      rawReassignmentEntries: Seq[Entry[RawReassignmentEventLegacy]]
+  )(rawReassignmentEntries: Seq[Entry[RawReassignmentEventLegacy]])(
+      contractsM: Map[Long, FatContract]
   )(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
@@ -88,7 +99,9 @@ final class ReassignmentPointwiseReader(
     assignO <- toApiAssigned(eventProjectionProperties)(
       rawReassignmentEntries.collect(entry =>
         entry.event match {
-          case rawAssign: RawAssignEventLegacy => entry.copy(event = rawAssign)
+          case rawAssign: RawAssignEventLegacy =>
+            val fatContractO = contractsM.get(rawAssign.rawCreatedEvent.internalContractId)
+            entry.copy(event = rawAssign) -> fatContractO
         }
       )
     )
@@ -102,21 +115,36 @@ final class ReassignmentPointwiseReader(
 
   } yield assignO.orElse(unassignO)
 
-  private def fetchAndFilterEvents[T <: RawEventLegacy](
+  private def fetchAndFilterEvents[T <: RawReassignmentEventLegacy](
       fetchRawEvents: Future[Vector[Entry[T]]],
       templatePartiesFilter: TemplatePartiesFilter,
-      toResponse: Seq[Entry[T]] => Future[Option[Reassignment]],
-  ): Future[Option[Reassignment]] =
-    for {
-      // Fetching all events from the event sequential id range
-      rawEvents <- fetchRawEvents
+      toResponse: Seq[Entry[T]] => Map[Long, FatContract] => Future[Option[Reassignment]],
+  )(implicit traceContext: TraceContext): Future[Option[Reassignment]] =
+    // Fetching all events from the event sequential id range
+    fetchRawEvents
       // Filtering by template filters
-      filteredRawEvents = UpdateReader.filterRawEvents(templatePartiesFilter)(rawEvents)
-      // Deserialization of lf values
-      deserialized <- toResponse(filteredRawEvents)
-    } yield {
-      deserialized
-    }
+      .map(UpdateReader.filterRawEvents(templatePartiesFilter))
+      // Checking if events are not pruned
+      .flatMap(
+        queryValidRange.filterPrunedEvents[Entry[T]](entry => Offset.tryFromLong(entry.offset))
+      )
+      .flatMap(rawPrunedEvents =>
+        for {
+          // Fetching all contracts for the filtered assigned events
+          fatInstancesM <- contractStore
+            .lookupBatchedNonCached(
+              rawPrunedEvents.collect(_.event match {
+                case assign: RawAssignEventLegacy => assign.rawCreatedEvent.internalContractId
+              })
+            )
+            .map(_.view.mapValues(_.inst).toMap)
+            .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+          // Deserialization of lf values
+          deserialized <- toResponse(rawPrunedEvents)(fatInstancesM)
+        } yield {
+          deserialized
+        }
+      )
 
   def lookupReassignmentBy(
       eventSeqIdRange: (Long, Long),

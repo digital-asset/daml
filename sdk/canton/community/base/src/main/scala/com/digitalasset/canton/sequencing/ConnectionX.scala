@@ -69,7 +69,15 @@ object ConnectionX {
       customTrustCertificates: Option[ByteString],
       expectedSequencerIdO: Option[SequencerId],
       tracePropagation: TracingConfig.Propagation,
-  )
+  ) extends PrettyPrinting {
+    override protected def pretty: Pretty[ConnectionXConfig] = prettyOfClass(
+      param("name", _.name.singleQuoted),
+      param("endpoint", _.endpoint.toURI(transportSecurity)),
+      param("transportSecurity", _.transportSecurity),
+      param("customTrustCertificates", _.customTrustCertificates.nonEmpty),
+      paramIfDefined("expectedSequencerId", _.expectedSequencerIdO),
+    )
+  }
 
   class ConnectionXHealth(
       override val name: String,

@@ -16,14 +16,14 @@ import scala.concurrent.Future
 /** Who gets notified that a event has been written */
 sealed trait WriteNotification {
   def union(notification: WriteNotification): WriteNotification
-  def includes(memberId: SequencerMemberId): Boolean
+  def isBroadcastOrIncludes(memberId: SequencerMemberId): Boolean
 }
 
 object WriteNotification {
 
   case object None extends WriteNotification {
     override def union(notification: WriteNotification): WriteNotification = notification
-    override def includes(memberId: SequencerMemberId): Boolean = false
+    override def isBroadcastOrIncludes(memberId: SequencerMemberId): Boolean = false
   }
   final case class Members(memberIds: SortedSet[SequencerMemberId]) extends WriteNotification {
     override def union(notification: WriteNotification): WriteNotification =
@@ -32,7 +32,8 @@ object WriteNotification {
         case None => this
       }
 
-    override def includes(memberId: SequencerMemberId): Boolean = memberIds.contains(memberId)
+    override def isBroadcastOrIncludes(memberId: SequencerMemberId): Boolean =
+      memberIds.contains(memberId) || memberIds.contains(SequencerMemberId.Broadcast)
 
     override def toString: String = s"Members(${memberIds.map(_.unwrap).mkString(",")})"
   }

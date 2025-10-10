@@ -110,7 +110,11 @@ object JdbcIndexer {
           ),
           compressionStrategy =
             if (config.enableCompression) CompressionStrategy.allGZIP(metrics)
-            else CompressionStrategy.none(metrics),
+            else
+              CompressionStrategy.buildFromConfig(metrics)(
+                config.enableCompressionConsumingExercise,
+                config.enableCompressionNonConsumingExercise,
+              ),
           maxInputBufferSize = config.maxInputBufferSize.unwrap,
           inputMappingParallelism = config.inputMappingParallelism.unwrap,
           dbPrepareParallelism = config.dbPrepareParallelism.unwrap,

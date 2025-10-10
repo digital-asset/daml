@@ -484,6 +484,8 @@ final case class CantonConfig(
         automaticallyPerformLogicalSynchronizerUpgrade =
           participantParameters.automaticallyPerformLogicalSynchronizerUpgrade,
         reassignmentsConfig = participantParameters.reassignmentsConfig,
+        doNotAwaitOnCheckingIncomingCommitments =
+          participantParameters.doNotAwaitOnCheckingIncomingCommitments,
       )
     }
 

@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.ledgerapi.submission
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
 import com.daml.nonempty.NonEmptyUtil
 import com.daml.scalautil.future.FutureConversion.*
-import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
@@ -37,6 +36,7 @@ import com.digitalasset.canton.sequencing.protocol.MemberRecipient
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.topology.{ExternalParty, PartyId}
 import com.digitalasset.canton.version.HashingSchemeVersion
+import com.digitalasset.canton.{HasExecutionContext, LfTimestamp}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
 import io.grpc.Status
@@ -54,6 +54,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest
     with HasProgrammableSequencer
+    with HasExecutionContext
     with HasCycleUtils {
 
   private var aliceE: ExternalParty = _

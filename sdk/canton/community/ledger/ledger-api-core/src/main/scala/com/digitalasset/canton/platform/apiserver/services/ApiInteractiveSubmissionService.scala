@@ -24,12 +24,8 @@ import com.daml.ledger.api.v2.package_reference.PackageReference
 import com.daml.metrics.Timed
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
-import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
-import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
-  ExecuteRequest,
-  PrepareRequest,
-}
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   GetPreferredPackagesRequestValidator,
@@ -108,9 +104,6 @@ class ApiInteractiveSubmissionService(
             maxDeduplicationDuration = maxDeduplicationDuration,
           )(errorLogger),
         )
-        .map { case SubmitRequest(commands) =>
-          PrepareRequest(commands, request.value.verboseHashing)
-        }
         .fold(
           t =>
             FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),

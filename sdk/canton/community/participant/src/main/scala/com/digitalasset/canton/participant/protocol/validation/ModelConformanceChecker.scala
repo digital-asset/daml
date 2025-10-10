@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.Eval
 import cats.data.EitherT
-import cats.implicits.toFoldableOps
+import cats.implicits.{toFoldableOps, toFunctorOps}
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
@@ -27,6 +27,7 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
 import com.digitalasset.canton.participant.store.ExtendedContractLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.*
+import com.digitalasset.canton.platform.store.dao.events.InputContractPackages
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdAbsolutizer.{
   ContractIdAbsolutizationDataV1,
@@ -37,7 +38,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
-import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
+import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -47,7 +48,6 @@ import com.digitalasset.canton.util.{ContractValidator, ErrorUtil, RoseTree}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -258,10 +258,7 @@ class ModelConformanceChecker(
 
     val seed = viewParticipantData.actionDescription.seedOption
 
-    val inputContracts = view.tryFlattenToParticipantViews
-      .flatMap(_.viewParticipantData.coreInputs)
-      .map { case (cid, InputContract(contract, _)) => cid -> contract }
-      .toMap
+    val inputContracts = view.inputContracts.fmap(_.contract)
 
     val contractAndKeyLookup = new ExtendedContractLookup(inputContracts, resolverFromView)
 
@@ -465,27 +462,29 @@ object ModelConformanceChecker {
         synchronizerId: SynchronizerId,
         protocolVersion: ProtocolVersion,
         transactionEnricher: TransactionEnricher,
-        createNodeEnricher: CreateNodeEnricher,
+        contractEnricher: ContractEnricher,
+        hashTracer: HashTracer,
     )(implicit
         traceContext: TraceContext,
         ec: ExecutionContext,
     ): EitherT[FutureUnlessShutdown, String, Hash] =
       for {
         // Enrich the transaction...
-        enrichedTransaction <- transactionEnricher(
-          reInterpretationResult.transaction
-        )(traceContext)
+        enrichedTransaction <- transactionEnricher(reInterpretationResult.transaction)(traceContext)
           .leftMap(_.toString)
+
         // ... and the input contracts so that labels and template identifiers are set and can be included in the hash
-        enrichedInputContracts <- viewInputContracts.toList
-          .parTraverse { case (cid, storedContract) =>
-            createNodeEnricher(storedContract.toLf)(traceContext).map { enrichedNode =>
-              cid -> FatContractInstance.fromCreateNode(
-                enrichedNode,
-                storedContract.inst.createdAt: CreationTime,
-                storedContract.inst.authenticationData,
-              )
-            }
+        inputContracts <- EitherT.fromEither[FutureUnlessShutdown](
+          InputContractPackages
+            .forTransactionWithContracts(enrichedTransaction.transaction, viewInputContracts)
+            .leftMap(mismatch =>
+              s"The following input contract IDs were not found in both the transaction and the provided contracts: $mismatch"
+            )
+        )
+
+        enrichedInputContracts <- inputContracts.toList
+          .parTraverse { case (cid, (inst, targetPackageIds)) =>
+            contractEnricher((inst, targetPackageIds))(traceContext).map(cid -> _)
           }
           .map(_.toMap)
           .leftMap(_.toString)
@@ -506,7 +505,7 @@ object ModelConformanceChecker {
               ),
               reInterpretationResult.metadata.seeds,
               protocolVersion,
-              hashTracer = NoOp,
+              hashTracer = hashTracer,
             )
             .leftMap(_.message)
         )

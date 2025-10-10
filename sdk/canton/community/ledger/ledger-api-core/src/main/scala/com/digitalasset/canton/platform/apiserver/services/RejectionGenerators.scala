@@ -103,9 +103,6 @@ object RejectionGenerators {
         case e: LfInterpretationError.ContractNotActive =>
           CommandExecutionErrors.Interpreter.ContractNotActive
             .Reject(renderedMessage, e)
-        case e :LfInterpretationError.ContractHashingError =>
-          CommandExecutionErrors.Interpreter.ContractHashingError
-            .Reject(renderedMessage, e)
         case e: LfInterpretationError.DisclosedContractKeyHashingError =>
           CommandExecutionErrors.Interpreter.DisclosedContractKeyHashingError
             .Reject(renderedMessage, e)
@@ -158,12 +155,6 @@ object RejectionGenerators {
             .Reject(renderedMessage, e, transactionTrace)
         case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.ValidationFailed) =>
           CommandExecutionErrors.Interpreter.UpgradeError.ValidationFailed
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.TranslationFailed) =>
-          CommandExecutionErrors.Interpreter.UpgradeError.TranslationFailed
-            .Reject(renderedMessage, error)
-        case LfInterpretationError.Upgrade(error: LfInterpretationError.Upgrade.AuthenticationFailed) =>
-          CommandExecutionErrors.Interpreter.UpgradeError.AuthenticationFailed
             .Reject(renderedMessage, error)
         case LfInterpretationError.Crypto(
               error: LfInterpretationError.Crypto.MalformedByteEncoding

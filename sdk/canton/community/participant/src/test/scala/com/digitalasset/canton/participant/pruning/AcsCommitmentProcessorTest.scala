@@ -381,6 +381,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       increasePerceivedComputationTimeForCommitments = Option.when(
         increasePerceivedComputationTimeForCommitments
       )(interval.duration.multipliedBy(2)),
+      doNotAwaitOnCheckingIncomingCommitments = false,
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }

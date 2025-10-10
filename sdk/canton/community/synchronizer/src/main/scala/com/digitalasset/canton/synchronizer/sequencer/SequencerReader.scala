@@ -188,6 +188,9 @@ class SequencerReader(
       _ = logger.debug(
         s"Current safe watermark is $safeWatermarkTimestampO"
       )
+      _ = logger.debug(
+        s"Member $member was registered at ${registeredMember.registeredFrom}"
+      )
 
       // It can happen that a member switching between sequencers runs into a sequencer that is catching up.
       // In this situation, the sequencer has to wait for the watermark to catch up to the requested timestamp.
@@ -292,10 +295,10 @@ class SequencerReader(
         // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
         // so if we want to grab the event exactly at timestampInclusive, we do -1 here
         nextReadTimestamp = readFromTimestampInclusive
+          .map(_.immediatePredecessor)
           .getOrElse(
             registeredMember.registeredFrom
-          )
-          .immediatePredecessor,
+          ),
         nextPreviousEventTimestamp = previousEventTimestamp,
         latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestampO,
       )

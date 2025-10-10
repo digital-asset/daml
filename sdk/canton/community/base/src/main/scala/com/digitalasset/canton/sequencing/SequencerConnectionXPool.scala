@@ -16,6 +16,7 @@ import com.digitalasset.canton.lifecycle.{
   HasRunOnClosing,
   OnShutdownRunner,
 }
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -170,9 +171,17 @@ object SequencerConnectionXPool {
       minRestartConnectionDelay: config.NonNegativeFiniteDuration,
       maxRestartConnectionDelay: config.NonNegativeFiniteDuration,
       expectedPSIdO: Option[PhysicalSynchronizerId] = None,
-  ) {
+  ) extends PrettyPrinting {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
     import SequencerConnectionXPoolConfig.*
+
+    override protected def pretty: Pretty[SequencerConnectionXPoolConfig] = prettyOfClass(
+      param("connections", _.connections),
+      param("trustThreshold", _.trustThreshold),
+      param("minRestartConnectionDelay", _.minRestartConnectionDelay),
+      param("maxRestartConnectionDelay", _.maxRestartConnectionDelay),
+      paramIfDefined("expectedPSIdO", _.expectedPSIdO),
+    )
 
     def validate: Either[SequencerConnectionXPoolError, Unit] = {
       val (names, endpoints) = connections.map(conn => conn.name -> conn.endpoint).unzip
@@ -224,7 +233,12 @@ object SequencerConnectionXPool {
     private[sequencing] final case class ChangedConnections(
         added: Set[ConnectionXConfig],
         removed: Set[ConnectionXConfig],
-    )
+    ) extends PrettyPrinting {
+      override protected def pretty: Pretty[ChangedConnections] = prettyOfClass(
+        param("added", _.added),
+        param("removed", _.removed),
+      )
+    }
 
     /** Create a sequencer connection pool configuration from the existing format.
       *
@@ -313,7 +327,8 @@ trait SequencerConnectionXPoolFactory {
   import SequencerConnectionXPool.{SequencerConnectionXPoolConfig, SequencerConnectionXPoolError}
 
   def create(
-      initialConfig: SequencerConnectionXPoolConfig
+      initialConfig: SequencerConnectionXPoolConfig,
+      name: String,
   )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,
@@ -325,6 +340,7 @@ trait SequencerConnectionXPoolFactory {
       sequencerConnections: SequencerConnections,
       expectedPSIdO: Option[PhysicalSynchronizerId],
       tracingConfig: TracingConfig,
+      name: String,
   )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,
