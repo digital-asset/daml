@@ -100,12 +100,21 @@ class ParticipantTopologyTerminateProcessing(
   override def notifyUpgradeAnnouncement(
       successor: SynchronizerSuccessor
   )(implicit traceContext: TraceContext): Unit = {
-    logger.debug(
+    logger.info(
       s"Node is notified about the upgrade of $psid to ${successor.psid} scheduled at ${successor.upgradeTime}"
     )
 
     lsuCallback.registerCallback(successor)
-    recordOrderPublisher.setSuccessor(successor)
+    recordOrderPublisher.setSuccessor(Some(successor))
+  }
+
+  override def notifyUpgradeCancellation()(implicit traceContext: TraceContext): Unit = {
+    logger.info(
+      s"Node is notified about the cancellation of upgrade"
+    )
+
+    lsuCallback.unregisterCallback()
+    recordOrderPublisher.setSuccessor(None)
   }
 
   private def scheduleEvent(

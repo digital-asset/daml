@@ -232,15 +232,14 @@ class PackageService(
       // vetted. On the other hand, when unvetting, it is safe to unvet all
       // versions of a package.
       case Right(matchingPackages) =>
-        val pkgsSeq: List[PackageId] = matchingPackages.iterator.toList
-        if (targetState.isVetting && pkgsSeq.lengthIs >= 2) {
+        if (targetState.isVetting && matchingPackages.sizeIs >= 2) {
           EitherT.leftT[FutureUnlessShutdown, List[SinglePackageTargetVetting[PackageId]]](
-            VettingReferenceMoreThanOne.Reject(targetState.ref)
+            VettingReferenceMoreThanOne.Reject(targetState.ref, matchingPackages)
           )
         } else {
-          EitherT.rightT[FutureUnlessShutdown, RpcError](pkgsSeq.map { (pkgId: PackageId) =>
-            SinglePackageTargetVetting(pkgId, targetState.bounds)
-          })
+          EitherT.rightT[FutureUnlessShutdown, RpcError](
+            matchingPackages.toList.map(SinglePackageTargetVetting(_, targetState.bounds))
+          )
         }
     }
 
@@ -447,7 +446,7 @@ class PackageService(
               // Unvetting a DAR requires AllowUnvettedDependencies because it is going to unvet all
               // packages from the DAR, even the utility packages. UnvetDar is an experimental
               // operation that requires expert-level knowledge.
-              ForceFlags(ForceFlag.AllowUnvetPackage, ForceFlag.AllowUnvettedDependencies),
+              ForceFlags(ForceFlag.AllowUnvettedDependencies),
             )
             .leftWiden
       }

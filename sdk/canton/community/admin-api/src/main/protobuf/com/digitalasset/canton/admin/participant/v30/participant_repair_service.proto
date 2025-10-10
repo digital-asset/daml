@@ -111,13 +111,6 @@ message MigrateSynchronizerRequest {
 message MigrateSynchronizerResponse {}
 
 message ExportAcsOldRequest {
-  message TargetSynchronizer {
-    // The ID of the synchronizer where the contract is supposed to be assigned when the export is being imported
-    string synchronizer_id = 1;
-    // The protocol version associated to the synchronizer where the contract is supposed to be assigned when the contracts snapshot is being imported
-    int32 protocol_version = 2;
-  }
-
   // The parties for which the ACS should be exported
   // Required
   repeated string parties = 1;
@@ -136,7 +129,7 @@ message ExportAcsOldRequest {
   // ID in the key will be assigned to the synchronizer id and protocol version in the value. This is not a proper synchronizer
   // migration of contracts and it's supposed to be used only in exceptional cases.
   // Optional, if not provided the contracts will be exported with the same synchronizer id as they are currently assigned
-  map<string, TargetSynchronizer> contract_synchronizer_renames = 4;
+  reserved 4; // was map<string, TargetSynchronizer> contract_synchronizer_renames
 
   // If true, do not check whether the provided timestamp is clean (see `timestamp` field).
   // NOT FOR PRODUCTION USE.

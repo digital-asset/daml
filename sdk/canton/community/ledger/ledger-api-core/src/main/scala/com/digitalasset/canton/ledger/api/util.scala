@@ -442,7 +442,7 @@ object UploadDarVettingChange {
     }
 }
 
-sealed trait VettedPackagesRef {
+sealed trait VettedPackagesRef extends PrettyPrinting {
   def toProtoLAPI: package_management_service.VettedPackagesRef
   def findMatchingPackages(metadata: PackageMetadata): Either[String, NonEmpty[Set[Ref.PackageId]]]
 }
@@ -462,6 +462,9 @@ object VettedPackagesRef {
       } else {
         Right(NonEmpty(Set, id))
       }
+
+    override protected def pretty: Pretty[Id] =
+      prettyOfString(id => s"package-id: ${id.id.singleQuoted}")
   }
 
   final case class NameAndVersion(
@@ -475,7 +478,6 @@ object VettedPackagesRef {
         version.toString,
       )
 
-    // TODO(#27499): Stop relying on `(name, version) -> id` injection
     def findMatchingPackages(
         metadata: PackageMetadata
     ): Either[String, NonEmpty[Set[Ref.PackageId]]] =
@@ -498,6 +500,11 @@ object VettedPackagesRef {
             case Some(ne) => Right(ne)
           }
       }
+
+    override protected def pretty: Pretty[NameAndVersion] = prettyOfClass(
+      param("name", _.name),
+      param("version", _.version),
+    )
   }
 
   final case class All(
@@ -526,6 +533,13 @@ object VettedPackagesRef {
             )
           }
       }
+
+    override protected def pretty: Pretty[All] =
+      prettyOfClass(
+        param("id", _.id),
+        param("name", _.name),
+        param("version", _.version),
+      )
   }
 
   final case class Name(
@@ -541,6 +555,9 @@ object VettedPackagesRef {
         case None => Left(s"No packages with name $name")
         case Some(packageResolution) => Right(packageResolution.allPackageIdsForName)
       }
+
+    override protected def pretty: Pretty[Name] =
+      prettyOfString(name => s"package-name: ${name.name.singleQuoted}")
   }
 
   private def parseWith[A](

@@ -25,7 +25,7 @@ import com.digitalasset.canton.platform.store.DbSupport.{ConnectionPoolConfig, D
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.store.interning.StringInterningView
-import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
+import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations, PruningOffsetService}
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
@@ -99,6 +99,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     val stringInterningView = new StringInterningView(loggerFactory)
     val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
     val cantonContractStore = new InMemoryContractStore(timeouts, loggerFactory)
+    val pruningOffsetService = mock[PruningOffsetService]
 
     val indexResourceOwner =
       for {
@@ -190,6 +191,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
               _: LoggingContextWithTrace,
           ) => FutureUnlessShutdown.pure(Left("not used")),
           cantonContractStore = cantonContractStore,
+          pruningOffsetService = pruningOffsetService,
         )
       } yield indexService -> indexer
 

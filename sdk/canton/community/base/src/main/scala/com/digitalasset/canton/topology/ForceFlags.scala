@@ -37,8 +37,6 @@ object ForceFlag {
   case object PreparationTimeRecordTimeToleranceIncrease
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE)
 
-  case object AllowUnvetPackage extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE)
-
   case object AllowUnvetPackageWithActiveContracts
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS)
 
@@ -81,7 +79,6 @@ object ForceFlag {
     Seq[ForceFlag](
       AlienMember,
       LedgerTimeRecordTimeToleranceIncrease,
-      AllowUnvetPackage,
       AllowUnknownPackage,
       AllowUnvettedDependencies,
       DisablePartyWithActiveContracts,

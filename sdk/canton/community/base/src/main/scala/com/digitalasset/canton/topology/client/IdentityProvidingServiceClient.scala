@@ -689,7 +689,7 @@ trait SynchronizerUpgradeClient {
     * synchronizer id of the successor of this synchronizer and the upgrade time. Otherwise, returns
     * None.
     */
-  def isSynchronizerUpgradeOngoing()(implicit
+  def synchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]]
 

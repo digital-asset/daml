@@ -71,7 +71,6 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, GrpcStreamingUtils, OptionUtil, PathUtils}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ReassignmentCounter, SequencerCounter, SynchronizerAlias, config}
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -727,7 +726,6 @@ object ParticipantAdminCommands {
         filterSynchronizerId: Option[SynchronizerId],
         timestamp: Option[Instant],
         observer: StreamObserver[v30.ExportAcsOldResponse],
-        contractSynchronizerRenames: Map[SynchronizerId, (SynchronizerId, ProtocolVersion)],
         force: Boolean,
     ) extends GrpcAdminCommand[
           v30.ExportAcsOldRequest,
@@ -746,15 +744,6 @@ object ParticipantAdminCommands {
             parties.map(_.toLf).toSeq,
             filterSynchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             timestamp.map(Timestamp.apply),
-            contractSynchronizerRenames.map {
-              case (source, (targetSynchronizerId, targetProtocolVersion)) =>
-                val targetSynchronizer = v30.ExportAcsOldRequest.TargetSynchronizer(
-                  synchronizerId = targetSynchronizerId.toProtoPrimitive,
-                  protocolVersion = targetProtocolVersion.toProtoPrimitive,
-                )
-
-                (source.toProtoPrimitive, targetSynchronizer)
-            },
             force = force,
             partiesOffboarding = partiesOffboarding,
           )
