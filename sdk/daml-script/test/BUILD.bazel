@@ -415,6 +415,7 @@ da_scala_test(
     srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/DamlScriptUtilityPackage.scala"],
     data = [
         "//daml-script/daml:daml-script-2.1.dar",
+        "//daml-script/daml:daml-script-2.2.dar",
         "//daml-script/daml:daml-script-2.dev.dar",
     ],
     resources = glob(["src/main/resources/**/*"]),
