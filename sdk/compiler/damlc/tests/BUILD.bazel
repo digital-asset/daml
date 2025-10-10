@@ -831,7 +831,7 @@ damlc_compile_test(
     name = "memory-bond-trading",
     srcs = [":bond-trading"],
     enable_scripts = True,
-    heap_limit = "200M" if is_windows else "100M",
+    heap_limit = "200M" if is_windows else "5000M",
     main = "bond-trading/Test.daml",
     stack_limit = "100K" if is_windows else "70K",
 )

@@ -209,11 +209,11 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
       ImportedPackageId p@(PackageId pkgId) -> do
         (eMap :: Either NoPkgImportsReasons ImportMap) <- asks (view importMap)
-        ifVersion version (\v -> p `notElem` stableIds && v `supports` featureFlatArchive)
+        ifVersion version (\v -> p `notElem` stableIds && v `supports` featurePackageImports)
           {-then-}
              (case eMap of
                Left r ->
-                 error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: " $ show r
+                 error $ printf "Encountered an package ID of type ImportedPackage in a module that doesn't expose an import map, reason: %s, pkgId: %s" (show r) (show pkgId)
                Right ids ->
                  let (mID :: Maybe Int32) = M.lookup p ids
                  in  maybe (error $ printf "During encoding, did not find imported package id %s in import map %s" (show p) (show ids)) (return . P.SelfOrImportedPackageIdSumPackageImportId) mID)
@@ -565,6 +565,7 @@ encodeExpr' e = case e of
       P.Expr{..} <- encodeExpr' e
       exprLocation <- Just <$> encodeSourceLoc loc
       pure P.Expr{..}
+  --else if expr is not an location:
   _ -> internExpr $ case e of
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do

@@ -28,7 +28,7 @@ import qualified DA.Daml.LF.Proto3.Interned as G
 
 data InternedArr val where
   InternedArr
-      :: [val]
+      :: ![val]
       -> !Int32 -- ^ the next available key
       -> InternedArr val
 
@@ -42,6 +42,7 @@ internState :: val -> State (InternedArr val) Int32
 internState x = do
   (InternedArr xs n) <- get
   put $ InternedArr (x : xs) (n + 1)
+  when (n > 100_000) $ error "InternedArr: bound of n reached"
   return n
 
 instance G.Interned InternedArr where

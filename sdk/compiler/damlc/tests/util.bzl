@@ -46,7 +46,7 @@ trap cleanup EXIT
 importargs=""
 {install_script}
 
-DAML_PROJECT="$$TMP" $$DAMLC compile $$MAIN -o $$TMP/out $$importargs +RTS -s {stack_opt} {heap_opt}
+DAML_PROJECT="$$TMP" $$DAMLC compile $$MAIN -o $$TMP/out $$importargs +RTS -p -s {stack_opt} {heap_opt}
 """.format(
             damlc = damlc,
             main = main,
