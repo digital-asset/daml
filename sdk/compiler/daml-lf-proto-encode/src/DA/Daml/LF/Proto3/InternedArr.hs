@@ -28,7 +28,7 @@ import qualified DA.Daml.LF.Proto3.Interned as G
 
 data InternedArr val where
   InternedArr
-      :: [val]
+      :: ![val]
       -> !Int32 -- ^ the next available key
       -> InternedArr val
 
