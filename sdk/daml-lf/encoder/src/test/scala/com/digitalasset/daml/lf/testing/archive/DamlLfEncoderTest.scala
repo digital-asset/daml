@@ -61,7 +61,7 @@ class DamlLfEncoderTest
         "LedgerTimeMod",
       )
       val modules_2_1 = sharedModules ++ Set[DottedName]("InterfaceUnsafeFromMod")
-      val modules_2_2 = modules_2_1
+      val modules_2_2 = sharedModules
       val modules_2_dev = sharedModules ++ Set[DottedName](
         "BigNumericMod",
         "InterfaceExtMod",
