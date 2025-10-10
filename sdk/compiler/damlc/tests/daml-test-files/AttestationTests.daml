@@ -29,7 +29,8 @@ main =
       ((serializeTestMessage test.message) === test.encodedMessage)
       ((keccak256 (serializeTestMessage test.message)) === test.messageHash)
       derEncodedSig <- secp256k1signWithEcdsaOnly derEncodedSignerPrivateKey test.messageHash
-      --((Some derEncodedSig) === (derEncodeSignature test.signature))
+      -- as signatures use a random value to multiply against a generator value, we can not compare derEncodedSig
+      -- against test.signature (as 2 distinct random sources are used to compute these signatures)
       alice <- allocateParty "Alice"
       submit alice do
         createCmd ValidateTestMessageSignature with
