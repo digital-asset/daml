@@ -37,4 +37,10 @@ main =
           messageHash = test.messageHash
           signature = fromSome (derEncodeSignature test.signature) -- derEncodedSig
           owner = alice
+      submit alice do
+        createCmd ValidateTestMessageSignature with
+          publicKey = derEncodedSignerPublicKey
+          messageHash = test.messageHash
+          signature = derEncodedSig
+          owner = alice
     pure ()
