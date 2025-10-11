@@ -99,7 +99,7 @@ For an extension model like this one,``data-dependencies`` are appropriate, so t
       :start-after:   - daml-stdlib
       :end-before: sandbox-options:
 
-You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`compose` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using the ledger api to contain test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
+You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`compose` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using the Ledger API to contain test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
 
 .. _project-structures:
 
