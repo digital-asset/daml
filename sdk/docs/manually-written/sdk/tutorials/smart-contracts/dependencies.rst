@@ -67,7 +67,7 @@ We can see this in action. When a DAR file gets deployed to a ledger, not all me
 
   dpm sandbox -c config.conf
 
-#. Open another terminal and use the grpc ledger api to download the dar,  making sure to replace the hash with the appropriate one
+#. Open another terminal and use the gRPC Ledger API to download the dar,  making sure to replace the hash with the appropriate one
 
 .. code:: shell
   
