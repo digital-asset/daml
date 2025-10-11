@@ -32,6 +32,8 @@ final case class ParticipantNodeParameters(
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean,
     reassignmentsConfig: ReassignmentsConfig,
+    doNotAwaitOnCheckingIncomingCommitments: Boolean,
+    disableOptionalTopologyChecks: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -86,5 +88,7 @@ object ParticipantNodeParameters {
     reassignmentsConfig = ReassignmentsConfig(
       targetTimestampForwardTolerance = NonNegativeFiniteDuration.ofSeconds(30)
     ),
+    doNotAwaitOnCheckingIncomingCommitments = false,
+    disableOptionalTopologyChecks = false,
   )
 }

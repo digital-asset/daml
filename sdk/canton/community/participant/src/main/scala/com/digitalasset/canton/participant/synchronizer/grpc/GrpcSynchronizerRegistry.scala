@@ -152,6 +152,13 @@ class GrpcSynchronizerRegistry(
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
 
+    val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
+
+    val synchronizerLoggerFactory = loggerFactory.append(
+      "synchronizerId",
+      config.synchronizerId.map(_.toString).getOrElse(config.synchronizerAlias.toString),
+    )
+
     val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
       clientProtocolVersions =
         ProtocolVersionCompatibility.supportedProtocols(participantNodeParameters),
@@ -163,7 +170,7 @@ class GrpcSynchronizerRegistry(
       seedForRandomnessO = testingConfig.sequencerTransportSeed,
       futureSupervisor = futureSupervisor,
       timeouts = timeouts,
-      loggerFactory = loggerFactory,
+      loggerFactory = synchronizerLoggerFactory,
     )
 
     val connectionPoolE = connectionPoolFactory
@@ -171,12 +178,11 @@ class GrpcSynchronizerRegistry(
         sequencerConnections = config.sequencerConnections,
         expectedPSIdO = config.synchronizerId,
         tracingConfig = participantNodeParameters.tracing,
+        name = if (useNewConnectionPool) "main" else "dummy",
       )
       .leftMap[SynchronizerRegistryError](error =>
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(error.toString)
       )
-
-    val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
 
     val runE = for {
       connectionPool <- connectionPoolE.toEitherT[FutureUnlessShutdown]

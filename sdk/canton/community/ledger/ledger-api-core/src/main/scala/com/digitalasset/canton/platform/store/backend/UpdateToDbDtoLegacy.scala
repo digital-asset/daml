@@ -218,7 +218,7 @@ object UpdateToDbDtoLegacy {
               ledger_offset = offset.unwrap,
               recorded_at = topologyTransaction.recordTime.toMicros,
               submission_id = Some(
-                PartyAllocation.TrackerKey.of(party, participant, authorizationEvent).submissionId
+                PartyAllocation.TrackerKey(party, participant, authorizationEvent).submissionId
               ),
               party = Some(party),
               typ = JdbcLedgerDao.acceptType,
@@ -373,16 +373,19 @@ object UpdateToDbDtoLegacy {
         representative_package_id = representativePackageId.toString,
         flat_event_witnesses = flatWitnesses,
         tree_event_witnesses = treeWitnesses,
-        create_argument = compressionStrategy.createArgumentCompression.compress(createArgument),
+        create_argument =
+          compressionStrategy.createArgumentCompressionLegacy.compress(createArgument),
         create_signatories = create.signatories.map(_.toString),
         create_observers = create.stakeholders.diff(create.signatories).map(_.toString),
         create_key_value = createKeyValue
-          .map(compressionStrategy.createKeyValueCompression.compress),
+          .map(compressionStrategy.createKeyValueCompressionLegacy.compress),
         create_key_maintainers = create.keyOpt.map(_.maintainers.map(_.toString)),
         create_key_hash = create.keyOpt.map(_.globalKey.hash.bytes.toHexString),
-        create_argument_compression = compressionStrategy.createArgumentCompression.id,
+        create_argument_compression = compressionStrategy.createArgumentCompressionLegacy.id,
         create_key_value_compression =
-          compressionStrategy.createKeyValueCompression.id.filter(_ => createKeyValue.isDefined),
+          compressionStrategy.createKeyValueCompressionLegacy.id.filter(_ =>
+            createKeyValue.isDefined
+          ),
         event_sequential_id = 0, // this is filled later
         authentication_data = transactionAccepted.contractAuthenticationData
           .get(create.coid)
@@ -466,13 +469,13 @@ object UpdateToDbDtoLegacy {
         exercise_choice = exercise.qualifiedChoiceName.choiceName,
         exercise_choice_interface_id = exercise.qualifiedChoiceName.interfaceId.map(_.toString),
         exercise_argument =
-          compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
+          compressionStrategy.consumingExerciseArgumentCompression.compress(exerciseArgument),
         exercise_result = exerciseResult
-          .map(compressionStrategy.exerciseResultCompression.compress),
+          .map(compressionStrategy.consumingExerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
-        exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
-        exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
+        exercise_argument_compression = compressionStrategy.consumingExerciseArgumentCompression.id,
+        exercise_result_compression = compressionStrategy.consumingExerciseResultCompression.id,
         event_sequential_id = 0, // this is filled later
         synchronizer_id = transactionAccepted.synchronizerId,
         trace_context = serializedTraceContext,
@@ -658,12 +661,14 @@ object UpdateToDbDtoLegacy {
           .diff(assign.createNode.signatories)
           .map(_.toString),
         create_key_value = createKeyValue
-          .map(compressionStrategy.createKeyValueCompression.compress),
+          .map(compressionStrategy.createKeyValueCompressionLegacy.compress),
         create_key_maintainers = assign.createNode.keyOpt.map(_.maintainers.map(_.toString)),
         create_key_hash = assign.createNode.keyOpt.map(_.globalKey.hash.bytes.toHexString),
-        create_argument_compression = compressionStrategy.createArgumentCompression.id,
+        create_argument_compression = compressionStrategy.createArgumentCompressionLegacy.id,
         create_key_value_compression =
-          compressionStrategy.createKeyValueCompression.id.filter(_ => createKeyValue.isDefined),
+          compressionStrategy.createKeyValueCompressionLegacy.id.filter(_ =>
+            createKeyValue.isDefined
+          ),
         event_sequential_id = 0L, // this is filled later
         ledger_effective_time = assign.ledgerEffectiveTime.micros,
         authentication_data = assign.contractAuthenticationData.toByteArray,

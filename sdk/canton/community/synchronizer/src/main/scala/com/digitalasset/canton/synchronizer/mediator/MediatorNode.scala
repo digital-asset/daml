@@ -445,6 +445,7 @@ class MediatorNodeBootstrap(
           staticSynchronizerParameters = staticSynchronizerParameters,
           store = synchronizerTopologyStore,
           outboxQueue = outboxQueue,
+          disableOptionalTopologyChecks = config.topology.disableOptionalTopologyChecks,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,
@@ -575,7 +576,7 @@ class MediatorNodeBootstrap(
       seedForRandomnessO = arguments.testingConfig.sequencerTransportSeed,
       futureSupervisor = futureSupervisor,
       timeouts = timeouts,
-      loggerFactory = loggerFactory,
+      loggerFactory = synchronizerLoggerFactory,
     )
 
     val useNewConnectionPool = parameters.sequencerClient.useNewConnectionPool
@@ -682,6 +683,7 @@ class MediatorNodeBootstrap(
                   sequencerConnections = info.sequencerConnections,
                   expectedPSIdO = None,
                   tracingConfig = parameters.tracing,
+                  name = "dummy",
                 )
                 .leftMap(error => error.toString)
             )
@@ -721,9 +723,11 @@ class MediatorNodeBootstrap(
             ),
             sequencerClientFactory,
             sequencerInfoLoader,
+            connectionPoolFactory,
             synchronizerAlias,
             synchronizerId,
             sequencerClient,
+            parameters.tracing,
             loggerFactory,
           )
 

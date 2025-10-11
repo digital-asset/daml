@@ -6,8 +6,10 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as proto
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimation,
   ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitResponse,
 }
@@ -16,6 +18,7 @@ import com.daml.ledger.api.v2.update_service.GetUpdateResponse
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
@@ -26,7 +29,10 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 }
 import com.digitalasset.canton.ledger.api.validation.GetPreferredPackagesRequestValidator.PackageVettingRequirements
 import com.digitalasset.canton.ledger.api.{Commands as ApiCommands, PackageReference, SubmissionId}
-import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.InteractiveSubmissionExecuteError
+import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.{
+  InteractiveSubmissionExecuteError,
+  InteractiveSubmissionPreparationError,
+}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.ledger.participant.state.index.ContractStore
@@ -175,13 +181,21 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           request.commands.submissionId.map(SubmissionId.unwrap),
         )
 
-      evaluateAndHash(seedService.nextSeed(), request.commands, request.verboseHashing)
+      evaluateAndHash(
+        seedService.nextSeed(),
+        request.commands,
+        request.verboseHashing,
+        request.maxRecordTime,
+        request.costEstimationHints,
+      )
     }
 
   private def evaluateAndHash(
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
       verboseHashing: Boolean,
+      maxRecordTime: Option[LfTimestamp],
+      costEstimationHints: Option[CostEstimationHints],
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ErrorLoggingContext,
@@ -212,6 +226,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           commands,
           config.contractLookupParallelism,
           hashTracer,
+          maxRecordTime,
         )
         .leftWiden[RpcError]
       hashingDetails = hashTracer match {
@@ -224,11 +239,39 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         case HashTracer.NoOp => None
         case stringTracer: HashTracer.StringHashTracer => Some(stringTracer.result)
       }
+      costEstimation <- costEstimationHints.traverse { costHints =>
+        syncService
+          .estimateTrafficCost(
+            synchronizerId = commandExecutionResult.synchronizerRank.synchronizerId.logical,
+            transaction = commandExecutionResult.commandInterpretationResult.transaction,
+            transactionMetadata =
+              commandExecutionResult.commandInterpretationResult.transactionMeta,
+            submitterInfo = commandExecutionResult.commandInterpretationResult.submitterInfo,
+            keyResolver = commandExecutionResult.commandInterpretationResult.globalKeyMapping,
+            disclosedContracts =
+              commandExecutionResult.commandInterpretationResult.processedDisclosedContracts
+                .map(contract => contract.contractId -> contract)
+                .toList
+                .toMap,
+            costHints = costHints,
+          )
+          .map { estimation =>
+            CostEstimation(
+              Some(estimation.estimationTimestamp.toProtoTimestamp),
+              estimation.confirmationRequestCost.value,
+              estimation.confirmationResponseCost.value,
+              estimation.totalCost.value,
+            )
+          }
+          .leftMap(InteractiveSubmissionPreparationError.Reject(_))
+          .leftWiden[RpcError]
+      }
     } yield proto.PrepareSubmissionResponse(
       preparedTransaction = Some(prepareResult.transaction),
       preparedTransactionHash = prepareResult.hash.unwrap,
       hashingSchemeVersion = HashingSchemeVersionConverter.toLAPIProto(prepareResult.hashVersion),
       hashingDetails = hashingDetails,
+      costEstimation = costEstimation,
     )
 
     result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(FutureUnlessShutdown.fromTry)

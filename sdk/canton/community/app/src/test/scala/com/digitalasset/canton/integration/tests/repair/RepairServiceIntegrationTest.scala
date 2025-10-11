@@ -829,7 +829,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
                 Ref.PackageId.assertFromString(pkg),
                 Ref.QualifiedName.assertFromString(s"$module:$template"),
               )
-            val lfPackageName = Ref.PackageName.assertFromString("pkg-name")
+            val lfPackageName = Ref.PackageName.assertFromString("CantonTestsDev")
             val keyWithMaintainers = ExampleTransactionFactory.globalKeyWithMaintainers(
               LfGlobalKey.build(lfNoMaintainerTemplateId, Value.ValueUnit, lfPackageName).value,
               Set.empty,

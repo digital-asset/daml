@@ -350,12 +350,31 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             ++ sql")"
         )
         ++ sql" OR "
-        // SynchronizerTrustCertificate filtering
+        // SynchronizerTrustCertificate filtering for the party
         ++ Seq(
           sql"(transaction_type = ${SynchronizerTrustCertificate.code}"
           // In SynchronizerTrustCertificate part of the filter, compare not only to participant, but also to party identifier
           // to enable searching for the admin party
             ++ conditionalAppend(filterParty, filterPartyIdentifier, filterPartyNamespaceO)
+            ++ sql")"
+        )
+        ++ sql" OR "
+        // SynchronizerTrustCertificate filtering for the participant state
+        ++ Seq(
+          sql"(transaction_type = ${SynchronizerTrustCertificate.code}"
+            ++ conditionalAppend(
+              filterParticipant,
+              filterParticipantIdentifier,
+              filterParticipantNamespaceO,
+            )
+            ++ sql")"
+        )
+        ++ sql" OR "
+        // OwnerToKeyMapping filtering:
+        // We also need to include the owner to key mappings in our result such that we can determine
+        // whether a participant is actually active
+        ++ Seq(
+          sql"(transaction_type = ${OwnerToKeyMapping.code}"
             ++ conditionalAppend(
               filterParticipant,
               filterParticipantIdentifier,
@@ -366,23 +385,14 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
         ++ sql")"
     )
     toStoredTopologyTransactions(storage.query(query, operationName = functionFullName))
-      .map(
-        _.result.toSet
-          .flatMap[PartyId](_.mapping match {
-            case ptp: PartyToParticipant
-                if filterParticipant.isEmpty || ptp.participants
-                  .exists(
-                    _.participantId.uid
-                      .matchesFilters(filterParticipantIdentifier, filterParticipantNamespaceO)
-                  ) =>
-              Set(ptp.partyId)
-            case cert: SynchronizerTrustCertificate
-                if filterParty.isEmpty || cert.participantId.adminParty.uid
-                  .matchesFilters(filterPartyIdentifier, filterPartyNamespaceO) =>
-              Set(cert.participantId.adminParty)
-            case _ => Set.empty
-          })
-      )
+      .map { txs =>
+        val mappings = txs.result.map(_.mapping)
+        TopologyStore.determineValidParties(
+          mappings,
+          filterParty = filterParty,
+          filterParticipant = filterParticipant,
+        )
+      }
   }
 
   override def findPositiveTransactions(

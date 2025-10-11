@@ -349,6 +349,9 @@ object TestingTimeServiceConfig {
   *   [[com.digitalasset.canton.config.CantonParameters.enableAdditionalConsistencyChecks]] being
   *   enabled are logged, measured in the number of contract activations during a single connection
   *   to a synchronizer. Used only for database storage.
+  * @param doNotAwaitOnCheckingIncomingCommitments
+  *   Enable fully asynchronous checking of incoming commitments. This may result in some incoming
+  *   commitments not being checked in case of crashes or HA failovers.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -383,6 +386,7 @@ final case class ParticipantNodeParameterConfig(
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean = true,
     activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
     reassignmentsConfig: ReassignmentsConfig = ReassignmentsConfig(),
+    doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

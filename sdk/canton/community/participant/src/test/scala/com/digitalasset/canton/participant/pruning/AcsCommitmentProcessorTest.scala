@@ -9,13 +9,14 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.{
-  NonNegativeInt,
   NonNegativeLong,
+  NonNegativeProportion,
   PositiveInt,
   PositiveNumeric,
 }
 import com.digitalasset.canton.config.{
   BatchingConfig,
+  CommitmentSendDelay,
   DefaultProcessingTimeouts,
   NonNegativeDuration,
   TestingConfigInternal,
@@ -377,10 +378,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       exitOnFatalFailures = true,
       BatchingConfig(),
       // do not delay sending commitments for testing, because tests often expect to see commitments after an interval
-      Some(NonNegativeInt.zero),
+      Some(CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))),
       increasePerceivedComputationTimeForCommitments = Option.when(
         increasePerceivedComputationTimeForCommitments
       )(interval.duration.multipliedBy(2)),
+      doNotAwaitOnCheckingIncomingCommitments = false,
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }

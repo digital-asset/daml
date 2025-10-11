@@ -330,7 +330,7 @@ private[platform] object InMemoryStateUpdater {
       .collect { case TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, events) =>
         events.collect { case u: TransactionLogUpdate.PartyToParticipantAuthorization =>
           PartyAllocation.Completed(
-            PartyAllocation.TrackerKey.of(u.party, u.participant, u.authorizationEvent),
+            PartyAllocation.TrackerKey(u.party, u.participant, u.authorizationEvent),
             IndexerPartyDetails(party = u.party, isLocal = u.participant == participantId),
           )
         }

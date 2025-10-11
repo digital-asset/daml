@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests.repair
 
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.FuncTest
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -53,7 +53,11 @@ sealed trait OfflinePartyMigrationAcsCommitmentIntegrationTest
       )
       // do no delay sending commitments
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))
+          )
+        )
       )
 
   "use repair to migrate a party to a different participant" taggedAs
