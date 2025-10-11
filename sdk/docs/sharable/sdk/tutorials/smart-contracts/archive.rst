@@ -18,7 +18,7 @@ Run the following command to build your `.dar` file:
 
 .. code-block:: bash
 
-  daml build
+  dpm build
 
 This command compiles your Daml code and produces a Dar file in the
 `./.daml/dist/` directory.

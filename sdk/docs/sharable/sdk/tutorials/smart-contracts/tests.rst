@@ -17,7 +17,7 @@ Note that this section only covers testing your Daml contracts.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro12`` by running ``daml new intro-test  --template daml-intro-test``
+  Remember that you can load all the code for this section into a folder called ``intro12`` by running ``dpm new intro-test  --template daml-intro-test``
 
 Multi-package project structure
 -------------------------------
@@ -55,9 +55,9 @@ It contains the list of sub-packages:
   - ./multi-trade
   - ./multi-trade-tests
 
-Run ``daml build --all`` at the root of the multi-package project, to build all sub-packages.
-Or you can run ``daml build`` in any of the sub-package. It detects the dependencies, and build them in the correct order.
-For instance, running ``daml build`` in ``multi-trade-tests`` triggers the build of ``asset``, ``multi-trade`` and ``multi-trade-tests`` in that order.
+Run ``dpm build --all`` at the root of the multi-package project, to build all sub-packages.
+Or you can run ``dpm build`` in any of the sub-package. It detects the dependencies, and build them in the correct order.
+For instance, running ``dpm build`` in ``multi-trade-tests`` triggers the build of ``asset``, ``multi-trade`` and ``multi-trade-tests`` in that order.
 
 Test templates with Daml Scripts
 --------------------------------
@@ -70,7 +70,7 @@ In a script, you can submit commands and queries from multiple parties on a fres
 
 There are two main ways to run a Daml Script:
 - Click the ``Script results`` lens in VS Code: it provides the table and transaction views, which are useful for debugging.
-- Run the ``daml test`` command of the Daml assistant, which is useful for regression checks and coverage.
+- Run the ``dpm test`` command, which is useful for regression checks and coverage.
 
 Run a script in VS Code
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -96,7 +96,7 @@ Run all scripts with the Daml Assistant
 The Daml Assistant can run all the scripts inside a package.
 This is useful for quick regression check, and their automation in the CI.
 
-Open a terminal in the ``multi-trade-tests`` folder and run ``daml test``.
+Open a terminal in the ``multi-trade-tests`` folder and run ``dpm test``.
 It should succeed and print the following test summary:
 
 .. code-block:: none

@@ -17,7 +17,7 @@ In this section we test the ``Token`` model from :doc:`contracts` using the :ref
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro2`` by running ``daml new intro-daml-scripts  --template daml-intro-daml-scripts``
+  Remember that you can load all the code for this section into a folder called ``intro2`` by running ``dpm new intro-daml-scripts  --template daml-intro-daml-scripts``
 
 .. script_basics:
 
@@ -59,7 +59,7 @@ Run the scripts
 There are a few ways to run Daml Scripts:
 
 - In Daml Studio against a test ledger, providing visualizations of the resulting ledger.
-- Using the command line ``daml test`` also against a test ledger, useful for continuous integration.
+- Using the command line ``dpm test`` also against a test ledger, useful for continuous integration.
 - Against a real ledger. See the documentation for :ref:`Daml Script <daml-script>` for more information.
 
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on that text to display the outcome of the script.
@@ -84,7 +84,7 @@ What this display means:
 
 - The remaining columns, labelled vertically, show which parties know about which contracts. In this simple script, the sole party "Alice" knows about the contract she created.
 
-To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml test --files Token_Test.daml``. If your file contains more than one script, this runs all of them.
+To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``dpm test --files Token_Test.daml``. If your file contains more than one script, this runs all of them.
 
 .. _intro_2_failure:
 

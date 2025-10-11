@@ -36,7 +36,7 @@ outside of Daml.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro8`` by running ``daml new intro-exceptions  --template daml-intro-exceptions``
+  Remember that you can load all the code for this section into a folder called ``intro8`` by running ``dpm new intro-exceptions  --template daml-intro-exceptions``
 
 Our example for the use of exceptions will be a simple shop
 template. Users can order items by calling a choice and transfer money

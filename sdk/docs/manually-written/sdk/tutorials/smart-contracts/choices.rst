@@ -12,7 +12,7 @@ In this section you will learn about how to define simple data transformations u
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro4`` by running ``daml new intro-choices  --template daml-intro-choices``
+  Remember that you can load all the code for this section into a folder called ``intro4`` by running ``dpm new intro-choices  --template daml-intro-choices``
 
 Choices as methods
 ------------------
