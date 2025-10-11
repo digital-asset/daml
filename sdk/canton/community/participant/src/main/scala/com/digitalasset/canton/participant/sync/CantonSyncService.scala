@@ -15,7 +15,7 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, HashOps, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.data.{
@@ -33,7 +33,7 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
-  EnrichedVettedPackage,
+  EnrichedVettedPackages,
   ListVettedPackagesOpts,
   UpdateVettedPackagesOpts,
   UploadDarVettingChange,
@@ -42,7 +42,10 @@ import com.digitalasset.canton.ledger.api.{
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
-import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedSynchronizerResponse
+import com.digitalasset.canton.ledger.participant.state.SyncService.{
+  ConnectedSynchronizerResponse,
+  SubmissionCostEstimation,
+}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -88,6 +91,7 @@ import com.digitalasset.canton.participant.sync.SynchronizerConnectionsManager.{
 import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
@@ -856,7 +860,7 @@ class CantonSyncService(
       opts: UpdateVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])] =
+  ): Future[(Option[EnrichedVettedPackages], Option[EnrichedVettedPackages])] =
     EitherTUtil.toFuture(
       EitherT
         .fromEither[Future](autoDetectSynchronizer(opts.synchronizerIdO).leftMap(_.exception))
@@ -872,7 +876,7 @@ class CantonSyncService(
       opts: ListVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[(Seq[EnrichedVettedPackage], SynchronizerId, PositiveInt)]] =
+  ): Future[Seq[EnrichedVettedPackages]] =
     EitherTUtil.toFuture(
       packageService
         .listVettedPackages(opts)
@@ -1656,6 +1660,32 @@ class CantonSyncService(
 
     routingState
   }
+
+  override def estimateTrafficCost(
+      synchronizerId: SynchronizerId,
+      transaction: LfVersionedTransaction,
+      transactionMeta: TransactionMeta,
+      submitterInfo: SubmitterInfo,
+      keyResolver: LfKeyResolver,
+      disclosedContracts: Map[LfContractId, LfFatContractInst],
+      costHints: CostEstimationHints,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, SubmissionCostEstimation] =
+    for {
+      connectedSynchronizer <- EitherT.fromOption[FutureUnlessShutdown](
+        connectedSynchronizersLookupContainer.get(synchronizerId),
+        s"Node is not connected to $synchronizerId",
+      )
+      estimatedTrafficCost <- connectedSynchronizer.estimateTrafficCost(
+        transaction,
+        transactionMeta,
+        submitterInfo,
+        keyResolver,
+        disclosedContracts,
+        costHints,
+      )
+    } yield estimatedTrafficCost
 
   override def hashOps: HashOps = this.syncCrypto.pureCrypto
 

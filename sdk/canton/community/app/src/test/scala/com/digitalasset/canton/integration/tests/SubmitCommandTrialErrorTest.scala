@@ -121,6 +121,8 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 
       participant2.dars.upload(CantonExamplesPath)
 
+      participant2.packages.synchronize_vetting()
+
       participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds)
     }
 

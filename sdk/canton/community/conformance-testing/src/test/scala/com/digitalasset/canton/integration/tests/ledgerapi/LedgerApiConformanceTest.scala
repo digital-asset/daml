@@ -146,6 +146,46 @@ class LedgerApiConformanceMultiSynchronizerTest
   }
 }
 
+class LedgerApiConformanceWithTrafficControlTest
+    extends CommunityIntegrationTest
+    with IsolatedEnvironments {
+
+  override lazy val environmentDefinition: EnvironmentDefinition =
+    EnvironmentDefinition.P1_S1M1
+      .withTrafficControl()
+      .withSetup(setupLedgerApiConformanceEnvironment(_))
+
+  // ensure ledger api conformance tests have less noisy neighbours
+  protected override def numPermits: PositiveInt = PositiveInt.tryCreate(2)
+
+  protected def setupLedgerApiConformanceEnvironment(implicit
+      env: TestConsoleEnvironment
+  ): Unit = {
+    import env.*
+    participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+  }
+
+  protected val ledgerApiTestToolPlugin =
+    new UseLedgerApiTestTool(
+      loggerFactory,
+      connectedSynchronizersCount = 1,
+      lfVersion = UseLedgerApiTestTool.LfVersion.Stable,
+      version = LAPITTVersion.LocalJar,
+    )
+  registerPlugin(ledgerApiTestToolPlugin)
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+
+  "Ledger API test tool on a synchronizer with traffic control enabled" can {
+    "pass traffic control related conformance tests" in { implicit env =>
+      ledgerApiTestToolPlugin.runSuites(
+        suites = LedgerApiConformanceBase.trafficControlTests.mkString(","),
+        exclude = Nil,
+        concurrency = 2,
+      )
+    }
+  }
+}
+
 object LedgerApiConformanceBase {
   val multiSynchronizerTests = Seq(
     "CommandServiceIT:CSsubmitAndWaitPrescribedSynchronizerId",
@@ -153,6 +193,11 @@ object LedgerApiConformanceBase {
     "CommandSubmissionCompletionIT:CSCSubmitWithPrescribedSynchronizerId",
     "ExplicitDisclosureIT:EDFailOnDisclosedContractIdMismatchWithPrescribedSynchronizerId",
     "ExplicitDisclosureIT:EDRouteByDisclosedContractSynchronizerId",
+    "VettingIT:PVListVettedPackagesMultiSynchronizer",
+  )
+  val trafficControlTests = Seq(
+    "InteractiveSubmissionServiceIT:ISSPrepareSubmissionRequestBasic",
+    "InteractiveSubmissionServiceIT:ISSPrepareSubmissionRequestWithoutCostEstimation",
   )
   val excludedTests = Seq(
     "ClosedWorldIT", // Canton errors with "Some(Disputed: unable to parse party id 'unallocated': FailedSimpleStringConversion(LfError(Invalid unique identifier missing namespace unallocated)))"
@@ -174,36 +219,6 @@ object LedgerApiConformanceBase {
     // Following value normalisation (https://github.com/digital-asset/daml/pull/19912), this throws a different, equally correct, error
     "CommandServiceIT:CSRefuseBadParameter",
   )
-}
-
-class MyTest extends TestByName(Seq("VettingIT"))
-//class MyTest extends TestByName(Seq("VettingIT"))
-
-// Can be used to run a single conformance test locally during development,
-// passing the test name via environment variable, e.g.
-//
-// $ LAPI_RUN_CONFORMANCE_TEST=EventQueryServiceIT:TXEventsByContractIdBasic sbt "conformance-testing/testOnly com.digitalasset.canton.integration.tests.ledgerapi.TestByEnvVar"
-class TestByEnvVar extends TestByName(sys.env.get("LAPI_RUN_CONFORMANCE_TEST").toList)
-
-// Subclass this to provide mechanisms for running a specific tests by name.
-class TestByName(
-    providedName: Seq[String],
-    synchronizers: Int = 1,
-    envDef: EnvironmentDefinition = EnvironmentDefinition.P1_S1M1,
-) extends SingleVersionLedgerApiConformanceBase {
-  registerPlugin(new UsePostgres(loggerFactory))
-
-  override def connectedSynchronizersCount = synchronizers
-  override def environmentDefinition = envDef
-    .withSetup(setupLedgerApiConformanceEnvironment)
-
-  "Ledger Api Test Tool" can {
-    providedName.foreach { testName =>
-      s"run test = $testName" in { implicit env =>
-        ledgerApiTestToolPlugin.runSuitesSerially(suites = testName, exclude = Nil)
-      }
-    }
-  }
 }
 
 trait LedgerApiShardedConformanceBase extends SingleVersionLedgerApiConformanceBase {

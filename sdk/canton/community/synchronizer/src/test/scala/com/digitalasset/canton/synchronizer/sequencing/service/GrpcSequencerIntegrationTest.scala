@@ -355,7 +355,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
 
     for {
       connectionPool <- EitherT.fromEither[FutureUnlessShutdown](
-        connectionPoolFactory.create(poolConfig).leftMap(error => error.toString)
+        connectionPoolFactory.create(poolConfig, name = "test").leftMap(error => error.toString)
       )
       _ <-
         if (useNewConnectionPool)

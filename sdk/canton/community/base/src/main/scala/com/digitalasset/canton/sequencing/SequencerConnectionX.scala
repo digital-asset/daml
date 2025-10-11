@@ -68,6 +68,7 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
 
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit]
 
+  /** Fetches the "current" sequencing time */
   def getTime(timeout: Duration)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[CantonTimestamp]]

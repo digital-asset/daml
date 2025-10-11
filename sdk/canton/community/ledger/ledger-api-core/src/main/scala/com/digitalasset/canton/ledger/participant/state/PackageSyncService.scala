@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.{
-  EnrichedVettedPackage,
+  EnrichedVettedPackages,
   ListVettedPackagesOpts,
   UpdateVettedPackagesOpts,
   UploadDarVettingChange,
@@ -74,11 +73,11 @@ trait PackageSyncService {
       opts: UpdateVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])]
+  ): Future[(Option[EnrichedVettedPackages], Option[EnrichedVettedPackages])]
 
   def listVettedPackages(
       opts: ListVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[(Seq[EnrichedVettedPackage], SynchronizerId, PositiveInt)]]
+  ): Future[Seq[EnrichedVettedPackages]]
 }

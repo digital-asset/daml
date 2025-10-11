@@ -19,13 +19,15 @@ import com.digitalasset.canton.ProtoDeserializationError.{
   UnrecognizedEnum,
   ValueConversionError,
 }
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfFatContractInst
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
@@ -35,7 +37,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import scalaz.@@
 import scalaz.syntax.tag.*
 
-import scala.annotation.nowarn
 import scala.collection.immutable
 
 final case class UpdateFormat(
@@ -233,14 +234,16 @@ final case class ListVettedPackagesOpts(
     packageFilter: Option[PackageMetadataFilter],
     topologyStateFilter: Option[TopologyStateFilter],
 ) {
-  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = { (pkgId: Ref.PackageId) =>
-    val matchesMetadata = packageFilter.forall(_.toPredicate(metadata)(pkgId))
-
-    val matchesTopologyState =
-      topologyStateFilter.forall(_.toPredicate(metadata)(pkgId))
-
-    matchesMetadata && matchesTopologyState
+  def toPackagePredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = {
+    (pkgId: Ref.PackageId) =>
+      packageFilter.forall(_.toPredicate(metadata)(pkgId))
   }
+
+  def participantsNE: Option[NonEmpty[Set[ParticipantId]]] =
+    topologyStateFilter.flatMap(filter => NonEmpty.from(filter.participantIds.toSet))
+
+  def synchronizersNE: Option[NonEmpty[Set[SynchronizerId]]] =
+    topologyStateFilter.flatMap(filter => NonEmpty.from(filter.synchronizerIds.toSet))
 }
 
 object ListVettedPackagesOpts {
@@ -299,13 +302,9 @@ final case class TopologyStateFilter(
 ) {
   def toProtoLAPI: package_service.TopologyStateFilter =
     package_service.TopologyStateFilter(
-      participantIds.map(_.toString),
-      synchronizerIds.map(_.toString),
+      participantIds.map(_.uid.toString),
+      synchronizerIds.map(_.uid.toString),
     )
-
-  @nowarn
-  def toPredicate(metadata: PackageMetadata): Ref.PackageId => Boolean =
-    (_: Ref.PackageId) => true
 }
 
 object TopologyStateFilter {
@@ -314,10 +313,14 @@ object TopologyStateFilter {
   ): ParsingResult[TopologyStateFilter] =
     for {
       synchronizerIds <- filter.synchronizerIds.traverse(
-        SynchronizerId.fromProtoPrimitive(_, "synchronizer_ids")
+        UniqueIdentifier
+          .fromProtoPrimitive(_, "synchronizer_ids")
+          .map(SynchronizerId(_))
       )
       participantIds <- filter.participantIds.traverse(
-        ParticipantId.fromProtoPrimitive(_, "participant_ids")
+        UniqueIdentifier
+          .fromProtoPrimitive(_, "participant_ids")
+          .map(ParticipantId(_))
       )
     } yield TopologyStateFilter(
       participantIds = participantIds,
@@ -329,6 +332,7 @@ final case class UpdateVettedPackagesOpts(
     changes: Seq[VettedPackagesChange],
     dryRun: Boolean,
     synchronizerIdO: Option[SynchronizerId],
+    expectedTopologySerial: Option[PriorTopologySerial],
 ) {
   def toTargetStates: Seq[SinglePackageTargetVetting[VettedPackagesRef]] =
     for {
@@ -350,7 +354,14 @@ object UpdateVettedPackagesOpts {
     synchronizerIdO <- OptionUtil
       .emptyStringAsNone(req.synchronizerId)
       .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
-  } yield UpdateVettedPackagesOpts(vettingChanges, req.dryRun, synchronizerIdO)
+    expectedTopologySerial <- req.expectedTopologySerial
+      .flatTraverse(PriorTopologySerial.fromProto("expected_topology_serial", _))
+  } yield UpdateVettedPackagesOpts(
+    vettingChanges,
+    req.dryRun,
+    synchronizerIdO,
+    expectedTopologySerial,
+  )
 }
 
 sealed trait VettedPackagesChange {
@@ -612,6 +623,13 @@ final case class SinglePackageTargetVetting[R](
   def isUnvetting: Boolean = bounds.isEmpty
 }
 
+final case class EnrichedVettedPackages(
+    packages: Seq[EnrichedVettedPackage],
+    participantId: ParticipantId,
+    synchronizerId: SynchronizerId,
+    serial: PositiveInt,
+)
+
 final case class EnrichedVettedPackage(
     vetted: VettedPackage,
     name: Option[Ref.PackageName],
@@ -626,20 +644,24 @@ final case class EnrichedVettedPackage(
   )
 }
 
-sealed trait PriorTopologySerial {
-  def toProtoLAPI: package_reference.PriorTopologySerial
+sealed trait PriorTopologySerial
+
+object PriorTopologySerial {
+  def fromProto(
+      field: String,
+      proto: package_reference.PriorTopologySerial,
+  ): ParsingResult[Option[PriorTopologySerial]] =
+    proto.serial match {
+      case package_reference.PriorTopologySerial.Serial.Empty => Right(None)
+      case package_reference.PriorTopologySerial.Serial.NoPrior(_) =>
+        Right(Some(PriorTopologySerialNone))
+      case package_reference.PriorTopologySerial.Serial.Prior(serial) =>
+        ProtoConverter
+          .parsePositiveInt(field, serial)
+          .map(serial => Some(PriorTopologySerialExists(serial)))
+    }
 }
 
-final case class PriorTopologySerialExists(serial: Int) extends PriorTopologySerial {
-  override def toProtoLAPI =
-    package_reference.PriorTopologySerial(
-      package_reference.PriorTopologySerial.Serial.Prior(serial)
-    )
-}
+final case class PriorTopologySerialExists(serial: PositiveInt) extends PriorTopologySerial
 
-final case object PriorTopologySerialNone extends PriorTopologySerial {
-  override def toProtoLAPI =
-    package_reference.PriorTopologySerial(
-      package_reference.PriorTopologySerial.Serial.NoPrior(com.google.protobuf.empty.Empty())
-    )
-}
+final case object PriorTopologySerialNone extends PriorTopologySerial

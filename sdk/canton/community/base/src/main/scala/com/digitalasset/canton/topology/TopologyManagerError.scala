@@ -51,12 +51,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_MANAGER_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-    final case class AssumptionViolation(description: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Assumption violation: $description"
-        )
-        with TopologyManagerError
 
     final case class Unhandled(description: String, throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
@@ -204,10 +198,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_SERIAL_MISMATCH",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Failure(expected: PositiveInt, actual: PositiveInt)(implicit
+    final case class Failure(actual: Option[PositiveInt], expected: Option[PositiveInt])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The given serial $actual did not match the expected serial $expected."
+          cause = s"The given serial $expected did not match the actual serial $actual."
         )
         with TopologyManagerError
   }
@@ -489,38 +483,19 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that the topology transaction references parties that are currently unknown."
-  )
-  @Resolution(
-    """Wait for the onboarding of the parties to be become active or remove the unknown parties from the topology transaction.
-      |The metadata details of this error contain the unknown parties in the field ``parties``."""
-  )
-  object UnknownParties
-      extends ErrorCode(
-        id = "TOPOLOGY_UNKNOWN_PARTIES",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    final case class Failure(parties: Seq[PartyId])(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Parties ${parties.sorted.mkString(", ")} are unknown."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a participant is trying to rescind their synchronizer trust certificate
+    """This error indicates that a participant is trying to rescind actively used topology transactions
       |while still being hosting parties."""
   )
   @Resolution(
-    """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
-      |error details metadata to get itself removed from the list of hosting participants of those parties."""
+    """The participant must remove itself from the party to participant mappings that still refer to it."""
   )
-  object IllegalRemovalOfSynchronizerTrustCertificate
+  object IllegalRemovalOfActiveTopologyTransactions
       extends ErrorCode(
-        id = "TOPOLOGY_ILLEGAL_REMOVAL_OF_SYNCHRONIZER_TRUST_CERTIFICATE",
+        id = "TOPOLOGY_ILLEGAL_REMOVAL_OF_ACTIVE_TRANSACTIONS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
+    private val maxDisplayed = 10
+
     final case class ParticipantStillHostsParties(
         participantId: ParticipantId,
         parties: Seq[PartyId],
@@ -528,10 +503,14 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Cannot remove synchronizer trust certificate for $participantId because it still hosts parties ${parties.sorted
-                .mkString(",")}"
+            s"Cannot remove synchronizer trust certificate or owner to key mapping for $participantId because it still hosts parties ${parties.sorted
+                .take(maxDisplayed)
+                .mkString(",")} ${if (parties.sizeIs >= maxDisplayed)
+                s" (only showing first $maxDisplayed of ${parties.size})"
+              else ""}"
         )
         with TopologyManagerError
+
   }
 
   @Explanation(
@@ -701,6 +680,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
             s"Members ${members.sorted} tried to rejoin a synchronizer which they had previously left."
         )
         with TopologyManagerError
+    final case class RejectNewKeys(member: Member)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Member $member tried to re-register its keys which they had previously removed."
+        )
+        with TopologyManagerError
+
   }
 
   @Explanation(

@@ -12,7 +12,14 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.c
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PrepareTransactionData
 import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.topology.{GeneratorsTopology, SynchronizerId}
-import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPackageId, LfPartyId}
+import com.digitalasset.canton.{
+  GeneratorsLf,
+  LedgerUserId,
+  LfPackageId,
+  LfPartyId,
+  LfTimestamp,
+  LfValue,
+}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
@@ -44,6 +51,40 @@ final class GeneratorsInteractiveSubmission(
   import generatorsLf.*
   import generatorsTopology.*
 
+  // The value generator generates record values with trailing nones, which trips up the serialization tests for
+  // external signing because the trailing nones get stripped when the value gets serialized to a LAPI value,
+  // and so the deserialized version is not equal to the original generated value.
+  // The engine now outputs normalized values without trailing Nones anyway so there's no need to test them.
+  // This may be removed when the Daml repo provides generators that allow generating such transaction natively
+  def normalizeValue(value: LfValue): LfValue = value match {
+    case Value.ValueRecord(tycon, fields) =>
+      val fieldsWithoutTrailingNones = fields.reverseIterator
+        .dropWhile {
+          case (_, Value.ValueOptional(None)) => true
+          case _ => false
+        }
+        .toList
+        .map { case (maybeName, value) =>
+          (maybeName, normalizeValue(value))
+        }
+        .reverse
+      Value.ValueRecord(tycon, ImmArray.from(fieldsWithoutTrailingNones))
+    case Value.ValueVariant(tycon, variant, value) =>
+      Value.ValueVariant(tycon, variant, normalizeValue(value))
+    case cid: Value.ValueContractId => cid
+    case Value.ValueList(values) =>
+      Value.ValueList(values.map(normalizeValue))
+    case Value.ValueOptional(value) =>
+      Value.ValueOptional(value.map(normalizeValue))
+    case Value.ValueTextMap(value) =>
+      Value.ValueTextMap(value.mapValue(normalizeValue))
+    case Value.ValueGenMap(entries) =>
+      Value.ValueGenMap(entries.map { case (k, v) =>
+        (normalizeValue(k), normalizeValue(v))
+      })
+    case leaf: Value.ValueCidlessLeaf => leaf
+  }
+
   // Updated nodes that filter out fields not supported in LF 2.1
   def normalizeNodeForV1[N <: Node](node: N): N = node match {
     case node: Node.Create =>
@@ -54,6 +95,7 @@ final class GeneratorsInteractiveSubmission(
           // signatories should be a subset of stakeholders for the node to be valid
           // take a random size subset of stakeholders, but 1 minimum
           signatories = node.stakeholders.take(Random.nextInt(10) + 1),
+          arg = normalizeValue(node.arg),
         )
         .asInstanceOf[N]
     case node: Node.Exercise =>
@@ -63,6 +105,8 @@ final class GeneratorsInteractiveSubmission(
           keyOpt = None,
           byKey = false,
           choiceAuthorizers = None,
+          chosenValue = normalizeValue(node.chosenValue),
+          exerciseResult = node.exerciseResult.map(normalizeValue),
         )
         .asInstanceOf[N]
     case node: Node.Fetch =>
@@ -211,6 +255,7 @@ final class GeneratorsInteractiveSubmission(
     enrichedInputContracts <- Gen.sequence(coids.map(inputContractsGen))
     mediatorGroup <- Arbitrary.arbitrary[PositiveInt]
     transactionUUID <- Gen.uuid
+    maxRecordTime <- Arbitrary.arbitrary[Option[LfTimestamp]]
   } yield PrepareTransactionData(
     submitterInfo,
     transactionMeta,
@@ -225,6 +270,7 @@ final class GeneratorsInteractiveSubmission(
     synchronizerId,
     mediatorGroup.value,
     transactionUUID,
+    maxRecordTime,
   )
 
   implicit val preparedTransactionDataArb: Arbitrary[PrepareTransactionData] = Arbitrary(

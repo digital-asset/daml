@@ -4,11 +4,13 @@
 package com.digitalasset.canton.integration
 
 import com.daml.ledger.api.v2.commands.Command
+import com.daml.ledger.javaapi.data
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.console.ParticipantReference
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
@@ -47,15 +49,7 @@ trait HasCycleUtils {
       )
     }
 
-    val coid = participant2.ledger_api.javaapi.state.acs.await(M.Cycle.COMPANION)(partyId)
-    clue("submitting response") {
-      archiveCycleContract(
-        participant2,
-        partyId,
-        coid,
-        commandId,
-      )
-    }
+    awaitAndExerciseCycleContract(participant2, partyId, commandId).discard
 
     eventually() {
       participantAcs(participant2, partyId) shouldBe empty
@@ -71,14 +65,14 @@ trait HasCycleUtils {
       .filter(_.templateId.isModuleEntity("Cycle", "Cycle"))
       .map(entry => WrappedCreatedEvent(entry.event))
 
+  def createCycleCommandJava(party: Party, id: String): data.Command =
+    new Cycle(id, party.toProtoPrimitive)
+      .create()
+      .commands
+      .loneElement
+
   def createCycleCommand(party: Party, id: String): Command =
-    Command.fromJavaProto(
-      new Cycle(id, party.toProtoPrimitive)
-        .create()
-        .commands
-        .loneElement
-        .toProtoCommand
-    )
+    Command.fromJavaProto(createCycleCommandJava(party, id).toProtoCommand)
 
   def cleanupCycles(
       partyId: PartyId,
@@ -110,6 +104,20 @@ trait HasCycleUtils {
       .submit(Seq(party), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
 
     JavaDecodeUtil.decodeAllCreated(Cycle.COMPANION)(tx).loneElement
+  }
+
+  def awaitAndExerciseCycleContract(
+      participant: ParticipantReference,
+      partyId: PartyId,
+      commandId: String = "",
+  ): Unit = {
+    val coid = participant.ledger_api.javaapi.state.acs.await(M.Cycle.COMPANION)(partyId)
+    archiveCycleContract(
+      participant,
+      partyId,
+      coid,
+      commandId,
+    )
   }
 
   def createCycleContracts(

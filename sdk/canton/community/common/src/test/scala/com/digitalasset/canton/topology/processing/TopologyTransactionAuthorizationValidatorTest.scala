@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant2
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Authorization.{
   MultiTransactionHashMismatch,
   NoDelegationFoundForKeys,
   NotAuthorized,
@@ -157,7 +157,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             Seq(
               None,
               Some {
-                case TopologyTransactionRejection.SignatureCheckFailed(_) => true
+                case TopologyTransactionRejection.Authorization.SignatureCheckFailed(_) => true
                 case _ => false
               },
             ),
@@ -181,7 +181,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             validatedTopologyTransactions,
             Seq(
               Some {
-                case TopologyTransactionRejection.SignatureCheckFailed(
+                case TopologyTransactionRejection.Authorization.SignatureCheckFailed(
                       UnsupportedKeySpec(
                         Factory.SigningKeys.key1_unsupportedSpec.keySpec,
                         defaultStaticSynchronizerParameters.requiredSigningSpecs.keys,
@@ -367,7 +367,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             Seq(
               None,
               Some {
-                case TopologyTransactionRejection.InvalidSynchronizer(_) => true
+                case TopologyTransactionRejection.Authorization.InvalidSynchronizer(_) => true
                 case _ => false
               },
             ),
@@ -687,7 +687,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             res,
             Seq(
               Some {
-                case TopologyTransactionRejection.SignatureCheckFailed(
+                case TopologyTransactionRejection.Authorization.SignatureCheckFailed(
                       InvalidSignature(`sig_k1_emptySignature`, _, _)
                     ) =>
                   true
@@ -1335,7 +1335,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         )
 
         resultOnlySuperfluousSignatures.loneElement.rejectionReason shouldBe Some(
-          TopologyTransactionRejection.NoDelegationFoundForKeys(Set(key3.id, key5.id))
+          TopologyTransactionRejection.Authorization.NoDelegationFoundForKeys(Set(key3.id, key5.id))
         )
       }
     }

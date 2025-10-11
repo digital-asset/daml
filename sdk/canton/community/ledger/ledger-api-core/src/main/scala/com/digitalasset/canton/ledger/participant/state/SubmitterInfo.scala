@@ -4,6 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
@@ -73,6 +74,8 @@ final case class SubmitterInfo(
 }
 
 object SubmitterInfo {
+  import com.digitalasset.canton.ledger.api.Commands.`Timestamp to LoggingValue`
+
   implicit val `ExternallySignedSubmission to LoggingValue`
       : ToLoggingValue[ExternallySignedSubmission] = {
     case ExternallySignedSubmission(
@@ -80,12 +83,14 @@ object SubmitterInfo {
           signatures,
           transactionUUID,
           mediatorGroup,
+          maxRecordTimeO,
         ) =>
       LoggingValue.Nested.fromEntries(
         "version" -> version.index,
         "signatures" -> signatures.keys.map(_.toProtoPrimitive),
         "transactionUUID" -> transactionUUID.toString,
         "mediatorGroup" -> mediatorGroup.toString,
+        "maxRecordTimeO" -> maxRecordTimeO,
       )
   }
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
@@ -114,6 +119,7 @@ object SubmitterInfo {
       signatures: Map[PartyId, Seq[Signature]],
       transactionUUID: UUID,
       mediatorGroup: MediatorGroupIndex,
+      maxRecordTimeO: Option[LfTimestamp],
   )
 
 }

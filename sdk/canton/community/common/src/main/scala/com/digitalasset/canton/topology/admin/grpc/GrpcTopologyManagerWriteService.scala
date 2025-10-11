@@ -403,7 +403,6 @@ class GrpcTopologyManagerWriteService(
             manager.managerVersion.serialization,
             existingTransaction,
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
           .leftWiden[RpcError]
       } yield transaction.toByteString -> transaction.hash.hash.getCryptographicEvidence
     }

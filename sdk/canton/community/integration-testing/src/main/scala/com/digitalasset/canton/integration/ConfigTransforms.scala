@@ -143,6 +143,18 @@ object ConfigTransforms {
     ),
   )
 
+  lazy val enableInteractiveSubmissionTransforms: ConfigTransform =
+    ConfigTransforms
+      .updateAllParticipantConfigs_(
+        _.focus(_.ledgerApi.interactiveSubmissionService.enableVerboseHashing)
+          .replace(true)
+      )
+      .compose(
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.topology.broadcastBatchSize).replace(PositiveInt.one)
+        )
+      )
+
   /** Allow all preview and experimental features without compatibility guarantees
     */
   lazy val enableNonStandardConfig: ConfigTransform = setNonStandardConfig(true)

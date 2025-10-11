@@ -162,6 +162,7 @@ class TrafficStateController(
   def computeCost(
       batch: Batch[DefaultOpenEnvelope],
       snapshot: TopologySnapshot,
+      logCost: Boolean = true,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
@@ -187,9 +188,11 @@ class TrafficStateController(
         protocolVersion,
         trafficControl.baseEventCost,
       )
-      logger.debug(
-        s"Computed following cost for submission request using topology at ${snapshot.timestamp}: $costDetails"
-      )
+      if (logCost) {
+        logger.debug(
+          s"Computed following cost for submission request using topology at ${snapshot.timestamp}: $costDetails"
+        )
+      }
       costDetails.eventCost
     }
 

@@ -1010,6 +1010,11 @@ sealed trait SigningAlgorithmSpec
   def supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]]
   def supportedSignatureFormats: NonEmpty[Set[SignatureFormat]]
   def toProtoEnum: v30.SigningAlgorithmSpec
+
+  /** Approximate signature size in bytes. The actual size may depend on the format.
+    */
+  // TODO(i28366): Add a test
+  def approximateSignatureSize: Int
   override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
@@ -1032,6 +1037,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Concat)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519
+    override def approximateSignatureSize: Int = 64
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA256 as defined in
@@ -1045,6 +1051,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+    override def approximateSignatureSize: Int = 64
   }
 
   /** Elliptic Curve Digital Signature Algorithm with SHA384 as defined in
@@ -1058,6 +1065,7 @@ object SigningAlgorithmSpec {
       NonEmpty.mk(Set, SignatureFormat.Der)
     override def toProtoEnum: v30.SigningAlgorithmSpec =
       v30.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
+    override def approximateSignatureSize: Int = 96
   }
 
   def toProtoEnumOption(

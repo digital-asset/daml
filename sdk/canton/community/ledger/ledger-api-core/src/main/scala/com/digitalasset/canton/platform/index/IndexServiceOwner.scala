@@ -67,7 +67,7 @@ final class IndexServiceOwner(
     lfValueTranslation: LfValueTranslation,
     queryExecutionContext: ExecutionContextExecutorService,
     commandExecutionContext: ExecutionContextExecutorService,
-    cantonContractStore: ContractStore,
+    participantContractStore: ContractStore,
     pruningOffsetService: PruningOffsetService,
 ) extends ResourceOwner[IndexService]
     with NamedLogging {
@@ -92,7 +92,7 @@ final class IndexServiceOwner(
         ledgerDao.contractsReader,
         contractStateCaches = inMemoryState.contractStateCaches,
         loggerFactory = loggerFactory,
-        contractStore = cantonContractStore,
+        contractStore = participantContractStore,
       )(commandExecutionContext)
 
       bufferedTransactionsReader = BufferedUpdateReader(
@@ -220,6 +220,7 @@ final class IndexServiceOwner(
       contractLoader = contractLoader,
       lfValueTranslation = lfValueTranslation,
       pruningOffsetService = pruningOffsetService,
+      contractStore = participantContractStore,
     )(queryExecutionContext)
 
   private object InMemoryStateNotInitialized extends NoStackTrace

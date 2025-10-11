@@ -83,7 +83,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
   protected def index: IndexService = testServices.index
 
-  protected def cantonContractStore: InMemoryContractStore = testServices.cantonContractStore
+  protected def participantContractStore: InMemoryContractStore =
+    testServices.participantContractStore
 
   protected def sequentialPostProcessor: Update => Unit = _ => ()
 
@@ -98,7 +99,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
     val mutableLedgerEndCache = MutableLedgerEndCache()
     val stringInterningView = new StringInterningView(loggerFactory)
     val participantId = Ref.ParticipantId.assertFromString("index-component-test-participant-id")
-    val cantonContractStore = new InMemoryContractStore(timeouts, loggerFactory)
+    val participantContractStore = new InMemoryContractStore(timeouts, loggerFactory)
     val pruningOffsetService = mock[PruningOffsetService]
 
     val indexResourceOwner =
@@ -190,7 +191,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
               _: String,
               _: LoggingContextWithTrace,
           ) => FutureUnlessShutdown.pure(Left("not used")),
-          cantonContractStore = cantonContractStore,
+          participantContractStore = participantContractStore,
           pruningOffsetService = pruningOffsetService,
         )
       } yield indexService -> indexer
@@ -203,7 +204,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
         indexResource = indexResource,
         index = index,
         indexer = indexer,
-        cantonContractStore = cantonContractStore,
+        participantContractStore = participantContractStore,
       )
     )
   }
@@ -227,6 +228,6 @@ object IndexComponentTest {
       indexResource: Resource[Any],
       index: IndexService,
       indexer: FutureQueue[Update],
-      cantonContractStore: InMemoryContractStore,
+      participantContractStore: InMemoryContractStore,
   )
 }

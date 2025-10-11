@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2.interactive;
 
 import "com/daml/ledger/api/v2/commands.proto";
+import "com/daml/ledger/api/v2/crypto.proto";
 import "com/daml/ledger/api/v2/interactive/interactive_submission_common_data.proto";
 import "com/daml/ledger/api/v2/interactive/transaction/v1/interactive_submission_data.proto";
 import "com/daml/ledger/api/v2/package_reference.proto";
@@ -75,6 +76,36 @@ service InteractiveSubmissionService {
   rpc GetPreferredPackages(GetPreferredPackagesRequest) returns (GetPreferredPackagesResponse);
 }
 
+// Hints to improve cost estimation precision of a prepared transaction
+message CostEstimationHints {
+  // Disable cost estimation
+  // Default (not set) is false
+  bool disabled = 1;
+  // Details on the keys that will be used to sign the transaction (how many and of which type).
+  // Signature size impacts the cost of the transaction.
+  // If empty, the signature sizes will be approximated with threshold-many signatures (where threshold is defined
+  // in the PartyToKeyMapping of the external party), using keys in the order they are registered.
+  // Optional (empty list is equivalent to not providing this field)
+  repeated SigningAlgorithmSpec expected_signatures = 2;
+}
+
+// Estimation of the cost of submitting the prepared transaction
+// The estimation is done against the synchronizer chosen during preparation of the transaction
+// (or the one explicitly requested).
+// The cost of re-assigning contracts to another synchronizer when necessary is not included in the estimation.
+message CostEstimation {
+  // Timestamp at which the estimation was made
+  google.protobuf.Timestamp estimation_timestamp = 1;
+  // Estimated traffic cost of the confirmation request associated with the transaction
+  uint64 confirmation_request_traffic_cost_estimation = 2;
+  // Estimated traffic cost of the confirmation response associated with the transaction
+  // This field can also be used as an indication of the cost that other potential confirming nodes
+  // of the party will incur to approve or reject the transaction
+  uint64 confirmation_response_traffic_cost_estimation = 3;
+  // Sum of the fields above
+  uint64 total_traffic_cost_estimation = 4;
+}
+
 message PrepareSubmissionRequest {
   // Uniquely identifies the participant user that prepares the transaction.
   // Must be a valid UserIdString (as described in ``value.proto``).
@@ -99,6 +130,16 @@ message PrepareSubmissionRequest {
 
   // Optional
   MinLedgerTime min_ledger_time = 4;
+
+  // Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+  // If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+  // with a new valid max_record_time.
+  // Use this to limit the time-to-life of a prepared transaction,
+  // which is useful to know when it can definitely not be accepted
+  // anymore and resorting to preparing another transaction for the same
+  // intent is safe again.
+  // Optional
+  optional google.protobuf.Timestamp max_record_time = 11;
 
   // Set of parties on whose behalf the command should be executed, if submitted.
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
@@ -144,6 +185,16 @@ message PrepareSubmissionRequest {
   //
   // Optional
   repeated PrefetchContractKey prefetch_contract_keys = 15;
+
+  // Hints to improve the accuracy of traffic cost estimation.
+  // The estimation logic assumes that this node will be used for the execution of the transaction
+  // If another node is used instead, the estimation may be less precise.
+  // Request amplification is not accounted for in the estimation: each amplified request will
+  // result in the cost of the confirmation request to be charged additionally.
+  //
+  // Optional - Traffic cost estimation is enabled by default if this field is not set
+  // To turn off cost estimation, set the CostEstimationHints#disabled field to true
+  optional CostEstimationHints estimate_traffic_cost = 16;
 }
 
 // [docs-entry-start: HashingSchemeVersion]
@@ -171,52 +222,10 @@ message PrepareSubmissionResponse {
   // Note that there are no guarantees on the stability of the format or content of this field.
   // Its content should NOT be parsed and should only be used for troubleshooting purposes.
   optional string hashing_details = 4;
-}
 
-message Signature {
-  SignatureFormat format = 1;
-
-  bytes signature = 2;
-
-  // The fingerprint/id of the keypair used to create this signature and needed to verify.
-  string signed_by = 3;
-
-  // The signing algorithm specification used to produce this signature
-  SigningAlgorithmSpec signing_algorithm_spec = 4;
-}
-
-enum SigningAlgorithmSpec {
-  SIGNING_ALGORITHM_SPEC_UNSPECIFIED = 0;
-
-  // EdDSA Signature based on Curve25519 with SHA-512
-  // http://ed25519.cr.yp.to/
-  SIGNING_ALGORITHM_SPEC_ED25519 = 1;
-
-  // Elliptic Curve Digital Signature Algorithm with SHA256
-  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 = 2;
-
-  // Elliptic Curve Digital Signature Algorithm with SHA384
-  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 = 3;
-}
-
-enum SignatureFormat {
-  SIGNATURE_FORMAT_UNSPECIFIED = 0;
-
-  // Signature scheme specific signature format
-  // Legacy format no longer used, except for migrations
-  SIGNATURE_FORMAT_RAW = 1;
-
-  // ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
-  // Used for ECDSA signatures
-  SIGNATURE_FORMAT_DER = 2;
-
-  // Concatenation of the integers `r || s` in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
-  // Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
-  // Used for EdDSA signatures
-  SIGNATURE_FORMAT_CONCAT = 3;
-
-  // Symbolic crypto, must only be used for testing
-  SIGNATURE_FORMAT_SYMBOLIC = 10000;
+  // Traffic cost estimation of the prepared transaction
+  // Optional
+  optional CostEstimation cost_estimation = 5;
 }
 
 // Signatures provided by a single party
@@ -500,6 +509,14 @@ message Metadata {
   // Contextual information needed to process the transaction but not signed, either because it's already indirectly
   // signed by signing the transaction, or because it doesn't impact the ledger state
   repeated GlobalKeyMappingEntry global_key_mapping = 8;
+
+  // Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer `synchronizer_id`.
+  // If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+  // with a new valid max_record_time.
+  // Unsigned in 3.3 to avoid a breaking protocol change
+  // Will be signed in 3.4+
+  // Set max_record_time in the PreparedTransactionRequest to get this field set accordingly
+  optional uint64 max_record_time = 11;
 }
 
 /*

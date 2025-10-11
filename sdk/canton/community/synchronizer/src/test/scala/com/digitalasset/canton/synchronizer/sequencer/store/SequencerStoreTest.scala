@@ -492,7 +492,7 @@ trait SequencerStoreTest
         }
       }
 
-      "support paging results" in {
+      "support paging results and interleave broadcasts correctly" in {
         val env = Env()
 
         for {
@@ -501,7 +501,12 @@ trait SequencerStoreTest
           events = NonEmptyUtil.fromUnsafe(
             (0L until 20L).map { n =>
               env.deliverEventWithDefaults(ts1.plusSeconds(n), sender = registeredAlice.memberId)()
-            }.toSeq
+            } ++
+              List(
+                env.deliverEventWithDefaults(ts(30), sender = registeredAlice.memberId)(
+                  NonEmpty(SortedSet, SequencerMemberId.Broadcast)
+                )
+              )
           )
           _ <- env.saveEventsAndBuffer(instanceIndex, events)
           _ <- env.saveWatermark(events.last1.timestamp).valueOrFail("saveWatermark")
@@ -516,7 +521,7 @@ trait SequencerStoreTest
 
           seconds(firstPage) shouldBe (1L to 10L).toList
           seconds(secondPage) shouldBe (11L to 20L).toList
-          seconds(partialPage) shouldBe (16L to 20L).toList
+          seconds(partialPage) shouldBe (16L to 20L).toList :+ 30L
         }
       }
 

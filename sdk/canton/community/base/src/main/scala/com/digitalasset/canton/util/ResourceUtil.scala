@@ -13,7 +13,7 @@ import scala.util.Try
 object ResourceUtil {
 
   /** Does resource management the same way as [[withResource]], but returns an Either instead of
-    * throwing exceptions.
+    * throwing exceptions. The exception are fatal exceptions, which are rethrown.
     *
     * @param r
     *   resource that will be used to derive some value and will be closed automatically in the end
@@ -40,7 +40,12 @@ object ResourceUtil {
     */
   @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
   def withResource[T <: AutoCloseable, V](r: => T)(f: T => V): V =
-    withResourceM(r)(resource => Try(f(resource))).get
+    withResourceM(r)(resource =>
+      // tryCatchAll is analogous to Java's try-with-resource behavior,
+      // which also acts on fatal exceptions like OutOfMemoryError.
+      // See https://docs.oracle.com/javase/specs/jls/se18/html/jls-14.html#jls-14.20.3
+      TryUtil.tryCatchAll(f(resource))
+    ).get
 
   final private[util] class ResourceMonadApplied[M[_]](
       private val dummy: Boolean = true

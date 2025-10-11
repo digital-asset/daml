@@ -6,13 +6,12 @@ package com.digitalasset.canton.ledger.participant.state.metrics
 import cats.data.EitherT
 import com.daml.metrics.Timed
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
-  EnrichedVettedPackage,
+  EnrichedVettedPackages,
   ListVettedPackagesOpts,
   UpdateVettedPackagesOpts,
   UploadDarVettingChange,
@@ -21,11 +20,18 @@ import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerRequest,
   ConnectedSynchronizerResponse,
+  SubmissionCostEstimation,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.protocol.{LfContractId, LfFatContractInst, LfSubmittedTransaction}
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfFatContractInst,
+  LfSubmittedTransaction,
+  LfVersionedTransaction,
+}
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.{
   ExternalPartyOnboardingDetails,
@@ -199,7 +205,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       opts: UpdateVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])] =
+  ): Future[(Option[EnrichedVettedPackages], Option[EnrichedVettedPackages])] =
     Timed.future(
       metrics.services.write.updateVettedPackages,
       delegate.updateVettedPackages(opts),
@@ -209,7 +215,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       opts: ListVettedPackagesOpts
   )(implicit
       traceContext: TraceContext
-  ): Future[Seq[(Seq[EnrichedVettedPackage], SynchronizerId, PositiveInt)]] =
+  ): Future[Seq[EnrichedVettedPackages]] =
     Timed.future(
       metrics.services.read.listVettedPackages,
       delegate.listVettedPackages(opts),
@@ -279,6 +285,27 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       traceContext: TraceContext
   ): RoutingSynchronizerState =
     delegate.getRoutingSynchronizerState
+
+  override def estimateTrafficCost(
+      synchronizerId: SynchronizerId,
+      transaction: LfVersionedTransaction,
+      transactionMetadata: TransactionMeta,
+      submitterInfo: SubmitterInfo,
+      keyResolver: LfKeyResolver,
+      disclosedContracts: Map[LfContractId, LfFatContractInst],
+      costHints: CostEstimationHints,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, SubmissionCostEstimation] =
+    delegate.estimateTrafficCost(
+      synchronizerId,
+      transaction,
+      transactionMetadata,
+      submitterInfo,
+      keyResolver,
+      disclosedContracts,
+      costHints,
+    )
 
   override def protocolVersionForSynchronizerId(
       synchronizerId: SynchronizerId

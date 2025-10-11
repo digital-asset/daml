@@ -59,7 +59,7 @@ class MutableCacheBackedContractStoreRaceTests
   it should "preserve causal monotonicity under contention for key state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
-    val cantonContractStore = new InMemoryContractStore(
+    val participantContractStore = new InMemoryContractStore(
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
@@ -68,13 +68,13 @@ class MutableCacheBackedContractStoreRaceTests
         indexViewContractsReader,
         unboundedExecutionContext,
         loggerFactory,
-        cantonContractStore,
+        participantContractStore,
       )
 
     for {
       _ <- test(
         indexViewContractsReader,
-        cantonContractStore,
+        participantContractStore,
         workload,
         unboundedExecutionContext,
       ) { ec => event =>
@@ -86,7 +86,7 @@ class MutableCacheBackedContractStoreRaceTests
   it should "preserve causal monotonicity under contention for contract state" in {
     val workload = generateWorkload(keysCount = 10L, contractsCount = 1000L)
     val indexViewContractsReader = IndexViewContractsReader()(unboundedExecutionContext)
-    val cantonContractStore = new InMemoryContractStore(
+    val participantContractStore = new InMemoryContractStore(
       timeouts = timeouts,
       loggerFactory = loggerFactory,
     )(unboundedExecutionContext)
@@ -95,13 +95,13 @@ class MutableCacheBackedContractStoreRaceTests
         indexViewContractsReader,
         unboundedExecutionContext,
         loggerFactory,
-        cantonContractStore,
+        participantContractStore,
       )
 
     for {
       _ <- test(
         indexViewContractsReader,
-        cantonContractStore,
+        participantContractStore,
         workload,
         unboundedExecutionContext,
       ) { ec => event =>
@@ -117,7 +117,7 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   private def test(
       indexViewContractsReader: IndexViewContractsReader,
-      cantonContractStore: ContractStore,
+      participantContractStore: ContractStore,
       workload: Seq[Long => SimplifiedContractStateEvent],
       unboundedExecutionContext: ExecutionContext,
   )(
@@ -135,7 +135,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       }
       .map { event =>
         indexViewContractsReader.update(event)
-        update(cantonContractStore, event)(unboundedExecutionContext).futureValue
+        update(participantContractStore, event)(unboundedExecutionContext).futureValue
         event
       }
       .mapAsync(1)(
@@ -358,7 +358,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       indexViewContractsReader: IndexViewContractsReader,
       ec: ExecutionContext,
       loggerFactory: NamedLoggerFactory,
-      cantonContractStore: ContractStore,
+      participantContractStore: ContractStore,
   ) = {
     val metrics = LedgerApiServerMetrics.ForTesting
     new MutableCacheBackedContractStore(
@@ -370,7 +370,7 @@ private object MutableCacheBackedContractStoreRaceTests {
         metrics = metrics,
         loggerFactory = loggerFactory,
       )(ec),
-      contractStore = cantonContractStore,
+      contractStore = participantContractStore,
       loggerFactory = loggerFactory,
     )(ec)
   }

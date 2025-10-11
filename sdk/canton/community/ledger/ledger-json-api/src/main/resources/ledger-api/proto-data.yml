@@ -30,7 +30,15 @@ messages:
           Required
         onboarding_transactions: |-
           TopologyTransactions to onboard the external party
-          Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+          Can contain:
+          - A namespace for the party.
+          This can be either a single NamespaceDelegation,
+          or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToKeyMapping to register the party's signing keys.
+          May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+          - A PartyToParticipant to register the hosting relationship of the party.
+          Must be provided.
           Required
         multi_hash_signatures: |-
           Optional signatures of the combined hash of all onboarding_transactions
@@ -391,6 +399,35 @@ messages:
           The contract key, if defined
 
           Optional
+  CostEstimation:
+    message:
+      comments: |-
+        Estimation of the cost of submitting the prepared transaction
+        The estimation is done against the synchronizer chosen during preparation of the transaction
+        (or the one explicitly requested).
+        The cost of re-assigning contracts to another synchronizer when necessary is not included in the estimation.
+      fieldComments:
+        estimation_timestamp: Timestamp at which the estimation was made
+        confirmation_request_traffic_cost_estimation: Estimated traffic cost of the
+          confirmation request associated with the transaction
+        confirmation_response_traffic_cost_estimation: |-
+          Estimated traffic cost of the confirmation response associated with the transaction
+          This field can also be used as an indication of the cost that other potential confirming nodes
+          of the party will incur to approve or reject the transaction
+        total_traffic_cost_estimation: Sum of the fields above
+  CostEstimationHints:
+    message:
+      comments: Hints to improve cost estimation precision of a prepared transaction
+      fieldComments:
+        disabled: |-
+          Disable cost estimation
+          Default (not set) is false
+        expected_signatures: |-
+          Details on the keys that will be used to sign the transaction (how many and of which type).
+          Signature size impacts the cost of the transaction.
+          If empty, the signature sizes will be approximated with threshold-many signatures (where threshold is defined
+          in the PartyToKeyMapping of the external party), using keys in the order they are registered.
+          Optional (empty list is equivalent to not providing this field)
   Create:
     message:
       comments: Create Node
@@ -601,7 +638,7 @@ messages:
       fieldComments:
         version: |-
           [docs-entry-end: DamlTransaction.Node]
-          Transaction version, will be >= max(nodes version)
+          serialization version, will be >= max(nodes version)
         roots: Root nodes of the transaction
         nodes: List of nodes in the transaction
         node_seeds: Node seeds are values associated with certain nodes used for generating
@@ -1751,6 +1788,13 @@ messages:
         Transaction Metadata
         Refer to the hashing documentation for information on how it should be hashed.
       fieldComments:
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer `synchronizer_id`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Unsigned in 3.3 to avoid a breaking protocol change
+          Will be signed in 3.4+
+          Set max_record_time in the PreparedTransactionRequest to get this field set accordingly
         synchronizer_id: ''
         preparation_time: ''
         min_ledger_effective_time: ''
@@ -2010,6 +2054,15 @@ messages:
           The change ID can be used for matching the intended ledger changes with all their completions.
           Must be a valid LedgerString (as described in ``value.proto``).
           Required
+        max_record_time: |-
+          Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+          If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+          with a new valid max_record_time.
+          Use this to limit the time-to-life of a prepared transaction,
+          which is useful to know when it can definitely not be accepted
+          anymore and resorting to preparing another transaction for the same
+          intent is safe again.
+          Optional
         synchronizer_id: |-
           Must be a valid synchronizer id
           If not set, a suitable synchronizer that this node is connected to will be chosen
@@ -2045,6 +2098,15 @@ messages:
           If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
           to read contract data on behalf of each of the given parties.
           Optional
+        estimate_traffic_cost: |-
+          Hints to improve the accuracy of traffic cost estimation.
+          The estimation logic assumes that this node will be used for the execution of the transaction
+          If another node is used instead, the estimation may be less precise.
+          Request amplification is not accounted for in the estimation: each amplified request will
+          result in the cost of the confirmation request to be charged additionally.
+
+          Optional - Traffic cost estimation is enabled by default if this field is not set
+          To turn off cost estimation, set the CostEstimationHints#disabled field to true
         act_as: |-
           Set of parties on whose behalf the command should be executed, if submitted.
           If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
@@ -2064,19 +2126,22 @@ messages:
     message:
       comments: '[docs-entry-end: HashingSchemeVersion]'
       fieldComments:
-        prepared_transaction: |-
-          The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
-          Clients MUST display the content of the transaction to the user for them to validate before signing the hash if the preparing participant is not trusted.
-        prepared_transaction_hash: |-
-          Hash of the transaction, this is what needs to be signed by the party to authorize the transaction.
-          Only provided for convenience, clients MUST recompute the hash from the raw transaction if the preparing participant is not trusted.
-          May be removed in future versions
-        hashing_scheme_version: The hashing scheme version used when building the
-          hash
         hashing_details: |-
           Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
           Note that there are no guarantees on the stability of the format or content of this field.
           Its content should NOT be parsed and should only be used for troubleshooting purposes.
+        prepared_transaction_hash: |-
+          Hash of the transaction, this is what needs to be signed by the party to authorize the transaction.
+          Only provided for convenience, clients MUST recompute the hash from the raw transaction if the preparing participant is not trusted.
+          May be removed in future versions
+        prepared_transaction: |-
+          The interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request.
+          Clients MUST display the content of the transaction to the user for them to validate before signing the hash if the preparing participant is not trusted.
+        cost_estimation: |-
+          Traffic cost estimation of the prepared transaction
+          Optional
+        hashing_scheme_version: The hashing scheme version used when building the
+          hash
   PreparedTransaction:
     message:
       comments: null
@@ -3016,6 +3081,8 @@ oneOfs:
           completion: ''
           offset_checkpoint: ''
   Contract: {}
+  CostEstimation: {}
+  CostEstimationHints: {}
   Create: {}
   CreateAndExerciseCommand: {}
   CreateCommand: {}

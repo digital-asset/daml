@@ -9,15 +9,13 @@ import cats.syntax.traverse.*
 import com.daml.jwt.{AuthServiceJWTCodec, JwksUrl, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
-import com.daml.ledger.api.v2.admin.party_management_service.{
-  AllocateExternalPartyResponse,
-  PartyDetails as ProtoPartyDetails,
-}
+import com.daml.ledger.api.v2.admin.party_management_service.AllocateExternalPartyResponse
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints,
   ExecuteSubmissionAndWaitResponse as ExecuteAndWaitResponseProto,
   ExecuteSubmissionResponse as ExecuteResponseProto,
   GetPreferredPackagesResponse,
@@ -71,13 +69,13 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
 import com.digitalasset.canton.admin.api.client.data.*
 import com.digitalasset.canton.admin.api.client.data.parties.{
   GenerateExternalPartyTopology,
-  ModifyingNonModifiablePartyDetailsPropertiesError,
   PartyDetails,
 }
 import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
+  ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
   FeatureFlag,
@@ -163,7 +161,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       txSynchronizerId: String,
       optTimeout: Option[config.NonNegativeDuration],
   ): Tx
+
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
+
   protected def defaultLimit: PositiveInt =
     consoleEnvironment.environment.config.parameters.console.defaultLimit
 
@@ -673,6 +673,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           verboseHashing: Boolean = false,
           prefetchContractKeys: Seq[PrefetchContractKey] = Seq.empty,
+          maxRecordTime: Option[CantonTimestamp] = None,
+          estimateTrafficCost: Option[CostEstimationHints] = None,
       ): PrepareResponseProto =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -688,6 +690,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               userPackageSelectionPreference,
               verboseHashing,
               prefetchContractKeys,
+              maxRecordTime,
+              estimateTrafficCost,
             )
           )
         }
@@ -1819,6 +1823,26 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         proto.map(PartyDetails.fromProtoPartyDetails)
       }
 
+      @Help.Summary("Get party details for known parties")
+      @Help.Description(
+        """Get party details for parties known by the Ledger API server for the given identity provider.
+           identityProviderId: identity provider id"""
+      )
+      def get(
+          parties: Seq[PartyId],
+          identityProviderId: String = "",
+          failOnNotFound: Boolean = true,
+      ): Map[PartyId, PartyDetails] =
+        check(FeatureFlag.Testing)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.PartyManagementService.GetParties(
+              parties = parties,
+              identityProviderId = identityProviderId,
+              failOnNotFound = failOnNotFound,
+            )
+          )
+        }).map { case (k, v) => (k, PartyDetails.fromProtoPartyDetails(v)) }
+
       @Help.Summary("Update participant-local party details")
       @Help.Description(
         """Currently you can update only the annotations.
@@ -1832,25 +1856,46 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           modifier: PartyDetails => PartyDetails,
           identityProviderId: String = "",
       ): PartyDetails = {
-        val rawDetails = get(party = party)
-        val srcDetails = PartyDetails.fromProtoPartyDetails(rawDetails)
-        val modifiedDetails = modifier(srcDetails)
-        verifyOnlyModifiableFieldsWhereModified(srcDetails, modifiedDetails)
-        val annotationsUpdate = makeAnnotationsUpdate(
-          original = srcDetails.annotations,
-          modified = modifiedDetails.annotations,
-        )
         val rawUpdatedDetails = consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.PartyManagementService.Update(
-              party = party,
-              annotationsUpdate = Some(annotationsUpdate),
-              resourceVersionO = Some(rawDetails.localMetadata.fold("")(_.resourceVersion)),
-              identityProviderId = identityProviderId,
+          for {
+            rawDetailsMap <- ledgerApiCommand(
+              LedgerApiCommands.PartyManagementService.GetParties(
+                parties = Seq(party.partyId),
+                identityProviderId = identityProviderId,
+                failOnNotFound = true,
+              )
             )
-          )
+            rawDetails <- ConsoleCommandResult.fromEither(
+              rawDetailsMap
+                .get(party.partyId)
+                .toRight(s"No such party $party")
+            )
+            srcDetails = PartyDetails.fromProtoPartyDetails(rawDetails)
+            modifiedDetails = modifier(srcDetails)
+            // verify only modifiable fields where modified
+            _ <- {
+              ConsoleCommandResult.fromEither(
+                Either.cond(
+                  modifiedDetails.copy(annotations = srcDetails.annotations) == srcDetails,
+                  (),
+                  s"Update to party details of ${party.partyId} attempted to modify unmodifiable fields.",
+                )
+              )
+            }
+            annotationsUpdate = makeAnnotationsUpdate(
+              original = srcDetails.annotations,
+              modified = modifiedDetails.annotations,
+            )
+            result <- ledgerApiCommand(
+              LedgerApiCommands.PartyManagementService.Update(
+                party = party,
+                annotationsUpdate = Some(annotationsUpdate),
+                resourceVersionO = Some(rawDetails.localMetadata.fold("")(_.resourceVersion)),
+                identityProviderId = identityProviderId,
+              )
+            )
+          } yield result
         }
-
         PartyDetails.fromProtoPartyDetails(rawUpdatedDetails)
       }
 
@@ -1876,25 +1921,6 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         )
       }
 
-      private def verifyOnlyModifiableFieldsWhereModified(
-          srcDetails: PartyDetails,
-          modifiedDetails: PartyDetails,
-      ): Unit = {
-        val withAllowedUpdatesReverted = modifiedDetails.copy(annotations = srcDetails.annotations)
-        if (withAllowedUpdatesReverted != srcDetails) {
-          throw ModifyingNonModifiablePartyDetailsPropertiesError()
-        }
-      }
-
-      private def get(party: Party, identityProviderId: String = ""): ProtoPartyDetails =
-        consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.PartyManagementService.GetParty(
-              party = party,
-              identityProviderId = identityProviderId,
-            )
-          )
-        }
     }
 
     @Help.Summary("Manage packages")
@@ -2465,6 +2491,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             verboseHashing: Boolean = false,
             prefetchContractKeys: Seq[javab.data.PrefetchContractKey] = Seq.empty,
+            maxRecordTime: Option[CantonTimestamp] = None,
+            estimateTrafficCost: Option[CostEstimationHints] = None,
         ): PrepareResponseProto =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -2480,6 +2508,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 userPackageSelectionPreference,
                 verboseHashing,
                 prefetchContractKeys.map(k => PrefetchContractKey.fromJavaProto(k.toProto)),
+                maxRecordTime,
+                estimateTrafficCost,
               )
             )
           }
@@ -3034,6 +3064,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
             .isDefined,
         )
       }
+
     ConsoleMacros.utils.retry_until_true(timeout)(
       scan().forall { case (_, _, updateFound) => updateFound }, {
         val res = scan().map { case (participant, party, res) =>

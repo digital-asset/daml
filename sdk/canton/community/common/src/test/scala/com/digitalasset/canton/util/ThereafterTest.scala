@@ -52,6 +52,24 @@ trait ThereafterTest extends AnyWordSpec with BaseTest {
         Try(fixture.theContent(y)) shouldBe Failure(ex)
       }
 
+      "run the body after an InterruptedException" in {
+        // This is an example of an exception that's not considered `NonFatal`.
+        // Such exceptions are not caught by `Try.apply` and get boxed sometimes.
+        val interrupt = new InterruptedException("INTERRUPTED")
+        val x = fixture.fromTry(Failure[Unit](interrupt))
+        val res = sut.thereafter(x) { content =>
+          fixture.isCompleted(x) shouldBe true
+          TryUtil.unwrapExecutionException(
+            TryUtil.tryCatchInterrupted(fixture.theContent(content))
+          ) shouldBe Failure(interrupt)
+          ()
+        }
+        val y = fixture.await(res)
+        TryUtil.unwrapExecutionException(
+          TryUtil.tryCatchInterrupted(fixture.theContent(y))
+        ) shouldBe Failure(interrupt)
+      }
+
       "propagate an exception in the body" in {
         val ex = new RuntimeException("BODY FAILURE")
         val x = fixture.fromTry(Success(()))

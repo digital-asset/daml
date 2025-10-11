@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.digitalasset.canton.buildinfo.BuildInfo
+import org.scalatest.exceptions.StackDepthException
 
 import java.io.{PrintStream, PrintWriter, StringWriter}
 import scala.util.Try
@@ -38,6 +39,13 @@ object Reporter {
     }
 
     private def extractRelevantLineNumber(t: Throwable): Option[Int] =
+      t match {
+        case e: StackDepthException =>
+          e.position.map(_.lineNumber).orElse(extractLineNumberFromStackTrace(e))
+        case _ => extractLineNumberFromStackTrace(t)
+      }
+
+    private def extractLineNumberFromStackTrace(t: Throwable): Option[Int] =
       t.getStackTrace
         .find(stackTraceElement =>
           Try(Class.forName(stackTraceElement.getClassName))

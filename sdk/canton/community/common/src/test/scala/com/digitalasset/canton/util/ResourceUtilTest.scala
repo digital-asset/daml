@@ -63,6 +63,18 @@ class ResourceUtilTest extends AnyWordSpec with BaseTest with HasExecutionContex
         exception.getSuppressed shouldBe empty
       }
 
+      "deal with an InterruptedException" in {
+        val resource = new DoNothingResource
+        val ex = new InterruptedException("Interrupted")
+        val exception = intercept[InterruptedException](
+          ResourceUtil.withResource(resource)(_ => throw ex)
+        )
+
+        resource.closeCount shouldBe 1
+        exception shouldBe ex
+        exception.getSuppressed shouldBe empty
+      }
+
       "rethrow exception from closing" in {
         val msg = "rethrow-exception message"
         val resource = new ThrowOnCloseResource(msg)
@@ -116,7 +128,7 @@ class ResourceUtilTest extends AnyWordSpec with BaseTest with HasExecutionContex
     }
 
     "withResourceEither" should {
-      "have the same behavior as withResource but return an Either with the result or exception" in {
+      "have the same behavior as withResource but return an Either with the result or non-fatal exception" in {
         ResourceUtil.withResourceEither(new DoNothingResource)(_ => "good") shouldBe Right("good")
 
         val msg = "Something happened"
@@ -134,6 +146,13 @@ class ResourceUtilTest extends AnyWordSpec with BaseTest with HasExecutionContex
         ) should matchPattern {
           case Left(e @ TestException(`msg`)) if e.getSuppressed()(0) == TestException(closeMsg) =>
         }
+      }
+
+      "rethrow fatal exceptions" in {
+        val interrupted = new InterruptedException("Interrupted")
+        TryUtil.tryCatchInterrupted(
+          ResourceUtil.withResourceEither(new DoNothingResource)(_ => throw interrupted)
+        ) shouldBe Failure(interrupted)
       }
 
       "catch exceptions during resource construction" in {

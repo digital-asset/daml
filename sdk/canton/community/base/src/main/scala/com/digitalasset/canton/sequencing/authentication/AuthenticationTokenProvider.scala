@@ -291,6 +291,11 @@ object AuthenticationTokenProvider {
           logger: TracedLogger,
       )(implicit tc: TraceContext): ErrorKind =
         exception match {
+          case ex: StatusRuntimeException
+              if ex.getStatus.getCode == Status.Code.UNAVAILABLE &&
+                ex.getMessage.contains("Channel shutdown invoked") =>
+            FatalErrorKind
+
           // Ideally we would like to retry only on retryable gRPC status codes (such as `UNAVAILABLE`),
           // but as this could be hard to get right, we compromise by retrying on all gRPC status codes,
           // and use a finite number of retries.

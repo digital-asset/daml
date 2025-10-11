@@ -57,8 +57,8 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
       participant2.synchronizers.connect_local(sequencer1, alias = daName)
       participant3.synchronizers.connect_local(sequencer1, alias = daName)
 
-      participant1.parties.enable("alice")
-      participant1.parties.enable("bob")
+      participant1.parties.enable("alice1")
+      participant1.parties.enable("bob1")
 
       // Participant 1 and 2 have both versions
 
@@ -70,8 +70,8 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
 
       // Participant 3 initially has just V1
 
-      alice3 = participant3.parties.enable("alice")
-      bob3 = participant3.parties.enable("bob")
+      alice3 = participant3.parties.enable("alice3")
+      bob3 = participant3.parties.enable("bob3")
       participant3.dars.upload(UpgradingBaseTest.UpgradeV1)
     }
 
@@ -109,8 +109,8 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
       "override with user package preference" in { implicit env =>
         // Upload the upgraded template version
 
-        val alice = party("alice")
-        val bob = party("bob")
+        val alice = party("alice1")
+        val bob = party("bob1")
 
         val templateCon =
           new v1.upgrade.Upgrading(alice.toProtoPrimitive, alice.toProtoPrimitive, 0)
@@ -231,7 +231,7 @@ sealed abstract class LedgerApiCommandUpgradingIntegrationTest
           _.warningMessage should include regex "Received an identifier with package ID .*, but expected a package name.",
           _.commandFailureMessage should
             (include(s"Request failed for participant2") and
-              include("FAILED_PRECONDITION/INTERPRETATION_DEV_ERROR") and
+              include("INVALID_ARGUMENT/INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED") and
               include("failed to authenticate contract")),
         )
       }

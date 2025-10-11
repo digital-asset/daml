@@ -52,6 +52,11 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
   *   more stable and predictable system behavior.
   * @param useNewConnectionPool
   *   Use the new sequencer connection pool instead of the former transports.
+  * @param timeReadingsRetention
+  *   The duration for which sequencing time readings are retained. This setting depends on the
+  *   assumptions about dynamic faults and ensures that faulty time readings skewed towards the
+  *   future do not linger in the system for too long. Regular eviction also ensures that time
+  *   readings from offboarded sequencers are not taken into account indefinitely.
   */
 final case class SequencerClientConfig(
     eventInboxSize: PositiveInt = PositiveInt.tryCreate(100),
@@ -70,6 +75,7 @@ final case class SequencerClientConfig(
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     maximumInFlightEventBatches: PositiveInt = PositiveInt.tryCreate(20),
     useNewConnectionPool: Boolean = false,
+    timeReadingsRetention: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(5),
 ) extends UniformCantonConfigValidation
 
 object SequencerClientConfig {

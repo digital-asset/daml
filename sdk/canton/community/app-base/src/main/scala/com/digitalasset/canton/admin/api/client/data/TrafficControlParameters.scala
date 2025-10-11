@@ -9,6 +9,19 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as TrafficControlParametersInternal
 import com.digitalasset.canton.time.PositiveFiniteDuration as InternalPositiveFiniteDuration
 
+object TrafficControlParameters {
+  private[canton] val default: TrafficControlParameters = TrafficControlParameters(
+    maxBaseTrafficAmount = TrafficControlParametersInternal.DefaultBaseTrafficAmount,
+    readVsWriteScalingFactor = TrafficControlParametersInternal.DefaultReadVsWriteScalingFactor,
+    maxBaseTrafficAccumulationDuration =
+      TrafficControlParametersInternal.DefaultMaxBaseTrafficAccumulationDuration.toConfig,
+    setBalanceRequestSubmissionWindowSize =
+      TrafficControlParametersInternal.DefaultSetBalanceRequestSubmissionWindowSize.toConfig,
+    enforceRateLimiting = TrafficControlParametersInternal.DefaultEnforceRateLimiting,
+    baseEventCost = TrafficControlParametersInternal.DefaultBaseEventCost,
+  )
+}
+
 // TODO(#15650) Properly expose new BFT parameters and synchronizer limits
 final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong,

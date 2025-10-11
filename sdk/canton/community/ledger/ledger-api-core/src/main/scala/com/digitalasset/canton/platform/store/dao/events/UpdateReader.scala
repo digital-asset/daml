@@ -35,7 +35,7 @@ import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoUpdateReader,
 }
-import com.digitalasset.canton.platform.{InternalUpdateFormat, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{FatContract, InternalUpdateFormat, TemplatePartiesFilter}
 import com.digitalasset.canton.util.MonadUtil
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
@@ -280,26 +280,34 @@ private[dao] object UpdateReader {
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
   )(
-      rawAssignEntries: Seq[Entry[RawAssignEventLegacy]]
+      rawAssignEntries: Seq[(Entry[RawAssignEventLegacy], Option[FatContract])]
   )(implicit lc: LoggingContextWithTrace, ec: ExecutionContext): Future[Option[Reassignment]] =
     MonadUtil
-      .sequentialTraverse(rawAssignEntries) { rawAssignEntry =>
+      .sequentialTraverse(rawAssignEntries) { case (rawAssignEntry, fatContractO) =>
         lfValueTranslation
-          .deserializeRawCreated(
+          .toApiCreatedEvent(
             eventProjectionProperties = eventProjectionProperties,
-            rawCreatedEvent = rawAssignEntry.event.rawCreatedEvent,
+            fatContractInstance = fatContractO.getOrElse(
+              throw new IllegalStateException(
+                s"Contract for internal contract id ${rawAssignEntry.event.rawCreatedEvent.internalContractId} was not found in the contract store."
+              )
+            ),
             offset = rawAssignEntry.offset,
             nodeId = rawAssignEntry.nodeId,
+            representativePackageId = rawAssignEntry.event.rawCreatedEvent.representativePackageId,
+            witnesses = rawAssignEntry.event.rawCreatedEvent.witnessParties,
+            acsDelta = rawAssignEntry.event.rawCreatedEvent.flatEventWitnesses.nonEmpty,
           )
+
       }
       .map(createdEvents =>
-        rawAssignEntries.headOption.map(first =>
+        rawAssignEntries.headOption.map { case (first, _) =>
           Reassignment(
             updateId = first.updateId,
             commandId = first.commandId.getOrElse(""),
             workflowId = first.workflowId.getOrElse(""),
             offset = first.offset,
-            events = rawAssignEntries.zip(createdEvents).map { case (entry, created) =>
+            events = rawAssignEntries.zip(createdEvents).map { case ((entry, _), created) =>
               ReassignmentEvent(
                 ReassignmentEvent.Event.Assigned(
                   UpdateReader.toAssignedEvent(entry.event, created)
@@ -310,76 +318,100 @@ private[dao] object UpdateReader {
             traceContext = first.traceContext.map(DamlTraceContext.parseFrom),
             synchronizerId = first.synchronizerId,
           )
-        )
+        }
       )
 
   def deserializeRawAcsDeltaEvent(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
   )(
-      rawFlatEntry: Entry[RawAcsDeltaEventLegacy]
+      rawFlatEntryFatContract: (Entry[RawAcsDeltaEventLegacy], Option[FatContract])
   )(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
-  ): Future[Entry[Event]] = rawFlatEntry.event match {
-    case rawCreated: RawCreatedEventLegacy =>
-      lfValueTranslation
-        .deserializeRawCreated(
-          eventProjectionProperties = eventProjectionProperties,
-          rawCreatedEvent = rawCreated,
-          offset = rawFlatEntry.offset,
-          nodeId = rawFlatEntry.nodeId,
-        )
-        .map(createdEvent => rawFlatEntry.withEvent(Event(Event.Event.Created(createdEvent))))
+  ): Future[Entry[Event]] =
+    rawFlatEntryFatContract match {
+      case (rawFlatEntry, fatContractO) =>
+        rawFlatEntry.event match {
+          case rawCreated: RawCreatedEventLegacy =>
+            lfValueTranslation
+              .toApiCreatedEvent(
+                eventProjectionProperties = eventProjectionProperties,
+                fatContractInstance = fatContractO.getOrElse(
+                  throw new IllegalStateException(
+                    s"Contract for internal contract id ${rawCreated.internalContractId} was not found in the contract store."
+                  )
+                ),
+                offset = rawFlatEntry.offset,
+                nodeId = rawFlatEntry.nodeId,
+                representativePackageId = rawCreated.representativePackageId,
+                witnesses = rawCreated.witnessParties,
+                acsDelta = rawCreated.flatEventWitnesses.nonEmpty,
+              )
+              .map(createdEvent => rawFlatEntry.withEvent(Event(Event.Event.Created(createdEvent))))
 
-    case rawArchived: RawArchivedEventLegacy =>
-      Future.successful(
-        rawFlatEntry.withEvent(
-          Event(
-            Event.Event.Archived(
-              lfValueTranslation.deserializeRawArchived(
-                eventProjectionProperties,
-                rawFlatEntry.withEvent(rawArchived),
+          case rawArchived: RawArchivedEventLegacy =>
+            Future.successful(
+              rawFlatEntry.withEvent(
+                Event(
+                  Event.Event.Archived(
+                    lfValueTranslation.deserializeRawArchived(
+                      eventProjectionProperties,
+                      rawFlatEntry.withEvent(rawArchived),
+                    )
+                  )
+                )
               )
             )
-          )
-        )
-      )
-  }
+        }
+    }
 
   def deserializeRawLedgerEffectsEvent(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,
   )(
-      rawTreeEntry: Entry[RawLedgerEffectsEventLegacy]
+      rawTreeEntryFatContract: (Entry[RawLedgerEffectsEventLegacy], Option[FatContract])
   )(implicit
       loggingContext: LoggingContextWithTrace,
       ec: ExecutionContext,
-  ): Future[Entry[Event]] = rawTreeEntry.event match {
-    case rawCreated: RawCreatedEventLegacy =>
-      lfValueTranslation
-        .deserializeRawCreated(
-          eventProjectionProperties = eventProjectionProperties,
-          rawCreatedEvent = rawCreated,
-          offset = rawTreeEntry.offset,
-          nodeId = rawTreeEntry.nodeId,
-        )
-        .map(createdEvent =>
-          rawTreeEntry.withEvent(
-            Event(Event.Event.Created(createdEvent))
-          )
-        )
+  ): Future[Entry[Event]] =
+    rawTreeEntryFatContract match {
+      case (rawTreeEntry, fatContractO) =>
+        rawTreeEntry.event match {
+          case rawCreated: RawCreatedEventLegacy =>
+            lfValueTranslation
+              .toApiCreatedEvent(
+                eventProjectionProperties = eventProjectionProperties,
+                fatContractInstance = fatContractO.getOrElse(
+                  throw new IllegalStateException(
+                    s"Contract for internal contract id ${rawCreated.internalContractId} was not found in the contract store."
+                  )
+                ),
+                offset = rawTreeEntry.offset,
+                nodeId = rawTreeEntry.nodeId,
+                representativePackageId = rawCreated.representativePackageId,
+                witnesses = rawCreated.witnessParties,
+                acsDelta = rawCreated.flatEventWitnesses.nonEmpty,
+              )
+              .map(createdEvent =>
+                rawTreeEntry.withEvent(
+                  Event(Event.Event.Created(createdEvent))
+                )
+              )
 
-    case rawExercised: RawExercisedEventLegacy =>
-      lfValueTranslation
-        .deserializeRawExercised(eventProjectionProperties, rawTreeEntry.withEvent(rawExercised))
-        .map(exercisedEvent =>
-          rawTreeEntry.copy(
-            event = Event(Event.Event.Exercised(exercisedEvent))
-          )
-        )
-  }
-
+          case rawExercised: RawExercisedEventLegacy =>
+            lfValueTranslation
+              .deserializeRawExercised(
+                eventProjectionProperties,
+                rawTreeEntry.withEvent(rawExercised),
+              )
+              .map(exercisedEvent =>
+                rawTreeEntry.copy(
+                  event = Event(Event.Event.Exercised(exercisedEvent))
+                )
+              )
+        }
+    }
   def filterRawEvents[T <: RawEventLegacy](templatePartiesFilter: TemplatePartiesFilter)(
       rawEvents: Seq[Entry[T]]
   ): Seq[Entry[T]] = {

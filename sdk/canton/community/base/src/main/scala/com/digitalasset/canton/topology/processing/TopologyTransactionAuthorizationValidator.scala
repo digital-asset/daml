@@ -17,7 +17,7 @@ import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction
   AuthorizedNamespaceDelegation,
 }
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.MultiTransactionHashMismatch
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Authorization as AuthorizationRejections
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -233,7 +233,9 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       toValidate.signatures.map(_.authorizingLongTermKey) -- allKeysUsedForAuthorization.keys
     for {
       // check that all signatures cover the transaction hash
-      _ <- wronglyCoveredHashesNE.map(MultiTransactionHashMismatch(toValidate.hash, _)).toLeft(())
+      _ <- wronglyCoveredHashesNE
+        .map(AuthorizationRejections.MultiTransactionHashMismatch(toValidate.hash, _))
+        .toLeft(())
       _ <- Either.cond[TopologyTransactionRejection, Unit](
         // there must be at least 1 key used for the signatures for one of the delegation mechanisms
         (unvalidatedSigningKeysCoveringHash -- superfluousKeys).nonEmpty,
@@ -241,7 +243,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           logger.info(
             s"The keys ${superfluousKeys.mkString(", ")} have no delegation to authorize the transaction $toValidate"
           )
-          TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
+          AuthorizationRejections.NoDelegationFoundForKeys(superfluousKeys)
         },
       )
 
@@ -251,12 +253,12 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           logger.info(
             "Removing all superfluous keys results in a transaction without any signatures at all."
           )
-          TopologyTransactionRejection.NoDelegationFoundForKeys(superfluousKeys)
+          AuthorizationRejections.NoDelegationFoundForKeys(superfluousKeys)
         })
 
       namespaceAuthorizationKeysNE <- NonEmpty
         .from(namespaceAuthorizationKeys)
-        .toRight(TopologyTransactionRejection.NotAuthorized)
+        .toRight(AuthorizationRejections.NotAuthorized)
 
       _ <- validateSignatures(
         txWithSignaturesToVerify,
@@ -346,7 +348,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       _ <- Either.cond(
         signature.coversHash(txWithSignaturesToVerify.hash),
         (),
-        TopologyTransactionRejection
+        AuthorizationRejections
           .MultiTransactionHashMismatch(
             txWithSignaturesToVerify.hash,
             signature.hashesCovered,
@@ -359,7 +361,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           signature.signature,
           keyIdsWithUsage.forgetNE(publicKey.id),
         )
-        .leftMap(TopologyTransactionRejection.SignatureCheckFailed.apply)
+        .leftMap(AuthorizationRejections.SignatureCheckFailed.apply)
 
     } yield ()
 
@@ -427,7 +429,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       }
       ValidatedTopologyTransaction(
         toValidate,
-        Some(TopologyTransactionRejection.NotAuthorized),
+        Some(AuthorizationRejections.NotAuthorized),
       )
     }
   }
@@ -503,7 +505,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           if txSynchronizerId != underlyingSynchronizerId.logical =>
         ValidatedTopologyTransaction(
           toValidate,
-          Some(TopologyTransactionRejection.InvalidSynchronizer(txSynchronizerId)),
+          Some(AuthorizationRejections.InvalidSynchronizer(txSynchronizerId)),
         )
       case _ => ValidatedTopologyTransaction(toValidate, None)
     }

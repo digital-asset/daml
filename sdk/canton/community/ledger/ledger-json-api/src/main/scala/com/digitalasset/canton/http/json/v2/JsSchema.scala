@@ -24,10 +24,11 @@ import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
+import io.circe
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
-import io.circe.{Codec, Decoder, Encoder, Json}
+import io.circe.{Codec, Decoder, DecodingFailure, Encoder, Json}
 import scalapb.{GeneratedEnumCompanion, UnknownFieldSet}
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.Schema.SName
@@ -43,6 +44,8 @@ import scala.util.Try
 
 /** JSON wrappers that do not belong to a particular service */
 object JsSchema {
+
+  val BYTE_STRING_PARSE_ERROR_TEMPLATE = "The string is not a valid Base64: %s"
 
   implicit val config: Configuration = Configuration.default.copy(
     useDefaults = true
@@ -366,9 +369,17 @@ object JsSchema {
       Encoder.encodeString.contramap[protobuf.ByteString] { v =>
         Base64.getEncoder.encodeToString(v.toByteArray)
       }
-    implicit val decodeByteString: Decoder[protobuf.ByteString] = Decoder.decodeString.emapTry {
-      str =>
-        Try(protobuf.ByteString.copyFrom(Base64.getDecoder.decode(str)))
+    private def decodeByteStringEither(
+        str: String
+    ): Either[circe.DecodingFailure, protobuf.ByteString] =
+      Try(Base64.getDecoder.decode(str))
+        .map(protobuf.ByteString.copyFrom)
+        .toEither
+        .left
+        .map(_ => DecodingFailure(BYTE_STRING_PARSE_ERROR_TEMPLATE.format(str), Nil))
+
+    implicit val decodeByteString: Decoder[protobuf.ByteString] = Decoder.decodeString.emap { str =>
+      decodeByteStringEither(str).left.map(_.message)
     }
 
     // proto classes use default values

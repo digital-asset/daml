@@ -19,6 +19,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -59,6 +60,7 @@ import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
@@ -610,6 +612,76 @@ object TopologyStore {
       before: PositiveStoredTopologyTransactions,
       after: PositiveStoredTopologyTransactions,
   )
+
+  /** determine valid parties within the given mappings (requires p2p, otk and stc) */
+  private[store] def determineValidParties(
+      mappings: Seq[TopologyMapping],
+      filterParty: String,
+      filterParticipant: String,
+  ): Set[PartyId] = {
+    val (filterPartyIdentifier, filterPartyNamespaceO) =
+      UniqueIdentifier.splitFilter(filterParty)
+    val (
+      filterParticipantIdentifier,
+      filterParticipantNamespaceO,
+    ) =
+      UniqueIdentifier.splitFilter(filterParticipant)
+    val validParticipants = determineValidParticipants(mappings)
+    val validParties = mutable.HashSet[PartyId]()
+    mappings.foreach {
+      case ptp: PartyToParticipant
+          if (filterParty.isEmpty || ptp.partyId.uid
+            .matchesFilters(filterPartyIdentifier, filterPartyNamespaceO)) &&
+            (filterParticipant.isEmpty || ptp.participants
+              .exists(
+                _.participantId.uid
+                  .matchesFilters(filterParticipantIdentifier, filterParticipantNamespaceO)
+              )) && ptp.participants.exists(h => validParticipants.contains(h.participantId)) =>
+        validParties.add(ptp.partyId).discard
+      case cert: SynchronizerTrustCertificate
+          if (filterParty.isEmpty || cert.participantId.adminParty.uid
+            .matchesFilters(filterPartyIdentifier, filterPartyNamespaceO))
+            && (filterParticipant.isEmpty || cert.participantId.adminParty.uid.matchesFilters(
+              filterParticipantIdentifier,
+              filterParticipantNamespaceO,
+            ))
+            && validParticipants
+              .contains(cert.participantId) =>
+        validParties.add(cert.participantId.adminParty).discard
+      case _ => ()
+    }
+    validParties.toSet
+  }
+
+  /** Given a series of topology transactions, determine the participant ids that have OTK and STC
+    */
+  private def determineValidParticipants(
+      txs: Iterable[TopologyMapping]
+  ): Set[ParticipantId] = {
+    val validParticipants = mutable.Map[ParticipantId, (Boolean, Boolean)]()
+    txs.foreach {
+      case OwnerToKeyMapping(
+            pid: ParticipantId,
+            _,
+          ) => // assumption: keys is checked as a state variant
+        validParticipants
+          .updateWith(pid) {
+            case None => Some((true, false))
+            case Some((_, stc)) => Some((true, stc))
+          }
+          .discard
+      case SynchronizerTrustCertificate(pid, _, _) =>
+        validParticipants
+          .updateWith(pid) {
+            case None => Some((false, true))
+            case Some((otk, _)) => Some((otk, true))
+          }
+          .discard
+      case _ => ()
+    }
+    validParticipants.filter { case (_, (otk, stc)) => otk && stc }.keySet.toSet
+  }
+
 }
 
 sealed trait TimeQuery {

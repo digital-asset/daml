@@ -16,7 +16,6 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.{TopologyMapping, *}
@@ -202,7 +201,8 @@ trait TopologyStoreTest
         ts5 -> (ptp_fred_p1, None, None),
         ts5 -> (dtc_p2_synchronizer1, ts6.some, None),
         ts6 -> (dtc_p2_synchronizer1_update, None, None),
-        ts6 -> (mds_med1_synchronizer1_invalid, ts6.some, s"No delegation found for keys ${seqKey.fingerprint}".some),
+        ts6 -> (mds_med1_synchronizer1_invalid, ts6.some,
+        s"No delegation found for keys ${seqKey.fingerprint}".some),
       ).map { case (from, (tx, until, rejection)) =>
         StoredTopologyTransaction(
           SequencedTime(from),
@@ -474,7 +474,6 @@ trait TopologyStoreTest
 
         "able to inspect" in {
           val store = mk(synchronizer1_p1p2_physicalSynchronizerId)
-
           for {
             _ <- new InitialTopologySnapshotValidator(
               pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
@@ -580,11 +579,11 @@ trait TopologyStoreTest
             allParties shouldBe Set(
               dtc_p1_synchronizer1.mapping.participantId.adminParty,
               ptp_fred_p1.mapping.partyId,
-              dtc_p2_synchronizer1.mapping.participantId.adminParty,
+              // p2 cannot appear here as OTKP2 is only a proposal
             )
             onlyFred shouldBe Set(ptp_fred_p1.mapping.partyId)
             fredFullySpecified shouldBe Set(ptp_fred_p1.mapping.partyId)
-            onlyParticipant2 shouldBe Set(dtc_p2_synchronizer1.mapping.participantId.adminParty)
+            onlyParticipant2 shouldBe Set() // p2 cannot appear as OTKP2 is only a proposal
             neitherParty shouldBe Set.empty
           }
         }
@@ -860,7 +859,11 @@ trait TopologyStoreTest
               additions = Seq(
                 ValidatedTopologyTransaction(
                   bad_otk,
-                  Some(TopologyTransactionRejection.InvalidTopologyMapping("bad signature")),
+                  Some(
+                    TopologyTransactionRejection.RequiredMapping.InvalidTopologyMapping(
+                      "bad signature"
+                    )
+                  ),
                 ),
                 ValidatedTopologyTransaction(good_otk),
               ),
@@ -970,7 +973,8 @@ trait TopologyStoreTest
                 ),
                 ValidatedTopologyTransaction(
                   transaction = rejectedPartyToParticipant,
-                  rejectionReason = Some(InvalidTopologyMapping("sad")),
+                  rejectionReason =
+                    Some(TopologyTransactionRejection.RequiredMapping.InvalidTopologyMapping("sad")),
                 ),
                 ValidatedTopologyTransaction(
                   transaction = proposedPartyToParticipant,

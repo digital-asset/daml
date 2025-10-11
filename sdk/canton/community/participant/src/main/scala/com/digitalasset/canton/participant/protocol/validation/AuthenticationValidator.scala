@@ -37,7 +37,8 @@ import com.digitalasset.canton.participant.protocol.validation.ModelConformanceC
   LazyAsyncReInterpretation,
   LazyAsyncReInterpretationMap,
 }
-import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
+import com.digitalasset.canton.participant.util.DAMLe.{ContractEnricher, TransactionEnricher}
+import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.protocol.{ExternalAuthorization, RequestId}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -65,8 +66,9 @@ private[protocol] object AuthenticationValidator {
       reInterpretedTopLevelViewsEval: LazyAsyncReInterpretationMap,
       synchronizerId: PhysicalSynchronizerId,
       transactionEnricher: TransactionEnricher,
-      createNodeEnricher: CreateNodeEnricher,
+      createNodeEnricher: ContractEnricher,
       logger: TracedLogger,
+      messagePayloadLoggingEnabled: Boolean,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -104,6 +106,7 @@ private[protocol] object AuthenticationValidator {
             transactionEnricher = transactionEnricher,
             createNodeEnricher = createNodeEnricher,
             logger = logger,
+            messagePayloadLoggingEnabled = messagePayloadLoggingEnabled,
           )
         case None =>
           // If we don't have the re-interpreted transaction for this view it's either a programming error
@@ -266,9 +269,10 @@ private[protocol] object AuthenticationValidator {
       reInterpretationET: LazyAsyncReInterpretation,
       synchronizerId: PhysicalSynchronizerId,
       transactionEnricher: TransactionEnricher,
-      createNodeEnricher: CreateNodeEnricher,
+      createNodeEnricher: ContractEnricher,
       requestId: RequestId,
       logger: TracedLogger,
+      messagePayloadLoggingEnabled: Boolean,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -289,6 +293,13 @@ private[protocol] object AuthenticationValidator {
             )
           )
         case Right(reInterpretedTopLevelView) =>
+          // The trace contains detailed information about the transaction and is expensive to compute
+          // Only compute it if message payload logging is enabled and in debug level
+          val hashTracer =
+            if (messagePayloadLoggingEnabled && logger.underlying.isDebugEnabled) {
+              Some(HashTracer.StringHashTracer(traceSubNodes = true))
+            } else None
+
           reInterpretedTopLevelView
             .computeHash(
               externalAuthorization.hashingSchemeVersion,
@@ -300,6 +311,7 @@ private[protocol] object AuthenticationValidator {
               protocolVersion,
               transactionEnricher,
               createNodeEnricher,
+              hashTracer.getOrElse[HashTracer](HashTracer.NoOp),
             )
             // If Hash computation is successful, verify the signature is valid
             .flatMap { hash =>
@@ -308,7 +320,14 @@ private[protocol] object AuthenticationValidator {
                   hash,
                   externalAuthorization,
                   submitterMetadata.actAs,
-                ).map(_.toLeft(Some(hash)))
+                ).map {
+                  case error @ Some(_) =>
+                    hashTracer.map(_.result).foreach { trace =>
+                      logger.debug("Transaction hash computation trace:\n" + trace)
+                    }
+                    error
+                  case None => None
+                }.map(_.toLeft(Some(hash)))
               )
             }
             .map(res =>

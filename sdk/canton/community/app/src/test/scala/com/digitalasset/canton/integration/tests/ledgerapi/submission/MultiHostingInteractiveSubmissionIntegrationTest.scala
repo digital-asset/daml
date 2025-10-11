@@ -14,6 +14,7 @@ import com.digitalasset.canton.integration.plugins.UseH2
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.ParticipantsSelector
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -21,14 +22,6 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.topology.ExternalParty
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
-import com.digitalasset.canton.topology.transaction.{
-  HostingParticipant,
-  ParticipantPermission,
-  PartyToParticipant,
-  TopologyChangeOp,
-  TopologyTransaction,
-}
 import io.grpc.Status
 
 /** Test and demonstrates onboarding of a multi hosted external party
@@ -39,10 +32,12 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
     with BaseInteractiveSubmissionTest
     with HasCycleUtils {
 
+  // Alice is onboarded as a multi hosted party at the beginning of the test suite and re-used in subsequent tests
   private var aliceE: ExternalParty = _
 
   override protected def epn(implicit env: TestConsoleEnvironment): LocalParticipantReference =
     env.participant1
+
   private val cpns: ParticipantsSelector = env => Seq(env.participant1, env.participant2)
   private val opns: ParticipantsSelector = env => Seq(env.participant3)
 
@@ -61,64 +56,39 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonExamplesPath)
+
+        // Create a multi hosted party for this test suite
+        val (onboardingTransactions, externalParty) =
+          participant1.parties.external
+            .onboarding_transactions(
+              "Alice",
+              additionalConfirming = Seq(participant2),
+              observing = Seq(participant3),
+              confirmationThreshold = PositiveInt.two,
+            )
+            .futureValueUS
+            .value
+
+        aliceE = externalParty
+
+        Seq(participant1, participant2, participant3).map { hostingNode =>
+          hostingNode.ledger_api.parties.allocate_external(
+            synchronizer1Id,
+            onboardingTransactions.transactionsWithSingleSignature,
+            multiSignatures = onboardingTransactions.multiTransactionSignatures,
+          )
+        }
+
+        PartiesAdministration.Allocation.waitForPartyKnown(
+          partyId = externalParty.partyId,
+          hostingParticipant = participant1,
+          synchronizeParticipants = Seq(participant1, participant2, participant3),
+          synchronizerId = synchronizer1Id.logical,
+        )
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   "Interactive submission" should {
-    "host parties on multiple participants with a threshold" in { implicit env =>
-      import env.*
-      val (onboardingTransactions, externalParty) =
-        participant1.parties.external
-          .onboarding_transactions(
-            "Alice",
-            additionalConfirming = Seq(participant2),
-            observing = Seq(participant3),
-            confirmationThreshold = PositiveInt.two,
-          )
-          .futureValueUS
-          .value
-
-      loadOnboardingTransactions(
-        externalParty,
-        confirming = participant1,
-        synchronizerId = daId,
-        onboardingTransactions,
-        extraConfirming = Seq(participant2),
-        observing = Seq(participant3),
-      )
-
-      aliceE = externalParty
-
-      val newPTP = TopologyTransaction(
-        TopologyChangeOp.Replace,
-        serial = PositiveInt.two,
-        mapping = PartyToParticipant
-          .create(
-            aliceE.partyId,
-            threshold = PositiveInt.two,
-            Seq(
-              HostingParticipant(participant1, ParticipantPermission.Confirmation, false),
-              HostingParticipant(participant2, ParticipantPermission.Confirmation, false),
-              HostingParticipant(participant3, ParticipantPermission.Observation, false),
-            ),
-          )
-          .value,
-        protocolVersion = testedProtocolVersion,
-      )
-
-      eventually() {
-        participants.all.forall(
-          _.topology.party_to_participant_mappings
-            .is_known(
-              daId,
-              aliceE,
-              hostingParticipants = participants.all,
-              threshold = Some(newPTP.mapping.threshold),
-            )
-        ) shouldBe true
-      }
-    }
-
     "create a contract and read it from all confirming and observing participants" in {
       implicit env =>
         val contractId =
@@ -135,46 +105,6 @@ sealed trait MultiHostingInteractiveSubmissionIntegrationTest
         }
         // They should all be the same
         events.distinct should have size 1
-    }
-
-    "allocate a party from one of their observing nodes" in { implicit env =>
-      import env.*
-
-      val (onboardingTransactions, externalParty) = generateExternalPartyOnboardingTransactions(
-        "Bob",
-        Seq(participant1.id),
-        observing = Seq(participant2),
-      )
-      val partyId = externalParty.partyId
-
-      participant2.ledger_api.parties.allocate_external(
-        synchronizer1Id,
-        onboardingTransactions.transactionsWithSingleSignature,
-        onboardingTransactions.multiTransactionSignatures,
-      )
-
-      val partyToParticipantProposal = eventually() {
-        participant1.topology.party_to_participant_mappings
-          .list(
-            synchronizer1Id,
-            proposals = true,
-            filterParty = partyId.toProtoPrimitive,
-          )
-          .loneElement
-      }
-      val transactionHash = partyToParticipantProposal.context.transactionHash
-      participant1.topology.transactions.authorize[PartyToParticipant](
-        transactionHash,
-        mustBeFullyAuthorized = false,
-        store = TopologyStoreId.Synchronizer(synchronizer1Id),
-      )
-
-      PartiesAdministration.Allocation.waitForPartyKnown(
-        partyId = externalParty.partyId,
-        hostingParticipant = participant1,
-        synchronizeParticipants = Seq(participant1, participant2),
-        synchronizerId = synchronizer1Id.logical,
-      )
     }
 
     "fail if not enough confirming participants confirm" in { implicit env =>

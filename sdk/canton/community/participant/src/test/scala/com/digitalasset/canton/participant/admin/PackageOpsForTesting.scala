@@ -6,21 +6,21 @@ package com.digitalasset.canton.participant.admin
 import cats.data.EitherT
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.ledger.api.SinglePackageTargetVetting
+import com.digitalasset.canton.ledger.api.{
+  ListVettedPackagesOpts,
+  PriorTopologySerial,
+  SinglePackageTargetVetting,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
-import com.digitalasset.canton.participant.topology.{PackageOps, ParticipantTopologyManagerError}
-import com.digitalasset.canton.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.topology.transaction.VettedPackage
-import com.digitalasset.canton.topology.{
-  ForceFlags,
-  ParticipantId,
-  PhysicalSynchronizerId,
-  SynchronizerId,
-  SynchronizerTopologyManager,
+import com.digitalasset.canton.participant.topology.{
+  PackageOps,
+  ParticipantTopologyManagerError,
+  ParticipantVettedPackages,
 }
+import com.digitalasset.canton.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.topology.{ForceFlags, ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -62,28 +62,24 @@ class PackageOpsForTesting(
     EitherT.rightT(())
 
   override def getVettedPackages(
-      synchronizerFilter: Option[Set[SynchronizerId]]
+      opts: ListVettedPackagesOpts
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Seq[
-    (Seq[VettedPackage], SynchronizerId, PositiveInt)
-  ]] = EitherT.rightT(Seq())
-
-  override def getVettedPackagesForSynchronizer(topologyManager: SynchronizerTopologyManager)(
-      implicit tc: TraceContext
-  ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Option[
-    (Seq[VettedPackage], PositiveInt)
-  ]] = EitherT.rightT(None)
+    ParticipantVettedPackages
+  ]] =
+    EitherT.rightT(Seq())
 
   override def updateVettedPackages(
       targetStates: Seq[SinglePackageTargetVetting[PackageId]],
       psid: PhysicalSynchronizerId,
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
+      expectedTopologySerial: Option[PriorTopologySerial],
   )(implicit
       tc: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
     ParticipantTopologyManagerError,
-    (Seq[VettedPackage], Seq[VettedPackage]),
+    (Option[ParticipantVettedPackages], Option[ParticipantVettedPackages]),
   ] =
-    EitherT.rightT((Seq(), Seq()))
+    EitherT.rightT((None, None))
 }

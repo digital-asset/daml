@@ -380,7 +380,6 @@ class ParticipantNodeBootstrap(
               .map(_.topologyManager),
           lookupActivePsidByLsid = lookupActivePSId,
         ),
-        nodeId = nodeId,
         initialProtocolVersion = ProtocolVersion.latest,
         loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,
         timeouts = timeouts,

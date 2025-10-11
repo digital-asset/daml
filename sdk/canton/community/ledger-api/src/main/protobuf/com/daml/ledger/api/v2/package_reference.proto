@@ -64,7 +64,7 @@ message VettedPackages {
 
   // Serial of last ``VettedPackages`` topology transaction of this participant
   // and on this synchronizer. Always present.
-  PriorTopologySerial topology_serial = 4;
+  uint32 topology_serial = 4;
 }
 
 // The serial of last ``VettedPackages`` topology transaction on a given

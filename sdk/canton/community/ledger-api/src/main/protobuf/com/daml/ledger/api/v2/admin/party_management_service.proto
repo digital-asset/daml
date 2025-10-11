@@ -7,7 +7,6 @@ package com.daml.ledger.api.v2.admin;
 
 import "com/daml/ledger/api/v2/admin/object_meta.proto";
 import "com/daml/ledger/api/v2/crypto.proto";
-import "com/daml/ledger/api/v2/interactive/interactive_submission_service.proto";
 import "google/protobuf/field_mask.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
@@ -78,6 +77,11 @@ service PartyManagementService {
   // It can optionally be hosted on other nodes (then called a multi-hosted party).
   // If hosted on additional nodes, explicit authorization of the hosting relationship must be performed on those nodes
   // before the party can be used.
+  // Decentralized namespaces are supported but must be provided fully authorized by their owners.
+  // The individual owner namespace transactions can be submitted in the same call (fully authorized as well).
+  // In the simple case of a non-multi hosted, non-decentralized party, the RPC will return once the party is
+  // effectively allocated and ready to use, similarly to the AllocateParty behavior.
+  // For more complex scenarios applications may need to query the party status explicitly (only through the admin API as of now).
   rpc AllocateExternalParty(AllocateExternalPartyRequest) returns (AllocateExternalPartyResponse);
 
   // Update selected modifiable participant-local attributes of a party details resource.
@@ -202,7 +206,7 @@ message AllocateExternalPartyRequest {
     // Additional signatures for this transaction specifically
     // Use for transactions that require additional signatures beyond the namespace key signatures
     // e.g: PartyToKeyMapping must be signed by all registered keys
-    repeated interactive.Signature signatures = 2;
+    repeated Signature signatures = 2;
   }
 
   // TODO(#27670) support synchronizer aliases
@@ -210,13 +214,21 @@ message AllocateExternalPartyRequest {
   // Required
   string synchronizer = 1;
   // TopologyTransactions to onboard the external party
-  // Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+  // Can contain:
+  // - A namespace for the party.
+  // This can be either a single NamespaceDelegation,
+  // or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+  // May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+  // - A PartyToKeyMapping to register the party's signing keys.
+  // May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+  // - A PartyToParticipant to register the hosting relationship of the party.
+  // Must be provided.
   // Required
   repeated SignedTransaction onboarding_transactions = 2;
 
   // Optional signatures of the combined hash of all onboarding_transactions
   // This may be used instead of providing signatures on each individual transaction
-  repeated interactive.Signature multi_hash_signatures = 3;
+  repeated Signature multi_hash_signatures = 3;
 
   // The id of the ``Identity Provider``
   // If not set, assume the party is managed by the default identity provider.

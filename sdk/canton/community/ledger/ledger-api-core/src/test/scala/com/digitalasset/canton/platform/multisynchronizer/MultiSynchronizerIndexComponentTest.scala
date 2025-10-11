@@ -51,7 +51,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
       )
     (for {
       // contracts should be stored in canton contract store before ingesting the updates to get the internal contract ids mapping
-      _ <- cantonContractStore
+      _ <- participantContractStore
         .storeContracts(Seq(c1, c2))
         .failOnShutdown("failed to store contracts")
       (reassignmentAccepted1, cn1) <-
@@ -60,7 +60,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           "UpdateId1",
           createNode = c1.inst.toCreateNode,
           withAcsChange = false,
-          participantContractStore = cantonContractStore,
+          participantContractStore = participantContractStore,
         )
       (reassignmentAccepted2, cn2) <-
         mkReassignmentAccepted(
@@ -68,7 +68,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           "UpdateId2",
           createNode = c2.inst.toCreateNode,
           withAcsChange = true,
-          participantContractStore = cantonContractStore,
+          participantContractStore = participantContractStore,
         )
       _ = ingestUpdates(reassignmentAccepted1, reassignmentAccepted2)
       activeContractO1 <- index.lookupActiveContract(Set(party), cn1.coid)

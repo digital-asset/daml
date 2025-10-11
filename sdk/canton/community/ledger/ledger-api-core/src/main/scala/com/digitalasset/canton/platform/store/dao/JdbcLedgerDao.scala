@@ -14,6 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
@@ -26,13 +27,15 @@ import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
-import com.digitalasset.canton.protocol.UpdateId
+import com.digitalasset.canton.protocol.{ContractInstance, ContractMetadata, UpdateId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.transaction.CreationTime.CreatedAt
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node}
+import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,6 +65,7 @@ private class JdbcLedgerDao(
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
+    contractStore: ContractStore,
     pruningOffsetService: PruningOffsetService,
 )(implicit ec: ExecutionContext)
     extends LedgerReadDao
@@ -252,6 +256,7 @@ private class JdbcLedgerDao(
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
+    contractStore = contractStore,
     incompleteOffsets = incompleteOffsets,
     metrics = metrics,
     tracer = tracer,
@@ -275,6 +280,7 @@ private class JdbcLedgerDao(
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
+    contractStore = contractStore,
     metrics = metrics,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
@@ -287,6 +293,7 @@ private class JdbcLedgerDao(
     queryValidRange = queryValidRange,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
+    contractStore = contractStore,
     metrics = metrics,
     tracer = tracer,
     topologyTransactionsStreamReader = topologyTransactionsStreamReader,
@@ -300,6 +307,7 @@ private class JdbcLedgerDao(
     metrics = metrics,
     lfValueTranslation = translation,
     queryValidRange = queryValidRange,
+    contractStore = contractStore,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -318,6 +326,7 @@ private class JdbcLedgerDao(
     metrics = metrics,
     lfValueTranslation = translation,
     queryValidRange = queryValidRange,
+    contractStore = contractStore,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -354,13 +363,14 @@ private class JdbcLedgerDao(
 
   override def eventsReader: LedgerDaoEventsReader =
     new EventsReader(
-      dbDispatcher,
-      readStorageBackend.eventStorageBackend,
-      parameterStorageBackend,
-      metrics,
-      translation,
-      ledgerEndCache,
-      loggerFactory,
+      dbDispatcher = dbDispatcher,
+      eventStorageBackend = readStorageBackend.eventStorageBackend,
+      parameterStorageBackend = parameterStorageBackend,
+      metrics = metrics,
+      lfValueTranslation = translation,
+      contractStore = contractStore,
+      ledgerEndCache = ledgerEndCache,
+      loggerFactory = loggerFactory,
     )(queryExecutionContext)
 
   override val completions: CommandCompletionsReader =
@@ -387,15 +397,37 @@ private class JdbcLedgerDao(
       contractActivenessChanged: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[PersistenceResponse] = {
-    logger.info("Storing transaction")
-    val internalContractIds: Map[ContractId, Long] =
+  ): Future[PersistenceResponse] = for {
+    _ <- Future.successful(logger.info("Storing contracts into participant contract store"))
+    _ <- contractStore
+      .storeContracts(
+        transaction.nodes.values
+          .collect { case create: Node.Create => create }
+          .map(FatContract.fromCreateNode(_, CreatedAt(ledgerEffectiveTime), Bytes.Empty))
+          .map(
+            ContractInstance
+              .ContractInstanceImpl(
+                _,
+                ContractMetadata.empty,
+                ByteString.EMPTY,
+              )
+          )
+          .toSeq
+      )
+      .failOnShutdownTo(new IllegalStateException("Storing contracts was interrupted"))
+
+    contractIds =
       transaction.nodes.values
         .collect { case create: Node.Create => create.coid }
-        .zipWithIndex
-        .map { case (cid, idx) => cid -> idx.toLong }
-        .toMap
-    dbDispatcher
+
+    internalContractIds <- contractStore
+      .lookupBatchedNonCachedInternalIds(contractIds)
+      .failOnShutdownTo(
+        new IllegalStateException("Looking up internal contract ids was interrupted")
+      )
+
+    _ <- Future.successful(logger.info("Storing transaction"))
+    _ <- dbDispatcher
       .executeSql(metrics.index.db.storeTransactionDbMetrics) { implicit conn =>
         sequentialIndexer.store(
           conn,
@@ -436,8 +468,9 @@ private class JdbcLedgerDao(
             )
           ),
         )
-        PersistenceResponse.Ok
       }
+  } yield {
+    PersistenceResponse.Ok
   }
 
 }
@@ -472,6 +505,7 @@ private[platform] object JdbcLedgerDao {
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
       pruningOffsetService: PruningOffsetService,
+      contractStore: ContractStore,
   )(implicit ec: ExecutionContext): LedgerReadDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
@@ -496,6 +530,7 @@ private[platform] object JdbcLedgerDao {
       contractLoader = contractLoader,
       translation = lfValueTranslation,
       pruningOffsetService = pruningOffsetService,
+      contractStore = contractStore,
     )
 
   def writeForTests(
@@ -516,6 +551,7 @@ private[platform] object JdbcLedgerDao {
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
       pruningOffsetService: PruningOffsetService,
+      contractStore: ContractStore,
   )(implicit ec: ExecutionContext): LedgerReadDao with LedgerWriteDaoForTests =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
@@ -540,6 +576,7 @@ private[platform] object JdbcLedgerDao {
       contractLoader = contractLoader,
       translation = lfValueTranslation,
       pruningOffsetService = pruningOffsetService,
+      contractStore = contractStore,
     )
 
   val acceptType = "accept"

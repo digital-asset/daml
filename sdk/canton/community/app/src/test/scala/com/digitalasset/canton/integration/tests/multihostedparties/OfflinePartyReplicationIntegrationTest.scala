@@ -290,18 +290,32 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
         mustFullyAuthorize = true,
       )
 
+      // Wait for party deactivation to propagate to both source and target participants
       eventually() {
-        val mapping = source.topology.party_to_participant_mappings
+        val sourceMapping = source.topology.party_to_participant_mappings
           .list(daId, filterParty = alice.toProtoPrimitive)
           .loneElement
           .item
 
-        mapping.participants should have size 1
-        forExactly(1, mapping.participants) { p =>
+        sourceMapping.participants should have size 1
+        forExactly(1, sourceMapping.participants) { p =>
+          p.participantId shouldBe source.id
+          p.onboarding should be(false)
+        }
+
+        // Ensure the target has processed the "remove" transaction to prevent flakes
+        val targetMapping = target.topology.party_to_participant_mappings
+          .list(daId, filterParty = alice.toProtoPrimitive)
+          .loneElement
+          .item
+
+        targetMapping.participants should have size 1
+        forExactly(1, targetMapping.participants) { p =>
           p.participantId shouldBe source.id
           p.onboarding should be(false)
         }
       }
+
   }
 
   "Exporting and importing a LAPI based ACS snapshot as part of a party replication using ledger offset" in {

@@ -19,7 +19,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.platform.TemplatePartiesFilter
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
@@ -43,6 +43,7 @@ import com.digitalasset.canton.platform.store.utils.{
   QueueBasedConcurrencyLimiter,
   Telemetry,
 }
+import com.digitalasset.canton.platform.{FatContract, TemplatePartiesFilter}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
@@ -76,6 +77,7 @@ class ACSReader(
     queryValidRange: QueryValidRange,
     eventStorageBackend: EventStorageBackend,
     lfValueTranslation: LfValueTranslation,
+    contractStore: ContractStore,
     incompleteOffsets: (
         Offset,
         Option[Set[Ref.Party]],
@@ -218,50 +220,68 @@ class ACSReader(
           ),
       )
 
+    def withFatContracts[T](
+        internalContractId: T => Long
+    )(payloads: Vector[T]): Future[Vector[(T, Option[FatContract])]] =
+      for {
+        contractsM <- contractStore
+          .lookupBatchedNonCached(
+            payloads.map(internalContractId)
+          )
+          .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+      } yield payloads
+        .map { payload =>
+          val fatContractO = contractsM.get(internalContractId(payload)).map(_.inst)
+          (payload, fatContractO)
+        }
+
     def fetchActiveCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[RawActiveContractLegacy]] =
+    ): Future[Vector[(RawActiveContractLegacy, Option[FatContract])]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
           withValidatedActiveAt(
-            dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreatedLegacy) {
-              implicit connection =>
+            dispatcher
+              .executeSql(metrics.index.db.getActiveContractBatchForCreatedLegacy) {
                 eventStorageBackend.activeContractCreateEventBatchLegacy(
                   eventSequentialIds = ids,
                   allFilterParties = allFilterParties,
                   endInclusive = activeAtEventSeqId,
-                )(connection)
-            }
-          ).thereafterP { case Success(result) =>
-            logger
-              .debug(
-                s"getActiveContractBatch returned ${result.size}/${ids.size} ${ids.lastOption
-                    .map(last => s"until $last")
-                    .getOrElse("")}"
-              )
-          }
-        )
-      )
-
-    def fetchActiveAssignPayloads(
-        ids: Iterable[Long]
-    ): Future[Vector[RawActiveContractLegacy]] =
-      localPayloadQueriesLimiter.execute(
-        globalPayloadQueriesLimiter.execute(
-          withValidatedActiveAt(
-            dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssignedLegacy)(
-              eventStorageBackend.activeContractAssignEventBatchLegacy(
-                eventSequentialIds = ids,
-                allFilterParties = allFilterParties,
-                endInclusive = activeAtEventSeqId,
-              )
-            )
+                )
+              }
+              .flatMap(withFatContracts(_.rawCreatedEvent.internalContractId))
           ).thereafterP { case Success(result) =>
             logger.debug(
               s"getActiveContractBatch returned ${result.size}/${ids.size} ${ids.lastOption
                   .map(last => s"until $last")
                   .getOrElse("")}"
             )
+          }
+        )
+      )
+
+    def fetchActiveAssignPayloads(
+        ids: Iterable[Long]
+    ): Future[Vector[(RawActiveContractLegacy, Option[FatContract])]] =
+      localPayloadQueriesLimiter.execute(
+        globalPayloadQueriesLimiter.execute(
+          withValidatedActiveAt(
+            dispatcher
+              .executeSql(metrics.index.db.getActiveContractBatchForAssignedLegacy)(
+                eventStorageBackend.activeContractAssignEventBatchLegacy(
+                  eventSequentialIds = ids,
+                  allFilterParties = allFilterParties,
+                  endInclusive = activeAtEventSeqId,
+                )
+              )
+              .flatMap(withFatContracts(_.rawCreatedEvent.internalContractId))
+          ).thereafterP { case Success(result) =>
+            logger.debug(
+              s"getActiveContractBatch returned ${result.size}/${ids.size} ${ids.lastOption
+                  .map(last => s"until $last")
+                  .getOrElse("")}"
+            )
+
           }
         )
       )
@@ -302,20 +322,22 @@ class ACSReader(
 
     def fetchAssignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[Entry[RawAssignEventLegacy]]] =
+    ): Future[Vector[(Entry[RawAssignEventLegacy], Option[FatContract])]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         localPayloadQueriesLimiter.execute(
           globalPayloadQueriesLimiter.execute(
             withValidatedActiveAt(
-              dispatcher.executeSql(
-                metrics.index.db.reassignmentStream.fetchEventAssignPayloadsLegacy
-              )(
-                eventStorageBackend.assignEventBatchLegacy(
-                  eventSequentialIds = Ids(ids),
-                  allFilterParties = allFilterParties,
+              dispatcher
+                .executeSql(
+                  metrics.index.db.reassignmentStream.fetchEventAssignPayloadsLegacy
+                )(
+                  eventStorageBackend.assignEventBatchLegacy(
+                    eventSequentialIds = Ids(ids),
+                    allFilterParties = allFilterParties,
+                  )
                 )
-              )
+                .flatMap(withFatContracts(_.event.rawCreatedEvent.internalContractId))
             )
               .thereafterP { case Success(result) =>
                 logger.debug(
@@ -389,39 +411,43 @@ class ACSReader(
 
     def fetchCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[Entry[RawCreatedEventLegacy]]] =
+    ): Future[Vector[(Entry[RawCreatedEventLegacy], Option[FatContract])]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
           withValidatedActiveAt(
-            dispatcher.executeSql(
-              metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloadsLegacy
-            )(
-              eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(
-                EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
+            dispatcher
+              .executeSql(
+                metrics.index.db.updatesAcsDeltaStream.fetchEventCreatePayloadsLegacy
               )(
-                eventSequentialIds = Ids(ids),
-                requestingParties = allFilterParties,
+                eventStorageBackend.fetchEventPayloadsAcsDeltaLegacy(
+                  EventPayloadSourceForUpdatesAcsDeltaLegacy.Create
+                )(
+                  eventSequentialIds = Ids(ids),
+                  requestingParties = allFilterParties,
+                )
               )
-            )
-          ).map(result =>
-            result.view.collect { entry =>
-              entry.event match {
-                case created: RawCreatedEventLegacy =>
-                  entry.copy(event = created)
+              .map(result =>
+                result.view.collect { entry =>
+                  entry.event match {
+                    case created: RawCreatedEventLegacy =>
+                      entry.copy(event = created)
+                  }
+                }.toVector
+              )
+              .flatMap(withFatContracts(_.event.internalContractId))
+              .thereafterP { case Success(result) =>
+                logger.debug(
+                  s"fetchEventPayloads for Create returned ${result.size}/${ids.size} ${ids.lastOption
+                      .map(last => s"until $last")
+                      .getOrElse("")}"
+                )
               }
-            }.toVector
-          ).thereafterP { case Success(result) =>
-            logger.debug(
-              s"fetchEventPayloads for Create returned ${result.size}/${ids.size} ${ids.lastOption
-                  .map(last => s"until $last")
-                  .getOrElse("")}"
-            )
-          }
+          )
         )
 
     def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEventLegacy]]): Future[
-      Seq[(Entry[RawUnassignEventLegacy], Entry[RawCreatedEventLegacy])]
+      Seq[(Entry[RawUnassignEventLegacy], (Entry[RawCreatedEventLegacy], Option[FatContract]))]
     ] = {
 
       def extractUnassignProperties(
@@ -444,18 +470,25 @@ class ACSReader(
         unassignPropertiesToAssignedIds: Map[UnassignProperties, Long] <- fetchAssignIdsFor(
           unassignPropertiesSeq
         )
-        assignedPayloads: Seq[Entry[RawAssignEventLegacy]] <- fetchAssignPayloads(
-          unassignPropertiesToAssignedIds.values
-        )
-        assignedIdsToPayloads: Map[Long, Entry[RawAssignEventLegacy]] = assignedPayloads
-          .map(payload => payload.eventSequentialId -> payload)
-          .toMap
+        assignedPayloads: Seq[(Entry[RawAssignEventLegacy], Option[FatContract])] <-
+          fetchAssignPayloads(
+            unassignPropertiesToAssignedIds.values
+          )
+        assignedIdsToPayloads: Map[Long, (Entry[RawAssignEventLegacy], Option[FatContract])] =
+          assignedPayloads
+            .map(payload => payload._1.eventSequentialId -> payload)
+            .toMap
         // map the requested unassign event properties to the returned raw created events using the assign sequential id
-        rawCreatedFromAssignedResults: Map[UnassignProperties, Entry[RawCreatedEventLegacy]] =
+        rawCreatedFromAssignedResults: Map[
+          UnassignProperties,
+          (Entry[RawCreatedEventLegacy], Option[FatContract]),
+        ] =
           unassignPropertiesToAssignedIds.flatMap { case (params, assignedId) =>
             assignedIdsToPayloads
               .get(assignedId)
-              .map(assignEntry => (params, assignEntry.map(_.rawCreatedEvent)))
+              .map { case (assignEntry, fatContract) =>
+                (params, (assignEntry.map(_.rawCreatedEvent), fatContract))
+              }
           }
 
         // if not found in the assigned events, search the created events
@@ -467,8 +500,10 @@ class ACSReader(
           .distinct
         createdIds <- fetchCreateIdsForContractIds(missingContractIds)
         createdPayloads <- fetchCreatePayloads(createdIds)
-        rawCreatedFromCreatedResults: Map[ContractId, Vector[Entry[RawCreatedEventLegacy]]] =
-          createdPayloads.groupBy(_.event.contractId)
+        rawCreatedFromCreatedResults: Map[ContractId, Vector[
+          (Entry[RawCreatedEventLegacy], Option[FatContract])
+        ]] =
+          createdPayloads.groupBy(_._1.event.contractId)
       } yield batch.flatMap { rawUnassignEntry =>
         val unassignProperties = extractUnassignProperties(rawUnassignEntry)
         rawCreatedFromAssignedResults
@@ -483,7 +518,7 @@ class ACSReader(
                 candidateCreateEntries
                   .find(createdEntry =>
                     // the created event should match the synchronizer id of the unassign entry and have a lower sequential id than it
-                    createdEntry.synchronizerId == unassignProperties.synchronizerId && createdEntry.eventSequentialId < unassignProperties.sequentialId
+                    createdEntry._1.synchronizerId == unassignProperties.synchronizerId && createdEntry._1.eventSequentialId < unassignProperties.sequentialId
                   )
               }
           }
@@ -551,10 +586,10 @@ class ACSReader(
         .mapConcat(identity)
 
     activeFromCreatePipe
-      .mergeSorted(activeFromAssignPipe)(Ordering.by(_.eventSequentialId))
-      .mapAsync(config.contractProcessingParallelism)(
-        toApiResponseActiveContract(_, eventProjectionProperties)
-      )
+      .mergeSorted(activeFromAssignPipe)(Ordering.by(_._1.eventSequentialId))
+      .mapAsync(config.contractProcessingParallelism) { case (rawActiveContract, fatContractO) =>
+        toApiResponseActiveContract(rawActiveContract, fatContractO, eventProjectionProperties)
+      }
       .concatLazy(
         // compute incomplete reassignments
         Source.lazyFutureSource(() =>
@@ -577,7 +612,7 @@ class ACSReader(
                 .mapAsync(config.maxParallelPayloadCreateQueries)(
                   fetchAssignPayloads
                 )
-                .mapConcat(_.filter(assignMeetsConstraints))
+                .mapConcat(_.filter(entryPair => assignMeetsConstraints(entryPair._1)))
                 .mapAsync(config.contractProcessingParallelism)(
                   toApiResponseIncompleteAssigned(eventProjectionProperties)
                 )
@@ -617,16 +652,24 @@ class ACSReader(
 
   private def toApiResponseActiveContract(
       rawActiveContract: RawActiveContractLegacy,
+      fatContract: Option[FatContract],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit lc: LoggingContextWithTrace): Future[GetActiveContractsResponse] =
     Timed.future(
       future = Future.delegate(
         lfValueTranslation
-          .deserializeRawCreated(
+          .toApiCreatedEvent(
             eventProjectionProperties = eventProjectionProperties,
-            rawCreatedEvent = rawActiveContract.rawCreatedEvent,
+            fatContractInstance = fatContract.getOrElse(
+              throw new IllegalStateException(
+                s"Contract for internal contract id ${rawActiveContract.rawCreatedEvent.internalContractId} was not found in the contract store."
+              )
+            ),
             offset = rawActiveContract.offset,
             nodeId = rawActiveContract.nodeId,
+            representativePackageId = rawActiveContract.rawCreatedEvent.representativePackageId,
+            witnesses = rawActiveContract.rawCreatedEvent.witnessParties,
+            acsDelta = true,
           )
           .map(createdEvent =>
             GetActiveContractsResponse(
@@ -645,44 +688,65 @@ class ACSReader(
     )
 
   private def toApiResponseIncompleteAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEntry: Entry[RawAssignEventLegacy]
+      rawAssignEntryFatContract: (Entry[RawAssignEventLegacy], Option[FatContract])
   )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] =
-    Timed.future(
-      future = Future.delegate(
-        lfValueTranslation
-          .deserializeRawCreated(
-            eventProjectionProperties = eventProjectionProperties,
-            rawCreatedEvent = rawAssignEntry.event.rawCreatedEvent,
-            offset = rawAssignEntry.offset,
-            nodeId = rawAssignEntry.nodeId,
-          )
-          .map(createdEvent =>
-            rawAssignEntry.offset -> GetActiveContractsResponse(
-              workflowId = rawAssignEntry.workflowId.getOrElse(""),
-              contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteAssigned(
-                IncompleteAssigned(
-                  Some(UpdateReader.toAssignedEvent(rawAssignEntry.event, createdEvent))
+    rawAssignEntryFatContract match {
+      case (rawAssignEntry, fatContract) =>
+        Timed.future(
+          future = Future.delegate(
+            lfValueTranslation
+              .toApiCreatedEvent(
+                eventProjectionProperties = eventProjectionProperties,
+                fatContractInstance = fatContract.getOrElse(
+                  throw new IllegalStateException(
+                    s"Contract for internal contract id ${rawAssignEntry.event.rawCreatedEvent.internalContractId} was not found in the contract store."
+                  )
+                ),
+                offset = rawAssignEntry.offset,
+                nodeId = rawAssignEntry.nodeId,
+                representativePackageId =
+                  rawAssignEntry.event.rawCreatedEvent.representativePackageId,
+                witnesses = rawAssignEntry.event.rawCreatedEvent.witnessParties,
+                acsDelta = true,
+              )
+              .map(createdEvent =>
+                rawAssignEntry.offset -> GetActiveContractsResponse(
+                  workflowId = rawAssignEntry.workflowId.getOrElse(""),
+                  contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteAssigned(
+                    IncompleteAssigned(
+                      Some(UpdateReader.toAssignedEvent(rawAssignEntry.event, createdEvent))
+                    )
+                  ),
                 )
-              ),
-            )
-          )
-      ),
-      timer = dbMetrics.getActiveContracts.translationTimer,
-    )
+              )
+          ),
+          timer = dbMetrics.getActiveContracts.translationTimer,
+        )
+    }
 
   private def toApiResponseIncompleteUnassigned(
       eventProjectionProperties: EventProjectionProperties
   )(
-      rawUnassignEntryWithCreate: (Entry[RawUnassignEventLegacy], Entry[RawCreatedEventLegacy])
+      rawUnassignEntryWithCreate: (
+          Entry[RawUnassignEventLegacy],
+          (Entry[RawCreatedEventLegacy], Option[FatContract]),
+      )
   )(implicit lc: LoggingContextWithTrace): Future[(Long, GetActiveContractsResponse)] = {
-    val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
+    val (rawUnassignEntry, (rawCreate, fatContract)) = rawUnassignEntryWithCreate
     Timed.future(
       future = lfValueTranslation
-        .deserializeRawCreated(
+        .toApiCreatedEvent(
           eventProjectionProperties = eventProjectionProperties,
-          rawCreatedEvent = rawCreate.event,
+          fatContractInstance = fatContract.getOrElse(
+            throw new IllegalStateException(
+              s"Contract for internal contract id ${rawCreate.event.internalContractId} was not found in the contract store."
+            )
+          ),
           offset = rawCreate.offset,
           nodeId = rawCreate.nodeId,
+          representativePackageId = rawCreate.event.representativePackageId,
+          witnesses = rawCreate.event.witnessParties,
+          acsDelta = true,
         )
         .map(createdEvent =>
           rawUnassignEntry.offset -> GetActiveContractsResponse(

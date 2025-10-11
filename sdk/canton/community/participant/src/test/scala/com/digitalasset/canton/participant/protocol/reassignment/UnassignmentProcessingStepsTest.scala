@@ -27,6 +27,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.{DefaultPromiseUnlessShutdownFactory, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -186,8 +187,7 @@ final class UnassignmentProcessingStepsTest
     SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
     IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
     defaultStaticSynchronizerParameters,
-    exitOnFatalFailures = true,
-    disableUpgradeValidation = false,
+    parameters = ParticipantNodeParameters.forTestingOnly(testedProtocolVersion),
     packageMetadataView = mock[PackageMetadataView],
     Eval.now(mock[LedgerApiStore]),
     logicalPersistentState,

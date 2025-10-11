@@ -314,7 +314,9 @@ trait PartyTopologySnapshotClient {
       check: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Set[LfPartyId], Unit]
 
-  /** Returns true if there is at least one participant that satisfies the predicate */
+  /** Returns the set of parties for which there is at least one participant that satisfies the
+    * predicate
+    */
   def isHostedByAtLeastOneParticipantF(
       parties: Set[LfPartyId],
       check: (LfPartyId, ParticipantAttributes) => Boolean,
@@ -477,6 +479,13 @@ trait ParticipantTopologySnapshotClient {
   def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean]
+
+  def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]]
 
   /** Checks whether the provided participant exists, is active and can login at the given point in
     * time
@@ -878,6 +887,19 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   ): FutureUnlessShutdown[Boolean] =
     findParticipantState(participantId).map(_.isDefined)
 
+  override def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]] = for {
+    participantAttributesMap <- loadParticipantStates(participants.toSeq)
+  } yield {
+    participantAttributesMap.collect {
+      case (pid, attributes) if attributes.features.contains(feature) => pid
+    }.toSet
+  }
+
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
@@ -901,7 +923,6 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]]
-
 }
 
 private[client] trait PartyTopologySnapshotBaseClient {

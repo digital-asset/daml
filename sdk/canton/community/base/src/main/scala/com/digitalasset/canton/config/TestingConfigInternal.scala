@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
 import com.digitalasset.canton.metrics.MetricsFactoryType
 import com.digitalasset.canton.metrics.MetricsFactoryType.External
 
@@ -38,9 +38,12 @@ import com.digitalasset.canton.metrics.MetricsFactoryType.External
   * }}}
   *
   * See also the example in `EngineComputationAbortIntegrationTest`.
-  * @param maxCommitmentSendDelayMillis
-  *   The maximum delay for sending commitments in milliseconds. If not set, commitment sending is
-  *   delayed by a random amount at most the default value.
+  * @param commitmentSendDelay
+  *   The delay bounds for sending commitments as fraction of the reconciliation interval. Min and
+  *   max bounds are enforced to be between 0 and 1. If commitmentSendDelay is not set, commitment
+  *   sending is delayed by a random amount between the default bounds. If any of the bounds is not
+  *   set, we take the default value for that bound. If the maximum bound is smaller than the
+  *   minimum bound, commitment sending is delayed by a random amount between the default bounds.
   * @param sequencerTransportSeed
   *   The seed to be used for choosing threshold number of sequencer transports.
   * @param warnOnAcsCommitmentDegradation
@@ -60,7 +63,7 @@ final case class TestingConfigInternal(
     initializeGlobalOpenTelemetry: Boolean = true,
     doNotUseCommitmentCachingFor: Set[String] = Set.empty,
     reinterpretationTestHookFor: String => () => Unit = _ => () => (),
-    maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
+    commitmentSendDelay: Option[CommitmentSendDelay] = None,
     sequencerTransportSeed: Option[Long] = None,
     participantsWithoutLapiVerification: Set[String] = Set.empty,
     enableInMemoryTransactionStoreForParticipants: Boolean = false,
@@ -78,4 +81,16 @@ final case class TestSequencerClientFor(
     environmentId: String,
     memberName: String,
     synchronizerName: String,
+)
+
+/* @param minCommitmentSendDelay
+ *   The minimum delay as fraction of reconciliation interval for sending commitments. If not set, commitment sending is
+ *   delayed by a random amount at least the default fraction.
+ * @param maxCommitmentSendDelay
+ *   The maximum delay as fraction of reconciliation interval for sending commitments. If not set, commitment sending is
+ *   delayed by a random amount at most the default fraction.
+ */
+final case class CommitmentSendDelay(
+    minCommitmentSendDelay: Option[NonNegativeProportion] = None,
+    maxCommitmentSendDelay: Option[NonNegativeProportion] = None,
 )

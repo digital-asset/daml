@@ -51,13 +51,21 @@ import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.{
   HasSequencerSubscriptionFactoryPekko,
   SubscriptionControl,
 }
+import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
 import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSubscriptionPoolConfig
 import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements.FetchCleanTimestamp
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.PreviousTimestampMismatch
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
+import com.digitalasset.canton.sequencing.client.SequencerClientImpl.SequencerClientTimeSourcesPool
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.*
+import com.digitalasset.canton.sequencing.client.time.fetcher.SequencingTimeFetcher.TimeSourcesPool
+import com.digitalasset.canton.sequencing.client.time.fetcher.{
+  ExpiringInMemorySequencingTimeReadings,
+  OneCallAtATimeSourcesAccessor,
+  SequencingTimeFetcher,
+}
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
   SequencerClientTransportCommon,
@@ -88,7 +96,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, NoExceptionRetryPolicy}
-import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
+import com.digitalasset.canton.{SequencerAlias, SequencerCounter, config, time}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -98,8 +106,10 @@ import org.apache.pekko.{Done, NotUsed}
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.tailrec
 import scala.concurrent.*
 import scala.concurrent.duration.*
+import scala.jdk.DurationConverters.*
 import scala.util.{Failure, Success, Try}
 
 trait SequencerClient extends SequencerClientSend with FlagCloseable {
@@ -182,6 +192,9 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
 
+  /** Functionality to performing current sequencing time interrogations efficiently */
+  def timeFetcher: SequencingTimeFetcher
+
   /** For participant nodes, the predecessor synchronizer if any.
     */
   protected def synchronizerPredecessor: Option[SynchronizerPredecessor]
@@ -192,8 +205,9 @@ trait RichSequencerClient extends SequencerClient {
   def healthComponent: CloseableHealthComponent
 
   def changeTransport(
-      sequencerTransports: SequencerTransports[?]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+      sequencerTransports: SequencerTransports[?],
+      newConnectionPoolConfigO: Option[SequencerConnectionXPoolConfig],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit]
 
   /** Future which is completed when the client is not functional any more and is ready to be
     * closed. The value with which the future is completed will indicate the reason for completion.
@@ -956,22 +970,124 @@ abstract class SequencerClientImpl(
     EitherT(resultFUS)
   }
 
+  override val timeFetcher =
+    new SequencingTimeFetcher(
+      new SequencerClientTimeSourcesPool(
+        config,
+        connectionPool,
+        sequencersTransportState,
+      ),
+      new OneCallAtATimeSourcesAccessor(
+        clock,
+        new ExpiringInMemorySequencingTimeReadings(
+          clock,
+          config.timeReadingsRetention.toInternal,
+          loggerFactory,
+        ),
+        loggerFactory,
+      ),
+      clock,
+      loggerFactory,
+    )
+
   protected val periodicAcknowledgementsRef =
     new AtomicReference[Option[PeriodicAcknowledgements]](None)
 }
 
 object SequencerClientImpl {
+
   private final case class LinkDetails(
       sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
       transportOrPoolConnection: Either[SequencerClientTransportCommon, SequencerConnectionX],
   )
+
   private final case class AmplifiedSendState(
       previousSequencers: Seq[SequencerId],
       nextLinkDetailsO: Option[LinkDetails],
-      nextPatienceO: Option[NonNegativeFiniteDuration],
+      nextPatienceO: Option[config.NonNegativeFiniteDuration],
       isFirstStep: Boolean,
   )
+
+  private final class SequencerClientTimeSourcesPool(
+      sequencerClientConfig: SequencerClientConfig,
+      connectionXPool: SequencerConnectionXPool,
+      transportsState: SequencersTransportState,
+  )(implicit executionContext: ExecutionContext)
+      extends TimeSourcesPool {
+
+    private type Transport = (
+        SequencerAlias,
+        SequencerId,
+        SequencerClientTransportCommon,
+        Option[config.NonNegativeFiniteDuration],
+    )
+
+    override def readTrustThreshold(): PositiveInt =
+      if (sequencerClientConfig.useNewConnectionPool)
+        connectionXPool.config.trustThreshold
+      else transportsState.getSequencerTrustThreshold
+
+    override def timeSources(count: PositiveInt, exclusions: Set[SequencerId])(implicit
+        traceContext: TraceContext
+    ): Seq[
+      (SequencerId, time.PositiveFiniteDuration => FutureUnlessShutdown[Option[CantonTimestamp]])
+    ] = {
+      val sequencerIdToEitherTTimeSource =
+        if (sequencerClientConfig.useNewConnectionPool)
+          connectionXPool
+            .getConnections("SequencingTimeClient", count, exclusions)
+            .map { connection =>
+              connection.attributes.sequencerId -> ((timeout: time.PositiveFiniteDuration) =>
+                connection.getTime(timeout.duration.toScala)
+              )
+            }
+        else
+          getTransports(exclusions, count).map { case (sequencerId, transport) =>
+            sequencerId -> ((timeout: time.PositiveFiniteDuration) =>
+              transport.getTime(timeout.duration.toScala)
+            )
+          }
+      sequencerIdToEitherTTimeSource.view
+        .filterNot { case (sequencerId, _) => exclusions.contains(sequencerId) }
+        .map { case (sequencerId, lazyEitherTFUS) =>
+          sequencerId -> ((timeout: time.PositiveFiniteDuration) =>
+            lazyEitherTFUS(timeout).value.map(_.toOption.flatten)
+          )
+        }
+        .toSeq
+    }
+
+    private def getTransports(exclusions: Set[SequencerId], count: PositiveInt)(implicit
+        traceContext: TraceContext
+    ): Map[SequencerId, SequencerClientTransportCommon] = {
+
+      @tailrec def go(
+          transportsAccum: Seq[Transport] = Seq.empty,
+          excludeSequencerIds: Set[SequencerId] = exclusions,
+          missing: Int = count.unwrap,
+      ): Seq[Transport] =
+        if (missing == 0) {
+          transportsAccum
+        } else {
+          val next @ (_, nextSequencerId, _, _) =
+            transportsState.nextAmplifiedTransport(excludeSequencerIds.toSeq)
+          if (
+            transportsAccum.exists { case (_, sequencerId, _, _) => sequencerId == nextSequencerId }
+          )
+            transportsAccum
+          else
+            go(
+              transportsAccum = next +: transportsAccum,
+              excludeSequencerIds = excludeSequencerIds ++
+                transportsAccum.map { case (_, sequencerId, _, _) => sequencerId }.toSet,
+              missing = missing - 1,
+            )
+        }
+
+      go().map { case (_, sequencerId, transport, _) => sequencerId -> transport }.toMap
+    }
+  }
 }
 
 /** The sequencer client facilitates access to the individual synchronizer sequencer. A client
@@ -1187,12 +1303,8 @@ class RichSequencerClientImpl(
         )
 
         if (config.useNewConnectionPool) {
-          val subscriptionPoolConfig = SequencerSubscriptionPoolConfig(
-            trustThreshold = sequencerTransports.sequencerTrustThreshold,
-            livenessMargin = sequencerTransports.sequencerLivenessMargin,
-            subscriptionRequestDelay =
-              sequencerTransports.sequencerConnectionPoolDelays.subscriptionRequestDelay,
-          )
+          val subscriptionPoolConfig =
+            SequencerSubscriptionPoolConfig.fromSequencerTransports(sequencerTransports)
           val eventBatchProcessor = new EventBatchProcessor {
             override def process(
                 eventBatch: Seq[SequencedSerializedEvent]
@@ -1688,17 +1800,45 @@ class RichSequencerClientImpl(
         }(EitherT.leftT[FutureUnlessShutdown, Unit](_))
       }
 
-  def changeTransport(
-      sequencerTransports: SequencerTransports[?]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    sequencerAggregator.changeMessageAggregationConfig(
-      MessageAggregationConfig(
-        sequencerTransports.expectedSequencersO,
-        sequencerTransports.sequencerTrustThreshold,
+  override def changeTransport(
+      sequencerTransports: SequencerTransports[?],
+      newConnectionPoolConfigO: Option[SequencerConnectionXPoolConfig],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
+    for {
+      _ <-
+        EitherT.fromEither[FutureUnlessShutdown](if (config.useNewConnectionPool) {
+          val newConnectionPoolConfig = newConnectionPoolConfigO.getOrElse(
+            ErrorUtil.invalidState(
+              "Connection pool enabled, yet connection pool config not provided"
+            )
+          )
+
+          for {
+            _ <- connectionPool
+              .updateConfig(newConnectionPoolConfig)
+              .leftMap(error => s"Failed to update connection pool configuration: $error")
+          } yield {
+            sequencerSubscriptionPoolRef.get.foreach { subscriptionPool =>
+              val newSubscriptionPoolConfig =
+                SequencerSubscriptionPoolConfig.fromSequencerTransports(sequencerTransports)
+              subscriptionPool.updateConfig(newSubscriptionPoolConfig)
+            }
+          }
+        } else Either.unit)
+
+      _ = sequencerAggregator.changeMessageAggregationConfig(
+        MessageAggregationConfig(
+          sequencerTransports.expectedSequencersO,
+          sequencerTransports.sequencerTrustThreshold,
+        )
       )
-    )
-    FutureUnlessShutdown.outcomeF(sequencersTransportState.changeTransport(sequencerTransports))
-  }
+
+      _ <- EitherT.right(
+        FutureUnlessShutdown.outcomeF(
+          sequencersTransportState.changeTransport(sequencerTransports)
+        )
+      )
+    } yield ()
 
   private val subscriptionPoolCompletePromise = Promise[SequencerClient.CloseReason]()
 

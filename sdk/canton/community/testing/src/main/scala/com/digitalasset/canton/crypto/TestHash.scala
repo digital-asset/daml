@@ -10,7 +10,7 @@ import com.google.protobuf.ByteString
 /** A wrapper around a real hash with a testing-only hash purpose and convenience methods */
 object TestHash extends HashOps {
 
-  val testHashPurpose: HashPurpose = HashPurpose(-1, "testing")
+  val testHashPurpose: HashPurpose = HashPurpose.TestHashPurpose
 
   override def defaultHashAlgorithm: HashAlgorithm = HashAlgorithm.Sha256
 

@@ -61,3 +61,49 @@ message SigningPublicKey {
   // The key specification
   SigningKeySpec key_spec = 3;
 }
+
+message Signature {
+  SignatureFormat format = 1;
+
+  bytes signature = 2;
+
+  // The fingerprint/id of the keypair used to create this signature and needed to verify.
+  string signed_by = 3;
+
+  // The signing algorithm specification used to produce this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 4;
+}
+
+enum SigningAlgorithmSpec {
+  SIGNING_ALGORITHM_SPEC_UNSPECIFIED = 0;
+
+  // EdDSA Signature based on Curve25519 with SHA-512
+  // http://ed25519.cr.yp.to/
+  SIGNING_ALGORITHM_SPEC_ED25519 = 1;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA256
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 = 2;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA384
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 = 3;
+}
+
+enum SignatureFormat {
+  SIGNATURE_FORMAT_UNSPECIFIED = 0;
+
+  // Signature scheme specific signature format
+  // Legacy format no longer used, except for migrations
+  SIGNATURE_FORMAT_RAW = 1;
+
+  // ASN.1 + DER-encoding of the `r` and `s` integers, as defined in https://datatracker.ietf.org/doc/html/rfc3279#section-2.2.3
+  // Used for ECDSA signatures
+  SIGNATURE_FORMAT_DER = 2;
+
+  // Concatenation of the integers `r || s` in little-endian form, as defined in https://datatracker.ietf.org/doc/html/rfc8032#section-3.3
+  // Note that this is different from the format defined in IEEE P1363, which uses concatenation in big-endian form.
+  // Used for EdDSA signatures
+  SIGNATURE_FORMAT_CONCAT = 3;
+
+  // Symbolic crypto, must only be used for testing
+  SIGNATURE_FORMAT_SYMBOLIC = 10000;
+}

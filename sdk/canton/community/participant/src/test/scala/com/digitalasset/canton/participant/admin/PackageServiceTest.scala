@@ -617,7 +617,7 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
         }).unwrap.map(_.failOnShutdown),
         err => {
           err.message should include(
-            "the set of package dependencies {''} is not self consistent, the extra dependencies are"
+            "the set of package dependencies is not self consistent, the extra dependencies are"
           )
         },
       )

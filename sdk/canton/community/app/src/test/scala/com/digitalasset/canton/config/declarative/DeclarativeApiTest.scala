@@ -98,6 +98,11 @@ class DeclarativeApiTest
       checkSelfConsistent,
       want.get().toSeq,
       fetch = _ => responseOr("fetch", "")(()).map(_ => state.toSeq),
+      get = { k =>
+        responseOr("get", k)(()) map { _ =>
+          state.get(k)
+        }
+      },
       add = { case (k, v) =>
         responseOr("add", k) {
           state.put(k, v)
@@ -195,13 +200,13 @@ class DeclarativeApiTest
         _.warningMessage should include("Operation=remove failed"),
       )
     }
-    "fetch" in {
+    "get" in {
       val f = new TestApi()
       loggerFactory.assertLogs(
         f.runTest(
           Map("a" -> 1),
           have = Some(Map()),
-          responses = Map(("fetch", "") -> Left("NOT GOOD")),
+          responses = Map(("get", "a") -> Left("NOT GOOD")),
           errors = -3,
           items = 0,
           expect = false,

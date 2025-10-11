@@ -7,6 +7,7 @@ import cats.implicits.{toBifunctorOps, toTraverseOps}
 import com.daml.ledger.api.v2.command_submission_service.{SubmitReassignmentRequest, SubmitRequest}
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints as CostEstimationHintsP,
   PartySignatures,
   PrepareSubmissionRequest,
   SinglePartySignatures,
@@ -15,10 +16,12 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.messages.command.submission
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
 import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.version.HashingSchemeVersion.V2
@@ -53,18 +56,26 @@ class SubmitRequestValidator(
       req: PrepareSubmissionRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationDuration: Duration,
   )(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, submission.SubmitRequest] =
+  ): Either[StatusRuntimeException, InteractiveSubmissionService.PrepareRequest] =
     for {
       validatedCommands <- commandsValidator.validatePrepareRequest(
         req,
         currentLedgerTime,
         currentUtcTime,
-        maxDeduplicationDuration,
       )
-    } yield submission.SubmitRequest(validatedCommands)
+      maxRecordTime <- req.maxRecordTime.traverse(commandsValidator.validateLfTime)
+      costEstimationHints <- CostEstimationHints.fromProto(
+        // If not set, defaults to the default instance which enables estimation without hints
+        req.estimateTrafficCost.getOrElse(CostEstimationHintsP.defaultInstance)
+      )
+    } yield InteractiveSubmissionService.PrepareRequest(
+      validatedCommands,
+      req.verboseHashing,
+      maxRecordTime,
+      costEstimationHints,
+    )
 
   private def validatePartySignatures(
       proto: PartySignatures

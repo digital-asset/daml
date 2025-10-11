@@ -294,6 +294,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
       mkProcessLogger(logErrors = false),
       "Invalid unique identifier `invalid_Store` with missing namespace",
     )
+
   }
 
   "run external party onboarding via ledger api" in { implicit env =>
@@ -301,12 +302,44 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     runAndAssertCommandSuccess(
       Process(
         Seq(
-          "./external_party_onboarding.sh"
+          "./external_party_onboarding.sh",
+          "--name",
+          "Hans",
         ),
         cwd = interactiveSubmissionFolder.toJava,
       ),
       processLogger,
     )
+
+    eventually() {
+      env.participant1.parties.hosted("Hans") should not be empty
+    }
+
+  }
+
+  "run external multi-hosted party onboarding via ledger api" in { implicit env =>
+    setupTest
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "./external_party_onboarding.sh",
+          "--name",
+          "Wurst",
+          "--multi-hosted",
+        ),
+        cwd = interactiveSubmissionFolder.toJava,
+      ),
+      processLogger,
+    )
+
+    import env.*
+    eventually() {
+      participant1.parties
+        .hosted("Wurst")
+        .map(_.participants.map(_.participant).toSet) shouldBe Seq(
+        Set(participant1.id, participant2.id)
+      )
+    }
 
   }
 

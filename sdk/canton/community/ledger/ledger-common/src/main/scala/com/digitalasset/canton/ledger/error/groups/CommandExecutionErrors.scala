@@ -429,19 +429,19 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       "Ensure that the contract being hashed is a valid contract."
     )
     object ContractHashingError
-      extends ErrorCode(
-        id = "CONTRACT_HASHING_ERROR",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
+        extends ErrorCode(
+          id = "CONTRACT_HASHING_ERROR",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
 
       final case class Reject(
-        override val cause: String,
-        err: LfInterpretationError.ContractHashingError,
+          override val cause: String,
+          err: LfInterpretationError.ContractHashingError,
       )(implicit
-        loggingContext: ErrorLoggingContext
+          loggingContext: ErrorLoggingContext
       ) extends DamlErrorWithDefiniteAnswer(
-        cause = cause
-      ) {
+            cause = cause
+          ) {
 
         override def resources: Seq[(ErrorResource, String)] =
           withEncodedValue(err.createArg) { encodedCreateArg =>
@@ -917,18 +917,18 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "Verify that the template used for loading the contract is upgrade-compatible with the template that created it."
       )
       object TranslationFailed
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED",
+            ErrorCategory.InvalidIndependentOfSystemState,
+          ) {
         final case class Reject(
-          override val cause: String,
-          err: LfInterpretationError.Upgrade.TranslationFailed,
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.TranslationFailed,
         )(implicit
-          loggingContext: ErrorLoggingContext
+            loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+              cause = cause
+            ) {
 
           override def resources: Seq[(ErrorResource, String)] =
             withEncodedValue(err.createArg) { encodedArg =>
@@ -947,18 +947,18 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         "Verify that the template used for loading the contract is upgrade-compatible with the template that created it."
       )
       object AuthenticationFailed
-        extends ErrorCode(
-          id = "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
+          extends ErrorCode(
+            id = "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED",
+            ErrorCategory.InvalidIndependentOfSystemState,
+          ) {
         final case class Reject(
-          override val cause: String,
-          err: LfInterpretationError.Upgrade.AuthenticationFailed,
+            override val cause: String,
+            err: LfInterpretationError.Upgrade.AuthenticationFailed,
         )(implicit
-          loggingContext: ErrorLoggingContext
+            loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(
-          cause = cause
-        ) {
+              cause = cause
+            ) {
 
           override def resources: Seq[(ErrorResource, String)] =
             withEncodedValue(err.createArg) { encodedArg =>

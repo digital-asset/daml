@@ -669,7 +669,9 @@ class DbSequencerStore(
       recipientRows = eventRows.forgetNE.flatMap { row =>
         row.recipientsO.toList.flatMap { members =>
           val isTopologyEvent =
-            members.contains(sequencerMemberId) && members.sizeIs > 1
+            (members.contains(sequencerMemberId) && members.sizeIs > 1) || members.contains(
+              SequencerMemberId.Broadcast
+            )
           members.map(m => (row.instanceIndex, m, row.timestamp, isTopologyEvent))
         }
       }
@@ -969,7 +971,7 @@ class DbSequencerStore(
               watermarks as (select * from sequencer_watermarks)
             select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
               case
-                when #$memberContainsBefore $topologyClientMemberId #$memberContainsAfter then true
+                when #$memberContainsBefore $topologyClientMemberId #$memberContainsAfter or #$memberContainsBefore ${SequencerMemberId.Broadcast} #$memberContainsAfter then true
                 else false
               end as addressed_to_sequencer,
               events.payload_id, events.topology_timestamp,
@@ -982,25 +984,39 @@ class DbSequencerStore(
               -- (scanning a wrong index or the table itself).
                 select * from sequencer_events
                 where ts in (
-                  select ts
+                  (select ts
                   from sequencer_event_recipients recipients
                   where
                     recipients.node_index = watermarks.node_index
                     -- if the sequencer that produced the event is offline, only consider up until its offline watermark
                     and (watermarks.sequencer_online = true or recipients.ts <= watermarks.watermark_ts)
-                    and recipients.recipient_id = $memberId
+                    and (recipients.recipient_id = $memberId)
                     -- inclusive timestamp bound that defaults to MinValue if unset
                     and recipients.ts >= $fromTimestampInclusive
                     -- only consider events within the safe watermark
                     and recipients.ts <= $safeWatermark
                   order by recipients.ts asc
-                  -- We only have limit on the inner query. We can add an extra limit outside (for DB sequencer case),
-                  -- but it doesn't make sense to drop already read events and it seems reasonable to just return them.
-                  limit $limit
+                  limit $limit)
+                  union
+                  (select ts
+                  from sequencer_event_recipients recipients
+                  where
+                    recipients.node_index = watermarks.node_index
+                    -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+                    and (watermarks.sequencer_online = true or recipients.ts <= watermarks.watermark_ts)
+                    and (recipients.recipient_id = ${SequencerMemberId.Broadcast})
+                    -- inclusive timestamp bound that defaults to MinValue if unset
+                    and recipients.ts >= $fromTimestampInclusive
+                    -- only consider events within the safe watermark
+                    and recipients.ts <= $safeWatermark
+                  order by recipients.ts asc
+                  limit $limit)
                 )
               ) events
               on (true)
-            order by events.ts asc""".as[Sequenced[PayloadId]](
+            order by events.ts asc
+            -- NB: outer limit is crucial to ensure no event gaps between 2 sub-queries above
+            limit $limit""".as[Sequenced[PayloadId]](
             getResultFixedRecipients(topologyClientMemberId)
           )
         case _: H2 =>
@@ -1019,7 +1035,7 @@ class DbSequencerStore(
               on events.node_index = recipients.node_index and events.ts = recipients.ts
             inner join sequencer_watermarks watermarks
               on recipients.node_index = watermarks.node_index
-            where recipients.recipient_id = $memberId
+            where (recipients.recipient_id = $memberId or recipients.recipient_id = ${SequencerMemberId.Broadcast})
               and (
                 -- inclusive timestamp bound that defaults to MinValue if unset
                 recipients.ts >= $fromTimestampInclusive
@@ -1239,7 +1255,7 @@ class DbSequencerStore(
               )
            select
              m.member,
-             coalesce(
+             coalesce(greatest(
                (
                  select
                    (
@@ -1247,12 +1263,13 @@ class DbSequencerStore(
                      from sequencer_event_recipients member_recipient
                      where
                        member_recipient.node_index = watermarks.node_index
-                       and m.id = member_recipient.recipient_id
-                       """ ++ topologyClientMemberFilter ++ sql"""
+                       and (${SequencerMemberId.Broadcast} = member_recipient.recipient_id)
+                       """ ++ topologyClientMemberFilter // keeping this filter for consistency with the other subquery
+      ++ sql"""
                        and member_recipient.ts <= watermarks.watermark_ts
                        and member_recipient.ts <= $beforeInclusive
                        and member_recipient.ts <= $safeWatermark
-                       and member_recipient.ts >= m.registered_ts
+                       and member_recipient.ts > m.registered_ts
                      order by member_recipient.node_index, member_recipient.recipient_id, member_recipient.ts desc
                      limit 1
                    ) as ts
@@ -1260,6 +1277,26 @@ class DbSequencerStore(
                  order by ts desc
                  limit 1
                ),
+               (
+                 select
+                   (
+                     select member_recipient.ts
+                     from sequencer_event_recipients member_recipient
+                     where
+                       member_recipient.node_index = watermarks.node_index
+                       and (m.id = member_recipient.recipient_id)
+                       """ ++ topologyClientMemberFilter ++ sql"""
+                       and member_recipient.ts <= watermarks.watermark_ts
+                       and member_recipient.ts <= $beforeInclusive
+                       and member_recipient.ts <= $safeWatermark
+                       and member_recipient.ts > m.registered_ts
+                     order by member_recipient.node_index, member_recipient.recipient_id, member_recipient.ts desc
+                     limit 1
+                   ) as ts
+                 from watermarks
+                 order by ts desc
+                 limit 1
+               )), -- end of greatest
                m.pruned_previous_event_timestamp
              ) previous_ts
            from enabled_members m""").as[(Member, Option[CantonTimestamp])].map(_.toMap)
@@ -1316,7 +1353,7 @@ class DbSequencerStore(
                      watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
                    )
                    and ts <= $timestampInclusive
-                   and (#$memberContainsBefore $memberId #$memberContainsAfter)
+                   and ((#$memberContainsBefore $memberId #$memberContainsAfter) or (#$memberContainsBefore ${SequencerMemberId.Broadcast} #$memberContainsAfter))
                    and ts <= $safeWatermark
                  order by ts desc
                  limit 1

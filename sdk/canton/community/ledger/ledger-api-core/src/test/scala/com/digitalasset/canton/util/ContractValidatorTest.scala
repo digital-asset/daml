@@ -52,13 +52,16 @@ class ContractValidatorTest
     ContractValidator(pureCrypto, testEngine.engine, testEngine.packageResolver)
 
   private def assertAuthenticationError(invalid: FatContractInstance): Future[Assertion] =
-    assertErrorRegex(invalid, s"AuthenticationError.*${invalid.contractId.coid}")
+    assertErrorRegex(invalid, s"AuthenticationFailed.*${invalid.contractId.coid}")
 
   private def assertTypeMismatch(invalid: FatContractInstance): Future[Assertion] =
-    assertErrorRegex(invalid, s"TranslationError.*TypeMismatch")
+    assertErrorRegex(invalid, s"TranslationFailed.*TypeMismatch")
 
   private def assertValidationFailure(invalid: FatContractInstance): Future[Assertion] =
     assertErrorRegex(invalid, s"ValidationFailed.*${invalid.contractId.coid}.*")
+
+  private def assertTranslationFailure(invalid: FatContractInstance): Future[Assertion] =
+    assertErrorRegex(invalid, s"TranslationFailed.*${invalid.contractId.coid}.*")
 
   private def assertErrorRegex(
       invalid: FatContractInstance,
@@ -91,24 +94,26 @@ class ContractValidatorTest
     }
 
     "using a un-normalized values" should {
-      if (authContractIdVersion > AuthenticatedContractIdVersionV10) {
+      val unNormalizedArg = Value.ValueRecord(
+        None,
+        contractInstance.inst.createArg
+          .asInstanceOf[Value.ValueRecord]
+          .fields
+          .slowAppend(ImmArray.from(Seq((None, Value.ValueOptional(None))))),
+      )
 
-        val unNormalizedArg = Value.ValueRecord(
-          None,
-          contractInstance.inst.createArg
-            .asInstanceOf[Value.ValueRecord]
-            .fields
-            .slowAppend(ImmArray.from(Seq((None, Value.ValueOptional(None))))),
-        )
-
-        val unNormalizedContract =
-          ExampleContractFactory.modify(contractInstance, arg = Some(unNormalizedArg))
-
-        "correctly authenticate the contract" in {
+      val unNormalizedContract =
+        ExampleContractFactory.modify(contractInstance, arg = Some(unNormalizedArg))
+      if (authContractIdVersion <= AuthenticatedContractIdVersionV10) {
+        "correctly authenticate the contract pre ContractIdV10" in {
           underTest
             .authenticate(unNormalizedContract.inst, unNormalizedContract.templateId.packageId)
             .value
             .map(_ shouldBe Either.unit)
+        }
+      } else {
+        "fail translation post ContractIdV10" in {
+          assertTranslationFailure(unNormalizedContract.inst)
         }
       }
     }

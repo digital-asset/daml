@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.ledger.api.v2.event_query_service.{Archived, Created, GetEventsByContractIdResponse}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -13,6 +14,8 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
+import com.digitalasset.canton.participant.store.ContractStore
 import com.digitalasset.canton.platform.InternalEventFormat
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
@@ -35,6 +38,7 @@ private[dao] sealed class EventsReader(
     val parameterStorageBackend: ParameterStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
+    val contractStore: ContractStore,
     val ledgerEndCache: LedgerEndCache,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -84,15 +88,27 @@ private[dao] sealed class EventsReader(
               created
             }
 
+          contractsM <- contractStore
+            .lookupBatchedNonCached(
+              // we only need the internal contract id for the created event, if it exists
+              rawCreatedEventRestoredWitnesses.map(_.internalContractId).toList
+            )
+            .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
+
           deserialized <- Future.delegate {
             implicit val ec: ExecutionContext =
               directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
             MonadUtil.sequentialTraverse(rawEventsRestoredWitnesses) { event =>
+              val fatContractO = event.event match {
+                case created: RawCreatedEventLegacy =>
+                  contractsM.get(created.internalContractId).map(_.inst)
+                case _ => None
+              }
               UpdateReader
                 .deserializeRawAcsDeltaEvent(
                   internalEventFormat.eventProjectionProperties,
                   lfValueTranslation,
-                )(event)
+                )(event -> fatContractO)
                 .map(_ -> event.synchronizerId)
             }
           }

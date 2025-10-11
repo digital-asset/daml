@@ -3,16 +3,20 @@
 
 package com.digitalasset.canton.topology
 
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.Fingerprint
+import com.digitalasset.canton.topology.transaction.SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag
 import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
-import org.scalacheck.Arbitrary
+import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsTopology(protocolVersion: ProtocolVersion) {
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.Generators.*
 
+  implicit val unrecognizedFeatureFlagArb: Arbitrary[ParticipantTopologyFeatureFlag] = Arbitrary {
+    Gen.oneOf(ParticipantTopologyFeatureFlag.knownTopologyFeatureFlags)
+  }
   implicit val fingerprintArb: Arbitrary[Fingerprint] = Arbitrary(
     string68Arb.arbitrary.map(Fingerprint.tryFromString)
   )
@@ -35,7 +39,8 @@ final class GeneratorsTopology(protocolVersion: ProtocolVersion) {
     for {
       partyId <- Arbitrary.arbitrary[PartyId]
       signingFingerprints <- nonEmptyListGen[Fingerprint]
-    } yield ExternalParty(partyId, signingFingerprints)
+      keyThreshold <- Arbitrary.arbitrary[PositiveInt]
+    } yield ExternalParty(partyId, signingFingerprints, keyThreshold)
   )
   implicit val identityArb: Arbitrary[Identity] = genArbitrary
 

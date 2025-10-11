@@ -87,7 +87,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
     }
   }
 
-  @Explanation("The user referred to by the request was not found.")
+  @Explanation("The user / idp combination referred to by the request was not found.")
   @Resolution(
     "Check that you are connecting to the right participant node and the user-id is spelled correctly, if yes, create the user."
   )

@@ -287,6 +287,7 @@ object BlockSequencerConfig {
       confirmationResponse: IndividualCircuitBreakerConfig = default3,
       verdict: IndividualCircuitBreakerConfig = default3,
       acknowledgement: IndividualCircuitBreakerConfig = default1,
+      unexpected: IndividualCircuitBreakerConfig = default1,
   ) extends UniformCantonConfigValidation
   object CircuitBreakerByMessageTypeConfig {
     implicit val circuitBreakerByMessageTypeConfigValidator

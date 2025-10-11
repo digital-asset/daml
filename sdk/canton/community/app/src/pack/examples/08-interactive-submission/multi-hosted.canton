@@ -2,14 +2,7 @@
 nodes.local.start()
 
 // Bootstrap the synchronizer
-val synchronizerId = bootstrap.synchronizer(
-  synchronizerName = "da",
-  sequencers = Seq(sequencer1),
-  mediators = Seq(mediator1),
-  synchronizerOwners = Seq(sequencer1, mediator1),
-  synchronizerThreshold = PositiveInt.two,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-)
+val synchronizerId = bootstrap.synchronizer_local()
 
 // Connect all participants to da using the connect macro.
 participants.local.foreach(_.synchronizers.connect_local(sequencer1, alias = "da"))

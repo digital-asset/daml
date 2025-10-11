@@ -240,6 +240,9 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     param("view hash", _.viewHash),
     param("view type", _.viewType),
     param("size", _.encryptedView.sizeHint),
+    param("synchronizerId", _.synchronizerId),
+    param("number of session keys", _.sessionKeys.size),
+    param("view encryption scheme", _.viewEncryptionScheme),
   )
 }
 

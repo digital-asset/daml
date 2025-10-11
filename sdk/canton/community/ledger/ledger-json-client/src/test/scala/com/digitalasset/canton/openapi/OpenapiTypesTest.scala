@@ -653,7 +653,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         Mapping[v2.admin.user_management_service.Right, openapi.Right](
           openapi.Right.fromJson
         ),
-        Mapping[v2.interactive.interactive_submission_service.Signature, openapi.Signature](
+        Mapping[v2.crypto.Signature, openapi.Signature](
           openapi.Signature.fromJson
         ),
         Mapping[
@@ -800,6 +800,18 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           openapi.ExecuteSubmissionAndWaitResponse,
         ](
           openapi.ExecuteSubmissionAndWaitResponse.fromJson
+        ),
+        Mapping[
+          v2.interactive.interactive_submission_service.CostEstimation,
+          openapi.CostEstimation,
+        ](
+          openapi.CostEstimation.fromJson
+        ),
+        Mapping[
+          v2.interactive.interactive_submission_service.CostEstimationHints,
+          openapi.CostEstimationHints,
+        ](
+          openapi.CostEstimationHints.fromJson
         ),
         Mapping[v2.package_reference.VettedPackages, openapi.VettedPackages](
           openapi.VettedPackages.fromJson
