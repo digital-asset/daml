@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -82,7 +82,15 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*

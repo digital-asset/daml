@@ -13,6 +13,8 @@ import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withNewLoggingContext
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
+import com.digitalasset.canton.participant.store.ContractStore
+import com.digitalasset.canton.participant.store.memory.InMemoryContractStore
 import com.digitalasset.canton.platform.config.{
   ActiveContractsServiceStreamsConfig,
   ServerRole,
@@ -164,6 +166,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           loggerFactory = loggerFactory,
         ),
         pruningOffsetService = pruningOffsetService,
+        contractStore = contractStore,
       )
     }
   }
@@ -172,6 +175,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
 
   protected final var ledgerDao: LedgerDao = _
   protected var ledgerEndCache: MutableLedgerEndCache = _
+  protected var contractStore: ContractStore = _
   protected var stringInterningView: StringInterningView = _
   protected val pruningOffsetService: PruningOffsetService = mock[PruningOffsetService]
   when(pruningOffsetService.pruningOffset(any[TraceContext]))
@@ -185,6 +189,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
     // We use the dispatcher here because the default Scalatest execution context is too slow.
     implicit val resourceContext: ResourceContext = ResourceContext(system.dispatcher)
     ledgerEndCache = MutableLedgerEndCache()
+    contractStore = new InMemoryContractStore(timeouts, loggerFactory)
     stringInterningView = new StringInterningView(loggerFactory)
     resource = withNewLoggingContext() { implicit loggingContext =>
       for {

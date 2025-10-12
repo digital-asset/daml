@@ -7,8 +7,6 @@ import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta as ProtoObjectMeta
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
 import com.digitalasset.canton.topology.PartyId
 
-import scala.util.control.NoStackTrace
-
 /** Represents a party details value exposed in the Canton console
   *
   * @param isLocal
@@ -44,7 +42,3 @@ object PartyDetails {
     identityProviderId = details.identityProviderId,
   )
 }
-
-final case class ModifyingNonModifiablePartyDetailsPropertiesError()
-    extends RuntimeException("MODIFYING_AN_UNMODIFIABLE_PARTY_DETAILS_PROPERTY_ERROR")
-    with NoStackTrace

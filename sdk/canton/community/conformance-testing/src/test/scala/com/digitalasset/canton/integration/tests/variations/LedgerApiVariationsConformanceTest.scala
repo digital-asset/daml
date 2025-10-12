@@ -218,6 +218,7 @@ trait LedgerApiStaticTimeConformanceTest extends SingleVersionLedgerApiConforman
         "InteractiveSubmissionServiceIT:ISSPrepareSubmissionExecuteBasic",
         "InteractiveSubmissionServiceIT:ISSPrepareSubmissionFailExecuteOnInvalidSignature",
         "InteractiveSubmissionServiceIT:ISSPrepareSubmissionFailExecuteOnInvalidSignatory",
+        "InteractiveSubmissionServiceIT:ISSEstimateTrafficCostBasic",
         "InteractiveSubmissionServiceIT:ISSExecuteSubmissionRequestWithInputContracts",
         "InteractiveSubmissionServiceIT:ISSExecuteSubmissionRequestFailOnEmptyInputContracts",
         "InteractiveSubmissionServiceIT:ISSExecuteSubmissionAndWaitBasic",

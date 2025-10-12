@@ -10,10 +10,12 @@ import com.digitalasset.canton.platform.store.serialization.Compression
 import java.io.ByteArrayOutputStream
 
 final case class CompressionStrategy(
-    createArgumentCompression: FieldCompressionStrategy,
-    createKeyValueCompression: FieldCompressionStrategy,
-    exerciseArgumentCompression: FieldCompressionStrategy,
-    exerciseResultCompression: FieldCompressionStrategy,
+    createArgumentCompressionLegacy: FieldCompressionStrategy, // TODO(i25857) not needed with new schema anymore
+    createKeyValueCompressionLegacy: FieldCompressionStrategy, // TODO(i25857) not needed with new schema anymore
+    consumingExerciseArgumentCompression: FieldCompressionStrategy,
+    consumingExerciseResultCompression: FieldCompressionStrategy,
+    nonConsumingExerciseArgumentCompression: FieldCompressionStrategy,
+    nonConsumingExerciseResultCompression: FieldCompressionStrategy,
 )
 
 object CompressionStrategy {
@@ -24,29 +26,59 @@ object CompressionStrategy {
   def allGZIP(metrics: LedgerApiServerMetrics): CompressionStrategy =
     buildUniform(Compression.Algorithm.GZIP, metrics)
 
+  def buildFromConfig(
+      metrics: LedgerApiServerMetrics
+  )(consumingExercise: Boolean, nonConsumingExercise: Boolean): CompressionStrategy = {
+    val consumingAlgorithm: Compression.Algorithm =
+      if (consumingExercise) Compression.Algorithm.GZIP else Compression.Algorithm.None
+    val nonConsumingAlgorithm: Compression.Algorithm =
+      if (nonConsumingExercise) Compression.Algorithm.GZIP else Compression.Algorithm.None
+    build(
+      Compression.Algorithm.None,
+      Compression.Algorithm.None,
+      consumingAlgorithm,
+      consumingAlgorithm,
+      nonConsumingAlgorithm,
+      nonConsumingAlgorithm,
+      metrics,
+    )
+  }
+
   def buildUniform(
       algorithm: Compression.Algorithm,
       metrics: LedgerApiServerMetrics,
   ): CompressionStrategy =
-    build(algorithm, algorithm, algorithm, algorithm, metrics)
+    build(algorithm, algorithm, algorithm, algorithm, algorithm, algorithm, metrics)
 
   def build(
       createArgumentAlgorithm: Compression.Algorithm,
       createKeyValueAlgorithm: Compression.Algorithm,
-      exerciseArgumentAlgorithm: Compression.Algorithm,
-      exerciseResultAlgorithm: Compression.Algorithm,
+      consumingExerciseArgumentAlgorithm: Compression.Algorithm,
+      consumingExerciseResultAlgorithm: Compression.Algorithm,
+      nonConsumingExerciseArgumentAlgorithm: Compression.Algorithm,
+      nonConsumingExerciseResultAlgorithm: Compression.Algorithm,
       metrics: LedgerApiServerMetrics,
   ): CompressionStrategy = CompressionStrategy(
-    createArgumentCompression =
+    createArgumentCompressionLegacy =
       FieldCompressionStrategy(createArgumentAlgorithm, CompressionMetrics.createArgument(metrics)),
-    createKeyValueCompression =
+    createKeyValueCompressionLegacy =
       FieldCompressionStrategy(createKeyValueAlgorithm, CompressionMetrics.createKeyValue(metrics)),
-    exerciseArgumentCompression = FieldCompressionStrategy(
-      exerciseArgumentAlgorithm,
+    consumingExerciseArgumentCompression = FieldCompressionStrategy(
+      consumingExerciseArgumentAlgorithm,
       CompressionMetrics.exerciseArgument(metrics),
     ),
-    exerciseResultCompression =
-      FieldCompressionStrategy(exerciseResultAlgorithm, CompressionMetrics.exerciseResult(metrics)),
+    consumingExerciseResultCompression = FieldCompressionStrategy(
+      consumingExerciseResultAlgorithm,
+      CompressionMetrics.exerciseResult(metrics),
+    ),
+    nonConsumingExerciseArgumentCompression = FieldCompressionStrategy(
+      nonConsumingExerciseArgumentAlgorithm,
+      CompressionMetrics.exerciseArgument(metrics),
+    ),
+    nonConsumingExerciseResultCompression = FieldCompressionStrategy(
+      nonConsumingExerciseResultAlgorithm,
+      CompressionMetrics.exerciseResult(metrics),
+    ),
   )
 }
 

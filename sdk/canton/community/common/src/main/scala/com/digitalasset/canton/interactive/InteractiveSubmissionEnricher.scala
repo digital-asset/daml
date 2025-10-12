@@ -3,8 +3,11 @@
 
 package com.digitalasset.canton.interactive
 
+import cats.data.EitherT
+import cats.implicits.catsSyntaxEitherId
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher.PackageResolver
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.*
@@ -42,19 +45,42 @@ class InteractiveSubmissionEnricher(engine: Engine, packageResolver: PackageReso
 
   /** Enrich FCI with type info and labels. Leave out trailing none fields.
     */
-  def enrichContract(contract: FatContractInstance)(implicit
+  def enrichContract(contract: FatContractInstance, targetPackageIds: Set[PackageId])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[FatContractInstance] =
-    consumeEnricherResult(enricher.enrichContract(contract))
+  ): EitherT[FutureUnlessShutdown, String, FatContractInstance] =
+    EitherT(targetPackageIds.toList.minOption match {
+      case Some(pkgId) =>
+        enrichCreateNode(contract.toCreateNode, pkgId).map { enriched =>
+          FatContractInstance
+            .fromCreateNode(
+              enriched,
+              contract.createdAt,
+              contract.authenticationData,
+            )
+            .asRight[String]
+        }
+      case None =>
+        FutureUnlessShutdown.pure(
+          s"Cannot enrich contract ${contract.contractId} without knowing its package ID"
+            .asLeft[FatContractInstance]
+        )
+    })
 
-  /** Enrich create node with type info and labels. Leave out trailing none fields.
-    */
-  def enrichCreateNode(create: Node.Create)(implicit
+  private def enrichCreateNode(original: Node.Create, targetPackageId: PackageId)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[Node.Create] =
-    consumeEnricherResult(enricher.enrichCreate(create))
+  ): FutureUnlessShutdown[Node.Create] = {
+
+    def updateTemplateId(create: Node.Create, targetPackageId: PackageId): Node.Create = {
+      val templateId = LfTemplateId(targetPackageId, create.templateId.qualifiedName)
+      create.copy(templateId = templateId)
+    }
+
+    consumeEnricherResult(enricher.enrichCreate(updateTemplateId(original, targetPackageId))).map(
+      enriched => updateTemplateId(enriched, original.templateId.packageId)
+    )
+  }
 
   private[this] def consumeEnricherResult[V](
       result: Result[V]

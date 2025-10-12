@@ -216,7 +216,7 @@ object UpdateToDbDto {
               ledger_offset = offset.unwrap,
               recorded_at = topologyTransaction.recordTime.toMicros,
               submission_id = Some(
-                PartyAllocation.TrackerKey.of(party, participant, authorizationEvent).submissionId
+                PartyAllocation.TrackerKey(party, participant, authorizationEvent).submissionId
               ),
               party = Some(party),
               typ = JdbcLedgerDao.acceptType,
@@ -433,13 +433,13 @@ object UpdateToDbDto {
         exercise_choice = exercise.qualifiedChoiceName.choiceName,
         exercise_choice_interface_id = exercise.qualifiedChoiceName.interfaceId.map(_.toString),
         exercise_argument =
-          compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
+          compressionStrategy.consumingExerciseArgumentCompression.compress(exerciseArgument),
         exercise_result =
-          exerciseResult.map(compressionStrategy.exerciseResultCompression.compress),
+          exerciseResult.map(compressionStrategy.consumingExerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
-        exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
-        exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
+        exercise_argument_compression = compressionStrategy.consumingExerciseArgumentCompression.id,
+        exercise_result_compression = compressionStrategy.consumingExerciseResultCompression.id,
         contract_id = exercise.targetCoid,
         internal_contract_id = None, // this will be filled later
         template_id = templateId,
@@ -451,6 +451,17 @@ object UpdateToDbDto {
       val internal_contract_id =
         if (exercise.consuming) transactionAccepted.internalContractIds.get(exercise.targetCoid)
         else None
+      val (argumentCompression, resultCompression) =
+        if (exercise.consuming)
+          (
+            compressionStrategy.consumingExerciseArgumentCompression,
+            compressionStrategy.consumingExerciseResultCompression,
+          )
+        else
+          (
+            compressionStrategy.nonConsumingExerciseArgumentCompression,
+            compressionStrategy.nonConsumingExerciseResultCompression,
+          )
       DbDto.witnessedExercisedDbDtos(
         event_offset = offset.unwrap,
         update_id = transactionAccepted.updateId.toProtoPrimitive.toByteArray,
@@ -468,14 +479,12 @@ object UpdateToDbDto {
         consuming = exercise.consuming,
         exercise_choice = exercise.qualifiedChoiceName.choiceName,
         exercise_choice_interface_id = exercise.qualifiedChoiceName.interfaceId.map(_.toString),
-        exercise_argument =
-          compressionStrategy.exerciseArgumentCompression.compress(exerciseArgument),
-        exercise_result =
-          exerciseResult.map(compressionStrategy.exerciseResultCompression.compress),
+        exercise_argument = argumentCompression.compress(exerciseArgument),
+        exercise_result = exerciseResult.map(resultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_last_descendant_node_id = lastDescendantNodeId.index,
-        exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
-        exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
+        exercise_argument_compression = argumentCompression.id,
+        exercise_result_compression = resultCompression.id,
         contract_id = exercise.targetCoid,
         internal_contract_id = internal_contract_id,
         template_id = templateId,

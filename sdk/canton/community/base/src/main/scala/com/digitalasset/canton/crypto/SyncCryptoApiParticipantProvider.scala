@@ -318,6 +318,22 @@ class SynchronizerCryptoClient private (
       loggerFactory,
     )
 
+  /** Similar to create but allows to provide a custom crypto signer. CAUTION: use only when you
+    * know what you are doing!
+    */
+  private[canton] def createWithCustomCryptoSigner(
+      snapshot: TopologySnapshot,
+      syncCryptoSignerMapper: SyncCryptoSigner => SyncCryptoSigner,
+  ): SynchronizerSnapshotSyncCryptoApi =
+    new SynchronizerSnapshotSyncCryptoApi(
+      psid,
+      snapshot,
+      crypto,
+      syncCryptoSignerMapper(syncCryptoSigner),
+      syncCryptoVerifier,
+      loggerFactory,
+    )
+
   override def ipsSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[TopologySnapshot] =

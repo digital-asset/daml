@@ -26,12 +26,10 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransactions
 import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.{
-  SignedTopologyTransactions,
-  TopologyMappingChecks,
-}
+import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 
@@ -269,7 +267,7 @@ class TopologyStateProcessor private (
       Either.cond(
         expected == toValidate.serial,
         (),
-        TopologyTransactionRejection.SerialMismatch(expected, toValidate.serial),
+        TopologyTransactionRejection.Processor.SerialMismatch(expected, toValidate.serial),
       )
     case None => Either.unit
   }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import cats.implicits.toTraverseOps
 import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent, InterfaceView}
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
@@ -21,7 +20,6 @@ import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawArchivedEventLegacy,
-  RawCreatedEventLegacy,
   RawExercisedEventLegacy,
 }
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
@@ -36,8 +34,8 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier, Party}
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier}
 import com.digitalasset.daml.lf.engine as LfEngine
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.*
@@ -399,87 +397,6 @@ final class LfValueTranslation(
       acsDelta = acsDelta,
       representativePackageId = representativePackageId,
     )
-  }
-
-  def deserializeRawCreated(
-      eventProjectionProperties: EventProjectionProperties,
-      rawCreatedEvent: RawCreatedEventLegacy,
-      offset: Long,
-      nodeId: Int,
-  )(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[CreatedEvent] = {
-    def getFatContractInstance(
-        createArgument: VersionedValue,
-        createKey: Option[VersionedValue],
-    ): Either[String, FatContractInstance] =
-      for {
-        signatories <- rawCreatedEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
-        observers <- rawCreatedEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
-        maintainers <- rawCreatedEvent.createKeyMaintainers.toList
-          .traverse(Party.fromString)
-          .map(_.toSet)
-        globalKey <- createKey
-          .traverse(key =>
-            GlobalKey
-              .build(
-                rawCreatedEvent.templateId.toIdentifier,
-                key.unversioned,
-                rawCreatedEvent.templateId.pkgName,
-              )
-              .left
-              .map(_.msg)
-          )
-      } yield FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = rawCreatedEvent.contractId,
-          templateId = rawCreatedEvent.templateId.toIdentifier,
-          packageName = rawCreatedEvent.templateId.pkgName,
-          arg = createArgument.unversioned,
-          signatories = signatories,
-          stakeholders = signatories ++ observers,
-          keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
-          version = createArgument.version,
-        ),
-        createTime = CreationTime.CreatedAt(rawCreatedEvent.ledgerEffectiveTime),
-        authenticationData = Bytes.fromByteArray(rawCreatedEvent.authenticationData),
-      )
-
-    for {
-      createKey <- Future(
-        rawCreatedEvent.createKeyValue
-          .map(
-            decompressAndDeserialize(
-              Compression.Algorithm
-                .assertLookup(rawCreatedEvent.createKeyValueCompression),
-              _,
-            )
-          )
-      )
-      createArgument <- Future(
-        decompressAndDeserialize(
-          Compression.Algorithm
-            .assertLookup(rawCreatedEvent.createArgumentCompression),
-          rawCreatedEvent.createArgument,
-        )
-      )
-
-      fatContractInstance <- getFatContractInstance(createArgument, createKey).fold(
-        err => Future.failed(new RuntimeException(s"Cannot serialize createdEventBlob: $err")),
-        Future.successful,
-      )
-
-      createdEvent <- toApiCreatedEvent(
-        eventProjectionProperties = eventProjectionProperties,
-        fatContractInstance = fatContractInstance,
-        offset = offset,
-        nodeId = nodeId,
-        representativePackageId = rawCreatedEvent.representativePackageId,
-        witnesses = rawCreatedEvent.witnessParties,
-        acsDelta = rawCreatedEvent.flatEventWitnesses.nonEmpty,
-      )
-    } yield createdEvent
   }
 
   private def toApiContractData(

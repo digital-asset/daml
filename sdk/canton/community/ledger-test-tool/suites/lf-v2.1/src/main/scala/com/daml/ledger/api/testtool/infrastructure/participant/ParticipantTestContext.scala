@@ -38,6 +38,7 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdResponse,
 }
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints,
   ExecuteSubmissionAndWaitForTransactionRequest,
   ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
@@ -70,6 +71,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 
+import java.security.KeyPair
 import java.time.Instant
 import java.util.List as JList
 import scala.concurrent.{ExecutionContext, Future}
@@ -180,9 +182,15 @@ trait ParticipantTestContext extends UserManagementTestContext {
   ): Future[Party]
 
   def allocateExternalPartyRequest(
+      keyPair: KeyPair,
       partyIdHint: Option[String] = None,
-      synchronizerId: String = "",
-  ): AllocateExternalPartyRequest
+      synchronizer: String = "",
+  ): Future[AllocateExternalPartyRequest]
+
+  def generateExternalPartyTopologyRequest(
+      namespacePublicKey: Array[Byte],
+      partyIdHint: Option[String] = None,
+  ): Future[GenerateExternalPartyTopologyResponse]
 
   def allocateExternalParty(
       request: AllocateExternalPartyRequest,
@@ -480,7 +488,11 @@ trait ParticipantTestContext extends UserManagementTestContext {
       transactionShape: TransactionShape,
   ): SubmitAndWaitForTransactionRequest
   def submitAndWaitRequest(party: Party, commands: JList[Command]): SubmitAndWaitRequest
-  def prepareSubmissionRequest(party: Party, commands: JList[Command]): PrepareSubmissionRequest
+  def prepareSubmissionRequest(
+      party: Party,
+      commands: JList[Command],
+      estimateTrafficCost: Option[CostEstimationHints] = None,
+  ): PrepareSubmissionRequest
   def executeSubmissionRequest(
       party: ExternalParty,
       preparedTx: PrepareSubmissionResponse,

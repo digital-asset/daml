@@ -27,7 +27,7 @@ import com.digitalasset.canton.{SequencerAlias, time}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-class SubscriptionHandlerX(
+class SubscriptionHandlerX private[sequencing] (
     clock: Clock,
     metrics: SequencerClientMetrics,
     applicationHandlerFailure: SingleUseCell[ApplicationHandlerFailure],

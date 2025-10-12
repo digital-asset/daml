@@ -35,6 +35,7 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdResponse,
 }
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints,
   ExecuteSubmissionAndWaitForTransactionRequest,
   ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
@@ -67,6 +68,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.google.protobuf.ByteString
 import io.grpc.health.v1.health.HealthCheckResponse
 
+import java.security.KeyPair
 import java.time.Instant
 import java.util.List as JList
 import java.util.concurrent.TimeoutException
@@ -229,10 +231,19 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   )
 
   override def allocateExternalPartyRequest(
+      keyPair: KeyPair,
       partyIdHint: Option[String] = None,
-      synchronizerId: String = "",
-  ): AllocateExternalPartyRequest =
-    delegate.allocateExternalPartyRequest(partyIdHint, synchronizerId)
+      synchronizer: String = "",
+  ): Future[AllocateExternalPartyRequest] =
+    delegate.allocateExternalPartyRequest(keyPair, partyIdHint, synchronizer)
+
+  override def generateExternalPartyTopologyRequest(
+      namespacePublicKey: Array[Byte],
+      partyIdHint: Option[String] = None,
+  ): Future[GenerateExternalPartyTopologyResponse] = withTimeout(
+    s"Generate topology transactions to allocate external party $partyIdHint",
+    delegate.generateExternalPartyTopologyRequest(namespacePublicKey, partyIdHint),
+  )
 
   override def allocateParty(
       partyIdHint: Option[String] = None,
@@ -629,8 +640,12 @@ class TimeoutParticipantTestContext(timeoutScaleFactor: Double, delegate: Partic
   ): SubmitAndWaitForTransactionRequest =
     delegate.submitAndWaitForTransactionRequest(party, commands)
 
-  def prepareSubmissionRequest(party: Party, commands: JList[Command]): PrepareSubmissionRequest =
-    delegate.prepareSubmissionRequest(party, commands)
+  def prepareSubmissionRequest(
+      party: Party,
+      commands: JList[Command],
+      estimateTrafficCost: Option[CostEstimationHints] = None,
+  ): PrepareSubmissionRequest =
+    delegate.prepareSubmissionRequest(party, commands, estimateTrafficCost)
 
   def executeSubmissionRequest(
       party: ExternalParty,

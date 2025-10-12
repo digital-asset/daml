@@ -2072,7 +2072,15 @@ components:
         onboardingTransactions:
           description: |-
             TopologyTransactions to onboard the external party
-            Must contain 3 signed transactions: NamespaceDelegation, PartyToKeyMapping, PartyToParticipant
+            Can contain:
+            - A namespace for the party.
+            This can be either a single NamespaceDelegation,
+            or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+            May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+            - A PartyToKeyMapping to register the party's signing keys.
+            May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+            - A PartyToParticipant to register the hosting relationship of the party.
+            Must be provided.
             Required
           type: array
           items:
@@ -2553,6 +2561,65 @@ components:
           - PARTICIPANT_PERMISSION_SUBMISSION
           - PARTICIPANT_PERMISSION_CONFIRMATION
           - PARTICIPANT_PERMISSION_OBSERVATION
+    CostEstimation:
+      title: CostEstimation
+      description: |-
+        Estimation of the cost of submitting the prepared transaction
+        The estimation is done against the synchronizer chosen during preparation of the transaction
+        (or the one explicitly requested).
+        The cost of re-assigning contracts to another synchronizer when necessary is not included in the estimation.
+      type: object
+      required:
+      - confirmationRequestTrafficCostEstimation
+      - confirmationResponseTrafficCostEstimation
+      - totalTrafficCostEstimation
+      properties:
+        estimationTimestamp:
+          description: Timestamp at which the estimation was made
+          type: string
+        confirmationRequestTrafficCostEstimation:
+          description: Estimated traffic cost of the confirmation request associated
+            with the transaction
+          type: integer
+          format: int64
+        confirmationResponseTrafficCostEstimation:
+          description: |-
+            Estimated traffic cost of the confirmation response associated with the transaction
+            This field can also be used as an indication of the cost that other potential confirming nodes
+            of the party will incur to approve or reject the transaction
+          type: integer
+          format: int64
+        totalTrafficCostEstimation:
+          description: Sum of the fields above
+          type: integer
+          format: int64
+    CostEstimationHints:
+      title: CostEstimationHints
+      description: Hints to improve cost estimation precision of a prepared transaction
+      type: object
+      required:
+      - disabled
+      properties:
+        disabled:
+          description: |-
+            Disable cost estimation
+            Default (not set) is false
+          type: boolean
+        expectedSignatures:
+          description: |-
+            Details on the keys that will be used to sign the transaction (how many and of which type).
+            Signature size impacts the cost of the transaction.
+            If empty, the signature sizes will be approximated with threshold-many signatures (where threshold is defined
+            in the PartyToKeyMapping of the external party), using keys in the order they are registered.
+            Optional (empty list is equivalent to not providing this field)
+          type: array
+          items:
+            type: string
+            enum:
+            - SIGNING_ALGORITHM_SPEC_UNSPECIFIED
+            - SIGNING_ALGORITHM_SPEC_ED25519
+            - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
+            - SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
     CreateAndExerciseCommand:
       title: CreateAndExerciseCommand
       description: Create a contract and exercise a choice on it in the same transaction.
@@ -4841,6 +4908,28 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PrefetchContractKey'
+        maxRecordTime:
+          description: |-
+            Maximum timestamp at which the transaction can be recorded onto the ledger via the synchronizer specified in the `PrepareSubmissionResponse`.
+            If submitted after it will be rejected even if otherwise valid, in which case it needs to be prepared and signed again
+            with a new valid max_record_time.
+            Use this to limit the time-to-life of a prepared transaction,
+            which is useful to know when it can definitely not be accepted
+            anymore and resorting to preparing another transaction for the same
+            intent is safe again.
+            Optional
+          type: string
+        estimateTrafficCost:
+          $ref: '#/components/schemas/CostEstimationHints'
+          description: |-
+            Hints to improve the accuracy of traffic cost estimation.
+            The estimation logic assumes that this node will be used for the execution of the transaction
+            If another node is used instead, the estimation may be less precise.
+            Request amplification is not accounted for in the estimation: each amplified request will
+            result in the cost of the confirmation request to be charged additionally.
+
+            Optional - Traffic cost estimation is enabled by default if this field is not set
+            To turn off cost estimation, set the CostEstimationHints#disabled field to true
     JsPrepareSubmissionResponse:
       title: JsPrepareSubmissionResponse
       description: '[docs-entry-end: HashingSchemeVersion]'
@@ -4872,6 +4961,11 @@ components:
             Note that there are no guarantees on the stability of the format or content of this field.
             Its content should NOT be parsed and should only be used for troubleshooting purposes.
           type: string
+        costEstimation:
+          $ref: '#/components/schemas/CostEstimation'
+          description: |-
+            Traffic cost estimation of the prepared transaction
+            Optional
     JsReassignment:
       title: JsReassignment
       description: Complete view of an on-ledger reassignment.
@@ -5603,7 +5697,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty6'
+            $ref: '#/components/schemas/Empty5'
       - type: object
         required:
         - Unvet
@@ -6057,7 +6151,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty5'
+            $ref: '#/components/schemas/Empty6'
       - type: object
         required:
         - NoPrior
@@ -7026,6 +7120,7 @@ components:
       required:
       - participantId
       - synchronizerId
+      - topologySerial
       properties:
         packages:
           description: |-
@@ -7041,10 +7136,11 @@ components:
           description: Synchronizer on which these packages are vetted. Always present.
           type: string
         topologySerial:
-          $ref: '#/components/schemas/PriorTopologySerial'
           description: |-
             Serial of last ``VettedPackages`` topology transaction of this participant
             and on this synchronizer. Always present.
+          type: integer
+          format: int32
     VettedPackagesChange:
       title: VettedPackagesChange
       description: A change to the set of vetted packages.

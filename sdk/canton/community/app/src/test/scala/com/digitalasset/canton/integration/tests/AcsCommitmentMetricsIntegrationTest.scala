@@ -8,8 +8,8 @@ import com.daml.metrics.MetricsFilterConfig
 import com.daml.metrics.api.MetricQualification
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.SlowCounterParticipantSynchronizerConfig
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, NonNegativeProportion}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.console.{
   LocalParticipantReference,
   LocalSequencerReference,
@@ -79,7 +79,11 @@ trait AcsCommitmentMetricsIntegrationTest
           )
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(Some(NonNegativeProportion.zero), Some(NonNegativeProportion.zero))
+          )
+        )
       )
       .withSetup { implicit env =>
         import env.*

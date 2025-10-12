@@ -5,9 +5,12 @@ package com.digitalasset.canton.integration
 
 import better.files.{File, Resource}
 import cats.syntax.either.*
-import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  StaticSynchronizerParameters,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   CantonConfig,
@@ -17,9 +20,15 @@ import com.digitalasset.canton.config.{
   MonitoringConfig,
   TestingConfigInternal,
 }
-import com.digitalasset.canton.console.{ConsoleEnvironment, InstanceReference, TestConsoleOutput}
+import com.digitalasset.canton.console.{
+  ConsoleEnvironment,
+  InstanceReference,
+  SequencerReference,
+  TestConsoleOutput,
+}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.bootstrap.{
+  InitializedSynchronizer,
   NetworkBootstrapper,
   NetworkTopologyDescription,
 }
@@ -66,6 +75,34 @@ final case class EnvironmentDefinition(
 
   def withManualStart: EnvironmentDefinition =
     copy(baseConfig = baseConfig.focus(_.parameters.manualStart).replace(true))
+
+  def withTrafficControl(
+      trafficControlParameters: TrafficControlParameters =
+        // Give max base traffic by default which is virtually equivalent to unlimited traffic
+        // This works better than topping up members because it works for members not yet connected to the network
+        // as it is not possible to top up unknown members
+        TrafficControlParameters.default.copy(maxBaseTrafficAmount = NonNegativeLong.maxValue)
+  ): EnvironmentDefinition =
+    withSetup { implicit env =>
+      env.initializedSynchronizers.values.foreach {
+        case InitializedSynchronizer(
+              physicalSynchronizerId,
+              _staticSynchronizerParameters,
+              synchronizerOwners,
+            ) =>
+          val allSequencersOfDomain = synchronizerOwners.collect { case seq: SequencerReference =>
+            seq
+          }
+          import env.*
+          allSequencersOfDomain.foreach {
+            _.topology.synchronizer_parameters.propose_update(
+              synchronizerId = physicalSynchronizerId.logical,
+              _.update(trafficControl = Some(trafficControlParameters)),
+              synchronize = Some(environmentTimeouts.default),
+            )
+          }
+      }
+    }
 
   def withSetup(setup: TestConsoleEnvironment => Unit): EnvironmentDefinition =
     copy(setups = setups :+ setup)
