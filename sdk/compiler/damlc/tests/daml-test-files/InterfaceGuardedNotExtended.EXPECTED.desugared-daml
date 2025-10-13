@@ -1,6 +1,7 @@
 module InterfaceGuardedNotExtended where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script
@@ -343,7 +344,9 @@ instance DA.Internal.Desugar.HasToInterface Asset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Asset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 data GHC.Types.DamlTemplate => AnotherAsset
   = AnotherAsset {owner : Party, amount : Int}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -467,7 +470,9 @@ instance DA.Internal.Desugar.HasToInterface AnotherAsset Token where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface AnotherAsset Token where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 _interface_instance$_AnotherAsset_SubToken_AnotherAsset :
   DA.Internal.Desugar.InterfaceInstance AnotherAsset SubToken AnotherAsset
 _interface_instance$_AnotherAsset_SubToken_AnotherAsset
@@ -486,7 +491,9 @@ instance DA.Internal.Desugar.HasToInterface AnotherAsset SubToken where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface AnotherAsset SubToken where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 data DA.Internal.Desugar.DamlException => GuardException
   = GuardException {m : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)

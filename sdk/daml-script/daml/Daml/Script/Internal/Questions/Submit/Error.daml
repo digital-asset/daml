@@ -24,6 +24,8 @@ data UpgradeErrorType
         coid : AnyContractId
         srcTemplateId : TemplateTypeRep
         dstTemplateId : TemplateTypeRep
+        srcPackageName : Text
+        dstPackageName : Text
         originalSignatories : [Party]
         originalObservers : [Party]
         originalKeyOpt : Optional (AnyContractKey, [Party])
@@ -250,11 +252,24 @@ instance Show SubmitError where
 -- | MOVE Daml.Script
 instance Show UpgradeErrorType where
   show err = case err of
-    ValidationFailed coid _srcTemplateId _dstTemplateId originalSignatories originalObservers _originalKeyOpt recomputedSignatories recomputedObservers _recomputedKeyOpt ->
+    (ValidationFailed
+        coid
+        _srcTemplateId
+        _dstTemplateId
+        srcPackageName
+        dstPackageName
+        originalSignatories
+        originalObservers
+        _originalKeyOpt
+        recomputedSignatories
+        recomputedObservers
+        _recomputedKeyOp) ->
       "Validation failed for contract "
           <> show coid
-          <> " (original signatories: " <> show originalSignatories
+          <> " ( original package name: " <> show srcPackageName
+          <> ", original signatories: " <> show originalSignatories
           <> ", original observers: " <> show originalObservers
+          <> ", target package name:" <> show dstPackageName
           <> ", recomputed signatories: " <> show recomputedSignatories
           <> ", recomputed observers: " <> show recomputedObservers <> ")"
     TranslationFailed mCoid _srcTemplateId _dstTemplateId _createArg ->

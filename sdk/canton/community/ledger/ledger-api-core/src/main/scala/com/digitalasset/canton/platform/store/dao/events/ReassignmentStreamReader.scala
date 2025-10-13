@@ -125,21 +125,21 @@ class ReassignmentStreamReader(
         .mapAsync(maxParallelPayloadQueries)(ids =>
           payloadQueriesLimiter.execute {
             globalPayloadQueriesLimiter.execute {
-              dbDispatcher.executeSql(dbMetric) { implicit connection =>
-                queryValidRange.withRangeNotPruned(
-                  minOffsetInclusive = queryRange.startInclusiveOffset,
-                  maxOffsetInclusive = queryRange.endInclusiveOffset,
-                  errorPruning = (prunedOffset: Offset) =>
-                    s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-                  errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
-                    s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
-                        .fold(0L)(_.unwrap)}",
-                ) {
+              queryValidRange.withRangeNotPruned(
+                minOffsetInclusive = queryRange.startInclusiveOffset,
+                maxOffsetInclusive = queryRange.endInclusiveOffset,
+                errorPruning = (prunedOffset: Offset) =>
+                  s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+                errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
+                  s"Reassignment request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
+                      .fold(0L)(_.unwrap)}",
+              ) {
+                dbDispatcher.executeSql(dbMetric)(
                   payloadDbQuery.fetchPayloads(
                     eventSequentialIds = Ids(ids),
                     allFilterParties = filteringConstraints.allFilterParties,
-                  )(connection)
-                }
+                  )
+                )
               }
             }
           }

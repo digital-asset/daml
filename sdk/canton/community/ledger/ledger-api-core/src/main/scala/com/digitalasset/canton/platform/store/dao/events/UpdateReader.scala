@@ -133,50 +133,46 @@ private[dao] final class UpdateReader(
   private def getMaxAcsEventSeqId(activeAt: Offset)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Long] =
-    dispatcher
-      .executeSql(dbMetrics.getAcsEventSeqIdRange)(implicit connection =>
-        queryValidRange.withOffsetNotBeforePruning(
-          offset = activeAt,
-          errorPruning = pruned =>
-            ACSReader.acsBeforePruningErrorReason(
-              acsOffset = activeAt,
-              prunedUpToOffset = pruned,
-            ),
-          errorLedgerEnd = ledgerEnd =>
-            ACSReader.acsAfterLedgerEndErrorReason(
-              acsOffset = activeAt,
-              ledgerEndOffset = ledgerEnd,
-            ),
-        )(
-          eventStorageBackend.maxEventSequentialId(Some(activeAt))(connection)
-        )
+    queryValidRange.withOffsetNotBeforePruning(
+      offset = activeAt,
+      errorPruning = pruned =>
+        ACSReader.acsBeforePruningErrorReason(
+          acsOffset = activeAt,
+          prunedUpToOffset = pruned,
+        ),
+      errorLedgerEnd = ledgerEnd =>
+        ACSReader.acsAfterLedgerEndErrorReason(
+          acsOffset = activeAt,
+          ledgerEndOffset = ledgerEnd,
+        ),
+    )(
+      dispatcher.executeSql(dbMetrics.getAcsEventSeqIdRange)(
+        eventStorageBackend.maxEventSequentialId(Some(activeAt))
       )
+    )
 
   private def getEventSeqIdRange(
       startInclusive: Offset,
       endInclusive: Offset,
   )(implicit loggingContext: LoggingContextWithTrace): Future[EventsRange] =
-    dispatcher
-      .executeSql(dbMetrics.getEventSeqIdRange)(implicit connection =>
-        queryValidRange.withRangeNotPruned(
-          minOffsetInclusive = startInclusive,
-          maxOffsetInclusive = endInclusive,
-          errorPruning = (prunedOffset: Offset) =>
-            s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
-          errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
-            s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
-                .fold(0L)(_.unwrap)}",
-        ) {
-          EventsRange(
-            startInclusiveOffset = startInclusive,
-            startInclusiveEventSeqId =
-              eventStorageBackend.maxEventSequentialId(startInclusive.decrement)(connection),
-            endInclusiveOffset = endInclusive,
-            endInclusiveEventSeqId =
-              eventStorageBackend.maxEventSequentialId(Some(endInclusive))(connection),
-          )
-        }
+    queryValidRange.withRangeNotPruned(
+      minOffsetInclusive = startInclusive,
+      maxOffsetInclusive = endInclusive,
+      errorPruning = (prunedOffset: Offset) =>
+        s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} precedes pruned offset ${prunedOffset.unwrap}",
+      errorLedgerEnd = (ledgerEndOffset: Option[Offset]) =>
+        s"Transactions request from ${startInclusive.unwrap} to ${endInclusive.unwrap} is beyond ledger end offset ${ledgerEndOffset
+            .fold(0L)(_.unwrap)}",
+    )(dispatcher.executeSql(dbMetrics.getEventSeqIdRange) { connection =>
+      EventsRange(
+        startInclusiveOffset = startInclusive,
+        startInclusiveEventSeqId =
+          eventStorageBackend.maxEventSequentialId(startInclusive.decrement)(connection),
+        endInclusiveOffset = endInclusive,
+        endInclusiveEventSeqId =
+          eventStorageBackend.maxEventSequentialId(Some(endInclusive))(connection),
       )
+    })
 
 }
 

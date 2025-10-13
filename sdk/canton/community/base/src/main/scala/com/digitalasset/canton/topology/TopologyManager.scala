@@ -28,7 +28,7 @@ import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKey
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
   IncreaseOfPreparationTimeRecordTimeTolerance,
-  ParticipantTopologyManagerError,
+  InvalidSynchronizerSuccessor,
   ValueOutOfBounds,
 }
 import com.digitalasset.canton.topology.processing.{
@@ -43,6 +43,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.{
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{
+  TimeQuery,
   TopologyStore,
   TopologyStoreId,
   ValidatedTopologyTransaction,
@@ -64,6 +65,7 @@ import com.digitalasset.canton.{LfPackageId, config}
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordered.orderingToOrdered
 
 trait TopologyManagerObserver {
   def addedNewTransactions(
@@ -736,14 +738,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         )
 
         transactionsInStore <- EitherT
-          .liftF(
-            store.findLatestTransactionsAndProposalsByTxHash(
-              transactions.map(_.hash).toSet
-            )
-          )
-        existingHashes = transactionsInStore
-          .map(tx => tx.hash -> tx)
-          .toMap
+          .liftF(store.findLatestTransactionsAndProposalsByTxHash(transactions.map(_.hash).toSet))
+
+        existingHashes = transactionsInStore.map(tx => tx.hash -> tx).toMap
+
         // find transactions that provide new signatures
         (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition {
           tx =>
@@ -833,6 +831,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
 
     case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
+
     case VettedPackages(participantId, newPackages) =>
       checkPackageVettingIsNotDangerous(
         participantId,
@@ -840,6 +839,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         forceChanges,
         transaction.mapping.code,
       )
+
     case PartyToParticipant(partyId, threshold, participants) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
@@ -848,6 +848,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         forceChanges,
         transaction.transaction.operation,
       )
+
+    case upgradeAnnouncement: SynchronizerUpgradeAnnouncement =>
+      if (transaction.operation == TopologyChangeOp.Replace)
+        checkSynchronizerUpgradeAnnouncementIsNotDangerous(upgradeAnnouncement, transaction.serial)
+      else EitherT.pure(())
+
     case _ => EitherT.rightT(())
   }
 
@@ -950,26 +956,55 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
             .getOrElse(Nil)
             .toSet
         }
-      _ <- checkPackageVettingRevocation(currentlyVettedPackages, newPackageIds, forceChanges)
       _ <- checkTransactionIsForCurrentNode(participantId, forceChanges, topologyMappingCode)
       _ <- validatePackageVetting(currentlyVettedPackages, newPackageIds, None, forceChanges)
     } yield ()
 
-  private def checkPackageVettingRevocation(
-      currentlyVettedPackages: Set[LfPackageId],
-      nextPackageIds: Set[LfPackageId],
-      forceChanges: ForceFlags,
+  private def checkSynchronizerUpgradeAnnouncementIsNotDangerous(
+      upgradeAnnouncement: SynchronizerUpgradeAnnouncement,
+      serial: PositiveInt,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = {
-    val removed = currentlyVettedPackages -- nextPackageIds
-    val force = forceChanges.permits(ForceFlag.AllowUnvetPackage)
-    val changeIsDangerous = removed.nonEmpty
-    EitherT.cond(
-      !changeIsDangerous || force,
-      (),
-      ParticipantTopologyManagerError.DangerousVettingCommandsRequireForce.Reject(),
-    )
+
+    val resF = store
+      .inspect(
+        proposals = false,
+        timeQuery = TimeQuery.Range(None, None),
+        asOfExclusiveO = None,
+        op = None,
+        types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
+        idFilter = None,
+        namespaceFilter = None,
+      )
+      .map { result =>
+        result
+          .collectOfMapping[SynchronizerUpgradeAnnouncement]
+          .result
+          .maxByOption(_.serial) match {
+          case None => ().asRight
+
+          case Some(latestUpgradeAnnouncement) =>
+            // If the latest is another upgrade, we want the PSId to be strictly greater
+            if (serial == latestUpgradeAnnouncement.serial)
+              ().asRight
+            else {
+              val previouslyAnnouncedSuccessorPSId =
+                latestUpgradeAnnouncement.mapping.successorSynchronizerId
+
+              Either.cond(
+                previouslyAnnouncedSuccessorPSId < upgradeAnnouncement.successorSynchronizerId,
+                (),
+                InvalidSynchronizerSuccessor.Reject.conflictWithPreviousAnnouncement(
+                  successorSynchronizerId = upgradeAnnouncement.successorSynchronizerId,
+                  previouslyAnnouncedSuccessor = previouslyAnnouncedSuccessorPSId,
+                ),
+              )
+            }
+        }
+      }
+
+    EitherT(resF)
   }
 
   private def checkPartyToParticipantIsNotDangerous(

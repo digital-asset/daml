@@ -35,7 +35,7 @@ class DamlLfEncoderTest
 
     "be readable" in {
 
-      val modules_2_1 = Set[DottedName](
+      val sharedModules = Set[DottedName](
         "UnitMod",
         "BoolMod",
         "Int64Mod",
@@ -60,7 +60,9 @@ class DamlLfEncoderTest
         "TextMapMod",
         "LedgerTimeMod",
       )
-      val modules_2_dev = modules_2_1 ++ Set[DottedName](
+      val modules_2_1 = sharedModules ++ Set[DottedName]("InterfaceUnsafeFromMod")
+      val modules_2_2 = sharedModules
+      val modules_2_dev = sharedModules ++ Set[DottedName](
         "BigNumericMod",
         "InterfaceExtMod",
         "TemplateWithKeyMod",
@@ -100,6 +102,7 @@ class DamlLfEncoderTest
       val versions = Table(
         "versions" -> "modules",
         "2.1" -> modules_2_1,
+        "2.2" -> modules_2_2,
         "2.dev" -> modules_2_dev,
       )
 

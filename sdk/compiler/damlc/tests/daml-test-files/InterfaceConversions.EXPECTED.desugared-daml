@@ -1,6 +1,7 @@
 module InterfaceConversions where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script
@@ -338,7 +339,9 @@ instance DA.Internal.Desugar.HasToInterface Template1 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template1 Iface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 data GHC.Types.DamlTemplate => Template2
   = Template2 {owner2 : Party, value2 : Text}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -440,7 +443,9 @@ instance DA.Internal.Desugar.HasToInterface Template2 Iface where
   _toInterface = GHC.Types.primitive @"EToInterface"
 instance DA.Internal.Desugar.HasFromInterface Template2 Iface where
   fromInterface = GHC.Types.primitive @"EFromInterface"
-  unsafeFromInterface = GHC.Types.primitive @"EUnsafeFromInterface"
+  unsafeFromInterface
+    = GHC.Err.error
+        "unsafeFromInterface is not supported anymore, use fromInterface instead"
 useActionFrom :
   Party -> (ContractId Template2 -> Update ()) -> Update ()
 useActionFrom p action

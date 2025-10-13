@@ -357,7 +357,6 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       participant1.id,
       store = daId,
       packages = packageIds,
-      force = ForceFlags(ForceFlag.AllowUnvetPackage),
       operation = TopologyChangeOp.Remove,
     )
     val result = participant1.topology.vetted_packages
@@ -381,7 +380,6 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       participant1.id,
       store = daId,
       packages = Seq.empty,
-      force = ForceFlag.AllowUnvetPackage,
     )
     val packageIds4 = participant1.topology.vetted_packages
       .list(store = daId, filterParticipant = participant1.filterString)
@@ -442,7 +440,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       participant1.id,
       store = daId,
       removes = startingPackages,
-      force = ForceFlags(ForceFlag.AllowUnvetPackage, ForceFlag.AllowUnvettedDependencies),
+      force = ForceFlags(ForceFlag.AllowUnvettedDependencies),
     )
 
     val removedPackagesResult = getVettedPackages()
@@ -459,7 +457,6 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
           store = daId,
           adds = VettedPackage.unbounded(startingPackages),
           removes = startingPackages,
-          force = ForceFlags(ForceFlag.AllowUnvetPackage),
         )
       )
       .getMessage should include("Cannot both add and remove a packageId: ")

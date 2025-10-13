@@ -49,7 +49,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         val metadata: PackageMetadata = {
           if (!lfPackage.hasMetadata)
-            throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.$minor")
+            throw Error.Parsing(s"Package.metadata is required in Daml-LF 2.${minor.identifier}")
           decodePackageMetadata(lfPackage.getMetadata, internedStrings)
         }
 
@@ -73,20 +73,23 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
         val env = env2.copy(internedExprs = internedExprs)
 
+        val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
+
+        val directDeps = dependencyTracker.getDependencies
+
         val packageImports = imports match {
           case Right(xs) =>
             DeclaredImports(pkgIds = xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
           case Left(str) =>
             GeneratedImports(
               reason = str,
-              pkgIds = dependencyTracker.getDependencies.diff(Set.from(stableIds)),
+              pkgIds = directDeps.diff(Set.from(stableIds)),
             )
         }
 
-        val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
         Package.build(
           modules = modules,
-          directDeps = dependencyTracker.getDependencies,
+          directDeps = directDeps,
           languageVersion = languageVersion,
           metadata = metadata,
           imports = packageImports,
@@ -1237,6 +1240,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
+          assertUntil(LV.Features.unsafeFromInterfaceRemoved, "Expr.unsafe_from_interface")
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
           val interfaceId = decodeTypeConId(unsafeFromInterface.getInterfaceType)
           val templateId = decodeTypeConId(unsafeFromInterface.getTemplateType)
@@ -1626,7 +1630,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     BLNumeric(eitherToParseError(Numeric.fromString(s)))
 
   private[this] def notSupportedError(description: String): Error.Parsing =
-    Error.Parsing(s"$description is not supported by Daml-LF 2.$minor")
+    Error.Parsing(s"$description is not supported by Daml-LF 2.${minor.identifier}")
 
   // maxVersion excluded
   private[this] def assertUntil(maxVersion: LV, description: => String): Unit =

@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, TypeConId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
@@ -406,6 +407,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       globalContractSignatories: Iterable[Ref.Party],
       globalContractObservers: Iterable[Ref.Party],
       globalContractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
+      hashingMethod: ContractId => Hash.HashingMethod,
   ): Either[SError, Success] = {
 
     val pkgs = PureCompiledPackages.assertBuild(availablePackages, compilerConfig)
@@ -433,6 +435,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               globalContractKeyWithMaintainers,
             )
         ),
+        hashingMethod = hashingMethod,
       )
       .map(sv => (sv, sv.toNormalizedValue))
   }
@@ -537,6 +540,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             globalContractSignatories = List(alice),
             globalContractObservers = List(bob),
             globalContractKeyWithMaintainers = Some(v_missingFieldKey),
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
           )
         ) { case Right((sv, v)) =>
           sv shouldBe sv_extendedWithNone
@@ -571,6 +575,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractSignatories = List(alice),
           globalContractObservers = List.empty,
           globalContractKeyWithMaintainers = Some(v_missingFieldKey),
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         )
       ) {
         case Left(
@@ -604,7 +609,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueParty(alice),
           ValueParty(bob),
           ValueInt64(100),
-          ValueOptional(None),
         )
       def key(templateId: Ref.TypeConId) = GlobalKeyWithMaintainers.assertBuild(
         templateId,
@@ -641,6 +645,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractSignatories = List(alice),
           globalContractObservers = List(bob),
           globalContractKeyWithMaintainers = Some(key(i"'-pkg2-':M:T")),
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         ) shouldBe a[
           Right[_, _]
         ]
@@ -659,6 +664,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               globalContractSignatories = List(alice),
               globalContractObservers = List(bob),
               globalContractKeyWithMaintainers = Some(key(tyCon)),
+              hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
             )
           ) { case Left(SError.SErrorDamlException(error)) =>
             error shouldBe a[IE.WronglyTypedContract]
@@ -685,6 +691,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractSignatories = List(alice),
           globalContractObservers = List.empty,
           globalContractKeyWithMaintainers = None,
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         )
       ) {
         case Left(
@@ -697,6 +704,71 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           srcTemplateId shouldBe i"'-pkg0-':M:T"
           dstTemplateId shouldBe i"'-pkg5-':M:T"
           createArg shouldBe makeRecord(ValueParty(alice), ValueParty(alice), ValueInt64(42))
+      }
+    }
+
+    "inconsistent packageName in FatContractInstance -- should be rejected" in {
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId0 -> pkg0,
+          pkgId1 -> pkg1,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+        ),
+      )
+
+      val wrongPackageName = Ref.PackageName.assertFromString("wrong")
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        inside(
+          go(
+            e"'-pkg1-':M:do_fetch",
+            // We cannot test the case where the creation package is unavailable because this test case tests the upgrade
+            // of a local contract, which requires the creation package in order to be created.
+            availablePackages = availablePackages,
+            globalContractPackageName = wrongPackageName,
+            globalContractTemplateId = i"'-pkg0-':M:T",
+            globalContractArg = v1_base,
+            globalContractSignatories = List(alice),
+            globalContractObservers = List.empty,
+            globalContractKeyWithMaintainers = None,
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
+          )
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Upgrade(
+                    IE.Upgrade.ValidationFailed(
+                      coid,
+                      srcTemplateId,
+                      dstTemplateId,
+                      srcPackageName,
+                      dstPackageName,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                      _,
+                    )
+                  )
+                )
+              ) =>
+            coid shouldBe theCid
+            srcTemplateId shouldBe i"'-pkg0-':M:T"
+            dstTemplateId shouldBe i"'-pkg1-':M:T"
+            srcPackageName shouldBe wrongPackageName
+            dstPackageName shouldBe pkg1.pkgName
+        }
       }
     }
   }
@@ -733,6 +805,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             globalContractSignatories = List(alice),
             globalContractObservers = List(bob),
             globalContractKeyWithMaintainers = Some(v2_key),
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
           )
 
         inside(res) { case Right((_, v)) =>
@@ -774,6 +847,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractSignatories = List(alice),
           globalContractObservers = List(bob),
           globalContractKeyWithMaintainers = Some(v1_extraTextKey),
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         )
 
       inside(res) {
@@ -844,7 +918,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractArg = v1_extraSome,
           globalContractSignatories = List(alice),
           globalContractObservers = List(bob),
-          Some(v1_extraSomeKey),
+          globalContractKeyWithMaintainers = Some(v1_extraSomeKey),
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         )
 
         inside(res) {
@@ -874,7 +949,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "extra field (None) - OK, downgrade allowed" in {
+    "extra field (None) - OK, downgrade allowed with legacy contracts" in {
 
       val v1_extraNone =
         makeRecord(
@@ -918,10 +993,89 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             globalContractSignatories = List(alice),
             globalContractObservers = List(bob),
             globalContractKeyWithMaintainers = Some(v1_extraNoneKey),
+            hashingMethod = _ => Hash.HashingMethod.Legacy,
           )
 
         inside(res) { case Right((_, v)) =>
           v shouldBe v1_base
+        }
+      }
+    }
+
+    "extra field (None) -- should be rejected for >v10 contracts" in {
+
+      val v1_extraNone =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+          Value.ValueOptional(None),
+        )
+      val v1_extraNoneKey = GlobalKeyWithMaintainers.assertBuild(
+        i"'-pkg3-':M:T",
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
+
+      val availablePackagesCases = Table(
+        "availablePackages",
+        // with creation package available
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+          pkgId3 -> pkg3,
+        ),
+        // with creation package unavailable
+        Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          pkgId1 -> pkg1,
+        ),
+      )
+
+      val gtV10HahsingMethods = Table(
+        "hashingMethod",
+        Hash.HashingMethod.UpgradeFriendly,
+        Hash.HashingMethod.TypedNormalForm,
+      )
+
+      forEvery(availablePackagesCases) { availablePackages =>
+        forEvery(gtV10HahsingMethods) { hashingMethod =>
+          val res =
+            go(
+              e"'-pkg1-':M:do_fetch",
+              availablePackages = availablePackages,
+              globalContractPackageName = pkgName,
+              globalContractTemplateId = i"'-pkg3-':M:T",
+              globalContractArg = v1_extraNone,
+              globalContractSignatories = List(alice),
+              globalContractObservers = List(bob),
+              globalContractKeyWithMaintainers = Some(v1_extraNoneKey),
+              hashingMethod = _ => hashingMethod,
+            )
+
+          inside(res) {
+            case Left(
+                  SError.SErrorDamlException(
+                    IE.Upgrade(
+                      IE.Upgrade.TranslationFailed(
+                        Some(coid),
+                        srcTemplateId,
+                        dstTemplateId,
+                        createArg,
+                        error,
+                      )
+                    )
+                  )
+                ) =>
+              coid shouldBe theCid
+              srcTemplateId shouldBe i"'-pkg3-':M:T"
+              dstTemplateId shouldBe i"'-pkg1-':M:T"
+              createArg shouldBe v1_extraNone
+              error shouldBe a[IE.Upgrade.TranslationFailed.InvalidValue]
+          }
         }
       }
     }
@@ -960,6 +1114,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             globalContractSignatories = List(alice),
             globalContractObservers = List(bob),
             globalContractKeyWithMaintainers = None,
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
           )
         ) {
           case Left(
@@ -1018,6 +1173,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             globalContractSignatories = List(alice),
             globalContractObservers = List(bob),
             globalContractKeyWithMaintainers = None,
+            hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
           )
         ) {
           case Left(
@@ -1081,6 +1237,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractSignatories = List(alice),
           globalContractObservers = List(bob),
           globalContractKeyWithMaintainers = Some(v1_key),
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         )
         res shouldBe a[Right[_, _]]
       }
@@ -1284,6 +1441,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           globalContractSignatories = List(alice),
           globalContractObservers = List(bob),
           globalContractKeyWithMaintainers = Some(v1_key),
+          hashingMethod = _ => Hash.HashingMethod.TypedNormalForm,
         )
         res shouldBe a[Right[_, _]]
       }

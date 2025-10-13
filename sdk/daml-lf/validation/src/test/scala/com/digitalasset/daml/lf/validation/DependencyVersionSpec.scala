@@ -16,6 +16,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
 
   private[this] val v2_1 = LV(LV.Major.V2, LV.Minor("1"))
+  private[this] val v2_2 = LV(LV.Major.V2, LV.Minor("2"))
   private[this] val v2_dev = LV(LV.Major.V2, LV.Minor("dev"))
   private[this] val A = (PackageId.assertFromString("-pkg1-"), DottedName.assertFromString("A"))
   private[this] val B = (PackageId.assertFromString("-pkg2-"), DottedName.assertFromString("B"))
@@ -64,12 +65,16 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
 
     val negativeTestCases = Table(
       "valid packages",
-      Map(pkg(A, v2_dev, A, B, E), pkg(B, v2_1, B, E), pkg(E, v2_1, E)),
+      Map(pkg(A, v2_dev, A, B, E), pkg(B, v2_2, B, E), pkg(E, v2_1, E)),
       Map(pkg(A, v2_dev, A, B, E), pkg(B, v2_dev, B, E), pkg(E, v2_1, E)),
+      Map(pkg(A, v2_2, A, B, E), pkg(B, v2_2, B, E), pkg(E, v2_1, E)),
     )
 
     val postiveTestCase = Table(
       ("invalid module", "packages"),
+      A -> Map(pkg(A, v2_1, A, B), pkg(B, v2_2, B)),
+      A -> Map(pkg(A, v2_1, A, B), pkg(B, v2_dev, B)),
+      A -> Map(pkg(A, v2_2, A, B), pkg(B, v2_dev, B)),
       A -> Map(pkg(A, v2_1, A, B, E), pkg(B, v2_dev, B, E), pkg(E, v2_1, E)),
       A -> Map(pkg(A, v2_1, A, B, E), pkg(B, v2_1, B, E), pkg(E, v2_dev, E)),
       B -> Map(pkg(A, v2_dev, A, B, E), pkg(B, v2_1, B, E), pkg(E, v2_dev, E)),

@@ -854,6 +854,12 @@ Data Types
        * - dstTemplateId
          - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
          -
+       * - srcPackageName
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - dstPackageName
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
        * - originalSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -

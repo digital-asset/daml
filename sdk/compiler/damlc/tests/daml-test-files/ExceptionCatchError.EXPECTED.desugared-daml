@@ -1,6 +1,7 @@
 module ExceptionCatchError where
 import (implicit) qualified DA.Internal.Record
 import (implicit) qualified GHC.Types
+import (implicit) qualified GHC.Err
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script

@@ -8,7 +8,9 @@ import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape
+import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -26,6 +28,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTransaction
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 import com.digitalasset.canton.platform.{InternalTransactionFormat, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,6 +38,7 @@ final class TransactionPointwiseReader(
     val eventStorageBackend: EventStorageBackend,
     val metrics: LedgerApiServerMetrics,
     val lfValueTranslation: LfValueTranslation,
+    val queryValidRange: QueryValidRange,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -149,24 +153,26 @@ final class TransactionPointwiseReader(
       templatePartiesFilter: TemplatePartiesFilter,
       deserializeEntry: Entry[T] => Future[Entry[Event]],
       timer: MetricHandle.Timer,
-  ): Future[Seq[Entry[Event]]] =
-    for {
-      // Fetching all events from the event sequential id range
-      rawEvents <- fetchRawEvents
+  )(implicit traceContext: TraceContext): Future[Seq[Entry[Event]]] =
+    // Fetching all events from the event sequential id range
+    fetchRawEvents
       // Filtering by template filters
-      filteredRawEvents = UpdateReader.filterRawEvents(templatePartiesFilter)(rawEvents)
-      // Deserialization of lf values
-      deserialized <- Timed.future(
-        timer = timer,
-        future = Future.delegate {
-          implicit val ec: ExecutionContext =
-            directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
-          MonadUtil.sequentialTraverse(filteredRawEvents)(deserializeEntry)
-        },
+      .map(UpdateReader.filterRawEvents(templatePartiesFilter))
+      // Checking if events are not pruned
+      .flatMap(
+        queryValidRange.filterPrunedEvents[Entry[T]](entry => Offset.tryFromLong(entry.offset))
       )
-    } yield {
-      deserialized
-    }
+      // Deserialization of lf values
+      .flatMap(rawEventsPruned =>
+        Timed.future(
+          timer = timer,
+          future = Future.delegate {
+            implicit val ec: ExecutionContext =
+              directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
+            MonadUtil.sequentialTraverse(rawEventsPruned)(deserializeEntry)
+          },
+        )
+      )
 
   def lookupTransactionBy(
       eventSeqIdRange: (Long, Long),

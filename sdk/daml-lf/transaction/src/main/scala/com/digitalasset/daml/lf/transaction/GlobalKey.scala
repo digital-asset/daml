@@ -78,7 +78,8 @@ final case class GlobalKeyWithMaintainers(
 
   def nonVerbose: GlobalKeyWithMaintainers =
     GlobalKeyWithMaintainers(
-      GlobalKey.assertWithRenormalizedValue(globalKey, globalKey.key.nonVerbose),
+      GlobalKey
+        .assertWithRenormalizedValue(globalKey, globalKey.key.nonVerboseWithoutTrailingNones),
       maintainers,
     )
 }

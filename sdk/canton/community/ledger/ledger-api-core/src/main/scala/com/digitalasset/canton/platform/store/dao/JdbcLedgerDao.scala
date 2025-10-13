@@ -62,7 +62,9 @@ private class JdbcLedgerDao(
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
-) extends LedgerReadDao
+    pruningOffsetService: PruningOffsetService,
+)(implicit ec: ExecutionContext)
+    extends LedgerReadDao
     with LedgerWriteDaoForTests
     with NamedLogging {
 
@@ -120,7 +122,7 @@ private class JdbcLedgerDao(
             party = partyDetails.party,
             // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
             // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
-            // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
+            // the `isLocal = False` information to be transmitted via a `PartyAddedToParticipant` `Update`.
             //
             // This will be properly resolved once we move away from the `sandbox-classic` codebase.
             participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
@@ -224,11 +226,13 @@ private class JdbcLedgerDao(
   override def pruningOffset(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[Offset]] =
-    dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics)(
-      parameterStorageBackend.prunedUpToInclusive
-    )
+    pruningOffsetService.pruningOffset
 
-  private val queryValidRange = QueryValidRangeImpl(parameterStorageBackend, loggerFactory)
+  private val queryValidRange = QueryValidRangeImpl(
+    ledgerEndCache = ledgerEndCache,
+    pruningOffsetService = pruningOffsetService,
+    loggerFactory = loggerFactory,
+  )
 
   private val globalIdQueriesLimiter = new QueueBasedConcurrencyLimiter(
     parallelism = globalMaxEventIdQueries,
@@ -295,6 +299,7 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
+    queryValidRange = queryValidRange,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -303,6 +308,7 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
+    queryValidRange = queryValidRange,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -311,6 +317,7 @@ private class JdbcLedgerDao(
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
     lfValueTranslation = translation,
+    queryValidRange = queryValidRange,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -464,7 +471,8 @@ private[platform] object JdbcLedgerDao {
       ) => FutureUnlessShutdown[Vector[Offset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
-  ): LedgerReadDao =
+      pruningOffsetService: PruningOffsetService,
+  )(implicit ec: ExecutionContext): LedgerReadDao =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
       queryExecutionContext = queryExecutionContext,
@@ -487,6 +495,7 @@ private[platform] object JdbcLedgerDao {
       incompleteOffsets = incompleteOffsets,
       contractLoader = contractLoader,
       translation = lfValueTranslation,
+      pruningOffsetService = pruningOffsetService,
     )
 
   def writeForTests(
@@ -506,7 +515,8 @@ private[platform] object JdbcLedgerDao {
       loggerFactory: NamedLoggerFactory,
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
-  ): LedgerReadDao with LedgerWriteDaoForTests =
+      pruningOffsetService: PruningOffsetService,
+  )(implicit ec: ExecutionContext): LedgerReadDao with LedgerWriteDaoForTests =
     new JdbcLedgerDao(
       dbDispatcher = dbSupport.dbDispatcher,
       queryExecutionContext = servicesExecutionContext,
@@ -529,6 +539,7 @@ private[platform] object JdbcLedgerDao {
       incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),
       contractLoader = contractLoader,
       translation = lfValueTranslation,
+      pruningOffsetService = pruningOffsetService,
     )
 
   val acceptType = "accept"

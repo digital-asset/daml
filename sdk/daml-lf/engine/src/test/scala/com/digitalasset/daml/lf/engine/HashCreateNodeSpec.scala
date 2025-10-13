@@ -36,7 +36,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
   val pkg = {
     p""" metadata ( 'test-pkg' : '1.0.0' )
         module M {
-          record @serializable T = { p: Party, cid : ContractId M:T };
+          record @serializable T = { p: Party, cid : ContractId M:T, trailer : Option Int64 };
           template (this : T) = {
             precondition True;
             signatories Cons @Party [M:T {p} this] (Nil @Party);
@@ -63,11 +63,20 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
       None,
       ImmArray(None -> V.ValueParty(alice), None -> V.ValueContractId(cidInContractArg)),
     )
-  val createNode = Node.Create(
+  def createArgWithTrailingNone(cidInContractArg: V.ContractId) =
+    V.ValueRecord(
+      None,
+      ImmArray(
+        None -> V.ValueParty(alice),
+        None -> V.ValueContractId(cidInContractArg),
+        None -> V.ValueOptional(None),
+      ),
+    )
+  def createNode(arg: V) = Node.Create(
     coid = TransactionBuilder.newCid,
     packageName = Ref.PackageName.assertFromString("-test-pkg-"),
     templateId = Ref.Identifier(pkgId, Ref.QualifiedName.assertFromString("M:T")),
-    arg = createArg(cid0),
+    arg = arg,
     signatories = Set(alice),
     stakeholders = Set(alice),
     keyOpt = None,
@@ -88,7 +97,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
         .value
 
       newEngine
-        .hashCreateNode(createNode, cidMapping, HashingMethod.Legacy)
+        .hashCreateNode(createNode(createArg(cid0)), cidMapping, HashingMethod.Legacy)
         .consume() shouldBe Right(
         expectedHash
       )
@@ -105,7 +114,7 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
         .value
 
       newEngine
-        .hashCreateNode(createNode, cidMapping, HashingMethod.UpgradeFriendly)
+        .hashCreateNode(createNode(createArg(cid0)), cidMapping, HashingMethod.UpgradeFriendly)
         .consume() shouldBe Right(
         expectedHash
       )
@@ -125,14 +134,24 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
         .value
 
       newEngine
-        .hashCreateNode(createNode, cidMapping, HashingMethod.TypedNormalForm)
+        .hashCreateNode(createNode(createArg(cid0)), cidMapping, HashingMethod.TypedNormalForm)
         .consume(pkgs = Map(pkgId -> pkg)) shouldBe Right(expectedHash)
     }
 
     "ill-typed contract is reported as a SResultError" in {
       newEngine
         .hashCreateNode(
-          createNode.copy(arg = V.ValueUnit),
+          createNode(createArg(cid0)).copy(arg = V.ValueUnit),
+          cidMapping,
+          HashingMethod.TypedNormalForm,
+        )
+        .consume(pkgs = Map(pkgId -> pkg)) shouldBe a[Left[_, _]]
+    }
+
+    "contract with trailing nones is reported as a SResultError" in {
+      newEngine
+        .hashCreateNode(
+          createNode(createArgWithTrailingNone(cid0)),
           cidMapping,
           HashingMethod.TypedNormalForm,
         )
@@ -141,7 +160,11 @@ class HashCreateNodeSpec(majorLanguageVersion: LanguageMajorVersion)
 
     "missing package is reported as a SResultError" in {
       newEngine
-        .hashCreateNode(createNode, cidMapping, HashingMethod.TypedNormalForm)
+        .hashCreateNode(
+          createNode(createArg(cid0)),
+          cidMapping,
+          HashingMethod.TypedNormalForm,
+        )
         .consume(pkgs = Map.empty) shouldBe a[Left[_, _]]
     }
   }

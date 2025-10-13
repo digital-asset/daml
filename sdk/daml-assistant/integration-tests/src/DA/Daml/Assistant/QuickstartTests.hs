@@ -82,6 +82,7 @@ quickSandbox projDir = do
                         , "--sequencer-public-port", show $ sequencerPublic ports
                         , "--sequencer-admin-port", show $ sequencerAdmin ports
                         , "--mediator-admin-port", show $ mediatorAdmin ports
+                        , "--json-api-port", show $ jsonApi ports
                         , "--port-file", portFile
                         , "--dar", darFile
                         , "--static-time"

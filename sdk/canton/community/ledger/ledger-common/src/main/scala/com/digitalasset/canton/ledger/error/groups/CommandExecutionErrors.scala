@@ -3,7 +3,16 @@
 
 package com.digitalasset.canton.ledger.error.groups
 
-import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, ErrorCategory, ErrorCategoryRetry, ErrorCode, ErrorGroup, ErrorResource, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  DamlErrorWithDefiniteAnswer,
+  ErrorCategory,
+  ErrorCategoryRetry,
+  ErrorCode,
+  ErrorGroup,
+  ErrorResource,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.CommandExecutionErrorGroup
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -12,7 +21,11 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Reference}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, SerializationVersion, GlobalKeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  SerializationVersion,
+}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.digitalasset.daml.lf.{VersionRange, language}
@@ -847,7 +860,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     object UpgradeError extends ErrorGroup {
       @Explanation("Validation fails when trying to upgrade the contract")
       @Resolution(
-        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+        "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers, nor the package name have changed"
       )
       object ValidationFailed
           extends ErrorCode(
@@ -864,24 +877,37 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             ) {
 
           override def resources: Seq[(ErrorResource, String)] = {
-            def optKeyResources(keyOpt: Option[GlobalKeyWithMaintainers]): Seq[(ErrorResource, String)] =
+            def optKeyResources(
+                keyOpt: Option[GlobalKeyWithMaintainers]
+            ): Seq[(ErrorResource, String)] =
               Seq(
-                (ErrorResource.ContractKey.nullable, keyOpt.flatMap(key => tryEncodeValue(key.globalKey.key)).getOrElse("NULL")),
-                (ErrorResource.PackageName.nullable, keyOpt.map(_.globalKey.packageName).getOrElse("NULL")),
-                (ErrorResource.Parties.nullable, keyOpt.map(_.maintainers.mkString(",")).getOrElse("NULL"))
+                (
+                  ErrorResource.ContractKey.nullable,
+                  keyOpt.flatMap(key => tryEncodeValue(key.globalKey.key)).getOrElse("NULL"),
+                ),
+                (
+                  ErrorResource.PackageName.nullable,
+                  keyOpt.map(_.globalKey.packageName).getOrElse("NULL"),
+                ),
+                (
+                  ErrorResource.Parties.nullable,
+                  keyOpt.map(_.maintainers.mkString(",")).getOrElse("NULL"),
+                ),
               )
 
             Seq(
               (ErrorResource.ContractId, err.coid.coid),
               (ErrorResource.TemplateId, err.srcTemplateId.toString),
               (ErrorResource.TemplateId, err.dstTemplateId.toString),
+              (ErrorResource.PackageName, err.srcPackageName),
+              (ErrorResource.PackageName, err.dstPackageName),
             )
-            ++ encodeParties(err.originalSignatories)
-            ++ encodeParties(err.originalObservers)
-            ++ optKeyResources(err.originalKeyOpt)
-            ++ encodeParties(err.recomputedSignatories)
-            ++ encodeParties(err.recomputedObservers)
-            ++ optKeyResources(err.recomputedKeyOpt)
+              ++ encodeParties(err.originalSignatories)
+              ++ encodeParties(err.originalObservers)
+              ++ optKeyResources(err.originalKeyOpt)
+              ++ encodeParties(err.recomputedSignatories)
+              ++ encodeParties(err.recomputedObservers)
+              ++ optKeyResources(err.recomputedKeyOpt)
           }
         }
       }

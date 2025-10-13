@@ -20,8 +20,8 @@ Upgrades are covered in their own section outside this introduction to Daml: :re
 
 Since we are extending :doc:`compose`, the setup for this chapter is slightly more complex:
 
-#. In a base directory, load the :doc:`compose` project using ``daml new intro-compose  --template daml-intro-compose``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
-#. In the same directory, load this chapter's project using ``daml new intro-9  --template daml-intro-9``.
+#. In a base directory, load the :doc:`compose` project using ``dpm new intro-compose  --template daml-intro-compose``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
+#. In the same directory, load this chapter's project using ``dpm new intro-9  --template daml-intro-9``.
 
 ``Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 
@@ -33,8 +33,8 @@ In :doc:`compose` you already learnt a little about projects, Daml-LF, DAR files
 Let's have a look inside the DAR file of :doc:`compose`. DAR files, like Java JAR files, are just ZIP archives, but the SDK also has a utility to inspect DARs out of the box:
 
 #. Navigate into the ``intro7`` directory.
-#. Build using ``daml build -o assets.dar``
-#. Run ``daml damlc inspect-dar assets.dar``
+#. Build using ``dpm build -o assets.dar``
+#. Run ``dpm damlc inspect-dar assets.dar``
 
 You'll get a whole lot of output. Under the header "DAR archive contains the following files:" you'll see that the DAR contains:
 
@@ -53,13 +53,33 @@ Under the heading "DAR archive contains the following packages:" you get a simil
 We can see this in action. When a DAR file gets deployed to a ledger, not all meta information is preserved.
 
 #. Note down your main package hash from running ``inspect-dar`` above
-#. Start the project using ``daml start``
-#. Open a second terminal and run ``daml ledger fetch-dar --host localhost --port 6865 --main-package-id "887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625" -o assets_ledger.dar``, making sure to replace the hash with the appropriate one.
-#. Run ``daml damlc inspect-dar assets_ledger.dar``
+#. Start the project by running a ledger and uploading the `assets.dar` DAR: 
+
+.. code:: shell
+  
+  cat <<EOF
+  canton.parameters.enable-alpha-state-via-config = yes
+  canton.parameters.state-refresh-interval = 5s
+  canton.participants.sandbox.alpha-dynamic.dars = [
+    { location = "./assets.dar" }
+  ]
+  EOF > config.conf
+
+  dpm sandbox -c config.conf
+
+#. Open another terminal and use the gRPC Ledger API to download the dar,  making sure to replace the hash with the appropriate one
+
+.. code:: shell
+  
+  grpcurl  localhost:6866 com.digitalasset.canton.admin.participant.v30.PackageService.GetDar \
+    -d '{"mainPackageId": "887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625"}' \
+    -plaintext | jq -r '.payload' | base64 --decode > assets_ledger.dar
+  
+#. Run ``dpm damlc inspect-dar assets_ledger.dar``
 
 You'll notice two things. Firstly, a lot of the dependencies have lost their names, they are now only identifiable by hash. We could of course also create a second project ``intro7-1.0.0`` with completely different contents so even when name and version are available, package hash is the only safe identifier.
 
-That's why over the Ledger API, all types, like templates and records are identified by the triple ``(entity name, module name, package hash)``. Your client application should know the package hashes it wants to interact with. To aid that, ``inspect-dar`` also provides a machine-readable format for the information it emits: ``daml damlc inspect-dar --json assets_ledger.dar``. The ``main_package_id`` field in the resulting JSON payload is the package hash of our project.
+That's why over the Ledger API, all types, like templates and records are identified by the triple ``(entity name, module name, package hash)``. Your client application should know the package hashes it wants to interact with. To aid that, ``inspect-dar`` also provides a machine-readable format for the information it emits: ``dpm damlc inspect-dar --json assets_ledger.dar``. The ``main_package_id`` field in the resulting JSON payload is the package hash of our project.
 
 Secondly, you'll notice that all the ``*.daml``, ``*.hi`` and ``*.hie`` files are gone. This leads us to data dependencies.
 
@@ -79,7 +99,7 @@ For an extension model like this one,``data-dependencies`` are appropriate, so t
       :start-after:   - daml-stdlib
       :end-before: sandbox-options:
 
-You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`compose` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using ``daml ledger fetch-dar`` contains test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
+You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`compose` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using the Ledger API to contain test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
 
 .. _project-structures:
 
