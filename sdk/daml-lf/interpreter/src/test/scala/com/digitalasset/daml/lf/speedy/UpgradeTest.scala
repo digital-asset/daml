@@ -374,6 +374,64 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
+  // A package defining a template which has a contract ID in the create argument.
+  lazy val cidInCreateArgPkgId1 = Ref.PackageId.assertFromString("-cid-in-create-arg-pkg1-")
+  private lazy val cidInCreateArgPkg1 = {
+    implicit def pkgId: Ref.PackageId = cidInCreateArgPkgId1
+    p""" metadata ( '-upgrade-test-cid-in-create-arg-' : '1.0.0' )
+    module M {
+
+      record @serializable U = { sig: Party };
+      template (this: U) = {
+        precondition True;
+        signatories '-util-':M:mkList (M:U {sig} this) (None @Party);
+        observers Nil @Party;
+      };
+
+      record @serializable T = { sig: Party, cid: ContractId M:U };
+      template (this: T) = {
+        precondition True;
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers Nil @Party;
+
+        implements '-iface-':M:Iface {
+          view = '-iface-':M:MyUnit {};
+          method myChoice = "myChoice v1";
+        };
+      };
+    }
+    """
+  }
+
+  // A valid upgrade of cidInCreateArgPkg2
+  lazy val cidInCreateArgPkgId2 = Ref.PackageId.assertFromString("-cid-in-create-arg-pkg2-")
+  private lazy val cidInCreateArgPkg2 = {
+    implicit def pkgId: Ref.PackageId = cidInCreateArgPkgId2
+    p""" metadata ( '-upgrade-test-cid-in-create-arg-' : '2.0.0' )
+    module M {
+
+      record @serializable U = { sig: Party };
+      template (this: U) = {
+        precondition True;
+        signatories '-util-':M:mkList (M:U {sig} this) (None @Party);
+        observers Nil @Party;
+      };
+
+      record @serializable T = { sig: Party, cid: ContractId M:U, extra : Option Int64 };
+      template (this: T) = {
+        precondition True;
+        signatories '-util-':M:mkList (M:T {sig} this) (None @Party);
+        observers Nil @Party;
+
+        implements '-iface-':M:Iface {
+          view = '-iface-':M:MyUnit {};
+          method myChoice = "myChoice v2";
+        };
+      };
+    }
+    """
+  }
+
   val pkgName = {
     assert(
       pkg1.pkgName == pkg2.pkgName && pkg2.pkgName == pkg3.pkgName && pkg3.pkgName == pkg4.pkgName
@@ -1264,6 +1322,60 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
+    "be able to fetch a locally created contract with a contract ID in its create argument using different versions" in {
+      val res = go(
+        e"""ubind
+              ucid: ContractId '-cid-in-create-arg-pkg1-':M:U <- create
+                 @'-cid-in-create-arg-pkg1-':M:U
+                 ('-cid-in-create-arg-pkg1-':M:T { sig = '-util-':M:mkParty "alice" });
+              cid: ContractId '-cid-in-create-arg-pkg1-':M:T <- create
+                 @'-cid-in-create-arg-pkg1-':M:T
+                 ('-cid-in-create-arg-pkg1-':M:T { sig = '-util-':M:mkParty "alice", cid = ucid })
+            in fetch_template
+                 @'-cid-in-create-arg-pkg2-':M:T
+                 (COERCE_CONTRACT_ID @'-cid-in-create-arg-pkg1-':M:T @'-cid-in-create-arg-pkg2-':M:T cid)
+          """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          cidInCreateArgPkgId1 -> cidInCreateArgPkg1,
+          cidInCreateArgPkgId2 -> cidInCreateArgPkg2,
+        ),
+      )
+      res shouldBe a[Right[_, _]]
+    }
+
+    "be able to fetch by interface a locally created contract with a contract ID in its create argument using different versions" in {
+      val res = go(
+        e"""ubind
+              ucid: ContractId '-cid-in-create-arg-pkg1-':M:U <- create
+                 @'-cid-in-create-arg-pkg1-':M:U
+                 ('-cid-in-create-arg-pkg1-':M:T { sig = '-util-':M:mkParty "alice" });
+              cid: ContractId '-cid-in-create-arg-pkg1-':M:T <- create
+                 @'-cid-in-create-arg-pkg1-':M:T
+                 ('-cid-in-create-arg-pkg1-':M:T { sig = '-util-':M:mkParty "alice", cid = ucid });
+              _: '-iface-':M:Iface <- fetch_interface
+                 @'-iface-':M:Iface
+                 (COERCE_CONTRACT_ID @'-cid-in-create-arg-pkg1-':M:T @'-iface-':M:Iface cid)
+            in upure @Unit ()
+          """,
+        // We cannot test the case where the creation package is unavailable because this the LF code under test creates
+        // the contract itself and thus needs the creation package.
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          cidInCreateArgPkgId1 -> cidInCreateArgPkg1,
+          cidInCreateArgPkgId2 -> cidInCreateArgPkg2,
+        ),
+        packageResolution = Map(
+          cidInCreateArgPkg2.pkgName -> cidInCreateArgPkgId2
+        ),
+      )
+      res shouldBe a[Right[_, _]]
+    }
+
     "be able to fetch by key a locally created contract using different versions" in {
       val res = go(
         e"""let alice : Party = '-util-':M:mkParty "alice"
@@ -1355,7 +1467,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "be able to upgrade template using from_interface" in {
+    "be able to upgrade a template using from_interface" in {
       val res = go(
         e"""let t: '-pkg1-':M:T = '-pkg1-':M:T { sig = '-util-':M:mkParty "alice", obs = '-util-':M:mkParty "bob", aNumber = 100 }
             in let i : '-iface-':M:Iface = to_interface @'-pkg1-':M:T @'-iface-':M:Iface t
@@ -1368,6 +1480,33 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           pkgId2 -> pkg2,
         ),
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
+      )
+      inside(res) { case Right((_, ValueOptional(v))) =>
+        v shouldBe defined
+      }
+    }
+
+    "be able to upgrade a local template with a contract ID in its create arg using from_interface" in {
+      val res = go(
+        e"""ubind
+              ucid: ContractId '-cid-in-create-arg-pkg1-':M:U <- create
+                 @'-cid-in-create-arg-pkg1-':M:U
+                 ('-cid-in-create-arg-pkg1-':M:T { sig = '-util-':M:mkParty "alice" })
+            in let t: '-cid-in-create-arg-pkg1-':M:T =
+                         '-cid-in-create-arg-pkg1-':M:T { sig = '-util-':M:mkParty "alice", cid = ucid }
+               in upure @(Option '-cid-in-create-arg-pkg2-':M:T)
+                        (from_interface @'-iface-':M:Iface@'-cid-in-create-arg-pkg2-':M:T
+                           (to_interface @'-cid-in-create-arg-pkg1-':M:T @'-iface-':M:Iface t))
+          """,
+        availablePackages = Map(
+          utilPkgId -> utilPkg,
+          ifacePkgId -> ifacePkg,
+          cidInCreateArgPkgId1 -> cidInCreateArgPkg1,
+          cidInCreateArgPkgId2 -> cidInCreateArgPkg2,
+        ),
+        packageResolution = Map(
+          cidInCreateArgPkg2.pkgName -> cidInCreateArgPkgId2
+        ),
       )
       inside(res) { case Right((_, ValueOptional(v))) =>
         v shouldBe defined
