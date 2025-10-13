@@ -2,15 +2,15 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 .. warning::
-   From Daml 3.4.0 onwards the `Daml Assistant` (`daml` executable) is deprecated.
-   The :externalref:`Dpm tool <dpm>` is now the recommended way to install and manage Daml SDKs.
+   Daml Assistant is deprecated from 3.4.x onwards. Use :externalref:`dpm <dpm>` instead.
+   Refer to the ``dpm`` :externalref:`migration guide <dpm-daml-assistant-to-dpm-migration>` for more details.
 
 .. _daml-assistant-flags:
 
-Daml Assistant flags
+Daml Compiler flags
 ####################
 
-``daml build``
+``build``
 ==============
 .. _daml-build-flags:
 
@@ -34,7 +34,7 @@ Daml Assistant flags
 
 Includes :ref:`General Daml Compiler flags <general-damlc-flags>`
 
-``daml clean``
+``clean``
 ==============
 
 - | ``--all``
@@ -45,7 +45,7 @@ Includes :ref:`General Daml Compiler flags <general-damlc-flags>`
 - | ``--multi-package-path FILE``
   | Path to the multi-package.yaml file
 
-``daml test``
+``test``
 =============
 
 - | ``--files FILE``
