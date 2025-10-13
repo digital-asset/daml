@@ -18,6 +18,7 @@ private[data] object TextModuleImpl extends TextModule {
   override def fromString(s: String): Either[String, Text] = {
     val length = s.length
 
+    @scala.annotation.tailrec
     def loop(i: Int): Either[String, Text] =
       if (i >= length) Right(new Text(s))
       else {
