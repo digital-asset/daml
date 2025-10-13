@@ -6,13 +6,11 @@
 How to build Daml Archive (.dar) files
 ######################################
 
-This guide shows you how to organize the source code defining your Daml workflows and how to build and package that code as Daml Archive (.dar) files, which you can deploy to the ledger or use to develop applications against. The guide is organized into the following smaller how-tos:
+This guide shows you how to organize the source code defining your Daml workflows and how to build and package that code as Daml Archive (.dar) files, which you can deploy to the ledger or use to develop applications against.
 
--  How to define and build one or more Daml packages
--  How to manage dependencies on third-party Daml packages
--  How to decide what Daml code to put into what package
-
-If you would like to learn more about the exact relationship between Daml package and Daml Archive (.dar) files, see :brokenref:`Daml packages and Daml Archive (.dar) files <daml-packages-and-archives>`. However, you do not need to know this in detail to use this guide. At a high-level you can just think of a Daml archive file to be the result of building a specific Daml package.
+.. contents::
+   :depth: 1
+   :local:
 
 
 How to define Daml packages
@@ -26,7 +24,7 @@ All Daml packages require a daml.yaml file. Create this file at the root of your
 -  SDK Version: call daml version to determine the installed SDK versions
 -  Package name: lower-skewer-case name that is unique to your package and company.
 
-Add the following to your ``daml.yaml``, replacing the ``<place-holders>`` as appropriate.
+Add the following to your ``daml.yaml``, replacing the ``<placeholders>`` as appropriate.
 
 .. code:: yaml
 
@@ -99,7 +97,7 @@ The location where the .dar is created can be overridden using the ``--output`` 
   build-options:
     - --output=./output-bin/my-package.dar
 
-See :ref:`Daml Build Options <daml-build-flags>` for a full list of daml build options, or run ``daml build --help``, which includes options for changing the :brokenref:`LF <lf-version>` version and configuring warnings. All of these options can also be provided via ``build-options`` above.
+See :ref:`Daml Build Options <daml-build-flags>` for a full list of daml build options, or run ``daml build --help``, which includes options such as configuring warnings.
 Consider reading :ref:`Recommended Build Options <recommended-build-options>` for our recommended set of warning flags.
 
 If you face issues when changing configuration options like the ``sdk-version``, or the LF version, cleaning the package(s) may help. To clean a single package, run ``daml clean`` from the package directory. To clean all packages in a project, run ``daml clean --all`` from the directory containing the ``multi-package.yaml``
@@ -115,14 +113,14 @@ Dependencies in Daml are specified by their Daml Archive (.dar) file. To add a d
     - ./path/to/your/dep.dar
     - ./path/to/a/package/.daml/dist/my-package-1.0.0.dar
 
-Note the use of ``data-dependencies`` instead of the previously covered ``dependencies`` field, the latter is reserved for ``daml-prim``, ``daml-stdlib``, and the optional testing library :brokenref:`daml-script <daml-script>`.
+Note the use of ``data-dependencies`` instead of the previously covered ``dependencies`` field, the latter is reserved for ``daml-prim``, ``daml-stdlib``, and the optional testing library :ref:`daml-script <daml-script>`.
 Once added to the ``daml.yaml``, modules from the dependency .dar can be imported from the modules of this package. In the event of collision between module names, either with this package or other dependencies, see :ref:`module-prefixes <daml-yaml-module-prefixes>`.
 
 When depending on .dar files from packages listed in the ``multi-package.yaml``, calling ``daml build`` and ``daml build --all`` will build the relevant packages in the correct order for you.
 
 How to manage dependencies on third-party Daml packages
 =======================================================
-To build :brokenref:`composed transactions <how-to-compose>`, you will need to depend on the .dar files of third-party applications. At the time of writing there is no dedicated package repository for Daml Archives. However .dar files are reasonably small and change infrequently. You thus best check them into your repository, in a dars/vendored directory.
+At the time of writing there is no dedicated package repository for Daml Archives. However .dar files are reasonably small and change infrequently. You thus best check them into your repository, in a dars/vendored directory.
 If you instead retrieve the .dar files as part of a build step, check the hashes of these dars as part of this step.
 
 If you intend to distribute your .dar files for others to build on, include the retrieval process in your documentation.
