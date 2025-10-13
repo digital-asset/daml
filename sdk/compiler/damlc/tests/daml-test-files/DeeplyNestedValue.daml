@@ -1,0 +1,53 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DeeplyNestedValue where
+
+import Daml.Script
+
+data Nat = Z | S Nat
+  deriving (Eq, Show)
+
+construct: Int -> Nat -> Nat
+construct x acc | x <= 0 = acc
+construct x acc  = construct (x-1) (S acc)
+
+toNat : Int -> Nat
+toNat x = construct x Z
+
+template Contract
+  with
+    party: Party
+    n: Nat
+  where
+    signatory party
+
+template Helper
+  with
+    party : Party
+  where
+    signatory party
+
+    nonconsuming choice Create: ContractId Contract
+      with i : Int
+      controller party
+      do create Contract with
+           party = party
+           n = toNat i
+
+testCreateSucceeds = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Helper alice) (Create 98)
+
+-- @ERROR range=43:1-43:16; Value exceeds maximum nesting value
+testCreateFails = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Helper alice) (Create 99)
+
+testPureSucceeds = script do
+  pure $ toNat 99
+
+-- TODO it seems that when SValue#toValue throws the test crashed ans freezes
+-- remove the function argument, once this is fixed
+testPureFails _ = script do
+   pure $ toNat 100
