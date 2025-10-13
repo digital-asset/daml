@@ -2539,7 +2539,7 @@ The following example demonstrates reading the package ID from a DAR and passing
   # Path to the dar containing the Daml script for which you want to pass the package-id
   SCRIPT_DAR=path/to/script/dar.dar
   # Extract the package-id of PACKAGE_DAR's main package.
-  daml damlc inspect-dar ${PACKAGE_DAR} --json | jq '.main_package_id' > ./package-id-script-input.json
+  dpm damlc inspect-dar ${PACKAGE_DAR} --json | jq '.main_package_id' > ./package-id-script-input.json
   # replace --ide-ledger with --ledger-host and --ledger-port for deployed Canton
   dpm script --dar ${SCRIPT_DAR} --script-name Main:main --ide-ledger --input-file ./package-id-script-input.json
 
