@@ -56,9 +56,9 @@ data EncodeState = EncodeState
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
     , nextInternedDottedNameId :: !Int32
       -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
-    , internedKindsMap :: InternedKindsMap
-    , internedTypesMap :: InternedTypesMap
-    , internedExprsMap :: InternedExprsMap
+    , internedKindsMap :: !InternedKindsMap
+    , internedTypesMap :: !InternedTypesMap
+    , internedExprsMap :: !InternedExprsMap
     }
 
 makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")

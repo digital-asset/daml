@@ -54,7 +54,7 @@ internState x = do
     Nothing -> if n == maxBound
       then error "Interning table grew too large"
       else do
-        put $ InternedMap (Map.insert x n mp) (n + 1)
+        put $! InternedMap (Map.insert x n mp) (n + 1)
         return n
 
 instance G.Interned InternedMap where
