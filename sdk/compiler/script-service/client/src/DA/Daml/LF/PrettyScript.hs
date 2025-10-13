@@ -463,6 +463,8 @@ prettyScriptErrorError lvl (Just err) =  do
       pure "Attend to compare incomparable values"
     ScriptErrorErrorValueExceedsMaxNesting _ ->
           pure "Value exceeds maximum nesting value of 100"
+    ScriptErrorErrorMalformedText _ ->
+          pure "Text contains null character"
     ScriptErrorErrorScriptPartiesNotAllocated ScriptError_PartiesNotAllocated{..} ->
       pure $ vcat
         [ "Tried to submit a command for parties that have not ben allocated:"

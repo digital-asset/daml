@@ -373,6 +373,7 @@ class IdeLedgerClient(
       case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
       case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
       case ValueNesting(limit) => SubmitError.ValueNesting(limit)
+      case MalformedText(err) => SubmitError.MalformedText(err)
       case e: FailureStatus => SubmitError.FailureStatusError(e, None)
       case e @ Upgrade(innerError: Upgrade.ValidationFailed) =>
         SubmitError.UpgradeError.ValidationFailed(

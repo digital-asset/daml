@@ -320,4 +320,5 @@ object Error {
     }
   }
 
+  final case class MalformedText(err: String) extends Error
 }
