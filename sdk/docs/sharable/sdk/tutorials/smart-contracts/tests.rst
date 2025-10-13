@@ -44,7 +44,7 @@ Contrary to ``asset-tests``, ``asset`` is meant to be uploaded to a Canton ledge
 Similarly ``multi-trade`` contains the ``MultiTrade`` template, and ``multi-trade-tests`` contains the corresponding scripts.
 
 ``multi-package.yaml`` is the multi-package configuration.
-It allows the Daml Assistant to orchestrate the build of each sub-package.
+It allows ``dpm`` to orchestrate the build of each sub-package.
 It contains the list of sub-packages:
 
 .. code-block:: yaml
@@ -90,10 +90,10 @@ Try to change the submitting party of an `exerciseCmd` and see if the script is 
 
 You can use the table and transaction views in VS Code to better understand the visibility of each contract, and authority of each party.
 
-Run all scripts with the Daml Assistant
+Run all scripts with ``dpm``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The Daml Assistant can run all the scripts inside a package.
+``dpm`` can run all the scripts inside a package.
 This is useful for quick regression check, and their automation in the CI.
 
 Open a terminal in the ``multi-trade-tests`` folder and run ``dpm test``.
