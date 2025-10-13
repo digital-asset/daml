@@ -6,9 +6,6 @@
 Daml Profiler
 ################
 
-The Daml Profiler is only available in
-`Daml Enterprise <https://www.digitalasset.com/products/daml-enterprise>`_.
-
 The Daml Profiler allows you to to profile execution of your Daml code
 which can help spot bottlenecks and opportunities for optimization.
 
@@ -20,9 +17,9 @@ assistant. We first create the project and build the DAR.
 
 .. code-block:: sh
 
-  daml new profile-tutorial --template skeleton
+  dpm new profile-tutorial --template skeleton
   cd profile-tutorial
-  daml build
+  dpm build
 
 Next we load the DAR into Sandbox with a special ``profile-dir``
 option. Sandbox will behave as usual but all profile results will be
@@ -38,7 +35,7 @@ We then pass
 
 .. code-block:: sh
 
-   daml sandbox --dar .daml/dist/profile-tutorial-0.0.1.dar -c profile.conf
+   dpm sandbox --dar .daml/dist/profile-tutorial-0.0.1.dar -c profile.conf
 
 To actually produce some profile results, we have to create
 transactions. For the purposes of this tutorial, the Daml Script
@@ -46,7 +43,7 @@ included in the skeleton project does the job admirably:
 
 .. code-block:: sh
 
-   daml script --dar .daml/dist/profile-tutorial-0.0.1.dar --ledger-host localhost --ledger-port 6865 --script-name Main:setup
+   dpm script --dar .daml/dist/profile-tutorial-0.0.1.dar --ledger-host localhost --ledger-port 6865 --script-name Main:setup
 
 If we now look at the contents of the ``profile-results`` directory,
 we can see one JSON file per transaction produced by the script. Each
@@ -108,4 +105,4 @@ Caveats
 
 .. code-block:: sh
 
-   daml damlc inspect .daml/dist/profiler-tutorial-0.0.1.dar
+   dpm damlc inspect .daml/dist/profiler-tutorial-0.0.1.dar

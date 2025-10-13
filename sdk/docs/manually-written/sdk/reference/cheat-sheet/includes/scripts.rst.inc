@@ -16,7 +16,7 @@ Daml script is a scripting language to run Daml commands against a ledger. For e
       c <- submit alice $ createCmd NewContract with ...
       submit bob $ exerciseCmd c Accept with ...
 
-Scripts are compiled like usual Daml code to a ``dar`` package with the ``daml build`` command.
+Scripts are compiled like usual Daml code to a ``dar`` package with the ``dpm build`` command.
 
 .. list-table::
 

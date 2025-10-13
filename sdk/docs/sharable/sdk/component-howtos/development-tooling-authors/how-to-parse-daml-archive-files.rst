@@ -15,7 +15,7 @@ archive.
 Inspecting a DAR file
 *********************
 
-You can run ``daml damlc inspect-dar /path/to/your.dar`` to get a
+You can run ``dpm damlc inspect-dar /path/to/your.dar`` to get a
 human-readable listing of the files inside it and a list of packages
 and their package ids. This is often useful to find the package id of the
 project you just built.
@@ -45,11 +45,11 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
 
 .. code-block:: sh
 
-   > daml build
+   > dpm build
    ...
    Created .daml/dist/mypkg-1.0.0.dar
 
-   > daml damlc inspect-dar .daml/dist/mypkg-1.0.0.dar
+   > dpm damlc inspect-dar .daml/dist/mypkg-1.0.0.dar
 
    DAR archive contains the following files:
 
@@ -81,7 +81,7 @@ robust to changes across SDK versions:
 
 .. code-block:: sh
 
-  > daml damlc inspect-dar --json .daml/dist/mypkg-1.0.0.dar
+  > dpm damlc inspect-dar --json .daml/dist/mypkg-1.0.0.dar
   {
       "files": [
           "mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf",
@@ -114,7 +114,7 @@ Inspecting the main package of a DAR file
 *****************************************
 
 If you'd like to inspect the code inside the main package of a DAR, the Daml
-compiler provides the ``inspect`` tool; running ``daml damlc inspect <path-to-dar-file>``
+compiler provides the ``inspect`` tool; running ``dpm damlc inspect <path-to-dar-file>``
 prints all of the code in the main package of that DAR file in a human-readable
 format.
 
@@ -124,7 +124,7 @@ section:
 .. code-block:: sh
 
    # Human-readable dump of code in "mypkg" package inside of "mypkg" DAR
-   > daml damlc inspect .daml/dist/mypkg-1.0.0.dar
+   > dpm damlc inspect .daml/dist/mypkg-1.0.0.dar
    package <mypkg-package-id>
    daml-lf 2.1
    metadata mypkg-1.0.0
@@ -135,7 +135,7 @@ section:
 Inspecting a DALF file
 **********************
 
-The ``inspect`` tool also accepts DALF files; running ``daml damlc inspect <path-to-dalf-file>``
+The ``inspect`` tool also accepts DALF files; running ``dpm damlc inspect <path-to-dalf-file>``
 on a DALF file prints all of the code in that DALF file.
 
 We can unzip a DAR to access its dalfs and inspect them, for example with the
@@ -147,7 +147,7 @@ DAR from the previous section:
    > unzip .daml/dist/mypkg-1.0.0.dar
 
    # Human-readable dump of code in dep
-   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
+   > dpm damlc inspect mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
    package <dep-package-id>
    daml-lf 2.1
    metadata dep-1.0.0
@@ -160,8 +160,8 @@ We can even inspect the main package of a DAR this way, even though running
 
 .. code-block:: sh
 
-   # Identical to dump from `daml damlc inspect .daml/dist/mypkg-1.0.0.dar`
-   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
+   # Identical to dump from `dpm damlc inspect .daml/dist/mypkg-1.0.0.dar`
+   > dpm damlc inspect mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
    package <mypkg-package-id>
    daml-lf 2.1
    metadata mypkg-1.0.0

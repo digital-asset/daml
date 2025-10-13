@@ -21,7 +21,7 @@ The options available are listed in the :ref:`Reference <daml-studio-options>`.
 Operate
 *******
 Navigate to the root of your package (directory containing ``daml.yaml``) or project (directory containing ``multi-package.yaml``) and run
-``daml studio``. This will open Visual Studio Code with the Daml extension installed and running.
+``dpm studio``. This will open Visual Studio Code with the Daml extension installed and running.
 
 Go to definition
 ================
@@ -44,7 +44,7 @@ Hovering over a Daml type will display its source location.
 
 Diagnostics
 ===========
-Errors or warnings that would be raised by calling ``daml build`` will be shown in-line in the IDE. These diagnostics are affected by the flags
+Errors or warnings that would be raised by calling ``dpm build`` will be shown in-line in the IDE. These diagnostics are affected by the flags
 provided in ``build-options``, See :ref:`Daml Yaml Build Options <daml-yaml-build-options>`.
 
 Daml Snippets
@@ -94,7 +94,7 @@ If a ``multi-package.yaml`` is present (in the directory that Daml Studio was op
 rather than unpacked from the package-database.
 
 Package environments will be reloaded whenever the relevant ``daml.yaml`` file is changed, or any dependencies DARs are updated.
-As a result, running ``daml build --all`` will usually cause every package environment to reload.  
+As a result, running ``dpm build --all`` will usually cause every package environment to reload.
 For changes across dependencies (i.e. change to a datatype defined in one packaged and used in another), 
 the former packages .dar file must be rebuilt for the latter to use these changes.  
 
