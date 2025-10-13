@@ -26,7 +26,9 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with Inside {
 
-  val testDarPath = "daml-lf/engine/CantonLfV21-3.3.0.dar"
+  // TODO: extend with a (set of) compat dara(s), script-test-v2.dev.dar is
+  // tested here as placeholder
+  val testDarPath = "daml-script/test/script-test-v2.dev.dar"
   val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
   val dar: Dar[ArchivePayload] = DarReader.assertReadArchiveFromFile(testDar.toFile)
 

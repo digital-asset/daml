@@ -97,7 +97,7 @@ da_scala_test_suite(
         ],
     ),
     data = [
-        "CantonLfV21-3.3.0.dar"
+        "//daml-script/test:script-test-v2.dev.dar",
     ] + [
         "{name}-v{major}.dar".format(
             name = name,
