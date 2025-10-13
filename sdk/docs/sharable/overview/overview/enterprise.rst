@@ -11,8 +11,7 @@ Enterprise
 
 Digital Asset’s enterprise products
 ***********************************
-  
-  
+
   Digital Asset offers an enterprise distribution of Canton as well as complementary application modules and services geared towards helping institutions bring robust financial assets, applications and services to Canton Network quickly. The offering includes:
 
 **Connect**: An enterprise-grade validator node distribution with additional reliability and security features like high-availability deployments and Key Management Service (KMS) integrations.
@@ -51,10 +50,10 @@ All capabilities of the Canton blockchain are available using the Open Source di
   * - Node High Availability
     - :externalref:`Yes <ha_user_manual>`
     - No
-  * - `Participant Query Store <https://docs.daml.com/query/pqs-user-guide.html>`__
+  * - :externalref:`Participant Query Store <participant-query-store>`
     - Yes
     - No
-  * - `Daml Shell <https://docs.daml.com/2.9.1/tools/daml-shell/index.html>`__
+  * - :externalref:`Daml Shell <daml-shell>`
     - Yes
     - No
   * - Node Resource Management
@@ -63,7 +62,7 @@ All capabilities of the Canton blockchain are available using the Open Source di
   * - Ledger Pruning
     - Yes
     - No
-  * - `AWS KMS, GCP KMS <https://docs.daml.com/canton/usermanual/kms/kms.html>`__ and  `KMS Driver <https://docs.daml.com/canton/usermanual/kms/kms_driver_guide.html>`__
+  * - :externalref:`AWS KMS, GCP KMS <configure-a-kms>` and :externalref:`KMS Driver <configure-a-driver-based-kms>`
     - Yes
     - No
   * - Packaged up private BFT synchronizer for private sub-networks
@@ -79,14 +78,8 @@ All capabilities of the Canton blockchain are available using the Open Source di
 
 .. _downloading:
 
-Obtain the enterprise distribution
+Obtain the distribution
 **********************************
 
-Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
-respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__.
+Enterprise releases are available for use provided you have an enteprise license, available on on request to sales@digitalasset.com, and can be downloaded from the relevant component location under `repository <http://europe-docker.pkg.dev/da-images-dev/public>`__.
 
-
-Obtain the open source distribution
-***********************************
-
-The open source release is available from `Github <https://github.com/digital-asset/daml/releases/latest>`__.
