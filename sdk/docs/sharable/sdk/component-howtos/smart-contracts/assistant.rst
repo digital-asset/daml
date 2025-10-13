@@ -6,6 +6,11 @@
 Daml Assistant
 ##############
 
+.. Warning::
+
+  Daml Assistant is deprecated. Use :externalref:`dpm <dpm>` instead.
+  Refer to the ``dpm`` :externalref:`migration guide <dpm-daml-assistant-to-dpm-migration>` for more details.
+
 Overview
 ********
 The Daml Assistant provides a uniform CLI and installation experience for the components of the Daml SDK.
