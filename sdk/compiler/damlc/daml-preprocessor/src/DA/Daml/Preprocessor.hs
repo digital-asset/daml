@@ -189,7 +189,7 @@ checkModuleName (GHC.L _ m)
     , expected <- GHC.moduleNameSlashes modName ++ ".daml"
     , Just actual <- GHC.unpackFS <$> GHC.srcSpanFileName_maybe nameLoc
     , not (splitDirectories expected `isSuffixOf` splitDirectories actual)
-    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. Please change the filename to " ++ expected ++ ".")]
+    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.digitalasset.com/build/3.4/reference/daml/file-structure.html]. Please change the filename to " ++ expected ++ ".")]
 
     | otherwise
     = []

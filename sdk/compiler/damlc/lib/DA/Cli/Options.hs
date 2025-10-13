@@ -229,7 +229,7 @@ packageLocationOpts name = PackageLocationOpts <$> packageOrProjectRootOpt <*> p
         packageRootOptDesc =
             [ "Path to the root of a package containing daml.yaml. "
             , "You should prefer the DAML_PACKAGE environment variable over this option."
-            , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
+            , "See https://docs.digitalasset.com/build/3.4/dpm/configuration.html#configuration-options for more details."
             ]
         packageOrProjectRootOpt :: Parser (Maybe PackagePath)
         packageOrProjectRootOpt = optional $ packageRootOpt <|> projectRootOpt

@@ -28,7 +28,7 @@ data FailureStatus = FailureStatus with
 
 -- | The category of the failure, which determines the status code and log
 -- level of the failure. Maps 1-1 to the Canton error categories documented
--- here: https://docs.daml.com/canton/reference/error_codes.html#error-categories-inventory 
+-- here: https://docs.digitalasset.com/operate/3.4/reference/error_codes.html#error-categories-inventory
 --
 -- If you are more familiar with gRPC error codes, you can use the synonyms referenced in the
 -- comments.
@@ -39,7 +39,7 @@ data FailureCategory
     --
     -- Corresponds to the gRPC status code `INVALID_ARGUMENT`.
     --
-    -- See https://docs.daml.com/canton/reference/error_codes.html#invalidindependentofsystemstate
+    -- See https://docs.digitalasset.com/operate/3.4/reference/error_codes.html#invalidindependentofsystemstate
     -- for more information.
   | InvalidGivenCurrentSystemStateOther
     -- ^ Use this to report errors that are due to the current state of the ledger,
@@ -48,5 +48,5 @@ data FailureCategory
     --
     -- Corresponds to the gRPC status code `FAILED_PRECONDITION`.
     --
-    -- See https://docs.daml.com/canton/reference/error_codes.html#invalidgivencurrentsystemstateother
+    -- See https://docs.digitalasset.com/operate/3.4/reference/error_codes.html#error-categories-inventory
     -- for more information.
