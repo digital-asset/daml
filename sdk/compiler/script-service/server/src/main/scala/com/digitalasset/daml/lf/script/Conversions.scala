@@ -234,6 +234,8 @@ final class Conversions(
                 builder.setComparableValueError(proto.Empty.newBuilder)
               case ValueNesting(_) =>
                 builder.setValueExceedsMaxNesting(proto.Empty.newBuilder)
+              case MalformedText(err) =>
+                builder.setMalformedText(err)
               case FailureStatus(errorId, categoryId, message, metadata) =>
                 builder.setCrash(s"Failure status: $errorId")
                 builder.setFailureStatusError(

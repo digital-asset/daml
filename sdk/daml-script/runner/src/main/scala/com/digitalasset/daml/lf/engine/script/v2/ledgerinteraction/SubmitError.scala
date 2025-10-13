@@ -401,6 +401,14 @@ object SubmitError {
       )
   }
 
+  final case class MalformedText(message: String) extends SubmitError {
+    override def toDamlSubmitError(env: Env): SValue =
+      SubmitErrorConverters(env).damlScriptError(
+        "MalformedText",
+        ("malformedTextMessage", SText(message)),
+      )
+  }
+
   final case class LocalVerdictLockedContracts(cids: Seq[(Identifier, ContractId)])
       extends SubmitError {
     override def toDamlSubmitError(env: Env): SValue =

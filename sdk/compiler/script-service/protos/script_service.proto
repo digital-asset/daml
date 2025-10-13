@@ -374,7 +374,8 @@ message ScriptError {
     WronglyTypedContract wronglyTypedContract = 28;
     Empty ComparableValueError = 29;
     ContractIdInContractKey contract_id_in_contract_key = 30;
-    Empty ValueExceedsMaxNesting = 31;
+    Empty value_exceeds_max_nesting = 31;
+    string malformed_text = 49;
     PartiesNotAllocated script_parties_not_allocated = 33;
     ChoiceGuardFailed choice_guard_failed = 34;
     ContractDoesNotImplementInterface contract_does_not_implement_interface = 35;
@@ -387,7 +388,7 @@ message ScriptError {
     UpgradeError upgrade_error = 44;
     FailureStatusError failure_status_error = 45;
     CryptoError crypto_error = 47;
-    // next is 49;
+    // next is 50;
   }
 }
 

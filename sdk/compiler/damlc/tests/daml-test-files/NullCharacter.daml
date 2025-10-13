@@ -1,0 +1,54 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @WARN -Werror=upgrade-interfaces
+-- @WARN -Werror=upgrade-interfaces
+
+module NullCharacter where
+
+import Daml.Script
+import DA.Text (fromCodePoints)
+
+data V = V with
+  t: Text
+
+interface I where
+  viewtype V
+
+template T
+  with
+    p : Party
+    t : Text
+    cps: [Int]
+  where
+    signatory p
+    implements I where
+      view = V with t = fromCodePoints cps
+
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+
+    choice CreateTWithNulChar: ContractId T
+      controller p
+      do create T with p = p; t = fromCodePoints [0]; cps = []
+
+    choice FetchI: ()
+      with cid: ContractId I
+      controller p
+      do
+        fetch @I cid
+        pure ()
+
+-- @ERROR range=46:1-46:11; Text contains null character
+testCreate = script do
+  alice <- allocateParty "Alice"
+  alice `submit` createAndExerciseCmd (Helper alice) CreateTWithNulChar
+
+-- @ERROR range=51:1-51:9; Text contains null character
+testView = script do
+  alice <- allocateParty "Alice"
+  cid <- alice `submit` createCmd (T with p = alice; t = ""; cps = [0])
+  queryInterface @I alice
