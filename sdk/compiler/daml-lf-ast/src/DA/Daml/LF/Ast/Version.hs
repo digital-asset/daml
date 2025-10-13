@@ -44,14 +44,13 @@ canDependOn (Version major1 minor1) (Version major2 minor2) =
 
 -- | The Daml-LF version used by default.
 versionDefault :: Version
-versionDefault = version2_1
+versionDefault = version2_2
 
 -- | Daml-LF version 2.1
 version2_1 :: Version
 version2_1 = Version V2 (PointStable 1)
 
 -- | Daml-LF version 2.2
--- | Staging version!
 version2_2 :: Version
 version2_2 = Version V2 (PointStable 2)
 

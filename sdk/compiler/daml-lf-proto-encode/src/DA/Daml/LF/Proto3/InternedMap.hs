@@ -51,7 +51,7 @@ internState x = do
   (InternedMap mp n) <- get
   case x `Map.lookup` mp of
     Just m -> return m
-    Nothing -> if n == maxBound
+    _ -> if n == maxBound
       then error "Interning table grew too large"
       else do
         put $! InternedMap (Map.insert x n mp) (n + 1)

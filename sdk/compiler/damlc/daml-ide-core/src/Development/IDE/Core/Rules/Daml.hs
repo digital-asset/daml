@@ -444,7 +444,8 @@ generateSerializedDalfRule options =
                                                     (packageMetadataFromOptions options)
                                                     lfVersion
                                                     dalfDeps
-                                                    (Left $ LF.noPkgImportsReasonTrace "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule")
+                                                    -- (Left $ LF.noPkgImportsReasonTrace "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule")
+                                                    imports
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
