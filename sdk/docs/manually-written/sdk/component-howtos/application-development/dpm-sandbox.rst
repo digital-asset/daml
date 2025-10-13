@@ -110,7 +110,7 @@ There are two ways to run Sandbox:
 
 #. Start Sandbox using the ``daml start`` command while in a Daml project. This command will:
 
-   #. Launch the Sandbox via an underlying call to ``daml sandbox``, the command above.
+   #. Launch the Sandbox via an underlying call to ``dpm sandbox``, the command above.
    #. Compile the Daml project to a DAR as specified in the project's ``daml.yaml``.
    #. Upload the resulting DAR to the running Sandbox.
    #. The script specified in the ``init-script`` field in ``daml.yaml`` will be loaded into the ledger.
