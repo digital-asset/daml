@@ -12,7 +12,7 @@ Use the sandbox when you need access to a Canton ledger running your Daml code a
 Install
 -------
 
-Install the Sandbox by :ref:`installing dpm <dpm-install>`.
+Install the Sandbox by :externalref:`installing dpm <dpm-install>`.
 
 Configure
 ---------
