@@ -172,11 +172,11 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
-1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- main`, save the file, then go to definition on IOU again as per previous instruction.
+1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
   1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
 
 1. Close VSCode and delete the `myproject` directory ready for DPM testing using:
-  `cd .. && rm -rf myproject`
+  `cd .. && rmdir /S /Q myproject`
 
 1. On the [assembly] PR, add the comment:
 
@@ -196,17 +196,25 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
    If you do know the version string, interpolate it into this string as `${version}` and go to the resulting URL:
    ```
    https://get.digitalasset.com/install/windows/dpm-${version}-windows-amd64.exe
+
    ```
+
+1. Be sure to use a new terminal (created after installation) for the following steps.
+   If running `dpm` fails with a "cannot find command" error, run `setx /M PATH "%PATH%;%APPDATA%\dpm\bin"` in an administrator command prompt, and restart your existing terminals.
 
 1. Run `dpm versions` and verify the (green) version is what you expect. If you did not know what version to expect, ensure it is less than a week old for weekly testing.
    (If it is too old, leave a message about this in #project-dpm and pause testing until you get a response. #project-dpm is US based so consider this for timezones.)
+
+1. On the [assembly] PR, add the comment (replacing $VERSION with the active DPM version string from above):
+
+   > Testing using DPM Version: $VERSION
 
 1. Run `dpm new myproject --template multi-package-example` to create a new project and switch to it
    `cd myproject`.
 
 1. Build all packages by running `dpm build --all`.
 
-1. Run `dpm sandbox --dar ./main/.daml/dist/multi-package-example-main-1.0.0.dar`. Wait for "Canton sandbox is ready."
+1. Run `dpm sandbox --dar ./main/.daml/dist/myproject-main-1.0.0.dar`. Wait for "Canton sandbox is ready." (it may take a little while)
 
 1. Kill `dpm sandbox` with `Ctrl-C` (followed by "y" because Windows).
 
@@ -219,7 +227,7 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
-1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- main`, save the file, then go to definition on IOU again as per previous instruction
+1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction
   1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
 
 1. Close VSCode
@@ -356,7 +364,7 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
-1. Close the `Main.daml` tab, open `multi-package.yaml` and remove `- main`, then go to definition on IOU again as per previous instruction
+1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
   1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
 
 1. Close VSCode and delete the `myproject` directory ready for DPM testing using:
@@ -377,11 +385,11 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
    Use the following to install the DPM sdk on windows.
    If you do not know the version string, and are testing the weekly release, use this command to install the latest SDK
    ```
-   curl -sSL https://get-app.digitalasset-staging.com/install/install.sh
+   curl -sSL https://get.digitalasset.com/install/install.sh
    ```
    If you do know the version string, interpolate it into this string as `$VERSION` and run the resulting command:
    ```
-   curl -sSL https://get-app.digitalasset-staging.com/install/install.sh | sh -s "$VERSION"
+   curl -sSL https://get.digitalasset.com/install/install.sh | sh -s "$VERSION"
    ```
 
 1. Make sure you have the prerequisites for running the tests:
@@ -391,6 +399,7 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 
 1. Run `dpm versions` and verify the (green) version is what you expect. If you did not know what version to expect, ensure it is less than a week old for weekly testing.
    (If it is too old, leave a message about this in #project-dpm and pause testing until you get a response. #project-dpm is US based so consider this for timezones.)
+   (If the version you need is listed but not green, run `rm -rf ~/.dpm` then run the installation again)
 
 1. Create a new project with `dpm new quickstart --template quickstart-java`
    and switch to it using `cd quickstart`.
@@ -495,7 +504,7 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 1. Right click `IOU` in `... createCmd Main.IOU with ...` on line 12 and click Go to definition.
   1. Verify you are taken to main/daml/Main.daml (and not somewhere in a `.daml` directory)
 
-1. Close the `Main.daml` tab, open `multi-package.yaml` and remove `- main`, then go to definition on IOU again as per previous instruction
+1. Close the `Main.daml` tab, open `multi-package.yaml`, remove `- ./main`, save the file, then go to definition on IOU again as per previous instruction.
   1. Verify that now (after a small delay), you are taken to a copy of `Main.daml` in a `.daml` directory at the root of the workspace.
 
 1. Close VSCode.
