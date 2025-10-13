@@ -191,8 +191,9 @@ featureContractKeys = Feature
 featureFlatArchive :: Feature
 featureFlatArchive = Feature
     { featureName = "Flat Archive"
-    , featureVersionReq = VersionReq $ \case
-          V2 -> allMinorVersionsAfter (PointStable 2)
+    , featureVersionReq = devOnly
+    -- , featureVersionReq = VersionReq $ \case
+    --       V2 -> allMinorVersionsAfter (PointStable 2)
     , featureCppFlag = Just "DAML_FLATARCHIVE"
     }
 
