@@ -357,12 +357,12 @@ of our package:
 
   > mkdir -p v1/my-pkg
   > cd v1/my-pkg
-  > daml init
-  > daml version
+  > dpm init
+  > dpm version
   SDK versions:
     3.3.0  (project SDK version from daml.yaml)
 
-Running ``daml version`` should print a line showing that 3.3.0 or higher is the "project SDK version from daml.yaml".
+Running ``dpm version`` should print a line showing that 3.3.0 or higher is the "project SDK version from daml.yaml".
 
 Add ``daml-script`` to the list of dependencies in ``v1/my-pkg/daml.yaml``,
 as well as ``--target=2.1`` to the ``build-options``:
@@ -543,7 +543,7 @@ without a currency field, and a script to get any IOU:
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
   getIOU key = queryContractKey @IOU key key
 
-Start a new terminal, run ``daml sandbox`` to start a simple ledger in which
+Start a new terminal, run ``dpm sandbox`` to start a simple ledger in which
 to test upgrades.
 
 .. code:: bash
@@ -562,7 +562,7 @@ script and place the resulting party for Alice into an output file
 
   > cd v1/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:mkIOU \
@@ -576,7 +576,7 @@ From inside ``v2/my-pkg``, upload and run the ``getIOU`` script, passing in the
 
   > cd ../../v2/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:getIOU \
@@ -600,7 +600,7 @@ running the ``getIOU`` script from v1, this field does not appear.
 .. code:: bash
 
   > cd ../../v1/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:getIOU \
@@ -628,7 +628,7 @@ directory, with ``USD`` as currency:
 
   > # Create a new v2 IOU contract, with USD as currency
   > cd ../../v2/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOU \
@@ -641,7 +641,7 @@ Query it from a v1 script in the ``v1/my-pkg`` directory:
 
   > # Query from v1 package
   > cd ../../v1/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:getIOU \
@@ -663,7 +663,7 @@ with the currency field set to ``None`` using ``mkIOUWithoutCurrency``:
 
   > # Create a new v2 IOU contract, without USD as currency
   > cd ../../v2/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOUWithoutCurrency \
@@ -676,7 +676,7 @@ And then query it from v1:
 
   > # Query from v1 package
   > cd ../../v1/my-pkg
-  > daml script \
+  > dpm script \
   	--ledger-host localhost --ledger-port 6865 \
   	--dar .daml/dist/my-pkg-1.0.0.dar \
   	--script-name Main:getIOU \
@@ -742,7 +742,7 @@ Restart the sandbox and re-upload both v1 and v2:
   > cd v1/my-deps
   > daml ledger upload-dar --port 6865
   > # Make a new IOU
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:mkIOU \
@@ -751,7 +751,7 @@ Restart the sandbox and re-upload both v1 and v2:
   > cd ../../v2/my-deps
   > daml ledger upload-dar --port 6865
   ...
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:doubleIOU \
@@ -787,14 +787,14 @@ V2 via ``mkIOUWithoutCurrency``, then run ``doubleIOU`` on it from V1:
   > # Create a new v2 IOU contract, without USD as currency
   > cd v2/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOUWithoutCurrency \
       --output-file alice-v2
   > cd ../../v1/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
   	--ledger-host localhost --ledger-port 6865 \
   	--dar .daml/dist/my-pkg-1.0.0.dar \
   	--script-name Main:doubleIOU \
@@ -1171,14 +1171,14 @@ via v2’s ``getIOU`` script:
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:mkIOU \
       --output-file alice-v1
   ...
   > cd ../../v2/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:getIOU \
@@ -1204,14 +1204,14 @@ with a lookup error for the CHF variant.
 .. code:: bash
 
   > cd v2/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOU \
       --output-file alice-v2
   ...
   > cd ../../v1/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:getIOU \
@@ -2357,7 +2357,7 @@ need to be rebuilt:
 
 .. code:: bash
 
-   > daml sandbox & # Start sandbox in background
+   > dpm sandbox & # Start sandbox in background
    Starting Canton sandbox.
    Listening at port 6865
    Canton sandbox is ready.
@@ -2528,7 +2528,7 @@ The full list of builders for ``SubmitOptions`` is as follows:
   packagePreference : [PackageId] -> SubmitOptions
 
 A ``PackageId`` can be hard-coded in your script, in which case it must be updated whenever the package changes. Otherwise,
-it can be provided using the ``--input-file`` flag of the ``daml script`` command line tool.
+it can be provided using the ``--input-file`` flag of the ``dpm script`` command line tool.
 
 The following example demonstrates reading the package ID from a DAR and passing it to a script:
 
@@ -2541,7 +2541,7 @@ The following example demonstrates reading the package ID from a DAR and passing
   # Extract the package-id of PACKAGE_DAR's main package.
   daml damlc inspect-dar ${PACKAGE_DAR} --json | jq '.main_package_id' > ./package-id-script-input.json
   # replace --ide-ledger with --ledger-host and --ledger-port for deployed Canton
-  daml script --dar ${SCRIPT_DAR} --script-name Main:main --ide-ledger --input-file ./package-id-script-input.json
+  dpm script --dar ${SCRIPT_DAR} --script-name Main:main --ide-ledger --input-file ./package-id-script-input.json
 
 Following this, your script would look like:
 
