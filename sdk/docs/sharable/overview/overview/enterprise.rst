@@ -50,10 +50,10 @@ All capabilities of the Canton blockchain are available using the Open Source di
   * - Node High Availability
     - :externalref:`Yes <ha_user_manual>`
     - No
-  * - :externalref:`Participant Query Store <participant-query-store>`
+  * - :externalref:`Participant Query Store <build_pqs_component_howto>`
     - Yes
     - No
-  * - :externalref:`Daml Shell <daml-shell>`
+  * - :externalref:`Daml Shell <build_daml_shell_component_howto>`
     - Yes
     - No
   * - Node Resource Management
@@ -62,7 +62,7 @@ All capabilities of the Canton blockchain are available using the Open Source di
   * - Ledger Pruning
     - Yes
     - No
-  * - :externalref:`AWS KMS, GCP KMS <configure-a-kms>` and :externalref:`KMS Driver <configure-a-driver-based-kms>`
+  * - :externalref:`AWS KMS, GCP KMS <kms_configuration>` and :externalref:`KMS Driver <kms_driver_config>`
     - Yes
     - No
   * - Packaged up private BFT synchronizer for private sub-networks
@@ -81,5 +81,5 @@ All capabilities of the Canton blockchain are available using the Open Source di
 Obtain the distribution
 **********************************
 
-Enterprise releases are available for use provided you have an enteprise license, available on on request to sales@digitalasset.com, and can be downloaded from the relevant component location under `repository <http://europe-docker.pkg.dev/da-images-dev/public>`__.
+Enterprise releases are available for use provided you have an enterprise license, available on on request to sales@digitalasset.com, and can be downloaded from the relevant component location under `repository <http://europe-docker.pkg.dev/da-images/public>`__.
 

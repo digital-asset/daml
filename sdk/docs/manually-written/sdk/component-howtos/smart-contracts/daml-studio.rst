@@ -61,7 +61,7 @@ snippet file.
 
 Daml script results
 ===================
-Above any top level definition that would be run as part of ``dpm test`` (See :ref:`Daml Test <daml-assistant-test>`), a "Script Results" button will appear.
+Above any top level definition that would be run as part of ``dpm test`` (See :externalref:`dpm test <dpm-operate>`), a "Script Results" button will appear.
 
 Clicking this will open a side panel, with the result of running that test, along with information about logging and the ledger
 state.  
