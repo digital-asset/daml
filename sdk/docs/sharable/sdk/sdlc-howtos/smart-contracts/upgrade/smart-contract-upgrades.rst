@@ -548,7 +548,7 @@ to test upgrades.
 
 .. code:: bash
 
-  > daml sandbox
+  > dpm sandbox
   Starting Canton sandbox.
   Listening at port 6865
   Canton sandbox is ready.
