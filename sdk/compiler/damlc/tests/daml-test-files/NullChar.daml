@@ -1,12 +1,12 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
-module NulChar where
+module NullChar where
 
 import Daml.Script
 import DA.Text (fromCodePoints)
 
-template NulChar
+template T
   with
     p : Party
     t : Text
@@ -18,14 +18,14 @@ template Helper
     p : Party
   where
     signatory p
-    choice CreateNulChar: ContractId NulChar
+    choice CreateTWithNullChar: ContractId T
       controller p
-      do create NulChar with p = p; t = fromCodePoints [0]
+      do create T with p = p; t = fromCodePoints [0]
 
--- @ERROR range=26:1-26:10; Text contains null character
+-- @ERROR range=26:1-26:11; Text contains null character
 testLedger = script do
   alice <- allocateParty "Alice"
-  alice `submit` createAndExerciseCmd (Helper alice) CreateNulChar
+  alice `submit` createAndExerciseCmd (Helper alice) CreateTWithNullChar
 
 -- TODO it seems that when SValue#toValue throws the test crashed ans freezes
 -- remove the function argument, once this is fixed
