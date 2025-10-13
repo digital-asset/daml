@@ -41,7 +41,7 @@ toVec (InternedArr xs _) = V.fromList $ reverse xs
 internState :: val -> State (InternedArr val) Int32
 internState x = do
   (InternedArr xs n) <- get
-  put $ InternedArr (x : xs) (n + 1)
+  put $! InternedArr (x : xs) (n + 1)
   return n
 
 instance G.Interned InternedArr where
