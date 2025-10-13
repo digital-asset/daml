@@ -56,6 +56,12 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   GenericTopologyTransaction,
   TxHash,
 }
+import com.digitalasset.canton.topology.transaction.checks.{
+  NoopTopologyMappingChecks,
+  OptionalTopologyMappingChecks,
+  RequiredTopologyMappingChecks,
+  TopologyMappingChecks,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, SimpleExecutionQueue}
@@ -64,7 +70,7 @@ import com.digitalasset.canton.{LfPackageId, config}
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.unused
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 import scala.math.Ordered.orderingToOrdered
 
 trait TopologyManagerObserver {
@@ -81,6 +87,7 @@ class SynchronizerTopologyManager(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     override val store: TopologyStore[SynchronizerStore],
     val outboxQueue: SynchronizerOutboxQueue,
+    disableOptionalTopologyChecks: Boolean,
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -99,14 +106,24 @@ class SynchronizerTopologyManager(
     ) {
   def psid: PhysicalSynchronizerId = store.storeId.psid
 
-  override protected val processor: TopologyStateProcessor =
+  override protected val processor: TopologyStateProcessor = {
+
+    val required = new RequiredTopologyMappingChecks(store, loggerFactory)
+    val checks =
+      if (!disableOptionalTopologyChecks)
+        new TopologyMappingChecks.All(
+          required,
+          new OptionalTopologyMappingChecks(store, loggerFactory),
+        )
+      else required
     TopologyStateProcessor.forTopologyManager(
       store,
       Some(outboxQueue),
-      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      checks,
       crypto.pureCrypto,
       loggerFactory,
     )
+  }
 
   // When evaluating transactions against the synchronizer store, we want to validate against
   // the head state. We need to take all previously sequenced transactions into account, because
@@ -407,9 +424,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     )
     for {
       existingTransaction <- findExistingTransaction(mapping)
-      tx <- build(op, mapping, serial, protocolVersion, existingTransaction).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      tx <- build(op, mapping, serial, protocolVersion, existingTransaction)
       signedTx <- signTransaction(
         tx,
         signingKeys,
@@ -506,7 +521,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       existingTransaction: Option[GenericSignedTopologyTransaction],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TopologyManagerError, TopologyTransaction[Op, M]] = {
+  ): EitherT[FutureUnlessShutdown, TopologyManagerError, TopologyTransaction[Op, M]] = {
     val existingTransactionTuple =
       existingTransaction.map(t => (t.operation, t.mapping, t.serial, t.signatures))
     for {
@@ -516,10 +531,10 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           EitherT.rightT(PositiveInt.one)
         case (None, Some(proposed)) =>
           // didn't find an existing transaction, therefore the proposed serial must be 1
-          EitherT.cond[Future][TopologyManagerError, PositiveInt](
+          EitherT.cond[FutureUnlessShutdown][TopologyManagerError, PositiveInt](
             proposed == PositiveInt.one,
             PositiveInt.one,
-            TopologyManagerError.SerialMismatch.Failure(PositiveInt.one, proposed),
+            TopologyManagerError.SerialMismatch.Failure(Some(PositiveInt.one), Some(proposed)),
           )
         // The stored mapping and the proposed mapping are the same. This likely only adds an additional signature.
         // If not, then duplicates will be filtered out down the line.
@@ -527,7 +542,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           // auto-select existing
           EitherT.rightT(existingSerial)
         case (Some((`op`, `mapping`, existingSerial, signatures)), Some(proposed)) =>
-          EitherT.cond[Future](
+          EitherT.cond[FutureUnlessShutdown](
             existingSerial == proposed,
             existingSerial,
             TopologyManagerError.MappingAlreadyExists
@@ -540,12 +555,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         case (Some((_, _, existingSerial, _)), Some(proposed)) =>
           // check that the proposed serial matches existing+1
           val next = existingSerial.increment
-          EitherT.cond[Future](
+          EitherT.cond[FutureUnlessShutdown](
             next == proposed,
             next,
-            TopologyManagerError.SerialMismatch.Failure(next, proposed),
+            TopologyManagerError.SerialMismatch.Failure(Some(next), Some(proposed)),
           )
-      }): EitherT[Future, TopologyManagerError, PositiveInt]
+      }): EitherT[FutureUnlessShutdown, TopologyManagerError, PositiveInt]
     } yield TopologyTransaction(op, theSerial, mapping, protocolVersion)
   }
 

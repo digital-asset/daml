@@ -22,6 +22,9 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   * @param validateInitialTopologySnapshot
   *   Whether or not the node will validate the initial topology snapshot when onboarding to a
   *   synchronizer.
+  * @param disableOptionalTopologyChecks
+  *   if true (default is false), don't run the optional checks which prevent accidental damage to
+  *   this node
   */
 final case class TopologyConfig(
     topologyTransactionRegistrationTimeout: NonNegativeFiniteDuration =
@@ -31,6 +34,7 @@ final case class TopologyConfig(
     broadcastBatchSize: PositiveInt = defaultBroadcastBatchSize,
     broadcastRetryDelay: NonNegativeFiniteDuration = defaultBroadcastRetryDelay,
     validateInitialTopologySnapshot: Boolean = true,
+    disableOptionalTopologyChecks: Boolean = false,
 ) extends UniformCantonConfigValidation
 
 object TopologyConfig {

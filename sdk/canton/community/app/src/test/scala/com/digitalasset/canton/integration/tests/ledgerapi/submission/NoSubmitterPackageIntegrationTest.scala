@@ -31,7 +31,7 @@ class NoSubmitterPackageIntegrationTest
         bobE = ppn.parties.external.enable("Bob")
         aliceE = cpn.parties.external.enable("Alice")
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   "Interactive submission" should {
 

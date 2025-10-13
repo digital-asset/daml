@@ -24,11 +24,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFai
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.grpc.Logging.traceId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
-import com.digitalasset.canton.ledger.api.{
-  ListVettedPackagesOpts,
-  PriorTopologySerialExists,
-  ValidationLogger,
-}
+import com.digitalasset.canton.ledger.api.{ListVettedPackagesOpts, ValidationLogger}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
@@ -138,14 +134,12 @@ private[apiserver] final class ApiPackageService(
           .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
         result <- packageSyncService.listVettedPackages(opts)
       } yield ListVettedPackagesResponse(
-        vettedPackages = result.map { case (packages, synchronizerId, serial) =>
+        vettedPackages = result.map { vettedPackages =>
           VettedPackages(
-            packages = packages.map(_.toProtoLAPI),
-            // TODO(#27750) Populate these fields and assert over them when
-            // updates and queries can specify target participants
-            participantId = "",
-            synchronizerId = synchronizerId.toProtoPrimitive,
-            topologySerial = Some(PriorTopologySerialExists(serial.value).toProtoLAPI),
+            packages = vettedPackages.packages.map(_.toProtoLAPI),
+            participantId = vettedPackages.participantId.uid.toProtoPrimitive,
+            synchronizerId = vettedPackages.synchronizerId.toProtoPrimitive,
+            topologySerial = vettedPackages.serial.value,
           )
         },
         nextPageToken = "",

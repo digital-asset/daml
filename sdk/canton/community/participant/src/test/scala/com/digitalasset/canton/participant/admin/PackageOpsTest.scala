@@ -275,7 +275,6 @@ class PackageOpsTest extends PackageOpsTestBase {
 
     val psid = SynchronizerId.tryFromString("test::synchronizer").toPhysical
 
-    private val nodeId: UniqueIdentifier = UniqueIdentifier.tryCreate("node", "one")
     val packageOps = new PackageOpsImpl(
       participantId = participantId,
       stateManager = stateManager,
@@ -283,7 +282,6 @@ class PackageOpsTest extends PackageOpsTestBase {
         lookupByPsid = _ => Some(topologyManager),
         lookupActivePsidByLsid = _ => Some(topologyManager.psid),
       ),
-      nodeId = nodeId,
       initialProtocolVersion = testedProtocolVersion,
       loggerFactory = loggerFactory,
       timeouts = ProcessingTimeout(),
@@ -291,6 +289,7 @@ class PackageOpsTest extends PackageOpsTestBase {
     )
 
     val topologyStore = mock[TopologyStore[SynchronizerStore]]
+    when(topologyManager.psid).thenReturn(psid)
     when(topologyManager.store).thenReturn(topologyStore)
     val txSerial = PositiveInt.tryCreate(1)
     def arrangeCurrentlyVetted(currentlyVettedPackages: List[LfPackageId]) =
@@ -300,7 +299,7 @@ class PackageOpsTest extends PackageOpsTestBase {
           eqTo(true),
           eqTo(false),
           eqTo(Seq(VettedPackages.code)),
-          eqTo(Some(NonEmpty(Seq, nodeId))),
+          eqTo(Some(NonEmpty(Seq, participantId.uid))),
           eqTo(None),
         )(anyTraceContext)
       ).thenReturn(FutureUnlessShutdown.pure(packagesVettedStoredTx(currentlyVettedPackages)))

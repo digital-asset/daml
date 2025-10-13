@@ -15,18 +15,18 @@ import com.daml.nonempty.NonEmpty
 import com.daml.tracing.DefaultOpenTelemetry
 import com.daml.tracing.TelemetrySpecBase.*
 import com.digitalasset.base.error.ErrorsAssertions
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
-  EnrichedVettedPackage,
+  EnrichedVettedPackages,
   ListVettedPackagesOpts,
   UpdateVettedPackagesOpts,
   UploadDarVettingChange,
 }
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.SyncService.SubmissionCostEstimation
 import com.digitalasset.canton.ledger.participant.state.{
   InternalIndexService,
   PruningResult,
@@ -39,7 +39,13 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.protocol.{LfContractId, LfFatContractInst, LfSubmittedTransaction}
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfFatContractInst,
+  LfSubmittedTransaction,
+  LfVersionedTransaction,
+}
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   ExternalPartyOnboardingDetails,
@@ -285,18 +291,31 @@ object ApiPackageManagementServiceSpec {
     ): RoutingSynchronizerState =
       throw new UnsupportedOperationException()
 
+    override def estimateTrafficCost(
+        synchronizerId: SynchronizerId,
+        transaction: LfVersionedTransaction,
+        transactionMetadata: TransactionMeta,
+        submitterInfo: SubmitterInfo,
+        keyResolver: LfKeyResolver,
+        disclosedContracts: Map[LfContractId, LfFatContractInst],
+        costHints: CostEstimationHints,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, SubmissionCostEstimation] =
+      throw new UnsupportedOperationException()
+
     override def listVettedPackages(
         opts: ListVettedPackagesOpts
     )(implicit
         traceContext: TraceContext
-    ): Future[Seq[(Seq[EnrichedVettedPackage], SynchronizerId, PositiveInt)]] =
+    ): Future[Seq[EnrichedVettedPackages]] =
       throw new UnsupportedOperationException()
 
     override def updateVettedPackages(
         opts: UpdateVettedPackagesOpts
     )(implicit
         traceContext: TraceContext
-    ): Future[(Seq[EnrichedVettedPackage], Seq[EnrichedVettedPackage])] =
+    ): Future[(Option[EnrichedVettedPackages], Option[EnrichedVettedPackages])] =
       throw new UnsupportedOperationException()
 
     override def protocolVersionForSynchronizerId(

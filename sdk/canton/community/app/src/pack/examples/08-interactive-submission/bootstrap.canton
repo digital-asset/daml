@@ -2,17 +2,11 @@
 participant1.start()
 
 // Bootstrap the synchronizer
-val synchronizerId = bootstrap.synchronizer(
-  synchronizerName = "da",
-  sequencers = Seq(sequencer1),
-  mediators = Seq(mediator1),
-  synchronizerOwners = Seq(sequencer1, mediator1),
-  synchronizerThreshold = PositiveInt.two,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-)
+val synchronizerId = bootstrap.synchronizer_local()
 
-// Connect participant1 to da using the connect macro.
+// Connect participants to sequencer using the connect macro.
 participant1.synchronizers.connect_local(sequencer1, alias = "da")
+participant2.synchronizers.connect_local(sequencer1, alias = "da")
 
 better.files.File("participant_id").write(participant1.uid.toProtoPrimitive)
 better.files.File("synchronizer_id").write(synchronizerId.logical.toProtoPrimitive)

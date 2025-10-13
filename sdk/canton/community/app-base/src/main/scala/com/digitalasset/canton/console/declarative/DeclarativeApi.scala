@@ -4,6 +4,7 @@
 package com.digitalasset.canton.console.declarative
 
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -12,8 +13,8 @@ import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.metrics.DeclarativeApiMetrics
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Success}
+import com.digitalasset.canton.util.{MonadUtil, retry}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.annotation.tailrec
@@ -114,7 +115,11 @@ trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogg
     *   a function to fetch the current state. the function takes a limit argument. If the fetch
     *   returns the max limit, we assume that we need to fetch more. The system will start to emit
     *   warnings but increase the fetch limit to remain functional but to warn the user that they
-    *   are reaching the limits of managing a node through a config file.
+    *   are reaching the limits of managing a node through a config file. This is used when
+    *   removeExcess is configured
+    * @param get
+    *   a function to fetch the current state for a specific key. this is used for scalability
+    *   reasons to avoid fetching the entire state.
     * @param add
     *   if the runner finds a value (K,V) in the want set which is not in the have set, it will
     *   invoke the add function.
@@ -140,7 +145,10 @@ trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogg
       removeExcess: Boolean,
       checkSelfConsistent: Boolean,
       want: Seq[(K, V)],
-      fetch: PositiveInt => Either[String, Seq[(K, V)]],
+      fetch: PositiveInt => Either[String, Seq[
+        (K, V)
+      ]],
+      get: K => Either[String, Option[V]],
       add: (K, V) => Either[String, Unit],
       upd: (K, V, V) => Either[String, Unit],
       rm: (K, V) => Either[String, Unit],
@@ -178,25 +186,22 @@ trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogg
     }
 
     // positive cycle
-    def addOrUpdate(have: Map[K, V]): UpdateResult =
-      want.map { case (k, v) => (k, v, have.get(k)) }.foldLeft(UpdateResult()) { case (acc, item) =>
-        acc.accumulate(addOrUpdate = true)(update(item))
+    def addOrUpdate(): Either[String, UpdateResult] =
+      MonadUtil.foldLeftM(UpdateResult(), want) { case (acc, (k, v)) =>
+        get(k).map(current => acc.accumulate(addOrUpdate = true)(update((k, v, current))))
       }
 
     // negative cycle
-    def removeItems(have: Map[K, V], result: UpdateResult): UpdateResult = {
-      val toRemove = have.keySet.diff(want.map(_._1).toSet)
-      if (removeExcess) {
+    def removeItems(result: UpdateResult): Either[String, UpdateResult] = if (!removeExcess)
+      Right(result)
+    else {
+      for {
+        all <- fetchAll(fetch).map(_.toMap)
+      } yield {
+        val toRemove = all.keySet.diff(want.map(_._1).toSet)
         toRemove.foldLeft(result) { case (acc, id) =>
-          acc.accumulate(addOrUpdate = false)(wrapResult(id, "remove", rm(id, have(id))))
+          acc.accumulate(addOrUpdate = false)(wrapResult(id, "remove", rm(id, all(id))))
         }
-      } else {
-        if (toRemove.nonEmpty) {
-          logger.debug(
-            s"There are ${toRemove.size} $name which are not in the config, but the sync is configured to not remove them."
-          )
-        }
-        result
       }
     }
 
@@ -204,10 +209,10 @@ trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogg
     def runSelfConsistencyCheck(result: UpdateResult): Either[String, Unit] = if (
       checkSelfConsistent && result.failed == 0
     ) {
-      fetchAll(fetch).map(_.toMap).flatMap { haveMap =>
-        val consistent: Boolean = want
-          .map { case (k, v) => (k, v, haveMap.get(k)) }
-          .map {
+      val consistentE =
+        want
+          .traverse { case (k, v) => get(k).map(vn => (k, v, vn)) }
+          .map(_.map {
             case (k, _, None) =>
               logger.error(s"$name not found after sync: $k")
               false
@@ -216,19 +221,37 @@ trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogg
               false
             case _ => true
           }
-          .forall(identity)
+            .forall(identity))
 
-        val res = if (removeExcess) {
-          haveMap.keySet
+      val noExcessE = if (removeExcess) {
+        fetchAll(fetch).map { haveMap =>
+          haveMap
+            .map(_._1)
+            .toSet
             .diff(want.map(_._1).toSet)
             .map { k =>
               logger.error(s"$name not removed after sync: $k")
               false
             }
-            .forall(identity) && consistent
-        } else consistent
-        Either.cond(res, (), s"Self-consistency check failed for $name, cons=$consistent")
-      }
+            .forall(identity)
+        }
+      } else Right(true)
+
+      for {
+        consistent <- consistentE
+        _ <- Either.cond(
+          consistent,
+          (),
+          s"Self-consistency check failed for $name, due to want items not matching",
+        )
+        noExcess <- noExcessE
+        _ <- Either.cond(
+          noExcess,
+          (),
+          s"Self-consistency check failed for $name, as some items were not removed",
+        )
+      } yield ()
+
     } else Either.unit
 
     def waitUntilItemsAreRegistered(): Either[String, Unit] = await
@@ -240,13 +263,14 @@ trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogg
       }
       .getOrElse(Either.unit)
 
-    for {
-      have <- fetchAll(fetch).map(_.toMap)
-      resultAfterAddOrUpdate = addOrUpdate(have)
-      resultAfterAll = removeItems(have, resultAfterAddOrUpdate)
-      _ <- waitUntilItemsAreRegistered()
-      _ <- runSelfConsistencyCheck(resultAfterAll)
-    } yield resultAfterAll
+    if (want.nonEmpty || removeExcess) {
+      for {
+        resultAfterAddOrUpdate <- addOrUpdate()
+        resultAfterAll <- removeItems(resultAfterAddOrUpdate)
+        _ <- waitUntilItemsAreRegistered()
+        _ <- runSelfConsistencyCheck(resultAfterAll)
+      } yield resultAfterAll
+    } else Right(UpdateResult())
 
   }
 

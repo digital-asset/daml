@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.topology.transaction
+package com.digitalasset.canton.topology.transaction.checks
 
 import cats.Monad
 import cats.data.EitherT
@@ -17,15 +17,13 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.store.*
-import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
-  InvalidTopologyMapping,
-  NamespaceAlreadyInUse,
-}
+import com.digitalasset.canton.topology.store.TopologyTransactionRejection.RequiredMapping as RequiredMappingRejection
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, MappingHash}
-import com.digitalasset.canton.topology.transaction.TopologyMappingChecks.PendingChangesLookup
+import com.digitalasset.canton.topology.transaction.checks.TopologyMappingChecks.PendingChangesLookup
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
@@ -33,6 +31,24 @@ import scala.math.Ordering.Implicits.*
 
 object TopologyMappingChecks {
   type PendingChangesLookup = scala.collection.Map[MappingHash, MaybePending]
+
+  class All(fst: TopologyMappingChecks, rest: TopologyMappingChecks*)(implicit
+      executionContext: ExecutionContext
+  ) extends TopologyMappingChecks {
+    private val all = (fst +: rest).toList
+    override def checkTransaction(
+        effective: EffectiveTime,
+        toValidate: GenericSignedTopologyTransaction,
+        inStore: Option[GenericSignedTopologyTransaction],
+        pendingChanges: PendingChangesLookup,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
+      MonadUtil.sequentialTraverse_(all)(
+        _.checkTransaction(effective, toValidate, inStore, pendingChanges)
+      )
+  }
+
 }
 
 trait TopologyMappingChecks {
@@ -58,13 +74,78 @@ object NoopTopologyMappingChecks extends TopologyMappingChecks {
     EitherTUtil.unitUS
 }
 
-class ValidatingTopologyMappingChecks(
+abstract class TopologyMappingChecksWithStore(
     store: TopologyStore[TopologyStoreId],
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
 ) extends TopologyMappingChecks
     with NamedLogging {
+
+  @VisibleForTesting
+  private[transaction] def loadFromStore(
+      effective: EffectiveTime,
+      codes: Set[Code],
+      pendingChanges: Iterable[MaybePending],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]] = None,
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]] = None,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Seq[
+    SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
+  ]] =
+    EitherT
+      .right[TopologyTransactionRejection](
+        store
+          .findPositiveTransactions(
+            effective.value,
+            asOfInclusive = false,
+            isProposal = false,
+            types = codes.toSeq,
+            filterUid = filterUid,
+            filterNamespace = filterNamespace,
+          )
+          .map { storedTxs =>
+            val latestStored = storedTxs.collectLatestByUniqueKey.signedTransactions
+
+            // we need to proactively look up the pending changes that match the filter,
+            // because there might be a pending transaction that isn't in the store yet (eg. serial=1)
+            val pendingChangesMatchingFilter =
+              pendingChanges.view
+                .filter { maybePending =>
+                  val tx = maybePending.currentTx
+                  // proposals shouldn't end up in PendingChangesLookup, but better to emulate what the store filter does
+                  !tx.isProposal &&
+                  codes.contains(tx.mapping.code) &&
+                  filterNamespace.forall(_.exists(_ == tx.mapping.namespace)) &&
+                  filterUid.forall(uids => tx.mapping.maybeUid.exists(uids.contains(_)))
+                }
+                .map(_.currentTx)
+                .toSeq
+
+            TopologyTransactions
+              .collectLatestByUniqueKey(latestStored ++ pendingChangesMatchingFilter)
+              .flatMap(_.selectOp[TopologyChangeOp.Replace])
+          }
+      )
+
+}
+
+/** Topology mapping checks which verify invariants on the topology state
+  *
+  * The following checks must be passed by every transaction which is added to the topology state.
+  *
+  * @param relaxSynchronizerStateChecks
+  *   if true (during initial snapshot validation), we assume that the invariant holds that SSS and
+  *   MSS only reference members with valid keys.
+  */
+class RequiredTopologyMappingChecks(
+    store: TopologyStore[TopologyStoreId],
+    loggerFactory: NamedLoggerFactory,
+    relaxSynchronizerStateChecks: Boolean = false,
+)(implicit
+    executionContext: ExecutionContext
+) extends TopologyMappingChecksWithStore(store, loggerFactory) {
 
   def checkTransaction(
       effective: EffectiveTime,
@@ -77,21 +158,36 @@ class ValidatingTopologyMappingChecks(
     val checkFirstIsNotRemove = EitherTUtil
       .condUnitET[FutureUnlessShutdown](
         !(toValidate.operation == TopologyChangeOp.Remove && inStore.isEmpty),
-        TopologyTransactionRejection.NoCorrespondingActiveTxToRevoke(toValidate.mapping),
+        RequiredMappingRejection.NoCorrespondingActiveTxToRevoke(toValidate.mapping),
       )
     val checkReplaceIsNotMaxSerial = EitherTUtil.condUnitET[FutureUnlessShutdown](
       toValidate.operation == TopologyChangeOp.Remove ||
         (toValidate.operation == TopologyChangeOp.Replace && toValidate.serial < PositiveInt.MaxValue),
-      TopologyTransactionRejection.InvalidTopologyMapping(
+      RequiredMappingRejection.InvalidTopologyMapping(
         s"The serial for a REPLACE must be less than ${PositiveInt.MaxValue}."
       ),
     )
+
+    def mappingMismatch(expected: TopologyMapping): Boolean = (toValidate.mapping, expected) match {
+      // When removing the synchronizer trust certificate, no need to mandate that the removal mapping has the same
+      // feature flags..
+      case (
+            removeCertificate: SynchronizerTrustCertificate,
+            inStoreCertificate: SynchronizerTrustCertificate,
+          ) =>
+        removeCertificate.uniqueKey != inStoreCertificate.uniqueKey
+      case _ =>
+        toValidate.mapping != expected
+    }
+
     val checkRemoveDoesNotChangeMapping = EitherT.fromEither[FutureUnlessShutdown](
       inStore
         .collect {
           case expected
-              if toValidate.operation == TopologyChangeOp.Remove && toValidate.mapping != expected.mapping =>
-            TopologyTransactionRejection
+              if toValidate.operation == TopologyChangeOp.Remove && mappingMismatch(
+                expected.mapping
+              ) =>
+            RequiredMappingRejection
               .RemoveMustNotChangeMapping(toValidate.mapping, expected.mapping)
         }
         .toLeft(())
@@ -110,11 +206,7 @@ class ValidatingTopologyMappingChecks(
             )
           )
 
-        val checkRemove = toValidate
-          .select[TopologyChangeOp.Remove, SynchronizerTrustCertificate]
-          .map(checkSynchronizerTrustCertificateRemove(effective, _, pendingChangesLookup))
-
-        checkReplace.orElse(checkRemove)
+        checkReplace
 
       case (Code.PartyToParticipant, None | Some(Code.PartyToParticipant)) =>
         toValidate
@@ -129,21 +221,14 @@ class ValidatingTopologyMappingChecks(
           )
 
       case (Code.OwnerToKeyMapping, None | Some(Code.OwnerToKeyMapping)) =>
+        // TODO(#28232) check that remove doesn't happen on keys that are in use
         val checkReplace = toValidate
           .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
-          .map(checkOwnerToKeyMappingReplace)
-
-        val checkRemove = toValidate
-          .select[TopologyChangeOp.Remove, OwnerToKeyMapping]
           .map(
-            checkOwnerToKeyMappingRemove(
-              effective,
-              _,
-              pendingChangesLookup,
-            )
+            checkOwnerToKeyMappingReplace(_, inStore.flatMap(_.selectMapping[OwnerToKeyMapping]))
           )
 
-        checkReplace.orElse(checkRemove)
+        checkReplace
 
       case (Code.MediatorSynchronizerState, None | Some(Code.MediatorSynchronizerState)) =>
         toValidate
@@ -196,7 +281,7 @@ class ValidatingTopologyMappingChecks(
           .select[TopologyChangeOp.Remove, SynchronizerParametersState]
           .map(_ =>
             EitherT.leftT[FutureUnlessShutdown, Unit](
-              TopologyTransactionRejection
+              RequiredMappingRejection
                 .CannotRemoveMapping(Code.SynchronizerParametersState): TopologyTransactionRejection
             )
           )
@@ -255,142 +340,13 @@ class ValidatingTopologyMappingChecks(
         case Some(announcement) =>
           EitherTUtil.condUnitET[FutureUnlessShutdown](
             mappingsAllowedDuringSynchronizerUpgrade.contains(toValidate.mapping.code),
-            TopologyTransactionRejection.OngoingSynchronizerUpgrade(
+            RequiredMappingRejection.OngoingSynchronizerUpgrade(
               announcement.head1.mapping.successorSynchronizerId.logical
             ): TopologyTransactionRejection,
           )
       }
     } yield {})
   }
-
-  private def loadHistoryFromStore(
-      effectiveTime: EffectiveTime,
-      code: Code,
-      pendingChangesLookup: PendingChangesLookup,
-      maxSerialExclusive: PositiveInt,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Seq[
-    GenericSignedTopologyTransaction
-  ]] =
-    EitherT.right[TopologyTransactionRejection](
-      store
-        .inspect(
-          proposals = false,
-          // effective time has exclusive semantics, but TimeQuery.Range.until has always had inclusive semantics.
-          // therefore, we take the immediatePredecessor here
-          timeQuery =
-            TimeQuery.Range(from = None, until = Some(effectiveTime.value.immediatePredecessor)),
-          asOfExclusiveO = None,
-          op = None,
-          types = Seq(code),
-          idFilter = None,
-          namespaceFilter = None,
-        )
-        .map { storedTxs =>
-          val pending = pendingChangesLookup.values
-            .filter(pendingTx =>
-              !pendingTx.currentTx.isProposal && pendingTx.currentTx.transaction.mapping.code == code
-            )
-            .map(_.currentTx)
-          val allTransactions = (storedTxs.result.map(_.transaction) ++ pending)
-          // only look at the >history< of the mapping (up to exclusive the max serial), because
-          // otherwise it would be looking also at the future, which could lead to the wrong conclusion
-          // (eg detecting a member as "rejoining".
-          allTransactions.filter(_.serial < maxSerialExclusive)
-        }
-    )
-
-  @VisibleForTesting
-  private[transaction] def loadFromStore(
-      effective: EffectiveTime,
-      codes: Set[Code],
-      pendingChanges: Iterable[MaybePending],
-      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]] = None,
-      filterNamespace: Option[NonEmpty[Seq[Namespace]]] = None,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Seq[
-    SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
-  ]] =
-    EitherT
-      .right[TopologyTransactionRejection](
-        store
-          .findPositiveTransactions(
-            effective.value,
-            asOfInclusive = false,
-            isProposal = false,
-            types = codes.toSeq,
-            filterUid = filterUid,
-            filterNamespace = filterNamespace,
-          )
-          .map { storedTxs =>
-            val latestStored = storedTxs.collectLatestByUniqueKey.signedTransactions
-
-            // we need to proactively look up the pending changes that match the filter,
-            // because there might be a pending transaction that isn't in the store yet (eg. serial=1)
-            val pendingChangesMatchingFilter =
-              pendingChanges.view
-                .filter { maybePending =>
-                  val tx = maybePending.currentTx
-                  // proposals shouldn't end up in PendingChangesLookup, but better to emulate what the store filter does
-                  !tx.isProposal &&
-                  codes.contains(tx.mapping.code) &&
-                  filterNamespace.forall(_.exists(_ == tx.mapping.namespace)) &&
-                  filterUid.forall(uids => tx.mapping.maybeUid.exists(uids.contains(_)))
-                }
-                .map(_.currentTx)
-                .toSeq
-
-            TopologyTransactions
-              .collectLatestByUniqueKey(latestStored ++ pendingChangesMatchingFilter)
-              .flatMap(_.selectOp[TopologyChangeOp.Replace])
-          }
-      )
-
-  private def ensureParticipantDoesNotHostParties(
-      effective: EffectiveTime,
-      participantId: ParticipantId,
-      pendingChangesLookup: PendingChangesLookup,
-  )(implicit traceContext: TraceContext) =
-    for {
-      storedPartyToParticipantMappings <- loadFromStore(
-        effective,
-        Set(Code.PartyToParticipant),
-        pendingChangesLookup.values,
-      )
-      participantHostsParties = storedPartyToParticipantMappings.view
-        .flatMap(_.selectMapping[PartyToParticipant])
-        .collect {
-          case tx if tx.mapping.participants.exists(_.participantId == participantId) =>
-            tx.mapping.partyId
-        }
-        .toSeq
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
-        participantHostsParties.isEmpty,
-        TopologyTransactionRejection.ParticipantStillHostsParties(
-          participantId,
-          participantHostsParties,
-        ),
-      )
-    } yield ()
-
-  private def checkSynchronizerTrustCertificateRemove(
-      effective: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate],
-      pendingChangesLookup: PendingChangesLookup,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-    /* Checks that the DTC is not being removed if the participant still hosts a party.
-     * This check is potentially quite expensive: we have to fetch all party to participant mappings, because
-     * we cannot index by the hosting participants.
-     */
-    ensureParticipantDoesNotHostParties(
-      effective,
-      toValidate.mapping.participantId,
-      pendingChangesLookup,
-    )
 
   private def loadSynchronizerParameters(
       effective: EffectiveTime,
@@ -414,7 +370,7 @@ class ValidatingTopologyMappingChecks(
             logger.error(
               "Can not determine synchronizer parameters."
             )
-            Left(TopologyTransactionRejection.MissingSynchronizerParameters(effective))
+            Left(RequiredMappingRejection.MissingSynchronizerParameters(effective))
           case param :: Nil => Right(param)
           case param :: rest =>
             logger.error(
@@ -446,12 +402,11 @@ class ValidatingTopologyMappingChecks(
           logger.info(
             s"Synchronizer is locked at $effective. Rejecting onboarding of new participant ${toValidate.mapping}"
           )
-          TopologyTransactionRejection
-            .OnboardingRestrictionInPlace(
-              participantId,
-              restriction,
-              None,
-            )
+          RequiredMappingRejection.OnboardingRestrictionInPlace(
+            participantId,
+            restriction,
+            None,
+          )
         },
       )
 
@@ -492,7 +447,7 @@ class ValidatingTopologyMappingChecks(
                 s"Rejecting onboarding of ${toValidate.mapping.participantId} as the participant still has a login ban until $loginAfter"
               )
               Left(
-                TopologyTransactionRejection
+                RequiredMappingRejection
                   .OnboardingRestrictionInPlace(participantId, restrictions, Some(loginAfter))
               )
             case Some(_) =>
@@ -505,14 +460,14 @@ class ValidatingTopologyMappingChecks(
                 s"Rejecting onboarding of ${toValidate.mapping.participantId} as it is not allow listed as of ${effective.value}"
               )
               Left(
-                TopologyTransactionRejection
+                RequiredMappingRejection
                   .OnboardingRestrictionInPlace(participantId, restrictions, None)
               )
           }
         }
       } else {
         EitherT.leftT(
-          TopologyTransactionRejection
+          RequiredMappingRejection
             .OnboardingRestrictionInPlace(participantId, restrictions, None)
         )
       }
@@ -532,7 +487,7 @@ class ValidatingTopologyMappingChecks(
         case Some(ptp) =>
           isExplicitAdminPartyAllocation(
             ptp,
-            TopologyTransactionRejection.ParticipantIdConflictWithPartyId(
+            RequiredMappingRejection.ParticipantIdConflictWithPartyId(
               participantId,
               ptp.partyId,
             ),
@@ -543,8 +498,8 @@ class ValidatingTopologyMappingChecks(
 
     def checkParticipantDoesNotRejoin() = EitherTUtil.condUnitET[FutureUnlessShutdown](
       inStore.forall(_.operation != TopologyChangeOp.Remove),
-      TopologyTransactionRejection.MembersCannotRejoinSynchronizer(
-        Seq(toValidate.mapping.participantId)
+      RequiredMappingRejection.ParticipantCannotRejoinSynchronizer(
+        toValidate.mapping.participantId
       ),
     )
 
@@ -556,12 +511,11 @@ class ValidatingTopologyMappingChecks(
       _ <- checkParticipantIsNotRestricted(restriction)
     } yield ()
   }
-  private val requiredKeyPurposes = Set(KeyPurpose.Encryption, KeyPurpose.Signing)
 
   /** Checks the following:
     *   - threshold is less than or equal to the number of confirming participants
     *   - new participants have a valid DTC
-    *   - new participants have an OTK with at least 1 signing key and 1 encryption key
+    *   - new participants have an OTK (valid keys are checked as part of OTK checks)
     */
   private def checkPartyToParticipant(
       effective: EffectiveTime,
@@ -600,38 +554,38 @@ class ValidatingTopologyMappingChecks(
         _ <- EitherTUtil.ifThenET(foundAdminPartyWithSameUID)(
           isExplicitAdminPartyAllocation(
             mapping,
-            TopologyTransactionRejection.PartyIdConflictWithAdminParty(
+            RequiredMappingRejection.PartyIdConflictWithAdminParty(
               mapping.partyId
             ),
           )
         )
 
         // check that all participants are known on the synchronizer
+        // note that this check does not provide strong guarantees as it is only
+        // checked at time of creation. a removal of a participant may still
+        // lead to dangling party to participant mappings.
         missingParticipantCertificates = newParticipants -- participantTransactions
           .flatMap(_.selectMapping[SynchronizerTrustCertificate])
           .map(_.mapping.participantId)
 
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
           missingParticipantCertificates.isEmpty,
-          TopologyTransactionRejection.UnknownMembers(missingParticipantCertificates.toSeq),
+          RequiredMappingRejection.UnknownMembers(missingParticipantCertificates.toSeq),
         )
 
         // check that all known participants have keys registered
+        // note same comment as above.
         participantsWithInsufficientKeys =
           newParticipants -- participantTransactions
             .flatMap(_.selectMapping[OwnerToKeyMapping])
-            .view
-            .filter { tx =>
-              val keyPurposes = tx.mapping.keys.map(_.purpose).toSet
-              requiredKeyPurposes.forall(keyPurposes)
-            }
             .map(_.mapping.member)
             .collect { case pid: ParticipantId => pid }
-            .toSeq
 
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
           participantsWithInsufficientKeys.isEmpty,
-          TopologyTransactionRejection.InsufficientKeys(participantsWithInsufficientKeys.toSeq),
+          RequiredMappingRejection.InsufficientKeys(
+            participantsWithInsufficientKeys.toSeq
+          ),
         )
       } yield {
         ()
@@ -645,8 +599,17 @@ class ValidatingTopologyMappingChecks(
   }
 
   private def checkOwnerToKeyMappingReplace(
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, OwnerToKeyMapping]
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, OwnerToKeyMapping],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, OwnerToKeyMapping]],
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
+
+    // cannot re-add after remove
+    val noAddingAfterRemove =
+      EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
+        inStore.forall(p => p.operation == TopologyChangeOp.Replace),
+        TopologyTransactionRejection.RequiredMapping.CannotReregisterKeys(toValidate.mapping.member),
+      )
+
     // check for at least 1 signing and 1 encryption key
     val keysByPurpose = toValidate.mapping.keys.forgetNE.groupBy(_.purpose)
     val signingKeys = keysByPurpose.getOrElse(KeyPurpose.Signing, Seq.empty)
@@ -655,7 +618,7 @@ class ValidatingTopologyMappingChecks(
       EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
         // all nodes require signing keys
         signingKeys.nonEmpty,
-        TopologyTransactionRejection.InvalidTopologyMapping(
+        RequiredMappingRejection.InvalidTopologyMapping(
           "OwnerToKeyMapping must contain at least 1 signing key."
         ),
       )
@@ -668,25 +631,46 @@ class ValidatingTopologyMappingChecks(
         // all nodes require signing keys
         // non-participants don't need encryption keys
         !isParticipant || encryptionKeys.nonEmpty,
-        TopologyTransactionRejection.InvalidTopologyMapping(
+        RequiredMappingRejection.InvalidTopologyMapping(
           "OwnerToKeyMapping for participants must contain at least 1 encryption key."
         ),
       )
-    minimumSigningKeyRequirement.flatMap(_ => minimumEncryptionKeyRequirement)
+    noAddingAfterRemove
+      .flatMap(_ => minimumSigningKeyRequirement)
+      .flatMap(_ => minimumEncryptionKeyRequirement)
   }
 
-  private def checkOwnerToKeyMappingRemove(
+  private def checkNewSynchronizerMembersHaveKeys(
       effective: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp.Remove, OwnerToKeyMapping],
       pendingChangesLookup: PendingChangesLookup,
+      newMembers: Set[Member],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-    toValidate.mapping.member match {
-      case participantId: ParticipantId =>
-        ensureParticipantDoesNotHostParties(effective, participantId, pendingChangesLookup)
-      case _ => EitherTUtil.unitUS
-    }
+    if (relaxSynchronizerStateChecks) EitherTUtil.unitUS
+    else
+      NonEmpty.from(newMembers).fold(EitherTUtil.unitUS[TopologyTransactionRejection]) { members =>
+        loadFromStore(
+          effective,
+          Set(Code.SynchronizerTrustCertificate, Code.OwnerToKeyMapping),
+          newMembers.flatMap { member =>
+            pendingChangesLookup.get(OwnerToKeyMapping.uniqueKey(member)).toList
+          }.toList,
+          filterUid = Some(members.toSeq.map(_.uid)),
+        ).flatMap { stored =>
+          val found = stored
+            .flatMap(_.selectMapping[OwnerToKeyMapping])
+            .filterNot(_.isProposal)
+            .map(_.mapping.member)
+            .toSet
+          val noKeys = newMembers -- found
+          EitherTUtil.condUnitET[FutureUnlessShutdown](
+            noKeys.isEmpty,
+            RequiredMappingRejection
+              .InsufficientKeys(noKeys.toSeq): TopologyTransactionRejection,
+          )
+        }
+      }
 
   private def checkMediatorSynchronizerStateReplace(
       effectiveTime: EffectiveTime,
@@ -722,36 +706,23 @@ class ValidatingTopologyMappingChecks(
           .toMap
         _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
           mediatorsAlreadyAssignedToGroups.isEmpty,
-          TopologyTransactionRejection.MediatorsAlreadyInOtherGroups(
+          RequiredMappingRejection.MediatorsAlreadyInOtherGroups(
             toValidate.mapping.group,
             mediatorsAlreadyAssignedToGroups,
           ): TopologyTransactionRejection,
         )
       } yield ()
 
-    def checkMediatorsDontRejoin()
-        : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-      loadHistoryFromStore(
-        effectiveTime,
-        code = Code.MediatorSynchronizerState,
-        pendingChangesLookup,
-        toValidate.serial,
-      )
-        .flatMap { mdsHistory =>
-          val allMediatorsPreviouslyOnSynchronizer = mdsHistory.view
-            .flatMap(_.selectMapping[MediatorSynchronizerState])
-            .flatMap(_.mapping.allMediatorsInGroup)
-            .toSet[Member]
-          val rejoiningMediators = newMediators.intersect(allMediatorsPreviouslyOnSynchronizer)
-          EitherTUtil.condUnitET(
-            rejoiningMediators.isEmpty,
-            TopologyTransactionRejection.MembersCannotRejoinSynchronizer(rejoiningMediators.toSeq),
-          )
-        }
+    val notAlreadyAssignedET = checkMediatorNotAlreadyAssignedToOtherGroup()
+    val allNewHaveKeysET = checkNewSynchronizerMembersHaveKeys(
+      effectiveTime,
+      pendingChangesLookup,
+      newMembers = newMediators,
+    )
 
     for {
-      _ <- checkMediatorNotAlreadyAssignedToOtherGroup()
-      _ <- checkMediatorsDontRejoin()
+      _ <- notAlreadyAssignedET
+      _ <- allNewHaveKeysET
     } yield ()
   }
 
@@ -769,28 +740,12 @@ class ValidatingTopologyMappingChecks(
       _.mapping.allSequencers
     )).map(identity[Member])
 
-    def checkSequencersDontRejoin()
-        : EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-      loadHistoryFromStore(
-        effectiveTime,
-        code = Code.SequencerSynchronizerState,
-        pendingChangesLookup,
-        toValidate.serial,
-      )
-        .flatMap { sdsHistory =>
-          val allSequencersPreviouslyOnSynchronizer = sdsHistory.view
-            .flatMap(_.selectMapping[SequencerSynchronizerState])
-            .flatMap(_.mapping.allSequencers)
-            .toSet[Member]
-          val rejoiningSequencers = newSequencers.intersect(allSequencersPreviouslyOnSynchronizer)
-          EitherTUtil.condUnitET(
-            rejoiningSequencers.isEmpty,
-            TopologyTransactionRejection
-              .MembersCannotRejoinSynchronizer(rejoiningSequencers.toSeq),
-          )
-        }
+    checkNewSynchronizerMembersHaveKeys(
+      effectiveTime,
+      pendingChangesLookup,
+      newMembers = newSequencers,
+    )
 
-    checkSequencersDontRejoin()
   }
 
   private def checkDecentralizedNamespaceDefinitionReplace(
@@ -815,7 +770,7 @@ class ValidatingTopologyMappingChecks(
         EitherTUtil.condUnitET(
           toValidate.mapping.namespace == DecentralizedNamespaceDefinition
             .computeNamespace(toValidate.mapping.owners),
-          InvalidTopologyMapping(
+          RequiredMappingRejection.InvalidTopologyMapping(
             s"The decentralized namespace ${toValidate.mapping.namespace} is not derived from the owners ${toValidate.mapping.owners.toSeq.sorted}"
           ),
         )
@@ -842,7 +797,7 @@ class ValidatingTopologyMappingChecks(
       ).flatMap { namespaceDelegations =>
         EitherTUtil.condUnitET(
           namespaceDelegations.isEmpty,
-          NamespaceAlreadyInUse(toValidate.mapping.namespace),
+          RequiredMappingRejection.NamespaceAlreadyInUse(toValidate.mapping.namespace),
         )
       }
 
@@ -866,7 +821,7 @@ class ValidatingTopologyMappingChecks(
 
         EitherTUtil.condUnitET(
           missingNSDs.isEmpty,
-          InvalidTopologyMapping(
+          RequiredMappingRejection.InvalidTopologyMapping(
             s"No root certificate found for ${missingNSDs.toSeq.sorted.mkString(", ")}"
           ),
         )
@@ -906,7 +861,7 @@ class ValidatingTopologyMappingChecks(
         val foundDecentralizedNamespaceWithSameNamespace = dns.nonEmpty
         EitherTUtil.condUnitET(
           !foundDecentralizedNamespaceWithSameNamespace,
-          NamespaceAlreadyInUse(toValidate.mapping.namespace),
+          RequiredMappingRejection.NamespaceAlreadyInUse(toValidate.mapping.namespace),
         )
       }
 
@@ -924,7 +879,7 @@ class ValidatingTopologyMappingChecks(
       case Some(psid) =>
         EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
           psid < toValidate.mapping.successorSynchronizerId,
-          TopologyTransactionRejection.InvalidSynchronizerSuccessor(
+          RequiredMappingRejection.InvalidSynchronizerSuccessor(
             psid,
             toValidate.mapping.successorSynchronizerId,
           ),
@@ -933,7 +888,7 @@ class ValidatingTopologyMappingChecks(
     }
     _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
       toValidate.mapping.upgradeTime > effective.value,
-      TopologyTransactionRejection.InvalidUpgradeTime(
+      RequiredMappingRejection.InvalidUpgradeTime(
         toValidate.mapping.successorSynchronizerId.logical,
         effective = effective,
         upgradeTime = toValidate.mapping.upgradeTime,

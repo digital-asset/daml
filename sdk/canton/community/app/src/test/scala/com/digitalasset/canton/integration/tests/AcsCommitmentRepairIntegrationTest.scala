@@ -9,8 +9,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeProportion, PositiveInt}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -60,7 +60,15 @@ trait AcsCommitmentRepairIntegrationTest
         ),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*

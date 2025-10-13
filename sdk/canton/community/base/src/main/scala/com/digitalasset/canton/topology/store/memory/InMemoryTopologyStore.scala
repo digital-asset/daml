@@ -284,33 +284,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         // is not a proposal
         !entry.transaction.isProposal &&
         // is of type Replace
-        entry.operation == TopologyChangeOp.Replace &&
-        // matches a party to participant mapping (with appropriate filters)
-        (entry.mapping match {
-          case ptp: PartyToParticipant =>
-            ptp.partyId.uid.matchesFilters(prefixPartyIdentifier, prefixPartyNS) &&
-            (filterParticipant.isEmpty ||
-              ptp.participants.exists(
-                _.participantId.uid
-                  .matchesFilters(prefixParticipantIdentifier, prefixParticipantNS)
-              ))
-          case cert: SynchronizerTrustCertificate =>
-            cert.participantId.adminParty.uid
-              .matchesFilters(prefixPartyIdentifier, prefixPartyNS) &&
-            cert.participantId.uid
-              .matchesFilters(prefixParticipantIdentifier, prefixParticipantNS)
-          case _ => false
-        })
+        entry.operation == TopologyChangeOp.Replace
 
-    val topologyStateStoreSeq = blocking(synchronized(topologyTransactionStore.toSeq))
+    val mappings =
+      blocking(synchronized(topologyTransactionStore.toSeq)).filter(filter).map(_.mapping)
+
     FutureUnlessShutdown.pure(
-      topologyStateStoreSeq
-        .foldLeft(Set.empty[PartyId]) {
-          case (acc, elem) if !filter(elem) => acc
-          case (acc, elem) =>
-            elem.mapping.maybeUid.fold(acc)(x => acc + PartyId(x))
-        }
+      TopologyStore.determineValidParties(mappings, filterParty, filterParticipant)
     )
+
   }
 
   override def inspect(

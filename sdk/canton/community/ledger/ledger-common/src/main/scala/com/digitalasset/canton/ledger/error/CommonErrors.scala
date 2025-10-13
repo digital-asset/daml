@@ -52,9 +52,10 @@ object CommonErrors extends CommonErrorGroup {
         id = "REQUEST_ALREADY_IN_FLIGHT",
         ErrorCategory.ContentionOnSharedResources,
       ) {
-    final case class Reject(requestId: String)(implicit errorLogger: ErrorLoggingContext)
-        extends DamlErrorWithDefiniteAnswer(
-          cause = s"The request $requestId is already in flight"
+    final case class Reject(requestId: String, details: String)(implicit
+        errorLogger: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"Request with ID $requestId is already in flight: $details"
         )
   }
 

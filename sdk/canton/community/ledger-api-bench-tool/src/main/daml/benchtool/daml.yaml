@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20251007.14274.0.ve2024cd6
+sdk-version: 3.4.0-snapshot.20251010.14292.0.va416ad59
 build-options: 
 - --enable-interfaces=yes
 name: benchtool-tests

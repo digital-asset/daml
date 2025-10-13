@@ -189,7 +189,7 @@ trait ConnectionPoolTestHelpers {
       testTimeouts,
       loggerFactory,
     )
-    val pool = poolFactory.create(config).valueOrFail("create connection pool")
+    val pool = poolFactory.create(config, name = "test").valueOrFail("create connection pool")
 
     val listener = new TestHealthListener(pool.health)
     pool.health.registerOnHealthChange(listener)
@@ -202,21 +202,18 @@ trait ConnectionPoolTestHelpers {
   }
 
   protected def mkSubscriptionPoolConfig(
-      trustThreshold: PositiveInt,
-      livenessMargin: NonNegativeInt,
+      livenessMargin: NonNegativeInt
   ): SequencerSubscriptionPoolConfig =
     SequencerSubscriptionPoolConfig(
-      trustThreshold = trustThreshold,
       livenessMargin = livenessMargin,
       subscriptionRequestDelay = sequencerConnectionPoolDelays.subscriptionRequestDelay,
     )
 
   protected def withSubscriptionPool[V](
-      trustThreshold: PositiveInt,
       livenessMargin: NonNegativeInt,
       connectionPool: SequencerConnectionXPool,
   )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V = {
-    val config = mkSubscriptionPoolConfig(trustThreshold, livenessMargin)
+    val config = mkSubscriptionPoolConfig(livenessMargin)
 
     val subscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
       sequencerSubscriptionFactory = new TestSequencerSubscriptionXFactory(timeouts, loggerFactory),
@@ -255,7 +252,7 @@ trait ConnectionPoolTestHelpers {
     ) { (connectionPool, _, _, _) =>
       connectionPool.start().futureValueUS.valueOrFail("initialization")
 
-      withSubscriptionPool(trustThreshold, livenessMargin, connectionPool) {
+      withSubscriptionPool(livenessMargin, connectionPool) {
         (subscriptionPool, subscriptionPoolListener) =>
           f(subscriptionPool, subscriptionPoolListener)
       }
@@ -404,7 +401,8 @@ protected object ConnectionPoolTestHelpers {
     val createdConnections: CreatedConnections = connectionFactory.createdConnections
 
     override def create(
-        initialConfig: SequencerConnectionXPoolConfig
+        initialConfig: SequencerConnectionXPoolConfig,
+        name: String,
     )(implicit
         ec: ExecutionContextExecutor,
         esf: ExecutionSequencerFactory,
@@ -431,6 +429,7 @@ protected object ConnectionPoolTestHelpers {
         sequencerConnections: SequencerConnections,
         expectedPSIdO: Option[PhysicalSynchronizerId],
         tracingConfig: TracingConfig,
+        name: String,
     )(implicit
         ec: ExecutionContextExecutor,
         esf: ExecutionSequencerFactory,

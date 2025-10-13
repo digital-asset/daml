@@ -43,7 +43,6 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
         import env.*
 
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
-        initializedSynchronizers(daName)
 
         participant1.dars.upload(UpgradingBaseTest.NonConformingV1)
         participant1.dars.upload(UpgradingBaseTest.NonConformingV2)
@@ -254,7 +253,7 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
         LogEntry.assertLogSeq(
           mustContainWithClue = Seq(
             (
-              _.errorMessage should include regex raw"(?s)FAILED_PRECONDITION/INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED.*Interpretation error: Error: Validation fails when trying to upgrade the contract.*from NonConforming:NonConforming.*Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed",
+              _.errorMessage should include regex raw"(?s)INVALID_ARGUMENT/INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED.*Interpretation error: Error: Validation fails when trying to upgrade the contract.*from NonConforming:NonConforming.*",
               "mode 1 failure",
             )
           )
@@ -268,7 +267,7 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
         LogEntry.assertLogSeq(
           mustContainWithClue = Seq(
             (
-              _.errorMessage should include regex raw"(?s)FAILED_PRECONDITION/INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED.*Interpretation error: Error: Validation fails when trying to upgrade the contract.*from NonConforming:NonConforming.*Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed",
+              _.errorMessage should include regex raw"(?s)INVALID_ARGUMENT/INTERPRETATION_UPGRADE_ERROR_VALIDATION_FAILED.*Interpretation error: Error: Validation fails when trying to upgrade the contract.*from NonConforming:NonConforming.*",
               "mode 2 failure",
             )
           )
@@ -356,7 +355,7 @@ class NonConformingUpgradeIntegrationTest extends CommunityIntegrationTest with 
           v2.nonconforming.BankTransfer.PACKAGE_ID,
         ),
         e =>
-          e.errorMessage should include regex raw"(?s)FAILED_PRECONDITION/INTERPRETATION_DEV_ERROR.*Authentication error for contract.*${cidV2.contractId}",
+          e.errorMessage should include regex raw"(?s)INVALID_ARGUMENT/INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED.*Error when authenticating contract.*${cidV2.contractId}",
       )
 
     }

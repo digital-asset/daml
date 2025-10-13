@@ -640,7 +640,7 @@ class SequencerWriterSourceTest
       combinedNotificationsF map { notification =>
         forAll(members) { member =>
           withClue(s"expecting notification for $member") {
-            notification.includes(member) shouldBe true
+            notification.isBroadcastOrIncludes(member) shouldBe true
           }
         }
 
