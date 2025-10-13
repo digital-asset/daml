@@ -13,6 +13,7 @@ import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, PositiveF
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 
+import java.time.Duration
 import scala.concurrent.ExecutionContext
 
 /** Allows to determine the current sequencing time, and whether a sequencing time has been reached,
@@ -114,7 +115,7 @@ class SequencingTimeFetcher private[client] (
               returnOutcome(true)
             } else {
               val leftTime = timeout.duration.minus(duration)
-              if (leftTime.isPositive) {
+              if (leftTime.compareTo(Duration.ZERO) > 0) {
                 logger.debug(
                   s"Cannot determine yet whether the synchronizer has reached sequencing time $time " +
                     s"due to insufficient $positives positives (threshold: $trustThresholdInt), trying more sources"
