@@ -1528,6 +1528,7 @@ private[lf] object SBuiltinFun {
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
+        forbidLocalContractIds: Boolean,
         forbidTrailingNones: Boolean,
     ): Control[Question.Update] = {
       resolvePackageName(machine, srcPackageName) { pkgId =>
@@ -1544,6 +1545,7 @@ private[lf] object SBuiltinFun {
               srcTmplId,
               dstTmplId,
               srcArg,
+              forbidLocalContractIds = forbidLocalContractIds,
               forbidTrailingNones = forbidTrailingNones,
             ) { dstSArg =>
               fetchValidateDstContract(
@@ -1583,6 +1585,7 @@ private[lf] object SBuiltinFun {
               srcMetadata = srcContractInfo.metadata,
               srcArg = srcContractInfo.arg,
               mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
+              forbidLocalContractIds = false,
               forbidTrailingNones = true,
             )
           }
@@ -1605,6 +1608,7 @@ private[lf] object SBuiltinFun {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
                   case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
                 },
+                forbidLocalContractIds = true,
                 forbidTrailingNones = hashingMethod match {
                   case HashingMethod.Legacy => false
                   case HashingMethod.UpgradeFriendly | HashingMethod.TypedNormalForm => true
@@ -1797,6 +1801,7 @@ private[lf] object SBuiltinFun {
           srcTplId,
           dstTplId,
           srcArg.toNormalizedValue,
+          forbidLocalContractIds = false,
           forbidTrailingNones = true,
         ) { templateArg =>
           Control.Value(SOptional(Some(templateArg)))
@@ -2622,6 +2627,7 @@ private[lf] object SBuiltinFun {
         srcMetadata: ContractMetadata,
         srcArg: V,
         mbTypedNormalFormAuthenticator: Option[Hash => Boolean],
+        forbidLocalContractIds: Boolean,
         forbidTrailingNones: Boolean,
     ): Control[Question.Update] = {
       if (srcTmplId.qualifiedName != dstTmplId.qualifiedName)
@@ -2640,6 +2646,7 @@ private[lf] object SBuiltinFun {
             srcTmplId,
             dstTmplId,
             srcArg,
+            forbidLocalContractIds = forbidLocalContractIds,
             forbidTrailingNones = forbidTrailingNones,
           ) { dstSArg =>
             fetchValidateDstContract(
@@ -2682,6 +2689,7 @@ private[lf] object SBuiltinFun {
                 srcMetadata = srcContractInfo.metadata,
                 srcArg = srcContractInfo.arg,
                 mbTypedNormalFormAuthenticator = Some(_ == srcContractInfo.valueHash),
+                forbidLocalContractIds = false,
                 forbidTrailingNones = true,
               )
             }
@@ -2705,6 +2713,7 @@ private[lf] object SBuiltinFun {
                   case HashingMethod.TypedNormalForm => Some(authenticator)
                   case HashingMethod.Legacy | HashingMethod.UpgradeFriendly => None
                 },
+                forbidLocalContractIds = true,
                 forbidTrailingNones = hashingMethod match {
                   case HashingMethod.Legacy => false
                   case HashingMethod.UpgradeFriendly | HashingMethod.TypedNormalForm => true
@@ -2924,13 +2933,14 @@ private[lf] object SBuiltinFun {
       srcTmplId: TypeConId,
       dstTmplId: TypeConId,
       createArg: V,
+      forbidLocalContractIds: Boolean,
       forbidTrailingNones: Boolean,
   )(
       k: SValue => Control[Q]
   ): Control[Q] = {
     new ValueTranslator(
       machine.compiledPackages.pkgInterface,
-      forbidLocalContractIds = true,
+      forbidLocalContractIds = forbidLocalContractIds,
       forbidTrailingNones = forbidTrailingNones,
     )
       .translateValue(Ast.TTyCon(dstTmplId), createArg)
