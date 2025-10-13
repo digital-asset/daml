@@ -52,8 +52,8 @@ Under the heading "DAR archive contains the following packages:" you get a simil
 
 We can see this in action. When a DAR file gets deployed to a ledger, not all meta information is preserved.
 
-#. Note down your main package hash from running ``inspect-dar`` above
-#. Start the project by running a ledger and uploading the `assets.dar` DAR: 
+1. Note down your main package hash from running ``inspect-dar`` above
+2. Start the project by running a ledger and uploading the `assets.dar` DAR: 
 
 .. code:: shell
   
@@ -67,7 +67,7 @@ We can see this in action. When a DAR file gets deployed to a ledger, not all me
 
   dpm sandbox -c config.conf
 
-#. Open another terminal and use the gRPC Ledger API to download the dar,  making sure to replace the hash with the appropriate one
+3. Open another terminal and use the gRPC Ledger API to download the dar,  making sure to replace the hash with the appropriate one
 
 .. code:: shell
   
@@ -75,7 +75,7 @@ We can see this in action. When a DAR file gets deployed to a ledger, not all me
     -d '{"mainPackageId": "887056cbb313b94ab9a6caf34f7fe4fbfe19cb0c861e50d1594c665567ab7625"}' \
     -plaintext | jq -r '.payload' | base64 --decode > assets_ledger.dar
   
-#. Run ``dpm damlc inspect-dar assets_ledger.dar``
+4. Run ``dpm damlc inspect-dar assets_ledger.dar``
 
 You'll notice two things. Firstly, a lot of the dependencies have lost their names, they are now only identifiable by hash. We could of course also create a second project ``intro7-1.0.0`` with completely different contents so even when name and version are available, package hash is the only safe identifier.
 
