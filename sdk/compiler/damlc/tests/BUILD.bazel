@@ -385,7 +385,7 @@ da_haskell_test(
     srcs = ["src/DA/Test/IncrementalBuilds.hs"],
     data = [
         "//compiler/damlc",
-        "//daml-script/daml:daml-script-2.1.dar",
+        "//daml-script/daml:daml-script.dar",
         "//daml-script/runner:daml-script-binary",
     ],
     hackage_deps = [
