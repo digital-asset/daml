@@ -58,7 +58,9 @@ data PackageConfigFields = PackageConfigFields
     -- ^ Map from unit ids to a prefix for all modules in that package.
     -- If this is specified, all modules from the package will be remapped
     -- under the given prefix.
-    , pSdkVersion :: UnresolvedReleaseVersion
+    , pSdkVersion :: Maybe UnresolvedReleaseVersion
+    -- ^ DPM supports omitting sdk-version if enough overrides are provided, should never be Nothing
+    -- when running with Daml Assistant
     , pUpgradeDar :: Maybe FilePath
     }
 
@@ -74,7 +76,7 @@ parsePackageConfig package = do
     pDependencies <- queryPackageConfigRequired ["dependencies"] package
     pDataDependencies <- fromMaybe [] <$> queryPackageConfig ["data-dependencies"] package
     pModulePrefixes <- fromMaybe Map.empty <$> queryPackageConfig ["module-prefixes"] package
-    pSdkVersion <- queryPackageConfigRequired ["sdk-version"] package
+    pSdkVersion <- queryPackageConfig ["sdk-version"] package
     pUpgradeDar <- queryPackageConfig ["upgrades"] package
     Right PackageConfigFields {..}
 
@@ -129,7 +131,7 @@ overrideSdkVersion pkgConfig = do
         Just (Left sdkVersionError) -> do
             hPutStrLn stderr $ unwords
                 [ "Warning: Using SDK version "
-                , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
+                , maybe "<omitted>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
                 , " from config instead of "
                 , sdkVersionEnvVar
                 , " enviroment variable because it doesn't contain a valid version.\n"
@@ -137,19 +139,19 @@ overrideSdkVersion pkgConfig = do
                 ]
             pure pkgConfig
         Just (Right sdkVersion) -> do
-            when (pSdkVersion pkgConfig /= sdkVersion) $
+            when (pSdkVersion pkgConfig /= Just sdkVersion) $
                 hPutStrLn stderr $ unwords
                     [ "Warning: Using SDK version"
                     , V.toString (unwrapUnresolvedReleaseVersion sdkVersion)
                     , "from"
                     , sdkVersionEnvVar
                     , "enviroment variable instead of SDK version"
-                    , V.toString (unwrapUnresolvedReleaseVersion (pSdkVersion pkgConfig))
+                    , maybe "<omitted>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
                     , "from"
                     , packageConfigName
                     , "config file."
                     ]
-            pure pkgConfig { pSdkVersion = sdkVersion }
+            pure pkgConfig { pSdkVersion = Just sdkVersion }
 
 -- If any of these fields are present in a daml.yaml, it is considered a "full" daml.yaml
 -- rather than a verion/options only file, and as such, cannot be ignored by processes like multi-build.

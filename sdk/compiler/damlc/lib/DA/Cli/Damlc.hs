@@ -1156,7 +1156,8 @@ type instance RuleResult BuildMulti = (LF.PackageName, LF.PackageVersion, LF.Pac
 
 -- Subset of PackageConfig needed for multi-package build deferring.
 data BuildMultiPackageConfig = BuildMultiPackageConfig
-  { bmSdkVersion :: UnresolvedReleaseVersion
+  { bmSdkVersion :: Maybe UnresolvedReleaseVersion
+  -- ^ DPM allows sdk-version to be omitted when sufficient overrides are provided
   , bmName :: LF.PackageName
   , bmVersion :: LF.PackageVersion
   , bmDarDeps :: [FilePath]
@@ -1211,7 +1212,7 @@ getDarSdkVersion :: ZipArchive.Archive -> Either String String
 getDarSdkVersion dar = Reader.sdkVersion <$> readDalfManifest dar
 
 -- | Gets the package id of a Dar in the given package ONLY if it is not stale.
-getPackageIdIfFresh :: IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
+getPackageIdIfFresh :: SdkVersion.Class.SdkVersioned => IDELogger.Logger -> FilePath -> BuildMultiPackageConfig -> [(LF.PackageName, LF.PackageVersion, LF.PackageId)] -> IO (Maybe LF.PackageId)
 getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
   let logDebug str = IDELogger.logDebug logger $ T.pack $ path <> ": " <> str
       logInfo str = IDELogger.logInfo logger $ T.pack str
@@ -1236,7 +1237,7 @@ getPackageIdIfFresh logger path BuildMultiPackageConfig {..} sourceDepPids = do
           getArchiveDalfPid name version = dalfDataKey name version `Map.lookup` archiveDalfPids
           -- We check source files by comparing the maps, any extra, missing or changed files will be covered by this, regardless of order
           sourceFilesCorrect = sourceFiles == archiveSourceFiles
-          sdkVersionCorrect = archiveSdkVersion == Right (unresolvedReleaseVersionToString bmSdkVersion)
+          sdkVersionCorrect = archiveSdkVersion == Right (maybe SdkVersion.Class.sdkVersion unresolvedReleaseVersionToString bmSdkVersion)
 
       -- Expanded `all` check that allows us to log specific dependencies being stale. Useful for debugging, maybe we can remove it.
       sourceDepsCorrect <-
@@ -1260,7 +1261,8 @@ damlMultiBuildVersion :: UnresolvedReleaseVersion
 damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
 
 buildMultiRule
-  :: DamlcRunner
+  :: SdkVersion.Class.SdkVersioned
+  => DamlcRunner
   -> BuildableDataDeps
   -> MultiPackageNoCache
   -> Maybe (NormalizedFilePath, IO LF.PackageId)
@@ -1311,8 +1313,9 @@ buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRoot
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
 
             -- Call build via daml assistant so it selects the correct SDK version.
+            let shouldDisableMultiPackage version = version >= damlMultiBuildVersion || isHeadVersion version
             runDamlc damlcRunner filePath $
-              ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
+              ["build"] <> (["--enable-multi-package=no" | maybe True shouldDisableMultiPackage bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
             -- Extract the new package ID from the dar we just built, by reading the DAR and looking for the dalf that matches our package name/version
@@ -1673,7 +1676,7 @@ buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
     (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
     (\package -> do
-      bmSdkVersion <- queryPackageConfigRequired ["sdk-version"] package
+      bmSdkVersion <- queryPackageConfig ["sdk-version"] package
       bmName <- queryPackageConfigRequired ["name"] package
       bmVersion <- queryPackageConfigRequired ["version"] package
       bmSourceDaml <- queryPackageConfigRequired ["source"] package
