@@ -37,6 +37,7 @@ import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlo
 import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -95,7 +96,7 @@ trait InteractiveSubmissionIntegrationTestSetup
 
         aliceE = cpn.parties.external.enable("Alice")
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   protected def createTrailingNoneContract(
       party: ExternalParty
@@ -850,7 +851,7 @@ class InteractiveSubmissionMultiSynchronizerIntegrationTest
         participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
         participants.all.dars.upload(CantonTestsPath, synchronizerId = daId)
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   registerPlugin(
     new UseReferenceBlockSequencer[DbConfig.Postgres](

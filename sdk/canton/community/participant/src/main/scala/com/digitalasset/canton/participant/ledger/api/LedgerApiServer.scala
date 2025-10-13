@@ -108,7 +108,7 @@ class LedgerApiServer(
     cantonParameterConfig: ParticipantNodeParameters,
     testingTimeService: Option[TimeServiceBackend],
     adminTokenDispenser: CantonAdminTokenDispenser,
-    cantonContractStore: Eval[ContractStore],
+    participantContractStore: Eval[ContractStore],
     participantPruningStore: Eval[ParticipantPruningStore],
     enableCommandInspection: Boolean,
     tracerProvider: TracerProvider,
@@ -263,7 +263,7 @@ class LedgerApiServer(
             )(
               loggingContext
             ),
-        cantonContractStore = cantonContractStore.value,
+        participantContractStore = participantContractStore.value,
         pruningOffsetService =
           PruningOffsetServiceImpl(participantPruningStore.value, loggerFactory),
       )
@@ -588,7 +588,7 @@ object LedgerApiServer {
       cantonParameterConfig = parameters,
       testingTimeService = ledgerTestingTimeService,
       adminTokenDispenser = adminTokenDispenser,
-      cantonContractStore = participantNodePersistentState.map(_.contractStore),
+      participantContractStore = participantNodePersistentState.map(_.contractStore),
       participantPruningStore = participantNodePersistentState.map(_.pruningStore),
       enableCommandInspection = config.ledgerApi.enableCommandInspection,
       tracerProvider = tracerProvider,

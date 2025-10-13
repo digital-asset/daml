@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 create table par_daml_packages (
@@ -86,11 +86,11 @@ create index idx_par_contracts_internal on par_contracts(internal_contract_id);
 -- contract_id is left out, because a query with contract_id can be served with the primary key.
 create index idx_par_contracts_find on par_contracts(package_id, template_id);
 
--- provides a serial enumeration of static strings so we don't store the same string over and over in the db
+-- provides an enumeration of static strings so we don't store the same string over and over in the db
 -- currently only storing uids
 create table common_static_strings (
-    -- serial identifier of the string (local to this node)
-    id serial not null primary key,
+    -- identifier of the string (local to this node)
+    id integer generated always as identity primary key,
     -- the expression
     string varchar not null,
     -- the source (what kind of string are we storing here)
@@ -452,7 +452,7 @@ create table common_head_sequencer_counters (
 -- members can read all events from `registered_ts`
 create table sequencer_members (
     member varchar primary key,
-    id serial unique,
+    id integer generated always as identity unique,
     registered_ts bigint not null,
     pruned_previous_event_timestamp bigint,
     enabled bool not null default true
@@ -683,8 +683,8 @@ create index idx_seq_in_flight_aggregated_sender_temporal on seq_in_flight_aggre
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (
-    -- serial identifier used to preserve insertion order
-    id bigserial not null primary key,
+    -- identifier used to preserve insertion order
+    id bigint generated always as identity primary key,
     -- the id of the store
     store_id varchar not null,
     -- the timestamp at which the transaction is sequenced by the sequencer
@@ -952,4 +952,22 @@ create table acs_slow_counter_participants
    is_distinguished boolean not null,
    is_added_to_metrics boolean not null,
    primary key(synchronizer_id,participant_id)
+);
+
+-- Specifies the event that triggers the execution of a pending operation
+create type pending_operation_trigger_type as enum ('synchronizer_reconnect');
+
+-- Stores operations that must be completed, ensuring execution even after a node restart (e.g., following a crash)
+create table common_pending_operations (
+  operation_trigger pending_operation_trigger_type not null,
+  -- The name of the procedure to execute for this operation.
+  operation_name varchar not null,
+  -- A key to uniquely identify an instance of an operation, allowing multiple pending operations of the same type
+  -- An empty string indicates no specific key
+  operation_key varchar not null,
+  -- The serialized protobuf message for the operation, wrapped for versioning (HasProtocolVersionedWrapper)
+  operation bytea not null,
+  -- The ID of the synchronizer instance this operation is associated with
+  synchronizer_id varchar not null,
+  primary key (synchronizer_id, operation_key, operation_name)
 );

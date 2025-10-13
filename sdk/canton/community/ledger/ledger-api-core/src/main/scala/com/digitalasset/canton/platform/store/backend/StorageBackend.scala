@@ -299,13 +299,14 @@ trait EventStorageBackend {
     * database operations
     */
   def pruneEvents(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
       incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       connection: Connection,
       traceContext: TraceContext,
-  ): Unit =
-    ??? // TODO(#28005): Implement
+  ): Unit
 
   def activeContractBatch(
       eventSequentialIds: Iterable[Long],

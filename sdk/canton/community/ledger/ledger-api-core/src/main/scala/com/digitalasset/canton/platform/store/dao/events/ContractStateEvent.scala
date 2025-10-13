@@ -16,6 +16,6 @@ object ContractStateEvent {
       contractId: ContractId,
       globalKey: Option[Key],
   ) extends ContractStateEvent
-  // This is merely an offset placeholder for now, sole purpose is to tick the StateCaches internal offset
+  // This is merely a placeholder for now, sole purpose is to tick the StateCaches internal index
   case object ReassignmentAccepted extends ContractStateEvent
 }

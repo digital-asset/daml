@@ -16,13 +16,11 @@ object CantonGenerators {
   }
 
   // We define custom generators for the enums here, so that UNRECOGNIZED values are not generated
-  implicit val arbSignatureFormat
-      : Arbitrary[lapi.interactive.interactive_submission_service.SignatureFormat] =
-    enumArbitrary(lapi.interactive.interactive_submission_service.SignatureFormat.enumCompanion)
-  implicit val arbSigningAlgorithmSpec
-      : Arbitrary[lapi.interactive.interactive_submission_service.SigningAlgorithmSpec] =
+  implicit val arbSignatureFormat: Arbitrary[lapi.crypto.SignatureFormat] =
+    enumArbitrary(lapi.crypto.SignatureFormat.enumCompanion)
+  implicit val arbSigningAlgorithmSpec: Arbitrary[lapi.crypto.SigningAlgorithmSpec] =
     enumArbitrary(
-      lapi.interactive.interactive_submission_service.SigningAlgorithmSpec.enumCompanion
+      lapi.crypto.SigningAlgorithmSpec.enumCompanion
     )
   implicit val arbHashingSchemeVersion
       : Arbitrary[lapi.interactive.interactive_submission_service.HashingSchemeVersion] =

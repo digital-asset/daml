@@ -49,5 +49,15 @@ template BankTransfer with
       controller bank
       do pure payee
 
+template FetchTransfer with
+  bank: Party
+ where
+  signatory bank
+
+  nonconsuming choice FetchTransfer_Get : BankTransfer
+    with
+      transferCid: ContractId BankTransfer
+    controller bank
+      do fetch transferCid
 
 

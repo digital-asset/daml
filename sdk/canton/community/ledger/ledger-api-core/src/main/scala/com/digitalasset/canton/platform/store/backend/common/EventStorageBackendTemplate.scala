@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventParser,
@@ -46,7 +47,7 @@ import com.digitalasset.daml.lf.data.Ref.{
 }
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
-import java.sql.Connection
+import java.sql.{Connection, PreparedStatement}
 import scala.util.Using
 
 object EventStorageBackendTemplate {
@@ -1234,6 +1235,242 @@ abstract class EventStorageBackendTemplate(
   override def eventReaderQueries: EventReaderQueries =
     new EventReaderQueries(stringInterning)
 
+  override def pruneEvents(
+      previousPruneUpToInclusiveOffset: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
+      pruneUpToInclusiveOffset: Offset,
+      incompleteReassignmentOffsets: Vector[Offset],
+  )(implicit connection: Connection, traceContext: TraceContext): Unit = {
+    /*
+    Incomplete assign: we need to retain the next deactivation if any (otherwise it becomes active)
+    Incomplete unassign: we need to retain the previous activation (otherwise it cannot be presented)
+    Deactivation: we need to prune the related activation (otherwise it becomes active)
+    Pruning always happens in pairs, never ever we prune only activation or deactivation under normal circumstances.
+    Only exception to this rule is when the deactivation reference was unable to be calculated: then we can prune this orphan deactivation.
+    Therefore, regarding activations and deactivations: we prune based on the identified deactivations.
+    We prune all witnessed events (cannot be active, cannot be incomplete).
+     */
+
+    def loadOffsets(
+        offsets: Vector[Offset],
+        purpose: String,
+    )(jdbcQueryString: String)(setParams: PreparedStatement => Offset => Unit): Unit =
+      if (offsets.nonEmpty) {
+        Using.resource(
+          connection.prepareStatement(jdbcQueryString)
+        ) { preparedStatement =>
+          val offsetBatches = offsets
+            .grouped(MaxBatchSizeOfIncompleteReassignmentOffsetTempTablePopulation)
+            .toVector
+          logger.info(
+            s"Loading ${offsets.size} offsets in ${offsetBatches.size} batches for $purpose"
+          )
+          offsetBatches.iterator.zipWithIndex
+            .foreach { case (batch, index) =>
+              batch.foreach { offset =>
+                setParams(preparedStatement)(offset)
+                preparedStatement.addBatch()
+              }
+              preparedStatement.executeBatch().discard
+              logger.debug(
+                s"Processed offset batch #${index + 1} / ${offsetBatches.size} for $purpose"
+              )
+            }
+          logger.info(
+            s"Loaded ${offsets.size} offsets in ${offsetBatches.size} batches for $purpose"
+          )
+        }
+      }
+
+    val pruningFromExclusiveEventSeqId =
+      maxEventSequentialId(previousPruneUpToInclusiveOffset)(connection)
+    val pruningToInclusiveEventSeqId =
+      maxEventSequentialId(Some(pruneUpToInclusiveOffset))(connection)
+
+    logger.info(
+      s"Start pruning Index DB events. Offsets in range ($previousPruneUpToInclusiveOffset, $pruneUpToInclusiveOffset] event sequential IDs in range ($pruningFromExclusiveEventSeqId, $pruningToInclusiveEventSeqId] with ${previousIncompleteReassignmentOffsets.size} incomplete offsets at the beginning and with ${incompleteReassignmentOffsets.size} at the end of the pruning range."
+    )
+
+    val currentIncompleteSet = incompleteReassignmentOffsets.toSet
+    val completedReassignments =
+      previousIncompleteReassignmentOffsets.filterNot(currentIncompleteSet)
+
+    logger.info("Creating temporary table for storing pruning candidates")
+    SQL"""
+      -- Create temporary table for storing deactivated_contract candidates for pruning
+      CREATE LOCAL TEMPORARY TABLE IF NOT EXISTS temp_candidate_deactivated (
+        deactivate_event_sequential_id bigint NOT NULL,
+        activate_event_sequential_id bigint
+      ) ON COMMIT DELETE ROWS
+      """.execute().discard
+
+    // Please note: the big union + join query is deliberately pu in one CTE due to some H2 bug.
+    // (possibly the H2 bug is around multiple CTEs targeting the same table)
+    loadOffsets(completedReassignments, "populating candidates for completed reassignments")(
+      """-- first unfolding an offset to all respective event_sequential_id-s
+        |WITH completed_ids AS (
+        |  -- completed incomplete unassign: we carry the respective activation as well, both could be pruned now
+        |  SELECT
+        |    d1.event_sequential_id,
+        |    d1.deactivated_event_sequential_id
+        |  FROM lapi_events_deactivate_contract d1 WHERE event_offset = ?
+        |  UNION ALL
+        |  SELECT
+        |    d2.event_sequential_id as event_sequential_id,
+        |    d2.deactivated_event_sequential_id as deactivated_event_sequential_id
+        |  FROM lapi_events_deactivate_contract d2, lapi_events_activate_contract a
+        |  WHERE
+        |    a.event_offset = ?
+        |    -- completed incomplete assign: we only prune if the deactivation is found and is below the fromExclusive
+        |    -- because the deactivations above will anyway added to the candidates
+        |    AND d2.deactivated_event_sequential_id = a.event_sequential_id
+        |    AND d2.event_sequential_id <= ?
+        |)
+        |INSERT INTO temp_candidate_deactivated(deactivate_event_sequential_id, activate_event_sequential_id)
+        |SELECT event_sequential_id, deactivated_event_sequential_id
+        |FROM completed_ids""".stripMargin
+    ) { preparedStatement => offset =>
+      preparedStatement.setLong(1, offset.unwrap)
+      preparedStatement.setLong(2, offset.unwrap)
+      preparedStatement.setLong(3, pruningFromExclusiveEventSeqId)
+    }
+
+    logger.info("Populating candidates for deactivated contracts in the pruned range")
+    SQL"""
+      -- Create temporary table for storing deactivated_contract candidates for pruning
+      INSERT INTO temp_candidate_deactivated(deactivate_event_sequential_id, activate_event_sequential_id)
+      SELECT event_sequential_id, deactivated_event_sequential_id
+      FROM lapi_events_deactivate_contract
+      WHERE
+        event_sequential_id > $pruningFromExclusiveEventSeqId
+        AND event_sequential_id <= $pruningToInclusiveEventSeqId
+      """.execute().discard
+
+    logger.info("Indexing temporary table for storing pruning candidates")
+    SQL"""
+      -- Create temporary table for storing deactivated_contract candidates for pruning
+      CREATE INDEX temp_candidate_deactivated_deactivate ON temp_candidate_deactivated USING btree (deactivate_event_sequential_id);
+      CREATE INDEX temp_candidate_deactivated_activate ON temp_candidate_deactivated USING btree (activate_event_sequential_id);
+      ${queryStrategy.analyzeTable("temp_candidate_deactivated")};
+      """.execute().discard
+
+    loadOffsets(
+      incompleteReassignmentOffsets,
+      "removing candidates related to incomplete reassignments",
+    )(
+      """-- first unfolding an offset to all respective event_sequential_id-s
+        |WITH incomplete_ids AS (
+        |  SELECT event_sequential_id FROM lapi_events_activate_contract WHERE event_offset = ?
+        |  UNION ALL
+        |  SELECT event_sequential_id FROM lapi_events_deactivate_contract WHERE event_offset = ?
+        |)
+        |DELETE FROM temp_candidate_deactivated
+        |WHERE EXISTS (
+        |  SELECT 1
+        |  FROM incomplete_ids
+        |  WHERE
+        |    -- either respective activation or deactivation is a match, we need to remove both - the whole row
+        |    incomplete_ids.event_sequential_id = temp_candidate_deactivated.deactivate_event_sequential_id
+        |    OR incomplete_ids.event_sequential_id = temp_candidate_deactivated.activate_event_sequential_id
+        |)""".stripMargin
+    ) { preparedStatement => offset =>
+      preparedStatement.setLong(1, offset.unwrap)
+      preparedStatement.setLong(2, offset.unwrap)
+    }
+
+    // activate
+    pruneWithLogging("Pruning lapi_events_activate_contract table") {
+      SQL"""
+        DELETE from lapi_events_activate_contract
+        WHERE EXISTS (
+          SELECT 1
+          FROM temp_candidate_deactivated
+          WHERE lapi_events_activate_contract.event_sequential_id = temp_candidate_deactivated.activate_event_sequential_id
+        )"""
+    }
+    pruneWithLogging("Pruning lapi_filter_activate_stakeholder table") {
+      SQL"""
+        DELETE from lapi_filter_activate_stakeholder
+        WHERE EXISTS (
+          SELECT 1
+          FROM temp_candidate_deactivated
+          WHERE lapi_filter_activate_stakeholder.event_sequential_id = temp_candidate_deactivated.activate_event_sequential_id
+        )"""
+    }
+    pruneWithLogging("Pruning lapi_filter_activate_witness table") {
+      SQL"""
+        DELETE from lapi_filter_activate_witness
+        WHERE EXISTS (
+          SELECT 1
+          FROM temp_candidate_deactivated
+          WHERE lapi_filter_activate_witness.event_sequential_id = temp_candidate_deactivated.activate_event_sequential_id
+        )"""
+    }
+
+    // deactivate
+    pruneWithLogging("Pruning lapi_events_deactivate_contract table") {
+      SQL"""
+        DELETE from lapi_events_deactivate_contract
+        WHERE EXISTS (
+          SELECT 1
+          FROM temp_candidate_deactivated
+          WHERE lapi_events_deactivate_contract.event_sequential_id = temp_candidate_deactivated.deactivate_event_sequential_id
+        )"""
+    }
+    pruneWithLogging("Pruning lapi_filter_deactivate_stakeholder table") {
+      SQL"""
+        DELETE from lapi_filter_deactivate_stakeholder
+        WHERE EXISTS (
+          SELECT 1
+          FROM temp_candidate_deactivated
+          WHERE lapi_filter_deactivate_stakeholder.event_sequential_id = temp_candidate_deactivated.deactivate_event_sequential_id
+        )"""
+    }
+    pruneWithLogging("Pruning lapi_filter_deactivate_witness table") {
+      SQL"""
+        DELETE from lapi_filter_deactivate_witness
+        WHERE EXISTS (
+          SELECT 1
+          FROM temp_candidate_deactivated
+          WHERE lapi_filter_deactivate_witness.event_sequential_id = temp_candidate_deactivated.deactivate_event_sequential_id
+        )"""
+    }
+
+    logger.info("Dropping temporary table for storing pruning candidates")
+    SQL"""
+      DROP INDEX temp_candidate_deactivated_deactivate;
+      DROP INDEX temp_candidate_deactivated_activate;
+      DROP TABLE temp_candidate_deactivated;
+      """.execute().discard
+
+    // witnessed
+    pruneWithLogging("Pruning lapi_events_various_witnessed table") {
+      SQL"""
+        DELETE from lapi_events_various_witnessed
+        WHERE
+          event_sequential_id <= $pruningToInclusiveEventSeqId AND
+          event_sequential_id > $pruningFromExclusiveEventSeqId"""
+    }
+    pruneWithLogging("Pruning lapi_filter_various_witness table") {
+      SQL"""
+        DELETE from lapi_filter_various_witness
+        WHERE
+          event_sequential_id <= $pruningToInclusiveEventSeqId AND
+          event_sequential_id > $pruningFromExclusiveEventSeqId"""
+    }
+
+    // meta
+    pruneWithLogging("Pruning lapi_update_meta table") {
+      SQL"""
+        DELETE FROM lapi_update_meta
+        WHERE
+          event_offset <= $pruneUpToInclusiveOffset AND
+          ${QueryStrategy.offsetIsGreater("event_offset", previousPruneUpToInclusiveOffset)}"""
+    }
+
+    logger.info("Finished pruning of Index DB events.")
+  }
+
   // Improvement idea: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
   /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in
     * the manner specified:
@@ -1590,6 +1827,7 @@ abstract class EventStorageBackendTemplate(
       connection: Connection,
       traceContext: TraceContext,
   ): Unit = {
+    logger.info(s"$queryDescription")
     val deletedRows = query.executeUpdate()(connection)
     logger.info(s"$queryDescription finished: deleted $deletedRows rows.")
   }

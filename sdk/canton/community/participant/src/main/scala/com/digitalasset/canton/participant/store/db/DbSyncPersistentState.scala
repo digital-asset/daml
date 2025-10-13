@@ -187,6 +187,7 @@ class DbPhysicalSyncPersistentState(
     staticSynchronizerParameters = staticSynchronizerParameters,
     store = topologyStore,
     outboxQueue = synchronizerOutboxQueue,
+    disableOptionalTopologyChecks = parameters.disableOptionalTopologyChecks,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,

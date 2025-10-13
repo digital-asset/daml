@@ -4,8 +4,9 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
 import com.digitalasset.canton.config.{
+  CommitmentSendDelay,
   DbConfig,
   PositiveDurationSeconds,
   SynchronizerTimeTrackerConfig,
@@ -57,7 +58,14 @@ abstract class LSUPruningIntegrationTest extends LSUBase {
       }
       .addConfigTransforms(configTransforms*)
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(
+              Some(NonNegativeProportion.zero),
+              Some(NonNegativeProportion.zero),
+            )
+          )
+        )
       )
       .addConfigTransforms(
         ConfigTransforms.updateMaxDeduplicationDurations(10.minutes.toJava)

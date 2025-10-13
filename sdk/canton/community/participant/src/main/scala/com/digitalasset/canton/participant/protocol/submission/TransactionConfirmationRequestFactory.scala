@@ -192,8 +192,8 @@ class TransactionConfirmationRequestFactory(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Unit] = {
-    // Signatures have been validated synchronously in the TransactionProcessor before the submission
-    // makes it here. Therefore we only do authorization checks at this point
+    // Signatures have been validated in the Ledger API when the execute request was received.
+    // Therefore we only do authorization checks at this point
     val signedAs = externallySignedSubmission.signatures.keySet.map(_.toLf)
     val unauthorized = submitterInfo.actAs.toSet -- signedAs
     for {

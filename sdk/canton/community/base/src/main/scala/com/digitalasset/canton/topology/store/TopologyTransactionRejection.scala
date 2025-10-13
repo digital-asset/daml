@@ -27,257 +27,286 @@ sealed trait TopologyTransactionRejection extends PrettyPrinting with Product wi
 }
 object TopologyTransactionRejection {
 
-  final case class NoDelegationFoundForKeys(keys: Set[Fingerprint])
-      extends TopologyTransactionRejection {
-    override def asString: String = s"No delegation found for keys ${keys.mkString(", ")}"
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.UnauthorizedTransaction.Failure(asString)
-
-  }
-  case object NotAuthorized extends TopologyTransactionRejection {
-    override def asString: String = "Not authorized"
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+  /** list of rejections produced by state processor */
+  object Processor {
+    final case class SerialMismatch(actual: PositiveInt, expected: PositiveInt)
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        show"The given serial $expected does not match the actual serial $expected"
+      override protected def pretty: Pretty[SerialMismatch] =
+        prettyOfClass(param("expected", _.expected), param("actual", _.actual))
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.SerialMismatch.Failure(Some(actual), Some(expected))
+    }
   }
 
-  final case class UnknownParties(parties: Seq[PartyId]) extends TopologyTransactionRejection {
-    override def asString: String = s"Parties ${parties.sorted.mkString(", ")} are unknown."
+  /** list of rejections which are created due to authorization checks */
+  object Authorization {
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.UnknownParties.Failure(parties)
+    case object NotAuthorized extends TopologyTransactionRejection {
+      override def asString: String = "Not authorized"
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+    }
+
+    final case class NoDelegationFoundForKeys(keys: Set[Fingerprint])
+        extends TopologyTransactionRejection {
+      override def asString: String = s"No delegation found for keys ${keys.mkString(", ")}"
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+
+    }
+    final case class MultiTransactionHashMismatch(
+        expected: TxHash,
+        actual: NonEmpty[Set[TxHash]],
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"The given transaction hash set $actual did not contain the expected hash $expected of the transaction."
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.MultiTransactionHashMismatch.Failure(expected, actual)
+    }
+    final case class SignatureCheckFailed(err: SignatureCheckError)
+        extends TopologyTransactionRejection {
+      override def asString: String = err.toString
+      override protected def pretty: Pretty[SignatureCheckFailed] = prettyOfClass(
+        param("err", _.err)
+      )
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidSignatureError.Failure(err)
+    }
+
+    final case class InvalidSynchronizer(synchronizerId: SynchronizerId)
+        extends TopologyTransactionRejection {
+      override def asString: String = show"Invalid synchronizer $synchronizerId"
+      override protected def pretty: Pretty[InvalidSynchronizer] = prettyOfClass(
+        param("synchronizer", _.synchronizerId)
+      )
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidSynchronizer.Failure(synchronizerId)
+    }
+
   }
 
-  final case class OnboardingRestrictionInPlace(
-      participant: ParticipantId,
-      restriction: OnboardingRestriction,
-      loginAfter: Option[CantonTimestamp],
-  ) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Participant $participant onboarding rejected as restrictions $restriction are in place."
+  /** list of rejections which are created due to invariants on the topology state */
+  object RequiredMapping {
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
-  }
+    final case class OnboardingRestrictionInPlace(
+        participant: ParticipantId,
+        restriction: OnboardingRestriction,
+        loginAfter: Option[CantonTimestamp],
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Participant $participant onboarding rejected as restrictions $restriction are in place."
 
-  final case class NoCorrespondingActiveTxToRevoke(mapping: TopologyMapping)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"There is no active topology transaction matching the mapping of the revocation request: $mapping"
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.NoCorrespondingActiveTxToRevoke.Mapping(mapping)
-  }
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.ParticipantOnboardingRefused.Reject(participant, restriction)
+    }
 
-  final case class InvalidTopologyMapping(err: String) extends TopologyTransactionRejection {
-    override def asString: String = s"Invalid mapping: $err"
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidTopologyMapping.Reject(err)
-  }
+    final case class NoCorrespondingActiveTxToRevoke(mapping: TopologyMapping)
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        s"There is no active topology transaction matching the mapping of the revocation request: $mapping"
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.NoCorrespondingActiveTxToRevoke.Mapping(mapping)
+    }
 
-  final case class CannotRemoveMapping(mappingCode: TopologyMapping.Code)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Removal of $mappingCode is not supported. Use Replace instead."
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.CannotRemoveMapping.Reject(mappingCode)
-  }
+    final case class InvalidTopologyMapping(err: String) extends TopologyTransactionRejection {
+      override def asString: String = s"Invalid mapping: $err"
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidTopologyMapping.Reject(err)
+    }
 
-  final case class RemoveMustNotChangeMapping(actual: TopologyMapping, expected: TopologyMapping)
-      extends TopologyTransactionRejection {
-    override def asString: String = "Remove operation must not change the mapping to remove."
+    final case class CannotRemoveMapping(mappingCode: TopologyMapping.Code)
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Removal of $mappingCode is not supported. Use Replace instead."
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.CannotRemoveMapping.Reject(mappingCode)
+    }
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.RemoveMustNotChangeMapping.Reject(actual, expected)
-  }
+    final case class RemoveMustNotChangeMapping(actual: TopologyMapping, expected: TopologyMapping)
+        extends TopologyTransactionRejection {
+      override def asString: String = "Remove operation must not change the mapping to remove."
 
-  final case class SignatureCheckFailed(err: SignatureCheckError)
-      extends TopologyTransactionRejection {
-    override def asString: String = err.toString
-    override protected def pretty: Pretty[SignatureCheckFailed] = prettyOfClass(param("err", _.err))
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.RemoveMustNotChangeMapping.Reject(actual, expected)
+    }
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidSignatureError.Failure(err)
-  }
-  final case class InvalidSynchronizer(synchronizerId: SynchronizerId)
-      extends TopologyTransactionRejection {
-    override def asString: String = show"Invalid synchronizer $synchronizerId"
-    override protected def pretty: Pretty[InvalidSynchronizer] = prettyOfClass(
-      param("synchronizer", _.synchronizerId)
-    )
+    final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidSynchronizer.Failure(synchronizerId)
-  }
+      override protected def pretty: Pretty[InsufficientKeys] = prettyOfClass(
+        param("members", _.members)
+      )
 
-  final case class SerialMismatch(expected: PositiveInt, actual: PositiveInt)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      show"The given serial $actual does not match the expected serial $expected"
-    override protected def pretty: Pretty[SerialMismatch] =
-      prettyOfClass(param("expected", _.expected), param("actual", _.actual))
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.SerialMismatch.Failure(expected, actual)
-  }
-  final case class AssumptionViolation(str: String) extends TopologyTransactionRejection {
-    override def asString: String = str
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InternalError.AssumptionViolation(str)
-  }
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InsufficientKeys.Failure(members)
+    }
 
-  final case class MultiTransactionHashMismatch(
-      expected: TxHash,
-      actual: NonEmpty[Set[TxHash]],
-  ) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"The given transaction hash set $actual did not contain the expected hash $expected of the transaction."
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MultiTransactionHashMismatch.Failure(expected, actual)
-  }
+    final case class UnknownMembers(members: Seq[Member]) extends TopologyTransactionRejection {
+      override def asString: String = s"Members ${members.sorted.mkString(", ")} are unknown."
 
-  final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
+      override protected def pretty: Pretty[UnknownMembers] = prettyOfClass(
+        param("members", _.members)
+      )
 
-    override protected def pretty: Pretty[InsufficientKeys] = prettyOfClass(
-      param("members", _.members)
-    )
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.UnknownMembers.Failure(members)
+    }
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InsufficientKeys.Failure(members)
-  }
+    final case class MissingSynchronizerParameters(effective: EffectiveTime)
+        extends TopologyTransactionRejection {
+      override def asString: String = s"Missing synchronizer parameters at $effective"
 
-  final case class UnknownMembers(members: Seq[Member]) extends TopologyTransactionRejection {
-    override def asString: String = s"Members ${members.sorted.mkString(", ")} are unknown."
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.MissingTopologyMapping.MissingSynchronizerParameters(effective)
+    }
 
-    override protected def pretty: Pretty[UnknownMembers] = prettyOfClass(
-      param("members", _.members)
-    )
+    final case class NamespaceAlreadyInUse(namespace: Namespace)
+        extends TopologyTransactionRejection {
+      override def asString: String = s"The namespace $namespace is already used by another entity."
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.UnknownMembers.Failure(members)
-  }
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.NamespaceAlreadyInUse.Reject(namespace)
 
-  final case class ParticipantStillHostsParties(participantId: ParticipantId, parties: Seq[PartyId])
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Cannot remove synchronizer trust certificate for $participantId because it still hosts parties ${parties
-          .mkString(",")}"
+      override protected def pretty: Pretty[NamespaceAlreadyInUse.this.type] = prettyOfClass(
+        param("namespace", _.namespace)
+      )
+    }
 
-    override protected def pretty: Pretty[ParticipantStillHostsParties] =
-      prettyOfClass(param("participantId", _.participantId), param("parties", _.parties))
+    final case class PartyIdConflictWithAdminParty(partyId: PartyId)
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        s"The partyId $partyId is the same as an already existing admin party."
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.IllegalRemovalOfSynchronizerTrustCertificate
-        .ParticipantStillHostsParties(
-          participantId,
-          parties,
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.PartyIdConflictWithAdminParty.Reject(partyId)
+
+      override protected def pretty: Pretty[PartyIdConflictWithAdminParty.this.type] =
+        prettyOfClass(
+          param("partyId", _.partyId)
         )
+    }
+
+    final case class ParticipantIdConflictWithPartyId(
+        participantId: ParticipantId,
+        partyId: PartyId,
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Tried to onboard participant $participantId while party $partyId with the same UID already exists."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.ParticipantIdConflictWithPartyId.Reject(participantId, partyId)
+
+      override protected def pretty: Pretty[ParticipantIdConflictWithPartyId.this.type] =
+        prettyOfClass(
+          param("participantId", _.participantId),
+          param("partyId", _.partyId),
+        )
+    }
+
+    final case class MediatorsAlreadyInOtherGroups(
+        group: NonNegativeInt,
+        mediators: Map[MediatorId, NonNegativeInt],
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Tried to add mediators to group $group, but they are already assigned to other groups: ${mediators.toSeq
+            .sortBy(_._1.toProtoPrimitive)
+            .mkString(", ")}"
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.MediatorsAlreadyInOtherGroups.Reject(group, mediators)
+    }
+
+    final case class OngoingSynchronizerUpgrade(synchronizerId: SynchronizerId)
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        s"The topology state of synchronizer $synchronizerId is frozen due to an ongoing synchronizer migration and no more topology changes are allowed."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.OngoingSynchronizerUpgrade.Reject(synchronizerId)
+    }
+
+    final case class InvalidSynchronizerSuccessor(
+        currentSynchronizerId: PhysicalSynchronizerId,
+        successorSynchronizerId: PhysicalSynchronizerId,
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidSynchronizerSuccessor.Reject.conflictWithCurrentPSId(
+          currentSynchronizerId,
+          successorSynchronizerId,
+        )
+    }
+
+    final case class InvalidUpgradeTime(
+        synchronizerId: SynchronizerId,
+        effective: EffectiveTime,
+        upgradeTime: CantonTimestamp,
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"The upgrade time $upgradeTime must be after the effective ${effective.value} of the synchronizer upgrade announcement for synchronizer $synchronizerId."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidUpgradeTime.Reject(synchronizerId, effective, upgradeTime)
+    }
+
+    final case class ParticipantCannotRejoinSynchronizer(participantId: ParticipantId)
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Participant $participantId tried to rejoin a synchronizer which it had previously left."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.MemberCannotRejoinSynchronizer.Reject(Seq(participantId))
+    }
+
+    final case class CannotReregisterKeys(member: Member) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Member $member tried to re-register its keys which they have previously removed."
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.MemberCannotRejoinSynchronizer.RejectNewKeys(member)
+    }
+
   }
 
-  final case class MissingSynchronizerParameters(effective: EffectiveTime)
-      extends TopologyTransactionRejection {
-    override def asString: String = s"Missing synchronizer parameters at $effective"
+  /** list of rejections which are created to help operators avoiding mistakes */
+  object OptionalMapping {
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MissingTopologyMapping.MissingSynchronizerParameters(effective)
-  }
+    final case class ParticipantStillHostsParties(
+        participantId: ParticipantId,
+        parties: Seq[PartyId],
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Cannot remove synchronizer trust certificate or owner to key mapping for $participantId because it still hosts parties ${parties
+            .mkString(",")}"
 
-  final case class NamespaceAlreadyInUse(namespace: Namespace)
-      extends TopologyTransactionRejection {
-    override def asString: String = s"The namespace $namespace is already used by another entity."
+      override protected def pretty: Pretty[ParticipantStillHostsParties] =
+        prettyOfClass(param("participantId", _.participantId), param("parties", _.parties))
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.NamespaceAlreadyInUse.Reject(namespace)
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.IllegalRemovalOfActiveTopologyTransactions
+          .ParticipantStillHostsParties(
+            participantId,
+            parties,
+          )
+    }
 
-    override protected def pretty: Pretty[NamespaceAlreadyInUse.this.type] = prettyOfClass(
-      param("namespace", _.namespace)
-    )
-  }
+    final case class MembersCannotRejoinSynchronizer(members: Seq[Member])
+        extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Member ${members.sorted} tried to rejoin a synchronizer from which they had previously left."
 
-  final case class PartyIdConflictWithAdminParty(partyId: PartyId)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"The partyId $partyId is the same as an already existing admin party."
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.MemberCannotRejoinSynchronizer.Reject(members)
+    }
 
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.PartyIdConflictWithAdminParty.Reject(partyId)
-
-    override protected def pretty: Pretty[PartyIdConflictWithAdminParty.this.type] = prettyOfClass(
-      param("partyId", _.partyId)
-    )
-  }
-
-  final case class ParticipantIdConflictWithPartyId(participantId: ParticipantId, partyId: PartyId)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Tried to onboard participant $participantId while party $partyId with the same UID already exists."
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.ParticipantIdConflictWithPartyId.Reject(participantId, partyId)
-
-    override protected def pretty: Pretty[ParticipantIdConflictWithPartyId.this.type] =
-      prettyOfClass(
-        param("participantId", _.participantId),
-        param("partyId", _.partyId),
-      )
-  }
-
-  final case class MediatorsAlreadyInOtherGroups(
-      group: NonNegativeInt,
-      mediators: Map[MediatorId, NonNegativeInt],
-  ) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Tried to add mediators to group $group, but they are already assigned to other groups: ${mediators.toSeq
-          .sortBy(_._1.toProtoPrimitive)
-          .mkString(", ")}"
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MediatorsAlreadyInOtherGroups.Reject(group, mediators)
-  }
-
-  final case class MembersCannotRejoinSynchronizer(members: Seq[Member])
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"Member ${members.sorted} tried to rejoin a synchronizer from which they had previously left."
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.MemberCannotRejoinSynchronizer.Reject(members)
-  }
-
-  final case class OngoingSynchronizerUpgrade(synchronizerId: SynchronizerId)
-      extends TopologyTransactionRejection {
-    override def asString: String =
-      s"The topology state of synchronizer $synchronizerId is frozen due to an ongoing synchronizer migration and no more topology changes are allowed."
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.OngoingSynchronizerUpgrade.Reject(synchronizerId)
-  }
-
-  final case class InvalidSynchronizerSuccessor(
-      currentSynchronizerId: PhysicalSynchronizerId,
-      successorSynchronizerId: PhysicalSynchronizerId,
-  ) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidSynchronizerSuccessor.Reject.conflictWithCurrentPSId(
-        currentSynchronizerId,
-        successorSynchronizerId,
-      )
-  }
-
-  final case class InvalidUpgradeTime(
-      synchronizerId: SynchronizerId,
-      effective: EffectiveTime,
-      upgradeTime: CantonTimestamp,
-  ) extends TopologyTransactionRejection {
-    override def asString: String =
-      s"The upgrade time $upgradeTime must be after the effective ${effective.value} of the synchronizer upgrade announcement for synchronizer $synchronizerId."
-
-    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.InvalidUpgradeTime.Reject(synchronizerId, effective, upgradeTime)
   }
 
 }

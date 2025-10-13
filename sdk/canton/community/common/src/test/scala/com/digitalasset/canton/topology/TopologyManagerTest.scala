@@ -149,6 +149,7 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
         timeouts,
       ),
       new SynchronizerOutboxQueue(loggerFactory),
+      disableOptionalTopologyChecks = false,
       exitOnFatalFailures = exitOnFatal,
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,

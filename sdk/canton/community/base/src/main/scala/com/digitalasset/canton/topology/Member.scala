@@ -374,6 +374,7 @@ sealed trait Party extends Identity with Product with Serializable {
 final case class ExternalParty private (
     partyId: PartyId,
     signingFingerprints: NonEmpty[Seq[Fingerprint]],
+    signingThreshold: PositiveInt,
 ) extends Party {
   override def uid: UniqueIdentifier = partyId.uid
 
@@ -383,8 +384,9 @@ final case class ExternalParty private (
   def copy(
       partyId: PartyId = partyId,
       signingFingerprints: NonEmpty[Seq[Fingerprint]] = signingFingerprints,
+      signingThreshold: PositiveInt = signingThreshold,
   ): ExternalParty =
-    new ExternalParty(partyId, signingFingerprints)
+    new ExternalParty(partyId, signingFingerprints, signingThreshold)
 }
 
 object ExternalParty {
@@ -395,7 +397,8 @@ object ExternalParty {
   def apply(
       partyId: PartyId,
       signingFingerprints: NonEmpty[Seq[Fingerprint]],
-  ) = new ExternalParty(partyId, signingFingerprints)
+      signingThreshold: PositiveInt,
+  ) = new ExternalParty(partyId, signingFingerprints, signingThreshold)
 }
 
 /** A party identifier based on a unique identifier

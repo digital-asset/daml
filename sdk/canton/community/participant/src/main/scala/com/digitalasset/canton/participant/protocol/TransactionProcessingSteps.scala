@@ -73,7 +73,7 @@ import com.digitalasset.canton.participant.protocol.validation.TimeValidator.Tim
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
+import com.digitalasset.canton.participant.util.DAMLe.{ContractEnricher, TransactionEnricher}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV1
@@ -130,12 +130,13 @@ class TransactionProcessingSteps(
     crypto: SynchronizerCryptoClient,
     metrics: TransactionProcessingMetrics,
     transactionEnricher: TransactionEnricher,
-    createNodeEnricher: CreateNodeEnricher,
+    createNodeEnricher: ContractEnricher,
     authorizationValidator: AuthorizationValidator,
     internalConsistencyChecker: InternalConsistencyChecker,
     tracker: CommandProgressTracker,
     protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    messagePayloadLoggingEnabled: Boolean,
 )(implicit val ec: ExecutionContext)
     extends ProcessingSteps[
       SubmissionParam,
@@ -312,8 +313,13 @@ class TransactionProcessingSteps(
     override def maxSequencingTimeO: OptionT[FutureUnlessShutdown, CantonTimestamp] = OptionT.liftF(
       recentSnapshot.ipsSnapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion).map {
         synchronizerParameters =>
-          CantonTimestamp(transactionMeta.ledgerEffectiveTime)
+          val maxSequencingTimeFromLET = CantonTimestamp(transactionMeta.ledgerEffectiveTime)
             .add(synchronizerParameters.ledgerTimeRecordTimeTolerance.unwrap)
+          submitterInfo.externallySignedSubmission
+            .flatMap(_.maxRecordTimeO)
+            .map(CantonTimestamp.apply)
+            .map(_.min(maxSequencingTimeFromLET))
+            .getOrElse(maxSequencingTimeFromLET)
       }
     )
 
@@ -344,20 +350,6 @@ class TransactionProcessingSteps(
               )
           )
 
-        lookupContractsWithDisclosed: ContractInstanceOfId =
-          (contractId: LfContractId) =>
-            disclosedContracts
-              .get(contractId)
-              .map(contract =>
-                EitherT.rightT[FutureUnlessShutdown, TransactionTreeFactory.ContractLookupError](
-                  contract: GenContractInstance
-                )
-              )
-              .getOrElse(
-                TransactionTreeFactory
-                  .contractInstanceLookup(contractLookup)(implicitly, implicitly)(contractId)
-              )
-
         confirmationRequestTimer = metrics.protocolMessages.confirmationRequestCreation
         // Perform phase 1 of the protocol that produces a transaction confirmation request
         request <- confirmationRequestTimer.timeEitherFUS(
@@ -370,7 +362,8 @@ class TransactionProcessingSteps(
               mediator,
               recentSnapshot,
               sessionKeyStore,
-              lookupContractsWithDisclosed,
+              TransactionProcessingSteps
+                .lookupContractsWithDisclosed(disclosedContracts, contractLookup),
               maxSequencingTime,
               protocolVersion,
             )
@@ -916,6 +909,7 @@ class TransactionProcessingSteps(
           transactionEnricher,
           createNodeEnricher,
           logger,
+          messagePayloadLoggingEnabled,
         )
 
         consistencyResultE = ContractConsistencyChecker
@@ -1563,6 +1557,23 @@ class TransactionProcessingSteps(
 }
 
 object TransactionProcessingSteps {
+
+  private[canton] def lookupContractsWithDisclosed(
+      disclosedContracts: Map[LfContractId, ContractInstance],
+      contractLookup: ContractLookup { type ContractsCreatedAtTime <: CreationTime.CreatedAt },
+  )(implicit executionContext: ExecutionContext, traceContext: TraceContext): ContractInstanceOfId =
+    (contractId: LfContractId) =>
+      disclosedContracts
+        .get(contractId)
+        .map(contract =>
+          EitherT.rightT[FutureUnlessShutdown, TransactionTreeFactory.ContractLookupError](
+            contract: GenContractInstance
+          )
+        )
+        .getOrElse(
+          TransactionTreeFactory
+            .contractInstanceLookup(contractLookup)(implicitly, implicitly)(contractId)
+        )
 
   final case class SubmissionParam(
       submitterInfo: SubmitterInfo,

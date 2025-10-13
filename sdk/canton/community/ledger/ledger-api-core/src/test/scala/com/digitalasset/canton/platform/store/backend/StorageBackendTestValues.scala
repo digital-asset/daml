@@ -28,6 +28,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
+import org.scalatest.OptionValues
 
 import java.time.Instant
 import java.util.UUID
@@ -35,7 +36,7 @@ import java.util.UUID
 /** Except where specified, values should be treated as opaque
   */
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-private[store] object StorageBackendTestValues {
+private[store] object StorageBackendTestValues extends OptionValues {
 
   def hashCid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
 
@@ -739,6 +740,10 @@ private[store] object StorageBackendTestValues {
 
   def dtoEventSeqId(dto: DbDto): Long =
     dto match {
+      case e: DbDto.EventActivate => e.event_sequential_id
+      case e: DbDto.EventDeactivate => e.event_sequential_id
+      case e: DbDto.EventVariousWitnessed => e.event_sequential_id
+      case e: DbDto.IdFilterDbDto => e.idFilter.event_sequential_id
       case e: DbDto.EventCreate => e.event_sequential_id
       case e: DbDto.EventExercise => e.event_sequential_id
       case e: DbDto.EventAssign => e.event_sequential_id
@@ -774,4 +779,71 @@ private[store] object StorageBackendTestValues {
     event_sequential_id_first = dtoEventSeqId(dbDto),
     event_sequential_id_last = dtoEventSeqId(dbDto),
   )
+
+  def meta(
+      // update related columns
+      event_offset: Long = 10L,
+      update_id: Array[Byte] = TestUpdateId("update").toProtoPrimitive.toByteArray,
+      workflow_id: Option[String] = Some("workflow-id"),
+      command_id: Option[String] = Some("command-id"),
+      submitters: Option[Set[String]] = Some(Set("submitter1")),
+      record_time: Long = 100L,
+      synchronizer_id: SynchronizerId = someSynchronizerId,
+      trace_context: Array[Byte] = serializableTraceContext,
+      external_transaction_hash: Option[Array[Byte]] = Some(someExternalTransactionHashBinary),
+      // meta related columns
+      publication_time: Long = 1000,
+  )(dbDtosInOrder: Seq[DbDto]): Vector[DbDto] =
+    dbDtosInOrder
+      .map {
+        case dto: DbDto.EventActivate =>
+          dto.copy(
+            event_offset = event_offset,
+            update_id = update_id,
+            workflow_id = workflow_id,
+            command_id = command_id,
+            submitters = submitters,
+            record_time = record_time,
+            synchronizer_id = synchronizer_id,
+            trace_context = trace_context,
+            external_transaction_hash = external_transaction_hash,
+          )
+        case dto: DbDto.EventDeactivate =>
+          dto.copy(
+            event_offset = event_offset,
+            update_id = update_id,
+            workflow_id = workflow_id,
+            command_id = command_id,
+            submitters = submitters,
+            record_time = record_time,
+            synchronizer_id = synchronizer_id,
+            trace_context = trace_context,
+            external_transaction_hash = external_transaction_hash,
+          )
+        case dto: DbDto.EventVariousWitnessed =>
+          dto.copy(
+            event_offset = event_offset,
+            update_id = update_id,
+            workflow_id = workflow_id,
+            command_id = command_id,
+            submitters = submitters,
+            record_time = record_time,
+            synchronizer_id = synchronizer_id,
+            trace_context = trace_context,
+            external_transaction_hash = external_transaction_hash,
+          )
+        case x => x
+      }
+      .toVector
+      .appended(
+        DbDto.TransactionMeta(
+          event_offset = event_offset,
+          update_id = update_id,
+          record_time = record_time,
+          synchronizer_id = synchronizer_id,
+          publication_time = publication_time,
+          event_sequential_id_first = dtoEventSeqId(dbDtosInOrder.headOption.value),
+          event_sequential_id_last = dtoEventSeqId(dbDtosInOrder.lastOption.value),
+        )
+      )
 }

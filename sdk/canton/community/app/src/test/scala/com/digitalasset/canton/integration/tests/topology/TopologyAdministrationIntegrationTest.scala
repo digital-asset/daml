@@ -85,9 +85,12 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       certs.head
     }
 
+    val expectedFeatureFlags = Seq.empty
+
     val expectedTrustCert1 = SynchronizerTrustCertificate(
       participant1.id,
       daId,
+      featureFlags = expectedFeatureFlags,
     )
 
     trustCert1.context.serial shouldBe PositiveInt.one
