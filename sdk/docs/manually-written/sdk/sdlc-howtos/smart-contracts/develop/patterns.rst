@@ -8,7 +8,7 @@ Good Design Patterns
 
 Patterns have been useful in the programming world, as both a source of design inspiration, and a document of good design practices. This document is a catalog of Daml patterns intended to provide the same facility in the Daml application world.
 
-You can checkout the examples locally via ``daml new daml-patterns --template daml-patterns``.
+You can checkout the examples locally via ``dpm new daml-patterns --template daml-patterns``.
 
 :doc:`patterns/propose-accept`
     The Propose and Accept pattern demonstrates how to start a bilateral workflow. One party creates a proposal or an invite contract. This gives another party the chance to accept, reject, or renegotiate.

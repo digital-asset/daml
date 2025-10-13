@@ -2251,7 +2251,7 @@ with the ``upgrades-example`` template.
 
 .. code:: bash
 
-   > daml new upgraded-iou --template upgrades-example
+   > dpm new upgraded-iou --template upgrades-example
    > cd upgraded-iou
    > tree
    .
@@ -2291,7 +2291,7 @@ Without multi-package builds you would test your program like this:
 .. code:: bash
 
    > # Run sandbox in the background, wait until the three lines below are shown
-   > daml sandbox &
+   > dpm sandbox &
    Starting Canton sandbox.
    Listening at port 6865
    Canton sandbox is ready.

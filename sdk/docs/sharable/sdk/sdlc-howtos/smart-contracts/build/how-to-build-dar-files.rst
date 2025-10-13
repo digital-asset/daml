@@ -46,7 +46,7 @@ Write your .daml files in this directory, the file name must match the module he
 
 Directory and .daml file names must be in UpperCamel casing.
 
-The ``daml new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :ref:`Daml Assistant New <daml-assistant-new>` for more information.
+The ``dpm new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :ref:`Daml Assistant New <daml-assistant-new>` for more information.
 
 
 .. _multi-package-build:
