@@ -14,6 +14,6 @@ This introduction is structured such that each section presents a new self-conta
 
 Prerequisites:
 
-- You have installed :ref:`dpm <daml-assistant-install>`
+- You have installed :brokenref:`dpm <dpm-install>`
 
 Next: :doc:`contracts`.
