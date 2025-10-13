@@ -86,7 +86,8 @@ object LanguageVersion {
     val kindInterning = flatArchive
     val exprInterning = flatArchive
 
-    val explicitPkgImports = v2_2
+    val explicitPkgImports = v2_dev
+    // val explicitPkgImports = v2_2
 
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
