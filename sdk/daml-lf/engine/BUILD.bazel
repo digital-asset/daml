@@ -97,6 +97,8 @@ da_scala_test_suite(
         ],
     ),
     data = [
+        "CantonLfV21-3.3.0.dar"
+    ] + [
         "{name}-v{major}.dar".format(
             name = name,
             major = major,

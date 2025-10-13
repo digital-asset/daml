@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.archive.Dar
+import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarReader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -15,12 +15,24 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.nio.file.Path
+import com.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.Decode.assertDecodeArchivePayload
+
 class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
 
 class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with Inside {
+
+  val testDarPath = "daml-lf/engine/CantonLfV21-3.3.0.dar"
+  val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
+  val dar: Dar[ArchivePayload] = DarReader.assertReadArchiveFromFile(testDar.toFile)
+
+  val main: (Ref.PackageId, Package) = assertDecodeArchivePayload(dar.main)
+  val deps: List[(Ref.PackageId, Package)] = dar.dependencies.map(assertDecodeArchivePayload(_))
+  val decodedDar: Dar[(Ref.PackageId, Package)] = new Dar(main, deps)
 
   val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
@@ -85,6 +97,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
           val string: Text = "pkg";
         }
       """
+
+    "accept prepackaged dars" in {
+      newEngine.validateDar(decodedDar) shouldBe Right(())
+    }
 
     "accept valid package" should {
       utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
