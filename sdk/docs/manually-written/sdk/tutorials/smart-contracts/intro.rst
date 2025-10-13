@@ -14,6 +14,6 @@ This introduction is structured such that each section presents a new self-conta
 
 Prerequisites:
 
-- You have installed :brokenref:`dpm <dpm-install>`
+- You have installed :externalref:`dpm <dpm-install>`
 
 Next: :doc:`contracts`.
