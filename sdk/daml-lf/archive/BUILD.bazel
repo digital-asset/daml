@@ -173,6 +173,7 @@ da_scala_test_suite(
 daml_compile_with_dalf(
     name = "DarReaderTest",
     srcs = ["src/test/daml/DarReaderTest.daml"],
+    target = "2.1",
 )
 
 [

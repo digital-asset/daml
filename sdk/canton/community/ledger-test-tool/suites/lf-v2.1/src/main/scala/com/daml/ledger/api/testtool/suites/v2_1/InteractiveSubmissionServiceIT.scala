@@ -23,6 +23,7 @@ import com.daml.ledger.api.v2.commands.DisclosedContract
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.InputContract
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.InputContract.Contract
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints,
   ExecuteSubmissionAndWaitForTransactionResponse,
   MinLedgerTime,
 }
@@ -65,6 +66,28 @@ final class InteractiveSubmissionServiceIT extends LedgerTestSuite with CommandS
       hash = response.preparedTransactionHash
     } yield {
       assert(tx.nonEmpty, "The transaction was empty but shouldn't.")
+      assert(response.costEstimation.nonEmpty, "Cost estimation should be defined by default")
+      assert(!hash.isEmpty, "The hash was empty but shouldn't.")
+    }
+  })
+
+  test(
+    "ISSPrepareSubmissionRequestWithoutCostEstimation",
+    "Prepare a submission request without cost estimation",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, Seq(party))) =>
+    val prepareRequest = ledger.prepareSubmissionRequest(
+      party,
+      new Dummy(party).create.commands,
+      estimateTrafficCost = Some(CostEstimationHints.defaultInstance.withDisabled(true)),
+    )
+    for {
+      response <- ledger.prepareSubmission(prepareRequest)
+      tx = response.preparedTransaction
+      hash = response.preparedTransactionHash
+    } yield {
+      assert(tx.nonEmpty, "The transaction was empty but shouldn't.")
+      assert(response.costEstimation.isEmpty, "Cost estimation should be empty")
       assert(!hash.isEmpty, "The hash was empty but shouldn't.")
     }
   })

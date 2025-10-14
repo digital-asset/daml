@@ -40,7 +40,7 @@ class PruningDtoQueries {
   private def idFilterParser[T](f: (Long, Long) => T): RowParser[T] =
     long("event_sequential_id") ~ long("party_id") map { case seqId ~ partyId => f(seqId, partyId) }
   private def offsetParser[T](f: Long => T): RowParser[T] =
-    offset("ledger_offset").map(_.unwrap) map (f)
+    offset("ledger_offset").map(_.unwrap) map f
 
   def eventCreate(implicit c: Connection): Seq[EventCreate] =
     SQL"SELECT event_sequential_id FROM lapi_events_create ORDER BY event_sequential_id"
@@ -79,6 +79,32 @@ class PruningDtoQueries {
   def filterUnassign(implicit c: Connection): Seq[FilterUnassign] =
     SQL"SELECT event_sequential_id, party_id FROM lapi_pe_reassignment_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
       .asVectorOf(idFilterParser(FilterUnassign.apply))(c)
+
+  def eventActivate(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_events_activate_contract ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+  def eventDeactivate(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_events_deactivate_contract ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+  def eventVariousWitnessed(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_events_various_witnessed ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+
+  def filterActivateStakeholder(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_filter_activate_stakeholder ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+  def filterActivateWitness(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_filter_activate_witness ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+  def filterDeactivateStakeholder(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_filter_deactivate_stakeholder ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+  def filterDeactivateWitness(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_filter_deactivate_witness ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
+  def filterVariousWitness(implicit c: Connection): Seq[Long] =
+    SQL"SELECT event_sequential_id FROM lapi_filter_various_witness ORDER BY event_sequential_id"
+      .asVectorOf(long("event_sequential_id"))(c)
 
   def updateMeta(implicit c: Connection): Seq[TxMeta] =
     SQL"SELECT event_offset AS ledger_offset FROM lapi_update_meta ORDER BY event_offset"

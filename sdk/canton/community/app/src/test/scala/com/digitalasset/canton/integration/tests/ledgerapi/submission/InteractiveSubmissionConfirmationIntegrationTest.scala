@@ -6,7 +6,6 @@ package com.digitalasset.canton.integration.tests.ledgerapi.submission
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PrepareSubmissionResponse
 import com.daml.nonempty.NonEmptyUtil
 import com.daml.scalautil.future.FutureConversion.*
-import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
@@ -18,13 +17,19 @@ import com.digitalasset.canton.integration.plugins.UseProgrammableSequencer
 import com.digitalasset.canton.integration.tests.ledgerapi.submission.BaseInteractiveSubmissionTest.defaultConfirmingParticipant
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
 }
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
-import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, LoggingContextWithTrace}
+import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
+  LogEntry,
+  LoggingContextWithTrace,
+  SuppressionRule,
+}
 import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PreparedTransactionDecoder
 import com.digitalasset.canton.protocol.hash.HashTracer
@@ -32,6 +37,7 @@ import com.digitalasset.canton.sequencing.protocol.MemberRecipient
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.topology.{ExternalParty, PartyId}
 import com.digitalasset.canton.version.HashingSchemeVersion
+import com.digitalasset.canton.{HasExecutionContext, LfTimestamp}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
 import io.grpc.Status
@@ -49,6 +55,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest
     with HasProgrammableSequencer
+    with HasExecutionContext
     with HasCycleUtils {
 
   private var aliceE: ExternalParty = _
@@ -57,9 +64,9 @@ final class InteractiveSubmissionConfirmationIntegrationTest
     EnvironmentDefinition.P3_S1M1
       .withSetup { implicit env =>
         import env.*
+        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonExamplesPath)
         participants.all.dars.upload(CantonTestsPath)
-        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
 
         aliceE = cpn.parties.external.enable(
           "Alice",
@@ -68,7 +75,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           keysThreshold = PositiveInt.one,
         )
       }
-      .addConfigTransforms(enableInteractiveSubmissionTransforms*)
+      .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
@@ -104,7 +111,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           SendDecision.HoldBack(releaseSubmission.future)
         case _ => SendDecision.Process
       }
-      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
         {
           val (submissionId, ledgerEnd) =
             exec(prepared, Map(aliceE.partyId -> Seq(singleSignature)), epn)
@@ -123,14 +130,17 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
         },
         LogEntry.assertLogSeq(
-          Seq(
+          Seq(2, 3).map({ p =>
             (
-              _.warningMessage should include(
-                s"Received 1 valid signatures (0 invalid), but expected at least 2 valid for ${aliceE.partyId}"
-              ),
-              "expect not enough signatures",
+              e => {
+                e.warningMessage should (include(
+                  s"Received 1 valid signatures (0 invalid), but expected at least 2 valid for ${aliceE.partyId}"
+                ))
+                e.mdc.get("participant") shouldBe Some(s"participant$p")
+              },
+              s"participant$p authentication",
             )
-          ),
+          }),
           Seq.empty,
         ),
       )
@@ -158,7 +168,11 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         ),
       )
       val signatures = Map(
-        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(
+          prepared.preparedTransactionHash,
+          aliceE,
+          useAllKeys = true,
+        )
       )
 
       // To bypass the checks in phase 1 we play a trick by holding back the submission request in the sequencer
@@ -172,17 +186,21 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           SendDecision.HoldBack(releaseSubmission.future)
         case _ => SendDecision.Process
       }
-      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      loggerFactory.assertEventuallyLogsSeq(LevelAndAbove(Level.WARN))(
         assertion(prepared, signatures, releaseSubmission),
         LogEntry.assertLogSeq(
-          additionalExpectedLogs ++ Seq(
-            (
-              _.warningMessage should include(
-                s"Received 0 valid signatures (3 invalid), but expected at least 2 valid for ${aliceE.partyId}"
-              ),
-              "expect invalid signatures",
-            )
-          ),
+          additionalExpectedLogs ++
+            Seq(2, 3).map({ p =>
+              (
+                e => {
+                  e.warningMessage should (include(
+                    s"Received 0 valid signatures (3 invalid), but expected at least 2 valid for ${aliceE.partyId}"
+                  ))
+                  e.mdc.get("participant") shouldBe Some(s"participant$p")
+                },
+                s"participant$p authentication",
+              )
+            }),
           Seq.empty,
         ),
       )
@@ -265,32 +283,44 @@ final class InteractiveSubmissionConfirmationIntegrationTest
       val prepared = ppn.ledger_api.javaapi.interactive_submission
         .prepare(Seq(aliceE.partyId), Seq(pass.commands().loneElement))
       val signatures = Map(
-        aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
+        aliceE.partyId -> global_secret.sign(
+          prepared.preparedTransactionHash,
+          aliceE,
+          useAllKeys = true,
+        )
       )
       // This is only currently detected in phase III, at which point warnings are issued
-      val completion = loggerFactory.assertLoggedWarningsAndErrorsSeq(
-        {
-          val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
-          findCompletion(submissionId, ledgerEnd, aliceE, epn)
-        },
-        LogEntry.assertLogSeq(
-          Seq(2, 3).map({ p =>
-            (
-              e => {
-                e.warningMessage should (include regex "LOCAL_VERDICT_MALFORMED_REQUEST.*with a view that is not correctly authenticated")
-                e.mdc.get("participant") shouldBe Some(s"participant$p")
-              },
-              s"participant$p authentication",
-            )
-          })
-        ),
-      )
+      val completion =
+        loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
+          {
+            val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
+            findCompletion(submissionId, ledgerEnd, aliceE, epn)
+          },
+          LogEntry.assertLogSeq(
+            Seq(2, 3).map({ p =>
+              (
+                e => {
+                  e.warningMessage should (include regex "LOCAL_VERDICT_MALFORMED_REQUEST.*with a view that is not correctly authenticated")
+                  e.mdc.get("participant") shouldBe Some(s"participant$p")
+                },
+                s"participant$p authentication",
+              )
+            })
+          ),
+        )
       completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
     }
 
     "fail with missing input contracts" in { implicit env =>
       import env.*
       import monocle.syntax.all.*
+
+      // Set Alice back to threshold one
+      cpn.topology.party_to_key_mappings.sign_and_update(
+        aliceE.partyId,
+        env.daId,
+        _.tryCopy(threshold = PositiveInt.one),
+      )
 
       // Exercise the Repeat choice
       val exerciseRepeatOnCycleContract =

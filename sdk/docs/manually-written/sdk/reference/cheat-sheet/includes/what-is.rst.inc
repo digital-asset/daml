@@ -16,4 +16,4 @@ her focus on workflow logic.
 
 Daml is a statically typed functional language.
 
-The full documentation of Daml can be found `here <https://docs.daml.com/>`__.
+The full documentation of Daml can be found `here <https://docs.digitalasset.com/>`__.

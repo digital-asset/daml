@@ -153,6 +153,20 @@ object GrpcErrorParser {
             None,
           )
         }
+      case "CONTRACT_HASHING_ERROR" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, cid),
+                (ErrorResource.TemplateId, tid),
+                (ErrorResource.ContractArg, decodeValue.unlift(arg)),
+              ) =>
+            SubmitError.ContractHashingError(
+              ContractId.assertFromString(cid),
+              Identifier.assertFromString(tid),
+              arg,
+              message,
+            )
+        }
       case "DISCLOSED_CONTRACT_KEY_HASHING_ERROR" =>
         caseErr {
           case Seq(
@@ -305,6 +319,8 @@ object GrpcErrorParser {
                 (ErrorResource.ContractId, coid),
                 (ErrorResource.TemplateId, srcTemplateId),
                 (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.PackageName, srcPackageName),
+                (ErrorResource.PackageName, dstPackageName),
                 (ErrorResource.Parties, originalSignatories),
                 (ErrorResource.Parties, originalObservers),
                 (NullableContractKey, decodeNullableValue.unlift(originalGlobalKey)),
@@ -320,8 +336,10 @@ object GrpcErrorParser {
             val dstTid = Identifier.assertFromString(dstTemplateId)
             SubmitError.UpgradeError.ValidationFailed(
               ContractId.assertFromString(coid),
-              Identifier.assertFromString(srcTemplateId),
+              srcTid,
               dstTid,
+              PackageName.assertFromString(srcPackageName),
+              PackageName.assertFromString(dstPackageName),
               parseParties(originalSignatories),
               parseParties(originalObservers),
               parseGlobalKeyWithMaintainers(
@@ -338,6 +356,39 @@ object GrpcErrorParser {
                 recomputedPn,
                 recomputedMaintainers,
               ),
+              message,
+            )
+        }
+      case "INTERPRETATION_UPGRADE_ERROR_TRANSLATION_FAILED" =>
+        val NullableContractId = ErrorResource.ContractId.nullable
+        caseErr {
+          case Seq(
+                (NullableContractId, decodeNullableString.unlift(coidOpt)),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.ContractArg, decodeValue.unlift(createArg)),
+              ) =>
+            SubmitError.UpgradeError.TranslationFailed(
+              coidOpt.map(ContractId.assertFromString),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              createArg,
+              message,
+            )
+        }
+      case "INTERPRETATION_UPGRADE_ERROR_AUTHENTICATION_FAILED" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.ContractId, coid),
+                (ErrorResource.TemplateId, srcTemplateId),
+                (ErrorResource.TemplateId, dstTemplateId),
+                (ErrorResource.ContractArg, decodeValue.unlift(createArg)),
+              ) =>
+            SubmitError.UpgradeError.AuthenticationFailed(
+              ContractId.assertFromString(coid),
+              Identifier.assertFromString(srcTemplateId),
+              Identifier.assertFromString(dstTemplateId),
+              createArg,
               message,
             )
         }

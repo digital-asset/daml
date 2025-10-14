@@ -83,7 +83,7 @@ trait RepairTestUtil {
       contract.inst,
       ReassignmentCounter.Genesis,
       // Contracts read from the PCS have the representative package ID the same as the original package ID
-      // TODO(#27872): Use the Ledger API Active contract service to get the correct representative package ID
+      // TODO(#24610): Use the Ledger API Active contract service to get the correct representative package ID
       representativePackageId = contract.templateId.packageId,
     )
   }

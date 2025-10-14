@@ -157,7 +157,7 @@ object CantonRunner {
         .mkString("\n")
     val bootstrapUploadDar = darFiles
       .map(darFile =>
-        s"participants.all.dars.upload(\"${darFile.toString.replace("\\", "\\\\")}\", \"\", true, true, \"\")"
+        s"participants.all.dars.upload(darPath = \"${darFile.toString.replace("\\", "\\\\")}\", description = \"\", vetAllPackages = true, synchronizeVetting = true, expectedMainPackageId = \"\")"
       )
       .mkString("\n")
     // Run the given clients bootstrap, upload dars via the console (which internally calls the admin api), then write a non-empty file for us to wait on

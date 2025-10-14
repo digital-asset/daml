@@ -214,7 +214,9 @@ trait PrettyInstances {
       lfContractId.toString
   }
 
-  implicit def prettyLfSerializationVersion: Pretty[LfSerializationVersion] = prettyOfString(_.pretty)
+  implicit def prettyLfSerializationVersion: Pretty[LfSerializationVersion] = prettyOfString(
+    _.pretty
+  )
 
   implicit def prettyLfVersioned[A: Pretty]: Pretty[LfVersioned[A]] =
     prettyOfClass[Versioned[A]](unnamedParam(_.unversioned), param("version", _.version))

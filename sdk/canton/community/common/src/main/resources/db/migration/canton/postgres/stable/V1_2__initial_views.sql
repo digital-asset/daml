@@ -1,4 +1,4 @@
--- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 create schema debug;
@@ -166,7 +166,10 @@ create or replace view debug.par_dars as
   from par_dars;
 
 create or replace view debug.par_dar_packages as
-select main_package_id , package_id from par_dar_packages;
+  select
+    main_package_id,
+    package_id
+  from par_dar_packages;
 
 create or replace view debug.common_crypto_private_keys as
   select
@@ -490,12 +493,12 @@ create or replace view debug.sequencer_events as
   from sequencer_events;
 
 create or replace view debug.sequencer_event_recipients as
-select
+  select
     debug.canton_timestamp(ts) as ts,
     debug.resolve_sequencer_member(recipient_id) as recipient_id,
     node_index,
     is_topology_event
-from sequencer_event_recipients;
+  from sequencer_event_recipients;
 
 create or replace view debug.par_pruning_schedules as
   select
@@ -648,14 +651,14 @@ create or replace view debug.ord_availability_batch as
   from ord_availability_batch;
 
 create or replace view debug.ord_pbft_messages_in_progress as
-select
+  select
     block_number,
     epoch_number,
     view_number,
     message,
     discriminator,
     from_sequencer_id
-from ord_pbft_messages_in_progress;
+  from ord_pbft_messages_in_progress;
 
 create or replace view debug.ord_pbft_messages_completed as
   select
@@ -687,13 +690,13 @@ create or replace view debug.ord_output_lower_bound as
   from ord_output_lower_bound;
 
 create or replace view debug.ord_pruning_schedules as
-select
+  select
     lock,
     cron,
     max_duration,
     retention,
     min_blocks_to_keep
-from ord_pruning_schedules;
+  from ord_pruning_schedules;
 
 create or replace view debug.ord_leader_selection_state as
   select
@@ -718,23 +721,32 @@ create or replace view debug.ord_p2p_endpoints as
     client_private_key_file
   from ord_p2p_endpoints;
 
-create or replace VIEW debug.acs_no_wait_counter_participants as
-    select
-        synchronizer_id,
-        participant_id
-        from acs_no_wait_counter_participants;
+create or replace view debug.acs_no_wait_counter_participants as
+  select
+    synchronizer_id,
+    participant_id
+  from acs_no_wait_counter_participants;
 
-create or replace VIEW debug.acs_slow_participant_config as
-    select
-        synchronizer_id,
-        threshold_distinguished,
-        threshold_default
-        from acs_slow_participant_config;
+create or replace view debug.acs_slow_participant_config as
+  select
+    synchronizer_id,
+    threshold_distinguished,
+    threshold_default
+  from acs_slow_participant_config;
 
-create or replace VIEW debug.acs_slow_counter_participants as
-    select
-        synchronizer_id,
-        participant_id,
-        is_distinguished,
-        is_added_to_metrics
-        from acs_slow_counter_participants;
+create or replace view debug.acs_slow_counter_participants as
+  select
+    synchronizer_id,
+    participant_id,
+    is_distinguished,
+    is_added_to_metrics
+  from acs_slow_counter_participants;
+
+create or replace view debug.common_pending_operations as
+  select
+    operation_trigger,
+    operation_name,
+    operation_key,
+    operation,
+    synchronizer_id
+  from common_pending_operations;

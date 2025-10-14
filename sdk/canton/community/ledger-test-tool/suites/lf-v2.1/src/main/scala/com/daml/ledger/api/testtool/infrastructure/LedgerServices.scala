@@ -200,6 +200,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.archive.{DarParser, Decode}
 import io.grpc.health.v1.health.HealthGrpc
 import io.grpc.health.v1.health.HealthGrpc.Health
@@ -618,6 +619,7 @@ private final case class LedgerServicesJson(
                 s"could not convert unrecognized VettingChange enum $unrecognizedValue to a boolean"
               )
           },
+          OptionUtil.emptyStringAsNone(request.synchronizerId),
         ),
       )
     }.map { result =>

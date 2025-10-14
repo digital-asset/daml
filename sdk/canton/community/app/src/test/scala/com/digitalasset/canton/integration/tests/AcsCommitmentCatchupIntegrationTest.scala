@@ -9,8 +9,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
@@ -58,7 +58,14 @@ sealed trait AcsCommitmentCatchupIntegrationTest
         ),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(
+              Some(NonNegativeProportion.zero),
+              Some(NonNegativeProportion.zero),
+            )
+          )
+        )
       )
       .withSetup { implicit env =>
         import env.*
@@ -79,7 +86,7 @@ sealed trait AcsCommitmentCatchupIntegrationTest
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.foreach(_.dars.upload(CantonExamplesPath, synchronizerId = daId))
         passTopologyRegistrationTimeout(env)
       }
 

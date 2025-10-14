@@ -29,7 +29,7 @@ private[backend] trait StorageBackendTestsPruning
   private val nonStakeholderInformeeParty = Ref.Party.assertFromString("nonstakeholderinformee")
   private val actorParty = Ref.Party.assertFromString("actor")
 
-  def pruneEventsSql(
+  def pruneEventsSqlLegacy(
       pruneUpToInclusive: Offset,
       incompleteReassignmentOffsets: Vector[Offset] = Vector.empty,
   )(implicit
@@ -40,6 +40,29 @@ private[backend] trait StorageBackendTestsPruning
       backend.event.pruneEventsLegacy(
         pruneUpToInclusive,
         incompleteReassignmentOffsets,
+      )(
+        conn,
+        traceContext,
+      )
+      conn.commit()
+      conn.setAutoCommit(false)
+    }
+
+  def pruneEventsSql(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
+      pruneUpToInclusive: Offset,
+      incompleteReassignmentOffsets: Vector[Offset],
+  )(implicit
+      traceContext: TraceContext
+  ): Unit =
+    executeSql { conn =>
+      conn.setAutoCommit(false)
+      backend.event.pruneEvents(
+        previousPruneUpToInclusive = previousPruneUpToInclusive,
+        previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
+        pruneUpToInclusive = pruneUpToInclusive,
+        incompleteReassignmentOffsets = incompleteReassignmentOffsets,
       )(
         conn,
         traceContext,
@@ -78,7 +101,7 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(
       ingest(
         Vector(
-          dtoExercise(
+          dtoExerciseLegacy(
             offset = offset(3),
             eventSequentialId = 5L,
             contractId = hashCid("#1"),
@@ -91,7 +114,7 @@ private[backend] trait StorageBackendTestsPruning
             signatoryParty,
             first_per_sequential_id = true,
           ),
-          dtoExercise(
+          dtoExerciseLegacy(
             offset = offset(4),
             eventSequentialId = 6L,
             contractId = hashCid("#1"),
@@ -111,7 +134,7 @@ private[backend] trait StorageBackendTestsPruning
             actorParty,
             first_per_sequential_id = true,
           ),
-          dtoUnassign(
+          dtoUnassignLegacy(
             offset = offset(5),
             eventSequentialId = 7L,
             contractId = hashCid("#1"),
@@ -125,7 +148,7 @@ private[backend] trait StorageBackendTestsPruning
           ),
         ) ++
           Vector(
-            dtoExercise(
+            dtoExerciseLegacy(
               offset = offset(6),
               eventSequentialId = 8L,
               contractId = hashCid("#2"),
@@ -138,7 +161,7 @@ private[backend] trait StorageBackendTestsPruning
               signatoryParty,
               first_per_sequential_id = true,
             ),
-            dtoExercise(
+            dtoExerciseLegacy(
               offset = offset(7),
               eventSequentialId = 9L,
               contractId = hashCid("#2"),
@@ -158,7 +181,7 @@ private[backend] trait StorageBackendTestsPruning
               actorParty,
               first_per_sequential_id = true,
             ),
-            dtoUnassign(
+            dtoUnassignLegacy(
               offset = offset(8),
               eventSequentialId = 10L,
               contractId = hashCid("#1"),
@@ -176,7 +199,7 @@ private[backend] trait StorageBackendTestsPruning
     )
     val endOffset = offset(8)
 
-    def assertAllDataPresent(): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(): Assertion = assertIndexDbDataSqlLegacy(
       consuming = Vector(EventConsuming(6), EventConsuming(9)),
       consumingFilterStakeholder =
         Vector(FilterConsumingStakeholder(6, 6), FilterConsumingStakeholder(9, 6)),
@@ -190,11 +213,11 @@ private[backend] trait StorageBackendTestsPruning
 
     assertAllDataPresent()
     // Prune before the offset at which we ingested any events
-    pruneEventsSql(offset(2))
+    pruneEventsSqlLegacy(offset(2))
     assertAllDataPresent()
     // Prune at offset such that there are events ingested before and after
-    pruneEventsSql(offset(5))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(5))
+    assertIndexDbDataSqlLegacy(
       consuming = Vector(EventConsuming(9)),
       consumingFilterStakeholder = Vector(FilterConsumingStakeholder(9, 6)),
       consumingFilterNonStakeholder = Vector(FilterConsumingNonStakeholder(9, 1)),
@@ -204,19 +227,19 @@ private[backend] trait StorageBackendTestsPruning
       unassignFilter = Vector(FilterUnassign(10, 6)),
     )
     // Prune at the ledger end, but setting the unassign incomplete
-    pruneEventsSql(endOffset, Vector(offset(8)))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(endOffset, Vector(offset(8)))
+    assertIndexDbDataSqlLegacy(
       unassign = Vector(EventUnassign(10)),
       unassignFilter = Vector(FilterUnassign(10, 6)),
     )
     // Prune at the ledger end
-    pruneEventsSql(endOffset)
-    assertIndexDbDataSql()
+    pruneEventsSqlLegacy(endOffset)
+    assertIndexDbDataSqlLegacy()
   }
 
   it should "prune an archived contract" in {
     // a create event in its own transaction
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -226,7 +249,7 @@ private[backend] trait StorageBackendTestsPruning
       synchronizerId = someSynchronizerId,
     )
     // a consuming event in its own transaction
-    val archive = dtoExercise(
+    val archive = dtoExerciseLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       consuming = true,
@@ -284,7 +307,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 3),
@@ -303,20 +326,20 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
-    pruneEventsSql(offset(10))
+    pruneEventsSqlLegacy(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
-    pruneEventsSql(offset(11))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(11))
+    assertIndexDbDataSqlLegacy(
       txMeta = Vector.empty
     )
   }
 
   it should "prune a contract which was unassigned later" in {
     // a create event in its own transaction
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -326,7 +349,7 @@ private[backend] trait StorageBackendTestsPruning
       synchronizerId = someSynchronizerId,
     )
     // a consuming event in its own transaction
-    val unassign = dtoUnassign(
+    val unassign = dtoUnassignLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       contractId = hashCid("#1"),
@@ -376,7 +399,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 3),
@@ -392,17 +415,17 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
-    pruneEventsSql(offset(10))
+    pruneEventsSqlLegacy(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
-    pruneEventsSql(offset(11))
-    assertIndexDbDataSql()
+    pruneEventsSqlLegacy(offset(11))
+    assertIndexDbDataSqlLegacy()
   }
 
   it should "not prune an active contract" in {
-    val create = dtoCreate(
+    val create = dtoCreateLegacy(
       offset = offset(2),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -410,7 +433,7 @@ private[backend] trait StorageBackendTestsPruning
       nonStakeholderInformees = Set(nonStakeholderInformeeParty),
       synchronizerId = someSynchronizerId,
     )
-    val archiveDifferentSynchronizer = dtoExercise(
+    val archiveDifferentSynchronizer = dtoExerciseLegacy(
       offset = offset(3),
       eventSequentialId = 2L,
       consuming = true,
@@ -418,7 +441,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       synchronizerId = someSynchronizerId2,
     )
-    val archiveDifferentContractId = dtoExercise(
+    val archiveDifferentContractId = dtoExerciseLegacy(
       offset = offset(4),
       eventSequentialId = 3L,
       consuming = true,
@@ -426,7 +449,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       synchronizerId = someSynchronizerId,
     )
-    val unassignDifferentSynchronizer = dtoUnassign(
+    val unassignDifferentSynchronizer = dtoUnassignLegacy(
       offset = offset(5),
       eventSequentialId = 4L,
       contractId = hashCid("#1"),
@@ -434,7 +457,7 @@ private[backend] trait StorageBackendTestsPruning
       sourceSynchronizerId = someSynchronizerId2,
       targetSynchronizerId = someSynchronizerId,
     )
-    val unassignDifferentContractId = dtoUnassign(
+    val unassignDifferentContractId = dtoUnassignLegacy(
       offset = offset(6),
       eventSequentialId = 5L,
       contractId = hashCid("#2"),
@@ -442,7 +465,7 @@ private[backend] trait StorageBackendTestsPruning
       sourceSynchronizerId = someSynchronizerId,
       targetSynchronizerId = someSynchronizerId2,
     )
-    val archiveAfter = dtoExercise(
+    val archiveAfter = dtoExerciseLegacy(
       offset = offset(7),
       eventSequentialId = 6L,
       consuming = true,
@@ -450,7 +473,7 @@ private[backend] trait StorageBackendTestsPruning
       signatory = signatoryParty,
       synchronizerId = someSynchronizerId,
     )
-    val unassignAfter = dtoUnassign(
+    val unassignAfter = dtoUnassignLegacy(
       offset = offset(8),
       eventSequentialId = 7L,
       contractId = hashCid("#1"),
@@ -537,7 +560,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 3),
@@ -570,7 +593,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune earlier
-    pruneEventsSql(offset(1))
+    pruneEventsSqlLegacy(offset(1))
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(2),
@@ -583,7 +606,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune at create
-    pruneEventsSql(offset(2))
+    pruneEventsSqlLegacy(offset(2))
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(3),
@@ -595,8 +618,8 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune after unrelated archive and reassign events but before related ones
-    pruneEventsSql(offset(6))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(6))
+    assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 3),
@@ -616,8 +639,8 @@ private[backend] trait StorageBackendTestsPruning
     )
     // Prune at the end, but following unassign is incomplete
     // (the following archive can be pruned, but the following incomplete unassign and the create cannot, to be able to look up create event for the incomplete unassigned)
-    pruneEventsSql(offset(8), Vector(offset(8)))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(8), Vector(offset(8)))
+    assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
         FilterCreateStakeholder(1, 3),
@@ -628,13 +651,13 @@ private[backend] trait StorageBackendTestsPruning
       unassignFilter = Vector(FilterUnassign(7, 3)),
     )
     // Prune at the end (to verify that additional events are related)
-    pruneEventsSql(offset(8))
-    assertIndexDbDataSql()
+    pruneEventsSqlLegacy(offset(8))
+    assertIndexDbDataSqlLegacy()
   }
 
   it should "prune an assign if archived in the same synchronizer" in {
     // an assign event in its own transaction
-    val assign = dtoAssign(
+    val assign = dtoAssignLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -644,7 +667,7 @@ private[backend] trait StorageBackendTestsPruning
       targetSynchronizerId = someSynchronizerId2,
     )
     // a consuming event in its own transaction
-    val archive = dtoExercise(
+    val archive = dtoExerciseLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       consuming = true,
@@ -689,7 +712,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(1)),
       assignFilter = Vector(FilterAssign(1, 6)),
       consuming = Vector(EventConsuming(2)),
@@ -704,18 +727,18 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
-    pruneEventsSql(offset(10))
+    pruneEventsSqlLegacy(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
-    pruneEventsSql(offset(11))
-    assertIndexDbDataSql()
+    pruneEventsSqlLegacy(offset(11))
+    assertIndexDbDataSqlLegacy()
   }
 
   it should "prune an assign which was unassigned in the same synchronizer later" in {
     // an assign event in its own transaction
-    val assign = dtoAssign(
+    val assign = dtoAssignLegacy(
       offset = offset(10),
       eventSequentialId = 1L,
       contractId = hashCid("#1"),
@@ -726,7 +749,7 @@ private[backend] trait StorageBackendTestsPruning
     )
 
     // an unassign event in its own transaction
-    val unassign = dtoUnassign(
+    val unassign = dtoUnassignLegacy(
       offset = offset(11),
       eventSequentialId = 2L,
       contractId = hashCid("#1"),
@@ -765,7 +788,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Vector[TxMeta]): Assertion = assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(1)),
       assignFilter = Vector(FilterAssign(1, 4)),
       unassign = Vector(EventUnassign(2)),
@@ -777,13 +800,13 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
-    pruneEventsSql(offset(10))
+    pruneEventsSqlLegacy(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
-    pruneEventsSql(offset(11))
-    assertIndexDbDataSql()
+    pruneEventsSqlLegacy(offset(11))
+    assertIndexDbDataSqlLegacy()
   }
 
   it should "not prune an assign" in {
@@ -793,7 +816,7 @@ private[backend] trait StorageBackendTestsPruning
         hashCidString: String = "#1",
         synchronizerId: SynchronizerId = someSynchronizerId2,
     ): Vector[DbDto] = {
-      val archive = dtoExercise(
+      val archive = dtoExerciseLegacy(
         offset = offset(offsetInt.toLong),
         eventSequentialId = eventSequentialId,
         consuming = true,
@@ -819,7 +842,7 @@ private[backend] trait StorageBackendTestsPruning
         hashCidString: String = "#1",
         synchronizerId: SynchronizerId = someSynchronizerId2,
     ): Vector[DbDto] = {
-      val unassign = dtoUnassign(
+      val unassign = dtoUnassignLegacy(
         offset = offset(offsetInt.toLong),
         eventSequentialId = eventSequentialId,
         contractId = hashCid(hashCidString),
@@ -854,7 +877,7 @@ private[backend] trait StorageBackendTestsPruning
       offsetInt = 4,
       eventSequentialId = 3,
     )
-    val assign = dtoAssign(
+    val assign = dtoAssignLegacy(
       offset = offset(5),
       eventSequentialId = 4L,
       contractId = hashCid("#1"),
@@ -921,7 +944,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
 
-    def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSql(
+    def assertAllDataPresent(txMeta: Seq[TxMeta]): Assertion = assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 6)),
       consuming =
@@ -963,7 +986,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune earlier
-    pruneEventsSql(offset(1))
+    pruneEventsSqlLegacy(offset(1))
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(2),
@@ -979,8 +1002,8 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune at assign
-    pruneEventsSql(offset(5))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(5))
+    assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 6)),
       consuming = Vector(EventConsuming(5), EventConsuming(6), EventConsuming(9)),
@@ -1009,8 +1032,8 @@ private[backend] trait StorageBackendTestsPruning
       ),
     )
     // Prune after unrelated archive and reassign events but before related ones
-    pruneEventsSql(offset(9))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(9))
+    assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 6)),
       consuming = Vector(EventConsuming(9)),
@@ -1030,11 +1053,11 @@ private[backend] trait StorageBackendTestsPruning
     )
     // Prune at the end, but with setting the assign incomplete
     // (the archive and the unassing cannot be pruned neither, because they belong to an incomplete activation)
-    pruneEventsSql(
+    pruneEventsSqlLegacy(
       offset(11),
       Vector(offset(5), offset(1000), offset(1001)),
     )
-    assertIndexDbDataSql(
+    assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 6)),
       consuming = Vector(EventConsuming(9)),
@@ -1051,11 +1074,11 @@ private[backend] trait StorageBackendTestsPruning
     )
     // Prune at the end, but with setting the following unassign incomplete
     // (the following archive can be pruned, but the following unassign and the assign can't, to be able to look up create event for the incomplete unassigned)
-    pruneEventsSql(
+    pruneEventsSqlLegacy(
       offset(11),
       Vector(offset(11), offset(1000), offset(1001)),
     )
-    assertIndexDbDataSql(
+    assertIndexDbDataSqlLegacy(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 6)),
       unassign = Vector(
@@ -1067,8 +1090,8 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector.empty,
     )
     // Prune at the end
-    pruneEventsSql(offset(11))
-    assertIndexDbDataSql()
+    pruneEventsSqlLegacy(offset(11))
+    assertIndexDbDataSqlLegacy()
   }
 
   it should "prune all retroactively and immediately divulged contracts" in {
@@ -1076,14 +1099,14 @@ private[backend] trait StorageBackendTestsPruning
     val divulgee = Ref.Party.assertFromString(partyName)
     val contract1_id = hashCid("#1")
     val contract2_id = hashCid("#2")
-    val contract1_immediateDivulgence = dtoCreate(
+    val contract1_immediateDivulgence = dtoCreateLegacy(
       offset = offset(1),
       eventSequentialId = 1L,
       contractId = contract1_id,
       signatory = divulgee,
       emptyFlatEventWitnesses = true,
     )
-    val contract2_createWithLocalStakeholder = dtoCreate(
+    val contract2_createWithLocalStakeholder = dtoCreateLegacy(
       offset = offset(2),
       eventSequentialId = 2L,
       contractId = contract2_id,
@@ -1112,13 +1135,13 @@ private[backend] trait StorageBackendTestsPruning
         _,
       )
     )
-    assertIndexDbDataSql(
+    assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(1), EventCreate(2)),
       createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 3)),
       createFilterStakeholder = Vector(FilterCreateStakeholder(2, 3)),
     )
-    pruneEventsSql(offset(2))
-    assertIndexDbDataSql(
+    pruneEventsSqlLegacy(offset(2))
+    assertIndexDbDataSqlLegacy(
       create = Vector(EventCreate(2)),
       createFilterStakeholder = Vector(FilterCreateStakeholder(2, 3)),
     )
@@ -1133,17 +1156,669 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest a completion
     executeSql(ingest(Vector(completion), _))
-    assertIndexDbDataSql(completion = Seq(PruningDto.Completion(1)))
+    assertIndexDbDataSqlLegacy(completion = Seq(PruningDto.Completion(1)))
     // Prune
     executeSql(backend.completion.pruneCompletions(offset(1))(_, TraceContext.empty))
-    assertIndexDbDataSql(completion = Seq.empty)
+    assertIndexDbDataSqlLegacy(completion = Seq.empty)
+  }
+
+  it should "prune various witnessed events" in {
+    val updates = Vector(
+      // before pruning start
+      meta(event_offset = 1)(
+        dtosWitnessedCreate(
+          event_sequential_id = 100
+        )()
+      ),
+      meta(event_offset = 2)(
+        dtosWitnessedExercised(
+          event_sequential_id = 200,
+          consuming = true,
+        )
+      ),
+      meta(event_offset = 3)(
+        dtosWitnessedExercised(
+          event_sequential_id = 300,
+          consuming = false,
+        )
+      ),
+      // in pruning range
+      meta(event_offset = 4)(
+        dtosWitnessedCreate(
+          event_sequential_id = 400
+        )()
+      ),
+      meta(event_offset = 5)(
+        dtosWitnessedExercised(
+          event_sequential_id = 500,
+          consuming = true,
+        )
+      ),
+      meta(event_offset = 6)(
+        dtosWitnessedExercised(
+          event_sequential_id = 600,
+          consuming = false,
+        )
+      ),
+      // after pruning range
+      meta(event_offset = 7)(
+        dtosWitnessedCreate(
+          event_sequential_id = 700
+        )()
+      ),
+      meta(event_offset = 8)(
+        dtosWitnessedExercised(
+          event_sequential_id = 800,
+          consuming = true,
+        )
+      ),
+      meta(event_offset = 9)(
+        dtosWitnessedExercised(
+          event_sequential_id = 900,
+          consuming = false,
+        )
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(9), 900L))
+    assertIndexDbDataSql(
+      variousWitnessed = List(
+        100, 200, 300, 400, 500, 600, 700, 800, 900,
+      ),
+      variousFilterWitness = List(
+        100, 100, 200, 200, 300, 300, 400, 400, 500, 500, 600, 600, 700, 700, 800, 800, 900, 900,
+      ),
+      txMeta = List(
+        TxMeta(1),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
+        TxMeta(9),
+      ),
+    )
+    // Prune
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(3)),
+      previousIncompleteReassignmentOffsets = Vector.empty,
+      pruneUpToInclusive = offset(6),
+      incompleteReassignmentOffsets = Vector.empty,
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      variousWitnessed = List(
+        100, 200, 300, 700, 800, 900,
+      ),
+      variousFilterWitness = List(
+        100, 100, 200, 200, 300, 300, 700, 700, 800, 800, 900, 900,
+      ),
+      txMeta = List(
+        TxMeta(1),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(7),
+        TxMeta(8),
+        TxMeta(9),
+      ),
+    )
+  }
+
+  it should "prune activate and deactivate events" in {
+    val updates = Vector(
+      // before pruning start will be pruned later
+      meta(event_offset = 1)(
+        dtosCreate(
+          event_sequential_id = 100
+        )()
+      ),
+      meta(event_offset = 2)(
+        dtosAssign(
+          event_sequential_id = 200
+        )()
+      ),
+      // before pruning start won't be pruned later
+      meta(event_offset = 3)(
+        dtosCreate(
+          event_sequential_id = 300
+        )()
+      ),
+      meta(event_offset = 4)(
+        dtosAssign(
+          event_sequential_id = 400
+        )()
+      ),
+      // in pruning range will be pruned later
+      meta(event_offset = 5)(
+        dtosCreate(
+          event_sequential_id = 500
+        )()
+      ),
+      meta(event_offset = 6)(
+        dtosAssign(
+          event_sequential_id = 600
+        )()
+      ),
+      // in pruning range will be not pruned - no deactivation
+      meta(event_offset = 7)(
+        dtosCreate(
+          event_sequential_id = 700
+        )()
+      ),
+      meta(event_offset = 8)(
+        dtosAssign(
+          event_sequential_id = 800
+        )()
+      ),
+      // in pruning range will be not pruned - deactivation outside of the pruning range
+      meta(event_offset = 9)(
+        dtosCreate(
+          event_sequential_id = 900
+        )()
+      ),
+      meta(event_offset = 10)(
+        dtosAssign(
+          event_sequential_id = 1000
+        )()
+      ),
+      // deactivations in pruning range
+      meta(event_offset = 11)(
+        dtosConsumingExercise(
+          event_sequential_id = 1100,
+          deactivated_event_sequential_id = Some(100),
+        )
+      ),
+      meta(event_offset = 12)(
+        dtosUnassign(
+          event_sequential_id = 1200,
+          deactivated_event_sequential_id = Some(200),
+        )
+      ),
+      meta(event_offset = 13)(
+        dtosUnassign(
+          event_sequential_id = 1300,
+          deactivated_event_sequential_id = Some(500),
+        )
+      ),
+      meta(event_offset = 14)(
+        dtosConsumingExercise(
+          event_sequential_id = 1400,
+          deactivated_event_sequential_id = Some(600),
+        )
+      ),
+      meta(event_offset = 15)(
+        dtosConsumingExercise(
+          event_sequential_id = 1500,
+          deactivated_event_sequential_id = None,
+        )
+      ),
+      // outside of pruning range some activations deactivated later
+      meta(event_offset = 16)(
+        dtosCreate(
+          event_sequential_id = 1600
+        )()
+      ),
+      meta(event_offset = 17)(
+        dtosAssign(
+          event_sequential_id = 1700
+        )()
+      ),
+      // outside of pruning range some activations never deactivated
+      meta(event_offset = 18)(
+        dtosCreate(
+          event_sequential_id = 1800
+        )()
+      ),
+      meta(event_offset = 19)(
+        dtosAssign(
+          event_sequential_id = 1900
+        )()
+      ),
+      // outside of pruning range some deactivations
+      meta(event_offset = 20)(
+        dtosUnassign(
+          event_sequential_id = 2000,
+          deactivated_event_sequential_id = Some(1700),
+        )
+      ),
+      meta(event_offset = 21)(
+        dtosConsumingExercise(
+          event_sequential_id = 2100,
+          deactivated_event_sequential_id = Some(1600),
+        )
+      ),
+      meta(event_offset = 22)(
+        dtosConsumingExercise(
+          event_sequential_id = 2200,
+          deactivated_event_sequential_id = None,
+        )
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(22), 2200L))
+    assertIndexDbDataSql(
+      activate = List(
+        100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1600, 1700, 1800, 1900,
+      ),
+      activateFilterStakeholder = List(
+        100, 100, 200, 200, 300, 300, 400, 400, 500, 500, 600, 600, 700, 700, 800, 800, 900, 900,
+        1000, 1000, 1600, 1600, 1700, 1700, 1800, 1800, 1900, 1900,
+      ),
+      activateFilterWitness = List(
+        100, 100, 300, 300, 500, 500, 700, 700, 900, 900, 1600, 1600, 1800, 1800,
+      ),
+      deactivate = List(
+        1100, 1200, 1300, 1400, 1500, 2000, 2100, 2200,
+      ),
+      deactivateFilterStakeholder = List(
+        1100, 1100, 1200, 1200, 1300, 1300, 1400, 1400, 1500, 1500, 2000, 2000, 2100, 2100, 2200,
+        2200,
+      ),
+      deactivateFilterWitness = List(
+        1100, 1100, 1400, 1400, 1500, 1500, 2100, 2100, 2200, 2200,
+      ),
+      txMeta = List(
+        TxMeta(1),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(7),
+        TxMeta(8),
+        TxMeta(9),
+        TxMeta(10),
+        TxMeta(11),
+        TxMeta(12),
+        TxMeta(13),
+        TxMeta(14),
+        TxMeta(15),
+        TxMeta(16),
+        TxMeta(17),
+        TxMeta(18),
+        TxMeta(19),
+        TxMeta(20),
+        TxMeta(21),
+        TxMeta(22),
+      ),
+    )
+    // Prune
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(4)),
+      previousIncompleteReassignmentOffsets = Vector.empty,
+      pruneUpToInclusive = offset(15),
+      incompleteReassignmentOffsets = Vector.empty,
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      activate = List(
+        300, 400, 700, 800, 900, 1000, 1600, 1700, 1800, 1900,
+      ),
+      activateFilterStakeholder = List(
+        300, 300, 400, 400, 700, 700, 800, 800, 900, 900, 1000, 1000, 1600, 1600, 1700, 1700, 1800,
+        1800, 1900, 1900,
+      ),
+      activateFilterWitness = List(
+        300, 300, 700, 700, 900, 900, 1600, 1600, 1800, 1800,
+      ),
+      deactivate = List(
+        2000,
+        2100,
+        2200,
+      ),
+      deactivateFilterStakeholder = List(
+        2000, 2000, 2100, 2100, 2200, 2200,
+      ),
+      deactivateFilterWitness = List(
+        2100,
+        2100,
+        2200,
+        2200,
+      ),
+      txMeta = List(
+        TxMeta(1),
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(4),
+        TxMeta(16),
+        TxMeta(17),
+        TxMeta(18),
+        TxMeta(19),
+        TxMeta(20),
+        TxMeta(21),
+        TxMeta(22),
+      ),
+    )
+  }
+
+  it should "not prune incomplete events and related other events, but prune completed, older incomplete events and related other events" in {
+    val updates = Vector(
+      // before pruning start, incomplete assignments, won't be pruned
+      meta(event_offset = 2)(
+        dtosAssign(event_sequential_id = 200)() ++
+          dtosAssign(event_sequential_id = 201)() ++
+          dtosAssign(event_sequential_id = 202)()
+      ),
+      // before pruning start, relates to incomplete, so still retained
+      meta(event_offset = 3)(
+        dtosConsumingExercise(
+          event_sequential_id = 300,
+          deactivated_event_sequential_id = Some(202),
+        )
+      ),
+      // in pruning range will be pruned later
+      meta(event_offset = 5)(
+        dtosCreate(event_sequential_id = 500)()
+      ),
+      meta(event_offset = 6)(
+        dtosCreate(event_sequential_id = 600)()
+      ),
+      // deactivations in pruning range
+      meta(event_offset = 11)(
+        dtosConsumingExercise(
+          event_sequential_id = 1100,
+          deactivated_event_sequential_id = Some(500),
+        ) ++
+          // related to incomplete assignment, won't be pruned
+          dtosConsumingExercise(
+            event_sequential_id = 1101,
+            deactivated_event_sequential_id = Some(201),
+          )
+      ),
+      // incomplete unassignments, won't be pruned
+      meta(event_offset = 12)(
+        // this also relates to an incomplete unassignment
+        dtosUnassign(event_sequential_id = 1200, deactivated_event_sequential_id = Some(200)) ++
+          dtosUnassign(event_sequential_id = 1201, deactivated_event_sequential_id = Some(600))
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(22), 2200L))
+    assertIndexDbDataSql(
+      activate = List(
+        200, 201, 202, 500, 600,
+      ),
+      activateFilterStakeholder = List(
+        200, 200, 201, 201, 202, 202, 500, 500, 600, 600,
+      ),
+      activateFilterWitness = List(
+        500,
+        500,
+        600,
+        600,
+      ),
+      deactivate = List(
+        300, 1100, 1101, 1200, 1201,
+      ),
+      deactivateFilterStakeholder = List(
+        300, 300, 1100, 1100, 1101, 1101, 1200, 1200, 1201, 1201,
+      ),
+      deactivateFilterWitness = List(
+        300, 300, 1100, 1100, 1101, 1101,
+      ),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(11),
+        TxMeta(12),
+      ),
+    )
+    // Prune
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(4)),
+      previousIncompleteReassignmentOffsets = Vector(offset(2)),
+      pruneUpToInclusive = offset(15),
+      incompleteReassignmentOffsets = Vector(offset(2), offset(12)),
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      activate = List(
+        200,
+        201,
+        202,
+        600,
+      ),
+      activateFilterStakeholder = List(
+        200, 200, 201, 201, 202, 202, 600, 600,
+      ),
+      activateFilterWitness = List(
+        600,
+        600,
+      ),
+      deactivate = List(
+        300,
+        1101,
+        1200,
+        1201,
+      ),
+      deactivateFilterStakeholder = List(
+        300, 300, 1101, 1101, 1200, 1200, 1201, 1201,
+      ),
+      deactivateFilterWitness = List(
+        300,
+        300,
+        1101,
+        1101,
+      ),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+      ),
+    )
+
+    // Prune again
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(15)),
+      previousIncompleteReassignmentOffsets = Vector(offset(2), offset(12)),
+      pruneUpToInclusive = offset(17),
+      incompleteReassignmentOffsets = Vector(offset(2)),
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      activate = List(
+        200,
+        201,
+        202,
+      ),
+      activateFilterStakeholder = List(
+        200, 200, 201, 201, 202, 202,
+      ),
+      activateFilterWitness = List(),
+      deactivate = List(
+        300,
+        1101,
+        1200,
+      ),
+      deactivateFilterStakeholder = List(
+        300, 300, 1101, 1101, 1200, 1200,
+      ),
+      deactivateFilterWitness = List(
+        300,
+        300,
+        1101,
+        1101,
+      ),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+      ),
+    )
+
+    // Prune again
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(17)),
+      previousIncompleteReassignmentOffsets = Vector(offset(2)),
+      pruneUpToInclusive = offset(21),
+      incompleteReassignmentOffsets = Vector(),
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      activate = List(),
+      activateFilterStakeholder = List(),
+      activateFilterWitness = List(),
+      deactivate = List(),
+      deactivateFilterStakeholder = List(),
+      deactivateFilterWitness = List(),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+      ),
+    )
+  }
+
+  it should "not prune incomplete events and related other events, but prune completed, older incomplete events and related other events - combined case having new incomplete and complete as well" in {
+    val updates = Vector(
+      // before pruning start, older incomplete assignments, will become completed, and prunable
+      meta(event_offset = 2)(
+        dtosAssign(event_sequential_id = 200)() ++
+          dtosAssign(event_sequential_id = 201)() ++
+          dtosAssign(event_sequential_id = 202)()
+      ),
+      // before pruning start, relates to incomplete, so still retained previously, but with that becoming completed, prunable
+      meta(event_offset = 3)(
+        dtosConsumingExercise(
+          event_sequential_id = 300,
+          deactivated_event_sequential_id = Some(202),
+        )
+      ),
+      // in pruning range will be pruned later
+      meta(event_offset = 5)(
+        dtosCreate(event_sequential_id = 500)()
+      ),
+      meta(event_offset = 6)(
+        dtosCreate(event_sequential_id = 600)()
+      ),
+      // deactivations in pruning range
+      meta(event_offset = 11)(
+        dtosConsumingExercise(
+          event_sequential_id = 1100,
+          deactivated_event_sequential_id = Some(500),
+        ) ++
+          // related to completed assignment, will be pruned
+          dtosConsumingExercise(
+            event_sequential_id = 1101,
+            deactivated_event_sequential_id = Some(201),
+          )
+      ),
+      // incomplete unassignments, won't be pruned
+      meta(event_offset = 12)(
+        // this also relates to a previously incomplete unassignment
+        dtosUnassign(event_sequential_id = 1200, deactivated_event_sequential_id = Some(200)) ++
+          dtosUnassign(event_sequential_id = 1201, deactivated_event_sequential_id = Some(600))
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(22), 2200L))
+    assertIndexDbDataSql(
+      activate = List(
+        200, 201, 202, 500, 600,
+      ),
+      activateFilterStakeholder = List(
+        200, 200, 201, 201, 202, 202, 500, 500, 600, 600,
+      ),
+      activateFilterWitness = List(
+        500,
+        500,
+        600,
+        600,
+      ),
+      deactivate = List(
+        300, 1100, 1101, 1200, 1201,
+      ),
+      deactivateFilterStakeholder = List(
+        300, 300, 1100, 1100, 1101, 1101, 1200, 1200, 1201, 1201,
+      ),
+      deactivateFilterWitness = List(
+        300, 300, 1100, 1100, 1101, 1101,
+      ),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+        TxMeta(5),
+        TxMeta(6),
+        TxMeta(11),
+        TxMeta(12),
+      ),
+    )
+    // Prune
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(4)),
+      previousIncompleteReassignmentOffsets = Vector(offset(2)),
+      pruneUpToInclusive = offset(15),
+      incompleteReassignmentOffsets = Vector(offset(12)),
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      activate = List(
+        200,
+        600,
+      ),
+      activateFilterStakeholder = List(
+        200,
+        200,
+        600,
+        600,
+      ),
+      activateFilterWitness = List(
+        600,
+        600,
+      ),
+      deactivate = List(
+        1200,
+        1201,
+      ),
+      deactivateFilterStakeholder = List(
+        1200,
+        1200,
+        1201,
+        1201,
+      ),
+      deactivateFilterWitness = List(),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+      ),
+    )
+
+    // Prune again
+    pruneEventsSql(
+      previousPruneUpToInclusive = Some(offset(15)),
+      previousIncompleteReassignmentOffsets = Vector(offset(12)),
+      pruneUpToInclusive = offset(17),
+      incompleteReassignmentOffsets = Vector(),
+    )(TraceContext.empty)
+
+    assertIndexDbDataSql(
+      activate = List(),
+      activateFilterStakeholder = List(),
+      activateFilterWitness = List(),
+      deactivate = List(),
+      deactivateFilterStakeholder = List(),
+      deactivateFilterWitness = List(),
+      txMeta = List(
+        TxMeta(2),
+        TxMeta(3),
+      ),
+    )
   }
 
   // TODO(i21351) Implement pruning tests for topology events
 
   /** Asserts the content of the tables subject to pruning. Be default asserts the tables are empty.
     */
-  def assertIndexDbDataSql(
+  def assertIndexDbDataSqlLegacy(
       create: Seq[EventCreate] = Seq.empty,
       createFilterStakeholder: Seq[FilterCreateStakeholder] = Seq.empty,
       createFilterNonStakeholder: Seq[FilterCreateNonStakeholder] = Seq.empty,
@@ -1185,6 +1860,64 @@ private[backend] trait StorageBackendTestsPruning
     // other
     cp(Statement.discard(queries.updateMeta shouldBe txMeta))
     cp(Statement.discard(queries.completions shouldBe completion))
+    cp.reportAll()
+    succeed
+  }
+
+  /** Asserts the content of the tables subject to pruning. Be default asserts the tables are empty.
+    */
+  def assertIndexDbDataSql(
+      activate: Seq[Long] = Seq.empty,
+      activateFilterStakeholder: Seq[Long] = Seq.empty,
+      activateFilterWitness: Seq[Long] = Seq.empty,
+      deactivate: Seq[Long] = Seq.empty,
+      deactivateFilterStakeholder: Seq[Long] = Seq.empty,
+      deactivateFilterWitness: Seq[Long] = Seq.empty,
+      variousWitnessed: Seq[Long] = Seq.empty,
+      variousFilterWitness: Seq[Long] = Seq.empty,
+      txMeta: Seq[TxMeta] = Seq.empty,
+      completion: Seq[Completion] = Seq.empty,
+  ): Assertion = executeSql { implicit c =>
+    val queries = backend.pruningDtoQueries
+    val cp = new Checkpoint
+    // activate
+    cp(clue("activate")(Statement.discard(queries.eventActivate shouldBe activate)))
+    cp(
+      clue("activate filter stakeholder")(
+        Statement.discard(queries.filterActivateStakeholder shouldBe activateFilterStakeholder)
+      )
+    )
+    cp(
+      clue("activate filter witness")(
+        Statement.discard(queries.filterActivateWitness shouldBe activateFilterWitness)
+      )
+    )
+    // deactivate
+    cp(clue("deactivate")(Statement.discard(queries.eventDeactivate shouldBe deactivate)))
+    cp(
+      clue("deactivate filter stakeholder")(
+        Statement.discard(queries.filterDeactivateStakeholder shouldBe deactivateFilterStakeholder)
+      )
+    )
+    cp(
+      clue("deactivate filter witness")(
+        Statement.discard(queries.filterDeactivateWitness shouldBe deactivateFilterWitness)
+      )
+    )
+    // witnessed
+    cp(
+      clue("various witnessed")(
+        Statement.discard(queries.eventVariousWitnessed shouldBe variousWitnessed)
+      )
+    )
+    cp(
+      clue("various witnessed filter")(
+        Statement.discard(queries.filterVariousWitness shouldBe variousFilterWitness)
+      )
+    )
+    // other
+    cp(clue("meta")(Statement.discard(queries.updateMeta shouldBe txMeta)))
+    cp(clue("completion")(Statement.discard(queries.completions shouldBe completion)))
     cp.reportAll()
     succeed
   }

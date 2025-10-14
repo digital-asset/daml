@@ -74,7 +74,8 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
 
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
 
         party1aId = participant1.parties.enable(party1a, synchronizer = daName)
         participant1.parties.enable(party1a, synchronizer = acmeName)

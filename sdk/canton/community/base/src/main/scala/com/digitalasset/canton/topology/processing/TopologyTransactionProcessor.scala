@@ -30,9 +30,10 @@ import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.subscriptionTimestamp
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
 import com.digitalasset.canton.topology.transaction.{
   SynchronizerUpgradeAnnouncement,
-  ValidatingTopologyMappingChecks,
+  TopologyChangeOp,
 }
 import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
@@ -74,7 +75,7 @@ class TopologyTransactionProcessor(
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      new RequiredTopologyMappingChecks(store, loggerFactory),
       pureCrypto,
       loggerFactory,
     )
@@ -479,12 +480,14 @@ class TopologyTransactionProcessor(
        */
       validUpgradeAnnouncements = validTransactions
         .mapFilter(_.selectMapping[SynchronizerUpgradeAnnouncement])
-        .map(_.mapping)
 
-      // TODO(#26580) Handle cancellation
-      _ = validUpgradeAnnouncements.foreach(announcement =>
-        terminateProcessing.notifyUpgradeAnnouncement(announcement.successor)
-      )
+      _ = validUpgradeAnnouncements.foreach { announcement =>
+        announcement.operation match {
+          case TopologyChangeOp.Replace =>
+            terminateProcessing.notifyUpgradeAnnouncement(announcement.mapping.successor)
+          case TopologyChangeOp.Remove => terminateProcessing.notifyUpgradeCancellation()
+        }
+      }
 
       _ <- synchronizeWithClosing("notify-topology-transaction-observers")(
         MonadUtil.sequentialTraverse(listeners.get()) { listenerGroup =>

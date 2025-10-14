@@ -127,6 +127,20 @@ class SuppressingLogger private[logging] (
   )(implicit c: ClassTag[T], pos: source.Position): Assertion =
     assertLogs(rule)(checkThrowable[T](the[Throwable] thrownBy within), assertions*)
 
+  def assertThrowsAndLogsSuppressingAsync[T <: Throwable](rule: SuppressionRule)(
+      within: => Future[_],
+      assertions: (LogEntry => Assertion)*
+  )(implicit c: ClassTag[T], pos: source.Position): Future[Assertion] =
+    assertLogs(rule)(
+      within.transform {
+        case Success(_) =>
+          fail(s"An exception of type $c was expected, but no exception was thrown.")
+        case Failure(c(_)) => Success(succeed)
+        case Failure(t) => fail(s"Exception has wrong type. Expected type: $c. Got: $t.", t)
+      }(directExecutionContext),
+      assertions *,
+    )
+
   def assertThrowsAndLogsAsync[T <: Throwable](
       within: => Future[_],
       assertion: T => Assertion,
@@ -264,7 +278,7 @@ class SuppressingLogger private[logging] (
     suppress(rule) {
       runWithCleanup(
         within,
-        { () =>
+        { (_: A) =>
           // check the log
 
           // Check that every assertion succeeds on the corresponding log entry
@@ -312,7 +326,7 @@ class SuppressingLogger private[logging] (
     suppress(rule) {
       runWithCleanup(
         within,
-        () => checkLogsAssertion(assertion),
+        (_: A) => checkLogsAssertion(assertion),
         () => (),
       )
     }
@@ -365,7 +379,8 @@ class SuppressingLogger private[logging] (
     suppress(rule) {
       runWithCleanup(
         within,
-        () => BaseTest.eventually(timeUntilSuccess, maxPollInterval)(checkLogsAssertion(assertion)),
+        (_: A) =>
+          BaseTest.eventually(timeUntilSuccess, maxPollInterval)(checkLogsAssertion(assertion)),
         () => (),
       )
     }
@@ -429,10 +444,17 @@ class SuppressingLogger private[logging] (
       within: => A,
       assertions: (LogEntryOptionality, LogEntry => Assertion)*
   )(implicit pos: source.Position): A =
+    assertLogsUnorderedOptionalFromResult(within, (_: A) => assertions)
+
+  def assertLogsUnorderedOptionalFromResult[A](
+      within: => A,
+      mkAssertions: A => Seq[(LogEntryOptionality, LogEntry => Assertion)],
+  )(implicit pos: source.Position): A =
     suppress(SuppressionRule.LevelAndAbove(WARN)) {
       runWithCleanup(
         within,
-        () => {
+        (a: A) => {
+          val assertions = mkAssertions(a)
           val unmatchedAssertions =
             mutable.SortedMap[Int, (LogEntryOptionality, LogEntry => Assertion)]() ++
               assertions.zipWithIndex.map { case (assertion, index) => index -> assertion }
@@ -530,7 +552,7 @@ class SuppressingLogger private[logging] (
           internalLogger.error("Failed to begin suppression", t)
           restoreNoSuppression
       }
-    runWithCleanup(within, () => (), endSuppress)
+    runWithCleanup(within, (_: A) => (), endSuppress)
   }
 
   /** First runs `body`, `onSuccess`, and then `doFinally`. Runs `onSuccess` after `body` if `body`
@@ -544,7 +566,7 @@ class SuppressingLogger private[logging] (
     *   if `T` is `EitherT` or `OptionT`
     */
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.AsInstanceOf"))
-  private def runWithCleanup[T](body: => T, onSuccess: () => Unit, doFinally: () => Unit): T = {
+  private def runWithCleanup[T](body: => T, onSuccess: T => Unit, doFinally: () => Unit): T = {
     var isAsync = false
     try {
       // Run the computation in body
@@ -556,7 +578,7 @@ class SuppressingLogger private[logging] (
           // Cleanup after completion of the future.
           val asyncResultWithCleanup = asyncResult
             .map { r =>
-              onSuccess()
+              onSuccess(result)
               r
             }
             .thereafter(_ => doFinally())
@@ -576,7 +598,7 @@ class SuppressingLogger private[logging] (
         // Therefore, we don't know whether the suppression needs to be asynchronous.
 
         case syncResult =>
-          onSuccess()
+          onSuccess(syncResult)
           syncResult
       }
     } finally {

@@ -6,8 +6,8 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
@@ -82,7 +82,15 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay)
+          .replace(
+            Some(
+              CommitmentSendDelay(
+                Some(NonNegativeProportion.zero),
+                Some(NonNegativeProportion.zero),
+              )
+            )
+          )
       )
       .withSetup { implicit env =>
         import env.*
@@ -120,7 +128,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         connect(participant2, minObservationDuration2)
         connect(participant3, minObservationDuration2)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         passTopologyRegistrationTimeout(env)
       }
 
@@ -197,7 +206,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     val tickNoCommitments1 = tickAfter(simClock.uniqueTime())
     simClock.advanceTo(tickNoCommitments1.forgetRefinement.plus(interval.multipliedBy(3)))
     logger.info(s"Upload a package to trigger some vetting transactions")
-    participant1.dars.upload(CantonTestsPath)
+    participant1.dars.upload(CantonTestsPath, synchronizerId = daId)
+    participant1.dars.upload(CantonTestsPath, synchronizerId = acmeId)
     simClock.advance(interval.plus(JDuration.ofSeconds(1)))
 
     val start = tickNoCommitments1.forgetRefinement.toInstant

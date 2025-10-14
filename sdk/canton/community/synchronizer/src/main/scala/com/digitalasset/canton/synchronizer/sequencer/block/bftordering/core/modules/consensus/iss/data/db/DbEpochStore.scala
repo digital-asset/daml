@@ -110,6 +110,9 @@ class DbEpochStore(
     parseSignedMessage(_ => Commit.fromProtoConsensusMessage(actualSender = None, _))
   }
 
+  // TODO(#28200): introduce `BatchAggregator#runTogether` that avoids splitting items into different batches
+  //  and use it in `addPrepares` and `addOrderedBlock`
+
   private val insertInProgressPbftMessagesBatchAggregator =
     BatchAggregator(
       new InsertBatchAggregatorProcessor(
@@ -118,19 +121,6 @@ class DbEpochStore(
           runInsertInProgressPbftMessages(seq)
         },
         "In-progress consensus block network message insert",
-        logger,
-      ),
-      batchAggregatorConfig,
-    )
-
-  private val insertFinalPbftMessagesBatchAggregator =
-    BatchAggregator(
-      new InsertBatchAggregatorProcessor(
-        { (seq, traceContext) =>
-          implicit val tc: TraceContext = traceContext
-          runInsertFinalPbftMessages(seq)
-        },
-        "Completed consensus block network message insert",
         logger,
       ),
       batchAggregatorConfig,
@@ -257,13 +247,13 @@ class DbEpochStore(
       insertInProgressPbftMessagesBatchAggregator.run(prePrepare)
     }
 
-  override def addPrepares(
+  override def addPreparesAtomically(
       prepares: Seq[SignedMessage[ConsensusMessage.Prepare]]
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addPreparesActionName, orderingStage = functionFullName) {
-      FutureUnlessShutdown
-        .sequence(prepares.map(insertInProgressPbftMessagesBatchAggregator.run))
-        .map(_ => ())
+      // Cannot use the batch aggregator here as we need to make sure for CFT that all messages end up
+      //  in the same transaction.
+      runInsertInProgressPbftMessages(prepares)
     }
 
   override def addViewChangeMessage[M <: PbftViewChangeMessage](
@@ -278,7 +268,7 @@ class DbEpochStore(
       insertInProgressPbftMessagesBatchAggregator.run(viewChangeMessage)
     }
 
-  override def addOrderedBlock(
+  override def addOrderedBlockAtomically(
       prePrepare: SignedMessage[PrePrepare],
       commitMessages: Seq[SignedMessage[Commit]],
   )(implicit
@@ -292,9 +282,9 @@ class DbEpochStore(
     ) {
       val messages: Seq[SignedMessage[PbftNormalCaseMessage]] =
         commitMessages :++ Seq[SignedMessage[PbftNormalCaseMessage]](prePrepare)
-      FutureUnlessShutdown
-        .sequence(messages.map(insertFinalPbftMessagesBatchAggregator.run))
-        .map(_ => ())
+      // Cannot use the batch aggregator here as we need to make sure for CFT that all messages end up
+      //  in the same transaction.
+      runInsertFinalPbftMessages(messages)
     }
   }
 
@@ -324,8 +314,10 @@ class DbEpochStore(
 
     storage
       .runWrite(
+        // Sorting should prevent deadlocks in Postgres when using concurrent clashing batched inserts
+        //  with idempotency "on conflict do nothing" clauses.
         DbStorage
-          .bulkOperation_(insertSql, messages, storage.profile) { pp => msg =>
+          .bulkOperation_(insertSql, messages.sortBy(key), storage.profile) { pp => msg =>
             pp >> msg.message.blockMetadata.blockNumber
             pp >> msg.message.blockMetadata.epochNumber
             pp >> msg.message.viewNumber
@@ -366,8 +358,10 @@ class DbEpochStore(
       }
     storage
       .runWrite(
+        // Sorting should prevent deadlocks in Postgres when using concurrent clashing batched inserts
+        //  with idempotency "on conflict do nothing" clauses.
         DbStorage
-          .bulkOperation_(insertSql, messages, storage.profile) { pp => msg =>
+          .bulkOperation_(insertSql, messages.sortBy(key), storage.profile) { pp => msg =>
             pp >> msg.message.blockMetadata.blockNumber
             pp >> msg.message.blockMetadata.epochNumber
             pp >> msg
@@ -582,15 +576,6 @@ object DbEpochStore {
   private val ViewChangeDiscriminator = 3
   private val NewViewDiscriminator = 4
 
-  private def getDiscriminator[M <: PbftNetworkMessage](message: M): Int =
-    message match {
-      case _: PrePrepare => PrePrepareMessageDiscriminator
-      case _: ConsensusMessage.Prepare => PrepareMessageDiscriminator
-      case _: Commit => CommitMessageDiscriminator
-      case _: ConsensusMessage.ViewChange => ViewChangeDiscriminator
-      case _: ConsensusMessage.NewView => NewViewDiscriminator
-    }
-
   private class InsertBatchAggregatorProcessor(
       exec: (
           Seq[SignedMessage[PbftNetworkMessage]],
@@ -618,4 +603,24 @@ object DbEpochStore {
       )
     }
   }
+
+  private def key[M <: PbftNetworkMessage](
+      msg: SignedMessage[M]
+  ): (BlockNumber, EpochNumber, BftNodeId, Int) =
+    (
+      msg.message.blockMetadata.blockNumber,
+      msg.message.blockMetadata.epochNumber,
+      msg.from,
+      getDiscriminator(msg.message),
+    )
+
+  private def getDiscriminator[M <: PbftNetworkMessage](message: M): Int =
+    message match {
+      case _: PrePrepare => PrePrepareMessageDiscriminator
+      case _: ConsensusMessage.Prepare => PrepareMessageDiscriminator
+      case _: Commit => CommitMessageDiscriminator
+      case _: ConsensusMessage.ViewChange => ViewChangeDiscriminator
+      case _: ConsensusMessage.NewView => NewViewDiscriminator
+    }
+
 }

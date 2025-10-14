@@ -275,7 +275,9 @@ class StateTransferManager[E <: Env[E]](
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): StateTransferMessageResult = {
-    context.pipeToSelf(epochStore.addOrderedBlock(commitCert.prePrepare, commitCert.commits)) {
+    context.pipeToSelf(
+      epochStore.addOrderedBlockAtomically(commitCert.prePrepare, commitCert.commits)
+    ) {
       case Success(_) =>
         Some(StateTransferMessage.BlockStored(commitCert, from))
       case Failure(exception) =>

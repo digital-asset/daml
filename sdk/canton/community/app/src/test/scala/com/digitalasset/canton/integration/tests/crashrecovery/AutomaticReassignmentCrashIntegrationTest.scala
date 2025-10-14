@@ -68,10 +68,7 @@ class AutomaticReassignmentCrashIntegrationTest
         import env.*
 
         remoteP1 = rp("participant1")
-
-        participants.local.dars.upload(darPath)
         remoteP1.health.wait_for_initialized()
-        remoteP1.dars.upload(darPath)
 
         connectToCustomSynchronizers(
           Map(

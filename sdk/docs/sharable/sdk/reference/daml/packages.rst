@@ -13,13 +13,13 @@ Building Daml Archives
 
 When a Daml project is compiled, the compiler produces a `Daml archive`. These are platform-independent packages of compiled Daml code that can be uploaded to a Daml ledger or imported in other Daml projects.
 
-Daml archives have a ``.dar`` file ending. By default, when you run ``daml build``, it will generate the ``.dar`` file in the ``.daml/dist`` folder in the project root folder. For example, running ``daml build`` in project ``foo`` with project version ``0.0.1`` will result in a Daml archive ``.daml/dist/foo-0.0.1.dar``.
+Daml archives have a ``.dar`` file ending. By default, when you run ``dpm build``, it will generate the ``.dar`` file in the ``.daml/dist`` folder in the project root folder. For example, running ``dpm build`` in project ``foo`` with project version ``0.0.1`` will result in a Daml archive ``.daml/dist/foo-0.0.1.dar``.
 
 You can specify a different path for the Daml archive by using the ``-o`` flag:
 
 .. code-block:: sh
 
-  daml build -o foo.dar
+  dpm build -o foo.dar
 
  The rest of this page will focus on how to import a Daml package in other Daml projects.
 
@@ -46,7 +46,7 @@ A Daml project can declare a Daml archive as a dependency in the ``dependencies`
 
 Let's go through an example. Suppose you have an existing Daml project ``foo``, located at ``/home/user/foo``, and you want to use it as a dependency in a project ``bar``, located at ``/home/user/bar``.
 
-To do so, you first need to generate the Daml archive of ``foo``. Go into ``/home/user/foo`` and run ``daml build -o foo.dar``. This will create the Daml archive, ``/home/user/foo/foo.dar``.
+To do so, you first need to generate the Daml archive of ``foo``. Go into ``/home/user/foo`` and run ``dpm build -o foo.dar``. This will create the Daml archive, ``/home/user/foo/foo.dar``.
 
 .. TODO (#4925): Make the above step redundant by letting users declare projects directly. Then update this doc.
 
@@ -65,7 +65,7 @@ The import path can also be absolute, for example, by changing the last line to:
 
     - /home/user/foo/foo.dar
 
-When you run ``daml build`` in the ``bar`` project, the compiler will make the definitions in ``foo.dar`` available for importing. For example, if ``foo`` exports the module ``Foo``, you can import it in the usual way:
+When you run ``dpm build`` in the ``bar`` project, the compiler will make the definitions in ``foo.dar`` available for importing. For example, if ``foo`` exports the module ``Foo``, you can import it in the usual way:
 
 .. code-block:: daml
 
@@ -156,7 +156,7 @@ the root of your project directory, pinning the resolved packages to their exact
 
 The ``daml.lock`` file needs to be checked into version control of your project. This assures that
 package name/version tuples specified in your data dependencies are always resolved to the same
-package ID. To recreate or update your ``daml.lock`` file, delete it and run ``daml build`` again.
+package ID. To recreate or update your ``daml.lock`` file, delete it and run ``dpm build`` again.
 
 .. _module_collisions:
 

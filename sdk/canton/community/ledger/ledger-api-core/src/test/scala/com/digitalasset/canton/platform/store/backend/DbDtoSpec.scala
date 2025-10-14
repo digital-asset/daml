@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class DbDtoSpec extends AnyWordSpec with Matchers {
   import StorageBackendTestValues.*
-  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = DbDtoEq.DbDtoEq
+  implicit private val DbDtoEqual: org.scalactic.Equality[DbDto] = ScalatestEqualityHelpers.DbDtoEq
 
   val updateId = TestUpdateId("mock_hash")
   val updateIdByteArray = updateId.toProtoPrimitive.toByteArray
@@ -98,7 +98,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
-          submitters = Some(Set("party")),
+          submitter = Some("party"),
           record_time = 2,
           synchronizer_id = someSynchronizerId,
           trace_context = serializableTraceContext,
@@ -268,7 +268,7 @@ class DbDtoSpec extends AnyWordSpec with Matchers {
           update_id = updateIdByteArray,
           workflow_id = Some("w"),
           command_id = Some("c"),
-          submitters = Some(Set("party")),
+          submitter = Some("party"),
           record_time = 2,
           synchronizer_id = someSynchronizerId,
           trace_context = serializableTraceContext,

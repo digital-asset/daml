@@ -70,6 +70,7 @@ import com.daml.ledger.api.v2.command_submission_service.{
 }
 import com.daml.ledger.api.v2.commands.{Command, Commands, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.crypto as lapicrypto
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.EventQueryServiceGrpc.EventQueryServiceStub
 import com.daml.ledger.api.v2.event_query_service.{
@@ -77,9 +78,9 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
-import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionServiceStub
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  CostEstimationHints,
   ExecuteSubmissionAndWaitForTransactionRequest,
   ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
@@ -308,11 +309,11 @@ object LedgerApiCommands {
             onboardingTransactions = transactions.map { case (transaction, signatures) =>
               AllocateExternalPartyRequest.SignedTransaction(
                 transaction.getCryptographicEvidence,
-                signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+                signatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
               )
             },
             multiHashSignatures =
-              multiHashSignatures.map(_.toProtoV30.transformInto[iss.Signature]),
+              multiHashSignatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
             identityProviderId = "",
           )
         )
@@ -391,13 +392,16 @@ object LedgerApiCommands {
         Right(response.partyDetails)
     }
 
-    final case class GetParty(party: Party, identityProviderId: String)
-        extends BaseCommand[GetPartiesRequest, GetPartiesResponse, PartyDetails] {
+    final case class GetParties(
+        parties: Seq[PartyId],
+        identityProviderId: String,
+        failOnNotFound: Boolean,
+    ) extends BaseCommand[GetPartiesRequest, GetPartiesResponse, Map[PartyId, PartyDetails]] {
 
       override protected def createRequest(): Either[String, GetPartiesRequest] =
         Right(
           GetPartiesRequest(
-            parties = Seq(party.toProtoPrimitive),
+            parties = parties.map(_.toProtoPrimitive),
             identityProviderId = identityProviderId,
           )
         )
@@ -409,8 +413,18 @@ object LedgerApiCommands {
 
       override protected def handleResponse(
           response: GetPartiesResponse
-      ): Either[String, PartyDetails] =
-        response.partyDetails.headOption.toRight("PARTY_NOT_FOUND")
+      ): Either[String, Map[PartyId, PartyDetails]] = {
+        val result =
+          response.partyDetails.map(d => (PartyId.tryFromProtoPrimitive(d.party), d)).toMap
+        if (failOnNotFound) {
+          val notFound = parties.toSet -- result.keySet
+          Either.cond(
+            notFound.isEmpty,
+            result,
+            s"The following parties were not found on the Ledger API: $notFound",
+          )
+        } else Right(result)
+      }
     }
 
     final case class UpdateIdp(
@@ -454,7 +468,7 @@ object LedgerApiCommands {
         PackageManagementServiceGrpc.stub(channel)
     }
 
-    final case class UploadDarFile(darPath: String)
+    final case class UploadDarFile(darPath: String, synchronizerId: Option[SynchronizerId])
         extends BaseCommand[UploadDarFileRequest, UploadDarFileResponse, Unit] {
 
       override protected def createRequest(): Either[String, UploadDarFileRequest] =
@@ -464,6 +478,7 @@ object LedgerApiCommands {
           bytes,
           submissionId = "",
           vettingChange = UploadDarFileRequest.VettingChange.VETTING_CHANGE_VET_ALL_PACKAGES,
+          synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
         )
       override protected def submitRequest(
           service: PackageManagementServiceStub,
@@ -478,13 +493,17 @@ object LedgerApiCommands {
 
     }
 
-    final case class ValidateDarFile(darPath: String)
+    final case class ValidateDarFile(darPath: String, synchronizerId: Option[SynchronizerId])
         extends BaseCommand[ValidateDarFileRequest, ValidateDarFileResponse, Unit] {
 
       override protected def createRequest(): Either[String, ValidateDarFileRequest] =
         for {
           bytes <- BinaryFileUtil.readByteStringFromFile(darPath)
-        } yield ValidateDarFileRequest(bytes, submissionId = "")
+        } yield ValidateDarFileRequest(
+          bytes,
+          submissionId = "",
+          synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
+        )
 
       override protected def submitRequest(
           service: PackageManagementServiceStub,
@@ -1576,6 +1595,8 @@ object LedgerApiCommands {
         packageIdSelectionPreference: Seq[LfPackageId],
         verboseHashing: Boolean,
         prefetchContractKeys: Seq[PrefetchContractKey],
+        maxRecordTime: Option[CantonTimestamp],
+        costEstimationHints: Option[CostEstimationHints],
     ) extends BaseCommand[
           PrepareSubmissionRequest,
           PrepareSubmissionResponse,
@@ -1599,6 +1620,8 @@ object LedgerApiCommands {
             packageIdSelectionPreference = packageIdSelectionPreference,
             verboseHashing = verboseHashing,
             prefetchContractKeys = prefetchContractKeys,
+            maxRecordTime = maxRecordTime.map(_.toProtoTimestamp),
+            estimateTrafficCost = costEstimationHints,
           )
         )
 
@@ -1633,13 +1656,12 @@ object LedgerApiCommands {
 
       import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
       import io.scalaland.chimney.dsl.*
-      import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 
       private def makePartySignatures: PartySignatures = PartySignatures(
         transactionSignatures.map { case (party, signatures) =>
           SinglePartySignatures(
             party = party.toProtoPrimitive,
-            signatures = signatures.map(_.toProtoV30.transformInto[iss.Signature]),
+            signatures = signatures.map(_.toProtoV30.transformInto[lapicrypto.Signature]),
           )
         }.toSeq
       )

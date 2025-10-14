@@ -15,7 +15,7 @@ import com.digitalasset.canton.platform.store.backend.{
   DbDtoToStringsForInterning,
   IngestionStorageBackend,
   ParameterStorageBackend,
-  UpdateToDbDto,
+  UpdateToDbDtoLegacy,
 }
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, LfValueTranslation}
@@ -53,7 +53,7 @@ object SequentialWriteDao {
         ingestionStorageBackend = ingestionStorageBackend,
         parameterStorageBackend = parameterStorageBackend,
         updateToDbDtos = offset =>
-          UpdateToDbDto(
+          UpdateToDbDtoLegacy(
             participantId = participantId,
             translation = new LfValueTranslation(
               metrics = metrics,

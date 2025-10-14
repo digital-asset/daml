@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeProportion}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -101,7 +101,14 @@ trait AcsCommitmentToolingIntegrationTest
         ConfigTransforms.updateTargetTimestampForwardTolerance(24.hours),
       )
       .updateTestingConfig(
-        _.focus(_.maxCommitmentSendDelayMillis).replace(Some(NonNegativeInt.zero))
+        _.focus(_.commitmentSendDelay).replace(
+          Some(
+            CommitmentSendDelay(
+              Some(NonNegativeProportion.zero),
+              Some(NonNegativeProportion.zero),
+            )
+          )
+        )
       )
       .withSetup { implicit env =>
         import env.*
@@ -139,7 +146,10 @@ trait AcsCommitmentToolingIntegrationTest
         connect(participant2, minObservationDuration2)
         connect(participant3, minObservationDuration2)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
-        participants.all.foreach(_.dars.upload(CantonExamplesPath))
+        participants.all.foreach { p =>
+          p.dars.upload(CantonExamplesPath, synchronizerId = daId)
+          p.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
+        }
         passTopologyRegistrationTimeout(env)
       }
 

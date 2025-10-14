@@ -126,7 +126,10 @@ class ActiveContractsIntegrationTest
           party2 = participant2.parties.enable("party2", synchronizer = alias)
         }
 
-        participants.all.dars.upload(BaseTest.CantonExamplesPath)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = daId)
+        participants.all.dars.upload(BaseTest.CantonExamplesPath, synchronizerId = acmeId)
+        participants.all.dars
+          .upload(BaseTest.CantonExamplesPath, synchronizerId = repairSynchronizerId)
       }
 
   protected def getActiveContracts(

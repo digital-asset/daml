@@ -44,14 +44,13 @@ canDependOn (Version major1 minor1) (Version major2 minor2) =
 
 -- | The Daml-LF version used by default.
 versionDefault :: Version
-versionDefault = version2_1
+versionDefault = version2_2
 
 -- | Daml-LF version 2.1
 version2_1 :: Version
 version2_1 = Version V2 (PointStable 1)
 
 -- | Daml-LF version 2.2
--- | Staging version!
 version2_2 :: Version
 version2_2 = Version V2 (PointStable 2)
 
@@ -137,7 +136,7 @@ featureUnstable = Feature
     , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_UNSTABLE"
     }
-    
+
 featureTextMap :: Feature
 featureTextMap = Feature
     { featureName = "TextMap type"
@@ -192,14 +191,16 @@ featureContractKeys = Feature
 featureFlatArchive :: Feature
 featureFlatArchive = Feature
     { featureName = "Flat Archive"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq $ \case
+          V2 -> allMinorVersionsAfter (PointStable 2)
     , featureCppFlag = Just "DAML_FLATARCHIVE"
     }
 
 featurePackageImports :: Feature
 featurePackageImports = Feature
     { featureName = "Explicit package imports"
-    , featureVersionReq = devOnly
+    , featureVersionReq = VersionReq $ \case
+          V2 -> allMinorVersionsAfter (PointStable 2)
     , featureCppFlag = Just "DAML_PackageImports"
     }
 

@@ -71,7 +71,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
   {
     val dtos = Vector(
       // 1: transaction with a create node
-      dtoCreate(offset(1), 1L, hashCid("#101"), signatory = signatory),
+      dtoCreateLegacy(offset(1), 1L, hashCid("#101"), signatory = signatory),
       DbDto.IdFilterCreateStakeholder(
         1L,
         someTemplateId.toString,
@@ -91,14 +91,14 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       ),
       dtoCompletion(offset(41)),
       // 2: transaction with exercise node
-      dtoExercise(offset(2), 2L, false, hashCid("#101")),
+      dtoExerciseLegacy(offset(2), 2L, false, hashCid("#101")),
       DbDto.IdFilterNonConsumingInformee(
         2L,
         someTemplateId.toString,
         someParty,
         first_per_sequential_id = true,
       ),
-      dtoExercise(offset(2), 3L, true, hashCid("#102")),
+      dtoExerciseLegacy(offset(2), 3L, true, hashCid("#102")),
       DbDto.IdFilterConsumingStakeholder(
         3L,
         someTemplateId.toString,
@@ -118,7 +118,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       ),
       dtoCompletion(offset(2)),
       // 3: assign
-      dtoAssign(
+      dtoAssignLegacy(
         offset(3),
         eventSequentialId = 4,
         contractId = hashCid("#103"),
@@ -136,7 +136,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         first_per_sequential_id = false,
       ),
       // 4: unassign
-      dtoUnassign(
+      dtoUnassignLegacy(
         offset(4),
         eventSequentialId = 5,
         contractId = hashCid("#103"),
@@ -171,7 +171,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     it should "delete overspill entries - events, transaction meta, completions" in {
       val dtos2 = Vector(
         // 6: transaction with create node
-        dtoCreate(offset(6), 8L, hashCid("#201"), signatory = signatory),
+        dtoCreateLegacy(offset(6), 8L, hashCid("#201"), signatory = signatory),
         DbDto.IdFilterCreateStakeholder(
           8L,
           someTemplateId.toString,
@@ -191,14 +191,14 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         ),
         dtoCompletion(offset(6)),
         // 7: transaction with exercise node
-        dtoExercise(offset(7), 9L, false, hashCid("#201")),
+        dtoExerciseLegacy(offset(7), 9L, false, hashCid("#201")),
         DbDto.IdFilterNonConsumingInformee(
           9L,
           someTemplateId.toString,
           someParty,
           first_per_sequential_id = true,
         ),
-        dtoExercise(offset(7), 10L, true, hashCid("#202")),
+        dtoExerciseLegacy(offset(7), 10L, true, hashCid("#202")),
         DbDto.IdFilterConsumingStakeholder(
           10L,
           someTemplateId.toString,
@@ -218,7 +218,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
         ),
         dtoCompletion(offset(7)),
         // 8: assign
-        dtoAssign(
+        dtoAssignLegacy(
           offset(8),
           eventSequentialId = 11,
           contractId = hashCid("#203"),
@@ -236,7 +236,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           first_per_sequential_id = false,
         ),
         // 9: unassign
-        dtoUnassign(
+        dtoUnassignLegacy(
           offset(9),
           eventSequentialId = 12,
           contractId = hashCid("#203"),

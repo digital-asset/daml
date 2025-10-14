@@ -169,13 +169,18 @@ object PackageMetadata {
         )
       }
 
-    implicit def upgradablePackageIdPriorityMapSemigroup: Semigroup[PackageResolution] =
+    implicit def upgradablePackageIdPriorityMapSemigroup: Semigroup[PackageResolution] = {
+      val preferenceOrdering = Ordering
+        .by[LocalPackagePreference, (Ref.PackageVersion, Ref.PackageId)](pref =>
+          // Sort by version then by package-id to ensure deterministic sorting
+          pref.version -> pref.packageId
+        )
       Semigroup.instance { case (x, y) =>
         PackageResolution(
-          preference =
-            if (y.preference.version > x.preference.version) y.preference else x.preference,
+          preference = preferenceOrdering.max(x.preference, y.preference),
           allPackageIdsForName = x.allPackageIdsForName ++ y.allPackageIdsForName,
         )
       }
+    }
   }
 }

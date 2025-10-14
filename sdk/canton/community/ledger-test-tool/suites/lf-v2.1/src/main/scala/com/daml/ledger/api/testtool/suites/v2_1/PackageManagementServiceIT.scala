@@ -37,7 +37,9 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
     allocate(NoParties),
   )(implicit ec => { case Participants(Participant(ledger, Seq())) =>
     for {
-      failure <- ledger.uploadDarFile(ByteString.EMPTY).mustFail("uploading an empty package")
+      failure <- ledger
+        .uploadDarFileAndVetOnConnectedSynchronizers(ByteString.EMPTY)
+        .mustFail("uploading an empty package")
     } yield {
       assertGrpcErrorRegex(
         failure,
@@ -57,9 +59,8 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
     // of submission ids.
     for {
       testPackage <- loadTestPackage()
-      request = alpha.uploadDarRequest(testPackage)
-      _ <- alpha.uploadDarFile(request)
-      _ <- beta.uploadDarFile(request)
+      _ <- alpha.uploadDarFileAndVetOnConnectedSynchronizers(testPackage)
+      _ <- beta.uploadDarFileAndVetOnConnectedSynchronizers(testPackage)
     } yield ()
   })
 
@@ -73,7 +74,9 @@ final class PackageManagementServiceIT extends LedgerTestSuite {
   )(implicit ec => { case Participants(Participant(ledger, Seq(party))) =>
     for {
       testPackage <- loadTestPackage()
-      _ <- Future.sequence(Vector.fill(8)(ledger.uploadDarFile(testPackage)))
+      _ <- Future.sequence(
+        Vector.fill(8)(ledger.uploadDarFileAndVetOnConnectedSynchronizers(testPackage))
+      )
       knownPackages <- ledger.listKnownPackages()
       contract <- ledger.create(party, new PackageManagementTestTemplate(party))(
         PackageManagementTestTemplate.COMPANION

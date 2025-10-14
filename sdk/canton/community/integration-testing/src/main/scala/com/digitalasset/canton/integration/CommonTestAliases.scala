@@ -53,6 +53,7 @@ trait CommonTestAliases {
   lazy val remoteSequencer1: RemoteSequencerReference = rs("sequencer1")
   lazy val remoteSequencer2: RemoteSequencerReference = rs("sequencer2")
   lazy val remoteSequencer3: RemoteSequencerReference = rs("sequencer3")
+  lazy val remoteSequencer4: RemoteSequencerReference = rs("sequencer4")
 
   lazy val remoteMediator1: RemoteMediatorReference = rm("mediator1")
   lazy val remoteMediator2: RemoteMediatorReference = rm("mediator2")

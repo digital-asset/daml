@@ -12,7 +12,6 @@ import com.digitalasset.canton.platform.InternalUpdateFormat
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
-import com.digitalasset.canton.platform.store.dao.events.UpdatePointwiseReader.getOffset
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -88,24 +87,9 @@ final class UpdatePointwiseReader(
         )
         .map(_.flatten)
 
-      prunedUpToInclusive <- dbDispatcher.executeSql(metrics.index.db.fetchPruningOffsetsMetrics)(
-        parameterStorageBackend.prunedUpToInclusive
-      )
-
-      notPruned = agg.filter(update => getOffset(update) > prunedUpToInclusive.fold(0L)(_.unwrap))
-
     } yield {
       // only a single update should exist for a specific offset or update id
-      notPruned.headOption.map(GetUpdateResponse.apply)
+      agg.headOption.map(GetUpdateResponse.apply)
     }
 
-}
-
-object UpdatePointwiseReader {
-  private def getOffset(update: Update): Long = update match {
-    case Update.Empty => throw new RuntimeException("The update was unexpectedly empty.")
-    case Update.Transaction(tx) => tx.offset
-    case Update.Reassignment(reassignment) => reassignment.offset
-    case Update.TopologyTransaction(topologyTx) => topologyTx.offset
-  }
 }

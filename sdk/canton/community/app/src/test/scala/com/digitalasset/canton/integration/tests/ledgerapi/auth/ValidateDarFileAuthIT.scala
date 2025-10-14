@@ -21,7 +21,7 @@ final class ValidateDarFileAuthIT extends AdminServiceCallAuthTests {
       .readByteStringFromFile(CantonExamplesPath)
       .valueOrFail("could not load examples")
 
-    ValidateDarFileRequest(darData, submissionId = "")
+    ValidateDarFileRequest(darData, submissionId = "", synchronizerId = "")
   }
 
   override def serviceCall(context: ServiceCallContext)(implicit

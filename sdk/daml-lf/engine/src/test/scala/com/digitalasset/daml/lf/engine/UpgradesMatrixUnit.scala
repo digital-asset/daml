@@ -55,7 +55,11 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     )
 
   def normalize(value: Value, typ: Ast.Type): Value = {
-    new ValueTranslator(cases.compiledPackages.pkgInterface, forbidLocalContractIds = true)
+    new ValueTranslator(
+      cases.compiledPackages.pkgInterface,
+      forbidLocalContractIds = true,
+      forbidTrailingNones = false,
+    )
       .translateValue(typ, value) match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
       case Right(sValue) => sValue.toNormalizedValue
@@ -173,13 +177,13 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         }
       case UpgradesMatrixCases.ExpectAuthenticationError =>
         inside(result) {
-          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
-            error shouldBe a[IE.Dev.AuthenticationError]
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Upgrade(error)), _)) =>
+            error shouldBe a[IE.Upgrade.AuthenticationFailed]
         }
       case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
         inside(result) {
-          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
-            error shouldBe a[IE.Dev.TranslationError]
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Upgrade(error)), _)) =>
+            error shouldBe a[IE.Upgrade.TranslationFailed]
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(error) =>

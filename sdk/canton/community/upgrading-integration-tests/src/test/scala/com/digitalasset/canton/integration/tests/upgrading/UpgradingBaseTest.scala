@@ -23,6 +23,7 @@ object UpgradingBaseTest extends ShouldVerb {
 
   lazy val NonConformingV1: String = getResourcePath("NonConforming-1.0.0.dar")
   lazy val NonConformingV2: String = getResourcePath("NonConforming-2.0.0.dar")
+  lazy val NonConformingX: String = getResourcePath("NonConformingX-1.0.0.dar")
 
   lazy val AppInstallV1: String = getResourcePath("tests-app-install-1.0.0.dar")
   lazy val AppInstallV2: String = getResourcePath("tests-app-install-2.0.0.dar")

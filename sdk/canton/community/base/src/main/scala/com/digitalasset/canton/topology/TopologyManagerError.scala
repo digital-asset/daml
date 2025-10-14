@@ -51,12 +51,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_MANAGER_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
-    final case class AssumptionViolation(description: String)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Assumption violation: $description"
-        )
-        with TopologyManagerError
 
     final case class Unhandled(description: String, throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
@@ -118,6 +112,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"Topology store '$storeId' is not known."
+        )
+        with TopologyManagerError
+
+    final case class NotFoundForSynchronizer(synchronizerId: SynchronizerId)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Topology store for synchronizer $synchronizerId is not known."
         )
         with TopologyManagerError
 
@@ -197,10 +198,10 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         id = "TOPOLOGY_SERIAL_MISMATCH",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Failure(expected: PositiveInt, actual: PositiveInt)(implicit
+    final case class Failure(actual: Option[PositiveInt], expected: Option[PositiveInt])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"The given serial $actual did not match the expected serial $expected."
+          cause = s"The given serial $expected did not match the actual serial $actual."
         )
         with TopologyManagerError
   }
@@ -482,38 +483,19 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that the topology transaction references parties that are currently unknown."
-  )
-  @Resolution(
-    """Wait for the onboarding of the parties to be become active or remove the unknown parties from the topology transaction.
-      |The metadata details of this error contain the unknown parties in the field ``parties``."""
-  )
-  object UnknownParties
-      extends ErrorCode(
-        id = "TOPOLOGY_UNKNOWN_PARTIES",
-        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
-      ) {
-    final case class Failure(parties: Seq[PartyId])(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Parties ${parties.sorted.mkString(", ")} are unknown."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that a participant is trying to rescind their synchronizer trust certificate
+    """This error indicates that a participant is trying to rescind actively used topology transactions
       |while still being hosting parties."""
   )
   @Resolution(
-    """The participant should work with the owners of the parties mentioned in the ``parties`` field in the
-      |error details metadata to get itself removed from the list of hosting participants of those parties."""
+    """The participant must remove itself from the party to participant mappings that still refer to it."""
   )
-  object IllegalRemovalOfSynchronizerTrustCertificate
+  object IllegalRemovalOfActiveTopologyTransactions
       extends ErrorCode(
-        id = "TOPOLOGY_ILLEGAL_REMOVAL_OF_SYNCHRONIZER_TRUST_CERTIFICATE",
+        id = "TOPOLOGY_ILLEGAL_REMOVAL_OF_ACTIVE_TRANSACTIONS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
+    private val maxDisplayed = 10
+
     final case class ParticipantStillHostsParties(
         participantId: ParticipantId,
         parties: Seq[PartyId],
@@ -521,10 +503,14 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Cannot remove synchronizer trust certificate for $participantId because it still hosts parties ${parties.sorted
-                .mkString(",")}"
+            s"Cannot remove synchronizer trust certificate or owner to key mapping for $participantId because it still hosts parties ${parties.sorted
+                .take(maxDisplayed)
+                .mkString(",")} ${if (parties.sizeIs >= maxDisplayed)
+                s" (only showing first $maxDisplayed of ${parties.size})"
+              else ""}"
         )
         with TopologyManagerError
+
   }
 
   @Explanation(
@@ -694,6 +680,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
             s"Members ${members.sorted} tried to rejoin a synchronizer which they had previously left."
         )
         with TopologyManagerError
+    final case class RejectNewKeys(member: Member)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Member $member tried to re-register its keys which they had previously removed."
+        )
+        with TopologyManagerError
+
   }
 
   @Explanation(
@@ -751,25 +744,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"Tried to onboard participant $participantId while party $partyId with the same UID already exists."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that the topology transactions weren't processed in the allotted time."""
-  )
-  @Resolution(
-    "Contact the node administrator to check the result of processing the topology transactions."
-  )
-  object TimeoutWaitingForTransaction
-      extends ErrorCode(
-        id = "TOPOLOGY_TIMEOUT_WAITING_FOR_TRANSACTION",
-        ErrorCategory.DeadlineExceededRequestStateUnknown,
-      ) {
-    final case class Failure()(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"The topology transactions weren't processed in the allotted time."
         )
         with TopologyManagerError
   }
@@ -833,22 +807,44 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation("This error indicates that the successor synchronizer id is not valid.")
-  @Resolution(
-    "Change the successor synchronizer ID to have a protocol version that is the same as or newer than the current synchronizer's."
-  )
+  @Resolution("""Change the physical synchronizer id of the successor so that it satisfies:
+      |- it is greater than the current physical synchronizer id
+      |- it is greater than all previous synchronizer announcements
+      |""")
   object InvalidSynchronizerSuccessor
       extends ErrorCode(id = "TOPOLOGY_INVALID_SUCCESSOR", InvalidIndependentOfSystemState) {
     final case class Reject(
-        currentSynchronizerId: PhysicalSynchronizerId,
         successorSynchronizerId: PhysicalSynchronizerId,
+        details: String,
     )(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
           cause =
-            s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
+            s"The declared successor $successorSynchronizerId of synchronizer is not valid: $details"
         )
         with TopologyManagerError
 
+    object Reject {
+      def conflictWithCurrentPSId(
+          currentSynchronizerId: PhysicalSynchronizerId,
+          successorSynchronizerId: PhysicalSynchronizerId,
+      )(implicit loggingContext: ErrorLoggingContext): Reject =
+        Reject(
+          successorSynchronizerId,
+          s"successor id is not greater than current synchronizer id $currentSynchronizerId",
+        )
+
+      def conflictWithPreviousAnnouncement(
+          successorSynchronizerId: PhysicalSynchronizerId,
+          previouslyAnnouncedSuccessor: PhysicalSynchronizerId,
+      )(implicit loggingContext: ErrorLoggingContext): Reject =
+        Reject(
+          successorSynchronizerId = successorSynchronizerId,
+          details =
+            s"conflicts with previous announcement with successor $previouslyAnnouncedSuccessor",
+        )
+    }
   }
+
   @Explanation(
     "This error indicates that the synchronizer upgrade announcement specified an invalid upgrade time."
   )
@@ -874,24 +870,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   abstract class ParticipantErrorGroup extends ErrorGroup()
 
   object ParticipantTopologyManagerError extends ParticipantErrorGroup {
-    @Explanation(
-      """This error indicates that a dangerous package vetting command was rejected.
-        |This is the case when a command is revoking the vetting of a package.
-        |Use the force flag to revoke the vetting of a package."""
-    )
-    @Resolution("Set the ForceFlag.PackageVettingRevocation if you really know what you are doing.")
-    object DangerousVettingCommandsRequireForce
-        extends ErrorCode(
-          id = "TOPOLOGY_DANGEROUS_VETTING_COMMAND_REQUIRES_FORCE_FLAG",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Reject()(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl(
-            cause = "Revoking a vetted package requires ForceFlag.PackageVettingRevocation"
-          )
-          with TopologyManagerError
-    }
-
     @Explanation(
       """This error indicates a vetting request failed due to dependencies not being vetted.
         |On every vetting request, the set supplied packages is analysed for dependencies. The

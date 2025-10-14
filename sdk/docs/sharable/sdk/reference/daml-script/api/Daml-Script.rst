@@ -397,6 +397,32 @@ Data Types
          - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
+  .. _constr-daml-script-internal-questions-submit-error-contracthashingerror-75608:
+
+  `ContractHashingError <constr-daml-script-internal-questions-submit-error-contracthashingerror-75608_>`_
+
+    Failed to hash a contract
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - contractId
+         - `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
+         -
+       * - dstTemplateId
+         - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+         -
+       * - createArg
+         - `AnyTemplate <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
+         -
+       * - errorMessage
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+
   .. _constr-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerror-69749:
 
   `DisclosedContractKeyHashingError <constr-daml-script-internal-questions-submit-error-disclosedcontractkeyhashingerror-69749_>`_
@@ -828,6 +854,12 @@ Data Types
        * - dstTemplateId
          - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
          -
+       * - srcPackageName
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
+       * - dstPackageName
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         -
        * - originalSignatories
          - \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
          -
@@ -847,10 +879,53 @@ Data Types
          - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyContractKey <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anycontractkey-68193>`_, \[`Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\])
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037:
+  .. _constr-daml-script-internal-questions-submit-error-translationfailed-4701:
 
-  `DummyUpgradeError <constr-daml-script-internal-questions-submit-error-dummyupgradeerror-28037_>`_
+  `TranslationFailed <constr-daml-script-internal-questions-submit-error-translationfailed-4701_>`_
 
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - mCoid
+         - `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
+         -
+       * - srcTemplateId
+         - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+         -
+       * - dstTemplateId
+         - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+         -
+       * - createArg
+         - `AnyTemplate <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
+         -
+
+  .. _constr-daml-script-internal-questions-submit-error-authenticationfailed-3671:
+
+  `AuthenticationFailed <constr-daml-script-internal-questions-submit-error-authenticationfailed-3671_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - coid
+         - `AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399_>`_
+         -
+       * - srcTemplateId
+         - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+         -
+       * - dstTemplateId
+         - `TemplateTypeRep <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
+         -
+       * - createArg
+         - `AnyTemplate <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
+         -
 
 .. _type-daml-script-internal-questions-transactiontree-created-98301:
 

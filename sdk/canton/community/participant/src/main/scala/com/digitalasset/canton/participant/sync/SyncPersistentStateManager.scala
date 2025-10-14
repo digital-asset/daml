@@ -200,12 +200,12 @@ class SyncPersistentStateManager(
 
   def getSynchronizerIdx(
       synchronizerId: SynchronizerId
-  ): FutureUnlessShutdown[IndexedSynchronizer] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[IndexedSynchronizer] =
     IndexedSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
   def getPhysicalSynchronizerIdx(
       synchronizerId: PhysicalSynchronizerId
-  ): FutureUnlessShutdown[IndexedPhysicalSynchronizer] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[IndexedPhysicalSynchronizer] =
     IndexedPhysicalSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
   /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the

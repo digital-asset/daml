@@ -373,11 +373,11 @@ main = tests
     ]
   , subtree "should reject template renaming"
     [ subtree "in fetches"
-      [ broken ("from choice body", templateRenamingFetchChoiceBody)
+      [ ("from choice body", templateRenamingFetchChoiceBody)
       , ("of local contract", templateRenamingFetchLocal)
       ]
     , subtree "in exercises"
-      [ broken ("from choice body", templateRenamingExerciseChoiceBody)
+      [ ("from choice body", templateRenamingExerciseChoiceBody)
       , ("of local contract", templateRenamingExerciseLocal)
       ]
     ]
@@ -398,7 +398,7 @@ setUpChoiceBodyTest = do
   pure (alice, clientCid)
 
 assertIsAuthenticationError : Show a => Either SubmitError a -> Script ()
-assertIsAuthenticationError (Left (DevError AuthenticationError _)) = pure ()
+assertIsAuthenticationError (Left (UpgradeError (AuthenticationFailed _ _ _ _) _)) = pure ()
 assertIsAuthenticationError res = assertFail $ "Expected TranslationError, got " <> show res
 
 assertIsWronglyTypedContractError : Show a => Either SubmitError a -> Script ()
@@ -611,9 +611,7 @@ templateRenamingFetchChoiceBody = test $ do
   cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
   let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
   res <- alice `trySubmit` exerciseCmd clientCid (Client.FetchTemplateRenamingTemplate2 with cid = cid2)
-  -- once we migrate to contract ID v12 this will become a WronglyTypedContract error, as authentication happens after
-  -- template name comparison for v12 contract IDs
-  assertIsAuthenticationError res
+  assertIsWronglyTypedContractError res
 
 templateRenamingFetchLocal : Test
 templateRenamingFetchLocal = test $ do
@@ -627,9 +625,7 @@ templateRenamingExerciseChoiceBody = test $ do
   cid1 <- alice `submit` createExactCmd V1.TemplateRenamingTemplate1 { sig = alice }
   let cid2 = coerceContractId @V1.TemplateRenamingTemplate1 @V1.TemplateRenamingTemplate2 cid1
   res <- alice `trySubmit` exerciseCmd clientCid (Client.ExerciseTemplateRenamingTemplate2 with cid = cid2)
-  -- once we migrate to contract ID v12 this will become a WronglyTypedContract error, as authentication happens after
-  -- template name comparison for v12 contract IDs
-  assertIsAuthenticationError res
+  assertIsWronglyTypedContractError res
 
 templateRenamingExerciseLocal : Test
 templateRenamingExerciseLocal = test $ do

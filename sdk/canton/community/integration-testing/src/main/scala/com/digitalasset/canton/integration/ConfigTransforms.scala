@@ -143,6 +143,18 @@ object ConfigTransforms {
     ),
   )
 
+  lazy val enableInteractiveSubmissionTransforms: ConfigTransform =
+    ConfigTransforms
+      .updateAllParticipantConfigs_(
+        _.focus(_.ledgerApi.interactiveSubmissionService.enableVerboseHashing)
+          .replace(true)
+      )
+      .compose(
+        ConfigTransforms.updateAllParticipantConfigs_(
+          _.focus(_.topology.broadcastBatchSize).replace(PositiveInt.one)
+        )
+      )
+
   /** Allow all preview and experimental features without compatibility guarantees
     */
   lazy val enableNonStandardConfig: ConfigTransform = setNonStandardConfig(true)
@@ -866,7 +878,7 @@ object ConfigTransforms {
 
   /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.
     */
-  private def setConnectionPool(value: Boolean): ConfigTransform =
+  def setConnectionPool(value: Boolean): ConfigTransform =
     updateAllSequencerConfigs { case (_name, config) =>
       config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
     }.compose(updateAllMediatorConfigs { case (_name, config) =>

@@ -28,10 +28,9 @@ import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.{FatContract, InMemoryState, Key, KeyWithMaintainers, Party}
+import com.digitalasset.canton.platform.{InMemoryState, Key}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.FlowShape
@@ -331,7 +330,7 @@ private[platform] object InMemoryStateUpdater {
       .collect { case TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, events) =>
         events.collect { case u: TransactionLogUpdate.PartyToParticipantAuthorization =>
           PartyAllocation.Completed(
-            PartyAllocation.TrackerKey.of(u.party, u.participant, u.authorizationEvent),
+            PartyAllocation.TrackerKey(u.party, u.participant, u.authorizationEvent),
             IndexerPartyDetails(party = u.party, isLocal = u.participant == participantId),
           )
         }
@@ -380,28 +379,14 @@ private[platform] object InMemoryStateUpdater {
         // cannot lead to successful contract lookup and usage in interpretation anyway
         if createdEvent.flatEventWitnesses.nonEmpty =>
       ContractStateEvent.Created(
-        contract = FatContract.fromCreateNode(
-          Create(
-            coid = createdEvent.contractId,
-            packageName = createdEvent.packageName,
-            templateId = createdEvent.templateId,
-            arg = createdEvent.createArgument.unversioned,
-            signatories = createdEvent.createSignatories,
-            stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
-            keyOpt = (createdEvent.contractKey zip createdEvent.createKeyMaintainers).map {
-              case (k, maintainers) =>
-                KeyWithMaintainers.assertBuild(
-                  templateId = createdEvent.templateId,
-                  value = k.unversioned,
-                  maintainers = maintainers,
-                  packageName = createdEvent.packageName,
-                )
-            },
-            version = createdEvent.createArgument.version,
-          ),
-          createTime = CreationTime.CreatedAt(createdEvent.ledgerEffectiveTime),
-          authenticationData = createdEvent.authenticationData,
-        )
+        contractId = createdEvent.contractId,
+        globalKey = createdEvent.contractKey.map(k =>
+          Key.assertBuild(
+            createdEvent.templateId,
+            k.unversioned,
+            createdEvent.packageName,
+          )
+        ),
       )
     case exercisedEvent: TransactionLogUpdate.ExercisedEvent
         // no state updates for participant divulged events and transient events as these events
@@ -416,7 +401,6 @@ private[platform] object InMemoryStateUpdater {
             exercisedEvent.packageName,
           )
         ),
-        stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
       )
   }
 

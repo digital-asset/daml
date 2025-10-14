@@ -192,7 +192,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             exerciseResult = None,
             keyOpt = None,
             byKey = false,
-            version = ExampleTransactionFactory.SerializationVersion,
+            version = ExampleTransactionFactory.serializationVersion,
           ),
         ),
         WithoutSuffixes,

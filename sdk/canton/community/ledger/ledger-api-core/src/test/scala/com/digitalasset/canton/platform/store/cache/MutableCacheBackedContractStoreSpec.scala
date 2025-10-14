@@ -58,7 +58,6 @@ class MutableCacheBackedContractStoreSpec
       val event1 = ContractStateEvent.Archived(
         contractId = ContractId.V1(Hash.hashPrivateKey("cid")),
         globalKey = None,
-        stakeholders = Set.empty,
       )
       val event2 = event1
       val updateBatch = NonEmptyVector.of(event1, event2)
@@ -187,7 +186,9 @@ class MutableCacheBackedContractStoreSpec
         unassigned_secondLookup shouldBe Option.empty
 
         verify(spyContractsReader).lookupKeyState(someKey, eventSeqId0)(loggingContext)
-        // looking up the key state will not prefetch the contract state
+        // looking up the key state will prefetch and use the contract state
+        verify(spyContractsReader).lookupContractState(cId_1, eventSeqId0)(loggingContext)
+        verify(spyContractsReader).lookupContractState(cId_1, eventSeqId0)(loggingContext)
         verify(spyContractsReader).lookupKeyState(unassignedKey, eventSeqId1)(loggingContext)
         verifyNoMoreInteractions(spyContractsReader)
         succeed
@@ -200,13 +201,16 @@ class MutableCacheBackedContractStoreSpec
         key_lookup0 <- store.lookupContractKey(Set(alice), someKey)
 
         _ = store.contractStateCaches.keyState.cacheEventSeqIdIndex = eventSeqId1
+        _ = store.contractStateCaches.contractState.cacheEventSeqIdIndex = eventSeqId1
         key_lookup1 <- store.lookupContractKey(Set(alice), someKey)
 
         _ = store.contractStateCaches.keyState.cacheEventSeqIdIndex = eventSeqId2
+        _ = store.contractStateCaches.contractState.cacheEventSeqIdIndex = eventSeqId2
         key_lookup2 <- store.lookupContractKey(Set(bob), someKey)
         key_lookup2_notVisible <- store.lookupContractKey(Set(charlie), someKey)
 
         _ = store.contractStateCaches.keyState.cacheEventSeqIdIndex = eventSeqId3
+        _ = store.contractStateCaches.contractState.cacheEventSeqIdIndex = eventSeqId3
         key_lookup3 <- store.lookupContractKey(Set(bob), someKey)
       } yield {
         key_lookup0 shouldBe Some(cId_1)
@@ -319,8 +323,8 @@ object MutableCacheBackedContractStoreSpec {
     override def lookupKeyState(key: Key, notEarlierThanEventSeqId: Long)(implicit
         loggingContext: LoggingContextWithTrace
     ): Future[LedgerDaoContractsReader.KeyState] = (key, notEarlierThanEventSeqId) match {
-      case (`someKey`, `eventSeqId0`) => Future.successful(KeyAssigned(cId_1, Set(alice)))
-      case (`someKey`, `eventSeqId2`) => Future.successful(KeyAssigned(cId_2, Set(bob)))
+      case (`someKey`, `eventSeqId0`) => Future.successful(KeyAssigned(cId_1))
+      case (`someKey`, `eventSeqId2`) => Future.successful(KeyAssigned(cId_2))
       case _ => Future.successful(KeyUnassigned)
     }
 

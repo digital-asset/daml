@@ -122,7 +122,9 @@ package object protocol {
   type RequestProcessor[VT <: ViewType] =
     Phase37Processor[RequestAndRootHashMessage[OpenEnvelope[EncryptedViewMessage[VT]]]]
 
-  def maxSerializationVersion(versions: NonEmpty[Seq[LfSerializationVersion]]): LfSerializationVersion = {
+  def maxSerializationVersion(
+      versions: NonEmpty[Seq[LfSerializationVersion]]
+  ): LfSerializationVersion = {
     import Ordering.Implicits.*
     versions.reduceLeft[LfSerializationVersion](_ max _)
   }

@@ -279,7 +279,7 @@ Daml Compiler
 ~~~~~~~~~~~~~
 
 The Daml compiler supports the ``upgrades:`` configuration field - every
-time ``daml build`` is invoked, it validates the current package for
+time ``dpm build`` is invoked, it validates the current package for
 upgrade compatibility against the package specified in the ``upgrades:``
 field.
 
@@ -357,12 +357,12 @@ of our package:
 
   > mkdir -p v1/my-pkg
   > cd v1/my-pkg
-  > daml init
-  > daml version
+  > dpm init
+  > dpm version
   SDK versions:
     3.3.0  (project SDK version from daml.yaml)
 
-Running ``daml version`` should print a line showing that 3.3.0 or higher is the "project SDK version from daml.yaml".
+Running ``dpm version`` should print a line showing that 3.3.0 or higher is the "project SDK version from daml.yaml".
 
 Add ``daml-script`` to the list of dependencies in ``v1/my-pkg/daml.yaml``,
 as well as ``--target=2.1`` to the ``build-options``:
@@ -406,12 +406,12 @@ Then create ``v1/my-pkg/daml/Main.daml``:
       maintainer key
 
 
-Running daml build should successfully produce a DAR in
+Running dpm build should successfully produce a DAR in
 ``v1/my-pkg/.daml/dist/my-pkg-1.0.0.dar``:
 
 .. code:: bash
 
-  > daml build
+  > dpm build
   Running single package build of my-pkg as no multi-package.yaml was found.
   ...
   Compiling my-pkg to a DAR.
@@ -464,11 +464,11 @@ Begin by adding a new ``currency`` field to ``v2/my-pkg/daml/Main.daml``:
     where
   ...
 
-Run ``daml build``. An error is emitted:
+Run ``dpm build``. An error is emitted:
 
 .. code:: bash
 
-  > daml build
+  > dpm build
   ...
   error type checking template Main.IOU :
     The upgraded template IOU has added new fields, but those fields are not Optional.
@@ -478,7 +478,7 @@ Any new fields added to a template must be optional - old contracts
 from the previous version are automatically upgraded by setting new
 fields to ``None``.
 
-Fix the ``currency`` field to be optional, and re-run ``daml build``:
+Fix the ``currency`` field to be optional, and re-run ``dpm build``:
 
 .. code:: daml
 
@@ -488,7 +488,7 @@ Fix the ``currency`` field to be optional, and re-run ``daml build``:
 
 .. code:: bash
 
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.0.0.dar
 
@@ -543,12 +543,12 @@ without a currency field, and a script to get any IOU:
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
   getIOU key = queryContractKey @IOU key key
 
-Start a new terminal, run ``daml sandbox`` to start a simple ledger in which
+Start a new terminal, run ``dpm sandbox`` to start a simple ledger in which
 to test upgrades.
 
 .. code:: bash
 
-  > daml sandbox
+  > dpm sandbox
   Starting Canton sandbox.
   Listening at port 6865
   Canton sandbox is ready.
@@ -562,7 +562,7 @@ script and place the resulting party for Alice into an output file
 
   > cd v1/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:mkIOU \
@@ -576,7 +576,7 @@ From inside ``v2/my-pkg``, upload and run the ``getIOU`` script, passing in the
 
   > cd ../../v2/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:getIOU \
@@ -600,7 +600,7 @@ running the ``getIOU`` script from v1, this field does not appear.
 .. code:: bash
 
   > cd ../../v1/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:getIOU \
@@ -628,7 +628,7 @@ directory, with ``USD`` as currency:
 
   > # Create a new v2 IOU contract, with USD as currency
   > cd ../../v2/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOU \
@@ -641,7 +641,7 @@ Query it from a v1 script in the ``v1/my-pkg`` directory:
 
   > # Query from v1 package
   > cd ../../v1/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:getIOU \
@@ -663,7 +663,7 @@ with the currency field set to ``None`` using ``mkIOUWithoutCurrency``:
 
   > # Create a new v2 IOU contract, without USD as currency
   > cd ../../v2/my-pkg
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOUWithoutCurrency \
@@ -676,7 +676,7 @@ And then query it from v1:
 
   > # Query from v1 package
   > cd ../../v1/my-pkg
-  > daml script \
+  > dpm script \
   	--ledger-host localhost --ledger-port 6865 \
   	--dar .daml/dist/my-pkg-1.0.0.dar \
   	--script-name Main:getIOU \
@@ -728,7 +728,7 @@ Compiled changes are checked against the previous version and pass:
 
 .. code:: bash
 
-  > daml build
+  > dpm build
   ...
   Compiling my-pkg to a DAR.
   ...
@@ -742,7 +742,7 @@ Restart the sandbox and re-upload both v1 and v2:
   > cd v1/my-deps
   > daml ledger upload-dar --port 6865
   > # Make a new IOU
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:mkIOU \
@@ -751,7 +751,7 @@ Restart the sandbox and re-upload both v1 and v2:
   > cd ../../v2/my-deps
   > daml ledger upload-dar --port 6865
   ...
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:doubleIOU \
@@ -787,14 +787,14 @@ V2 via ``mkIOUWithoutCurrency``, then run ``doubleIOU`` on it from V1:
   > # Create a new v2 IOU contract, without USD as currency
   > cd v2/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOUWithoutCurrency \
       --output-file alice-v2
   > cd ../../v1/my-pkg
   > daml ledger upload-dar --port 6865
-  > daml script \
+  > dpm script \
   	--ledger-host localhost --ledger-port 6865 \
   	--dar .daml/dist/my-pkg-1.0.0.dar \
   	--script-name Main:doubleIOU \
@@ -967,16 +967,16 @@ Add the following choice, ``Duplicate``, to both v1 and v2 versions of IOU:
           cid <- create this with value = value * 2
           return DuplicateResult with newCid = cid
 
-Running ``daml build`` should succeed without errors.
+Running ``dpm build`` should succeed without errors.
 
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.0.0.dar
   > cd ../../v2/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.1.0.dar
 
@@ -1135,16 +1135,16 @@ with the following:
 Instead of using ``Text`` for the currency field, here we use an enum
 data-type ``Currency`` with two constructors: ``USD`` and ``GBP``.
 
-Running ``daml build`` should succeed with no errors:
+Running ``dpm build`` should succeed with no errors:
 
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.0.0.dar
   > cd ../../v2/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.1.0.dar
 
@@ -1171,14 +1171,14 @@ via v2’s ``getIOU`` script:
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:mkIOU \
       --output-file alice-v1
   ...
   > cd ../../v2/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:getIOU \
@@ -1204,14 +1204,14 @@ with a lookup error for the CHF variant.
 .. code:: bash
 
   > cd v2/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOU \
       --output-file alice-v2
   ...
   > cd ../../v1/my-pkg
-  > daml script
+  > dpm script
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
       --script-name Main:getIOU \
@@ -1257,11 +1257,11 @@ As before, building should succeed.
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.0.0.dar
   > cd ../../v2/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.1.0.dar
 
@@ -1284,7 +1284,7 @@ Building this fails because the new ``sideLen`` field is non-optional.
 .. code:: bash
 
   > cd v2/my-pkg
-  > daml build
+  > dpm build
   ...
   error type checking data type Main.Shape:
     The upgraded variant constructor Polygon from variant Shape has added a field.
@@ -1301,7 +1301,7 @@ Making the new ``sideLen`` field optional fixes the error:
 .. code:: bash
 
   > cd v2/my-pkg
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-pkg-1.1.0.dar
 
@@ -1324,7 +1324,7 @@ upgraded with new fields.
 .. code:: bash
 
   > cd v2/my-pkg
-  > daml build
+  > dpm build
   ...
   error type checking data type Main.Shape:
     The upgraded data type Shape has changed the type of a variant.
@@ -1459,7 +1459,7 @@ of the original.
 
 .. code:: bash
 
-  > daml build
+  > dpm build
   ...
   error type checking data type Main.MyData:
   The upgraded data type MyData has changed the types of some of its original fields:
@@ -1502,7 +1502,7 @@ And build the module:
 .. code:: bash
 
   > cd my-iface
-  > daml build
+  > dpm build
   ...
   Created .daml/dist/my-iface-1.0.0.dar
 
@@ -1574,13 +1574,13 @@ DARs. They should both succeed again:
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml build
+  > dpm build
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-1.0.0.dar to localhost:6865
   DAR upload succeeded.
   > cd ../../v2/my-pkg
-  > daml build
+  > dpm build
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-1.1.0.dar to localhost:6865
@@ -1595,13 +1595,13 @@ reupload the two versions:
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml build
+  > dpm build
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-1.0.0.dar to localhost:6865
   DAR upload succeeded.
   > cd ../../v2/my-pkg
-  > daml build
+  > dpm build
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
@@ -1614,13 +1614,13 @@ Then restart the sandbox and try to reupload the two versions.
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml build
+  > dpm build
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-1.0.0.dar to localhost:6865
   DAR upload succeeded.
   > cd ../../v2/my-pkg
-  > daml build
+  > dpm build
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
@@ -1692,7 +1692,7 @@ Make sure to also append the variable to the name of the DAR file produced by
   data-dependencies:
   - ../my-package/.daml/dist/my-package-${UNIQUE_BUILD_ID}.dar
 
-Then, before invoking ``daml build --all``, increment the ``UNIQUE_BUILD_ID``
+Then, before invoking ``dpm build --all``, increment the ``UNIQUE_BUILD_ID``
 environment variable. This ensures that the build produces unique DAR files that can be uploaded to the participant without conflict.
 
 Working with the Daml Sandbox
@@ -2251,7 +2251,7 @@ with the ``upgrades-example`` template.
 
 .. code:: bash
 
-   > daml new upgraded-iou --template upgrades-example
+   > dpm new upgraded-iou --template upgrades-example
    > cd upgraded-iou
    > tree
    .
@@ -2291,26 +2291,26 @@ Without multi-package builds you would test your program like this:
 .. code:: bash
 
    > # Run sandbox in the background, wait until the three lines below are shown
-   > daml sandbox &
+   > dpm sandbox &
    Starting Canton sandbox.
    Listening at port 6865
    Canton sandbox is ready.
    > # Build all, run test
-   > cd interfaces/; daml build --enable-multi-package=no
-   > cd ../main-v1/; daml build --enable-multi-package=no
-   > cd ../main-v2/; daml build --enable-multi-package=no
-   > cd ../test/; daml build --enable-multi-package=no
+   > cd interfaces/; dpm build --enable-multi-package=no
+   > cd ../main-v1/; dpm build --enable-multi-package=no
+   > cd ../main-v2/; dpm build --enable-multi-package=no
+   > cd ../test/; dpm build --enable-multi-package=no
    > cd ..
    > ./run-test.sh
    > # Modify v2, run test
    > cd main-v2/
    > ... modify main-v2 ...
-   > daml build --enable-multi-package=no
-   > cd ../test/; daml build --enable-multi-package=no
+   > dpm build --enable-multi-package=no
+   > cd ../test/; dpm build --enable-multi-package=no
    > cd ..
    > # Modify test, run test
    > cd test/
-   > daml build --enable-multi-package=no
+   > dpm build --enable-multi-package=no
    > cd ..
    > ./run-test.sh
    ...
@@ -2329,7 +2329,7 @@ successfully against the previous DAR for ``main-v2``.
    > cd main-v2/
    > ... add a non-optional field `currency: Text` to template T in main-v2 ...
    > cd ../test/
-   > daml build --enable-multi-package=no
+   > dpm build --enable-multi-package=no
    ...
    Created .daml/dist/upgraded-iou-upgrades-template-test-1.0.0.dar
    > # Compiling `test` succeeded even though main-v2 was changed incorrectly
@@ -2340,7 +2340,7 @@ dependencies if their source has changed:
 .. code:: bash
 
    > cd test/
-   > daml build # --enable-multi-package is set to true by default
+   > dpm build # --enable-multi-package is set to true by default
    ...
    Building /home/dylanthinnes/ex-upgrades-template/main-v2
    ...
@@ -2357,7 +2357,7 @@ need to be rebuilt:
 
 .. code:: bash
 
-   > daml sandbox & # Start sandbox in background
+   > dpm sandbox & # Start sandbox in background
    Starting Canton sandbox.
    Listening at port 6865
    Canton sandbox is ready.
@@ -2369,10 +2369,10 @@ need to be rebuilt:
    ...
    > # Modify test, run test
    > ... modify test ...
-   > daml build --all
+   > dpm build --all
    > ./run-test.sh
 
-Multi-package builds invoked by ``daml build --all`` always recompile stale dependencies and DARs in order. This ensures a
+Multi-package builds invoked by ``dpm build --all`` always recompile stale dependencies and DARs in order. This ensures a
 fully up-to-date package environment before running ``./run-test.sh``.
 
 Workflow Testing
@@ -2528,7 +2528,7 @@ The full list of builders for ``SubmitOptions`` is as follows:
   packagePreference : [PackageId] -> SubmitOptions
 
 A ``PackageId`` can be hard-coded in your script, in which case it must be updated whenever the package changes. Otherwise,
-it can be provided using the ``--input-file`` flag of the ``daml script`` command line tool.
+it can be provided using the ``--input-file`` flag of the ``dpm script`` command line tool.
 
 The following example demonstrates reading the package ID from a DAR and passing it to a script:
 
@@ -2539,9 +2539,9 @@ The following example demonstrates reading the package ID from a DAR and passing
   # Path to the dar containing the Daml script for which you want to pass the package-id
   SCRIPT_DAR=path/to/script/dar.dar
   # Extract the package-id of PACKAGE_DAR's main package.
-  daml damlc inspect-dar ${PACKAGE_DAR} --json | jq '.main_package_id' > ./package-id-script-input.json
+  dpm damlc inspect-dar ${PACKAGE_DAR} --json | jq '.main_package_id' > ./package-id-script-input.json
   # replace --ide-ledger with --ledger-host and --ledger-port for deployed Canton
-  daml script --dar ${SCRIPT_DAR} --script-name Main:main --ide-ledger --input-file ./package-id-script-input.json
+  dpm script --dar ${SCRIPT_DAR} --script-name Main:main --ide-ledger --input-file ./package-id-script-input.json
 
 Following this, your script would look like:
 

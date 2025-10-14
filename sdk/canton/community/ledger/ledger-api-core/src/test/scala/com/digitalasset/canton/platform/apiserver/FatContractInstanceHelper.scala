@@ -5,12 +5,12 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
+  SerializationVersion as LfSerializationVersion,
 }
 import com.digitalasset.daml.lf.value.Value
 
@@ -26,7 +26,7 @@ object FatContractInstanceHelper {
       signatories: Set[Ref.Party],
       stakeholders: Set[Ref.Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
-      version: LanguageVersion,
+      version: LfSerializationVersion,
   ): LfFatContractInst = {
     val create = Node.Create(
       templateId = templateId,

@@ -24,7 +24,7 @@ import com.digitalasset.canton.lifecycle.{
   HasCloseContext,
   LifeCycle,
 }
-import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -83,7 +83,6 @@ final class RepairService(
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiParticipantProvider,
     packageDependencyResolver: PackageDependencyResolver.Impl,
-    contractValidator: ContractValidator,
     contractStore: Eval[ContractStore],
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
@@ -199,42 +198,6 @@ final class RepairService(
     }
   }
 
-  /** Prepare contract for add, including re-computing metadata
-    * @param repairContract
-    *   Contract to be added
-    * @param acsState
-    *   If the contract is known, its status
-    * @param storedContract
-    *   If the contract already exist in the ContractStore, the stored copy
-    */
-  private def readRepairContractCurrentState(
-      repairContract: RepairContract,
-      acsState: Option[ActiveContractStore.Status],
-      storedContract: Option[ContractInstance],
-      ignoreAlreadyAdded: Boolean,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = {
-    implicit val loggingContext = LoggingContextUtil.createLoggingContext(loggerFactory)(identity)
-
-    for {
-      _ <-
-        contractValidator
-          .authenticate(repairContract.contract, repairContract.representativePackageId)
-          .leftMap(e =>
-            log(
-              s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e"
-            )
-          )
-      contractToAdd <- contractToAdd(
-        repairContract,
-        ignoreAlreadyAdded = ignoreAlreadyAdded,
-        acsState = acsState,
-        storedContract = storedContract,
-      )
-    } yield contractToAdd
-  }
-
   // The repair request gets inserted at the reprocessing starting point.
   // We use the prenextTimestamp such that a regular request is always the first request for a given timestamp.
   // This is needed for causality tracking, which cannot use a tie breaker on timestamps.
@@ -348,11 +311,11 @@ final class RepairService(
             storedContracts = contractInstances.map(c => c.contractId -> c).toMap
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
               case (contract, acsState) =>
-                readRepairContractCurrentState(
+                contractToAdd(
                   repairContract = contract,
+                  ignoreAlreadyAdded = ignoreAlreadyAdded,
                   acsState = acsState,
                   storedContract = storedContracts.get(contract.contract.contractId),
-                  ignoreAlreadyAdded = ignoreAlreadyAdded,
                 )
             }
 

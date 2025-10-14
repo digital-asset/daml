@@ -15,9 +15,11 @@ import com.digitalasset.canton.health.{
 import com.digitalasset.canton.lifecycle.LifeCycle.{CloseableServer, toCloseableServer}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
+import com.digitalasset.canton.networking.grpc.ratelimiting.StreamCounterCheck
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerRuntime
+import com.google.common.annotations.VisibleForTesting
 import io.grpc.protobuf.services.ProtoReflectionServiceV1
 
 import scala.concurrent.ExecutionContextExecutorService
@@ -50,6 +52,9 @@ class DynamicGrpcServer(
     runtime.sequencerServices.foreach(registry.addServiceU(_))
     this
   }
+
+  @VisibleForTesting
+  def streamCounterCheck: Option[StreamCounterCheck] = registry.streamCounterCheck
 
   private val (grpcServer, registry) = {
     val serverBuilder = CantonServerBuilder

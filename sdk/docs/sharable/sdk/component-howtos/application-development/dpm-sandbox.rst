@@ -2,31 +2,31 @@
 
 .. _sandbox-manual:
 
-Daml Sandbox
-============
+Sandbox
+=======
 
-The Daml Sandbox, or Sandbox for short, is a program for running a Canton ledger with your Daml code.
+Sandbox is a program for running a Canton ledger with your Daml code.
 The ledger uses the simplest topology possible: a single Participant Node connected to a Synchronizer Node.
-Use the Daml sandbox when you need access to a Canton ledger running your Daml code and matching the target Participant Node topology is not required.
+Use the sandbox when you need access to a Canton ledger running your Daml code and matching the target Participant Node topology is not required.
 
 Install
 -------
 
-Install the Daml Sandbox by :ref:`installing the Daml Assistant <daml-assistant-install>`.
+Install the Sandbox by :externalref:`installing dpm <dpm-install>`.
 
 Configure
 ---------
 
-To configure the Daml Sandbox, use the command line.
+To configure the Sandbox, use the command line.
 
 Command line configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To view all available command line configuration options for Daml Sandbox, run ``daml sandbox --help`` in your terminal:
+To view all available command line configuration options for Sandbox, run ``dpm sandbox --help`` in your terminal:
 
 .. code-block:: none
 
-      Usage: daml sandbox [--port ARG] [--admin-api-port ARG]
+      Usage: dpm sandbox [--port ARG] [--admin-api-port ARG]
                           [--sequencer-public-port ARG] [--sequencer-admin-port ARG]
                           [--mediator-admin-port ARG] [--json-api-port ARG]
                           [--json-api-port-file PATH] [--canton-port-file PATH]
@@ -51,13 +51,13 @@ To view all available command line configuration options for Daml Sandbox, run `
         -h,--help                Show this help text
 
 Any unrecognized command-line arguments will be treated as arguments to be
-supplied to the underlying Canton JAR. Display these options by running ``daml sandbox --canton-help``
+supplied to the underlying Canton JAR. Display these options by running ``dpm sandbox --canton-help``
 in your terminal.
 
 Canton configuration
 ^^^^^^^^^^^^^^^^^^^^
 
-Behind the scenes, Daml Sandbox runs an underlying Canton ledger with a default
+Behind the scenes, Sandbox runs an underlying Canton ledger with a default
 configuration file to initialize a participant named ``sandbox``, a sequencer
 named ``sequencer1``, and a mediator named ``mediator1``.
 
@@ -72,18 +72,36 @@ Configure the underlying Canton ledger further in one of two ways:
 
   .. code-block:: none
 
-        daml sandbox -C canton.participants.sandbox.ledger-api.port=9999
+        dpm sandbox -C canton.participants.sandbox.ledger-api.port=9999
+
+.. _canton-declarative-api:
+
+Canton Declarative API
+^^^^^^^^^^^^^^^^^^^^^^
+The declarative API allows specifying DARs, Parties and Users desired to be present on the Canton ledger.
+The ledger will automatically take care of uploading the DARs, and creating the parties and users.
+
+- upload local DARs
+
+.. code-block:: none
+
+  canton.parameters.enable-alpha-state-via-config = yes
+  canton.parameters.state-refresh-interval = 5s
+  
+  canton.participants.sandbox.alpha-dynamic.dars = [
+    { location = "./my-asset.dar" },
+  ]
 
 Operate
 -------
 
-There are two ways to run the Daml Sandbox:
+There are two ways to run Sandbox:
 
-#. Run the Daml Sandbox in isolation with:
+#. Run Sandbox in isolation with:
 
    .. code-block:: none
 
-         $ daml sandbox
+         $ dpm sandbox
          Starting Canton sandbox.
          Listening at port 6865
          Canton sandbox is ready.
@@ -92,7 +110,7 @@ There are two ways to run the Daml Sandbox:
 
 #. Start Sandbox using the ``daml start`` command while in a Daml project. This command will:
 
-   #. Launch the Sandbox via an underlying call to ``daml sandbox``, the command above.
+   #. Launch the Sandbox via an underlying call to ``dpm sandbox``, the command above.
    #. Compile the Daml project to a DAR as specified in the project's ``daml.yaml``.
    #. Upload the resulting DAR to the running Sandbox.
    #. The script specified in the ``init-script`` field in ``daml.yaml`` will be loaded into the ledger.
@@ -113,14 +131,14 @@ There are two ways to run the Daml Sandbox:
          Waiting for JSON API to start.
          The Canton sandbox and JSON API are ready to use.
 
-   **Note**: To forward an option to the underlying ``daml sandbox`` call, use
+   **Note**: To forward an option to the underlying ``dpm sandbox`` call, use
    the ``--sandbox-option`` flag.
 
    For example, to change the sandbox's Ledger API port, the normal command would be
 
    .. code-block:: none
 
-         daml sandbox -C canton.participants.sandbox.ledger-api.port=9999
+         dpm sandbox -C canton.participants.sandbox.ledger-api.port=9999
 
    whereas the Daml Start command would be
 
@@ -137,17 +155,17 @@ against it:
 
 .. code-block:: none
 
-    $ daml ledger upload-dar --host localhost --port 6865 <path to DAR>
-    $ daml script --ledger-host localhost --port 6865 --dar <path to DAR> --script-name <script name in DAR>
+    $ dpm sandbox --dar <path to DAR>
+    $ dpm script --ledger-host localhost --port 6865 --dar <path to DAR> --script-name <script name in DAR>
 
-Because ``daml sandbox`` is a Canton instance, all documentation for using Canton applies.
+Because ``dpm sandbox`` is a Canton instance, all documentation for using Canton applies.
 
 .. _running-canton-console-against-daml-sandbox:
 
 Connecting to Sandbox's console
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Once you have a Sandbox running locally (i.e. after running ``daml start`` or ``daml sandbox``)
+Once you have a Sandbox running locally (i.e. after running ``dpm sandbox``)
 you may connect to Sandbox remotely by running the ``daml canton-console``
 command in a separate terminal:
 
@@ -207,7 +225,7 @@ How it works
 
 Canton offers a console where you can run administrative or debugging commands.
 
-When you run the Sandbox using ``daml start`` or ``daml sandbox``, you are effectively starting an
+When you run the Sandbox using ``dpm sandbox``, you are effectively starting an
 in-memory instance of Canton with a single sync domain and a single participant.
 
 As such, you can interact with the running Sandbox using the console, just like you would
@@ -219,7 +237,7 @@ testing environment, consult the :externalref:`main documentation for the Canton
 Testing your Daml contracts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Daml Sandbox is primarily used as the first step in :brokenref:`testing your Daml contracts in isolation <sdlc-howtos_how-to-test-your-backends_daml-sandbox>`
+Sandbox is primarily used as the first step in :brokenref:`testing your Daml contracts in isolation <sdlc-howtos_how-to-test-your-backends_daml-sandbox>`
 
 .. _sandbox-authorization:
 
@@ -233,7 +251,7 @@ access tokens as described in the
 :ref:`Authorization documentation <authorization>`, create a
 config file that specifies the type of
 authorization service and the path to the certificate, then supply that config
-file to Sandbox with ``daml sandbox --config auth.conf``.
+file to Sandbox with ``dpm sandbox --config auth.conf``.
 
 .. code-block:: none
    :caption: auth.conf
@@ -335,13 +353,32 @@ Canton’s documentation on TLS configuration.
      }
    }
 
+Dev Protocol
+^^^^^^^^^^^^
+
+To enable the canton dev protocol:
+
+.. code:: shell
+
+  cat <<EOF
+  canton.participants.sandbox.parameters.alpha-version-support = true
+  canton.sequencers.sequencer1.parameters.alpha-version-support = true
+  canton.parameters {
+      non-standard-config = yes
+      alpha-version-support = yes
+  }
+  EOF > dev-protocol.conf
+
+  CANTON_PROTOCOL_VERSION=dev dpm sandbox -c dev-protocol.conf
+
+
 Troubleshoot
 ------------
 
 Failed to bind to address
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By default, Daml Sandbox reserves five ports for its Canton services:
+By default, Sandbox reserves five ports for its Canton services:
 
 * ``6865`` for the participant's Ledger API
 * ``6866`` for the participant's Admin API
@@ -389,7 +426,7 @@ SDK not installed
 ^^^^^^^^^^^^^^^^^
 
 If the ``daml.yaml`` file of the project you are currently in specifies a
-version of the Daml SDK that is not installed, you may get the following error
+version of the dpm SDK that is not installed, you may get the following error
 message:
 
 .. code-block:: none

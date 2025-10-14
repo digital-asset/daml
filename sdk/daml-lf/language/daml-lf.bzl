@@ -68,7 +68,7 @@ lf_version_latest = {
 # The following dictionary aliases LF versions to keywords:
 # - "default" is the keyword for the default compiler output,
 # - "latest" is the keyword for the latest stable LF version,
-# - "preview" is the keyword fort he next LF version, *not stable*,
+# - "preview" is the keyword fort the next LF version, *not stable*,
 #    usable for beta testing,
 # The following dictionary is always defined for "default" and "latest". It
 # contains "preview" iff a preview version is available. If it exists,
@@ -76,11 +76,11 @@ lf_version_latest = {
 # make a new LF release, we bump latest and once we make it the compiler default
 # we bump default.
 lf_version_configuration = {
-    "default": "2.1",
+    "default": "2.2",
     # latest = latest MAJOR version?
     "latest": lf_version_latest.get("2"),
-    # "preview": "",
-    # "dev" is ambiguous, use either 1.dev or 2.dev explicitly
+    "preview": "2.2",
+    "dev": "2.dev",
 }
 
 # The Daml-LF version used by default by the compiler if it matches the

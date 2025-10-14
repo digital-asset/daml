@@ -32,7 +32,7 @@ import com.digitalasset.canton.participant.store.memory.{
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId}
 import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil}
 import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext, LfPackageId}
 import com.digitalasset.daml.lf.archive
@@ -198,8 +198,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
             darBytes = payload,
             description = Some("CantonExamples"),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
           .value
@@ -224,8 +223,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
             darBytes = ByteString.copyFrom(bytes),
             description = Some("some/path/CantonExamples.dar"),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
           .value
@@ -264,8 +262,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
           .upload(
             Seq(examples, test),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
           )
           .value
           .map(_.valueOrFail("upload multiple dars"))
@@ -302,8 +299,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
               darBytes = ByteString.copyFrom(bytes),
               description = Some("some/path/CantonExamples.dar"),
               submissionIdO = None,
-              vetAllPackages = false,
-              synchronizeVetting = PackageVettingSynchronization.NoSync,
+              vettingInfo = None,
               expectedMainPackageId = expected.map(LfPackageId.assertFromString),
             )
             .value
@@ -324,6 +320,8 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
         } yield succeed
     }
 
+    val psid = SynchronizerId.tryFromString("test::synchronizer").toPhysical
+
     "validate DAR and packages from bytes" in withEnvUS { env =>
       import env.*
 
@@ -332,6 +330,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
           .validateDar(
             ByteString.copyFrom(bytes),
             "some/path/CantonExamples.dar",
+            psid,
           )
           .value
           .map(_.valueOrFail("couldn't validate a dar file"))
@@ -356,8 +355,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
             darBytes = ByteString.copyFrom(bytes),
             description = Some("some/path/CantonExamples.dar"),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
           .valueOrFail("appending dar")
@@ -385,6 +383,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
           sut.validateDar(
             payload,
             badDarPath,
+            psid,
           )
         )("append illformed.dar").failOnShutdown
       } yield {
@@ -406,11 +405,10 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
       for {
         error <- leftOrFail(
           sut.upload(
-            payload,
-            Some(badDarPath),
-            None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            darBytes = payload,
+            description = Some(badDarPath),
+            submissionIdO = None,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
         )("append illformed.dar").failOnShutdown
@@ -444,17 +442,22 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     }
 
     val unknownDarId = DarMainPackageId.tryCreate("darid")
+    val psid = SynchronizerId.tryFromString("test::synchronizer").toPhysical
 
     "requested by PackageService.unvetDar" should {
       "reject the request with an error" in withEnv(
-        rejectOnMissingDar(_.unvetDar(unknownDarId), unknownDarId, "DAR archive unvetting")
+        rejectOnMissingDar(
+          _.unvetDar(unknownDarId, psid),
+          unknownDarId,
+          "DAR archive unvetting",
+        )
       )
     }
 
     "requested by PackageService.vetDar" should {
       "reject the request with an error" in withEnv(
         rejectOnMissingDar(
-          _.vetDar(unknownDarId, PackageVettingSynchronization.NoSync),
+          _.vetDar(unknownDarId, PackageVettingSynchronization.NoSync, psid),
           unknownDarId,
           "DAR archive vetting",
         )
@@ -463,7 +466,11 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
 
     "requested by PackageService.removeDar" should {
       "reject the request with an error" in withEnv(
-        rejectOnMissingDar(_.removeDar(unknownDarId), unknownDarId, "DAR archive removal")
+        rejectOnMissingDar(
+          _.removeDar(unknownDarId, psids = Set.empty),
+          unknownDarId,
+          "DAR archive removal",
+        )
       )
     }
 
@@ -482,8 +489,7 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
                 darBytes = payload,
                 description = Some(darName),
                 submissionIdO = None,
-                vetAllPackages = false,
-                synchronizeVetting = PackageVettingSynchronization.NoSync,
+                vettingInfo = None,
                 expectedMainPackageId = None,
               )
             )
@@ -576,8 +582,7 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
             darBytes = payload,
             description = Some("missing-package.dar"),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
         )("uploading dar with missing packages").failOnShutdown
@@ -603,8 +608,7 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
               darBytes = payload,
               description = Some("extra-package.dar"),
               submissionIdO = None,
-              vetAllPackages = false,
-              synchronizeVetting = PackageVettingSynchronization.NoSync,
+              vettingInfo = None,
               expectedMainPackageId = None,
             )
             .valueOrFail("uploading dar with extra package")
@@ -613,7 +617,7 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
         }).unwrap.map(_.failOnShutdown),
         err => {
           err.message should include(
-            "the set of package dependencies {''} is not self consistent, the extra dependencies are"
+            "the set of package dependencies is not self consistent, the extra dependencies are"
           )
         },
       )
@@ -635,8 +639,7 @@ class PackageServiceTestWithStrictDarValidation extends BasePackageServiceTest(t
             darBytes = payload,
             description = Some("missing-package.dar"),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
         )("uploading dar with missing packages").failOnShutdown
@@ -658,8 +661,7 @@ class PackageServiceTestWithStrictDarValidation extends BasePackageServiceTest(t
             darBytes = payload,
             description = Some("extra-package.dar"),
             submissionIdO = None,
-            vetAllPackages = false,
-            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            vettingInfo = None,
             expectedMainPackageId = None,
           )
         )("uploading dar with extra package").failOnShutdown

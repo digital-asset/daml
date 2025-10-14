@@ -263,6 +263,7 @@ class InMemorySequencerStore(
   private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
     event match {
       case deliver: DeliverStoreEvent[_] =>
+        deliver.members.contains(SequencerMemberId.Broadcast) ||
         deliver.members.contains(
           member
         ) // only if they're a recipient (sender should already be a recipient)

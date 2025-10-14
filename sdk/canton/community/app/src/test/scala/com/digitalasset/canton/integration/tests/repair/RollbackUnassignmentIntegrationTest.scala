@@ -39,7 +39,8 @@ sealed trait RollbackUnassignmentIntegrationTest
         Seq(participant1, participant2).foreach { p =>
           p.synchronizers.connect_local(sequencer1, alias = daName)
           p.synchronizers.connect_local(sequencer2, alias = acmeName)
-          p.dars.upload(CantonExamplesPath)
+          p.dars.upload(CantonExamplesPath, synchronizerId = daId)
+          p.dars.upload(CantonExamplesPath, synchronizerId = acmeId)
         }
 
         Seq(daName, acmeName).foreach { alias =>

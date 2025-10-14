@@ -13,12 +13,21 @@ import com.digitalasset.canton.admin.api.client.commands.{
   ParticipantAdminCommands,
   TopologyAdminCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.LedgerApiUser
+import com.digitalasset.canton.admin.api.client.data.{
+  LedgerApiUser,
+  ListConnectedSynchronizersResult,
+}
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.ClientConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.GrpcAdminCommandRunner
+import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.console.declarative.DeclarativeApi.UpdateResult
+import com.digitalasset.canton.console.declarative.DeclarativeParticipantApi.{
+  Err,
+  NotFound,
+  QueryResult,
+}
+import com.digitalasset.canton.console.{CommandSuccessful, GrpcAdminCommandRunner}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api
 import com.digitalasset.canton.ledger.api.IdentityProviderId
@@ -30,7 +39,7 @@ import com.digitalasset.canton.participant.admin.AdminWorkflowServices
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnectionValidation}
-import com.digitalasset.canton.topology.admin.grpc.BaseQuery
+import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
@@ -40,14 +49,14 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.util.{BinaryFileUtil, MonadUtil}
 import com.digitalasset.canton.{SynchronizerAlias, config}
 import com.digitalasset.daml.lf.archive.DarParser
 import com.google.protobuf.field_mask.FieldMask
 
 import java.io.{File, FileInputStream}
 import java.util.zip.ZipInputStream
-import scala.collection.mutable
+import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext
 
 class DeclarativeParticipantApi(
@@ -68,7 +77,9 @@ class DeclarativeParticipantApi(
   closeContext.context
     .runOnOrAfterClose(new RunOnClosing {
       override def name: String = "stop-declarative-api"
+
       override def done: Boolean = false
+
       override def run()(implicit traceContext: TraceContext): Unit =
         LifeCycle.close(adminApiRunner, ledgerApiRunner)(logger)
     })(TraceContext.empty)
@@ -80,24 +91,48 @@ class DeclarativeParticipantApi(
       runner: GrpcAdminCommandRunner,
       cfg: ClientConfig,
       command: GrpcAdminCommand[_, _, Result],
-  )(implicit traceContext: TraceContext): Either[String, Result] = if (
+  )(implicit traceContext: TraceContext): Either[QueryResult, Result] = if (
     closeContext.context.isClosing
   )
-    Left("Node is shutting down")
+    Left(Err("Node is shutting down"))
   else
-    activeAdminToken.fold(Left("Node instance is passive"): Either[String, Result])(token =>
-      runner.runCommandWithExistingTrace(name, command, cfg, Some(token.secret)).toEither
+    activeAdminToken.fold(Left(Err("Node instance is passive")): Either[QueryResult, Result])(
+      token =>
+        runner.runCommandWithExistingTrace(name, command, cfg, Some(token.secret)) match {
+          case CommandSuccessful(value) => Right(value)
+          case GenericCommandError(cause) if cause.contains("NOT_FOUND/") =>
+            Left(NotFound(cause))
+          case c: CommandError => Left(Err(c.cause))
+        }
     )
 
   private def queryAdminApi[Result](
       command: GrpcAdminCommand[_, _, Result]
   )(implicit traceContext: TraceContext): Either[String, Result] =
-    queryApi(adminApiRunner, adminApiConfig, command)
+    queryApi(adminApiRunner, adminApiConfig, command).leftMap(_.str)
 
   private def queryLedgerApi[Result](
       command: GrpcAdminCommand[_, _, Result]
   )(implicit traceContext: TraceContext): Either[String, Result] =
-    queryApi(ledgerApiRunner, ledgerApiConfig, command)
+    queryApi(ledgerApiRunner, ledgerApiConfig, command).leftMap(_.str)
+
+  private def toOptionalE[Result](
+      res: Either[QueryResult, Result]
+  ): Either[String, Option[Result]] = res match {
+    case Right(v) => Right(Some(v))
+    case Left(NotFound(_)) => Right(None)
+    case Left(Err(str)) => Left(str)
+  }
+
+  private def queryAdminApiIfExists[Result](
+      command: GrpcAdminCommand[_, _, Result]
+  )(implicit traceContext: TraceContext): Either[String, Option[Result]] =
+    toOptionalE(queryApi(adminApiRunner, adminApiConfig, command))
+
+  private def queryLedgerApiIfExists[Result](
+      command: GrpcAdminCommand[_, _, Result]
+  )(implicit traceContext: TraceContext): Either[String, Option[Result]] =
+    toOptionalE(queryApi(ledgerApiRunner, ledgerApiConfig, command))
 
   override protected def prepare(config: DeclarativeParticipantConfig)(implicit
       traceContext: TraceContext
@@ -179,6 +214,21 @@ class DeclarativeParticipantApi(
       )
     )
 
+    def fetchHostedTuple(filterParty: String, synchronizerId: SynchronizerId) =
+      fetchHosted(filterParty, synchronizerId).map(_.flatMap { party2Participant =>
+        val maybePermission = party2Participant.item.participants
+          .find(_.participantId == participantId)
+          .map(_.permission)
+        maybePermission
+          .map(permission =>
+            (
+              (party2Participant.item.partyId.uid, synchronizerId),
+              ParticipantPermissionConfig.fromInternal(permission),
+            )
+          )
+          .toList
+      })
+
     def createTopologyTx(
         uid: UniqueIdentifier,
         synchronizerId: SynchronizerId,
@@ -221,22 +271,34 @@ class DeclarativeParticipantApi(
 
     def awaitLedgerApiServer(
         parties: Seq[(UniqueIdentifier, SynchronizerId)]
-    ): Either[String, Boolean] =
+    ): Either[String, Boolean] = {
+      @tailrec
+      def go(
+          idps: List[String],
+          pending: Set[PartyId],
+      ): Either[String, Set[PartyId]] = if (pending.isEmpty) Right(Set.empty)
+      else
+        idps match {
+          case Nil => Right(pending)
+          case next :: rest =>
+            val unknown = findPartiesNotKnownToIdp(next, pending)
+            unknown match {
+              case Right(unknown) => go(rest, unknown)
+              case Left(value) => Left(value)
+            }
+        }
+
       for {
         idps <- queryLedgerApi(LedgerApiCommands.IdentityProviderConfigs.List())
         // loop over all idps and include default one
-        observed <- (idps.map(_.identityProviderId) :+ "").flatTraverse(idp =>
-          queryLedgerApi(
-            LedgerApiCommands.PartyManagementService.ListKnownParties(identityProviderId = idp)
-          )
+        notFound <- go(
+          (idps.map(_.identityProviderId) :+ "").toList,
+          parties.map { case (uid, _) => PartyId(uid) }.toSet,
         )
-        observedUids <- observed
-          .traverse(details => UniqueIdentifier.fromProtoPrimitive(details.party, "party"))
-          .leftMap(_.toString)
       } yield {
-        val observedSet = observedUids.toSet
-        parties.map(_._1).toSet.subsetOf(observedSet)
+        notFound.isEmpty
       }
+    }
 
     queryAdminApi(ListConnectedSynchronizers())
       .flatMap { synchronizerIds =>
@@ -256,19 +318,7 @@ class DeclarativeParticipantApi(
         def fetchAll() =
           // fold synchronizers and found parties and find the ones that are allocated to our node
           synchronizerIds.map(_.synchronizerId).flatTraverse { synchronizerId =>
-            fetchHosted(filterParty = "", synchronizerId).map(_.flatMap { party2Participant =>
-              val maybePermission = party2Participant.item.participants
-                .find(_.participantId == participantId)
-                .map(_.permission)
-              maybePermission
-                .map(permission =>
-                  (
-                    (party2Participant.item.partyId.uid, synchronizerId),
-                    ParticipantPermissionConfig.fromInternal(permission),
-                  )
-                )
-                .toList
-            })
+            fetchHostedTuple(filterParty = "", synchronizerId)
           }
 
         run[(UniqueIdentifier, SynchronizerId), ParticipantPermissionConfig](
@@ -277,17 +327,42 @@ class DeclarativeParticipantApi(
           checkSelfConsistency,
           want = wanted,
           fetch = _ => fetchAll(),
+          get = { case (uid, synchronizerId) =>
+            fetchHostedTuple(uid.toProtoPrimitive, synchronizerId).map(_.toList).flatMap {
+              case (_, v) :: Nil => Right(Some(v))
+              case Nil => Right(None)
+              case rst =>
+                Left(
+                  s"Multiple entries found for party $uid and synchronizer $synchronizerId: $rst"
+                )
+            }
+          },
           add = { case ((uid, synchronizerId), permission) =>
             createTopologyTx(uid, synchronizerId, permission.toNative)
           },
           upd = { case ((uid, synchronizerId), wantPermission, _) =>
             createTopologyTx(uid, synchronizerId, wantPermission.toNative)
           },
-          rm = { case ((u, s), current) => removeParty(u, s) },
+          rm = { case ((u, s), current) =>
+            removeParty(u, s)
+          },
           await = Some(awaitLedgerApiServer),
         )
       }
   }
+
+  private def findPartiesNotKnownToIdp(idp: String, parties: Set[PartyId])(implicit
+      traceContext: TraceContext
+  ) =
+    queryLedgerApi(
+      LedgerApiCommands.PartyManagementService.GetParties(
+        parties = parties.toList,
+        identityProviderId = idp,
+        failOnNotFound = false,
+      )
+    ).map { found =>
+      parties -- found.keySet
+    }
 
   private def syncUsers(
       participantId: ParticipantId,
@@ -298,28 +373,57 @@ class DeclarativeParticipantApi(
       traceContext: TraceContext
   ): Either[String, UpdateResult] = {
 
-    // temporarily cache the available parties
-    val idpParties = mutable.Map[String, Set[String]]()
-    def getIdpParties(idp: String): Either[String, Set[String]] =
-      idpParties.get(idp) match {
-        case Some(parties) => Right(parties)
-        case None =>
-          queryLedgerApi(
-            LedgerApiCommands.PartyManagementService.ListKnownParties(identityProviderId = idp)
-          ).map { parties =>
-            val partySet = parties.map(_.party).toSet
-            idpParties.put(idp, partySet).discard
-            partySet
-          }
-      }
+    def fetchUserRights(user: LedgerApiUser): Either[String, DeclarativeUserConfig] = user match {
+      case LedgerApiUser(id, primaryParty, isDeactivated, metadata, identityProviderId) =>
+        queryLedgerApi(
+          LedgerApiCommands.Users.Rights.List(id = id, identityProviderId = identityProviderId)
+        ).map { rights =>
+          DeclarativeUserConfig(
+            user = id,
+            primaryParty = primaryParty.map(_.toProtoPrimitive),
+            isDeactivated = isDeactivated,
+            annotations = metadata.annotations,
+            identityProviderId = identityProviderId,
+            rights = DeclarativeUserRightsConfig(
+              actAs = rights.actAs.map(_.toProtoPrimitive),
+              readAs = rights.readAs.map(_.toProtoPrimitive),
+              participantAdmin = rights.participantAdmin,
+              identityProviderAdmin = rights.identityProviderAdmin,
+              readAsAnyParty = rights.readAsAnyParty,
+            ),
+          )(resourceVersion = metadata.resourceVersion)
+        }
+    }
+
+    val idpsE = queryLedgerApi(
+      LedgerApiCommands.IdentityProviderConfigs.List()
+    ).map(x => "" +: x.map(_.identityProviderId)) // empty string to load default idp)
+
+    def getUser(id: String): Either[String, Option[DeclarativeUserConfig]] = idpsE.flatMap { idps =>
+      MonadUtil
+        .foldLeftM(None: Option[LedgerApiUser], idps) {
+          case (Some(cfg), _) => Right(Some(cfg))
+          case (None, idp) =>
+            // using list user and not get user as get user will return permission denied and log warning
+            // however, as user ids are unique, this will give the same result
+            queryLedgerApiIfExists(
+              LedgerApiCommands.Users
+                .List(filterUser = id, identityProviderId = idp, pageToken = "", pageSize = 10000)
+            ).map { res =>
+              res.flatMap(_.users.find(_.id == id))
+            }
+        }
+        .flatMap {
+          case Some(user) => fetchUserRights(user).map(c => Some(c))
+          case None => Right(None)
+        }
+    }
 
     def fetchUsers(limit: PositiveInt): Either[String, Seq[(String, DeclarativeUserConfig)]] =
       for {
         // meeh, we need to iterate over all idps to load all users
-        idps <- queryLedgerApi(
-          LedgerApiCommands.IdentityProviderConfigs.List()
-        ).map(_.map(_.identityProviderId))
-        users <- (idps :+ "") // empty string to load default idp
+        idps <- idpsE
+        users <- idps
           .traverse(idp =>
             queryLedgerApi(
               LedgerApiCommands.Users.List(
@@ -331,29 +435,8 @@ class DeclarativeParticipantApi(
             )
           )
           .map(_.flatMap(_.users.filter(_.id != "participant_admin")))
-        parsedUsers <- users.traverse {
-          case LedgerApiUser(id, primaryParty, isDeactivated, metadata, identityProviderId) =>
-            queryLedgerApi(
-              LedgerApiCommands.Users.Rights.List(id = id, identityProviderId = identityProviderId)
-            ).map { rights =>
-              (
-                id,
-                DeclarativeUserConfig(
-                  user = id,
-                  primaryParty = primaryParty.map(_.toProtoPrimitive),
-                  isDeactivated = isDeactivated,
-                  annotations = metadata.annotations,
-                  identityProviderId = identityProviderId,
-                  rights = DeclarativeUserRightsConfig(
-                    actAs = rights.actAs.map(_.toProtoPrimitive),
-                    readAs = rights.readAs.map(_.toProtoPrimitive),
-                    participantAdmin = rights.participantAdmin,
-                    identityProviderAdmin = rights.identityProviderAdmin,
-                    readAsAnyParty = rights.readAsAnyParty,
-                  ),
-                )(resourceVersion = metadata.resourceVersion),
-              )
-            }
+        parsedUsers <- users.traverse { user =>
+          fetchUserRights(user).map(cfg => (cfg.user, cfg))
         }
       } yield parsedUsers.take(limit.value)
 
@@ -404,11 +487,13 @@ class DeclarativeParticipantApi(
       if (desired != existing) {
         def grantOrRevoke(have: Boolean, want: Boolean): (Boolean, Boolean) =
           if (have != want) if (want) (true, false) else (false, true) else (false, false)
+
         def grantOrRevokeSet(have: Set[String], want: Set[String]): (Set[String], Set[String]) = {
           val grant = want.diff(have)
           val revoke = have.diff(want)
           (grant, revoke)
         }
+
         val (grantParticipantAdmin, revokeParticipantAdmin) =
           grantOrRevoke(existing.participantAdmin, desired.participantAdmin)
         val (grantIdpAdmin, revokeIdpAdmin) = grantOrRevoke(
@@ -478,29 +563,25 @@ class DeclarativeParticipantApi(
         )
       } else Either.unit
 
-    def activePartyFilter(idp: String, user: String): Either[String, String => Boolean] =
-      getIdpParties(idp).map { parties => party =>
-        {
-          if (!parties.contains(party)) {
-            logger.info(s"User $user refers to party $party not yet known to the ledger api server")
-            false
-          } else true
-        }
-      }
-
     val wantedE =
       users.traverse { user =>
-        activePartyFilter(user.identityProviderId, user.user).map { filter =>
-          (
-            user.user,
-            user.mapPartiesToNamespace(
-              participantId.uid.namespace,
-              filter,
-            ),
-          )
+        val mapped = user.mapPartiesToNamespace(
+          participantId.uid.namespace
+        )
 
+        // Ledger API server can only assign to parties it has already seen. Therefore, we remove
+        // the parties not yet known. This can happen if we don't have a synchronizer connection
+        // when setting up the users.
+        findPartiesNotKnownToIdp(user.identityProviderId, mapped.referencedParties).map { unknown =>
+          if (unknown.nonEmpty) {
+            logger.info(
+              s"User ${user.user} with idp=${user.identityProviderId} refers to the following parties not known to the Ledger API server: $unknown"
+            )
+          }
+          (user.user, mapped.removeParties(unknown))
         }
       }
+
     wantedE.flatMap { wanted =>
       run[String, DeclarativeUserConfig](
         "users",
@@ -508,6 +589,7 @@ class DeclarativeParticipantApi(
         checkSelfConsistency,
         want = wanted,
         fetch = fetchUsers,
+        get = getUser,
         add = { case (_, user) =>
           createUser(user)
         },
@@ -565,6 +647,11 @@ class DeclarativeParticipantApi(
       queryAdminApi(ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers)
         .map(_.map { case (synchronizerConnectionConfig, _, _) => synchronizerConnectionConfig }
           .map(toDeclarative))
+
+    def getConnection(
+        alias: SynchronizerAlias
+    ): Either[String, Option[DeclarativeConnectionConfig]] =
+      fetchConnections().map(_.collectFirst { case (a, c) if a == alias => c })
 
     def removeSynchronizerConnection(
         synchronizerAlias: SynchronizerAlias
@@ -624,7 +711,10 @@ class DeclarativeParticipantApi(
       checkSelfConsistent = checkSelfConsistent,
       want = connections.map(c => (SynchronizerAlias.tryCreate(c.synchronizerAlias), c)),
       fetch = _ => fetchConnections(),
-      add = { case (_, config) => add(config) },
+      get = getConnection,
+      add = { case (_, config) =>
+        add(config)
+      },
       upd = { case (_, config, existing) =>
         if (config.isEquivalent(existing)) Either.unit
         else
@@ -654,6 +744,13 @@ class DeclarativeParticipantApi(
       queryLedgerApi(
         LedgerApiCommands.IdentityProviderConfigs.List()
       ).map(_.map(c => (c.identityProviderId, toDeclarative(c))))
+
+    def getIdp(idpName: String): Either[String, Option[DeclarativeIdpConfig]] =
+      queryLedgerApiIfExists(
+        LedgerApiCommands.IdentityProviderConfigs.Get(identityProviderId =
+          IdentityProviderId.Id.assertFromString(idpName)
+        )
+      ).map(_.map(toDeclarative))
 
     def add(config: DeclarativeIdpConfig): Either[String, Unit] =
       queryLedgerApi(
@@ -693,8 +790,13 @@ class DeclarativeParticipantApi(
       checkSelfConsistent = checkSelfConsistent,
       want = idps.map(c => (c.identityProviderId, c)),
       fetch = _ => fetchIdps(),
-      add = { case (_, config) => add(config) },
-      upd = { case (_, config, _) => update(config) },
+      get = getIdp,
+      add = { case (_, config) =>
+        add(config)
+      },
+      upd = { case (_, config, _) =>
+        update(config)
+      },
       rm = (idp, _) => removeIdp(idp),
     )
   }
@@ -703,7 +805,7 @@ class DeclarativeParticipantApi(
 
   private def mirrorDarsIfNecessary(fetchDarDirectory: File, dars: Seq[DeclarativeDarConfig])(
       implicit traceContext: TraceContext
-  ): Seq[(File, Option[String])] = dars.flatMap { dar =>
+  ): Seq[(File, Option[String], Seq[String])] = dars.flatMap { dar =>
     if (dar.location.startsWith("http")) {
       val matched = matchDar
         .findFirstMatchIn(dar.location)
@@ -719,29 +821,36 @@ class DeclarativeParticipantApi(
             logger.warn(s"Failed to download ${dar.location}: $err")
           }
           .toOption
-          .map(_ => (output, dar.expectedMainPackage))
+          .map(_ => (output, dar.expectedMainPackage, dar.synchronizers))
       }.toList
-    } else List((new File(dar.location), dar.expectedMainPackage))
+    } else List((new File(dar.location), dar.expectedMainPackage, dar.synchronizers))
   }
 
-  private def computeWanted(dars: Seq[(File, Option[String])])(implicit
+  private def computeWanted(
+      dars: Seq[(File, Option[String], Seq[String])],
+      connectedSynchronizers: Seq[ListConnectedSynchronizersResult],
+  )(implicit
       traceContext: TraceContext
-  ): Seq[(String, String)] =
-    dars.flatMap { case (item, expected) =>
+  ): Seq[((String, SynchronizerId), String)] =
+    dars.flatMap { case (item, expected, synchronizers) =>
       val bufInput = new FileInputStream(item)
       val zipInputStream = new ZipInputStream(bufInput)
       DarParser
         .readArchive("file", zipInputStream)
-        .toOption
+        .toList
         .flatMap { loaded =>
           expected match {
             case Some(value) if value != loaded.main.getHash =>
               logger.warn(s"DAR $item has main package ${loaded.main.getHash} but expected $value")
-              None
-            case _ => Some((loaded.main.getHash, item.toString))
+              Seq.empty
+            case _ =>
+              connectedSynchronizers
+                .filter(s =>
+                  synchronizers.isEmpty || synchronizers.contains(s.synchronizerAlias.unwrap)
+                )
+                .map(s => ((loaded.main.getHash, s.synchronizerId), item.toString))
           }
         }
-        .toList
     }
 
   private def syncDars(
@@ -750,39 +859,115 @@ class DeclarativeParticipantApi(
       fetchDarDirectory: File,
   )(implicit
       traceContext: TraceContext
-  ): Either[String, UpdateResult] = {
-    val want = computeWanted(mirrorDarsIfNecessary(fetchDarDirectory, dars))
-    def fetchDars(limit: PositiveInt): Either[String, Seq[(String, String)]] =
-      for {
-        dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
-      } yield dars
-        .filterNot(dar => AdminWorkflowServices.AdminWorkflowNames.contains(dar.name))
-        .map(_.mainPackageId)
-        .map((_, "<ignored string>"))
-    run[String, String](
-      "dars",
-      removeExcess = false,
-      checkSelfConsistency,
-      want = want,
-      fetch = fetchDars,
-      add = { case (_, file) =>
-        queryAdminApi(
-          ParticipantAdminCommands.Package.UploadDar(
-            darPath = file,
-            vetAllPackages = true,
-            synchronizeVetting = false,
-            description = "Uploaded by declarative API",
-            expectedMainPackageId = "",
-            requestHeaders = Map.empty,
-            logger,
+  ): Either[String, UpdateResult] =
+    queryAdminApi(TopologyAdminCommands.Init.GetId()).flatMap { participantId =>
+      queryAdminApi(ListConnectedSynchronizers()).flatMap { connectedSynchronizers =>
+        val want =
+          computeWanted(mirrorDarsIfNecessary(fetchDarDirectory, dars), connectedSynchronizers)
+
+        def fetchVettedPackages(store: Option[TopologyStoreId]) =
+          queryAdminApi(
+            TopologyAdminCommands.Read.ListVettedPackages(
+              BaseQuery(
+                store = store,
+                proposals = false,
+                timeQuery = TimeQuery.HeadState,
+                ops = Some(TopologyChangeOp.Replace),
+                filterSigningKey = "",
+                protocolVersion = None,
+              ),
+              filterParticipant = ParticipantId(participantId).filterString,
+            )
           )
-        ).map(_ => ())
-      },
-      upd = { case (hash, desired, existing) => Either.unit },
-      rm = (_, _) => Either.unit, // not implemented in canton yet
-      onlyCheckKeys = true,
-    )
 
+        def fetchDars(limit: PositiveInt): Either[String, Seq[((String, SynchronizerId), String)]] =
+          for {
+            dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
+            vettedPackages <- fetchVettedPackages(None)
+          } yield {
+            val packageToSynchronizers = vettedPackages
+              .flatMap { vp =>
+                Seq(vp.context.storeId)
+                  .collect { case TopologyStoreId.Synchronizer(synchronizerId) => synchronizerId }
+                  .flatMap(synchronizerId =>
+                    vp.item.packages
+                      .map(_.packageId -> synchronizerId.bimap(identity, _.logical).merge)
+                  )
+              }
+              .groupBy { case (packageId, _) => packageId }
+              .map { case (packageId, values) =>
+                (packageId: String, values.map { case (_, synchronizerId) => synchronizerId })
+              }
+            val actualDars = dars
+              .filterNot(dar => AdminWorkflowServices.AdminWorkflowNames.contains(dar.name))
+              .map(_.mainPackageId)
+              .flatMap(pkgId =>
+                packageToSynchronizers
+                  .getOrElse(pkgId, Seq.empty)
+                  .map(synchronizerId => pkgId -> synchronizerId)
+              )
+              .map((_, "<ignored string>"))
+            actualDars
+          }
+
+        def getDar(
+            mainPkgAndSynchronizerId: (String, SynchronizerId)
+        ): Either[String, Option[String]] = mainPkgAndSynchronizerId match {
+          case (mainPkgId, synchronizerId) =>
+            // check that package is vetted
+            fetchVettedPackages(store = Some(TopologyStoreId.Synchronizer(synchronizerId)))
+              .map { res =>
+                res
+                  .find(_.item.packages.exists(_.packageId == mainPkgId))
+                  .map(_ => "<ignored string>")
+              }
+              .flatMap {
+                case None => Right(None)
+                case Some(_) =>
+                  // and verify that dar exists
+                  queryAdminApiIfExists(
+                    ParticipantAdminCommands.Package.GetDarContents(mainPackageId = mainPkgId)
+                  ).map(_.map(_ => "<ignored string>"))
+              }
+        }
+
+        run[(String, SynchronizerId), String](
+          "dars",
+          removeExcess = false,
+          checkSelfConsistency,
+          want = want,
+          fetch = fetchDars,
+          get = getDar,
+          add = { case ((_hash, synchronizerId), file) =>
+            queryAdminApi(
+              ParticipantAdminCommands.Package.UploadDar(
+                darPath = file,
+                synchronizerId = Some(synchronizerId),
+                vetAllPackages = true,
+                synchronizeVetting = true,
+                description = s"Uploaded by declarative API: $file",
+                expectedMainPackageId = "",
+                requestHeaders = Map.empty,
+                logger,
+              )
+            ).map(_ => ())
+          },
+          upd = { case ((hash, synchronizerId), desired, existing) =>
+            Either.unit
+          },
+          rm = (_, _) => Either.unit, // not implemented in canton yet
+          onlyCheckKeys = true,
+        )
+      }
+    }
+
+}
+
+object DeclarativeParticipantApi {
+
+  private sealed trait QueryResult {
+    def str: String
   }
-
+  private final case class Err(str: String) extends QueryResult
+  private final case class NotFound(str: String) extends QueryResult
 }

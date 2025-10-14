@@ -62,6 +62,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
 
   private val FooV1PkgId = upgrades.v1.java.foo.Foo.PACKAGE_ID
   private val FooV2PkgId = upgrades.v2.java.foo.Foo.PACKAGE_ID
+  private val FooV3PkgId = upgrades.v3.java.foo.Foo.PACKAGE_ID
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
@@ -147,7 +148,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       expectRpId(contractId, party, participant3, FooV2PkgId)
     }
 
-    "consider overrides" in { implicit env =>
+    "consider representative package-id overrides" in { implicit env =>
       import env.*
 
       val party = createUniqueParty(participant1, daName)
@@ -180,7 +181,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       exportAndImportOn(
         participant3,
         party,
-        contractOverride = Map(
+        contractRpIdOverride = Map(
           contractId1 -> FooV1PkgId,
           contractId2 -> LfPackageId.assertFromString("unknown-pkg-id"),
         ),
@@ -220,7 +221,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
         exportAndImportOn(
           participant3,
           party,
-          contractOverride = Map(contractId -> FooV1PkgId),
+          contractRpIdOverride = Map(contractId -> FooV1PkgId),
           contractImportMode = ContractImportMode.Accept,
           handleImport = f =>
             assertThrowsAndLogsCommandFailures(
@@ -231,6 +232,36 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
                   show"Contract import mode is 'Accept' but the selected representative package-id ${LfPackageId
                       .assertFromString(FooV1PkgId)} for contract with id $contractId differs from the exported representative package-id ${LfPackageId.assertFromString(FooV2PkgId)}. Please use contract import mode 'Validation' or 'Recomputation' to change the representative package-id."
                 )
+              },
+            ),
+        )
+    }
+
+    s"should fail on contract validation failure if import mode is ${ContractImportMode.Validation}" in {
+      implicit env =>
+        import env.*
+
+        val party = createUniqueParty(participant1, daName)
+        val otherParty = createUniqueParty(participant1, daName)
+
+        // Create a contract on P1
+        val contractId = createContract(participant1, party, Some(otherParty))
+
+        // Disable vetting so it is upgrade compatibility is not checked between V2 and V3 (that would fail)
+        participant3.dars.upload(FooV3Path, vetAllPackages = false)
+
+        // Import with validation mode should fail since the contract does not pass validation
+        exportAndImportOn(
+          participant3,
+          party,
+          contractRpIdOverride = Map(contractId -> FooV3PkgId),
+          contractImportMode = ContractImportMode.Validation,
+          handleImport = f =>
+            assertThrowsAndLogsCommandFailures(
+              f(),
+              entry => {
+                entry.shouldBeCantonErrorCode(ImportAcsError)
+                entry.message should include(show"Failed to authenticate contract")
               },
             ),
         )
@@ -355,7 +386,11 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
         apiValue.RecordField(
           "owner",
           Some(apiValue.Value(apiValue.Value.Sum.Party(party.toProtoPrimitive))),
-        )
+        ),
+        apiValue.RecordField(
+          "otherParty",
+          Some(apiValue.Value(apiValue.Value.Sum.Party(party.toProtoPrimitive))),
+        ),
       ),
     )
 
@@ -386,7 +421,10 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
       // which is relevant for situations where the representative package-id differs from
       // the creation package-id when the latter is unknown to the participant.
       createdEvent.createArgument.value shouldBe Json.obj(
-        "owner" -> Json.fromString(partyId.toProtoPrimitive)
+        // Using two distinct parties to highlight validation failure on incompatible upgrade
+        // when the order of the fields in a template changes
+        "owner" -> Json.fromString(partyId.toProtoPrimitive),
+        "otherParty" -> Json.fromString(partyId.toProtoPrimitive),
       )
       createdEvent.interfaceViews.loneElement.viewValue.value shouldBe Json.obj(
         "owner" -> Json.fromString(partyId.toProtoPrimitive)
@@ -436,7 +474,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
   private def exportAndImportOn(
       importParticipant: ParticipantReference,
       party: PartyId,
-      contractOverride: Map[ContractId, LfPackageId] = Map.empty,
+      contractRpIdOverride: Map[ContractId, LfPackageId] = Map.empty,
       packageIdOverride: Map[LfPackageId, LfPackageId] = Map.empty,
       packageNameOverride: Map[LfPackageName, LfPackageId] = Map.empty,
       contractImportMode: ContractImportMode = ContractImportMode.Validation,
@@ -459,7 +497,7 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
             .import_acs(
               importFilePath = file.canonicalPath,
               representativePackageIdOverride = RepresentativePackageIdOverride(
-                contractOverride = contractOverride,
+                contractOverride = contractRpIdOverride,
                 packageIdOverride = packageIdOverride,
                 packageNameOverride = packageNameOverride,
               ),
@@ -473,7 +511,11 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
     }
   }
 
-  private def createContract(participantRef: ParticipantReference, party: PartyId)(implicit
+  private def createContract(
+      participantRef: ParticipantReference,
+      party: PartyId,
+      otherParty: Option[PartyId] = None,
+  )(implicit
       env: FixtureParam
   ): protocol.LfContractId = {
     import env.*
@@ -481,7 +523,14 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
     participantRef.ledger_api.javaapi.commands
       .submit(
         Seq(party.toLf),
-        new upgrades.v1.java.foo.Foo(party.toProtoPrimitive).create().commands().asScala.toSeq,
+        new upgrades.v1.java.foo.Foo(
+          party.toProtoPrimitive,
+          otherParty.getOrElse(party).toProtoPrimitive,
+        )
+          .create()
+          .commands()
+          .asScala
+          .toSeq,
       )
       .getEvents
       .asScala

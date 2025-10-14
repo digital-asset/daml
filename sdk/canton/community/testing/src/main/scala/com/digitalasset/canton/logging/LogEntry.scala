@@ -105,8 +105,14 @@ final case class LogEntry(
 
   def shouldBeCommandFailure(code: ErrorCode, message: String = "")(implicit
       pos: source.Position
+  ): Assertion = shouldBeOneOfCommandFailure(Seq(code), message)
+
+  def shouldBeOneOfCommandFailure(codes: Seq[ErrorCode], message: String = "")(implicit
+      pos: source.Position
   ): Assertion =
-    commandFailureMessage should (include(code.id) and include(message))
+    forAtLeast(1, codes) { code =>
+      commandFailureMessage should (include(code.id) and include(message))
+    }
 
   def commandFailureMessage(implicit pos: source.Position): String = {
     val errors = new StringBuilder()

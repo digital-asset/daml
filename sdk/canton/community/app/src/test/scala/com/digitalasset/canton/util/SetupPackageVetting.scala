@@ -132,6 +132,7 @@ class SetupPackageVetting(
           .foreach { darPath =>
             participant.dars.upload(
               darPath,
+              synchronizerId = None,
               vetAllPackages = false,
               synchronizeVetting = false,
             )
@@ -193,7 +194,6 @@ class SetupPackageVetting(
 
 object SetupPackageVetting {
   val AllUnvettingFlags: ForceFlags = ForceFlags(
-    ForceFlag.AllowUnvetPackage,
     ForceFlag.AllowUnvettedDependencies,
     ForceFlag.AllowUnvetPackageWithActiveContracts,
   )

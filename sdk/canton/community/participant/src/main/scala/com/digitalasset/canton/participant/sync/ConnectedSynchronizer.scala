@@ -20,6 +20,7 @@ import com.digitalasset.canton.health.{
   CloseableHealthComponent,
   ComponentHealthState,
 }
+import com.digitalasset.canton.ledger.participant.state.SyncService.SubmissionCostEstimation
 import com.digitalasset.canton.ledger.participant.state.{
   AcsChange,
   ContractStakeholdersAndReassignmentCounter,
@@ -27,7 +28,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   TransactionMeta,
 }
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.event.RecordTime
@@ -65,17 +66,21 @@ import com.digitalasset.canton.participant.topology.{
   ParticipantTopologyDispatcher,
   SequencerConnectionSuccessorListener,
 }
-import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
+import com.digitalasset.canton.participant.traffic.{
+  ParticipantTrafficControlSubscriber,
+  TrafficCostEstimator,
+}
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.CostEstimationHints
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, TrafficState}
-import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
+import com.digitalasset.canton.sequencing.traffic.{TrafficControlProcessor, TrafficStateController}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -132,7 +137,7 @@ class ConnectedSynchronizer(
     private[sync] val persistent: SyncPersistentState,
     val ephemeral: SyncEphemeralState,
     val packageService: PackageService,
-    synchronizerCrypto: SynchronizerCryptoClient,
+    val synchronizerCrypto: SynchronizerCryptoClient,
     contractValidator: ContractValidator,
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
@@ -194,6 +199,46 @@ class ConnectedSynchronizer(
       loggerFactory,
     )
 
+  private val trafficCostEstimation = {
+    val trafficStateController: TrafficStateController =
+      sequencerClient.trafficStateController.getOrElse {
+        ErrorUtil.invalidState(
+          s"Sequencer client of the participant node $participantId does not have a traffic state controller"
+        )(ErrorLoggingContext.fromTracedLogger(logger)(TraceContext.empty))
+      }
+
+    new TrafficCostEstimator(
+      requestGenerator,
+      topologyClient,
+      synchronizerCrypto,
+      ephemeral.contractStore,
+      ephemeral.sessionKeyStore,
+      psid,
+      participantId,
+      trafficStateController,
+      loggerFactory,
+    )
+  }
+
+  def estimateTrafficCost(
+      transaction: LfVersionedTransaction,
+      transactionMeta: TransactionMeta,
+      submitterInfo: SubmitterInfo,
+      keyResolver: LfKeyResolver,
+      disclosedContracts: Map[LfContractId, LfFatContractInst],
+      costHints: CostEstimationHints,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, SubmissionCostEstimation] =
+    trafficCostEstimation.estimateTrafficCost(
+      transaction,
+      transactionMeta,
+      submitterInfo,
+      keyResolver,
+      disclosedContracts,
+      costHints,
+    )
+
   private val damle =
     new DAMLe(
       packageResolver,
@@ -221,6 +266,7 @@ class ConnectedSynchronizer(
     packageResolver = packageResolver,
     testingConfig = testingConfig,
     promiseUSFactory,
+    parameters.loggingConfig.api.messagePayloads,
   )
 
   private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
@@ -1045,6 +1091,8 @@ object ConnectedSynchronizer {
           clock,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           parameters.batchingConfig,
+          doNotAwaitOnCheckingIncomingCommitments =
+            parameters.doNotAwaitOnCheckingIncomingCommitments,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
