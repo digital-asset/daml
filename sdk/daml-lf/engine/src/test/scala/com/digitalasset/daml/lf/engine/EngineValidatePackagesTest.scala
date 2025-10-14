@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarReader}
+import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -17,7 +17,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.nio.file.Path
 import com.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.Decode.assertDecodeArchivePayload
+import com.digitalasset.daml.lf.archive.DarDecoder
 
 class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
 
@@ -26,15 +26,11 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with Inside {
 
-  // TODO: extend with a (set of) compat dara(s), script-test-v2.dev.dar is
-  // tested here as placeholder
+  // TODO: extend with a (set of) compat dar(s), script-test-v2.dev.dar is
+  // tested here as placeholder https://github.com/digital-asset/daml/pull/22101
   val testDarPath = "daml-script/test/script-test-v2.dev.dar"
   val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
-  val dar: Dar[ArchivePayload] = DarReader.assertReadArchiveFromFile(testDar.toFile)
-
-  val main: (Ref.PackageId, Package) = assertDecodeArchivePayload(dar.main)
-  val deps: List[(Ref.PackageId, Package)] = dar.dependencies.map(assertDecodeArchivePayload(_))
-  val decodedDar: Dar[(Ref.PackageId, Package)] = new Dar(main, deps)
+  val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
 
   val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
@@ -92,6 +88,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     Dar(mainPkg, dependentPkgs.toList)
 
   "Engine.validateDar" should {
+    "accept prepackaged dars" in {
+      newEngine.validateDar(dar) shouldBe Right(())
+    }
+
     val pkg =
       p"""
         metadata ( 'pkg' : '1.0.0' )
@@ -99,10 +99,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
           val string: Text = "pkg";
         }
       """
-
-    "accept prepackaged dars" in {
-      newEngine.validateDar(decodedDar) shouldBe Right(())
-    }
 
     "accept valid package" should {
       utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
