@@ -97,6 +97,8 @@ da_scala_test_suite(
         ],
     ),
     data = [
+        "//daml-script/test:script-test-v2.dev.dar",
+    ] + [
         "{name}-v{major}.dar".format(
             name = name,
             major = major,

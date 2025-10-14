@@ -15,12 +15,22 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.nio.file.Path
+import com.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.DarDecoder
+
 class EngineValidatePackagesTestV2 extends EngineValidatePackagesTest(LanguageMajorVersion.V2)
 
 class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with Inside {
+
+  // TODO: extend with a (set of) compat dar(s), script-test-v2.dev.dar is
+  // tested here as placeholder https://github.com/digital-asset/daml/pull/22101
+  val testDarPath = "daml-script/test/script-test-v2.dev.dar"
+  val testDar = Path.of(BazelRunfiles.rlocation(testDarPath))
+  val dar: Dar[(Ref.PackageId, Package)] = DarDecoder.assertReadArchiveFromFile(testDar.toFile)
 
   val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
@@ -78,6 +88,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     Dar(mainPkg, dependentPkgs.toList)
 
   "Engine.validateDar" should {
+    "accept prepackaged dars" in {
+      newEngine.validateDar(dar) shouldBe Right(())
+    }
+
     val pkg =
       p"""
         metadata ( 'pkg' : '1.0.0' )
