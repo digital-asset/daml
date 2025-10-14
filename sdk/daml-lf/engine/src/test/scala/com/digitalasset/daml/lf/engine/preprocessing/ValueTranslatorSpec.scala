@@ -391,6 +391,196 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
           ),
         ),
         upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "field" -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              "extraField" -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              "bonusField" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          true,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
+              None -> ValueOptional(Some(ValueText("b"))),
+              None -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
           false,
           true,
           ValueRecord(
@@ -432,6 +622,27 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion)
             "Mod:Upgradeable",
             ImmArray(
               "field" -> ValueInt64(1)
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1)
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          true,
+          false,
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              None -> ValueInt64(1),
+              None -> ValueOptional(Some(ValueText("a"))),
             ),
           ),
         ),
