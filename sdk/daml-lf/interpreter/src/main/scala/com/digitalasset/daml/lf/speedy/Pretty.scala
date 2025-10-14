@@ -195,8 +195,10 @@ private[lf] object Pretty {
                   text("Type-checking fails ") & text(message) /
                     text("  Expected type:") & text(expectedType.pretty) /
                     text("  Actual value:") & prettyValue(verbose = false)(value)
-                case TranslationFailed.ValueNesting(_) =>
+                case TranslationFailed.ValueNesting =>
                   text(s"Value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
+                case TranslationFailed.MalformedText(err) =>
+                  text(s"Value contains malformed text: $err")
                 case TranslationFailed.NonSuffixedV1ContractId(badCoid) =>
                   text("Encountered non-suffixed Contract ID") & prettyContractId(badCoid)
                 case TranslationFailed.NonSuffixedV2ContractId(badCoid) =>

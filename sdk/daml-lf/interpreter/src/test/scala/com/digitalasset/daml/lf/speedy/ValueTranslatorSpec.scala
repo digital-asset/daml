@@ -535,10 +535,64 @@ class ValueTranslatorSpec(languageVersion: LanguageVersion, forbidTrailingNones:
 
       val notTooBig = mkMyList(49)
       val tooBig = mkMyList(50)
-      val failure = Failure(TranslationFailed.ValueNesting(tooBig))
+      val failure = Failure(TranslationFailed.ValueNesting)
 
       Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
       Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
+    }
+
+    "fails on values containing null characters" in {
+
+      val testCases = Table(
+        ("type", "value without null char", "value with null char"),
+        (TText, Value.ValueText("->\u0001<-"), Value.ValueText("->\u0000<-")),
+        (
+          TOptional(TText),
+          ValueOptional(Some(ValueText("'\u0001'+'\u0001'='\u0002'"))),
+          ValueOptional(Some(ValueText("'\u0001'-'\u0001'='\u0000'"))),
+        ),
+        (
+          TGenMap(TText, TInt64),
+          ValueGenMap(
+            ImmArray(
+              ValueText("\u0001") -> ValueInt64(1)
+            )
+          ),
+          ValueGenMap(
+            ImmArray(
+              ValueText("\u0000") -> ValueInt64(0),
+              ValueText("\u0001") -> ValueInt64(1),
+            )
+          ),
+        ),
+        (
+          TTextMap(TInt64),
+          ValueTextMap(
+            SortedLookupList(
+              Map(
+                "\u0001" -> ValueInt64(1)
+              )
+            )
+          ),
+          ValueTextMap(
+            SortedLookupList(
+              Map(
+                "\u0000" -> ValueInt64(0),
+                "\u0001" -> ValueInt64(2),
+              )
+            )
+          ),
+        ),
+      )
+
+      forEvery(testCases) { case (typ, negativeTestCase, positiveTestCase) =>
+        val success = Try(unsafeTranslateValue(typ, negativeTestCase))
+        val failure = Try(unsafeTranslateValue(typ, positiveTestCase))
+        success shouldBe a[Success[_]]
+        inside(failure) { case Failure(TranslationFailed.MalformedText(err)) =>
+          err should include("null character")
+        }
+      }
     }
 
     def testCasesForCid(culprit: ContractId) = {
