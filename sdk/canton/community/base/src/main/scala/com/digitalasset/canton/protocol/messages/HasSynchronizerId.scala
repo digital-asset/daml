@@ -10,5 +10,5 @@ trait HasSynchronizerId {
 }
 
 trait HasPhysicalSynchronizerId {
-  def synchronizerId: PhysicalSynchronizerId
+  def psid: PhysicalSynchronizerId
 }

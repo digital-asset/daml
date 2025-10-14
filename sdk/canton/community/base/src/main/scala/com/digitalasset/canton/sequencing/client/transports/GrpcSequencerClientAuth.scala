@@ -5,11 +5,13 @@ package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.{GrpcClient, GrpcManagedChannel}
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
@@ -42,6 +44,8 @@ class GrpcSequencerClientAuth(
     supportedProtocolVersions: Seq[ProtocolVersion],
     tokenManagerConfig: AuthenticationTokenManagerConfig,
     clock: Clock,
+    metricsO: Option[SequencerConnectionPoolMetrics],
+    metricsContext: MetricsContext,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -65,6 +69,8 @@ class GrpcSequencerClientAuth(
       crypto,
       supportedProtocolVersions,
       tokenManagerConfig,
+      metricsO,
+      metricsContext,
       timeouts,
       loggerFactory,
     )

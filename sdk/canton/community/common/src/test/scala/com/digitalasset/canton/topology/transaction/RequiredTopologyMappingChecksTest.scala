@@ -179,6 +179,7 @@ class RequiredTopologyMappingChecksTest
   ): RequiredTopologyMappingChecks =
     new RequiredTopologyMappingChecks(
       store,
+      Some(defaultStaticSynchronizerParameters),
       loggerFactory,
     )
 
@@ -708,7 +709,16 @@ class RequiredTopologyMappingChecksTest
 
     "validating SynchronizerTrustCertificate" should {
 
+      "reject addition without valid otk" in {
+        val (checks, store) = mk()
+        addToStore(store, dpc1)
+        checkTransaction(checks, p1_dtc, None) shouldBe Left(
+          TopologyTransactionRejection.RequiredMapping.InsufficientKeys(Seq(participant1))
+        )
+      }
+
       "handle conflicts with existing party allocations" in {
+
         val explicitAdminPartyParticipant1 = factory.mkAdd(
           PartyToParticipant
             .create(
@@ -742,7 +752,7 @@ class RequiredTopologyMappingChecksTest
 
         // normally it's not possible to have a valid PTP without an already existing DTC of the hosting participants.
         // but let's pretend for this check.
-        addToStore(store, dop, explicitAdminPartyParticipant1, partyWithParticipant2Uid)
+        addToStore(store, dop, p1_otk, explicitAdminPartyParticipant1, partyWithParticipant2Uid)
 
         // happy case: we allow the DTC (either a creation or modifying an existing one)
         // if there is a valid explicit admin party allocation
@@ -786,6 +796,7 @@ class RequiredTopologyMappingChecksTest
 
       "reject the addition if the synchronizer is restricted" in {
         val (checks, store) = mk()
+
         val dop = factory.mkAdd(
           SynchronizerParametersState(
             synchronizerId,
@@ -794,9 +805,11 @@ class RequiredTopologyMappingChecksTest
               .tryUpdate(onboardingRestriction = OnboardingRestriction.RestrictedOpen),
           )
         )
+
         addToStore(
           store,
           dop,
+          p1_otk,
           factory.mkAdd(
             ParticipantSynchronizerPermission(
               synchronizerId,
@@ -1093,14 +1106,20 @@ class RequiredTopologyMappingChecksTest
         Seq(okm_sequencerNoSigningKey, okm_mediatorNoSigningKey, okm_participantNoSigningKey)
           .foreach(tx =>
             checkTransaction(checks, tx) shouldBe Left(
-              TopologyTransactionRejection.RequiredMapping.InvalidTopologyMapping(
-                "OwnerToKeyMapping must contain at least 1 signing key."
+              TopologyTransactionRejection.RequiredMapping.InvalidOwnerToKeyMapping(
+                tx.mapping.member,
+                "signing",
+                Seq.empty,
+                Seq("EC-Curve25519"),
               )
             )
           )
         checkTransaction(checks, okm_participantNoEncryptionKey) shouldBe Left(
-          TopologyTransactionRejection.RequiredMapping.InvalidTopologyMapping(
-            "OwnerToKeyMapping for participants must contain at least 1 encryption key."
+          TopologyTransactionRejection.RequiredMapping.InvalidOwnerToKeyMapping(
+            participant1,
+            "encryption",
+            Seq.empty,
+            Seq("EC-P256"),
           )
         )
       }
@@ -1119,6 +1138,62 @@ class RequiredTopologyMappingChecksTest
         checkTransaction(checks, okm3, inStore = Some(okm2)) shouldBe Left(
           TopologyTransactionRejection.RequiredMapping.CannotReregisterKeys(sequencerId)
         )
+      }
+      "removals" should {
+        "fail if participant is active" in {
+          val (checks, store) = mk()
+
+          addToStore(store, p1_otk, p1_dtc)
+
+          checkTransaction(
+            checks,
+            factory.mkRemoveTx(p1_otk),
+            inStore = Some(p1_otk),
+          ) shouldBe Left(
+            TopologyTransactionRejection.RequiredMapping.InvalidOwnerToKeyMappingRemoval(
+              participant1,
+              p1_dtc.transaction,
+            )
+          )
+
+        }
+
+        "fail if mediator is active" in {
+          val (checks, store) = mk()
+
+          val mg =
+            mkMediatorGroups(PositiveInt.one, (NonNegativeInt.one, Seq(mediatorId))).loneElement
+          addToStore(store, med_okm_k3, mg)
+
+          checkTransaction(
+            checks,
+            factory.mkRemoveTx(med_okm_k3),
+            inStore = Some(med_okm_k3),
+          ) shouldBe Left(
+            TopologyTransactionRejection.RequiredMapping.InvalidOwnerToKeyMappingRemoval(
+              mediatorId,
+              mg.transaction,
+            )
+          )
+        }
+
+        "fail if sequencer is active" in {
+          val (checks, store) = mk()
+
+          val grp = makeSynchronizerState(PositiveInt.one, sequencerId)
+          addToStore(store, seq_okm_k2, grp)
+
+          checkTransaction(
+            checks,
+            factory.mkRemoveTx(seq_okm_k2),
+            inStore = Some(seq_okm_k2),
+          ) shouldBe Left(
+            TopologyTransactionRejection.RequiredMapping.InvalidOwnerToKeyMappingRemoval(
+              sequencerId,
+              grp.transaction,
+            )
+          )
+        }
 
       }
     }

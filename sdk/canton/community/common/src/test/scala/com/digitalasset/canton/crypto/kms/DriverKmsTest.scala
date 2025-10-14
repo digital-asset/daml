@@ -36,27 +36,42 @@ class DriverKmsTest extends AsyncWordSpec with BaseTest with HasExecutionContext
 
   private lazy val driver = new FlakyKmsDriver()
 
-  private lazy val kms = new DriverKms(
-    KmsConfig.Driver(
-      "flaky-kms",
-      ConfigValueFactory.fromAnyRef(42),
-      retries = KmsConfig.RetryConfig(failures =
-        ExponentialBackoffConfig(
-          initialDelay = config.NonNegativeFiniteDuration.ofMillis(10),
-          maxDelay = config.NonNegativeDuration.ofSeconds(1),
-          maxRetries = 1,
-        )
+  private lazy val kms = {
+    val (
+      supportedSigningKeySpecs,
+      supportedSigningAlgoSpecs,
+      supportedEncryptionKeySpecs,
+      supportedEncryptionAlgoSpecs,
+    ) = DriverKms
+      .resolveDriverSchemes(driver)
+      .valueOrFail("failed to parse driver supported crypto specifications")
+
+    new DriverKms(
+      KmsConfig.Driver(
+        "flaky-kms",
+        ConfigValueFactory.fromAnyRef(42),
+        retries = KmsConfig.RetryConfig(failures =
+          ExponentialBackoffConfig(
+            initialDelay = config.NonNegativeFiniteDuration.ofMillis(10),
+            maxDelay = config.NonNegativeDuration.ofSeconds(1),
+            maxRetries = 1,
+          )
+        ),
       ),
-    ),
-    driver,
-    FutureSupervisor.Noop,
-    executorService,
-    PositiveFiniteDuration.tryOfSeconds(5),
-    wallClock,
-    timeouts,
-    loggerFactory,
-    directExecutionContext,
-  )
+      driver,
+      FutureSupervisor.Noop,
+      executorService,
+      PositiveFiniteDuration.tryOfSeconds(5),
+      wallClock,
+      supportedSigningKeySpecs,
+      supportedSigningAlgoSpecs,
+      supportedEncryptionKeySpecs,
+      supportedEncryptionAlgoSpecs,
+      timeouts,
+      loggerFactory,
+      directExecutionContext,
+    )
+  }
 
   private lazy val testKeyId = KmsKeyId.tryCreate("test-key")
 
@@ -139,13 +154,17 @@ private class FlakyKmsDriver()(implicit ec: ExecutionContext) extends KmsDriver 
 
   override def health: Future[KmsDriverHealth] = Future.successful(healthState.get)
 
-  override def supportedSigningKeySpecs: Set[SigningKeySpec] = ???
+  // The schemes are ignored by the flaky KMS driver
 
-  override def supportedSigningAlgoSpecs: Set[SigningAlgoSpec] = ???
+  override def supportedSigningKeySpecs: Set[SigningKeySpec] = Set(SigningKeySpec.EcP256)
 
-  override def supportedEncryptionKeySpecs: Set[EncryptionKeySpec] = ???
+  override def supportedSigningAlgoSpecs: Set[SigningAlgoSpec] = Set(SigningAlgoSpec.EcDsaSha256)
 
-  override def supportedEncryptionAlgoSpecs: Set[EncryptionAlgoSpec] = ???
+  override def supportedEncryptionKeySpecs: Set[EncryptionKeySpec] = Set(EncryptionKeySpec.Rsa2048)
+
+  override def supportedEncryptionAlgoSpecs: Set[EncryptionAlgoSpec] = Set(
+    EncryptionAlgoSpec.RsaEsOaepSha256
+  )
 
   override def sign(data: Array[Byte], keyId: String, algoSpec: SigningAlgoSpec)(
       traceContext: Context

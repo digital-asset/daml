@@ -75,6 +75,7 @@ trait PackageOps extends NamedLogging {
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
+      allowUnvetPackageIdInUse: Boolean = false,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -212,6 +213,7 @@ class PackageOpsImpl(
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
+      allowUnvetPackageIdInUse: Boolean = false,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -230,6 +232,12 @@ class PackageOpsImpl(
             case Some(target) =>
               VettedPackageChange.Changed(Some(previousState), target.toVettedPackage)
           }
+
+        val forceFlags =
+          if (allowUnvetPackageIdInUse)
+            ForceFlags(ForceFlag.AllowUnvetPackageWithActiveContracts)
+          else
+            ForceFlags.none
 
         for {
           topologyManager <- topologyManagerLookup.byPhysicalSynchronizerId(psid)
@@ -253,7 +261,7 @@ class PackageOpsImpl(
                   currentlyVettedPackages = currentPackages.map(_.packageId).toSet,
                   nextPackageIds = newAllPackages.map(_.packageId).toSet,
                   dryRunSnapshot = dryRunSnapshot,
-                  forceFlags = ForceFlags.none,
+                  forceFlags = forceFlags,
                 )
                 .leftMap[ParticipantTopologyManagerError](IdentityManagerParentError(_))
                 .map { _ =>
@@ -280,7 +288,7 @@ class PackageOpsImpl(
                 newAllPackages,
                 psid,
                 synchronizeVetting,
-                ForceFlags.none,
+                forceFlags = forceFlags,
               )
                 .map(_.orElse(currentPackagesAndSerial))
             }

@@ -145,6 +145,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,
           sequentialPostProcessor = sequentialPostProcessor,
+          contractStore = participantContractStore,
         ).initialized()
         indexerFutureQueueConsumer <- ResourceOwner.forFuture(() => indexerF(false)(_ => ()))
         indexer <- ResourceOwner.forReleasable(() =>
@@ -154,6 +155,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           indexer.done.map(_ => ())
         }
         contractLoader <- ContractLoader.create(
+          participantContractStore = participantContractStore,
           contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
             inMemoryState.stringInterningView,
             inMemoryState.ledgerEndCache,

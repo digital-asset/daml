@@ -12,10 +12,15 @@ import com.digitalasset.canton.config.{
   CacheConfig,
   CryptoConfig,
   CryptoProvider,
+  EncryptedPrivateStoreConfig,
+  KmsConfig,
   ProcessingTimeout,
   SessionEncryptionKeyCacheConfig,
 }
-import com.digitalasset.canton.crypto.kms.KmsFactory
+import com.digitalasset.canton.crypto.kms.aws.AwsKms
+import com.digitalasset.canton.crypto.kms.driver.v1.DriverKms
+import com.digitalasset.canton.crypto.kms.gcp.GcpKms
+import com.digitalasset.canton.crypto.kms.{Kms, KmsFactory}
 import com.digitalasset.canton.crypto.provider.jce.{JceCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.provider.kms.KmsPrivateCrypto
 import com.digitalasset.canton.crypto.store.{
@@ -72,7 +77,7 @@ sealed trait BaseCrypto extends NamedLogging {
     * as well.
     */
   def generateSigningKey(
-      keySpec: SigningKeySpec = privateCrypto.signingKeySpecs.default,
+      keySpec: SigningKeySpec = privateCrypto.signingSchemes.keySpecs.default,
       usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
@@ -87,7 +92,7 @@ sealed trait BaseCrypto extends NamedLogging {
     * store as well.
     */
   def generateEncryptionKey(
-      keySpec: EncryptionKeySpec = privateCrypto.encryptionKeySpecs.default,
+      keySpec: EncryptionKeySpec = privateCrypto.encryptionSchemes.keySpecs.default,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
@@ -359,70 +364,228 @@ object Crypto {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, String, Crypto] =
+  ): EitherT[FutureUnlessShutdown, String, Crypto] = {
+
+    def kmsClient(): EitherT[FutureUnlessShutdown, String, Kms] =
+      for {
+        kmsConfig <- config.kms
+          .toRight("Missing KMS configuration for KMS crypto provider")
+          .toEitherT[FutureUnlessShutdown]
+        kms <- KmsFactory
+          .create(
+            kmsConfig,
+            timeouts,
+            futureSupervisor,
+            tracerProvider,
+            clock,
+            loggerFactory,
+            executionContext,
+          )
+          .leftMap(err => s"Failed to create the KMS client: $err")
+          .toEitherT[FutureUnlessShutdown]
+      } yield kms
+
+    def createCryptoWithJceProvider(
+        cryptoSchemes: CryptoSchemes,
+        cryptoPublicStore: CryptoPublicStore,
+        kmsO: Option[Kms], // kmsO must be set when using an encrypted private store
+    )(implicit
+        ec: ExecutionContext,
+        traceContext: TraceContext,
+    ) =
+      for {
+        // TODO (#28252): Merge creation of the KMS client after deleting `cryptoPrivateStoreFactory`
+        cryptoPrivateStore <- cryptoPrivateStoreFactory
+          .create(
+            storage,
+            kmsO,
+            releaseProtocolVersion,
+            timeouts,
+            loggerFactory,
+          )
+          .leftMap(err => show"Failed to create crypto private store: $err")
+        jceCrypto <- JceCrypto
+          .create(
+            config,
+            cryptoSchemes,
+            sessionEncryptionKeyCacheConfig,
+            publicKeyConversionCacheConfig,
+            cryptoPrivateStore,
+            cryptoPublicStore,
+            timeouts,
+            loggerFactory,
+          )
+          .toEitherT[FutureUnlessShutdown]
+      } yield jceCrypto
+
+    // If the supported schemes are already provided statically (e.g., for AWS or GCP), they are handled elsewhere.
+    // This method is used only when dealing with a KMS driver, in which case the supported schemes are determined
+    // dynamically by 'querying' the driver. The resulting set of schemes si to be used only by the (KMS)
+    // private crypto API.
+    def resolveDriverKmsSupportedSchemes(
+        cryptoSchemes: CryptoSchemes,
+        kms: Kms,
+    ): EitherT[FutureUnlessShutdown, String, CryptoSchemes] =
+      kms match {
+        case kms: DriverKms =>
+          CryptoSchemes
+            .selectKmsSchemes(cryptoSchemes, kms)
+            .toEitherT[FutureUnlessShutdown]
+        case _ =>
+          EitherT
+            .leftT[FutureUnlessShutdown, CryptoSchemes](
+              "expected a driver KMS client"
+            )
+      }
+
+    def createCryptoWithKmsProvider(
+        kms: Kms,
+        cryptoSchemes: CryptoSchemes,
+        kmsSchemes: CryptoSchemes,
+        cryptoPublicStore: CryptoPublicStore,
+    )(implicit
+        ec: ExecutionContext,
+        traceContext: TraceContext,
+    ): EitherT[FutureUnlessShutdown, String, Crypto] =
+      for {
+        cryptoPrivateStore <- cryptoPrivateStoreFactory
+          .create(
+            storage,
+            Some(kms),
+            releaseProtocolVersion,
+            timeouts,
+            loggerFactory,
+          )
+          .leftMap(err => show"Failed to create crypto private store: $err")
+        kmsCryptoPrivateStore <- KmsCryptoPrivateStore
+          .fromCryptoPrivateStore(
+            cryptoPrivateStore
+          )
+          .toEitherT[FutureUnlessShutdown]
+        kmsPrivateCrypto = KmsPrivateCrypto
+          .create(
+            kms,
+            kmsSchemes.signingSchemes,
+            kmsSchemes.encryptionSchemes,
+            cryptoPublicStore,
+            kmsCryptoPrivateStore,
+            timeouts,
+            loggerFactory,
+          )
+        pureCrypto <- JcePureCrypto
+          .create(
+            config.copy(provider = CryptoProvider.Jce),
+            sessionEncryptionKeyCacheConfig,
+            publicKeyConversionCacheConfig,
+            cryptoSchemes,
+            loggerFactory,
+          )
+          .toEitherT[FutureUnlessShutdown]
+      } yield new Crypto(
+        pureCrypto,
+        kmsPrivateCrypto,
+        cryptoPrivateStore,
+        cryptoPublicStore,
+        timeouts,
+        loggerFactory,
+      )
+
+    // Creates a [[Crypto]] instance with a KMS provider whose supported schemes are announced statically
+    // (i.e., AWS KMS or GCP KMS).
+    def createCryptoWithStaticKmsProvider(
+        kmsSupportedSchemes: Kms.SupportedSchemes,
+        cryptoSchemes: CryptoSchemes,
+        cryptoPublicStore: CryptoPublicStore,
+    ): EitherT[FutureUnlessShutdown, String, Crypto] =
+      for {
+        staticKmsSchemes <-
+          CryptoSchemes
+            .selectKmsSchemes(cryptoSchemes, kmsSupportedSchemes)
+            .toEitherT[FutureUnlessShutdown]
+        kms <- kmsClient()
+        kmsCryptoStatic <- createCryptoWithKmsProvider(
+          kms,
+          cryptoSchemes,
+          staticKmsSchemes,
+          cryptoPublicStore,
+        ) // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
+          .leftMap { err =>
+            kms.close()
+            err
+          }
+      } yield kmsCryptoStatic
+
+    // Creates a [[Crypto]] instance using a KMS driver and its supported schemes.
+    def createCryptoWithDriverKmsProvider(
+        cryptoSchemes: CryptoSchemes,
+        cryptoPublicStore: CryptoPublicStore,
+    ): EitherT[FutureUnlessShutdown, String, Crypto] =
+      for {
+        kms <- kmsClient()
+        staticKmsSchemes <- resolveDriverKmsSupportedSchemes(cryptoSchemes, kms)
+          // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
+          .leftMap { err =>
+            kms.close()
+            err
+          }
+        kmsCryptoDriver <- createCryptoWithKmsProvider(
+          kms,
+          cryptoSchemes,
+          staticKmsSchemes,
+          cryptoPublicStore,
+        ) // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
+          .leftMap { err =>
+            kms.close()
+            err
+          }
+      } yield kmsCryptoDriver
+
     for {
+      // initial selection of schemes by intersecting those supported by the provider with
+      // those specified in the Canton configuration, to be used by the pure (public) crypto API.
+      cryptoSchemes <- CryptoSchemes.fromConfig(config).toEitherT[FutureUnlessShutdown]
       cryptoPublicStore <- CryptoPublicStore
         .create(storage, releaseProtocolVersion, timeouts, loggerFactory)
         .leftMap(err => show"Failed to create crypto public store: $err")
-      cryptoPrivateStore <- cryptoPrivateStoreFactory
-        .create(storage, releaseProtocolVersion, timeouts, loggerFactory, tracerProvider)
-        .leftMap(err => show"Failed to create crypto private store: $err")
+
       crypto <- config.provider match {
+        case CryptoProvider.Jce
+            if config.privateKeyStore.encryption
+              .exists(_.isInstanceOf[EncryptedPrivateStoreConfig.Kms]) =>
+          for {
+            kms <- kmsClient()
+            jceCrypto <- createCryptoWithJceProvider(cryptoSchemes, cryptoPublicStore, Some(kms))
+              // TODO(#28253): replace with a "withResource..." that only closes a resource on failures.
+              .leftMap { err =>
+                kms.close()
+                err
+              }
+          } yield jceCrypto
         case CryptoProvider.Jce =>
-          JceCrypto
-            .create(
-              config,
-              sessionEncryptionKeyCacheConfig,
-              publicKeyConversionCacheConfig,
-              cryptoPrivateStore,
-              cryptoPublicStore,
-              timeouts,
-              loggerFactory,
-            )
-            .toEitherT[FutureUnlessShutdown]
+          createCryptoWithJceProvider(cryptoSchemes, cryptoPublicStore, None)
         case CryptoProvider.Kms =>
-          EitherT.fromEither[FutureUnlessShutdown] {
-            for {
-              kmsConfig <- config.kms.toRight("Missing KMS configuration for KMS crypto provider")
-              cryptoSchemes <- CryptoSchemes.fromConfig(config)
-              kms <- KmsFactory
-                .create(
-                  kmsConfig,
-                  timeouts,
-                  futureSupervisor,
-                  tracerProvider,
-                  clock,
-                  loggerFactory,
-                  executionContext,
-                )
-                .leftMap(err => s"Failed to create the KMS client: $err")
-              kmsCryptoPrivateStore <- KmsCryptoPrivateStore.fromCryptoPrivateStore(
-                cryptoPrivateStore
-              )
-              kmsPrivateCrypto <- KmsPrivateCrypto.create(
-                kms,
-                cryptoSchemes,
-                cryptoPublicStore,
-                kmsCryptoPrivateStore,
-                timeouts,
-                loggerFactory,
-              )
-              pureCrypto <- JcePureCrypto.create(
-                config.copy(provider = CryptoProvider.Jce),
-                sessionEncryptionKeyCacheConfig,
-                publicKeyConversionCacheConfig,
-                loggerFactory,
-              )
-            } yield new Crypto(
-              pureCrypto,
-              kmsPrivateCrypto,
-              cryptoPrivateStore,
-              cryptoPublicStore,
-              timeouts,
-              loggerFactory,
-            )
-          }
+          for {
+            kmsConfig <- config.kms
+              .toRight("Missing KMS configuration for KMS crypto provider")
+              .toEitherT[FutureUnlessShutdown]
+            // From the selected crypto schemes, we check whether the chosen default is supported by the KMS,
+            // and from the full list of allowed schemes, we keep only those supported by the KMS.
+            // This set of schemes is intended to be used only by the (KMS) private crypto API.
+            // The selection is done before initializing the KMS client to catch any unsupported schemes,
+            // except when running a KMS driver. In that case, we only know which schemes are supported after
+            // initializing the driver, whereas for other KMS types, the supported schemes are defined statically
+            // (e.g., AWS and GCP KMS)
+            kmsCrypto <- kmsConfig match {
+              case _: KmsConfig.Driver =>
+                createCryptoWithDriverKmsProvider(cryptoSchemes, cryptoPublicStore)
+              case _: KmsConfig.Aws =>
+                createCryptoWithStaticKmsProvider(AwsKms, cryptoSchemes, cryptoPublicStore)
+              case _: KmsConfig.Gcp =>
+                createCryptoWithStaticKmsProvider(GcpKms, cryptoSchemes, cryptoPublicStore)
+            }
+          } yield kmsCrypto
       }
     } yield crypto
+  }
 
 }

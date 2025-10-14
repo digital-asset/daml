@@ -19,7 +19,6 @@ import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.{
   KeyAssigned,
-  KeyState,
   KeyUnassigned,
 }
 import com.digitalasset.canton.protocol.ExampleContractFactory
@@ -330,7 +329,7 @@ object MutableCacheBackedContractStoreSpec {
 
     override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanOffset: Long)(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Map[Key, KeyState]] = ??? // not used in this test
+    ): Future[Map[Key, Long]] = ??? // not used in this test
 
     override def lookupContractState(contractId: ContractId, notEarlierThanEventSeqId: Long)(
         implicit loggingContext: LoggingContextWithTrace

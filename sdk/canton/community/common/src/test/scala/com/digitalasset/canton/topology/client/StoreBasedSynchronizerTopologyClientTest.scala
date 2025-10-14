@@ -378,7 +378,7 @@ trait StoreBasedTopologySnapshotTest
       }
     }
 
-    "filter out participants without otk or stc" in {
+    "filter out participants without stc" in {
       val fixture = new Fixture()
       val party1participant1 = mkAdd(
         PartyToParticipant.tryCreate(
@@ -389,33 +389,24 @@ trait StoreBasedTopologySnapshotTest
           ),
         )
       )
-      val party2participant2 = mkAdd(
-        PartyToParticipant.tryCreate(
-          party2,
-          PositiveInt.one,
-          Seq(
-            HostingParticipant(participant2, Submission)
-          ),
-        )
-      )
-      val party3participant1_2_3 = mkAdd(
+
+      val party3participant1_3 = mkAdd(
         PartyToParticipant.tryCreate(
           party3,
           PositiveInt.one,
           Seq(
             HostingParticipant(participant1, Submission),
-            HostingParticipant(participant2, Submission),
             HostingParticipant(participant3, Submission),
           ),
         )
       )
       val lfParty1 = party1.toLf
-      val lfParty2 = party2.toLf
+
       val lfParty3 = party3.toLf
-      val allParticipants = Seq(participant1, participant2, participant3)
-      val allParties = Seq(party1, party2, party3).map(_.toLf)
+      val allParticipants = Seq(participant1, participant3)
+      val allParties = Seq(party1, party3).map(_.toLf)
       val allPartiesAndParticipants =
-        Seq((party1, participant1), (party2, participant2), (party3, participant3))
+        Seq((party1, participant1), (party3, participant3))
       loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
         {
           for {
@@ -423,13 +414,11 @@ trait StoreBasedTopologySnapshotTest
               ts,
               Seq(
                 dpc1,
-                p1_otk, // we have OTK for P1
-                p2_dtc, // we have DTC for P2,
+                p1_otk, // we have OTK for P1, but no STC
                 p3_otk,
                 p3_dtc,
                 party1participant1,
-                party2participant2,
-                party3participant1_2_3,
+                party3participant1_3,
               ),
             )
             _ = fixture.client.observed(
@@ -462,7 +451,7 @@ trait StoreBasedTopologySnapshotTest
               )
               .map(_.toMap)
             hostedOn <- MonadUtil
-              .sequentialTraverse(Seq(participant1, participant2, participant3))(par =>
+              .sequentialTraverse(Seq(participant1, participant3))(par =>
                 snapshot.hostedOn(allParties.toSet, par).map((par, _))
               )
               .map(_.toMap)
@@ -527,12 +516,10 @@ trait StoreBasedTopologySnapshotTest
           } yield {
             activeParticipantsOfParties shouldBe Map(
               lfParty1 -> Set.empty,
-              lfParty2 -> Set.empty,
               lfParty3 -> Set(participant3),
             )
             activeParticipantsOfPartiesWithInfo shouldBe Map(
               lfParty1 -> PartyInfo(threshold = PositiveInt.one, participants = Map()),
-              lfParty2 -> PartyInfo(threshold = PositiveInt.one, participants = Map()),
               lfParty3 -> PartyInfo(
                 threshold = PositiveInt.one,
                 participants =
@@ -541,72 +528,58 @@ trait StoreBasedTopologySnapshotTest
             )
             activeParticipantsOf shouldBe Map(
               lfParty1 -> Map(),
-              lfParty2 -> Map(),
               lfParty3 -> Map(
                 participant3 -> ParticipantAttributes(ParticipantPermission.Submission)
               ),
             )
             allHaveActiveParticipants shouldBe Map(
               lfParty1 -> Left(Set(lfParty1)),
-              lfParty2 -> Left(Set(lfParty2)),
               lfParty3 -> Right(()),
             )
             isHostedByAtLeastOneParticipantF shouldBe Map(
               lfParty1 -> Set.empty[LfPartyId],
-              lfParty2 -> Set.empty[LfPartyId],
               lfParty3 -> Set(lfParty3),
             )
             hostedOn shouldBe Map(
               participant1 -> Map(),
-              participant2 -> Map(),
               participant3 -> Map(
                 lfParty3 -> ParticipantAttributes(ParticipantPermission.Submission)
               ),
             )
-            allHostedOn shouldBe Map(party1 -> false, party2 -> false, party3 -> true)
+            allHostedOn shouldBe Map(party1 -> false, party3 -> true)
             canConfirm shouldBe Map(
               party1 -> Set.empty,
-              party2 -> Set.empty,
               party3 -> Set(lfParty3),
             )
             hasNoConfirmer shouldBe Map(
               lfParty1 -> Set(lfParty1),
-              lfParty2 -> Set(lfParty2),
               lfParty3 -> Set.empty,
             )
             canNotSubmit shouldBe Map(
               party1 -> List(lfParty1),
-              party2 -> List(lfParty2),
               party3 -> List.empty,
             )
             activeParticipantsOfAll shouldBe Map(
               lfParty1 -> Left(Set(lfParty1)),
-              lfParty2 -> Left(Set(lfParty2)),
               lfParty3 -> Right(Set(participant3)),
             )
             knownParties shouldBe Set(participant3.adminParty, party3)
             signingKeys(participant1) should not be empty
-            signingKeys(participant2) shouldBe empty
             signingKeys(participant3) should not be empty
             encryptionKeys(participant1) should not be empty
-            encryptionKeys(participant2) shouldBe empty
             encryptionKeys(participant3) should not be empty
             isParticipantActive shouldBe Map(
               participant1 -> false,
-              participant2 -> false,
               participant3 -> true,
             )
             isParticipantActiveAndCanLoginAt shouldBe Map(
               participant1 -> false,
-              participant2 -> false,
               participant3 -> true,
             )
             allMembers should contain(participant3)
             allMembers should not contain (participant1)
-            allMembers should not contain (participant2)
             isMemberKnown shouldBe Map(
               participant1 -> false,
-              participant2 -> false,
               participant3 -> true,
             )
             succeed

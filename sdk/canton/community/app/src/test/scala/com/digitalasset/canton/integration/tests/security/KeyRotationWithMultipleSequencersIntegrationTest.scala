@@ -72,7 +72,7 @@ trait KeyRotationWithMultipleSequencersIntegrationTest
         // Sequencer nodes only have signing keys
         val newKey = sequencer1.keys.secret
           .generate_signing_key(
-            keySpec = Some(sequencer1.crypto.privateCrypto.signingKeySpecs.default),
+            keySpec = Some(sequencer1.crypto.privateCrypto.signingSchemes.keySpecs.default),
             usage = SigningKeyUsage.NamespaceOnly,
           )
 

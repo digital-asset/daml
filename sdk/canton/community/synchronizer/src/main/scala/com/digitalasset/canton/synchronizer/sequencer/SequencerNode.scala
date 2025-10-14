@@ -343,6 +343,7 @@ class SequencerNodeBootstrap(
           storage,
           synchronizerId.protocolVersion,
           timeouts,
+          parameters.batchingConfig,
           loggerFactory,
         )
       addCloseable(store)
@@ -468,7 +469,7 @@ class SequencerNodeBootstrap(
     // save one argument and grab the synchronizerId from the store ...
     private val psid = synchronizerTopologyManager.psid
     private val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", psid.toString)
+      loggerFactory.append("psid", psid.toString)
 
     preinitializedServer.foreach(x => addCloseable(x.publicServer))
 
@@ -519,6 +520,7 @@ class SequencerNodeBootstrap(
                 val topologySnapshotValidator = new InitialTopologySnapshotValidator(
                   crypto.pureCrypto,
                   synchronizerTopologyStore,
+                  Some(crypto.staticSynchronizerParameters),
                   validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
                   loggerFactory,
                 )

@@ -28,13 +28,13 @@ sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingE
 object TransactionRoutingError extends RoutingErrorGroup {
 
   final case class SubmissionError[PARENT <: TransactionError](
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       parent: PARENT,
   ) extends TransactionParentError[PARENT]
       with TransactionRoutingError {
 
     override def mixinContext: Map[String, String] = Map(
-      "synchronizerId" -> synchronizerId.toString
+      "physicalSynchronizerId" -> psid.toString
     )
 
   }

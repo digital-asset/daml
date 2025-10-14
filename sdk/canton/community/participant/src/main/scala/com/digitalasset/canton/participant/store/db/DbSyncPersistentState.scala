@@ -175,6 +175,7 @@ class DbPhysicalSyncPersistentState(
       SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       timeouts,
+      parameters.batchingConfig,
       loggerFactory,
     )
 

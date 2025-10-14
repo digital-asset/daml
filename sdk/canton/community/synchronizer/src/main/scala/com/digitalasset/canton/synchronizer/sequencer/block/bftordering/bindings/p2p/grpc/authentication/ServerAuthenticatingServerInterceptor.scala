@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -54,6 +55,8 @@ private[bftordering] class ServerAuthenticatingServerInterceptor(
       crypto,
       supportedProtocolVersions,
       config,
+      metricsO = None,
+      metricsContext = MetricsContext.Empty,
       timeouts,
       loggerFactory,
     )

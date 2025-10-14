@@ -400,6 +400,8 @@ private[bftordering] final class P2PGrpcConnectionManager(
             NonEmpty(Map, Endpoint(p2pEndpoint.address, p2pEndpoint.port) -> channel),
           supportedProtocolVersions = Seq(auth.psId.protocolVersion),
           tokenManagerConfig = auth.authTokenConfig,
+          metricsO = None,
+          metricsContext = MetricsContext.Empty,
           clock = auth.clock,
           timeouts = timeouts,
           loggerFactory = loggerFactory,

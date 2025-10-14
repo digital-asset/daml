@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent, InterfaceView}
+import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent, InterfaceView}
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
 import com.daml.metrics.Timed
@@ -17,11 +17,7 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, RejectionGenerators}
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
-  Entry,
-  RawArchivedEventLegacy,
-  RawExercisedEventLegacy,
-}
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawExercisedEvent
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation.ApiContractData
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
@@ -234,12 +230,11 @@ final class LfValueTranslation(
 
   def deserializeRawExercised(
       eventProjectionProperties: EventProjectionProperties,
-      rawExercisedEventEntry: Entry[RawExercisedEventLegacy],
+      rawExercisedEvent: RawExercisedEvent,
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
-  ): Future[ExercisedEvent] = {
-    val rawExercisedEvent = rawExercisedEventEntry.event
+  ): Future[ExercisedEvent] =
     for {
       // Deserialize contract argument and contract key
       // This returns the values in Daml-LF format.
@@ -295,8 +290,8 @@ final class LfValueTranslation(
         case None => Future.successful(None)
       }
     } yield ExercisedEvent(
-      offset = rawExercisedEventEntry.offset,
-      nodeId = rawExercisedEventEntry.nodeId,
+      offset = rawExercisedEvent.offset,
+      nodeId = rawExercisedEvent.nodeId,
       contractId = rawExercisedEvent.contractId.coid,
       templateId = Some(
         LfEngineToApi.toApiIdentifier(rawExercisedEvent.templateId.toIdentifier)
@@ -306,7 +301,7 @@ final class LfValueTranslation(
       ),
       choice = choiceName,
       choiceArgument = Some(choiceArgument),
-      actingParties = rawExercisedEvent.exerciseActors,
+      actingParties = rawExercisedEvent.exerciseActors.toSeq,
       consuming = rawExercisedEvent.exerciseConsuming,
       witnessParties = rawExercisedEvent.witnessParties.toSeq,
       lastDescendantNodeId = rawExercisedEvent.exerciseLastDescendantNodeId,
@@ -320,31 +315,8 @@ final class LfValueTranslation(
             rawExercisedEvent.templateId,
           )
         else Nil,
-      acsDelta = rawExercisedEvent.flatEventWitnesses.nonEmpty,
+      acsDelta = rawExercisedEvent.acsDeltaForWitnesses,
     )
-  }
-
-  def deserializeRawArchived(
-      eventProjectionProperties: EventProjectionProperties,
-      rawArchivedEventEntry: Entry[RawArchivedEventLegacy],
-  ): ArchivedEvent = {
-    val rawArchivedEvent = rawArchivedEventEntry.event
-    ArchivedEvent(
-      offset = rawArchivedEventEntry.offset,
-      nodeId = rawArchivedEventEntry.nodeId,
-      contractId = rawArchivedEvent.contractId.coid,
-      templateId = Some(
-        LfEngineToApi.toApiIdentifier(rawArchivedEvent.templateId.toIdentifier)
-      ),
-      witnessParties = rawArchivedEvent.witnessParties.toSeq,
-      packageName = rawArchivedEvent.templateId.pkgName,
-      implementedInterfaces = implementedInterfaces(
-        eventProjectionProperties,
-        rawArchivedEvent.witnessParties,
-        rawArchivedEvent.templateId,
-      ),
-    )
-  }
 
   def toApiCreatedEvent(
       eventProjectionProperties: EventProjectionProperties,

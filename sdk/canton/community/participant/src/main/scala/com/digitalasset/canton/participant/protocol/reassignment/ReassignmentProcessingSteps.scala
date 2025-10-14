@@ -80,7 +80,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
   val participantId: ParticipantId
 
-  val synchronizerId: ReassignmentTag[PhysicalSynchronizerId]
+  val psid: ReassignmentTag[PhysicalSynchronizerId]
 
   val protocolVersion: ReassignmentTag[ProtocolVersion]
 
@@ -319,7 +319,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       requestId = requestId,
       rootHash = rootHash,
       malformedPayloads = malformedPayloads,
-      synchronizerId = synchronizerId.unwrap,
+      synchronizerId = psid.unwrap,
       participantId = participantId,
       protocolVersion = protocolVersion.unwrap,
     )
@@ -348,7 +348,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         completionInfo,
         rejection,
-        synchronizerId.unwrap.logical,
+        psid.unwrap.logical,
         ts,
       )
     )
@@ -378,7 +378,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         info,
         rejection,
-        synchronizerId.unwrap.logical,
+        psid.unwrap.logical,
         pendingReassignment.requestId.unwrap,
       )
     )
@@ -427,7 +427,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
           requestId = requestId,
           rootHash = validationResult.rootHash,
           malformedPayloads = malformedPayloads,
-          synchronizerId = synchronizerId.unwrap,
+          synchronizerId = psid.unwrap,
           participantId = participantId,
           protocolVersion = protocolVersion,
         )
@@ -453,7 +453,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
           ConfirmationResponses.tryCreate(
             requestId,
             rootHash,
-            synchronizerId.unwrap,
+            psid.unwrap,
             participantId,
             NonEmpty.mk(
               Seq,
@@ -530,7 +530,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
             ConfirmationResponses.tryCreate(
               requestId,
               validationResult.rootHash,
-              synchronizerId.unwrap,
+              psid.unwrap,
               participantId,
               NonEmpty.mk(
                 Seq,

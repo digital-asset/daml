@@ -180,7 +180,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     viewHash: ViewHash,
     sessionKeys: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
     encryptedView: EncryptedView[VT],
-    override val synchronizerId: PhysicalSynchronizerId,
+    override val psid: PhysicalSynchronizerId,
     viewEncryptionScheme: SymmetricKeyScheme,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -199,7 +199,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
       viewHash: ViewHash = this.viewHash,
       sessionKeyRandomness: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]] = this.sessionKeys,
       encryptedView: EncryptedView[A] = this.encryptedView,
-      synchronizerId: PhysicalSynchronizerId = this.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = this.psid,
       viewEncryptionScheme: SymmetricKeyScheme = this.viewEncryptionScheme,
   ): EncryptedViewMessage[A] = new EncryptedViewMessage(
     submittingParticipantSignature,
@@ -216,7 +216,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     submittingParticipantSignature = submittingParticipantSignature.map(_.toProtoV30),
     viewHash = viewHash.toProtoPrimitive,
     sessionKeyLookup = sessionKeys.map(EncryptedViewMessage.serializeSessionKeyEntry),
-    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+    physicalSynchronizerId = psid.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
   )
 
@@ -240,7 +240,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     param("view hash", _.viewHash),
     param("view type", _.viewType),
     param("size", _.encryptedView.sizeHint),
-    param("synchronizerId", _.synchronizerId),
+    param("psid", _.psid),
     param("number of session keys", _.sessionKeys.size),
     param("view encryption scheme", _.viewEncryptionScheme),
   )
@@ -449,11 +449,11 @@ object EncryptedViewMessage extends VersioningCompanion[EncryptedViewMessage[Vie
       )
       _ <- eitherT(
         Either.cond(
-          decrypted.synchronizerId == encrypted.synchronizerId,
+          decrypted.psid == encrypted.psid,
           (),
           EncryptedViewMessageError.WrongSynchronizerIdInEncryptedViewMessage(
-            encrypted.synchronizerId,
-            decrypted.synchronizerId,
+            encrypted.psid,
+            decrypted.psid,
           ),
         )
       )

@@ -633,6 +633,7 @@ abstract class CantonNodeBootstrapImpl[
         storage,
         ProtocolVersion.latest,
         bootstrapStageCallback.timeouts,
+        parameters.batchingConfig,
         bootstrapStageCallback.loggerFactory,
       )
     addCloseable(authorizedStore)
@@ -722,8 +723,11 @@ abstract class CantonNodeBootstrapImpl[
       val snapshotValidator = new InitialTopologySnapshotValidator(
         crypto.pureCrypto,
         temporaryTopologyStore,
+        // there are no synchronizer parameters here, so we cannot pass them.
+        // as we are only expecting namespace delegations that end up in the authorized store, this is fine
+        staticSynchronizerParameters = None,
         validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
-        this.loggerFactory,
+        loggerFactory = this.loggerFactory,
       )
 
       for {

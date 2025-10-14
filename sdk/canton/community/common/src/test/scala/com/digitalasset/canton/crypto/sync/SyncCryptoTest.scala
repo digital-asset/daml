@@ -124,7 +124,7 @@ trait SyncCryptoTest
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
-      CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
+      CryptoPrivateStoreFactory.withoutKms(),
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,

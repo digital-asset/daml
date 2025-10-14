@@ -41,6 +41,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   InteractiveSubmissionServiceConfig,
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
@@ -116,6 +117,7 @@ object ApiServices {
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
+      packageServiceConfig: PackageServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       contractAuthenticator: ContractAuthenticatorFn,
       telemetry: Telemetry,
@@ -171,7 +173,12 @@ object ApiServices {
         )
         val apiEventQueryService =
           new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageService(syncService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(
+          syncService,
+          packageServiceConfig,
+          telemetry,
+          loggerFactory,
+        )
         val apiUpdateService =
           new ApiUpdateService(
             updateService,
@@ -193,6 +200,7 @@ object ApiServices {
             ledgerFeatures,
             userManagementServiceConfig,
             partyManagementServiceConfig,
+            packageServiceConfig,
             telemetry,
             loggerFactory,
           )

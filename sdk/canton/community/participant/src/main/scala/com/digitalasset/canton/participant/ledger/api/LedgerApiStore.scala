@@ -20,7 +20,6 @@ import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
 import com.digitalasset.canton.platform.{ResourceCloseable, ResourceOwnerFlagCloseableOps}
-import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerParticipantId, config}
@@ -207,12 +206,12 @@ class LedgerApiStore(
       )
     )
 
-  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(implicit
-      traceContext: TraceContext,
-      ec: ExecutionContext,
-  ): FutureUnlessShutdown[Set[LfContractId]] =
-    executeSqlUS(metrics.index.db.archivalsLegacy)(
-      eventStorageBackend.archivalsLegacy(fromExclusive, toInclusive)
+  def prunableContracts(
+      fromExclusive: Option[Offset],
+      toInclusive: Offset,
+  )(implicit traceContext: TraceContext, ec: ExecutionContext): FutureUnlessShutdown[Set[Long]] =
+    executeSqlUS(metrics.index.db.prunableContracts)(
+      eventStorageBackend.prunableContracts(fromExclusive, toInclusive)
     )
 
   private[api] def initializeInMemoryState(implicit

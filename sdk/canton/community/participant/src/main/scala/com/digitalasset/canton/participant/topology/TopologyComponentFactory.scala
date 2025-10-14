@@ -98,6 +98,7 @@ class TopologyComponentFactory(
         val processor = new TopologyTransactionProcessor(
           crypto.pureCrypto,
           topologyStore,
+          crypto.staticSynchronizerParameters,
           acsCommitmentScheduleEffectiveTime,
           terminateTopologyProcessing,
           futureSupervisor,
@@ -124,6 +125,7 @@ class TopologyComponentFactory(
     new InitialTopologySnapshotValidator(
       crypto.pureCrypto,
       topologyStore,
+      Some(crypto.staticSynchronizerParameters),
       validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
       loggerFactory,
     )

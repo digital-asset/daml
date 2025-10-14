@@ -40,6 +40,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.admin.data.{
+  ContractImportMode,
+  RepresentativePackageIdOverride,
+}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
@@ -1164,15 +1168,25 @@ class ParticipantPartiesAdministrationGroup(
       |The argument is:
       |- importFilePath: The path denoting the file from where the ACS snapshot will be read.
       |                  Defaults to "canton-acs-export.gz" when undefined.
-      """
+      |- representativePackageIdOverride: Defines override mappings for assigning
+      |                                   representative package IDs to contracts upon ACS import.
+      |                                   Defaults to NoOverride when undefined.
+      |- contractImportMode: Governs contract authentication processing on import. Options include
+      |                      Validation (default), [Accept, Recomputation].
+   """
   )
   def import_party_acs(
-      importFilePath: String = "canton-acs-export.gz"
+      importFilePath: String = "canton-acs-export.gz",
+      representativePackageIdOverride: RepresentativePackageIdOverride =
+        RepresentativePackageIdOverride.NoOverride,
+      contractImportMode: ContractImportMode = ContractImportMode.Validation,
   ): Unit =
     consoleEnvironment.run {
       reference.adminCommand(
         ParticipantAdminCommands.PartyManagement.ImportPartyAcs(
-          ByteString.copyFrom(File(importFilePath).loadBytes)
+          ByteString.copyFrom(File(importFilePath).loadBytes),
+          representativePackageIdOverride,
+          contractImportMode,
         )
       )
     }

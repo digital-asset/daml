@@ -23,6 +23,7 @@ import com.digitalasset.canton.platform.config.{
   IdentityProviderManagementConfig,
   IndexServiceConfig as LedgerIndexServiceConfig,
   InteractiveSubmissionServiceConfig,
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   TopologyAwarePackageSelectionConfig,
   UserManagementServiceConfig,
@@ -205,6 +206,8 @@ object RemoteParticipantConfig {
   *   configurations pertaining to the ledger api server's "user management service"
   * @param partyManagementService
   *   configurations pertaining to the ledger api server's "party management service"
+  * @param packageService
+  *   configurations pertaining to the ledger api server's "package service"
   * @param managementServiceTimeout
   *   ledger api server management service maximum duration. Duration has to be finite as the ledger
   *   api server uses java.time.duration that does not support infinite scala durations.
@@ -235,6 +238,7 @@ final case class LedgerApiServerConfig(
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
     partyManagementService: PartyManagementServiceConfig = PartyManagementServiceConfig(),
+    packageService: PackageServiceConfig = PackageServiceConfig(),
     managementServiceTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultManagementServiceTimeout,
     enableCommandInspection: Boolean = true,

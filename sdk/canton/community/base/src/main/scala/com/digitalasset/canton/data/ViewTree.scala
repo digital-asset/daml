@@ -30,15 +30,15 @@ trait ViewTree extends PrettyPrinting {
 
   /** The root hash of the view tree.
     *
-    * Two view trees with the same [[rootHash]] must also have the same [[synchronizerId]] and
-    * [[mediator]] (except for hash collisions).
+    * Two view trees with the same [[rootHash]] must also have the same [[psid]] and [[mediator]]
+    * (except for hash collisions).
     */
   def rootHash: RootHash
 
   /** The synchronizer to which the
     * [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to
     */
-  def synchronizerId: PhysicalSynchronizerId
+  def psid: PhysicalSynchronizerId
 
   /** The mediator group that is responsible for coordinating this request */
   def mediator: MediatorGroupRecipient

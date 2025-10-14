@@ -2812,14 +2812,11 @@ object UpdateToDbDtoSpec {
 
   // These test do not check the correctness of compression.
   // All values are compressed using a dummy (identity) algorithm in this suite.
-  private val compressionAlgorithmIdInvalid = Some(12)
   private val compressionAlgorithmIdConsumingArg = Some(13)
   private val compressionAlgorithmIdConsumingRes = Some(14)
   private val compressionAlgorithmIdNonConsumingArg = Some(15)
   private val compressionAlgorithmIdNonConsumingRes = Some(16)
   private val compressionStrategy: CompressionStrategy = CompressionStrategy(
-    new FieldCompressionStrategy(compressionAlgorithmIdInvalid, x => x),
-    new FieldCompressionStrategy(compressionAlgorithmIdInvalid, x => x),
     new FieldCompressionStrategy(
       compressionAlgorithmIdConsumingArg,
       compressArrayWith(compressionAlgorithmIdConsumingArg, _),

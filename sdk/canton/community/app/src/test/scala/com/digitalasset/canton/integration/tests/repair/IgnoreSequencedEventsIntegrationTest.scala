@@ -522,6 +522,8 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           forAtLeast(1, _) {
             _.toString should include("Can't decrypt the randomness of the view")
           },
+          timeUntilSuccess = 30.seconds,
+          maxPollInterval = 3.second,
         )
       }
 

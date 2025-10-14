@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.synchronizer.grpc
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
@@ -155,8 +156,8 @@ class GrpcSynchronizerRegistry(
     val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
 
     val synchronizerLoggerFactory = loggerFactory.append(
-      "synchronizerId",
-      config.synchronizerId.map(_.toString).getOrElse(config.synchronizerAlias.toString),
+      "synchronizerAlias",
+      config.synchronizerAlias.toString,
     )
 
     val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
@@ -168,6 +169,8 @@ class GrpcSynchronizerRegistry(
       clock = clock,
       crypto = cryptoApiProvider.crypto,
       seedForRandomnessO = testingConfig.sequencerTransportSeed,
+      metrics = metrics(config.synchronizerAlias).sequencerClient.connectionPool,
+      metricsContext = MetricsContext.Empty,
       futureSupervisor = futureSupervisor,
       timeouts = timeouts,
       loggerFactory = synchronizerLoggerFactory,

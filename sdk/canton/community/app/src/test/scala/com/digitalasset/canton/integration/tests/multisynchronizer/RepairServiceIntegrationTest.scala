@@ -182,11 +182,20 @@ abstract class RepairServiceIntegrationTest
         loggerFactory.assertLogsUnorderedOptional(
           {
             participant1.synchronizers.reconnect_all()
+            // TODO(i23735) remove this comment when fixed
+            //  first wait for the assignation change to go through, and only then reinitialize the commitments
+            val afterAssignation = participant1.ledger_api.state.acs
+              .active_contracts_of_party(payer)
+              .filter(_.createdEvent.value.contractId == cid.coid)
+              .loneElement
+            afterAssignation.synchronizerId shouldBe acmeId.logical.toProtoPrimitive
+            afterAssignation.reassignmentCounter shouldBe 2
+
             // TODO(i23735): when we fix the issue, the commitment reinitialization below shouldn't be necessary,
             //  because upon reconnection recovery events would essentially get commitments back to a good state
-            // Repairing commitments happens when we are connected to the synchronizer, so we reconnect first.
-            // In between reconnecting and repairing, a commitment tick might still happen, which is why we still
-            // have the log suppression until after repairing the commitments
+            //  Repairing commitments happens when we are connected to the synchronizer, so we reconnect first.
+            //  In between reconnecting and repairing, a commitment tick might still happen, which is why we still
+            //  have the log suppression until after repairing the commitments
             val reinitCmtsResult = participant1.commitments.reinitialize_commitments(
               Seq.empty,
               Seq.empty,
@@ -203,14 +212,6 @@ abstract class RepairServiceIntegrationTest
         )
 
         // After reinitializing the commitments, there should not be any more ACS_COMMITMENT_INTERNAL_ERROR
-
-        val afterAssignation = participant1.ledger_api.state.acs
-          .active_contracts_of_party(payer)
-          .filter(_.createdEvent.value.contractId == cid.coid)
-          .loneElement
-
-        afterAssignation.synchronizerId shouldBe acmeId.logical.toProtoPrimitive
-        afterAssignation.reassignmentCounter shouldBe 2
 
         val archiveCmd = participant1.ledger_api.javaapi.state.acs
           .await(Iou.COMPANION)(payer, predicate = _.id.toLf == cid)

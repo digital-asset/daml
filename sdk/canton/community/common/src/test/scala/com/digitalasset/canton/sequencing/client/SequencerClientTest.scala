@@ -1813,7 +1813,7 @@ final class SequencerClientTest
   private class TestProtocolMessage()
       extends UnsignedProtocolMessage
       with IgnoreInSerializationTestExhaustivenessCheck {
-    override def synchronizerId: PhysicalSynchronizerId = fail("shouldn't be used")
+    override def psid: PhysicalSynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       fail("shouldn't be used")

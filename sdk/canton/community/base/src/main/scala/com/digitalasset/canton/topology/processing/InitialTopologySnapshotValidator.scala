@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.TopologyStateProcessor
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
@@ -48,6 +49,7 @@ import scala.concurrent.ExecutionContext
 class InitialTopologySnapshotValidator(
     pureCrypto: CryptoPureApi,
     store: TopologyStore[TopologyStoreId],
+    staticSynchronizerParameters: Option[StaticSynchronizerParameters],
     validateInitialSnapshot: Boolean,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, materializer: Materializer)
@@ -56,7 +58,12 @@ class InitialTopologySnapshotValidator(
   protected val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forInitialSnapshotValidation(
       store,
-      new RequiredTopologyMappingChecks(store, loggerFactory, relaxSynchronizerStateChecks = true),
+      new RequiredTopologyMappingChecks(
+        store,
+        staticSynchronizerParameters,
+        loggerFactory,
+        relaxSynchronizerStateChecks = true,
+      ),
       pureCrypto,
       loggerFactory,
     )

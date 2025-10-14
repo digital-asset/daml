@@ -157,7 +157,22 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
           contractsReader.lookupKeyState(key, eventSeqId).map(state => key -> state)
         }
         .map(_.toMap)
-      val togetherF = contractsReader.lookupKeyStatesFromDb(keys, eventSeqId)
+      val togetherF = contractsReader
+        .lookupKeyStatesFromDb(keys, eventSeqId)
+        .flatMap(resultsWithInternalContractIds =>
+          contractStore
+            .lookupBatchedNonCachedContractIds(resultsWithInternalContractIds.values)
+            .failOnShutdown
+            .map(internalToContractIds =>
+              keys.map { key =>
+                key -> resultsWithInternalContractIds
+                  .get(key)
+                  .flatMap(internalToContractIds.get)
+                  .map(KeyAssigned.apply)
+                  .getOrElse(KeyUnassigned)
+              }.toMap
+            )
+        )
       for {
         oneByOne <- oneByOneF
         together <- togetherF

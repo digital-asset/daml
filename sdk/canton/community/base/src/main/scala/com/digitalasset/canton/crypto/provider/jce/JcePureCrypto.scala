@@ -928,6 +928,7 @@ object JcePureCrypto {
       config: CryptoConfig,
       sessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
       publicKeyConversionCacheConfig: CacheConfig,
+      cryptoSchemes: CryptoSchemes,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): Either[String, JcePureCrypto] = {
 
@@ -955,14 +956,15 @@ object JcePureCrypto {
         config.provider == CryptoProvider.Jce,
         "JCE provider must be configured",
       )
+      pbkdfSchemes <- cryptoSchemes.pbkdfSchemes.toRight(
+        "PBKDF schemes must be defined for JCE provider"
+      )
       _ = Security.addProvider(JceSecurityProvider.bouncyCastleProvider)
-      schemes <- CryptoSchemes.fromConfig(config)
-      pbkdfSchemes <- schemes.pbkdfSchemes.toRight("PBKDF schemes must be defined for JCE provider")
     } yield new JcePureCrypto(
-      defaultSymmetricKeyScheme = schemes.symmetricKeySchemes.default,
-      signingAlgorithmSpecs = schemes.signingAlgoSpecs,
-      encryptionAlgorithmSpecs = schemes.encryptionAlgoSpecs,
-      defaultHashAlgorithm = schemes.hashAlgorithms.default,
+      defaultSymmetricKeyScheme = cryptoSchemes.symmetricKeySchemes.default,
+      signingAlgorithmSpecs = cryptoSchemes.signingSchemes.algorithmSpecs,
+      encryptionAlgorithmSpecs = cryptoSchemes.encryptionSchemes.algorithmSpecs,
+      defaultHashAlgorithm = cryptoSchemes.hashAlgorithms.default,
       defaultPbkdfScheme = pbkdfSchemes.default,
       publicKeyConversionCacheConfig = publicKeyConversionCacheConfig,
       privateKeyConversionCacheTtl = minimumPrivateKeyCacheDuration,

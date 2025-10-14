@@ -340,7 +340,7 @@ object PartyReplicationSourceParticipantProcessor {
       exitOnFatalFailures,
       timeouts,
       loggerFactory
-        .append("synchronizerId", psid.toProtoPrimitive)
+        .append("psid", psid.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive)
         .append("requestId", requestId.toHexString),
       testInterceptor,

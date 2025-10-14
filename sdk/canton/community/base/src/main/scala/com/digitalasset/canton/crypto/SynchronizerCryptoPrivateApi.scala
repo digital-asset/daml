@@ -51,11 +51,7 @@ final class SynchronizerCryptoPrivateApi(
       res <- privateCrypto.decrypt(encrypted)(deserialize)
     } yield res
 
-  override def encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec] =
-    privateCrypto.encryptionAlgorithmSpecs
-
-  override def encryptionKeySpecs: CryptoScheme[EncryptionKeySpec] =
-    privateCrypto.encryptionKeySpecs
+  override def encryptionSchemes: EncryptionCryptoSchemes = privateCrypto.encryptionSchemes
 
   override def generateEncryptionKey(
       keySpec: EncryptionKeySpec,
@@ -69,10 +65,7 @@ final class SynchronizerCryptoPrivateApi(
 
   override protected def initialHealthState: ComponentHealthState = getInitialHealthState
 
-  override def signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec] =
-    privateCrypto.signingAlgorithmSpecs
-
-  override def signingKeySpecs: CryptoScheme[SigningKeySpec] = privateCrypto.signingKeySpecs
+  override def signingSchemes: SigningCryptoSchemes = privateCrypto.signingSchemes
 
   override def signBytes(
       bytes: ByteString,

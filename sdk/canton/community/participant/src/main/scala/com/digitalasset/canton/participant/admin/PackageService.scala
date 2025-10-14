@@ -261,6 +261,7 @@ class PackageService(
           synchronizeVetting,
           dryRunSnapshot,
           opts.expectedTopologySerial,
+          allowUnvetPackageIdInUse = opts.forceFlags.forceUnvetWithActiveContracts,
         )
         .leftWiden[RpcError]
     } yield {

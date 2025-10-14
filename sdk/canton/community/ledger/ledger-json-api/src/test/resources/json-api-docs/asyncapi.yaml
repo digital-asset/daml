@@ -325,6 +325,8 @@ components:
           type: string
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        valueDecoded:
+          type: string
     UnknownFieldSet:
       title: UnknownFieldSet
       type: object

@@ -7,6 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
+  ServerEnforcedTimeout,
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.data.*
@@ -851,6 +852,9 @@ object TopologyAdminCommands {
           ImportTopologySnapshotResponse,
           Unit,
         ] {
+
+      override def timeoutType: TimeoutType = ServerEnforcedTimeout
+
       override protected def createRequest(): Either[String, ImportTopologySnapshotRequest] =
         Right(
           ImportTopologySnapshotRequest(
@@ -859,12 +863,13 @@ object TopologyAdminCommands {
             waitToBecomeEffective.map(_.asNonNegativeFiniteApproximation.toProtoPrimitive),
           )
         )
+      @SuppressWarnings(Array("org.wartremover.warts.Null"))
       override protected def submitRequest(
           service: TopologyManagerWriteServiceStub,
           request: ImportTopologySnapshotRequest,
       ): Future[ImportTopologySnapshotResponse] =
         GrpcStreamingUtils.streamToServer(
-          service.importTopologySnapshot,
+          service.withDeadline(null).importTopologySnapshot,
           bytes =>
             ImportTopologySnapshotRequest(
               ByteString.copyFrom(bytes),

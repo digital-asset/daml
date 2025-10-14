@@ -645,4 +645,85 @@ object RowDef {
           )
       },
     )
+
+  def combine[A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, RESULT](
+      p1: RowDef[A],
+      p2: RowDef[B],
+      p3: RowDef[C],
+      p4: RowDef[D],
+      p5: RowDef[E],
+      p6: RowDef[F],
+      p7: RowDef[G],
+      p8: RowDef[H],
+      p9: RowDef[I],
+      p10: RowDef[J],
+      p11: RowDef[K],
+      p12: RowDef[L],
+      p13: RowDef[M],
+      p14: RowDef[N],
+      p15: RowDef[O],
+      p16: RowDef[P],
+      p17: RowDef[Q],
+  )(f: (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q) => RESULT): RowDef[RESULT] =
+    RowDef(
+      Vector(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17)
+        .flatMap(_.columns)
+        .distinct,
+      (
+        p1.rowParser ~
+          p2.rowParser ~
+          p3.rowParser ~
+          p4.rowParser ~
+          p5.rowParser ~
+          p6.rowParser ~
+          p7.rowParser ~
+          p8.rowParser ~
+          p9.rowParser ~
+          p10.rowParser ~
+          p11.rowParser ~
+          p12.rowParser ~
+          p13.rowParser ~
+          p14.rowParser ~
+          p15.rowParser ~
+          p16.rowParser ~
+          p17.rowParser
+      ) map {
+        case r1 ~
+            r2 ~
+            r3 ~
+            r4 ~
+            r5 ~
+            r6 ~
+            r7 ~
+            r8 ~
+            r9 ~
+            r10 ~
+            r11 ~
+            r12 ~
+            r13 ~
+            r14 ~
+            r15 ~
+            r16 ~
+            r17 =>
+          f(
+            r1,
+            r2,
+            r3,
+            r4,
+            r5,
+            r6,
+            r7,
+            r8,
+            r9,
+            r10,
+            r11,
+            r12,
+            r13,
+            r14,
+            r15,
+            r16,
+            r17,
+          )
+      },
+    )
 }

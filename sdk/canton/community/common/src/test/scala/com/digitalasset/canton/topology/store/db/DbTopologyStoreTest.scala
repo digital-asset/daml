@@ -42,7 +42,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
         0 -> testData.dtc_p1_synchronizer1,
       )
 
-      val partyAllocations = (1 to maxItemsInSqlQuery.value * 2 + 3) map { i =>
+      val partyAllocations = (1 to 43) map { i =>
         i -> testData.makeSignedTx(
           PartyToParticipant.tryCreate(
             PartyId.tryCreate(s"party$i", testData.p1Namespace),
@@ -69,6 +69,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
         _ <- new InitialTopologySnapshotValidator(
           testData.factory.syncCryptoClient.crypto.pureCrypto,
           store,
+          Some(defaultStaticSynchronizerParameters),
           validateInitialSnapshot = true,
           loggerFactory,
         ).validateAndApplyInitialTopologySnapshot(topologySnapshot)

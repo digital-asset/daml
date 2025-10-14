@@ -81,13 +81,13 @@ class SyncCryptoApiParticipantProvider(
   }
 
   private def createSynchronizerCryptoClient(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerTopologyClient: SynchronizerTopologyClient,
   ) =
     SynchronizerCryptoClient.createWithOptionalSessionKeys(
       member,
-      synchronizerId,
+      psid,
       synchronizerTopologyClient,
       staticSynchronizerParameters,
       SynchronizerCrypto(crypto, staticSynchronizerParameters),
@@ -96,7 +96,7 @@ class SyncCryptoApiParticipantProvider(
       publicKeyConversionCacheConfig,
       timeouts,
       futureSupervisor,
-      loggerFactory.append("synchronizerId", synchronizerId.toString),
+      loggerFactory.append("psid", psid.toString),
     )
 
   private def getOrUpdate(

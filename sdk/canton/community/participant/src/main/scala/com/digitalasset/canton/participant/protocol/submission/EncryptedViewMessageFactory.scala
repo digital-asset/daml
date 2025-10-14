@@ -84,7 +84,7 @@ object EncryptedViewMessageFactory {
       viewTree.viewHash,
       sessionKeyRandomnessMapNE,
       encryptedView,
-      viewTree.synchronizerId,
+      viewTree.psid,
       cryptoSnapshot.pureCrypto.defaultSymmetricKeyScheme,
       protocolVersion,
     )

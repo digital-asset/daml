@@ -49,13 +49,9 @@ object CommunitySequencerNodeBootstrapFactory extends SequencerNodeBootstrapFact
         new StorageSingleFactory(arguments.config.storage),
         new CryptoPrivateStoreFactory(
           arguments.config.crypto.provider,
-          arguments.config.crypto.kms,
           arguments.config.parameters.caching.kmsMetadataCache,
           arguments.config.crypto.privateKeyStore,
           replicaManager = None,
-          arguments.futureSupervisor,
-          arguments.clock,
-          arguments.executionContext,
         ),
       )
       .map { bootstrapCommonArguments =>

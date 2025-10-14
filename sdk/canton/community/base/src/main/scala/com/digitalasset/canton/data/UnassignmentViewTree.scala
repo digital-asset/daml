@@ -428,7 +428,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def reassignmentRef: ContractIdRef = ContractIdRef(contracts.contractIds.toSet)
 
   // Synchronizers
-  override def synchronizerId: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
+  override def psid: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
   override def sourceSynchronizer: Source[PhysicalSynchronizerId] = commonData.sourceSynchronizerId
   override def targetSynchronizer: Target[PhysicalSynchronizerId] = view.targetSynchronizerId
   def targetTimestamp: Target[CantonTimestamp] = view.targetTimestamp

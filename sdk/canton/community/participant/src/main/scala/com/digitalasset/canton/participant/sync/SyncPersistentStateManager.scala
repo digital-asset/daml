@@ -384,7 +384,7 @@ class SyncPersistentStateManager(
     aliasResolution.aliasForSynchronizerId(synchronizerId)
 
   private def psidLoggerFactory(psid: PhysicalSynchronizerId) =
-    loggerFactory.append("synchronizerId", psid.toString)
+    loggerFactory.append("psid", psid.toString)
   private def lsidLoggerFactory(lsid: SynchronizerId) =
     loggerFactory.append("synchronizerId", lsid.toString)
 
@@ -441,7 +441,7 @@ class SyncPersistentStateManager(
         parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
-        loggerFactory.append("synchronizerId", psid.toString),
+        loggerFactory.append("psid", psid.toString),
       )
     )
 

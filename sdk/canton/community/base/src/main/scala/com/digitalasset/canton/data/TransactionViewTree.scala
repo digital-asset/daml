@@ -67,7 +67,7 @@ trait TransactionViewTree extends ViewTree {
 
   lazy val transactionUuid: UUID = commonMetadata.uuid
 
-  override def synchronizerId: PhysicalSynchronizerId = commonMetadata.synchronizerId
+  override def psid: PhysicalSynchronizerId = commonMetadata.synchronizerId
 
   override def mediator: MediatorGroupRecipient = commonMetadata.mediator
 

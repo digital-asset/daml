@@ -228,7 +228,7 @@ abstract class BlockSequencerFactory(
     )
 
     val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", synchronizerSyncCryptoApi.psid.toString)
+      loggerFactory.append("psid", synchronizerSyncCryptoApi.psid.toString)
 
     for {
       initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))

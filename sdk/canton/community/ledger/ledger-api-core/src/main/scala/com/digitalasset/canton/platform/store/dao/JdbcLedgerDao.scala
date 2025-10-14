@@ -192,6 +192,8 @@ private class JdbcLedgerDao(
     *   Offset up to which to prune archived history inclusively.
     */
   override def prune(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
       incompleteReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
@@ -201,9 +203,11 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql(metrics.index.db.pruneDbMetrics) { conn =>
-        readStorageBackend.eventStorageBackend.pruneEventsLegacy(
-          pruneUpToInclusive,
-          incompleteReassignmentOffsets,
+        readStorageBackend.eventStorageBackend.pruneEvents(
+          previousPruneUpToInclusive = previousPruneUpToInclusive,
+          previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
+          pruneUpToInclusive = pruneUpToInclusive,
+          incompleteReassignmentOffsets = incompleteReassignmentOffsets,
         )(
           conn,
           loggingContext.traceContext,
@@ -273,18 +277,6 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val reassignmentStreamReader = new ReassignmentStreamReader(
-    globalIdQueriesLimiter = globalIdQueriesLimiter,
-    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    dbDispatcher = dbDispatcher,
-    queryValidRange = queryValidRange,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
-    contractStore = contractStore,
-    metrics = metrics,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
   private val updatesStreamReader = new UpdatesStreamReader(
     config = updatesStreamsConfig,
     globalIdQueriesLimiter = globalIdQueriesLimiter,
@@ -297,17 +289,6 @@ private class JdbcLedgerDao(
     metrics = metrics,
     tracer = tracer,
     topologyTransactionsStreamReader = topologyTransactionsStreamReader,
-    reassignmentStreamReader = reassignmentStreamReader,
-    loggerFactory = loggerFactory,
-  )(queryExecutionContext)
-
-  private val reassignmentPointwiseReader = new ReassignmentPointwiseReader(
-    dbDispatcher = dbDispatcher,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    metrics = metrics,
-    lfValueTranslation = translation,
-    queryValidRange = queryValidRange,
-    contractStore = contractStore,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
@@ -320,7 +301,7 @@ private class JdbcLedgerDao(
     loggerFactory = loggerFactory,
   )(queryExecutionContext)
 
-  private val transactionPointwiseReader = new TransactionPointwiseReader(
+  private val transactionPointwiseReader = new TransactionOrReassignmentPointwiseReader(
     dbDispatcher = dbDispatcher,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     metrics = metrics,
@@ -336,7 +317,6 @@ private class JdbcLedgerDao(
     parameterStorageBackend = parameterStorageBackend,
     metrics = metrics,
     transactionPointwiseReader = transactionPointwiseReader,
-    reassignmentPointwiseReader = reassignmentPointwiseReader,
     topologyTransactionPointwiseReader = topologyTransactionPointwiseReader,
     loggerFactory = loggerFactory,
   )(queryExecutionContext)

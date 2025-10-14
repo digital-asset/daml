@@ -60,6 +60,7 @@ import scala.math.Ordering.Implicits.*
 class TopologyTransactionProcessor(
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     val terminateProcessing: TerminateProcessing,
     futureSupervisor: FutureSupervisor,
@@ -75,7 +76,7 @@ class TopologyTransactionProcessor(
   protected lazy val stateProcessor: TopologyStateProcessor =
     TopologyStateProcessor.forTransactionProcessing(
       store,
-      new RequiredTopologyMappingChecks(store, loggerFactory),
+      new RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory),
       pureCrypto,
       loggerFactory,
     )
@@ -332,7 +333,7 @@ class TopologyTransactionProcessor(
                 )(wrongMsgs =>
                   TopologyManagerError.TopologyManagerAlarm
                     .Warn(
-                      s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.synchronizerId)}"
+                      s"received messages with wrong synchronizer ids: ${wrongMsgs.map(_.protocolMessage.psid)}"
                     )
                     .report()
                 )
@@ -544,6 +545,7 @@ object TopologyTransactionProcessor {
     val processor = new TopologyTransactionProcessor(
       pureCrypto,
       topologyStore,
+      staticSynchronizerParameters,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
       futureSupervisor,

@@ -31,7 +31,7 @@ class JceCryptoTest
     with PrivateKeyValidationTest
     with CryptoKeyFormatMigrationTest {
 
-  "JceCrypto" can {
+  "JceCrypto" must {
 
     // use a short duration to verify that a Java key is removed from the cache promptly
     lazy val javaKeyCacheDuration = PositiveFiniteDuration.ofSeconds(4)
@@ -47,7 +47,7 @@ class JceCryptoTest
             config.NonNegativeFiniteDuration(javaKeyCacheDuration.underlying)
           ),
           new MemoryStorage(loggerFactory, timeouts),
-          CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
+          CryptoPrivateStoreFactory.withoutKms(),
           testedReleaseProtocolVersion,
           futureSupervisor,
           wallClock,

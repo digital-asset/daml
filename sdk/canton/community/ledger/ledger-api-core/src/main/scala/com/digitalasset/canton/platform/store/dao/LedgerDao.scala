@@ -112,6 +112,8 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     * @return
     */
   def prune(
+      previousPruneUpToInclusive: Option[Offset],
+      previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit

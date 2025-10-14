@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
 import com.daml.ledger.api.v2.{package_reference, package_service}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.daml.nonempty.*
+import com.daml.platform.v1.page_tokens.ListVettedPackagesPageTokenPayload
 import com.digitalasset.canton.ProtoDeserializationError.{
   FieldNotSet,
   InvariantViolation,
@@ -28,7 +29,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
-import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.util.{EitherUtil, OptionUtil}
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -37,7 +38,11 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import scalaz.@@
 import scalaz.syntax.tag.*
 
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import scala.collection.immutable
+import scala.math.Ordering.Implicits.*
+import scala.util.Try
 
 final case class UpdateFormat(
     includeTransactions: Option[TransactionFormat],
@@ -233,6 +238,8 @@ object Logging {
 final case class ListVettedPackagesOpts(
     packageFilter: Option[PackageMetadataFilter],
     topologyStateFilter: Option[TopologyStateFilter],
+    pageToken: Option[ListVettedPackagesOpts.PageToken],
+    pageSize: PositiveInt,
 ) {
   def toPackagePredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = {
     (pkgId: Ref.PackageId) =>
@@ -244,16 +251,112 @@ final case class ListVettedPackagesOpts(
 
   def synchronizersNE: Option[NonEmpty[Set[SynchronizerId]]] =
     topologyStateFilter.flatMap(filter => NonEmpty.from(filter.synchronizerIds.toSet))
+
+  private def greaterThanToken(vettedPackages: EnrichedVettedPackages): Boolean =
+    pageToken match {
+      case None => true
+      case Some(token) =>
+        vettedPackages.toPageToken.toSortingTuple > token.toSortingTuple
+    }
+
+  def toPage(
+      results: Seq[EnrichedVettedPackages]
+  ): (
+      Seq[EnrichedVettedPackages],
+      String,
+  ) = {
+    val page = results
+      .filter(greaterThanToken(_))
+      .sortBy(_.toPageToken.toSortingTuple)
+      .take(pageSize.value)
+    val nextToken = page.lastOption
+      .map(_.toPageToken.encodeString)
+      .getOrElse("")
+    (page, nextToken)
+  }
 }
 
 object ListVettedPackagesOpts {
+  final case class PageToken(synchronizerId: SynchronizerId, participantId: ParticipantId) {
+    def encodeString: String = {
+      val bytes = Base64.getUrlEncoder.encode(
+        ListVettedPackagesPageTokenPayload(
+          synchronizerId = synchronizerId.uid.toProtoPrimitive,
+          participantId = participantId.uid.toProtoPrimitive,
+        ).toByteArray
+      )
+      new String(bytes, StandardCharsets.UTF_8)
+    }
+
+    def toSortingTuple: (String, String) =
+      synchronizerId.uid.toProtoPrimitive -> participantId.uid.toProtoPrimitive
+  }
+
+  object PageToken {
+    def decodeString(raw: String): ParsingResult[PageToken] = {
+      def invalidPageToken(suffix: String): ValueConversionError =
+        ValueConversionError(
+          error = s"Invalid page token for ListVettedPackagesRequest: $suffix",
+          field = "page_token",
+        )
+      val bytes = raw.getBytes(StandardCharsets.UTF_8)
+      for {
+        decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes)).toEither.left
+          .map(_ => invalidPageToken("Failed base64 decoding"))
+
+        tokenPayload <- Try[ListVettedPackagesPageTokenPayload] {
+          ListVettedPackagesPageTokenPayload.parseFrom(decodedBytes)
+        }.toEither.left
+          .map(_ => invalidPageToken("Failed proto decoding"))
+
+        synchronizerId <-
+          UniqueIdentifier
+            .fromProtoPrimitive(tokenPayload.synchronizerId, "page_token")
+            .leftMap(uniqueIdentifierErr =>
+              invalidPageToken(
+                s"Couldn't extract token's synchronizer ID: ${uniqueIdentifierErr.message}"
+              )
+            )
+        participantId <-
+          UniqueIdentifier
+            .fromProtoPrimitive(tokenPayload.participantId, "page_token")
+            .leftMap(uniqueIdentifierErr =>
+              invalidPageToken(
+                s"Couldn't extract token's participant ID: ${uniqueIdentifierErr.message}"
+              )
+            )
+      } yield PageToken(
+        SynchronizerId(synchronizerId),
+        ParticipantId(participantId),
+      )
+    }
+  }
+
   def fromProto(
-      req: package_service.ListVettedPackagesRequest
+      req: package_service.ListVettedPackagesRequest,
+      serverPageSize: PositiveInt,
   ): ParsingResult[ListVettedPackagesOpts] =
     for {
       packageMetadataFilter <- req.packageMetadataFilter.traverse(PackageMetadataFilter.fromProto)
       topologyStateFilter <- req.topologyStateFilter.traverse(TopologyStateFilter.fromProto)
-    } yield ListVettedPackagesOpts(packageMetadataFilter, topologyStateFilter)
+      pageToken <-
+        OptionUtil
+          .emptyStringAsNone(req.pageToken)
+          .traverse(PageToken.decodeString)
+      requestPageSize <- ProtoConverter.parseNonNegativeInt("page_size", req.pageSize)
+      _ <- EitherUtil.condUnit(
+        requestPageSize.value <= serverPageSize.value,
+        InvariantViolation(
+          "page_size",
+          s"Page size must not exceed the server's maximum of $serverPageSize",
+        ),
+      )
+      pageSize =
+        if (requestPageSize.value == 0)
+          serverPageSize
+        else
+          PositiveInt.tryCreate(requestPageSize.value)
+    } yield ListVettedPackagesOpts(packageMetadataFilter, topologyStateFilter, pageToken, pageSize)
 }
 
 final case class PackageMetadataFilter(
@@ -328,11 +431,28 @@ object TopologyStateFilter {
     )
 }
 
+final case class UpdateVettedPackagesForceFlags(
+    forceUnvetWithActiveContracts: Boolean = false
+)
+
+object UpdateVettedPackagesForceFlags {
+  def fromProto(
+      forceFlags: Seq[package_management_service.UpdateVettedPackagesForceFlag]
+  ): ParsingResult[UpdateVettedPackagesForceFlags] =
+    Right(
+      UpdateVettedPackagesForceFlags(
+        forceUnvetWithActiveContracts =
+          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowUnvetPackageWithActiveContracts)
+      )
+    )
+}
+
 final case class UpdateVettedPackagesOpts(
     changes: Seq[VettedPackagesChange],
     dryRun: Boolean,
     synchronizerIdO: Option[SynchronizerId],
     expectedTopologySerial: Option[PriorTopologySerial],
+    forceFlags: UpdateVettedPackagesForceFlags,
 ) {
   def toTargetStates: Seq[SinglePackageTargetVetting[VettedPackagesRef]] =
     for {
@@ -356,11 +476,13 @@ object UpdateVettedPackagesOpts {
       .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
     expectedTopologySerial <- req.expectedTopologySerial
       .flatTraverse(PriorTopologySerial.fromProto("expected_topology_serial", _))
+    forceFlags <- UpdateVettedPackagesForceFlags.fromProto(req.updateVettedPackagesForceFlags)
   } yield UpdateVettedPackagesOpts(
     vettingChanges,
     req.dryRun,
     synchronizerIdO,
     expectedTopologySerial,
+    forceFlags,
   )
 }
 
@@ -628,7 +750,10 @@ final case class EnrichedVettedPackages(
     participantId: ParticipantId,
     synchronizerId: SynchronizerId,
     serial: PositiveInt,
-)
+) {
+  def toPageToken: ListVettedPackagesOpts.PageToken =
+    ListVettedPackagesOpts.PageToken(synchronizerId, participantId)
+}
 
 final case class EnrichedVettedPackage(
     vetted: VettedPackage,

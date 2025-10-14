@@ -19,7 +19,7 @@ final case class SetTrafficPurchasedMessage private (
     member: Member,
     serial: PositiveInt,
     totalTrafficPurchased: NonNegativeLong,
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
 )(
     override val deserializedFrom: Option[ByteString]
 ) extends ProtocolVersionedMemoizedEvidence
@@ -29,7 +29,7 @@ final case class SetTrafficPurchasedMessage private (
 
   val representativeProtocolVersion: RepresentativeProtocolVersion[
     SetTrafficPurchasedMessage.type
-  ] = SetTrafficPurchasedMessage.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
+  ] = SetTrafficPurchasedMessage.protocolVersionRepresentativeFor(psid.protocolVersion)
 
   // Only used in security tests, this is not part of the protobuf payload
   override val signingTimestamp: Option[CantonTimestamp] = None
@@ -42,7 +42,7 @@ final case class SetTrafficPurchasedMessage private (
       member = member.toProtoPrimitive,
       serial = serial.value,
       totalTrafficPurchased = totalTrafficPurchased.value,
-      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = psid.toProtoPrimitive,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -58,7 +58,7 @@ final case class SetTrafficPurchasedMessage private (
     param("member", _.member),
     param("serial", _.serial),
     param("totalTrafficPurchased", _.totalTrafficPurchased),
-    param("synchronizerId", _.synchronizerId),
+    param("psid", _.psid),
   )
 }
 

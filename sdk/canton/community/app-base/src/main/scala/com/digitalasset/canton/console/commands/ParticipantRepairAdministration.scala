@@ -364,7 +364,7 @@ class ParticipantRepairAdministration(
       |                  Defaults to "canton-acs-export.gz" when undefined.
       |- workflowIdPrefix: Prefixes the workflow ID for the import. Defaults to
       |                    "import-<random_UUID>" when undefined.
-      |- contractImportMode: Governs contract ID processing on import. Options include
+      |- contractImportMode: Governs contract authentication processing on import. Options include
       |                      Validation (default), [Accept, Recomputation].
       |- excludedStakeholders: When defined, any contract that has one or more of these
       |                        parties as a stakeholder will be omitted from the import.

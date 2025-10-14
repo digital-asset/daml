@@ -39,6 +39,7 @@ abstract class TopologyTransactionProcessorTest
     val proc = new TopologyTransactionProcessor(
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
+      defaultStaticSynchronizerParameters,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
       futureSupervisor,

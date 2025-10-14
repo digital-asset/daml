@@ -37,16 +37,20 @@ object KmsDriverTestUtils extends FutureHelpers {
 
   implicit val transformerEncryptionAlgoSpec
       : Transformer[EncryptionAlgoSpec, crypto.EncryptionAlgorithmSpec] = {
+    case EncryptionAlgoSpec.EciesHkdfHmacSha256Aes128Cbc =>
+      crypto.EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc
     case EncryptionAlgoSpec.RsaEsOaepSha256 => crypto.EncryptionAlgorithmSpec.RsaOaepSha256
   }
 
   val supportedSigningKeySpecsByAlgoSpec: Map[SigningAlgoSpec, SigningKeySpec] = Map(
+    SigningAlgoSpec.Ed25519 -> SigningKeySpec.EcCurve25519,
     SigningAlgoSpec.EcDsaSha256 -> SigningKeySpec.EcP256,
     SigningAlgoSpec.EcDsaSha384 -> SigningKeySpec.EcP384,
   )
 
   val supportedEncryptionKeySpecsByAlgoSpec: Map[EncryptionAlgoSpec, EncryptionKeySpec] = Map(
-    EncryptionAlgoSpec.RsaEsOaepSha256 -> EncryptionKeySpec.Rsa2048
+    EncryptionAlgoSpec.EciesHkdfHmacSha256Aes128Cbc -> EncryptionKeySpec.EcP256,
+    EncryptionAlgoSpec.RsaEsOaepSha256 -> EncryptionKeySpec.Rsa2048,
   )
 
   def newPureCrypto(

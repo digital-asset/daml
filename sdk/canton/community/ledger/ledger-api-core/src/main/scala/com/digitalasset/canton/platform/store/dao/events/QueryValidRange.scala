@@ -38,12 +38,11 @@ trait QueryValidRange {
   ): Future[T]
 
   def filterPrunedEvents[T](offset: T => Offset)(
-      events: Seq[T]
+      events: Vector[T]
   )(implicit
       errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
-  ): Future[Seq[T]]
-
+  ): Future[Vector[T]]
 }
 
 final case class QueryValidRangeImpl(
@@ -148,11 +147,11 @@ final case class QueryValidRangeImpl(
     *   a future of the filtered events
     */
   def filterPrunedEvents[T](offset: T => Offset)(
-      events: Seq[T]
+      events: Vector[T]
   )(implicit
       errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
-  ): Future[Seq[T]] = {
+  ): Future[Vector[T]] = {
     val ledgerEnd = ledgerEndCache().map(_.lastOffset)
     val beyondLegerEndO = events.find(event => Option(offset(event)) > ledgerEnd)
     beyondLegerEndO match {

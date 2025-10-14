@@ -482,7 +482,7 @@ private object MutableCacheBackedContractStoreRaceTests {
 
     override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanEventSeqId: Long)(implicit
         loggingContext: LoggingContextWithTrace
-    ): Future[Map[Key, KeyState]] = ??? // not used in this test
+    ): Future[Map[Key, Long]] = ??? // not used in this test
   }
 
   def update(contractStore: ContractStore, event: SimplifiedContractStateEvent)(implicit

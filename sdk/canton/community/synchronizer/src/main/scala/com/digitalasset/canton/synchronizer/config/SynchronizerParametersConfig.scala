@@ -106,19 +106,19 @@ final case class SynchronizerParametersConfig(
       schemes <- CryptoSchemes.fromConfig(cryptoConfig)
       newRequiredSigningAlgorithmSpecs <- selectSchemes(
         requiredSigningAlgorithmSpecs,
-        schemes.signingAlgoSpecs.allowed,
+        schemes.signingSchemes.algorithmSpecs.allowed,
       )
       newRequiredSigningKeySpecs <- selectSchemes(
         requiredSigningKeySpecs,
-        schemes.signingKeySpecs.allowed,
+        schemes.signingSchemes.keySpecs.allowed,
       )
       newRequiredEncryptionAlgorithmSpecs <- selectSchemes(
         requiredEncryptionAlgorithmSpecs,
-        schemes.encryptionAlgoSpecs.allowed,
+        schemes.encryptionSchemes.algorithmSpecs.allowed,
       )
       newRequiredEncryptionKeySpecs <- selectSchemes(
         requiredEncryptionKeySpecs,
-        schemes.encryptionKeySpecs.allowed,
+        schemes.encryptionSchemes.keySpecs.allowed,
       )
       newRequiredSymmetricKeySchemes <- selectSchemes(
         requiredSymmetricKeySchemes,

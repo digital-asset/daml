@@ -10,8 +10,6 @@ import com.digitalasset.canton.platform.store.serialization.Compression
 import java.io.ByteArrayOutputStream
 
 final case class CompressionStrategy(
-    createArgumentCompressionLegacy: FieldCompressionStrategy, // TODO(i25857) not needed with new schema anymore
-    createKeyValueCompressionLegacy: FieldCompressionStrategy, // TODO(i25857) not needed with new schema anymore
     consumingExerciseArgumentCompression: FieldCompressionStrategy,
     consumingExerciseResultCompression: FieldCompressionStrategy,
     nonConsumingExerciseArgumentCompression: FieldCompressionStrategy,
@@ -34,8 +32,6 @@ object CompressionStrategy {
     val nonConsumingAlgorithm: Compression.Algorithm =
       if (nonConsumingExercise) Compression.Algorithm.GZIP else Compression.Algorithm.None
     build(
-      Compression.Algorithm.None,
-      Compression.Algorithm.None,
       consumingAlgorithm,
       consumingAlgorithm,
       nonConsumingAlgorithm,
@@ -48,21 +44,15 @@ object CompressionStrategy {
       algorithm: Compression.Algorithm,
       metrics: LedgerApiServerMetrics,
   ): CompressionStrategy =
-    build(algorithm, algorithm, algorithm, algorithm, algorithm, algorithm, metrics)
+    build(algorithm, algorithm, algorithm, algorithm, metrics)
 
   def build(
-      createArgumentAlgorithm: Compression.Algorithm,
-      createKeyValueAlgorithm: Compression.Algorithm,
       consumingExerciseArgumentAlgorithm: Compression.Algorithm,
       consumingExerciseResultAlgorithm: Compression.Algorithm,
       nonConsumingExerciseArgumentAlgorithm: Compression.Algorithm,
       nonConsumingExerciseResultAlgorithm: Compression.Algorithm,
       metrics: LedgerApiServerMetrics,
   ): CompressionStrategy = CompressionStrategy(
-    createArgumentCompressionLegacy =
-      FieldCompressionStrategy(createArgumentAlgorithm, CompressionMetrics.createArgument(metrics)),
-    createKeyValueCompressionLegacy =
-      FieldCompressionStrategy(createKeyValueAlgorithm, CompressionMetrics.createKeyValue(metrics)),
     consumingExerciseArgumentCompression = FieldCompressionStrategy(
       consumingExerciseArgumentAlgorithm,
       CompressionMetrics.exerciseArgument(metrics),

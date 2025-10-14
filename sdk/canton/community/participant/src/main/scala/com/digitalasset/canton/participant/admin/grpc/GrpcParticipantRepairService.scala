@@ -389,7 +389,7 @@ final class GrpcParticipantRepairService(
             )
           case (_, oldContractImportMode, _, _) if oldContractImportMode != contractImportMode =>
             Left(
-              s"Contract ID import mode cannot be changed from $oldContractImportMode to $contractImportMode"
+              s"Contract authentication import mode cannot be changed from $oldContractImportMode to $contractImportMode"
             )
           case (_, _, oldExcludedStakeholders, _)
               if oldExcludedStakeholders != excludeStakeholders =>

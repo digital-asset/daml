@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20251010.14292.0.va416ad59
+sdk-version: 3.4.0-snapshot.20251013.14305.0.v93a220d8
 build-options: 
 - --target=2.1
 name: dvp-offer

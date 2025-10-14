@@ -31,7 +31,7 @@ private[dao] sealed class ContractsReader(
     */
   override def lookupKeyStatesFromDb(keys: Seq[Key], notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Map[Key, KeyState]] =
+  ): Future[Map[Key, Long]] =
     Timed.future(
       metrics.index.db.lookupKey,
       dispatcher.executeSql(metrics.index.db.lookupContractByKeyDbMetrics)(

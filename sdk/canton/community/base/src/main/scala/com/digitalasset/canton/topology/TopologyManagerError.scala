@@ -33,7 +33,10 @@ import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  PositiveTopologyTransaction,
+  TxHash,
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Util
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -457,7 +460,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
+            s"Members ${members.sorted.mkString(", ")} are missing a valid owner to key mapping."
         )
         with TopologyManagerError
   }
@@ -532,6 +535,57 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             s"The $participantId can not join the synchronizer because onboarding restrictions are in place"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates the owner to key mapping is still being used by another transaction."""
+  )
+  @Resolution(
+    """Every synchronizer member needs keys before it can be registered. Consequently, the member needs to be removed first before the keys can be removed."""
+  )
+  object InvalidOwnerToKeyMappingRemoval
+      extends ErrorCode(
+        id = "TOPOLOGY_INVALID_REMOVAL_OF_OWNER_TO_KEY_MAPPING",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(
+        member: Member,
+        inUseBy: PositiveTopologyTransaction,
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The owner to key mapping of $member cannot be removed as it is referenced by $inUseBy"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
+    """This error indicates that the provided owner to key mapping does not confirm to the requirements of the synchronizer."""
+  )
+  @Resolution(
+    """Each synchronizer defines the valid set of key specs supported. Any member must provide at least one signing key with the valid specs. Participants must provide also an encryption key."""
+  )
+  object InvalidOwnerToKeyMapping
+      extends ErrorCode(
+        id = "TOPOLOGY_INVALID_OWNER_TO_KEY_MAPPING",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(
+        member: Member,
+        keyType: String,
+        provided: Seq[PublicKey],
+        supported: Seq[String],
+    )(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            if (provided.isEmpty)
+              s"The owner to key mapping for $member was rejected, as no $keyType key was provided. Supported specs are: $supported"
+            else
+              s"The owner to key mapping for $member was rejected, as none of the ${provided.size} $keyType keys supports the valid specs ($supported): $provided"
         )
         with TopologyManagerError
   }

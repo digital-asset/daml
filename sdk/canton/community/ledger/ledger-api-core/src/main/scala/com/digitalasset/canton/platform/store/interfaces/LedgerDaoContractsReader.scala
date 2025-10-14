@@ -53,7 +53,7 @@ private[platform] trait LedgerDaoContractsReader {
   @VisibleForTesting
   def lookupKeyStatesFromDb(keys: Seq[GlobalKey], notEarlierThanEventSeqId: Long)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Map[GlobalKey, KeyState]]
+  ): Future[Map[GlobalKey, Long]]
 
 }
 

@@ -344,7 +344,7 @@ object TestProcessingSteps {
       rootHash: RootHash,
       informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
-      synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
+      psid: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasToByteString {

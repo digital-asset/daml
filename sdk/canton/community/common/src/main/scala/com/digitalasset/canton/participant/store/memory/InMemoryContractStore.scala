@@ -186,4 +186,13 @@ class InMemoryContractStore(
         .flatMap(cid => contracts.get(cid).map { case (iid, _) => (cid, iid) })
         .toMap
     )
+
+  override def lookupBatchedNonCachedContractIds(internalContractIds: Iterable[Long])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Long, LfContractId]] =
+    FutureUnlessShutdown.pure(
+      internalContractIds
+        .flatMap(iid => internalIds.get(iid).map(iid -> _))
+        .toMap
+    )
 }
