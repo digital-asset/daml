@@ -24,7 +24,6 @@ private[lf] final class ValueTranslator(
     case Right(v) => v
     case Left(error) =>
       throw TranslationFailed.LookupError(error)
-
   }
 
   val validateCid: ContractId => Unit =
@@ -40,6 +39,12 @@ private[lf] final class ValueTranslator(
           throw TranslationFailed.NonSuffixedV2ContractId(cid)
     }
     else { _ => () }
+
+  private[this] def toText(str: String): Text =
+    Text.fromString(str) match {
+      case Right(value) => value
+      case Left(err) => throw TranslationFailed.MalformedText(err)
+    }
 
   @throws[TranslationFailed.Error]
   def unsafeTranslateCid(cid: ContractId): SValue.SContractId = {
@@ -58,10 +63,8 @@ private[lf] final class ValueTranslator(
     val Destructor = TypeDestructor(pkgInterface)
 
     def go(ty0: Type, value0: Value, nesting: Int): SValue =
-      if (nesting > Value.MAXIMUM_NESTING) {
-        throw TranslationFailed.ValueNesting(value)
-
-      } else {
+      if (nesting > Value.MAXIMUM_NESTING) throw TranslationFailed.ValueNesting
+      else {
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw TranslationFailed.TypeMismatch(ty0, value0, msg)
@@ -99,7 +102,7 @@ private[lf] final class ValueTranslator(
           case (DateF, ValueDate(t)) =>
             SValue.SDate(t)
           case (TextF, ValueText(t)) =>
-            SValue.SText(t)
+            SValue.SText(toText(t))
           case (PartyF, ValueParty(p)) =>
             SValue.SParty(p)
           case (NumericF(s), ValueNumeric(d)) =>
@@ -157,7 +160,7 @@ private[lf] final class ValueTranslator(
               SValue.SMap(
                 isTextMap = true,
                 entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                  SValue.SText(k) -> go(a, v, newNesting)
+                  SValue.SText(toText(k)) -> go(a, v, newNesting)
                 }.toList,
               )
             }

@@ -25,30 +25,37 @@ template T
     implements I where
       view = V with t = fromCodePoints cps
 
+    choice FromCodePoints: Text
+      controller p
+      do
+        pure (fromCodePoints cps)
+
 template Helper
   with
     p : Party
   where
     signatory p
 
-    choice CreateTWithNulChar: ContractId T
+    choice CreateContractWithNulChar: ContractId T
       controller p
       do create T with p = p; t = fromCodePoints [0]; cps = []
 
-    choice FetchI: ()
-      with cid: ContractId I
-      controller p
-      do
-        fetch @I cid
-        pure ()
-
--- @ERROR range=46:1-46:11; Text contains null character
+-- @ERROR range=44:1-44:11; Text contains null character
 testCreate = script do
   alice <- allocateParty "Alice"
-  alice `submit` createAndExerciseCmd (Helper alice) CreateTWithNulChar
+  alice `submit` createAndExerciseCmd (Helper alice) CreateContractWithNulChar
 
--- @ERROR range=51:1-51:9; Text contains null character
-testView = script do
+createContract = script do
   alice <- allocateParty "Alice"
   cid <- alice `submit` createCmd (T with p = alice; t = ""; cps = [0])
+  pure (alice, cid)
+
+-- @ERROR range=54:1-54:19; Text contains null character
+testExerciseResult = script do
+  (alice, cid) <- createContract
+  alice `submit` exerciseCmd cid FromCodePoints
+
+-- @ERROR range=59:1-59:9; Text contains null character
+testView = script do
+  (alice, _) <- createContract
   queryInterface @I alice
