@@ -2365,7 +2365,7 @@ module DA.Fail
 
 -- | The category of the failure, which determines the status code and log
 --   level of the failure. Maps 1-1 to the Canton error categories documented
---   here: https://docs.daml.com/canton/reference/error_codes.html#error-categories-inventory
+--   here: https://docs.digitalasset.com/operate/3.4/reference/error_codes.html#error-categories-inventory
 --   
 --   If you are more familiar with gRPC error codes, you can use the synonyms referenced in the
 --   comments.
@@ -2377,7 +2377,7 @@ data FailureCategory
 --   
 --   Corresponds to the gRPC status code `INVALID_ARGUMENT`.
 --   
---   See https://docs.daml.com/canton/reference/error_codes.html#invalidindependentofsystemstate
+--   See https://docs.digitalasset.com/operate/3.4/reference/error_codes.html#invalidindependentofsystemstate
 --   for more information.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Fail.html#constr-da-internal-fail-types-invalidindependentofsystemstate-84432
 InvalidIndependentOfSystemState :: FailureCategory
@@ -2388,7 +2388,7 @@ InvalidIndependentOfSystemState :: FailureCategory
 --   
 --   Corresponds to the gRPC status code `FAILED_PRECONDITION`.
 --   
---   See https://docs.daml.com/canton/reference/error_codes.html#invalidgivencurrentsystemstateother
+--   See https://docs.digitalasset.com/operate/3.4/reference/error_codes.html#error-categories-inventory
 --   for more information.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Fail.html#constr-da-internal-fail-types-invalidgivencurrentsystemstateother-6547
 InvalidGivenCurrentSystemStateOther :: FailureCategory
@@ -3830,7 +3830,7 @@ module DA.Record
 --   daml>
 --   ```
 --   
---   For more on Record syntax, see https://docs.daml.com/daml/intro/3_Data.html#record.
+--   For more on Record syntax, see https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Record.html.
 --   
 --   `GetField x r a` and `SetField x r a` are typeclasses taking three parameters. The first
 --   parameter `x` is the field name, the second parameter `r` is the record type,
