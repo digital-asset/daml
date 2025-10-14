@@ -2,8 +2,8 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 .. warning::
-   From Daml 3.4.0 onwards the `Daml Assistant` (`daml` executable) is deprecated.
-   The :externalref:`Dpm tool <dpm>` is now the recommended way to install and manage Daml SDKs.
+   Daml Assistant is deprecated from 3.4.x onwards. Use :externalref:`dpm <dpm>` instead.
+   Refer to the ``dpm`` :externalref:`migration guide <dpm-daml-assistant-to-dpm-migration>` for more details.
 
 .. _daml-assistant-config-files:
 

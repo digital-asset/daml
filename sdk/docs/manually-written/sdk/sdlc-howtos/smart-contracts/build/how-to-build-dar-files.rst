@@ -23,7 +23,7 @@ Single package
 
 All Daml packages require a daml.yaml file. Create this file at the root of your package directory. You will need the following information to populate this file:
 
--  SDK Version: call daml version to determine the installed SDK versions
+-  SDK Version: call `dpm version` to determine the installed SDK versions
 -  Package name: lower-skewer-case name that is unique to your package and company.
 
 Add the following to your ``daml.yaml``, replacing the ``<place-holders>`` as appropriate.
@@ -46,7 +46,7 @@ Write your .daml files in this directory, the file name must match the module he
 
 Directory and .daml file names must be in UpperCamel casing.
 
-The ``daml new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :ref:`Daml Assistant New <daml-assistant-new>` for more information.
+The ``dpm new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :ref:`Daml Assistant New <daml-assistant-new>` for more information.
 
 
 .. _multi-package-build:

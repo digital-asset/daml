@@ -61,7 +61,7 @@ snippet file.
 
 Daml script results
 ===================
-Above any top level definition that would be run as part of ``dpm test`` (See :ref:`Daml Test <daml-assistant-test>`), a "Script Results" button will appear.
+Above any top level definition that would be run as part of ``dpm test`` (See :externalref:`dpm test <dpm-operate>`), a "Script Results" button will appear.
 
 Clicking this will open a side panel, with the result of running that test, along with information about logging and the ledger
 state.  
@@ -179,9 +179,10 @@ Daml Studio will upgrade as Daml Assistant upgrades, and as new versions of the 
 
 See :ref:`Daml Assistant Upgrade <daml-assistant-upgrade>` and the ``--replace`` flag in :ref:`Reference <daml-studio-cli-options>` for more details.
 
-Decomission
-***********
-Open Visual Studio Code (not ``daml studio``), navigate to ``Extensions`` on the left (Ctrl+Shift+X). Search for `Daml` and click the top result.  
+Decommission
+************
+
+Open Visual Studio Code (not ``dpm studio``), navigate to ``Extensions`` on the left (Ctrl+Shift+X). Search for `Daml` and click the top result.
 This will open the ``Extension: Daml`` page, which includes an uninstall button to the right of the Daml Extension icon.  
 Follow the :ref:`Daml Assistant Decomission <daml-assistant-decomission>` for removal Daml itself.
 
@@ -244,7 +245,7 @@ The Daml Studio Extension contains the following options:
 
 Daml Studio CLI options
 =======================
-The ``daml studio`` CLI command (which opens the Daml Studio editor) takes the following flags:
+The ``dpm studio`` CLI command (which opens the Daml Studio editor) takes the following flags:
 
 - 
   ``--replace``
@@ -253,7 +254,7 @@ The ``daml studio`` CLI command (which opens the Daml Studio editor) takes the f
 
   Default: ``published``  
 
-  This flag controls when the ``daml studio`` command replaces the VSCode extension in your editor.  
+  This flag controls when the ``dpm studio`` command replaces the VSCode extension in your editor.
 
   - ``published`` will always use the most recent published (to the VSCode marketplace) version of the Daml Studio VSCode extension.  
   - ``always`` will use the extension bundled with whichever SDK version is being used (as selected by the ``daml.yaml``, See :ref:`Daml Assistant version management <daml-assistant-version-management>`.  

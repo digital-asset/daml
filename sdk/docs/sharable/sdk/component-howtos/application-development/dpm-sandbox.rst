@@ -155,7 +155,7 @@ against it:
 
 .. code-block:: none
 
-    $ daml ledger upload-dar --host localhost --port 6865 <path to DAR>
+    $ dpm sandbox --dar <path to DAR>
     $ dpm script --ledger-host localhost --port 6865 --dar <path to DAR> --script-name <script name in DAR>
 
 Because ``dpm sandbox`` is a Canton instance, all documentation for using Canton applies.
