@@ -95,56 +95,14 @@ The ledger will automatically take care of uploading the DARs, and creating the 
 Operate
 -------
 
-There are two ways to run Sandbox:
+Start Canton with a single participant:
 
-#. Run Sandbox in isolation with:
+.. code-block:: none
 
-   .. code-block:: none
-
-         $ dpm sandbox
-         Starting Canton sandbox.
-         Listening at port 6865
-         Canton sandbox is ready.
-
-   This will start Canton with a single participant.
-
-#. Start Sandbox using the ``daml start`` command while in a Daml project. This command will:
-
-   #. Launch the Sandbox via an underlying call to ``dpm sandbox``, the command above.
-   #. Compile the Daml project to a DAR as specified in the project's ``daml.yaml``.
-   #. Upload the resulting DAR to the running Sandbox.
-   #. The script specified in the ``init-script`` field in ``daml.yaml`` will be loaded into the ledger.
-
-   .. code-block:: none
-
-         $ daml start
-         ...
-         Compiling main to a DAR.
-         ...
-         Created .daml/dist/main-1.0.0.dar
-         ...
-         Waiting for canton sandbox to start.
-         Uploading .daml/dist/main-1.0.0.dar to localhost:6865
-         DAR upload succeeded.
-         Running the initialization script.
-         ...
-         Waiting for JSON API to start.
-         The Canton sandbox and JSON API are ready to use.
-
-   **Note**: To forward an option to the underlying ``dpm sandbox`` call, use
-   the ``--sandbox-option`` flag.
-
-   For example, to change the sandbox's Ledger API port, the normal command would be
-
-   .. code-block:: none
-
-         dpm sandbox -C canton.participants.sandbox.ledger-api.port=9999
-
-   whereas the Daml Start command would be
-
-   .. code-block:: none
-
-         daml start --sandbox-option -C --sandbox-option canton.participants.sandbox.ledger-api.port=9999
+  $ dpm sandbox
+  Starting Canton sandbox.
+  Listening at port 6865
+  Canton sandbox is ready.
 
 Interacting with Sandbox's ledger
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
