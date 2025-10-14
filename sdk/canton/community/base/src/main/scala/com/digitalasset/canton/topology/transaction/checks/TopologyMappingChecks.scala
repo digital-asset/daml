@@ -9,10 +9,14 @@ import cats.instances.order.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.KeyPurpose
+import com.digitalasset.canton.crypto.{EncryptionPublicKey, KeyPurpose, SigningPublicKey}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.{DynamicSynchronizerParameters, OnboardingRestriction}
+import com.digitalasset.canton.protocol.{
+  DynamicSynchronizerParameters,
+  OnboardingRestriction,
+  StaticSynchronizerParameters,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.TopologyStateProcessor.MaybePending
 import com.digitalasset.canton.topology.processing.EffectiveTime
@@ -135,12 +139,16 @@ abstract class TopologyMappingChecksWithStore(
   *
   * The following checks must be passed by every transaction which is added to the topology state.
   *
+  * @param parameters
+  *   verify state against static domain parameters (if they are known). we use this to ensure that
+  *   the signing key specs are correct on a synchronizer.
   * @param relaxSynchronizerStateChecks
   *   if true (during initial snapshot validation), we assume that the invariant holds that SSS and
   *   MSS only reference members with valid keys.
   */
 class RequiredTopologyMappingChecks(
     store: TopologyStore[TopologyStoreId],
+    parameters: Option[StaticSynchronizerParameters],
     loggerFactory: NamedLoggerFactory,
     relaxSynchronizerStateChecks: Boolean = false,
 )(implicit
@@ -221,14 +229,19 @@ class RequiredTopologyMappingChecks(
           )
 
       case (Code.OwnerToKeyMapping, None | Some(Code.OwnerToKeyMapping)) =>
-        // TODO(#28232) check that remove doesn't happen on keys that are in use
         val checkReplace = toValidate
           .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
           .map(
             checkOwnerToKeyMappingReplace(_, inStore.flatMap(_.selectMapping[OwnerToKeyMapping]))
           )
 
-        checkReplace
+        val checkRemove = toValidate
+          .select[TopologyChangeOp.Remove, OwnerToKeyMapping]
+          .map(
+            checkOwnerToKeyMappingRemove(effective, _, pendingChangesLookup)
+          )
+
+        checkReplace.orElse(checkRemove)
 
       case (Code.MediatorSynchronizerState, None | Some(Code.MediatorSynchronizerState)) =>
         toValidate
@@ -503,12 +516,23 @@ class RequiredTopologyMappingChecks(
       ),
     )
 
+    def participantHasKeys() =
+      checkNewSynchronizerMembersHaveKeys(
+        effective,
+        pendingChangesLookup = pendingChangesLookup,
+        newMembers = Set(
+          participantId
+        ),
+        skipCheck = false,
+      )
+
     for {
       _ <- checkParticipantDoesNotRejoin()
       _ <- checkPartyIdDoesntExist()
       restriction <- loadOnboardingRestriction()
       _ <- checkSynchronizerIsNotLocked(restriction)
       _ <- checkParticipantIsNotRestricted(restriction)
+      _ <- participantHasKeys()
     } yield ()
   }
 
@@ -598,6 +622,66 @@ class RequiredTopologyMappingChecks(
 
   }
 
+  /** Validate that OTK is no longer used by a synchronizer member */
+  private def checkOwnerToKeyMappingRemove(
+      effective: EffectiveTime,
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Remove, OwnerToKeyMapping],
+      pendingChangesLookup: PendingChangesLookup,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
+    toValidate.mapping.member match {
+      case pid @ ParticipantId(uid) =>
+        val pending = store.storeId.forSynchronizer.flatMap { synchronizerId =>
+          pendingChangesLookup.get(
+            SynchronizerTrustCertificate.uniqueKey(pid, synchronizerId.logical)
+          )
+        }.toList
+        loadFromStore(
+          effective,
+          Set(Code.SynchronizerTrustCertificate),
+          pending,
+          filterUid = Some(NonEmpty.mk(Seq, uid)),
+        ).map(_.filterNot(_.isProposal).headOption).subflatMap {
+          case None => Right(())
+          case Some(tx) =>
+            Left(RequiredMappingRejection.InvalidOwnerToKeyMappingRemoval(pid, tx.transaction))
+        }
+
+      case mid: MediatorId =>
+        loadFromStore(
+          effective,
+          Set(Code.MediatorSynchronizerState),
+          pendingChangesLookup.values,
+          filterUid =
+            None, // synchronizer store will only show the ones of this synchronizer, but all groups
+        ).map(
+          _.filterNot(_.isProposal)
+            .flatMap(_.selectMapping[MediatorSynchronizerState])
+            .find(_.mapping.allMediatorsInGroup.contains(mid))
+        ).subflatMap {
+          case None => Right(())
+          case Some(tx) =>
+            Left(RequiredMappingRejection.InvalidOwnerToKeyMappingRemoval(mid, tx.transaction))
+        }
+
+      case sid: SequencerId =>
+        loadFromStore(
+          effective,
+          Set(Code.SequencerSynchronizerState),
+          pendingChangesLookup.values,
+          filterUid = None, // synchronizer store will only show the ones of this synchronizer
+        ).map(
+          _.filterNot(_.isProposal)
+            .flatMap(_.selectMapping[SequencerSynchronizerState])
+            .find(_.mapping.allSequencers.contains(sid))
+        ).subflatMap {
+          case None => Right(())
+          case Some(tx) =>
+            Left(RequiredMappingRejection.InvalidOwnerToKeyMappingRemoval(sid, tx.transaction))
+        }
+    }
+
   private def checkOwnerToKeyMappingReplace(
       toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, OwnerToKeyMapping],
       inStore: Option[SignedTopologyTransaction[TopologyChangeOp, OwnerToKeyMapping]],
@@ -612,18 +696,33 @@ class RequiredTopologyMappingChecks(
 
     // check for at least 1 signing and 1 encryption key
     val keysByPurpose = toValidate.mapping.keys.forgetNE.groupBy(_.purpose)
-    val signingKeys = keysByPurpose.getOrElse(KeyPurpose.Signing, Seq.empty)
+    val allSigningKeys = keysByPurpose.getOrElse(KeyPurpose.Signing, Seq.empty)
+    val signingKeys = allSigningKeys.collect {
+      case c: SigningPublicKey
+          if parameters.forall(_.requiredSigningSpecs.keys.contains(c.keySpec)) =>
+        c
+    }
 
     val minimumSigningKeyRequirement =
       EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
         // all nodes require signing keys
         signingKeys.nonEmpty,
-        RequiredMappingRejection.InvalidTopologyMapping(
-          "OwnerToKeyMapping must contain at least 1 signing key."
+        RequiredMappingRejection.InvalidOwnerToKeyMapping(
+          toValidate.mapping.member,
+          keyType = "signing",
+          allSigningKeys,
+          parameters
+            .map(_.requiredSigningSpecs.keys.map(_.name).forgetNE.toSeq)
+            .getOrElse(Seq("any spec")),
         ),
       )
 
-    val encryptionKeys = keysByPurpose.getOrElse(KeyPurpose.Encryption, Seq.empty)
+    val allEncryptionKeys = keysByPurpose.getOrElse(KeyPurpose.Encryption, Seq.empty)
+    val encryptionKeys = allEncryptionKeys.collect {
+      case c: EncryptionPublicKey
+          if parameters.forall(_.requiredEncryptionSpecs.keys.contains(c.keySpec)) =>
+        c
+    }
     val isParticipant = toValidate.mapping.member.code == ParticipantId.Code
 
     val minimumEncryptionKeyRequirement =
@@ -631,8 +730,13 @@ class RequiredTopologyMappingChecks(
         // all nodes require signing keys
         // non-participants don't need encryption keys
         !isParticipant || encryptionKeys.nonEmpty,
-        RequiredMappingRejection.InvalidTopologyMapping(
-          "OwnerToKeyMapping for participants must contain at least 1 encryption key."
+        RequiredMappingRejection.InvalidOwnerToKeyMapping(
+          toValidate.mapping.member,
+          keyType = "encryption",
+          provided = allEncryptionKeys,
+          supported = parameters
+            .map(_.requiredEncryptionSpecs.keys.map(_.name).forgetNE.toSeq)
+            .getOrElse(Seq("any spec")),
         ),
       )
     noAddingAfterRemove
@@ -644,15 +748,16 @@ class RequiredTopologyMappingChecks(
       effective: EffectiveTime,
       pendingChangesLookup: PendingChangesLookup,
       newMembers: Set[Member],
+      skipCheck: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-    if (relaxSynchronizerStateChecks) EitherTUtil.unitUS
+    if (skipCheck) EitherTUtil.unitUS
     else
       NonEmpty.from(newMembers).fold(EitherTUtil.unitUS[TopologyTransactionRejection]) { members =>
         loadFromStore(
           effective,
-          Set(Code.SynchronizerTrustCertificate, Code.OwnerToKeyMapping),
+          Set(Code.OwnerToKeyMapping),
           newMembers.flatMap { member =>
             pendingChangesLookup.get(OwnerToKeyMapping.uniqueKey(member)).toList
           }.toList,
@@ -691,6 +796,7 @@ class RequiredTopologyMappingChecks(
         result <- loadFromStore(
           effectiveTime,
           Set(Code.MediatorSynchronizerState),
+          // TODO(#28232) this iterate over all should be gone once we have a proper state cache
           pendingChangesLookup.values,
         )
         mediatorsAlreadyAssignedToGroups = result
@@ -718,6 +824,7 @@ class RequiredTopologyMappingChecks(
       effectiveTime,
       pendingChangesLookup,
       newMembers = newMediators,
+      relaxSynchronizerStateChecks,
     )
 
     for {
@@ -744,6 +851,7 @@ class RequiredTopologyMappingChecks(
       effectiveTime,
       pendingChangesLookup,
       newMembers = newSequencers,
+      relaxSynchronizerStateChecks,
     )
 
   }
@@ -903,6 +1011,9 @@ class RequiredTopologyMappingChecks(
     *   - there is only a single hosting participant
     *     - with Submission permission
     *     - participantId.adminParty == partyId
+    *
+    * We do need the admin party in the protocol such that the participant always sees all requests
+    * and can thereby prevent replay of submissions.
     */
   private def isExplicitAdminPartyAllocation(
       ptp: PartyToParticipant,

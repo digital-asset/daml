@@ -313,7 +313,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
       ledgerEndCache = backend.ledgerEndCache,
       pruningOffsetService = backend.pruningOffsetService,
       loggerFactory = this.loggerFactory,
-    ).filterPrunedEvents[Offset](identity)(events).futureValue shouldBe events
+    ).filterPrunedEvents[Offset](identity)(events.toVector).futureValue shouldBe events
   }
 
   it should "filter out events at or below the pruning offset" in {
@@ -326,7 +326,9 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
       ledgerEndCache = backend.ledgerEndCache,
       pruningOffsetService = backend.pruningOffsetService,
       loggerFactory = this.loggerFactory,
-    ).filterPrunedEvents[Offset](identity)(events).futureValue shouldBe (4L to 5L).map(offset)
+    ).filterPrunedEvents[Offset](identity)(events.toVector).futureValue shouldBe (4L to 5L).map(
+      offset
+    )
   }
 
   it should "return empty if all events are pruned" in {
@@ -339,7 +341,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
       ledgerEndCache = backend.ledgerEndCache,
       pruningOffsetService = backend.pruningOffsetService,
       loggerFactory = this.loggerFactory,
-    ).filterPrunedEvents[Offset](identity)(events).futureValue shouldBe empty
+    ).filterPrunedEvents[Offset](identity)(events.toVector).futureValue shouldBe empty
   }
 
   it should "return all events if pruning offset is before all events" in {
@@ -352,7 +354,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
       ledgerEndCache = backend.ledgerEndCache,
       pruningOffsetService = backend.pruningOffsetService,
       loggerFactory = this.loggerFactory,
-    ).filterPrunedEvents[Offset](identity)(events).futureValue shouldBe events
+    ).filterPrunedEvents[Offset](identity)(events.toVector).futureValue shouldBe events
   }
 
   it should "fail if any event offset is beyond ledger end" in {
@@ -369,7 +371,7 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
           ledgerEndCache = backend.ledgerEndCache,
           pruningOffsetService = backend.pruningOffsetService,
           loggerFactory = this.loggerFactory,
-        ).filterPrunedEvents[Offset](identity)(events),
+        ).filterPrunedEvents[Offset](identity)(events.toVector),
         assertions = _.infoMessage should include(
           "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END(9,0): Offset of event to be filtered Offset(3) is beyond ledger end"
         ),

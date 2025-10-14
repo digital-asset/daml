@@ -810,13 +810,15 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
-    @Explanation("This error occurs when a Daml text is not a valid UTF-8 string or contains null characters.")
+    @Explanation(
+      "This error occurs when a Daml text is not a valid UTF-8 string or contains null characters."
+    )
     @Resolution("Restructure your code and reduce value nesting.")
     object MalformedText
-      extends ErrorCode(id = "MALFORMED_TEXT", ErrorCategory.InvalidIndependentOfSystemState) {
+        extends ErrorCode(id = "MALFORMED_TEXT", ErrorCategory.InvalidIndependentOfSystemState) {
 
       final case class Reject(override val cause: String, err: LfInterpretationError.MalformedText)(
-        implicit loggingContext: ErrorLoggingContext
+          implicit loggingContext: ErrorLoggingContext
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 

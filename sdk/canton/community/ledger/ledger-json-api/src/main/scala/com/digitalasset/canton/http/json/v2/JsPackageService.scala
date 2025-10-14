@@ -245,6 +245,13 @@ object JsPackageCodecs {
       Encoder.encodeUnit.contramap[package_reference.PriorTopologySerial.Serial.NoPrior](_ => ()),
     )
 
+  implicit val updateVettedPackagesForceFlagEncoder
+      : Encoder[package_management_service.UpdateVettedPackagesForceFlag] =
+    stringEncoderForEnum()
+  implicit val updateVettedPackagesForceFlagDecoder
+      : Decoder[package_management_service.UpdateVettedPackagesForceFlag] =
+    stringDecoderForEnum()
+
   implicit val vettedPackagesChange: Codec[package_management_service.VettedPackagesChange] =
     deriveRelaxedCodec
   implicit val updateVettedPackagesRequest
@@ -278,6 +285,14 @@ object JsPackageCodecs {
     Schema.oneOfWrapped
 
   implicit val packageStatusSchema: Schema[package_service.PackageStatus] = stringSchemaForEnum()
+
+  // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+  implicit val updateVettedPackagesForceFlagRecognizedSchema
+      : Schema[package_management_service.UpdateVettedPackagesForceFlag.Recognized] =
+    Schema.oneOfWrapped
+  implicit val updateVettedPackagesForceFlagSchema
+      : Schema[package_management_service.UpdateVettedPackagesForceFlag] =
+    stringSchemaForEnum()
 
   implicit val topologySerialSerialNoPriorSchema
       : Schema[package_reference.PriorTopologySerial.Serial.NoPrior] =

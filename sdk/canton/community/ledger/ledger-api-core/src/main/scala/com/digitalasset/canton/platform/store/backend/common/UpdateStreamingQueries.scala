@@ -31,35 +31,16 @@ object EventIdSource {
   object DeactivateWitnesses extends EventIdSource
   object VariousWitnesses extends EventIdSource
 }
-sealed trait EventIdSourceLegacy
-object EventIdSourceLegacy {
-  object CreateStakeholder extends EventIdSourceLegacy
-  object CreateNonStakeholder extends EventIdSourceLegacy
-  object ConsumingStakeholder extends EventIdSourceLegacy
-  object ConsumingNonStakeholder extends EventIdSourceLegacy
-  object NonConsumingInformee extends EventIdSourceLegacy
-}
 sealed trait EventPayloadSourceForUpdatesAcsDelta
 object EventPayloadSourceForUpdatesAcsDelta {
   object Activate extends EventPayloadSourceForUpdatesAcsDelta
   object Deactivate extends EventPayloadSourceForUpdatesAcsDelta
-}
-sealed trait EventPayloadSourceForUpdatesAcsDeltaLegacy
-object EventPayloadSourceForUpdatesAcsDeltaLegacy {
-  object Create extends EventPayloadSourceForUpdatesAcsDeltaLegacy
-  object Consuming extends EventPayloadSourceForUpdatesAcsDeltaLegacy
 }
 sealed trait EventPayloadSourceForUpdatesLedgerEffects
 object EventPayloadSourceForUpdatesLedgerEffects {
   object Activate extends EventPayloadSourceForUpdatesLedgerEffects
   object Deactivate extends EventPayloadSourceForUpdatesLedgerEffects
   object VariousWitnessed extends EventPayloadSourceForUpdatesLedgerEffects
-}
-sealed trait EventPayloadSourceForUpdatesLedgerEffectsLegacy
-object EventPayloadSourceForUpdatesLedgerEffectsLegacy {
-  object Create extends EventPayloadSourceForUpdatesLedgerEffectsLegacy
-  object Consuming extends EventPayloadSourceForUpdatesLedgerEffectsLegacy
-  object NonConsuming extends EventPayloadSourceForUpdatesLedgerEffectsLegacy
 }
 
 class UpdateStreamingQueries(
@@ -131,66 +112,6 @@ class UpdateStreamingQueries(
     }
   }
 
-  def fetchEventIdsLegacy(target: EventIdSourceLegacy)(
-      stakeholderO: Option[Party],
-      templateIdO: Option[NameTypeConRef],
-  )(connection: Connection): PaginationInput => Vector[Long] = target match {
-    case EventIdSourceLegacy.ConsumingStakeholder =>
-      fetchIdsOfConsumingEventsForStakeholder(
-        stakeholder = stakeholderO,
-        templateIdO = templateIdO,
-      )(
-        connection
-      )
-    case EventIdSourceLegacy.ConsumingNonStakeholder =>
-      UpdateStreamingQueries.fetchEventIds(
-        tableName = "lapi_pe_consuming_id_filter_non_stakeholder_informee",
-        witnessO = stakeholderO,
-        templateIdO = templateIdO,
-        idFilter = None,
-        stringInterning = stringInterning,
-        hasFirstPerSequentialId = true,
-      )(connection)
-    case EventIdSourceLegacy.CreateStakeholder =>
-      fetchIdsOfCreateEventsForStakeholder(
-        stakeholderO = stakeholderO,
-        templateIdO = templateIdO,
-      )(
-        connection
-      )
-    case EventIdSourceLegacy.CreateNonStakeholder =>
-      UpdateStreamingQueries.fetchEventIds(
-        tableName = "lapi_pe_create_id_filter_non_stakeholder_informee",
-        witnessO = stakeholderO,
-        templateIdO = templateIdO,
-        idFilter = None,
-        stringInterning = stringInterning,
-        hasFirstPerSequentialId = true,
-      )(connection)
-    case EventIdSourceLegacy.NonConsumingInformee =>
-      UpdateStreamingQueries.fetchEventIds(
-        tableName = "lapi_pe_non_consuming_id_filter_informee",
-        witnessO = stakeholderO,
-        templateIdO = templateIdO,
-        idFilter = None,
-        stringInterning = stringInterning,
-        hasFirstPerSequentialId = true,
-      )(connection)
-  }
-
-  private def fetchIdsOfCreateEventsForStakeholder(
-      stakeholderO: Option[Ref.Party],
-      templateIdO: Option[NameTypeConRef],
-  )(connection: Connection): PaginationInput => Vector[Long] =
-    UpdateStreamingQueries.fetchEventIds(
-      tableName = "lapi_pe_create_id_filter_stakeholder",
-      witnessO = stakeholderO,
-      templateIdO = templateIdO,
-      idFilter = None,
-      stringInterning = stringInterning,
-      hasFirstPerSequentialId = true,
-    )(connection)
-
   def fetchActiveIds(
       stakeholderO: Option[Ref.Party],
       templateIdO: Option[NameTypeConRef],
@@ -213,78 +134,6 @@ class UpdateStreamingQueries(
       stringInterning = stringInterning,
       hasFirstPerSequentialId = true,
     )(connection)
-
-  def fetchActiveIdsOfCreateEventsForStakeholderLegacy(
-      stakeholderO: Option[Ref.Party],
-      templateIdO: Option[NameTypeConRef],
-      activeAtEventSeqId: Long,
-  )(connection: Connection): IdFilterPaginationInput => Vector[Long] =
-    UpdateStreamingQueries.fetchEventIds(
-      tableName = "lapi_pe_create_id_filter_stakeholder",
-      witnessO = stakeholderO,
-      templateIdO = templateIdO,
-      idFilter = Some(
-        cSQL"""
-          NOT EXISTS (
-            SELECT 1
-            FROM lapi_events_consuming_exercise consuming_evs
-            WHERE
-              filters.event_sequential_id = consuming_evs.deactivated_event_sequential_id
-              AND consuming_evs.event_sequential_id <= $activeAtEventSeqId
-          ) AND NOT EXISTS (
-            SELECT 1
-            FROM lapi_events_unassign unassign_evs
-            WHERE
-              filters.event_sequential_id = unassign_evs.deactivated_event_sequential_id
-              AND unassign_evs.event_sequential_id <= $activeAtEventSeqId
-          )"""
-      ),
-      stringInterning = stringInterning,
-      hasFirstPerSequentialId = true,
-    )(connection)
-
-  def fetchActiveIdsOfAssignEventsForStakeholderLegacy(
-      stakeholderO: Option[Ref.Party],
-      templateIdO: Option[NameTypeConRef],
-      activeAtEventSeqId: Long,
-  )(connection: Connection): IdFilterPaginationInput => Vector[Long] =
-    UpdateStreamingQueries.fetchEventIds(
-      tableName = "lapi_pe_assign_id_filter_stakeholder",
-      witnessO = stakeholderO,
-      templateIdO = templateIdO,
-      idFilter = Some(
-        cSQL"""
-          NOT EXISTS (
-            SELECT 1
-            FROM lapi_events_consuming_exercise consuming_evs
-            WHERE
-              filters.event_sequential_id = consuming_evs.deactivated_event_sequential_id
-              AND consuming_evs.event_sequential_id <= $activeAtEventSeqId
-          ) AND NOT EXISTS (
-            SELECT 1
-            FROM lapi_events_unassign unassign_evs
-            WHERE
-              filters.event_sequential_id = unassign_evs.deactivated_event_sequential_id
-              AND unassign_evs.event_sequential_id <= $activeAtEventSeqId
-          )"""
-      ),
-      stringInterning = stringInterning,
-      hasFirstPerSequentialId = true,
-    )(connection)
-
-  private def fetchIdsOfConsumingEventsForStakeholder(
-      stakeholder: Option[Ref.Party],
-      templateIdO: Option[NameTypeConRef],
-  )(connection: Connection): PaginationInput => Vector[Long] =
-    UpdateStreamingQueries.fetchEventIds(
-      tableName = "lapi_pe_consuming_id_filter_stakeholder",
-      witnessO = stakeholder,
-      templateIdO = templateIdO,
-      idFilter = None,
-      stringInterning = stringInterning,
-      hasFirstPerSequentialId = true,
-    )(connection)
-
 }
 
 object UpdateStreamingQueries {

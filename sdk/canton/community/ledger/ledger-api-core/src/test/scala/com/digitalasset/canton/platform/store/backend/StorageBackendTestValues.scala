@@ -426,207 +426,6 @@ private[store] object StorageBackendTestValues extends OptionValues {
     )
     .toSeq
 
-  /** A simple create event. Corresponds to a transaction with a single create node.
-    */
-  def dtoCreateLegacy(
-      offset: Offset,
-      eventSequentialId: Long,
-      contractId: ContractId,
-      signatory: String = "signatory",
-      observer: String = "observer",
-      nonStakeholderInformees: Set[String] = Set.empty,
-      commandId: String = UUID.randomUUID().toString,
-      ledgerEffectiveTime: Timestamp = someTime,
-      authenticationData: Array[Byte] = Array.empty,
-      keyHash: Option[String] = None,
-      synchronizerId: SynchronizerId = someSynchronizerId,
-      createKey: Option[Array[Byte]] = None,
-      createKeyMaintainer: Option[String] = None,
-      traceContext: Array[Byte] = serializableTraceContext,
-      recordTime: Timestamp = someTime,
-      externalTransactionHash: Option[Array[Byte]] = None,
-      emptyFlatEventWitnesses: Boolean = false,
-      representativePackageId: Ref.PackageId = somePackageId,
-      internalContractId: Long = 0,
-  ): DbDto.EventCreate = {
-    val updateId = updateIdArrayFromOffset(offset)
-    val stakeholders = Set(signatory, observer)
-    val informees = stakeholders ++ nonStakeholderInformees
-    DbDto.EventCreate(
-      event_offset = offset.unwrap,
-      update_id = updateId,
-      ledger_effective_time = ledgerEffectiveTime.micros,
-      command_id = Some(commandId),
-      workflow_id = Some("workflow_id"),
-      user_id = Some(someUserId),
-      submitters = None,
-      node_id = 0,
-      contract_id = contractId,
-      template_id = someTemplateId.toString,
-      package_id = somePackageId.toString,
-      flat_event_witnesses = if (!emptyFlatEventWitnesses) stakeholders else Set.empty,
-      tree_event_witnesses = informees,
-      create_argument = someSerializedDamlLfValue,
-      create_signatories = Set(signatory),
-      create_observers = Set(observer),
-      create_key_value = createKey,
-      create_key_maintainers = createKeyMaintainer.map(Set(_)),
-      create_key_hash = keyHash,
-      create_argument_compression = None,
-      create_key_value_compression = None,
-      event_sequential_id = eventSequentialId,
-      authentication_data = authenticationData,
-      synchronizer_id = synchronizerId,
-      trace_context = traceContext,
-      record_time = recordTime.micros,
-      external_transaction_hash = externalTransactionHash,
-      representative_package_id = representativePackageId,
-      internal_contract_id = internalContractId,
-    )
-  }
-
-  /** A simple exercise event. Corresponds to a transaction with a single exercise node.
-    *
-    * @param signatory
-    *   The signatory of the contract (see corresponding create node)
-    * @param actor
-    *   The choice actor, who is also the submitter
-    */
-  def dtoExerciseLegacy(
-      offset: Offset,
-      eventSequentialId: Long,
-      consuming: Boolean,
-      contractId: ContractId,
-      signatory: String = "signatory",
-      actor: String = "actor",
-      commandId: String = UUID.randomUUID().toString,
-      synchronizerId: SynchronizerId = someSynchronizerId,
-      traceContext: Array[Byte] = serializableTraceContext,
-      recordTime: Timestamp = someTime,
-      externalTransactionHash: Option[Array[Byte]] = None,
-      emptyFlatEventWitnesses: Boolean = false,
-      deactivatedEventSeqId: Option[Long] = None,
-  ): DbDto.EventExercise = {
-    val updateId = updateIdArrayFromOffset(offset)
-    DbDto.EventExercise(
-      consuming = consuming,
-      event_offset = offset.unwrap,
-      update_id = updateId,
-      ledger_effective_time = someTime.micros,
-      command_id = Some(commandId),
-      workflow_id = Some("workflow_id"),
-      user_id = Some(someUserId),
-      submitters = Some(Set(actor)),
-      node_id = 0,
-      contract_id = contractId,
-      template_id = someTemplateId.toString,
-      package_id = somePackageId,
-      flat_event_witnesses =
-        if (consuming && !emptyFlatEventWitnesses) Set(signatory) else Set.empty,
-      tree_event_witnesses = Set(signatory, actor),
-      exercise_choice = "exercise_choice",
-      exercise_choice_interface_id = Some(someInterfaceId.toString),
-      exercise_argument = someSerializedDamlLfValue,
-      exercise_result = Some(someSerializedDamlLfValue),
-      exercise_actors = Set(actor),
-      exercise_last_descendant_node_id = 0,
-      exercise_argument_compression = None,
-      exercise_result_compression = None,
-      event_sequential_id = eventSequentialId,
-      synchronizer_id = synchronizerId,
-      trace_context = traceContext,
-      record_time = recordTime.micros,
-      external_transaction_hash = externalTransactionHash,
-      deactivated_event_sequential_id = deactivatedEventSeqId,
-    )
-  }
-
-  def dtoAssignLegacy(
-      offset: Offset,
-      eventSequentialId: Long,
-      contractId: ContractId,
-      signatory: String = "signatory",
-      observer: String = "observer",
-      commandId: String = UUID.randomUUID().toString,
-      authenticationData: Bytes = someAuthenticationData,
-      sourceSynchronizerId: SynchronizerId = someSynchronizerId,
-      targetSynchronizerId: SynchronizerId = someSynchronizerId2,
-      traceContext: Array[Byte] = serializableTraceContext,
-      recordTime: Timestamp = someTime,
-      nodeId: Int = 0,
-      internalContractId: Long = 0,
-  ): DbDto.EventAssign = {
-    val updateId = updateIdArrayFromOffset(offset)
-    DbDto.EventAssign(
-      event_offset = offset.unwrap,
-      update_id = updateId,
-      command_id = Some(commandId),
-      workflow_id = Some("workflow_id"),
-      submitter = Option(someParty),
-      node_id = nodeId,
-      contract_id = contractId,
-      template_id = someTemplateId.toString,
-      package_id = somePackageId.toString,
-      flat_event_witnesses = Set(signatory, observer),
-      create_argument = someSerializedDamlLfValue,
-      create_signatories = Set(signatory),
-      create_observers = Set(observer),
-      create_key_value = None,
-      create_key_maintainers = None,
-      create_key_hash = None,
-      create_argument_compression = Some(123),
-      create_key_value_compression = Some(456),
-      event_sequential_id = eventSequentialId,
-      ledger_effective_time = someTime.micros,
-      authentication_data = authenticationData.toByteArray,
-      source_synchronizer_id = sourceSynchronizerId,
-      target_synchronizer_id = targetSynchronizerId,
-      reassignment_id = reassignmentId,
-      reassignment_counter = 1000L,
-      trace_context = traceContext,
-      record_time = recordTime.micros,
-      internal_contract_id = internalContractId,
-    )
-  }
-
-  def dtoUnassignLegacy(
-      offset: Offset,
-      eventSequentialId: Long,
-      contractId: ContractId,
-      signatory: String = "signatory",
-      observer: String = "observer",
-      commandId: String = UUID.randomUUID().toString,
-      sourceSynchronizerId: SynchronizerId = someSynchronizerId,
-      targetSynchronizerId: SynchronizerId = someSynchronizerId2,
-      traceContext: Array[Byte] = serializableTraceContext,
-      recordTime: Timestamp = someTime,
-      nodeId: Int = 0,
-      deactivatedEventSeqId: Option[Long] = None,
-  ): DbDto.EventUnassign = {
-    val updateId = updateIdArrayFromOffset(offset)
-    DbDto.EventUnassign(
-      event_offset = offset.unwrap,
-      update_id = updateId,
-      command_id = Some(commandId),
-      workflow_id = Some("workflow_id"),
-      submitter = Option(someParty),
-      node_id = nodeId,
-      contract_id = contractId,
-      template_id = someTemplateId.toString,
-      package_id = somePackageId,
-      flat_event_witnesses = Set(signatory, observer),
-      event_sequential_id = eventSequentialId,
-      source_synchronizer_id = sourceSynchronizerId,
-      target_synchronizer_id = targetSynchronizerId,
-      reassignment_id = reassignmentId,
-      reassignment_counter = 1000L,
-      assignment_exclusivity = Some(11111),
-      trace_context = traceContext,
-      record_time = recordTime.micros,
-      deactivated_event_sequential_id = deactivatedEventSeqId,
-    )
-  }
-
   def dtoPartyToParticipant(
       offset: Offset,
       eventSequentialId: Long,
@@ -708,19 +507,6 @@ private[store] object StorageBackendTestValues extends OptionValues {
     event_sequential_id_last = event_sequential_id_last,
   )
 
-  def dtoCreateFilter(
-      event_sequential_id: Long,
-      template_id: NameTypeConRef,
-      party_id: String,
-      first_per_sequential_id: Boolean,
-  ): DbDto.IdFilterCreateStakeholder =
-    DbDto.IdFilterCreateStakeholder(
-      event_sequential_id,
-      template_id.toString,
-      party_id,
-      first_per_sequential_id,
-    )
-
   def dtoInterning(
       internal: Int,
       external: String,
@@ -731,10 +517,6 @@ private[store] object StorageBackendTestValues extends OptionValues {
 
   def dtoTransactionId(dto: DbDto): UpdateId =
     dto match {
-      case e: DbDto.EventCreate => UpdateId.tryFromByteArray(e.update_id)
-      case e: DbDto.EventExercise => UpdateId.tryFromByteArray(e.update_id)
-      case e: DbDto.EventAssign => UpdateId.tryFromByteArray(e.update_id)
-      case e: DbDto.EventUnassign => UpdateId.tryFromByteArray(e.update_id)
       case _ => sys.error(s"$dto does not have a transaction id")
     }
 
@@ -744,28 +526,16 @@ private[store] object StorageBackendTestValues extends OptionValues {
       case e: DbDto.EventDeactivate => e.event_sequential_id
       case e: DbDto.EventVariousWitnessed => e.event_sequential_id
       case e: DbDto.IdFilterDbDto => e.idFilter.event_sequential_id
-      case e: DbDto.EventCreate => e.event_sequential_id
-      case e: DbDto.EventExercise => e.event_sequential_id
-      case e: DbDto.EventAssign => e.event_sequential_id
-      case e: DbDto.EventUnassign => e.event_sequential_id
       case _ => sys.error(s"$dto does not have a event sequential id")
     }
 
   def dtoOffset(dto: DbDto): Long =
     dto match {
-      case e: DbDto.EventCreate =>
-        e.event_offset
-      case e: DbDto.EventExercise =>
-        e.event_offset
-      case e: DbDto.EventAssign => e.event_offset
-      case e: DbDto.EventUnassign => e.event_offset
       case _ => sys.error(s"$dto does not have a offset id")
     }
 
   def dtoUserId(dto: DbDto): Ref.UserId =
     dto match {
-      case e: DbDto.EventCreate => Ref.UserId.assertFromString(e.user_id.get)
-      case e: DbDto.EventExercise => Ref.UserId.assertFromString(e.user_id.get)
       case e: DbDto.CommandCompletion => Ref.UserId.assertFromString(e.user_id)
       case _ => sys.error(s"$dto does not have an user id")
     }

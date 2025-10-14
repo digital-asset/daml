@@ -59,19 +59,19 @@ object CryptoHandshakeValidator {
       schemes <- CryptoSchemes.fromConfig(config)
       _ <- validateScheme(
         parameters.requiredSigningSpecs.algorithms,
-        schemes.signingAlgoSpecs,
+        schemes.signingSchemes.algorithmSpecs,
       )
       _ <- validateScheme(
         parameters.requiredSigningSpecs.keys,
-        schemes.signingKeySpecs,
+        schemes.signingSchemes.keySpecs,
       )
       _ <- validateScheme(
         parameters.requiredEncryptionSpecs.algorithms,
-        schemes.encryptionAlgoSpecs,
+        schemes.encryptionSchemes.algorithmSpecs,
       )
       _ <- validateScheme(
         parameters.requiredEncryptionSpecs.keys,
-        schemes.encryptionKeySpecs,
+        schemes.encryptionSchemes.keySpecs,
       )
       _ <- validateScheme(
         parameters.requiredSymmetricKeySchemes,

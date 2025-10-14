@@ -194,6 +194,7 @@ object LedgerApiConformanceBase {
     "ExplicitDisclosureIT:EDFailOnDisclosedContractIdMismatchWithPrescribedSynchronizerId",
     "ExplicitDisclosureIT:EDRouteByDisclosedContractSynchronizerId",
     "VettingIT:PVListVettedPackagesMultiSynchronizer",
+    "VettingIT:PVListVettedPackagesPagination",
   )
   val trafficControlTests = Seq(
     "InteractiveSubmissionServiceIT:ISSPrepareSubmissionRequestBasic",

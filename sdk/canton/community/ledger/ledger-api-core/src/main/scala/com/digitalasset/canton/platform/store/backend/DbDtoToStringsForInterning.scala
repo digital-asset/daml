@@ -24,10 +24,7 @@ object DbDtoToStringsForInterning {
     dbDto match {
       case dbDto: DbDto.EventDeactivate => Iterator(dbDto.template_id)
       case dbDto: DbDto.EventVariousWitnessed => dbDto.template_id.iterator
-      case dbDto: DbDto.EventExercise => Iterator(dbDto.template_id)
-      case dbDto: DbDto.EventCreate => Iterator(dbDto.template_id)
-      case dbDto: DbDto.EventUnassign => Iterator(dbDto.template_id)
-      case dbDto: DbDto.EventAssign => Iterator(dbDto.template_id)
+      case dbDto: DbDto.IdFilterDbDto => Iterator(dbDto.idFilter.template_id)
       case _ => Iterator.empty
     }
 
@@ -37,10 +34,6 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.EventDeactivate => Iterator(dbDto.package_id)
       case dbDto: DbDto.EventVariousWitnessed =>
         dbDto.package_id.iterator ++ dbDto.representative_package_id.iterator
-      case dbDto: DbDto.EventCreate => Iterator(dbDto.package_id, dbDto.representative_package_id)
-      case dbDto: DbDto.EventAssign => Iterator(dbDto.package_id)
-      case dbDto: DbDto.EventExercise => Iterator(dbDto.package_id)
-      case dbDto: DbDto.EventUnassign => Iterator(dbDto.package_id)
       case _ => Iterator.empty
     }
 
@@ -61,32 +54,8 @@ object DbDtoToStringsForInterning {
           dbDto.additional_witnesses.iterator ++
           dbDto.exercise_actors.getOrElse(Set.empty).iterator
 
-      case dbDto: DbDto.EventExercise =>
-        dbDto.submitters.getOrElse(Set.empty).iterator ++
-          dbDto.tree_event_witnesses.iterator ++
-          dbDto.exercise_actors.iterator ++
-          dbDto.flat_event_witnesses.iterator
-
-      case dbDto: DbDto.EventCreate =>
-        dbDto.submitters.getOrElse(Set.empty).iterator ++
-          dbDto.tree_event_witnesses.iterator ++
-          dbDto.flat_event_witnesses.iterator ++
-          dbDto.create_observers.iterator ++
-          // dbDto also contains key_maintainers. We don't internize these
-          // as they're already included in the signatories set
-          dbDto.create_signatories.iterator
-
-      case dbDto: DbDto.EventUnassign =>
-        dbDto.submitter.iterator ++
-          dbDto.flat_event_witnesses.iterator
-
-      case dbDto: DbDto.EventAssign =>
-        dbDto.submitter.iterator ++
-          dbDto.flat_event_witnesses.iterator ++
-          dbDto.create_observers.iterator ++
-          // dbDto also contains key_maintainers. We don't internize these
-          // as they're already included in the signatories set
-          dbDto.create_signatories.iterator
+      case dbDto: DbDto.IdFilterDbDto =>
+        Iterator(dbDto.idFilter.party_id)
 
       case dbDto: DbDto.CommandCompletion =>
         dbDto.submitters.iterator
@@ -109,12 +78,6 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.EventDeactivate =>
         Iterator(dbDto.synchronizer_id) ++ dbDto.target_synchronizer_id.iterator
       case dbDto: DbDto.EventVariousWitnessed => Iterator(dbDto.synchronizer_id)
-      case dbDto: DbDto.EventExercise => Iterator(dbDto.synchronizer_id)
-      case dbDto: DbDto.EventCreate => Iterator(dbDto.synchronizer_id)
-      case dbDto: DbDto.EventUnassign =>
-        Iterator(dbDto.source_synchronizer_id, dbDto.target_synchronizer_id)
-      case dbDto: DbDto.EventAssign =>
-        Iterator(dbDto.source_synchronizer_id, dbDto.target_synchronizer_id)
       case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.synchronizer_id)
       case dbDto: DbDto.CommandCompletion => Iterator(dbDto.synchronizer_id)
       case dbDto: DbDto.SequencerIndexMoved => Iterator(dbDto.synchronizerId)
@@ -138,7 +101,6 @@ object DbDtoToStringsForInterning {
     dbDto match {
       case dbDto: DbDto.EventDeactivate => dbDto.exercise_choice.iterator
       case dbDto: DbDto.EventVariousWitnessed => dbDto.exercise_choice.iterator
-      case dbDto: DbDto.EventExercise => Iterator(dbDto.exercise_choice)
       case _ => Iterator.empty
     }
 
@@ -146,7 +108,6 @@ object DbDtoToStringsForInterning {
     dbDto match {
       case dbDto: DbDto.EventDeactivate => dbDto.exercise_choice_interface_id.iterator
       case dbDto: DbDto.EventVariousWitnessed => dbDto.exercise_choice_interface_id.iterator
-      case dbDto: DbDto.EventExercise => dbDto.exercise_choice_interface_id.iterator
       case _ => Iterator.empty
     }
 }

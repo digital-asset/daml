@@ -8,6 +8,7 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   NoParties,
   Participant,
   Participants,
+  SingleParty,
   allocate,
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions.*
@@ -23,6 +24,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
   VettingMainDar_Split_Lineage_2_0_0,
 }
 import com.daml.ledger.api.v2.admin.package_management_service.{
+  UpdateVettedPackagesForceFlag,
   UpdateVettedPackagesRequest,
   UpdateVettedPackagesResponse,
   UploadDarFileRequest,
@@ -36,11 +38,16 @@ import com.daml.ledger.api.v2.package_service.{
   ListVettedPackagesResponse,
   TopologyStateFilter,
 }
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.daml.ledger.test.java.vetting_alt.alt.AltT
 import com.daml.ledger.test.java.vetting_dep.dep.DepT
-import com.daml.ledger.test.java.vetting_main_1_0_0.main.MainT as MainT_1_0_0
+import com.daml.ledger.test.java.vetting_main_1_0_0.main.{
+  MainT as MainT_1_0_0,
+  MainTSimple as MainTSimple_1_0_0,
+}
 import com.daml.ledger.test.java.vetting_main_2_0_0.main.MainT as MainT_2_0_0
 import com.daml.ledger.test.java.vetting_main_split_lineage_2_0_0.main.DifferentMainT as MainT_Split_Lineage_2_0_0
+import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.ledger.api.{
   DontVetAnyPackages,
   PackageMetadataFilter,
@@ -217,12 +224,17 @@ class VettingIT extends LedgerTestSuite {
       dryRun: Boolean = false,
       alternativeSynchronizer: Option[String] = None,
       expectedTopologySerial: Option[PriorTopologySerial] = None,
+      allowUnvetWithActiveContracts: Boolean = false,
   ): UpdateVettedPackagesRequest =
     UpdateVettedPackagesRequest(
       operations.map(VettedPackagesChange(_)),
       dryRun,
       alternativeSynchronizer.getOrElse(synchronizerIdOrFail),
       expectedTopologySerial,
+      Seq(
+        UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS
+      )
+        .filter(_ => allowUnvetWithActiveContracts),
     )
 
   private def changeOpRequest(
@@ -308,6 +320,7 @@ class VettingIT extends LedgerTestSuite {
       dryRun: Boolean,
       alternativeSynchronizer: Option[String],
       expectedTopologySerial: Option[PriorTopologySerial],
+      unvetWithActiveContracts: Boolean,
   ): Future[UpdateVettedPackagesResponse] = {
     val mainPackageIds = darNames.map(mainPackageId(_))
 
@@ -322,6 +335,7 @@ class VettingIT extends LedgerTestSuite {
           dryRun = dryRun,
           alternativeSynchronizer = alternativeSynchronizer,
           expectedTopologySerial = expectedTopologySerial,
+          allowUnvetWithActiveContracts = unvetWithActiveContracts,
         )
       )
   }
@@ -330,6 +344,7 @@ class VettingIT extends LedgerTestSuite {
       ledger: ParticipantTestContext,
       darNames: Seq[String],
       alternativeSynchronizer: Option[String] = None,
+      unvetWithActiveContracts: Boolean = false,
   ): Future[UpdateVettedPackagesResponse] =
     opDARMains(
       refsToUnvetOp,
@@ -338,6 +353,7 @@ class VettingIT extends LedgerTestSuite {
       dryRun = false,
       alternativeSynchronizer = alternativeSynchronizer,
       expectedTopologySerial = None,
+      unvetWithActiveContracts = unvetWithActiveContracts,
     )
 
   private def vetDARMains(
@@ -354,6 +370,7 @@ class VettingIT extends LedgerTestSuite {
       dryRun,
       alternativeSynchronizer,
       expectedTopologySerial,
+      unvetWithActiveContracts = false,
     )
 
   private def unvetAllDARMains(
@@ -1413,6 +1430,111 @@ class VettingIT extends LedgerTestSuite {
       } yield ()
   })
 
+  def requestAllPaged(size: Int = 0, token: String = "") = ListVettedPackagesRequest(
+    Some(PackageMetadataFilter(Seq(), Seq()).toProtoLAPI),
+    Some(TopologyStateFilter(participantIds = Seq(), synchronizerIds = Seq())),
+    token,
+    size,
+  )
+
+  def vettedPackagesAreSorted(results: Seq[VettedPackages]): Assertion =
+    results.sortBy(packages => packages.synchronizerId -> packages.participantId) should equal(
+      results
+    )
+
+  test(
+    "PVListVettedPackagesPagination",
+    "Listing packages with pagination works.",
+    allocate(NoParties, NoParties).expectingMinimumNumberOfSynchronizers(2),
+    runConcurrently = false,
+  )(implicit ec => {
+    case Participants(Participant(participant1, _), Participant(participant2, _)) =>
+      for {
+        sync1 <- getSynchronizerId(participant1, syncIndex = 1)
+        sync2 <- getSynchronizerId(participant1, syncIndex = 2)
+
+        _ <- participant1.uploadDarFile(
+          UploadDarFileRequest(
+            Dars.read(VettingMainDar_2_0_0.path),
+            "",
+            DontVetAnyPackages.toProto,
+            "",
+          )
+        )
+        _ <- participant2.uploadDarFile(
+          UploadDarFileRequest(
+            Dars.read(VettingMainDar_2_0_0.path),
+            "",
+            DontVetAnyPackages.toProto,
+            "",
+          )
+        )
+
+        _ <- vetAllInDar(participant1, VettingMainDar_2_0_0.path, Some(sync1))
+        _ <- vetAllInDar(participant2, VettingMainDar_2_0_0.path, Some(sync1))
+        _ <- vetAllInDar(participant1, VettingMainDar_2_0_0.path, Some(sync2))
+        _ <- vetAllInDar(participant2, VettingMainDar_2_0_0.path, Some(sync2))
+
+        // Requesting page of size 0 means requesting server's default page
+        // size, which is at least 4
+        requestZero <- participant1.listVettedPackages(requestAllPaged(size = 0))
+        _ = requestZero.vettedPackages.length should be >= 4
+        _ = vettedPackagesAreSorted(requestZero.vettedPackages)
+
+        // Requesting page of size 1 gets one result
+        requestOne <- participant1.listVettedPackages(requestAllPaged(size = 1))
+        _ = requestOne.vettedPackages should have length 1
+
+        // Requesting page with token from last request gives new result
+        requestAnotherOne <- participant1.listVettedPackages(
+          requestAllPaged(size = 1, token = requestOne.nextPageToken)
+        )
+        _ = requestAnotherOne.vettedPackages should have length 1
+
+        // Requesting page of size larger than remaining items returns all
+        // remaining items. We assume here that maxPageSize exceeds the number
+        // of synchronizer/participant pairs.
+        maxPageSize = participant1.features.packageFeature.maxVettedPackagesPageSize
+        requestRemainder <- participant1.listVettedPackages(
+          requestAllPaged(size = maxPageSize, token = requestAnotherOne.nextPageToken)
+        )
+        _ = requestRemainder.vettedPackages.length should be < maxPageSize
+
+        // All chained requests should be sorted
+        _ = vettedPackagesAreSorted(
+          requestOne.vettedPackages ++ requestAnotherOne.vettedPackages ++ requestRemainder.vettedPackages
+        )
+
+        // Requesting page of size below 0 results in an error
+        _ <- participant1
+          .listVettedPackages(requestAllPaged(size = -1))
+          .mustFailWith(
+            "Requesting page of size below 0 results in an error",
+            ProtoDeserializationFailure,
+          )
+
+        // Requesting page of size more than the maximum server page size
+        // results in an error
+        _ <- participant1
+          .listVettedPackages(requestAllPaged(size = maxPageSize + 1))
+          .mustFailWith(
+            "Requesting page of size more than the maximum server page size results in an error",
+            ProtoDeserializationFailure,
+          )
+
+        // Requesting invalid pageToken results in an error
+        _ <- participant1
+          .listVettedPackages(requestAllPaged(size = 1, token = "INVALID_PAGE_TOKEN"))
+          .mustFailWith(
+            "Requesting invalid pageToken results in an error",
+            ProtoDeserializationFailure,
+          )
+
+        _ <- unvetAllDARMains(participant1)
+        _ <- unvetAllDARMains(participant2)
+      } yield ()
+  })
+
   // TODO(#28384): Re-enable these tests when
   // LedgerApiConformanceMultiSynchronizerTest is able to have participants with
   // different synchronizers.
@@ -1423,7 +1545,6 @@ class VettingIT extends LedgerTestSuite {
     allocate(NoParties, NoParties)
     runConcurrently = false,
   )(implicit ec => { case Participants(Participant(participant1, _), Participant(participant2, _)) =>
-    if (true) sys.error(s"AAAAAAAAAAAA") else ()
     for {
       _ <- unvetAllDARMains(participant1)
       _ <- unvetAllDARMains(participant2)
@@ -1540,4 +1661,53 @@ class VettingIT extends LedgerTestSuite {
     } yield ()
   })
    */
+
+  implicit val mainTSimple1_0_0Companion: ContractCompanion.WithoutKey[
+    MainTSimple_1_0_0.Contract,
+    MainTSimple_1_0_0.ContractId,
+    MainTSimple_1_0_0,
+  ] = MainTSimple_1_0_0.COMPANION
+
+  test(
+    "PVUnvetPackageWithActiveContracts",
+    "Unvet packages that have an active contract",
+    allocate(SingleParty),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant, Seq(party))) =>
+    for {
+      _ <- setNodeIds(participant)
+      _ <- participant.uploadDarFile(
+        UploadDarFileRequest(
+          Dars.read(VettingMainDar_1_0_0.path),
+          "",
+          DontVetAnyPackages.toProto,
+          "",
+        )
+      )
+
+      _ <- participant.uploadDarFile(
+        UploadDarFileRequest(
+          Dars.read(VettingMainDar_2_0_0.path),
+          "",
+          DontVetAnyPackages.toProto,
+          "",
+        )
+      )
+
+      vetMain <- vetAllInDar(participant, VettingMainDar_1_0_0.path)
+
+      _ <- participant.create(party, new MainTSimple_1_0_0(party))
+
+      unvetMain <- unvetDARMains(
+        participant,
+        Seq(VettingMainDar_1_0_0.path),
+        unvetWithActiveContracts = true,
+      )
+
+      _ <- unvetAllDARMains(participant)
+    } yield {
+      vetMain.getNewVettedPackages.packages.map(_.packageId) should contain(vettingMainPkgIdV1)
+      unvetMain.getNewVettedPackages.packages.map(_.packageId) should not contain vettingMainPkgIdV1
+    }
+  })
 }

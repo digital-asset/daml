@@ -248,7 +248,7 @@ class ParticipantTopologyDispatcher(
           topologyConfig,
           timeouts,
           loggerFactory
-            .append("synchronizerId", psid.toString)
+            .append("psid", psid.toString)
             .appendUnnamedKey("onboarding", "onboarding"),
           SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
         )
@@ -261,7 +261,7 @@ class ParticipantTopologyDispatcher(
       timeTracker: SynchronizerTimeTracker,
   ): ParticipantTopologyDispatcherHandle = {
     val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", sequencerClient.psid.toString)
+      loggerFactory.append("psid", sequencerClient.psid.toString)
     new ParticipantTopologyDispatcherHandle {
       val handle = new SequencerBasedRegisterTopologyTransactionHandle(
         sequencerClient,

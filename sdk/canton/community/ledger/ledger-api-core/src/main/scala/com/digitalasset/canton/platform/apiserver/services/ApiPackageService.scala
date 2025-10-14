@@ -39,6 +39,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.platform.config.PackageServiceConfig
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.archive.DamlLf.{Archive, HashFunction}
@@ -49,12 +50,14 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService(
     packageSyncService: PackageSyncService,
+    packageServiceConfig: PackageServiceConfig,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends PackageService
     with GrpcApiService
     with NamedLogging {
+
   private implicit val loggingContext: LoggingContext =
     createLoggingContext(loggerFactory)(identity)
 
@@ -130,11 +133,12 @@ private[apiserver] final class ApiPackageService(
     ) { implicit loggingContext =>
       for {
         opts <- ListVettedPackagesOpts
-          .fromProto(request)
+          .fromProto(request, packageServiceConfig.maxVettedPackagesPageSize)
           .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
-        result <- packageSyncService.listVettedPackages(opts)
+        results <- packageSyncService.listVettedPackages(opts)
+        (pageResults, nextPageToken) = opts.toPage(results)
       } yield ListVettedPackagesResponse(
-        vettedPackages = result.map { vettedPackages =>
+        vettedPackages = pageResults.map { vettedPackages =>
           VettedPackages(
             packages = vettedPackages.packages.map(_.toProtoLAPI),
             participantId = vettedPackages.participantId.uid.toProtoPrimitive,
@@ -142,7 +146,7 @@ private[apiserver] final class ApiPackageService(
             topologySerial = vettedPackages.serial.value,
           )
         },
-        nextPageToken = "",
+        nextPageToken = nextPageToken,
       )
     }
 

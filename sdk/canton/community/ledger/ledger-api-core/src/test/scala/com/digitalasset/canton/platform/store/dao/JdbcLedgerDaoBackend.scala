@@ -109,6 +109,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         loggerFactory = loggerFactory,
       )
       contractLoader <- ContractLoader.create(
+        participantContractStore = contractStore,
         contractStorageBackend = dbSupport.storageBackendFactory.createContractStorageBackend(
           stringInterningView,
           ledgerEndCache,
@@ -149,7 +150,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
           maxIdsPerIdPage = acsIdPageSize,
           maxPagesPerIdPagesBuffer = 1,
           maxWorkingMemoryInBytesForIdPages = 100 * 1024 * 1024,
-          maxParallelIdCreateQueries = acsIdFetchingParallelism,
+          maxParallelActiveIdQueries = acsIdFetchingParallelism,
           maxParallelPayloadCreateQueries = acsContractFetchingParallelism,
           contractProcessingParallelism = eventsProcessingParallelism,
         ),

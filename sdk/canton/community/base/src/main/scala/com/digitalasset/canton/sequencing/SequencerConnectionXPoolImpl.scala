@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -17,6 +18,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
@@ -52,6 +54,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     member: Member,
     crypto: Crypto,
     seedForRandomnessO: Option[Long],
+    metrics: SequencerConnectionPoolMetrics,
+    metricsContext: MetricsContext,
     futureSupervisor: FutureSupervisor,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -120,6 +124,9 @@ class SequencerConnectionXPoolImpl private[sequencing] (
 
   override def staticSynchronizerParametersO: Option[StaticSynchronizerParameters] =
     bootstrapCell.get.map(_.staticParameters)
+
+  private implicit def mc: MetricsContext = metricsContext
+  metrics.trustThreshold.updateValue(config.trustThreshold.value)
 
   override def start()(implicit
       traceContext: TraceContext
@@ -208,6 +215,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
       }
       // Newly created connections are not yet validated
       trackedConnections.addAll(newConnections.map(_ -> false))
+
+      metrics.trackedConnections.updateValue(trackedConnections.size)
 
       // Note that the following calls to `connection.fatal` and `startConnection` can potentially trigger
       // further processing via health state changes and modify the tracked connections or the pool.
@@ -378,6 +387,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         } yield {
           configRef.set(newConfig)
           logger.info(s"Configuration updated to: $newConfig")
+
+          metrics.trustThreshold.updateValue(config.trustThreshold.value)
 
           // If the trust threshold is now reached, process it
           bootstrapIfThresholdReachedO.foreach(initializePool)
@@ -592,6 +603,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
             }
             .discard
 
+          metrics.validatedConnections.updateValue(pool.size)
           updateHealth()
         }
         .valueOr { error =>
@@ -628,6 +640,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
             }
             .discard
 
+          metrics.validatedConnections.updateValue(pool.size)
           updateHealth()
 
         case None =>
@@ -721,6 +734,8 @@ class GrpcSequencerConnectionXPoolFactory(
     clock: Clock,
     crypto: Crypto,
     seedForRandomnessO: Option[Long],
+    metrics: SequencerConnectionPoolMetrics,
+    metricsContext: MetricsContext,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -741,6 +756,8 @@ class GrpcSequencerConnectionXPoolFactory(
     val connectionFactory = new GrpcInternalSequencerConnectionXFactory(
       clientProtocolVersions,
       minimumProtocolVersion,
+      metrics,
+      metricsContext,
       futureSupervisor,
       timeouts,
       loggerWithPoolName,
@@ -757,6 +774,8 @@ class GrpcSequencerConnectionXPoolFactory(
         member,
         crypto,
         seedForRandomnessO,
+        metrics,
+        metricsContext,
         futureSupervisor,
         timeouts,
         loggerWithPoolName,

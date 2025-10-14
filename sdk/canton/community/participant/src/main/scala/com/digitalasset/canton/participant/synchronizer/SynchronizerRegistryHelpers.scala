@@ -117,8 +117,8 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       )
 
       synchronizerLoggerFactory = loggerFactory.append(
-        "synchronizerId",
-        physicalSynchronizerIdx.synchronizerId.toString,
+        "psid",
+        physicalSynchronizerIdx.toString,
       )
 
       topologyFactory <- syncPersistentStateManager

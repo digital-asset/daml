@@ -39,6 +39,11 @@ object CantonGenerators {
     enumArbitrary(
       lapi.package_service.PackageStatus.enumCompanion
     )
+  implicit val arbUpdateVettedPackagesForceFlag
+      : Arbitrary[lapi.admin.package_management_service.UpdateVettedPackagesForceFlag] =
+    enumArbitrary(
+      lapi.admin.package_management_service.UpdateVettedPackagesForceFlag.enumCompanion
+    )
 
   // limit size of random sequences
   import magnolify.scalacheck.auto.*

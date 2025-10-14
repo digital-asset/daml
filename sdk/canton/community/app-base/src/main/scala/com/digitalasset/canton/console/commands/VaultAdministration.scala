@@ -557,7 +557,7 @@ class GlobalSecretKeyAdministration(
       @Help.Description("Generate a key and store it into the global store")
       def generate_key(
           keySpec: SigningKeySpec =
-            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingKeySpecs.default,
+            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingSchemes.keySpecs.default,
           usage: NonEmpty[Set[SigningKeyUsage]],
           name: Option[KeyName] = None,
       ): SigningPublicKey = consoleEnvironment.run(
@@ -573,7 +573,7 @@ class GlobalSecretKeyAdministration(
       def generate_keys(
           count: PositiveInt,
           keySpec: SigningKeySpec =
-            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingKeySpecs.default,
+            consoleEnvironment.tryGlobalCrypto.privateCrypto.signingSchemes.keySpecs.default,
           usage: NonEmpty[Set[SigningKeyUsage]],
           name: Option[KeyName] = None,
       ): NonEmpty[Seq[SigningPublicKey]] = {

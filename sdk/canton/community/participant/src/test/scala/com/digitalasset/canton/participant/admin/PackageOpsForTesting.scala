@@ -74,6 +74,7 @@ class PackageOpsForTesting(
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
+      allowUnvetPackageIdInUse: Boolean = false,
   )(implicit
       tc: TraceContext
   ): EitherT[

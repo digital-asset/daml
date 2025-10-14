@@ -32,10 +32,10 @@ import io.circe.{Codec, Decoder, DecodingFailure, Encoder, Json}
 import scalapb.{GeneratedEnumCompanion, UnknownFieldSet}
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.Schema.SName
-import sttp.tapir.SchemaType.SProduct
+import sttp.tapir.SchemaType.{SProduct, SProductField}
 import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
-import sttp.tapir.{DecodeResult, Schema, SchemaType, Validator}
+import sttp.tapir.{DecodeResult, FieldName, Schema, SchemaType, Validator}
 
 import java.time.Instant
 import java.util.Base64
@@ -457,11 +457,40 @@ object JsSchema {
 
     implicit val grpcStatusEncoder: Encoder[com.google.rpc.status.Status] = Encoder.instance {
       status =>
+        import com.google.rpc.error_details.{ErrorInfo, RetryInfo}
         import io.circe.syntax.*
+
+        def decodeValue(detail: com.google.protobuf.any.Any): String =
+          try {
+            detail.typeUrl match {
+              case "type.googleapis.com/google.rpc.ErrorInfo" =>
+                ErrorInfo.parseFrom(detail.value.toByteArray).toString
+              case "type.googleapis.com/google.rpc.RetryInfo" =>
+                RetryInfo.parseFrom(detail.value.toByteArray).toString
+              case _ =>
+                "Unknown type for decoding"
+            }
+          } catch {
+            case e: Exception => "Failed to decode: " + e.getMessage
+          }
+
+        def encodeDetail(detail: com.google.protobuf.any.Any): Json = {
+          val typeUrl = detail.typeUrl
+          val unknownFields = detail.unknownFields
+          val valueBase64 = Base64.getEncoder.encodeToString(detail.value.toByteArray)
+          val valueDecoded = decodeValue(detail)
+          Json.obj(
+            "typeUrl" -> typeUrl.asJson,
+            "value" -> valueBase64.asJson,
+            "unknownFields" -> unknownFields.asJson,
+            "valueDecoded" -> valueDecoded.asJson,
+          )
+        }
+
         Json.obj(
           "code" -> status.code.asJson,
           "message" -> status.message.asJson,
-          "details" -> status.details.asJson,
+          "details" -> status.details.map(encodeDetail).asJson,
         )
     }
 
@@ -504,8 +533,31 @@ object JsSchema {
         name = Some(Schema.SName("Empty")),
       )
 
-    implicit val anySchema: Schema[com.google.protobuf.any.Any] =
-      Schema.derived.name(Some(SName("ProtoAny")))
+    implicit val anySchema: Schema[com.google.protobuf.any.Any] = Schema(
+      SchemaType.SProduct[
+        com.google.protobuf.any.Any
+      ](
+        List(
+          SProductField(FieldName("typeUrl"), Schema.string, a => Option(a.typeUrl)),
+          SProductField(FieldName("value"), Schema.string, a => Option(a.value.toString)),
+          SProductField(
+            FieldName("unknownFields"),
+            Schema.derived[scalapb.UnknownFieldSet],
+            a => Option(a.unknownFields),
+          ),
+          SProductField(
+            FieldName("valueDecoded"),
+            Schema
+              .schemaForOption[String](
+                Schema.string
+              )
+              .as[String],
+            _ => Option(""),
+          ), // valueDecoded is now optional
+        )
+      ),
+      Some(SName("ProtoAny")),
+    )
 
     implicit val statusSchema: Schema[com.google.rpc.status.Status] = {
       val baseSchema = Schema.derived[com.google.rpc.status.Status]

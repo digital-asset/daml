@@ -7,8 +7,8 @@ import better.files.*
 import cats.syntax.either.*
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig}
-import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
+import com.digitalasset.canton.crypto.{CryptoPureApi, CryptoSchemes}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.examples.java.iou.Amount
@@ -61,6 +61,9 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
         config.crypto,
         config.parameters.caching.sessionEncryptionKeyCache,
         config.parameters.caching.publicKeyConversionCache,
+        CryptoSchemes
+          .fromConfig(config.crypto)
+          .valueOrFail("fail to validate crypto schemes from the configuration file"),
         loggerFactory,
       )
       .valueOr(err => throw new RuntimeException(s"Failed to create pure crypto api: $err"))

@@ -16,8 +16,8 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
   String255,
   String300,
 }
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelInstanceFutureUnlessShutdown
@@ -553,6 +553,7 @@ object TopologyStore {
       storage: Storage,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
+      batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext
@@ -562,7 +563,14 @@ object TopologyStore {
       case _: MemoryStorage =>
         new InMemoryTopologyStore(storeId, protocolVersion, storeLoggerFactory, timeouts)
       case dbStorage: DbStorage =>
-        new DbTopologyStore(dbStorage, storeId, protocolVersion, timeouts, storeLoggerFactory)
+        new DbTopologyStore(
+          dbStorage,
+          storeId,
+          protocolVersion,
+          timeouts,
+          batchingConfig,
+          storeLoggerFactory,
+        )
     }
   }
 

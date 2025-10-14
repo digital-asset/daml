@@ -182,7 +182,7 @@ class MaliciousParticipantNode(
         rootHashMessage =
           RootHashMessage(
             rootHash,
-            fullTree.synchronizerId,
+            fullTree.psid,
             ViewType.UnassignmentViewType,
             cryptoSnapshot.ipsSnapshot.timestamp,
             EmptyRootHashMessagePayload,

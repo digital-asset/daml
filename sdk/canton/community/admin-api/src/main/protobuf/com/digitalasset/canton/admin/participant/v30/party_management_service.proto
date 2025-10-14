@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
+import "com/digitalasset/canton/admin/participant/v30/acs_import.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
@@ -266,6 +267,22 @@ message ImportPartyAcsRequest {
   // configured gRPC message size.
   // Required
   bytes acs_snapshot = 1;
+
+  // The representative package ID override rules to be applied during import.
+  //
+  // Optional
+  RepresentativePackageIdOverride representative_package_id_override = 2;
+
+  // How imported contracts should be validated upon import.
+  //
+  // NOTE: The representative package IDs assigned to imported contracts must ensure proper type-checking for those contracts.
+  // Importing contracts representative_package_id's that do not type-check may cause unexpected behavior,
+  // including INTERNAL errors on Ledger API read queries or incorrect Daml value representations.
+  // If unsure, perform the ACS import with ContractImportMode set to CONTRACT_IMPORT_MODE_VALIDATION to ensure
+  // that the assigned representative package IDs correctly validate the imported contracts.
+  //
+  // Required
+  ContractImportMode contract_import_mode = 3;
 }
 
 message ImportPartyAcsResponse {}

@@ -164,7 +164,7 @@ object ConfirmationResponse {
   *   The unique identifier of the request.
   * @param rootHash
   *   The root hash of the request.
-  * @param synchronizerId
+  * @param psid
   *   The synchronizer ID over which the request is sent.
   * @param sender
   *   The identity of the sender.
@@ -174,7 +174,7 @@ object ConfirmationResponse {
 final case class ConfirmationResponses private (
     requestId: RequestId,
     rootHash: RootHash,
-    override val synchronizerId: PhysicalSynchronizerId,
+    override val psid: PhysicalSynchronizerId,
     sender: ParticipantId,
     responses: NonEmpty[Seq[ConfirmationResponse]],
 )(
@@ -191,7 +191,7 @@ final case class ConfirmationResponses private (
   private def copy(
       requestId: RequestId = requestId,
       rootHash: RootHash = rootHash,
-      synchronizerId: PhysicalSynchronizerId = synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = psid,
       sender: ParticipantId = sender,
       responses: NonEmpty[Seq[ConfirmationResponse]] = responses,
   ): ConfirmationResponses = ConfirmationResponses(
@@ -215,7 +215,7 @@ final case class ConfirmationResponses private (
       requestId = requestId.toProtoPrimitive,
       rootHash = rootHash.toProtoPrimitive,
       sender = sender.toProtoPrimitive,
-      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = psid.toProtoPrimitive,
       responses = responses.map(_.toProtoV30),
     )
 
@@ -230,7 +230,7 @@ final case class ConfirmationResponses private (
       param("requestId", _.requestId),
       param("rootHash", _.rootHash),
       param("sender", _.sender),
-      param("synchronizerId", _.synchronizerId),
+      param("psid", _.psid),
       param("responses", _.responses),
     )
 

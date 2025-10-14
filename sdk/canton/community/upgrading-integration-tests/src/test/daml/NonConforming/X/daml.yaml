@@ -1,16 +1,16 @@
-sdk-version: 3.4.0-snapshot.20251007.14274.0.ve2024cd6
-build-options:
+sdk-version: 3.4.0-snapshot.20251013.14305.0.v93a220d8
+module-prefixes: !java.util.LinkedHashMap
+   NonConforming-1.0.0: NonConformingV1
+   NonConforming-2.0.0: NonConformingV2
+build-options: 
 - --target=2.1
 - --enable-interfaces=yes
 name: NonConformingX
+data-dependencies: 
+- ../../../scala-2.13/resource_managed/test/NonConforming-1.0.0.dar
+- ../../../scala-2.13/resource_managed/test/NonConforming-2.0.0.dar
 source: NonConformingX.daml
 version: 1.0.0
-data-dependencies:
-  - ../../../scala-2.13/resource_managed/test/NonConforming-1.0.0.dar
-  - ../../../scala-2.13/resource_managed/test/NonConforming-2.0.0.dar
-dependencies:
+dependencies: 
 - daml-prim
 - daml-stdlib
-module-prefixes:
-  NonConforming-1.0.0: NonConformingV1
-  NonConforming-2.0.0: NonConformingV2

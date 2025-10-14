@@ -1343,6 +1343,8 @@ class RichSequencerClientImpl(
           val sequencerSubscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
             sequencerSubscriptionFactory,
             subscriptionHandlerFactory,
+            metrics.connectionPool,
+            metricsContext = MetricsContext.Empty,
             timeouts,
             loggerFactory,
           )

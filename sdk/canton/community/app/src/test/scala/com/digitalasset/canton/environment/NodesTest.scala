@@ -148,8 +148,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   def arguments(config: TestNodeConfig) = factoryArguments(config)
     .toCantonNodeBootstrapCommonArguments(
       storageFactory = new StorageSingleFactory(StorageConfig.Memory()),
-      cryptoPrivateStoreFactory =
-        CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
+      cryptoPrivateStoreFactory = CryptoPrivateStoreFactory.withoutKms(),
     )
     .value
 

@@ -146,7 +146,7 @@ class TrafficPurchasedSubmissionHandlerTest
       val topUpMessage = envelope.protocolMessage
         .asInstanceOf[SignedProtocolMessage[SetTrafficPurchasedMessage]]
         .message
-      topUpMessage.synchronizerId shouldBe synchronizerId
+      topUpMessage.psid shouldBe synchronizerId
       topUpMessage.serial.value shouldBe 5
       topUpMessage.member shouldBe recipient1
       topUpMessage.totalTrafficPurchased.value shouldBe 1000

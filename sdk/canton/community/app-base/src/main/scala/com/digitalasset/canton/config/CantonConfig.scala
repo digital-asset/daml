@@ -44,6 +44,7 @@ import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secur
   identityProviderManagementConfigConvert,
   indexServiceConfigConvert,
   indexerConfigConvert,
+  packageServiceConfigConvert,
   partyManagementServiceConfigConvert,
   userManagementServiceConfigConvert,
 }

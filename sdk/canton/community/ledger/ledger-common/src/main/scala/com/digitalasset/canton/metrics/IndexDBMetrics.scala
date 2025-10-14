@@ -71,17 +71,29 @@ trait UpdateStreamsDbMetrics {
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class UpdatesAcsDeltaStreamMetrics private[UpdateStreamsDbMetrics] {
-    val fetchEventCreateIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_ids_stakeholder"
+    val fetchEventActivateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_stakeholder"
     )
-    val fetchEventConsumingIdsStakeholder: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_ids_stakeholder"
+    val fetchEventActivateIdsStakeholderFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_stakeholder_filtered_range"
     )
-    val fetchEventCreatePayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_payloads"
+    val fetchEventActivateIdsStakeholderFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_stakeholder_filtered_ids"
     )
-    val fetchEventConsumingPayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_payloads"
+    val fetchEventDeactivateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_stakeholder"
+    )
+    val fetchEventDeactivateIdsStakeholderFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_stakeholder_filtered_range"
+    )
+    val fetchEventDeactivateIdsStakeholderFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_stakeholder_filtered_ids"
+    )
+    val fetchEventActivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_payloads"
+    )
+    val fetchEventDeactivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_payloads"
     )
 
     val translationTimer: Timer =
@@ -92,28 +104,59 @@ trait UpdateStreamsDbMetrics {
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class UpdatesLedgerEffectsStreamMetrics private[UpdateStreamsDbMetrics] {
-
-    val fetchEventCreateIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_ids_stakeholder"
+    val fetchEventActivateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_stakeholder"
     )
-    val fetchEventCreateIdsNonStakeholderLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_ids_non_stakeholder"
+    val fetchEventActivateIdsStakeholderFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_stakeholder_filtered_range"
     )
-    val fetchEventConsumingIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_ids_stakeholder"
+    val fetchEventActivateIdsStakeholderFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_stakeholder_filtered_ids"
     )
-    val fetchEventConsumingIdsNonStakeholderLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_ids_non_stakeholder"
+    val fetchEventActivateIdsWitness: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_witness"
     )
-    val fetchEventNonConsumingIdsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_non_consuming_ids_informee"
+    val fetchEventActivateIdsWitnessFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_witness_filtered_range"
     )
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
-    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_payloads"
+    val fetchEventActivateIdsWitnessFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_ids_witness_filtered_ids"
     )
-    val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_non_consuming_payloads"
+    val fetchEventDeactivateIdsStakeholder: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_stakeholder"
+    )
+    val fetchEventDeactivateIdsStakeholderFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_stakeholder_filtered_range"
+    )
+    val fetchEventDeactivateIdsStakeholderFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_stakeholder_filtered_ids"
+    )
+    val fetchEventDeactivateIdsWitness: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_witness"
+    )
+    val fetchEventDeactivateIdsWitnessFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_witness_filtered_range"
+    )
+    val fetchEventDeactivateIdsWitnessFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_ids_witness_filtered_ids"
+    )
+    val fetchEventVariousIdsWitness: DatabaseMetrics = createDbMetrics(
+      "fetch_event_various_ids_witness"
+    )
+    val fetchEventVariousIdsWitnessFilteredRange: DatabaseMetrics = createDbMetrics(
+      "fetch_event_various_ids_witness_filtered_range"
+    )
+    val fetchEventVariousIdsWitnessFilteredIds: DatabaseMetrics = createDbMetrics(
+      "fetch_event_various_ids_witness_filtered_ids"
+    )
+    val fetchEventActivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_payloads"
+    )
+    val fetchEventDeactivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_payloads"
+    )
+    val fetchEventVariousWitnessedPayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_various_witnessed_payloads"
     )
 
     val translationTimer: Timer =
@@ -123,29 +166,6 @@ trait UpdateStreamsDbMetrics {
 
   val updatesLedgerEffectsStream: UpdatesLedgerEffectsStreamMetrics =
     new UpdatesLedgerEffectsStreamMetrics
-
-  // Private constructor to avoid being instantiated multiple times by accident
-  final class ReassignmentStreamMetrics private[UpdateStreamsDbMetrics] {
-
-    val fetchEventAssignIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_assign_ids_stakeholder"
-    )
-    val fetchEventUnassignIdsStakeholderLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_unassign_ids_stakeholder"
-    )
-    val fetchEventAssignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_assign_payloads"
-    )
-    val fetchEventUnassignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_unassign_payloads"
-    )
-
-    val translationTimer: Timer =
-      openTelemetryMetricsFactory.timer(inventory.reassignmentStreamTranslationTimer.info)
-
-  }
-
-  val reassignmentStream: ReassignmentStreamMetrics = new ReassignmentStreamMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class TopologyTransactionsStreamMetrics private[UpdateStreamsDbMetrics] {
@@ -170,11 +190,11 @@ trait UpdatePointwiseDbMetrics {
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class UpdatesAcsDeltaPointwiseMetrics private[UpdatePointwiseDbMetrics] {
-    val fetchEventCreatePayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_create_payloads"
+    val fetchEventActivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_payloads"
     )
-    val fetchEventConsumingPayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_payloads"
+    val fetchEventDeactivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_payloads"
     )
 
     val translationTimer: Timer =
@@ -186,13 +206,14 @@ trait UpdatePointwiseDbMetrics {
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class UpdatesLedgerEffectsPointwiseMetrics private[UpdatePointwiseDbMetrics] {
-
-    val fetchEventCreatePayloads: DatabaseMetrics = createDbMetrics("fetch_event_create_payloads")
-    val fetchEventConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_consuming_payloads"
+    val fetchEventActivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_activate_payloads"
     )
-    val fetchEventNonConsumingPayloads: DatabaseMetrics = createDbMetrics(
-      "fetch_event_non_consuming_payloads"
+    val fetchEventDeactivatePayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_deactivate_payloads"
+    )
+    val fetchEventVariousWitnessedPayloads: DatabaseMetrics = createDbMetrics(
+      "fetch_event_various_witnessed_payloads"
     )
 
     val translationTimer: Timer =
@@ -201,23 +222,6 @@ trait UpdatePointwiseDbMetrics {
 
   val updatesLedgerEffectsPointwise: UpdatesLedgerEffectsPointwiseMetrics =
     new UpdatesLedgerEffectsPointwiseMetrics
-
-  // Private constructor to avoid being instantiated multiple times by accident
-  final class ReassignmentPointwiseMetrics private[UpdatePointwiseDbMetrics] {
-
-    val fetchEventAssignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_assign_payloads"
-    )
-    val fetchEventUnassignPayloadsLegacy: DatabaseMetrics = createDbMetrics(
-      "fetch_event_unassign_payloads"
-    )
-
-    val translationTimer: Timer =
-      openTelemetryMetricsFactory.timer(inventory.reassignmentStreamTranslationTimer.info)
-
-  }
-
-  val reassignmentPointwise: ReassignmentPointwiseMetrics = new ReassignmentPointwiseMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class TopologyTransactionsPointwiseMetrics private[UpdatePointwiseDbMetrics] {
@@ -438,12 +442,8 @@ class MainIndexDBMetrics(
   val loadAllParties: DatabaseMetrics = createDbMetrics("load_all_parties")
   val pruneDbMetrics: DatabaseMetrics = createDbMetrics("prune")
   val fetchPruningOffsetsMetrics: DatabaseMetrics = createDbMetrics("fetch_pruning_offsets")
-  val lookupCreatedContractsDbMetrics: DatabaseMetrics = createDbMetrics("lookup_created_contracts")
-  val lookupAssignedContractsDbMetrics: DatabaseMetrics = createDbMetrics(
-    "lookup_assigned_contracts"
-  )
-  val lookupArchivedContractsDbMetrics: DatabaseMetrics = createDbMetrics(
-    "lookup_archived_contracts"
+  val lookupActiveContractsDbMetrics: DatabaseMetrics = createDbMetrics(
+    "lookup_active_contracts"
   )
   val lookupContractByKeyDbMetrics: DatabaseMetrics = createDbMetrics(
     "lookup_contract_by_key"
@@ -456,37 +456,16 @@ class MainIndexDBMetrics(
     "fetch_event_ids"
   )
 
-  val lookupTransactionTreeById: DatabaseMetrics = createDbMetrics(
-    "lookup_transaction_tree_by_id"
-  )
   val getEventsByContractId: DatabaseMetrics = createDbMetrics("get_events_by_contract_id")
   val getActiveContracts: DatabaseMetrics = createDbMetrics("get_active_contracts")
   val getActiveContractIdRanges: DatabaseMetrics = createDbMetrics(
     "get_active_contract_id_ranges"
   )
-  val getActiveContractIdRangesForCreatedLegacy: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_id_ranges_for_created"
-  )
   val getFilteredActiveContractIds: DatabaseMetrics = createDbMetrics(
     "get_filtered_active_contract_ids"
   )
-  val getFilteredActiveContractIdsForCreatedLegacy: DatabaseMetrics = createDbMetrics(
-    "get_filtered_active_contract_ids_for_created"
-  )
-  val getActiveContractIdRangesForAssignedLegacy: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_id_ranges_for_assigned"
-  )
-  val getFilteredActiveContractIdsForAssignedLegacy: DatabaseMetrics = createDbMetrics(
-    "get_filtered_active_contract_ids_for_assigned"
-  )
   val getActiveContractBatch: DatabaseMetrics = createDbMetrics(
     "get_active_contract_batch"
-  )
-  val getActiveContractBatchForCreatedLegacy: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_batch_for_created"
-  )
-  val getActiveContractBatchForAssignedLegacy: DatabaseMetrics = createDbMetrics(
-    "get_active_contract_batch_for_assigned"
   )
   val getEventSeqIdRange: DatabaseMetrics = createDbMetrics("get_event_sequential_id_range")
   val getAcsEventSeqIdRange: DatabaseMetrics =
@@ -500,12 +479,6 @@ class MainIndexDBMetrics(
   )
   val getUnassingIdsForOffsets: DatabaseMetrics = createDbMetrics(
     "get_unassign_ids_for_offsets"
-  )
-  val getCreateIdsForContractIdsLegacy: DatabaseMetrics = createDbMetrics(
-    "get_create_ids_for_contract_ids"
-  )
-  val getAssignIdsForContractIdsLegacy: DatabaseMetrics = createDbMetrics(
-    "get_assign_ids_for_contract_ids"
   )
 
   val firstSynchronizerOffsetAfterOrAt: DatabaseMetrics = createDbMetrics(
@@ -525,7 +498,7 @@ class MainIndexDBMetrics(
     "last_synchronizer_offset_before_or_at_record_time"
   )
 
-  val archivalsLegacy: DatabaseMetrics = createDbMetrics("archivals")
+  val prunableContracts: DatabaseMetrics = createDbMetrics("pruneable_contracts")
 
   object translation {
     val getLfPackage: Timer = openTelemetryMetricsFactory.timer(inventory.getLfPackage.info)

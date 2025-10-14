@@ -832,7 +832,7 @@ private[sync] class SynchronizerConnectionsManager(
           _ <- updateSynchronizerConnectionConfig(psid, updatedConfig)
 
           synchronizerLoggerFactory = loggerFactory.append(
-            "synchronizerId",
+            "psid",
             psid.toString,
           )
           persistent = synchronizerHandle.syncPersistentState

@@ -444,23 +444,23 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
             case CryptoProvider.Kms =>
               val schemesE = CryptoSchemes.fromConfig(cryptoConfig)
               val supportedAlgoSpecs =
-                schemesE.map(_.signingAlgoSpecs.allowed.forgetNE).getOrElse(Set.empty)
+                schemesE.map(_.signingSchemes.algorithmSpecs.allowed.forgetNE).getOrElse(Set.empty)
               val supportedKeySpecs =
-                schemesE.map(_.signingKeySpecs.allowed.forgetNE).getOrElse(Set.empty)
+                schemesE.map(_.signingSchemes.keySpecs.allowed.forgetNE).getOrElse(Set.empty)
 
               // the signing algorithm spec configured for session keys is not supported
               if (!supportedAlgoSpecs.contains(sessionSigningKeysConfig.signingAlgorithmSpec))
                 Some(
                   s"The selected signing algorithm specification, ${sessionSigningKeysConfig.signingAlgorithmSpec}, " +
                     s"for session signing keys is not supported. Supported algorithms " +
-                    s"are: ${cryptoConfig.signing.algorithms.allowed}."
+                    s"are: $supportedAlgoSpecs."
                 )
               // the signing key spec configured for session keys is not supported
               else if (!supportedKeySpecs.contains(sessionSigningKeysConfig.signingKeySpec))
                 Some(
                   s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
                     s"for session signing keys is not supported. Supported keys " +
-                    s"are: ${cryptoConfig.signing.keys.allowed}."
+                    s"are: $supportedKeySpecs."
                 )
               else None
             case _ => None

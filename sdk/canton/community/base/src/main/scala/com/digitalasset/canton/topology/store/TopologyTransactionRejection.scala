@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.store
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{Fingerprint, SignatureCheckError}
+import com.digitalasset.canton.crypto.{Fingerprint, PublicKey, SignatureCheckError}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -14,7 +14,10 @@ import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.TopologyMapping
-import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
+  PositiveTopologyTransaction,
+  TxHash,
+}
 
 sealed trait TopologyTransactionRejection extends PrettyPrinting with Product with Serializable {
   def asString: String
@@ -113,6 +116,33 @@ object TopologyTransactionRejection {
         TopologyManagerError.NoCorrespondingActiveTxToRevoke.Mapping(mapping)
     }
 
+    final case class InvalidOwnerToKeyMapping(
+        member: Member,
+        keyType: String,
+        provided: Seq[PublicKey],
+        supported: Seq[String],
+    ) extends TopologyTransactionRejection {
+      override def asString: String = if (provided.isEmpty)
+        s"No $keyType keys provided for $member, at least one is required. Supported key schemes: ${supported
+            .mkString(",")}"
+      else
+        s"None of the ${provided.size} $keyType keys for $member supports the required key schemes (${supported
+            .mkString(",")}): ${provided.mkString(",")}"
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidOwnerToKeyMapping.Reject(member, keyType, provided, supported)
+    }
+
+    final case class InvalidOwnerToKeyMappingRemoval(
+        member: Member,
+        inUseBy: PositiveTopologyTransaction,
+    ) extends TopologyTransactionRejection {
+      override def asString: String =
+        s"Cannot remove owner to key mapping for $member as it is being used by $inUseBy"
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.InvalidOwnerToKeyMappingRemoval.Reject(member, inUseBy)
+    }
+
     final case class InvalidTopologyMapping(err: String) extends TopologyTransactionRejection {
       override def asString: String = s"Invalid mapping: $err"
       override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
@@ -137,7 +167,7 @@ object TopologyTransactionRejection {
 
     final case class InsufficientKeys(members: Seq[Member]) extends TopologyTransactionRejection {
       override def asString: String =
-        s"Members ${members.sorted.mkString(", ")} are missing a signing key or an encryption key or both."
+        s"Members ${members.sorted.mkString(", ")} are missing a valid owner to key mapping."
 
       override protected def pretty: Pretty[InsufficientKeys] = prettyOfClass(
         param("members", _.members)

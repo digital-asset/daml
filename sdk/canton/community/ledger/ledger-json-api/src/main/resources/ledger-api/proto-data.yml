@@ -2799,6 +2799,15 @@ messages:
     message:
       comments: null
       fieldComments:
+        synchronizer_id: |-
+          If set, the requested changes will take place on the specified
+          synchronizer. If synchronizer_id is unset and the participant is only
+          connected to a single synchronizer, that synchronizer will be used by
+          default. If synchronizer_id is unset and the participant is connected to
+          multiple synchronizers, the request will error out with
+          PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
+
+          Optional
         changes: |-
           Changes to apply to the current vetting state of the participant on the
           specified synchronizer. The changes are applied in order.
@@ -2809,15 +2818,6 @@ messages:
           it will also trigger an error when dry_run.
 
           Use this flag to preview a change before applying it.
-        synchronizer_id: |-
-          If set, the requested changes will take place on the specified
-          synchronizer. If synchronizer_id is unset and the participant is only
-          connected to a single synchronizer, that synchronizer will be used by
-          default. If synchronizer_id is unset and the participant is connected to
-          multiple synchronizers, the request will error out with
-          PACKAGE_SERVICE_CANNOT_AUTODETECT_SYNCHRONIZER.
-
-          Optional
         expected_topology_serial: |-
           The serial of the last ``VettedPackages`` topology transaction of this
           participant and on this synchronizer.
@@ -2829,6 +2829,10 @@ messages:
           serial.
 
           Optional
+        update_vetted_packages_force_flags: |-
+          Controls whether potentially unsafe vetting updates are allowed.
+
+          Optional, defaults to FORCE_FLAG_UNSPECIFIED.
   UpdateVettedPackagesResponse:
     message:
       comments: null

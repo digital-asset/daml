@@ -547,13 +547,20 @@ trait PackageUploadIntegrationTest
         cantonExamplesMainPkgId
       )
 
+      // Wait for the package vetting to be effectively removed from the store
+      eventually() {
+        inStore(daId, participant4) should not contain cantonTestsMainPackageId
+      }
       // Now, remove the CantonExamples DAR
-      participant4.packages.synchronize_vetting()
       participant4.dars.remove(cantonExamplesMainPkgId)
       // Check that CantonExamples main package-id was removed
       participant4.packages
         .list(filterName = "CantonExamples")
         .map(_.packageId) should not contain cantonExamplesMainPkgId
+
+      eventually() {
+        inStore(daId, participant4) should not contain cantonExamplesMainPkgId
+      }
     }
   }
 

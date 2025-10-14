@@ -488,4 +488,25 @@ class DbContractStore(
           .map(_.toMap)
       }
 
+  // TODO(#27996): Add unit test if still needed
+  override def lookupBatchedNonCachedContractIds(internalContractIds: Iterable[Long])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[Long, LfContractId]] =
+    NonEmpty
+      .from(internalContractIds.toSeq)
+      .fold(FutureUnlessShutdown.pure(Map.empty[Long, LfContractId])) { nonEmptyContractIds =>
+        import DbStorage.Implicits.BuilderChain.*
+
+        val inClause = DbStorage.toInClause("internal_contract_id", nonEmptyContractIds)
+        val query =
+          (sql"""select internal_contract_id, contract_id from par_contracts where """ ++ inClause)
+            .as[(Long, LfContractId)]
+        storage
+          .query(
+            query,
+            functionFullName,
+          )
+          .map(_.toMap)
+      }
+
 }

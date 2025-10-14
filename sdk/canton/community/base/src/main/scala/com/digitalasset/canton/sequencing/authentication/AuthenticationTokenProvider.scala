@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
@@ -21,6 +22,7 @@ import com.digitalasset.canton.crypto.{Fingerprint, Nonce, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient}
@@ -117,6 +119,8 @@ class AuthenticationTokenProvider(
     crypto: SynchronizerCrypto,
     supportedProtocolVersions: Seq[ProtocolVersion],
     config: AuthenticationTokenManagerConfig,
+    metricsO: Option[SequencerConnectionPoolMetrics],
+    metricsContext: MetricsContext,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -188,7 +192,10 @@ class AuthenticationTokenProvider(
       authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Status, ChallengeResponse] =
+  ): EitherT[FutureUnlessShutdown, Status, ChallengeResponse] = {
+    metricsO.foreach(
+      _.connectionRequests.inc()(metricsContext.withExtraLabels("endpoint" -> "Challenge"))
+    )
     CantonGrpcUtil
       .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
         _.challenge(
@@ -204,6 +211,7 @@ class AuthenticationTokenProvider(
         retryPolicy = _ => false,
       )
       .leftMap(_.status)
+  }
 
   private def authenticate(
       endpoint: Endpoint,
@@ -234,6 +242,9 @@ class AuthenticationTokenProvider(
           crypto,
         )
         .leftMap(err => Status.INTERNAL.withDescription(err.toString))
+      _ = metricsO.foreach(
+        _.connectionRequests.inc()(metricsContext.withExtraLabels("endpoint" -> "Authenticate"))
+      )
       response <- CantonGrpcUtil
         .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
           _.authenticate(
@@ -271,6 +282,9 @@ class AuthenticationTokenProvider(
       // Generate a new token to use as "entry point" to invalidate all tokens
       tokenWithExpiry <- generateToken(endpoint, authenticationClient)
       token = tokenWithExpiry.token
+      _ = metricsO.foreach(
+        _.connectionRequests.inc()(metricsContext.withExtraLabels("endpoint" -> "Logout"))
+      )
       _ <- CantonGrpcUtil
         .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
           _.logout(LogoutRequest(token.toProtoPrimitive)),

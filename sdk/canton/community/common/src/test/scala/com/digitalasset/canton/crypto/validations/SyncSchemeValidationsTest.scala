@@ -34,7 +34,7 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
-      CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
+      CryptoPrivateStoreFactory.withoutKms(),
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,

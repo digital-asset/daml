@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -21,6 +22,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
+import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.RetryPolicy
 import com.digitalasset.canton.sequencing.ConnectionX.{ConnectionXConfig, ConnectionXState}
@@ -57,6 +59,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
     clientProtocolVersions: NonEmpty[Seq[ProtocolVersion]],
     minimumProtocolVersion: Option[ProtocolVersion],
     stubFactory: SequencerConnectionXStubFactory,
+    metrics: SequencerConnectionPoolMetrics,
+    metricsContext: MetricsContext,
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
@@ -66,8 +70,13 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
     with GrpcClientTransportHelpers {
   import GrpcInternalSequencerConnectionX.*
 
-  private val connection: GrpcConnectionX = GrpcConnectionX(config, timeouts, loggerFactory)
-  private val stub: SequencerConnectionXStub = stubFactory.createStub(connection)
+  private val connection: GrpcConnectionX =
+    GrpcConnectionX(config, metrics, timeouts, loggerFactory)
+  private val connectionMetricsContext: MetricsContext = metricsContext.withExtraLabels(
+    "connection" -> connection.config.name
+  )
+  private val stub: SequencerConnectionXStub =
+    stubFactory.createStub(connection, connectionMetricsContext)
   private val attributesCell = new SingleUseCell[ConnectionAttributes]
   private val localState = new AtomicReference[LocalState](LocalState.Initial)
   // Reference to the user connection -- for cleaning purposes
@@ -126,6 +135,15 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
           case _ => // No action
         }
+
+        // Update connection health metric
+        metrics
+          .connectionHealth(connectionMetricsContext)
+          .updateValue(state match {
+            case SequencerConnectionXState.Fatal => 0
+            case SequencerConnectionXState.Validated => 2
+            case _ => 1
+          })
       }
 
     })
@@ -342,6 +360,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           channelPerEndpoint = NonEmpty(Map, config.endpoint -> channel.channel),
           supportedProtocolVersions = clientProtocolVersions,
           tokenManagerConfig = authConfig,
+          metricsO = Some(metrics),
+          metricsContext = connectionMetricsContext,
           clock = clock,
           timeouts = timeouts,
           loggerFactory = loggerFactory,
@@ -350,6 +370,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         val authenticatedStub = stubFactory.createUserStub(
           connection,
           clientAuth,
+          metricsContext = connectionMetricsContext,
           timeouts,
           checked(tryAttributes).staticParameters.protocolVersion,
         )
@@ -462,6 +483,8 @@ object GrpcInternalSequencerConnectionX {
 class GrpcInternalSequencerConnectionXFactory(
     clientProtocolVersions: NonEmpty[Seq[ProtocolVersion]],
     minimumProtocolVersion: Option[ProtocolVersion],
+    metrics: SequencerConnectionPoolMetrics,
+    metricsContext: MetricsContext,
     futureSupervisor: FutureSupervisor,
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
@@ -476,6 +499,8 @@ class GrpcInternalSequencerConnectionXFactory(
       clientProtocolVersions,
       minimumProtocolVersion,
       stubFactory = new SequencerConnectionXStubFactoryImpl(loggerFactory),
+      metrics,
+      metricsContext,
       futureSupervisor,
       timeouts,
       loggerFactory.append("connection", config.name),

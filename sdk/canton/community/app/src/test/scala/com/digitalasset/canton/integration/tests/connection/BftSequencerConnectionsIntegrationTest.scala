@@ -116,7 +116,9 @@ sealed trait BftSequencerConnectionsIntegrationTest
   private lazy val expectedLogEntries = Seq[LogEntry => Assertion](
     _.warningMessage should include regex
       raw"Request failed for server-.*\. Is the server running\? Did you configure the server address as 0\.0\.0\.0\?" +
-      raw" Are you using the right TLS settings\?"
+      raw" Are you using the right TLS settings\?",
+    _.errorMessage should (include regex
+      raw"Request failed for server-.*\." and include("GrpcServerError: UNKNOWN/channel closed")),
   )
 
   private def pingWithSequencersDown()(implicit env: TestConsoleEnvironment) = {

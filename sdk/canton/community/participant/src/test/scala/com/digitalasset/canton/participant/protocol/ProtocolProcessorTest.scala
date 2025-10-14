@@ -199,7 +199,7 @@ class ProtocolProcessorTest
   when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
   when(trm.verdict).thenAnswer(Verdict.Approve(testedProtocolVersion))
   when(trm.rootHash).thenAnswer(rootHash)
-  when(trm.synchronizerId).thenAnswer(DefaultTestIdentities.physicalSynchronizerId)
+  when(trm.psid).thenAnswer(DefaultTestIdentities.physicalSynchronizerId)
 
   private val requestId = RequestId(CantonTimestamp.Epoch)
   private val requestSc = SequencerCounter(0)

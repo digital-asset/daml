@@ -66,7 +66,7 @@ import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, che
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class UnassignmentProcessingSteps(
-    val synchronizerId: Source[PhysicalSynchronizerId],
+    val psid: Source[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
     sourceCrypto: SynchronizerCryptoClient,
@@ -136,8 +136,8 @@ private[reassignment] class UnassignmentProcessingSteps(
 
     for {
       _ <- condUnitET[FutureUnlessShutdown](
-        targetSynchronizer.unwrap != synchronizerId.unwrap,
-        TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractIds),
+        targetSynchronizer.unwrap != psid.unwrap,
+        TargetSynchronizerIsSourceSynchronizer(psid.unwrap, contractIds),
       )
 
       targetStaticSynchronizerParameters <- EitherT.fromEither[FutureUnlessShutdown](
@@ -199,7 +199,7 @@ private[reassignment] class UnassignmentProcessingSteps(
           participantId,
           contracts,
           submitterMetadata,
-          synchronizerId,
+          psid,
           mediator,
           targetSynchronizer,
           Source(sourceRecentSnapshot.ipsSnapshot),
@@ -259,7 +259,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       rootHashMessage =
         RootHashMessage(
           rootHash,
-          synchronizerId.unwrap,
+          psid.unwrap,
           ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -342,7 +342,7 @@ private[reassignment] class UnassignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
-    if (parsedRequest.fullViewTree.synchronizerId == synchronizerId.unwrap) {
+    if (parsedRequest.fullViewTree.psid == psid.unwrap) {
       val contractIdS = parsedRequest.fullViewTree.contracts.contractIds.toSet
       // Either check contracts for activeness and lock them normally or lock them knowing the
       // contracts may not be known to the participant (e.g. due to party onboarding).
@@ -365,7 +365,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       Right(activenessSet)
     } else
       Left(
-        UnexpectedSynchronizer(parsedRequest.reassignmentId, synchronizerId.unwrap)
+        UnexpectedSynchronizer(parsedRequest.reassignmentId, psid.unwrap)
       )
 
   protected override def contractsMaybeUnknown(

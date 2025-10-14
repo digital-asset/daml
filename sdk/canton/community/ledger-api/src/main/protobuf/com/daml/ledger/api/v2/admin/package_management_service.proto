@@ -240,6 +240,18 @@ message UpdateVettedPackagesRequest {
   //
   // Optional
   PriorTopologySerial expected_topology_serial = 4;
+
+  // Controls whether potentially unsafe vetting updates are allowed.
+  //
+  // Optional, defaults to FORCE_FLAG_UNSPECIFIED.
+  repeated UpdateVettedPackagesForceFlag update_vetted_packages_force_flags = 5;
+}
+
+enum UpdateVettedPackagesForceFlag {
+  // Force flag left unspecified, defaults to no force flag used in the backend.
+  UPDATE_VETTED_PACKAGES_FORCE_FLAG_UNSPECIFIED = 0;
+  // Allow unvetting a package referenced by active contracts.
+  UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 1;
 }
 
 message UpdateVettedPackagesResponse {

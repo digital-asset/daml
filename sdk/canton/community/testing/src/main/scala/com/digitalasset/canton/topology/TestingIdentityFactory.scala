@@ -932,14 +932,6 @@ class TestingOwnerWithKeys(
       )
     )
 
-    val p1p1 = mkAdd(
-      PartyToParticipant.tryCreate(
-        PartyId(UniqueIdentifier.tryCreate("one", key1.id)),
-        PositiveInt.one,
-        Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
-      )
-    )
-
   }
 
   def mkTrans[Op <: TopologyChangeOp, M <: TopologyMapping](

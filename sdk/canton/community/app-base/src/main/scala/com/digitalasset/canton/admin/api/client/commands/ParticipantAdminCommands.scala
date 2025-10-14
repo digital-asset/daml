@@ -636,7 +636,9 @@ object ParticipantAdminCommands {
     }
 
     final case class ImportPartyAcs(
-        acsChunk: ByteString
+        acsChunk: ByteString,
+        representativePackageIdOverride: RepresentativePackageIdOverride,
+        contractImportMode: ContractImportMode,
     ) extends GrpcAdminCommand[
           v30.ImportPartyAcsRequest,
           v30.ImportPartyAcsResponse,
@@ -649,7 +651,13 @@ object ParticipantAdminCommands {
         v30.PartyManagementServiceGrpc.stub(channel)
 
       override protected def createRequest(): Either[String, v30.ImportPartyAcsRequest] =
-        Right(v30.ImportPartyAcsRequest(acsChunk))
+        Right(
+          v30.ImportPartyAcsRequest(
+            acsChunk,
+            Some(representativePackageIdOverride.toProtoV30),
+            contractImportMode.toProtoV30,
+          )
+        )
 
       override protected def submitRequest(
           service: PartyManagementServiceStub,
@@ -659,7 +667,9 @@ object ParticipantAdminCommands {
           service.importPartyAcs,
           (bytes: Array[Byte]) =>
             v30.ImportPartyAcsRequest(
-              ByteString.copyFrom(bytes)
+              ByteString.copyFrom(bytes),
+              Some(representativePackageIdOverride.toProtoV30),
+              contractImportMode.toProtoV30,
             ),
           request.acsSnapshot,
         )

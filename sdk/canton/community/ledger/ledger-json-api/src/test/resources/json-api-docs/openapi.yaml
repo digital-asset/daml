@@ -6017,6 +6017,8 @@ components:
           type: string
         unknownFields:
           $ref: '#/components/schemas/UnknownFieldSet'
+        valueDecoded:
+          type: string
     Reassignment:
       title: Reassignment
       description: Complete view of an on-ledger reassignment.
@@ -6959,6 +6961,17 @@ components:
             serial.
 
             Optional
+        updateVettedPackagesForceFlags:
+          description: |-
+            Controls whether potentially unsafe vetting updates are allowed.
+
+            Optional, defaults to FORCE_FLAG_UNSPECIFIED.
+          type: array
+          items:
+            type: string
+            enum:
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_UNSPECIFIED
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS
     UpdateVettedPackagesResponse:
       title: UpdateVettedPackagesResponse
       type: object

@@ -51,6 +51,7 @@ import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
   InteractiveSubmissionServiceConfig,
+  PackageServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
@@ -110,6 +111,7 @@ object ApiServiceOwner {
       userManagement: UserManagementServiceConfig = ApiServiceOwner.DefaultUserManagement,
       partyManagementServiceConfig: PartyManagementServiceConfig =
         ApiServiceOwner.DefaultPartyManagementServiceConfig,
+      packageServiceConfig: PackageServiceConfig = ApiServiceOwner.DefaultPackageServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
@@ -203,6 +205,7 @@ object ApiServiceOwner {
         maxDeduplicationDuration = maxDeduplicationDuration,
         userManagementServiceConfig = userManagement,
         partyManagementServiceConfig = partyManagementServiceConfig,
+        packageServiceConfig = packageServiceConfig,
         engineLoggingConfig = engineLoggingConfig,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
@@ -253,6 +256,8 @@ object ApiServiceOwner {
     UserManagementServiceConfig.default(enabled = false)
   val DefaultPartyManagementServiceConfig: PartyManagementServiceConfig =
     PartyManagementServiceConfig.default
+  val DefaultPackageServiceConfig: PackageServiceConfig =
+    PackageServiceConfig.default
   val DefaultIdentityProviderManagementConfig: IdentityProviderManagementConfig =
     IdentityProviderManagementConfig()
   val DefaultCommandServiceConfig: CommandServiceConfig = CommandServiceConfig.Default

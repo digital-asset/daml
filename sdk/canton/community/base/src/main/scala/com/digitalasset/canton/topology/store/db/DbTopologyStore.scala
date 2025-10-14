@@ -8,8 +8,8 @@ import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String185, String300}
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -34,7 +34,7 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{MonadUtil, PekkoUtil}
+import com.digitalasset.canton.util.{LoggerUtil, MonadUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
@@ -51,8 +51,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     val storeId: StoreId,
     override val protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
+    protected val batchingConfig: BatchingConfig,
     override protected val loggerFactory: NamedLoggerFactory,
-    protected val maxItemsInSqlQuery: PositiveInt = PositiveInt.tryCreate(100),
 )(implicit ec: ExecutionContext)
     extends TopologyStore[StoreId]
     with DbStore {
@@ -72,19 +72,23 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     if (hashes.isEmpty) FutureUnlessShutdown.pure(Seq.empty)
     else {
-      logger.debug(s"Querying transactions for tx hashes $hashes")
-
-      toStoredTopologyTransactions(
-        storage.query(
-          buildQueryForTransactions(
-            sql" AND (" ++ hashes
-              .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
-              .toList
-              .intercalate(sql" OR ") ++ sql")"
-          ),
-          operationName = "transactionsByTxHash",
-        )
-      ).map(_.collectLatestByTxHash.result.map(_.transaction))
+      logger.debug(s"Querying transactions for tx hashes ${LoggerUtil.limitForLogging(hashes)}")
+      MonadUtil.batchedSequentialTraverse(
+        parallelism = batchingConfig.parallelism,
+        chunkSize = batchingConfig.maxItemsInBatch,
+      )(hashes.toSeq) { batch =>
+        toStoredTopologyTransactions(
+          storage.query(
+            buildQueryForTransactions(
+              sql" AND (" ++ batch
+                .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
+                .toList
+                .intercalate(sql" OR ") ++ sql")"
+            ),
+            operationName = "transactionsByTxHash",
+          )
+        ).map(_.collectLatestByTxHash.result.map(_.transaction))
+      }
     }
 
   override def findProposalsByTxHash(
@@ -93,21 +97,26 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
-    logger.debug(s"Querying proposals for tx hashes $hashes as of $asOfExclusive")
-
-    toStoredTopologyTransactions(
-      storage.query(
-        buildFindAsOfExclusiveQuery(
-          asOfExclusive,
-          sql" AND is_proposal = true AND (" ++ hashes
-            .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
-            .forgetNE
-            .toList
-            .intercalate(sql" OR ") ++ sql")",
-        ),
-        operationName = "proposalsByTxHash",
-      )
-    ).map(_.result.map(_.transaction))
+    logger.debug(
+      s"Querying proposals for tx hashes ${LoggerUtil.limitForLogging(hashes)} as of $asOfExclusive"
+    )
+    MonadUtil.batchedSequentialTraverse(
+      parallelism = batchingConfig.parallelism,
+      chunkSize = batchingConfig.maxItemsInBatch,
+    )(hashes.toSeq) { batch =>
+      toStoredTopologyTransactions(
+        storage.query(
+          buildFindAsOfExclusiveQuery(
+            asOfExclusive,
+            sql" AND is_proposal = true AND (" ++ batch
+              .map(txHash => sql"tx_hash = ${txHash.hash.toLengthLimitedHexString}")
+              .toList
+              .intercalate(sql" OR ") ++ sql")",
+          ),
+          operationName = "proposalsByTxHash",
+        )
+      ).map(_.result.map(_.transaction))
+    }
   }
 
   override def findTransactionsForMapping(
@@ -116,23 +125,28 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] = {
-    logger.debug(s"Querying transactions for mapping hashes $hashes as of $asOfExclusive")
-
-    toStoredTopologyTransactions(
-      storage.query(
-        buildFindAsOfExclusiveQuery(
-          asOfExclusive,
-          sql" AND is_proposal = false AND (" ++ hashes
-            .map(mappingHash =>
-              sql"mapping_key_hash = ${mappingHash.hash.toLengthLimitedHexString}"
-            )
-            .forgetNE
-            .toList
-            .intercalate(sql" OR ") ++ sql")",
-        ),
-        operationName = "transactionsForMapping",
-      )
-    ).map(_.result.map(_.transaction))
+    logger.debug(
+      s"Querying transactions for mapping hashes ${LoggerUtil.limitForLogging(hashes)} as of $asOfExclusive"
+    )
+    MonadUtil.batchedSequentialTraverse(
+      parallelism = batchingConfig.parallelism,
+      chunkSize = batchingConfig.maxItemsInBatch,
+    )(hashes.toSeq) { batch =>
+      toStoredTopologyTransactions(
+        storage.query(
+          buildFindAsOfExclusiveQuery(
+            asOfExclusive,
+            sql" AND is_proposal = false AND (" ++ batch
+              .map(mappingHash =>
+                sql"mapping_key_hash = ${mappingHash.hash.toLengthLimitedHexString}"
+              )
+              .toList
+              .intercalate(sql" OR ") ++ sql")",
+          ),
+          operationName = "transactionsForMapping",
+        )
+      ).map(_.result.map(_.transaction))
+    }
   }
 
   /** add validated topology transaction as is to the topology transaction table
@@ -515,7 +529,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
             val query = buildQueryForTransactionsWithId(
               timeFilter ++ idOffset.map(offset => sql" AND id > $offset").toList,
               includeRejected = includeRejected,
-              limit = storage.limit(maxItemsInSqlQuery.value),
+              limit = storage.limit(batchingConfig.maxItemsInBatch.value),
               orderBy = " order by id",
             )
             storage
@@ -731,13 +745,13 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       // because grouped doesn't return NonEmpty collections.
       val chunkedUids = explicitUidFilters.flatTraverse(uids =>
         uids
-          .grouped(maxItemsInSqlQuery.value)
+          .grouped(batchingConfig.maxItemsInBatch.value)
           .toSeq
           .map[Option[NonEmpty[Seq[UniqueIdentifier]]]](NonEmpty.from)
       )
       val chunkedNamespaces =
         filterNamespace.flatTraverse(ns =>
-          ns.grouped(maxItemsInSqlQuery.value)
+          ns.grouped(batchingConfig.maxItemsInBatch.value)
             .toSeq
             .map[Option[NonEmpty[Seq[Namespace]]]](NonEmpty.from)
         )

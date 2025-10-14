@@ -363,6 +363,7 @@ class StoreBasedTopologySnapshot(
     } yield fullySpecifiedPartyMap
   }
 
+  // TODO(#28232) this can be removed as this is now an invariant enforced on the topology store
   private def findMembersWithoutSigningKeys[T <: Member](members: Seq[T])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Set[T]] =
@@ -499,6 +500,7 @@ class StoreBasedTopologySnapshot(
         ).map(pid -> _)
       }
 
+  // TODO(#28232) this can be removed as this is now an invariant enforced on the topology store
   private def getParticipantsWithCertAndKeys(
       storedTxs: StoredTopologyTransactions[Replace, TopologyMapping],
       participantsWithCertificates: Set[ParticipantId],
@@ -569,6 +571,7 @@ class StoreBasedTopologySnapshot(
           findTransactions(
             types = Seq(
               TopologyMapping.Code.SynchronizerTrustCertificate,
+              // TODO(#28232) this can be removed as this is now an invariant enforced on the topology store
               TopologyMapping.Code.OwnerToKeyMapping,
               TopologyMapping.Code.ParticipantSynchronizerPermission,
             ),
@@ -583,6 +586,7 @@ class StoreBasedTopologySnapshot(
       val participantsWithCertificates = getParticipantsWithCertificates(storedTxs)
       val participantsIdsWithCertificates = participantsWithCertificates.keySet
       // 2. Participant needs to have keys registered on the synchronizer
+      // TODO(#28232) this can be removed as this is now an invariant enforced on the topology store
       val participantsWithCertAndKeys =
         getParticipantsWithCertAndKeys(storedTxs, participantsIdsWithCertificates)
       // Warn about participants with cert but no keys
@@ -682,24 +686,17 @@ class StoreBasedTopologySnapshot(
         SynchronizerTrustCertificate.code,
         MediatorSynchronizerState.code,
         SequencerSynchronizerState.code,
-        OwnerToKeyMapping.code, // TODO(#28232) remove once OTK / STC invariant is enforce
       ),
       filterUid = None,
       filterNamespace = None,
     ).map { txs =>
       val mappings = txs.result.view.map(_.mapping)
-      val validKeys = mappings.collect { case OwnerToKeyMapping(member, _) =>
-        member
+      mappings.flatMap {
+        case dtc: SynchronizerTrustCertificate => Seq(dtc.participantId)
+        case mds: MediatorSynchronizerState => mds.active ++ mds.observers
+        case sds: SequencerSynchronizerState => sds.active ++ sds.observers
+        case _ => Seq.empty
       }.toSet
-      mappings
-        .flatMap {
-          case dtc: SynchronizerTrustCertificate => Seq(dtc.participantId)
-          case mds: MediatorSynchronizerState => mds.active ++ mds.observers
-          case sds: SequencerSynchronizerState => sds.active ++ sds.observers
-          case _ => Seq.empty
-        }
-        .filter(validKeys.contains)
-        .toSet
     }
 
   override def isMemberKnown(member: Member)(implicit
@@ -718,18 +715,14 @@ class StoreBasedTopologySnapshot(
       .from(participants)
       .map { participantsNE =>
         findTransactions(
-          types = Seq(SynchronizerTrustCertificate.code, OwnerToKeyMapping.code),
+          types = Seq(SynchronizerTrustCertificate.code),
           filterUid = Some(participantsNE.toSeq),
           filterNamespace = None,
         ).map { txs =>
-          val mappings = txs.result.map(_.mapping)
-          val hasValidKeys =
-            mappings.flatMap(_.select[OwnerToKeyMapping].toList).map(_.member).toSet
           txs
             .collectOfMapping[SynchronizerTrustCertificate]
             .result
             .map(_.mapping.participantId: Member)
-            .filter(hasValidKeys.contains)
             .toSet
         }
       }

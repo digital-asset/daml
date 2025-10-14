@@ -20,14 +20,14 @@ import com.digitalasset.canton.version.{
 }
 
 final case class TopologyTransactionsBroadcast(
-    override val synchronizerId: PhysicalSynchronizerId,
+    override val psid: PhysicalSynchronizerId,
     transactions: SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
 ) extends UnsignedProtocolMessage
     with HasProtocolVersionedWrapper[TopologyTransactionsBroadcast] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     TopologyTransactionsBroadcast.type
-  ] = TopologyTransactionsBroadcast.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
+  ] = TopologyTransactionsBroadcast.protocolVersionRepresentativeFor(psid.protocolVersion)
 
   @transient override protected lazy val companionObj: TopologyTransactionsBroadcast.type =
     TopologyTransactionsBroadcast
@@ -37,7 +37,7 @@ final case class TopologyTransactionsBroadcast(
     v30.EnvelopeContent.SomeEnvelopeContent.TopologyTransactionsBroadcast(toProtoV30)
 
   def toProtoV30: v30.TopologyTransactionsBroadcast = v30.TopologyTransactionsBroadcast(
-    synchronizerId.toProtoPrimitive,
+    psid.toProtoPrimitive,
     Some(transactions.toProtoV30),
   )
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config as cantonConfig
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -11,6 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.LifeCycle
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.SequencerConnectionPoolMetrics
 import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.SequencerConnectionXState
 import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.{
   SequencerSubscriptionPoolConfig,
@@ -48,6 +50,8 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     member: Member,
     private val initialSubscriptionEventO: Option[ProcessingSerializedEvent],
     subscriptionStartProvider: SubscriptionStartProvider,
+    metrics: SequencerConnectionPoolMetrics,
+    metricsContext: MetricsContext,
     protected override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -81,11 +85,18 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
   private def currentConfigWithThreshold: ConfigWithThreshold =
     ConfigWithThreshold(config, pool.config.trustThreshold)
 
+  private implicit def mc: MetricsContext = metricsContext
+  metrics.subscriptionThreshold.updateValue(
+    currentConfigWithThreshold.activeThreshold.value
+  )
+
   override def updateConfig(
       newConfig: SequencerSubscriptionPoolConfig
   )(implicit traceContext: TraceContext): Unit = {
     configRef.set(newConfig)
     logger.info(s"Configuration updated to: $newConfig")
+
+    metrics.subscriptionThreshold.updateValue(config.livenessMargin.value)
 
     // We might need new connections
     adjustConnectionsIfNeeded()
@@ -142,11 +153,19 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
                     .toOption
                 } yield {
                   logger.debug(s"Successfully started subscription for $sequencerId")
+                  metrics
+                    .subscriptionHealth(mc.withExtraLabels("connection" -> connection.config.name))
+                    .updateValue(1)
                   new SubscriptionManager(subscription)
                 }
               }
 
               trackedSubscriptions ++= newSubscriptions
+
+              metrics.activeSubscriptions.updateValue(
+                trackedSubscriptions.size
+              )
+
               updateHealth()
 
               // Note that the following calls to `register` may trigger a reentrant call here: indeed, `register`
@@ -366,8 +385,13 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
         logger.debug(s"Removing ${manager.connection.name} from the subscription pool")
         if (trackedSubscriptions.remove(manager)) {
           manager.close()
+          metrics
+            .subscriptionHealth(mc.withExtraLabels("connection" -> manager.connection.config.name))
+            .updateValue(0)
         }
       }
+
+      metrics.activeSubscriptions.updateValue(trackedSubscriptions.size)
 
       updateHealth()
 
@@ -401,6 +425,8 @@ object SequencerSubscriptionPoolImpl {
 class SequencerSubscriptionPoolFactoryImpl(
     sequencerSubscriptionFactory: SequencerSubscriptionXFactory,
     subscriptionHandlerFactory: SubscriptionHandlerXFactory,
+    metrics: SequencerConnectionPoolMetrics,
+    metricsContext: MetricsContext,
     timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends SequencerSubscriptionPoolFactory
@@ -422,6 +448,8 @@ class SequencerSubscriptionPoolFactoryImpl(
       member,
       initialSubscriptionEventO,
       subscriptionStartProvider,
+      metrics,
+      metricsContext,
       timeouts,
       loggerFactory,
     )

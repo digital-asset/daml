@@ -254,13 +254,15 @@ class MockKmsDriver(
             .toRight(s"Key not found: $keyId")
           keySpec <- publicKey match {
             case EncryptionPublicKey(_, _, keySpec) =>
-              KmsDriverSpecsConverter
-                .convertToDriverEncryptionKeySpec(keySpec)
-                .toEitherT[FutureUnlessShutdown]
+              EitherT.rightT[FutureUnlessShutdown, String](
+                KmsDriverSpecsConverter
+                  .convertToDriverEncryptionKeySpec(keySpec)
+              )
             case SigningPublicKey(_, _, keySpec, _, _) =>
-              KmsDriverSpecsConverter
-                .convertToDriverSigningKeySpec(keySpec)
-                .toEitherT[FutureUnlessShutdown]
+              EitherT.rightT[FutureUnlessShutdown, String](
+                KmsDriverSpecsConverter
+                  .convertToDriverSigningKeySpec(keySpec)
+              )
             case _ =>
               EitherT.leftT[FutureUnlessShutdown, KeySpec](
                 s"Unsupported public key type: $publicKey"

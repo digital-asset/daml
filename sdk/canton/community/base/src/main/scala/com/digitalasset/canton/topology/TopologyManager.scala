@@ -108,7 +108,8 @@ class SynchronizerTopologyManager(
 
   override protected val processor: TopologyStateProcessor = {
 
-    val required = new RequiredTopologyMappingChecks(store, loggerFactory)
+    val required =
+      new RequiredTopologyMappingChecks(store, Some(staticSynchronizerParameters), loggerFactory)
     val checks =
       if (!disableOptionalTopologyChecks)
         new TopologyMappingChecks.All(

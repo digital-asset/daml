@@ -730,12 +730,12 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             )
             .toOption
           _ <-
-            if (signedResponses.synchronizerId == psid)
+            if (signedResponses.psid == psid)
               OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
                 .Reject(
-                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response for wrong synchronizer ${signedResponses.synchronizerId}"
+                  s"Request ${responses.requestId}, sender ${responses.sender}: Discarding confirmation response for wrong synchronizer ${signedResponses.psid}"
                 )
                 .report()
               OptionT.none[FutureUnlessShutdown, Unit]

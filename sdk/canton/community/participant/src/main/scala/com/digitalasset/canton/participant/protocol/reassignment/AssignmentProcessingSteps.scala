@@ -51,7 +51,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentProcessingSteps(
-    val synchronizerId: Target[PhysicalSynchronizerId],
+    val psid: Target[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
     targetCrypto: SynchronizerCryptoClient,
@@ -90,7 +90,7 @@ private[reassignment] class AssignmentProcessingSteps(
     state.pendingAssignmentSubmissions
 
   private val assignmentValidation = new AssignmentValidation(
-    synchronizerId,
+    psid,
     staticSynchronizerParameters,
     participantId,
     reassignmentCoordination,
@@ -150,10 +150,10 @@ private[reassignment] class AssignmentProcessingSteps(
        Because an upgrade of the target synchronizer can happen between unassignment
        and assignment, the comparison needs to be logical.
        */
-      _ = if (unassignmentData.targetPSId.map(_.logical) != synchronizerId.map(_.logical))
+      _ = if (unassignmentData.targetPSId.map(_.logical) != psid.map(_.logical))
         throw new IllegalStateException(
           s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetPSId
-              .map(_.logical)} found on wrong synchronizer ${synchronizerId.map(_.logical)}"
+              .map(_.logical)} found on wrong synchronizer ${psid.map(_.logical)}"
         )
 
       stakeholders = unassignmentData.stakeholders
@@ -178,7 +178,7 @@ private[reassignment] class AssignmentProcessingSteps(
           submitterMetadata,
           unassignmentData.contractsBatch,
           sourceSynchronizer,
-          synchronizerId,
+          psid,
           mediator,
           assignmentUuid,
           protocolVersion,
@@ -229,7 +229,7 @@ private[reassignment] class AssignmentProcessingSteps(
       rootHashMessage =
         RootHashMessage(
           rootHash,
-          synchronizerId.unwrap,
+          psid.unwrap,
           ViewType.AssignmentViewType,
           recentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -305,7 +305,7 @@ private[reassignment] class AssignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
-    if (Target(parsedRequest.fullViewTree.synchronizerId) == synchronizerId) {
+    if (Target(parsedRequest.fullViewTree.psid) == psid) {
       val contractIds = parsedRequest.fullViewTree.contracts.contractIds.toSet
       val contractCheck = ActivenessCheck.tryCreate(
         checkFresh = Set.empty,
@@ -327,8 +327,8 @@ private[reassignment] class AssignmentProcessingSteps(
       Left(
         UnexpectedSynchronizer(
           parsedRequest.reassignmentId,
-          targetSynchronizerId = parsedRequest.fullViewTree.synchronizerId,
-          receivedOn = synchronizerId.unwrap,
+          targetSynchronizerId = parsedRequest.fullViewTree.psid,
+          receivedOn = psid.unwrap,
         )
       )
 
@@ -535,11 +535,11 @@ private[reassignment] class AssignmentProcessingSteps(
                   assignmentValidationResult.reassignmentId,
                   contracts = assignmentValidationResult.contracts,
                   source = assignmentValidationResult.sourcePSId.map(_.logical),
-                  target = synchronizerId.map(_.logical),
+                  target = psid.map(_.logical),
                 )
               } else EitherTUtil.unitUS[ReassignmentProcessorError]
             update = assignmentValidationResult.createReassignmentAccepted(
-              synchronizerId.map(_.logical),
+              psid.map(_.logical),
               participantId,
               requestId.unwrap,
             )

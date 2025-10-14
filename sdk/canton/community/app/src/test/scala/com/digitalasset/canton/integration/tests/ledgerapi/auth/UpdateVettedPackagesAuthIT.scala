@@ -15,7 +15,7 @@ final class UpdateVettedPackagesAuthIT extends AdminServiceCallAuthTests {
 
   override def serviceCallName: String = "PackageManagementService#UpdateVettedPackages"
 
-  lazy private val request = UpdateVettedPackagesRequest(Seq(), false, "", None)
+  lazy private val request = UpdateVettedPackagesRequest(Seq(), false, "", None, Seq.empty)
 
   override def serviceCall(context: ServiceCallContext)(implicit
       env: TestConsoleEnvironment

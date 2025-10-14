@@ -59,7 +59,7 @@ trait TestEnvironment
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
       storage,
-      CryptoPrivateStoreFactory.withoutKms(environment.clock, executionContext),
+      CryptoPrivateStoreFactory.withoutKms(),
       testedReleaseProtocolVersion,
       FutureSupervisor.Noop,
       environment.clock,

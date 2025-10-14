@@ -6,10 +6,11 @@ package com.digitalasset.canton.crypto.kms.aws
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{KmsConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.kms.KmsError.*
-import com.digitalasset.canton.crypto.kms.aws.AwsKms.*
+import com.digitalasset.canton.crypto.kms.aws.AwsKms.ExtendedAwsRequestBuilder
 import com.digitalasset.canton.crypto.kms.aws.audit.AwsRequestResponseLogger
 import com.digitalasset.canton.crypto.kms.aws.audit.AwsRequestResponseLogger.traceContextExecutionAttribute
 import com.digitalasset.canton.crypto.kms.aws.tracing.AwsTraceContextInterceptor
@@ -20,7 +21,13 @@ import com.digitalasset.canton.crypto.kms.{
   KmsKeyId,
   KmsSigningPublicKey,
 }
-import com.digitalasset.canton.crypto.{EncryptionAlgorithmSpec, SigningAlgorithmSpec, *}
+import com.digitalasset.canton.crypto.{
+  EncryptionAlgorithmSpec,
+  EncryptionKeySpec,
+  KeyName,
+  SigningAlgorithmSpec,
+  SigningKeySpec,
+}
 import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -223,7 +230,7 @@ class AwsKms(
               .toEitherT[FutureUnlessShutdown]
             pubKey <- KmsSigningPublicKey
               .create(pubKeyRaw, keySpec)
-              .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err.toString))
+              .leftMap[KmsError](err => KmsGetPublicKeyError(keyId, err))
               .toEitherT[FutureUnlessShutdown]
           } yield pubKey
         case _ =>
@@ -562,7 +569,19 @@ class AwsKms(
 
 }
 
-object AwsKms {
+object AwsKms extends Kms.SupportedSchemes {
+
+  val supportedSigningKeySpecs: NonEmpty[Set[SigningKeySpec]] =
+    NonEmpty.mk(Set, SigningKeySpec.EcP256, SigningKeySpec.EcP384, SigningKeySpec.EcSecp256k1)
+
+  val supportedSigningAlgoSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
+    NonEmpty.mk(Set, SigningAlgorithmSpec.EcDsaSha256, SigningAlgorithmSpec.EcDsaSha384)
+
+  val supportedEncryptionKeySpecs: NonEmpty[Set[EncryptionKeySpec]] =
+    NonEmpty.mk(Set, EncryptionKeySpec.Rsa2048)
+
+  val supportedEncryptionAlgoSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
+    NonEmpty.mk(Set, EncryptionAlgorithmSpec.RsaOaepSha256)
 
   /** Extension class on AWS request builders with a method to be used to set the Canton trace
     * context as an attribute that will be accessible by the request/response logger. See

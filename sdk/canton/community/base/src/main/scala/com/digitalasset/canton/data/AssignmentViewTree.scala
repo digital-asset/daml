@@ -446,7 +446,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   override def sourceSynchronizer: Source[PhysicalSynchronizerId] = commonData.sourceSynchronizerId
   override def targetSynchronizer: Target[PhysicalSynchronizerId] = commonData.targetSynchronizerId
 
-  override def synchronizerId: PhysicalSynchronizerId = commonData.targetSynchronizerId.unwrap
+  override def psid: PhysicalSynchronizerId = commonData.targetSynchronizerId.unwrap
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)

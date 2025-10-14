@@ -109,8 +109,7 @@ trait EncryptionOps {
 /** Encryption operations that require access to stored private keys. */
 trait EncryptionPrivateOps {
 
-  def encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec]
-  def encryptionKeySpecs: CryptoScheme[EncryptionKeySpec]
+  def encryptionSchemes: EncryptionCryptoSchemes
 
   /** Decrypts an encrypted message using the referenced private encryption key */
   def decrypt[M](encrypted: AsymmetricEncrypted[M])(
@@ -123,7 +122,7 @@ trait EncryptionPrivateOps {
     * private key and returns the public key.
     */
   def generateEncryptionKey(
-      keySpec: EncryptionKeySpec = encryptionKeySpecs.default,
+      keySpec: EncryptionKeySpec = encryptionSchemes.keySpecs.default,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
@@ -157,7 +156,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair]
 
   override def generateEncryptionKey(
-      keySpec: EncryptionKeySpec = encryptionKeySpecs.default,
+      keySpec: EncryptionKeySpec = encryptionSchemes.keySpecs.default,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext

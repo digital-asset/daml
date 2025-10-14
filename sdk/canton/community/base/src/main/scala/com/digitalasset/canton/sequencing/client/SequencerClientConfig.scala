@@ -74,7 +74,7 @@ final case class SequencerClientConfig(
     skipSequencedEventValidation: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     maximumInFlightEventBatches: PositiveInt = PositiveInt.tryCreate(20),
-    useNewConnectionPool: Boolean = false,
+    useNewConnectionPool: Boolean = true,
     timeReadingsRetention: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(5),
 ) extends UniformCantonConfigValidation
 

@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.repair
 import better.files.File
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.{state_service, transaction_filter, value as apiValue}
+import com.digitalasset.canton
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -19,6 +20,7 @@ import com.digitalasset.canton.http.json.v2.JsStateServiceCodecs.{
   jsGetActiveContractsResponseRW,
 }
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
+import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -32,6 +34,7 @@ import com.digitalasset.canton.participant.admin.data.{
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{
   HasExecutionContext,
@@ -54,7 +57,7 @@ import scala.concurrent.Future
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.chaining.scalaUtilChainingOps
 
-class AcsImportRepresentativePackageIdSelectionIntegrationTest
+abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
     extends CommunityIntegrationTest
     with HasExecutionContext
     with PekkoBeforeAndAfterAll
@@ -75,6 +78,15 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+
+  protected def importAcs(
+      importParticipant: ParticipantReference,
+      contractRpIdOverride: Map[canton.protocol.LfContractId, LfPackageId],
+      packageIdOverride: Map[LfPackageId, LfPackageId],
+      packageNameOverride: Map[LfPackageName, LfPackageId],
+      contractImportMode: ContractImportMode,
+      file: File,
+  ): Unit
 
   private def createUniqueParty(
       participant: => LocalParticipantReference,
@@ -482,28 +494,37 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
   )(implicit env: FixtureParam): Unit = {
     import env.*
 
+    // Replicate party on import participant
+    PartyToParticipantDeclarative.forParty(Set(participant1, importParticipant), daId)(
+      participant1.id,
+      party,
+      PositiveInt.one,
+      Set(
+        (participant1.id, ParticipantPermission.Submission),
+        (importParticipant.id, ParticipantPermission.Submission),
+      ),
+    )(executionContext, env)
+
     File.usingTemporaryFile() { file =>
       participant1.repair.export_acs(
         parties = Set(party),
         exportFilePath = file.canonicalPath,
-        synchronizerId = Some(daId),
+        synchronizerId = Some(env.daId),
         ledgerOffset = NonNegativeLong.tryCreate(participant1.ledger_api.state.end()),
       )
 
       importParticipant.synchronizers.disconnect_all()
+
       handleImport { () =>
         try {
-          importParticipant.repair
-            .import_acs(
-              importFilePath = file.canonicalPath,
-              representativePackageIdOverride = RepresentativePackageIdOverride(
-                contractOverride = contractRpIdOverride,
-                packageIdOverride = packageIdOverride,
-                packageNameOverride = packageNameOverride,
-              ),
-              contractImportMode = contractImportMode,
-            )
-            .discard
+          importAcs(
+            importParticipant,
+            contractRpIdOverride,
+            packageIdOverride,
+            packageNameOverride,
+            contractImportMode,
+            file,
+          )
         } finally {
           importParticipant.synchronizers.reconnect_all()
         }
@@ -540,13 +561,59 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTest
   }
 }
 
+trait WithRepairServiceImportAcs {
+  self: AcsImportRepresentativePackageIdSelectionIntegrationTest =>
+
+  override protected def importAcs(
+      importParticipant: ParticipantReference,
+      contractRpIdOverride: Map[canton.protocol.LfContractId, LfPackageId],
+      packageIdOverride: Map[LfPackageId, LfPackageId],
+      packageNameOverride: Map[LfPackageName, LfPackageId],
+      contractImportMode: ContractImportMode,
+      file: File,
+  ): Unit =
+    importParticipant.repair
+      .import_acs(
+        importFilePath = file.canonicalPath,
+        representativePackageIdOverride = RepresentativePackageIdOverride(
+          contractOverride = contractRpIdOverride,
+          packageIdOverride = packageIdOverride,
+          packageNameOverride = packageNameOverride,
+        ),
+        contractImportMode = contractImportMode,
+      )
+      .discard
+}
+
+trait WithImportPartyAcs {
+  self: AcsImportRepresentativePackageIdSelectionIntegrationTest =>
+
+  override protected def importAcs(
+      importParticipant: ParticipantReference,
+      contractRpIdOverride: Map[canton.protocol.LfContractId, LfPackageId],
+      packageIdOverride: Map[LfPackageId, LfPackageId],
+      packageNameOverride: Map[LfPackageName, LfPackageId],
+      contractImportMode: ContractImportMode,
+      file: File,
+  ): Unit = importParticipant.parties
+    .import_party_acs(
+      importFilePath = file.canonicalPath,
+      representativePackageIdOverride = RepresentativePackageIdOverride(
+        contractOverride = contractRpIdOverride,
+        packageIdOverride = packageIdOverride,
+        packageNameOverride = packageNameOverride,
+      ),
+      contractImportMode = contractImportMode,
+    )
+    .discard
+}
+
 // TODO(#25385): This test should be a variation in the conformance test suites
 //               but since there is no possibility to test ACS import effects
 //               and more importantly here
 //               the representative package ID selection in LAPITT yet,
 //               we keep it here for now.
-class AcsImportRepresentativePackageIdSelectionIntegrationTestNoImfoBuffer
-    extends AcsImportRepresentativePackageIdSelectionIntegrationTest {
+trait WithoutImfoBuffer extends AcsImportRepresentativePackageIdSelectionIntegrationTest {
   override def environmentDefinition: EnvironmentDefinition =
     super.environmentDefinition
       .addConfigTransforms(ConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
@@ -555,3 +622,22 @@ class AcsImportRepresentativePackageIdSelectionIntegrationTestNoImfoBuffer
           .replace(0)
       })
 }
+
+// All combinations of with/without IMFO buffer and repair service/party ACS import
+class AcsImportRpIdIntegrationTest_RepairService_ImfoBuffer
+    extends AcsImportRepresentativePackageIdSelectionIntegrationTest
+    with WithRepairServiceImportAcs
+
+class AcsImportRpIdIntegrationTest_RepairService_NoImfoBuffer
+    extends AcsImportRepresentativePackageIdSelectionIntegrationTest
+    with WithRepairServiceImportAcs
+    with WithoutImfoBuffer
+
+class AcsImportRpIdIntegrationTest_PartyService_ImfoBuffer
+    extends AcsImportRepresentativePackageIdSelectionIntegrationTest
+    with WithImportPartyAcs
+
+class AcsImportRpIdIntegrationTest_PartyService_NoImfoBuffer
+    extends AcsImportRepresentativePackageIdSelectionIntegrationTest
+    with WithImportPartyAcs
+    with WithoutImfoBuffer
