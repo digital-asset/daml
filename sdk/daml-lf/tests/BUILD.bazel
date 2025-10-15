@@ -30,6 +30,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 
 [
     daml_compile(
+        # TODO: rename OR fix that these build for more than one minor version
         name = "Exceptions-{}".format(mangle_for_damlc(version)),
         srcs = ["Exceptions.daml"],
         target = version,
@@ -40,6 +41,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 
 [
     daml_compile(
+        # TODO: rename OR fix that these build for more than one minor version
         name = "Interfaces-v{}".format(major),
         srcs = ["Interfaces.daml"],
         enable_interfaces = True,
@@ -51,6 +53,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 
 [
     daml_compile(
+        # TODO: rename OR fix that these build for more than one minor version
         name = "InterfaceViews-v{}".format(major),
         srcs = ["InterfaceViews.daml"],
         enable_interfaces = True,
@@ -61,6 +64,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 ]
 
 daml_build_test(
+    # TODO: rename OR fix that these build for more than one minor version
     name = "ReinterpretTests-v2",
     project_dir = "reinterpret",
     visibility = ["//daml-lf:__subpackages__"],

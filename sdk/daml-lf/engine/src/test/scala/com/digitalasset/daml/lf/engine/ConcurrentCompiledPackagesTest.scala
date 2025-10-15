@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -13,36 +13,38 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ConcurrentCompiledPackagesTestV2
-    extends ConcurrentCompiledPackagesTest(LanguageMajorVersion.V2)
+    extends ConcurrentCompiledPackagesTest(
+      LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+    )
 
-class ConcurrentCompiledPackagesTest(majorLanguageVersion: LanguageMajorVersion)
+abstract class ConcurrentCompiledPackagesTest(languageVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with Inside {
 
   implicit val parserParameters: ParserParameters[this.type] =
-    ParserParameters.defaultFor[this.type](majorLanguageVersion)
+    ParserParameters.defaultForMinor[this.type](languageVersion)
 
-  "ConcurrentCompiledPackages" should {
-
-    val pkg =
-      p"""
-        metadata ( 'pkg' : '1.0.0' )
-        module Mod {
-          val string: Text = "t";
-        }
-      """
+  s"ConcurrentCompiledPackages with ${languageVersion}" should {
 
     "load valid package" in {
 
-      new ConcurrentCompiledPackages(Compiler.Config.Dev(majorLanguageVersion))
+      val pkg =
+        p"""
+          metadata ( 'pkg' : '1.0.0' )
+          module Mod {
+            val string: Text = "t";
+          }
+        """
+
+      new ConcurrentCompiledPackages(Compiler.Config.Dev(languageVersion.major))
         .addPackage(parserParameters.defaultPackageId, pkg) shouldBe ResultDone(())
 
     }
 
     "not load of an invalid package" in {
 
-      val packages = new ConcurrentCompiledPackages(Compiler.Config.Dev(majorLanguageVersion))
+      val packages = new ConcurrentCompiledPackages(Compiler.Config.Dev(languageVersion.major))
 
       val illFormedPackage =
         p"""
