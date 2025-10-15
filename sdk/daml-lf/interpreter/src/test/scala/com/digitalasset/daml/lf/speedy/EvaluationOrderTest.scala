@@ -1817,6 +1817,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               msgs shouldBe buildLog(
                 "starts test",
                 "queries contract",
+                "view",
                 "precondition",
                 "contract signatories",
                 "contract observers",
@@ -1883,6 +1884,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 msgs shouldBe buildLog(
                   "starts test",
                   "queries contract",
+                  "view",
                   "precondition",
                   "contract signatories",
                   "contract observers",
@@ -1913,6 +1915,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "interface choice controllers",
                 "interface choice observers",
@@ -2015,6 +2018,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 requiredParties shouldBe Set(alice)
                 msgs shouldBe buildLog(
                   "starts test",
+                  "view",
                   "interface guard",
                   "interface choice controllers",
                   "interface choice observers",
@@ -2039,6 +2043,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             inside(res) { case Success(Right(_)) =>
               msgs shouldBe buildLog(
                 "starts test",
+                "view",
                 "interface guard",
                 "interface choice controllers",
                 "interface choice observers",
@@ -2145,6 +2150,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 requiredParties shouldBe Set(bob)
                 msgs shouldBe buildLog(
                   "starts test",
+                  "view",
                   "interface guard",
                   "interface choice controllers",
                   "interface choice observers",
@@ -2777,6 +2783,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             msgs shouldBe Seq(
               "starts test",
               "queries contract",
+              "view",
               "precondition",
               "contract signatories",
               "contract observers",
@@ -2832,6 +2839,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               msgs shouldBe Seq(
                 "starts test",
                 "queries contract",
+                "view",
                 "precondition",
                 "contract signatories",
                 "contract observers",
@@ -2857,7 +2865,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             getContract = getIfaceContract,
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "ends test")
+            msgs shouldBe Seq("starts test", "view", "ends test")
           }
         }
 
@@ -2941,7 +2949,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 ) =>
               stakeholders shouldBe Set(alice, bob)
               authorizingParties shouldBe Set(charlie)
-              msgs shouldBe Seq("starts test")
+              msgs shouldBe Seq("starts test", "view")
           }
         }
       }
@@ -2959,7 +2967,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
-            msgs shouldBe Seq("starts test", "ends test")
+            msgs shouldBe Seq("starts test", "view", "ends test")
           }
         }
 
@@ -3043,7 +3051,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 ) =>
               stakeholders shouldBe Set(alice, bob)
               authorizingParties shouldBe Set(charlie)
-              msgs shouldBe Seq("starts test")
+              msgs shouldBe Seq("starts test", "view")
           }
         }
       }

@@ -1548,17 +1548,19 @@ private[lf] object SBuiltinFun {
               forbidLocalContractIds = forbidLocalContractIds,
               forbidTrailingNones = forbidTrailingNones,
             ) { dstSArg =>
-              fetchValidateDstContract(
-                machine,
-                coid,
-                srcTmplId,
-                srcPackageName,
-                srcMetadata,
-                dstTmplId,
-                dstSArg,
-                mbTypedNormalFormAuthenticator,
-              ) { case (dstTmplId, dstArg, _) =>
-                k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+              validateInterfaceView(machine, interfaceId, dstTmplId, dstSArg) { () =>
+                fetchValidateDstContract(
+                  machine,
+                  coid,
+                  srcTmplId,
+                  srcPackageName,
+                  srcMetadata,
+                  dstTmplId,
+                  dstSArg,
+                  mbTypedNormalFormAuthenticator,
+                ) { case (dstTmplId, dstArg, _) =>
+                  k(SAny(Ast.TTyCon(dstTmplId), dstArg))
+                }
               }
             }
           }
@@ -1916,14 +1918,42 @@ private[lf] object SBuiltinFun {
         machine: Machine[Q],
     ): Control[Nothing] = {
       val (templateId, record) = getSAnyContract(args, 0)
+      viewInterface(machine, ifaceId, templateId, record)(Control.Expression)
+    }
+  }
 
-      val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
-        crash(
-          s"Attempted to call view for interface ${ifaceId} on a wrapped " +
-            s"template of type ${ifaceId}, but there's no matching interface instance."
-        )
-      )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-      Control.Expression(SEApp(SEVal(ref), ArraySeq(record)))
+  private[this] def viewInterface[Q](
+      machine: Machine[_],
+      ifaceId: TypeConId,
+      templateId: TypeConId,
+      record: SValue,
+  )(k: SExpr => Control[Q]): Control[Q] = {
+    val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
+      crash(
+        s"Attempted to call view for interface ${ifaceId} on a wrapped " +
+          s"template of type ${ifaceId}, but there's no matching interface instance."
+      )
+    )(iiRef => InterfaceInstanceViewDefRef(iiRef))
+    k(SEApp(SEVal(ref), ArraySeq(record)))
+  }
+
+  /** Checks that the interface view of [record] for [ifaceId] is computable and serializable.
+    *
+    * Returns a [[Control.Error]] if the view computation fails.
+    * Throws a [[SErrorDamlException]] if the view is not serializable (too deeply nested).
+    */
+  private[this] def validateInterfaceView[Q](
+      machine: Machine[Q],
+      ifaceId: TypeConId,
+      templateId: TypeConId,
+      record: SValue,
+  )(k: () => Control[Q]): Control[Q] = {
+    viewInterface[Q](machine, ifaceId, templateId, record) { view =>
+      executeExpression[Q](machine, SEPreventCatch(view)) { viewValue =>
+        // Normalize the value to ensure that it is serializable.
+        val _ = viewValue.toNormalizedValue
+        k()
+      }
     }
   }
 

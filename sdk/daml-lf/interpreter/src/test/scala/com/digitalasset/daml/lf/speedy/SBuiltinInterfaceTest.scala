@@ -237,7 +237,14 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
               val mkParty : Text -> Party = \(t:Text) ->
                 case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
 
-              record @serializable MyViewType = { n : Int64 };
+              variant @serializable Nat = Succ : Mod:Nat | Zero : Unit;
+
+              val toNat : Int64 -> Mod:Nat = \(n:Int64) ->
+                case (EQUAL @Int64 n 0) of
+                    True -> Mod:Nat:Zero ()
+                  | False -> Mod:Nat:Succ (Mod:toNat (SUB_INT64 n 1));
+
+              record @serializable MyViewType = { n : Mod:Nat };
               interface (this : Iface) = {
                 viewtype Mod:MyViewType;
                 choice @nonConsuming MyChoice (self) (u: Unit): Unit
@@ -245,49 +252,98 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
                   , observers (Nil @Party)
                   to upure @Unit ();
               };
+
+              record @serializable Ex = { message: Text } ;
+              exception Ex = {
+                message \(e: Mod:Ex) -> Mod:Ex {message} e
+              };
             }
           """ (ifaceParserParams)
 
-  // The following code defines a family of packages -implem-pkg- versions 1.0.0, 2.0.0, ... that define a
-  // template T that implements Iface. The view function for version 1 of the package returns 1, the view function
-  // of version 2 of the package returns 2, etc.
   val implemPkgName = Ref.PackageName.assertFromString("-implem-pkg-")
+
   def implemPkgVersion(pkgVersion: Int) =
     Ref.PackageVersion.assertFromString(s"${pkgVersion}.0.0")
-  def implemPkgId(pkgVersion: Int) =
-    Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-")
+
   def implemParserParams(pkgVersion: Int) = ParserParameters(
-    defaultPackageId = implemPkgId(pkgVersion),
+    defaultPackageId = Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-"),
     languageVersion = languageVersion,
   )
-  def implemPkg(pkgVersion: Int) =
-    p"""metadata ( '$implemPkgName' : '${implemPkgVersion(pkgVersion)}' )
+
+  // A package that defines a template which implements Iface. The instance's view function returns 1.
+  val implemPkgId1 = Ref.PackageId.assertFromString(s"-implem-pkg-id-1-")
+  val implemPkg1 =
+    p"""metadata ( '$implemPkgName' : '${implemPkgVersion(1)}' )
             module Mod {
               record @serializable T = { p: Party };
               template (this: T) = {
                 precondition True;
                 signatories Cons @Party [Mod:T {p} this] (Nil @Party);
                 observers Nil @Party;
-                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = $pkgVersion }; };
+                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = '$ifacePkgId':Mod:toNat 1 }; };
               };
             }
-          """ (implemParserParams(pkgVersion))
+          """ (implemParserParams(1))
 
-  // All three of -iface-package-id-, -implem-pkg-id-1-, and -implem-pkg-id-2- are made available to the interpreter.
+  // Same as implemPkg1, but the instance's view function returns 2.
+  val implemPkgId2 = Ref.PackageId.assertFromString(s"-implem-pkg-id-2-")
+  val implemPkg2 = p"""metadata ( '$implemPkgName' : '${implemPkgVersion(2)}' )
+            module Mod {
+              record @serializable T = { p: Party };
+              template (this: T) = {
+                precondition True;
+                signatories Cons @Party [Mod:T {p} this] (Nil @Party);
+                observers Nil @Party;
+                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = '$ifacePkgId':Mod:toNat 2 }; };
+              };
+            }
+          """ (implemParserParams(2))
+
+  // Same as implemPkg1, but the instance's view function throws an error.
+  val implemPkgId3 = Ref.PackageId.assertFromString(s"-implem-pkg-id-3-")
+  val implemPkg3 = p"""metadata ( '$implemPkgName' : '${implemPkgVersion(3)}' )
+            module Mod {
+              record @serializable T = { p: Party };
+              template (this: T) = {
+                precondition True;
+                signatories Cons @Party [Mod:T {p} this] (Nil @Party);
+                observers Nil @Party;
+                implements '$ifacePkgId':Mod:Iface {
+                  view =
+                    throw @'$ifacePkgId':Mod:MyViewType @'$ifacePkgId':Mod:Ex ('$ifacePkgId':Mod:Ex {message = "View"});
+                };
+              };
+            }
+          """ (implemParserParams(3))
+
+  // Same as implemPkg1, but the instance's view function builds a too deeply-nested value.
+  val implemPkgId4 = Ref.PackageId.assertFromString(s"-implem-pkg-id-4-")
+  val implemPkg4 = p"""metadata ( '$implemPkgName' : '${implemPkgVersion(4)}' )
+            module Mod {
+              record @serializable T = { p: Party };
+              template (this: T) = {
+                precondition True;
+                signatories Cons @Party [Mod:T {p} this] (Nil @Party);
+                observers Nil @Party;
+                implements '$ifacePkgId':Mod:Iface { view = '$ifacePkgId':Mod:MyViewType { n = '$ifacePkgId':Mod:toNat 150 }; };
+              };
+            }
+          """ (implemParserParams(4))
+
   val compiledPackages = PureCompiledPackages.assertBuild(
     Map(
       ifacePkgId -> ifacePkg,
-      implemPkgId(1) -> implemPkg(1),
-      implemPkgId(2) -> implemPkg(2),
+      implemPkgId1 -> implemPkg1,
+      implemPkgId2 -> implemPkg2,
+      implemPkgId3 -> implemPkg3,
+      implemPkgId4 -> implemPkg4,
     ),
     compilerConfig,
   )
 
-  // But we prefer version 2 of -implem-pkg-, which will force an upgrade of any version 1 contract when
-  // fetched/exercised by interface
   def packagePreference(pkgVersion: Int) = Map(
     ifacePkgName -> ifacePkgId,
-    implemPkgName -> implemPkgId(pkgVersion),
+    implemPkgName -> Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-"),
   )
 
   // We assume one contract of type -implem-pkg-id-1-:Mod:T on the ledger, with ID cid.
@@ -320,6 +376,38 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
         result shouldBe a[Right[_, _]]
       }
     }
+
+    "should fail when the interface view computation fails" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
+          ArraySeq(SContractId(cid), SToken),
+          packageResolution = packagePreference(3),
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(error))) =>
+        error shouldBe a[interpretation.Error.FailureStatus]
+      }
+    }
+
+    "should fail when the interface view is not serializable (too deeply nested)" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
+          ArraySeq(SContractId(cid), SToken),
+          packageResolution = packagePreference(4),
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(error))) =>
+        error shouldBe a[interpretation.Error.ValueNesting]
+      }
+    }
   }
 
   "exercise_interface" - {
@@ -340,10 +428,55 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
         result shouldBe a[Right[_, _]]
       }
     }
+
+    "should fail when the interface view computation fails" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> exercise_interface @Mod:Iface MyChoice cid ()" (
+            ifaceParserParams
+          ),
+          ArraySeq(SContractId(cid), SToken),
+          packageResolution = packagePreference(3),
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(error))) =>
+        error shouldBe a[interpretation.Error.FailureStatus]
+      }
+    }
+
+    "should fail when the interface view is not serializable (too deeply nested)" in {
+      inside(
+        evalApp(
+          e"\(cid: ContractId Mod:Iface) -> exercise_interface @Mod:Iface MyChoice cid ()" (
+            ifaceParserParams
+          ),
+          ArraySeq(SContractId(cid), SToken),
+          packageResolution = packagePreference(4),
+          getContract = contracts,
+          getPkg = PartialFunction.empty,
+          compiledPackages = compiledPackages,
+          committers = Set(alice),
+        )
+      ) { case Success(Left(SErrorDamlException(error))) =>
+        error shouldBe a[interpretation.Error.ValueNesting]
+      }
+    }
   }
 
   val ifaceViewTypeId = Ref.Identifier.assertFromString(s"$ifacePkgId:Mod:MyViewType")
   "view_interface" - {
+
+    def toSNat(n: Int): SValue = {
+      implicit val parserParameters: ParserParameters[_] = ifaceParserParams
+      if (n == 0)
+        SVariant(i"Mod:Nat", n"Zero", 1, SUnit)
+      else
+        SVariant(i"Mod:Nat", n"Succ", 0, toSNat(n - 1))
+    }
+
     forEvery(List(1, 2))(preferredVersion =>
       s"should get view implementation v$preferredVersion when package preference is for version $preferredVersion" in {
         inside(
@@ -362,9 +495,9 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
           )
         ) {
           case Success(
-                Right(SRecord(`ifaceViewTypeId`, _, ArraySeq(SInt64(`preferredVersion`))))
+                Right(SRecord(`ifaceViewTypeId`, _, ArraySeq(sval)))
               ) =>
-            succeed
+            sval shouldBe toSNat(preferredVersion)
         }
       }
     )
@@ -402,7 +535,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
     }
 
     "exercise_interface" - {
-      "should not calculate view during interface exercise" in {
+      "should prevent view errors from being caught" in {
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
         val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
         val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
@@ -425,14 +558,14 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             compiledPackages = compiledBasePkgs,
             committers = Set(alice),
           )
-        ) { case Success(Right(_)) =>
-          succeed
+        ) { case Success(Left(error)) =>
+          error shouldBe a[SErrorDamlException]
         }
       }
     }
 
     "fetch_interface" - {
-      "should not calculate view during interface fetch" in {
+      "should prevent view errors from being caught" in {
         val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
         val Ast.TTyCon(tplId) = t"ViewErrorTest:T"
         val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
@@ -455,8 +588,8 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             compiledPackages = compiledBasePkgs,
             committers = Set(alice),
           )
-        ) { case Success(Right(_)) =>
-          succeed
+        ) { case Success(Left(error)) =>
+          error shouldBe a[SErrorDamlException]
         }
       }
 
