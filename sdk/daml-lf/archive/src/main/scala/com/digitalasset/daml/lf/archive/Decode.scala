@@ -12,17 +12,17 @@ object Decode {
   def decodeArchivePayload(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.Package)] =
-    decodeArchivePayload(payload, onlySerializableDataDefs = false)
+    decodeArchivePayload(payload, onlySchema = false)
 
   def decodeArchivePayloadSchema(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.GenPackage[_])] =
-    decodeArchivePayload(payload, onlySerializableDataDefs = true)
+    decodeArchivePayload(payload, onlySchema = true)
 
   // decode an ArchivePayload
   private def decodeArchivePayload(
       payload: ArchivePayload,
-      onlySerializableDataDefs: Boolean,
+      onlySchema: Boolean,
   ): Either[Error, (PackageId, Ast.Package)] =
     payload match {
       case ArchivePayload.Lf2(pkgId, protoPkg, minor, patch)
@@ -31,7 +31,7 @@ object Decode {
           .decodePackage(
             pkgId,
             protoPkg,
-            onlySerializableDataDefs,
+            onlySchema,
             patch,
           )
           .map(payload.pkgId -> _)
@@ -41,7 +41,7 @@ object Decode {
           .decodePackage(
             pkgId,
             protoPkg,
-            onlySerializableDataDefs,
+            onlySchema,
           )
           .map(payload.pkgId -> _)
       case _ =>
@@ -51,24 +51,24 @@ object Decode {
   @throws[Error]
   def assertDecodeArchivePayload(
       payload: ArchivePayload,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchivePayload(payload, onlySerializableDataDefs = onlySerializableDataDefs))
+    assertRight(decodeArchivePayload(payload, onlySchema = onlySchema))
 
   // decode an Archive
   def decodeArchive(
       archive: DamlLf.Archive,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     Reader
       .readArchive(archive)
-      .flatMap(decodeArchivePayload(_, onlySerializableDataDefs = onlySerializableDataDefs))
+      .flatMap(decodeArchivePayload(_, onlySchema = onlySchema))
 
   @throws[Error]
   def assertDecodeArchive(
       archive: DamlLf.Archive,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchive(archive, onlySerializableDataDefs = onlySerializableDataDefs))
+    assertRight(decodeArchive(archive, onlySchema = onlySchema))
 
 }

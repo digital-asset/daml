@@ -1836,7 +1836,7 @@ class DecodeV2Spec
       }
     }
 
-    "ingnore patch versions when decoding only Schema" in {
+    "ignore patch versions when decoding only Schema" in {
       val pkgId = Ref.PackageId.assertFromString("-pkgId-")
 
       forEveryVersion { version =>
