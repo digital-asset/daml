@@ -19,13 +19,17 @@ class LockSetTest extends AnyFlatSpec with Matchers {
   implicit val ec: ExecutionContext = ExecutionContext.global
   implicit val lc: LoggingContext = LoggingContext.empty
 
+  case object FakeException extends Throwable {
+    def message = "ensure we can handle exceptions"
+  }
+
   "withLocksOn" should "synchronize without deadlock" in {
     val lockSet = new LockSet[Char](logger)
     val keys = ('a' to 'z').toSet
     val counters = new ConcurrentHashMap[Char, Long]()
 
-    val numThreads = 100 // Concurrently executing threads updating counters
-    val repetitions = 20 // How many times the step is repeated
+    val numThreads = 50 // Concurrently executing threads updating counters
+    val repetitions = 10 // How many times the step is repeated
     val numKeysToIncr = 5 // How many counters we attempt to increment each step
 
     val futures = (1 to numThreads).map { _ =>
@@ -36,12 +40,15 @@ class LockSetTest extends AnyFlatSpec with Matchers {
             .withLocksOn(keysToIncr) {
               Future {
                 keysToIncr.foreach { k =>
-                  counters.put(k, counters.getOrDefault(k, 0L) + 1) // Intentially racy.
+                  // Intentially racy.
+                  val oldCount = counters.getOrDefault(k, 0L)
+                  Thread.sleep(1) // Yield the thread and allow others to potentially interleave.
+                  counters.put(k, oldCount + 1)
                 }
-                if (i % 2 == 0) throw new RuntimeException("ensure we can handle exceptions")
+                if (i % 2 == 0) throw FakeException
               }
             }
-            .recover { case _: RuntimeException => () }
+            .recover { case FakeException => () }
 
           val _ = Await.result(task, 20.seconds)
         }
