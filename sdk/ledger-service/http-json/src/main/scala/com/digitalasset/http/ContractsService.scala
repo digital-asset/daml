@@ -311,7 +311,7 @@ class ContractsService(
     case (dao, fetch) =>
       new Search {
         val lockSet =
-          new LockSet[TemplateId.RequiredPkg]()(Ordering.by(TemplateId.toLedgerApiValue(_)))
+          new LockSet[TemplateId.RequiredPkg](logger)(Ordering.by(TemplateId.toLedgerApiValue(_)))
 
         import dao.{logHandler => doobieLog, jdbcDriver}
         // we store create arguments as JSON in DB, that is why it is `JsValue` in the result
@@ -404,7 +404,9 @@ class ContractsService(
 
         private[this] def unsafeRunAsync[A](
             templateIds: Set[TemplateId.RequiredPkg]
-        )(cio: doobie.ConnectionIO[A]): Future[A] = lockSet.withLocksOn(templateIds) {
+        )(cio: doobie.ConnectionIO[A])(implicit
+            lc: LoggingContextOf[InstanceUUID with RequestID]
+        ): Future[A] = lockSet.withLocksOn(templateIds) {
           dao.transact(cio).unsafeToFuture()
         }
 
