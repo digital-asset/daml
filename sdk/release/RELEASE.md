@@ -77,7 +77,7 @@ using the steps in the previous section.
 This testing procedure starts once the release is listed on the [releases
 page]. That is, _after_ the [assembly] step has finished.
 
-### Windows (Daml)
+### Windows (Daml Assistant)
 
 1. Set $VERSION as the release version listed in the PR you approved, and in the `#team-daml` slack message.
 
@@ -161,9 +161,9 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. Kill `daml start` with `Ctrl-C` (followed by "y" because Windows).
 
-1. Build all packages by moving out the individual package (`cd ..`) and running `daml build --all`.
+1. Build all packages by moving out of the main package (`cd ..`) and running `daml build --all`.
 
-1. Run `daml studio --replace=always` and open `test/daml/Test.daml`. Verify that there is a `Script results` link on top of the script, click on it, and
+1. Run `daml studio --replace=always` and open `test/daml/Test.daml`. Verify that there is a `Script results` link above `main` (in the code), click on it, and
    verify that the script result appears within 30 seconds.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"`, verify that
@@ -184,8 +184,8 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 # Windows (DPM)
 
-You will now also need to test the release using DPM, please follow the instructions below (they look similar, but have small tweaks, don't reuse commands from Daml).
-ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
+You will now also need to test the release using DPM, please follow the instructions below (they look similar, but have small tweaks, don't reuse commands from the Daml Assistant section above).
+**ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22**
 
 1. DPM snapshots are usually published under a different name, and via a different mechanism. For weekly testing, you may not know what this different version string is.
    Use the following to install the DPM sdk on windows.
@@ -214,11 +214,11 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 
 1. Build all packages by running `dpm build --all`.
 
-1. Run `dpm sandbox --dar ./main/.daml/dist/myproject-main-1.0.0.dar`. Wait for "Canton sandbox is ready." (it may take a little while)
+1. Run `dpm sandbox --dar ./main/.daml/dist/myproject-main-1.0.0.dar`. Wait for "Canton sandbox is ready." (it may take up to around 2 minutes)
 
 1. Kill `dpm sandbox` with `Ctrl-C` (followed by "y" because Windows).
 
-1. Run `dpm studio --replace=always` and open `test/daml/Test.daml`. Verify that there is a `Script results` link on top of the script, click on it, and
+1. Run `dpm studio --replace=always` and open `test/daml/Test.daml`. Verify that there is a `Script results` link above `main` (in the code), click on it, and
    verify that the script result appears within 30 seconds.
 
 1. Add `+` at the end of line 11 after `allocateParty "Alice"`, verify that
@@ -238,7 +238,7 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 
 1. Destroy your Windows VM.
 
-### Linux/macOS (Daml)
+### Linux/macOS (Daml Assistant)
 
 1. Set $VERSION as the release version listed in the PR you approved, and in the `#team-daml` slack message.
 
@@ -378,8 +378,8 @@ ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
 
 ### Linux/macOS (DPM)
 
-You will now also need to test the release using DPM, please follow the instructions below (they look similar, but have small tweaks, don't reuse commands from Daml).
-ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22
+You will now also need to test the release using DPM, please follow the instructions below (they look similar, but have small tweaks, don't reuse commands from the Daml Assistant section above).
+**ONLY RUN THESE STEPS FOR 3.4+ VERSIONS RELEASED AFTER 2025/09/22**
 
 1. DPM snapshots are usually published under a different name, and via a different mechanism. For weekly testing, you may not know what this different version string is.
    Use the following to install the DPM sdk on windows.
