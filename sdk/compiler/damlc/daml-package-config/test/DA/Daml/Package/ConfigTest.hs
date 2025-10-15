@@ -38,7 +38,7 @@ checkPkgConfigTests = testGroup "checkPkgConfig"
       , pDependencies = []
       , pDataDependencies = []
       , pModulePrefixes = Map.empty
-      , pSdkVersion = either throw id (parseUnresolvedVersion "0.0.0")
+      , pSdkVersion = either throw Just (parseUnresolvedVersion "0.0.0")
       , pUpgradeDar = Nothing
       }
 
