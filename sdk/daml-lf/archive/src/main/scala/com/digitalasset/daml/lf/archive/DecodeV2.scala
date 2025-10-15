@@ -31,10 +31,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   def decodePackage( // entry point
       packageId: PackageId,
       lfPackage: PLF.Package,
-      onlySerializableDataDefs: Boolean,
+      onlySchema: Boolean,
       patchVersion: Int,
   ): Either[Error, Package] =
-    if (patchVersion != 0)
+    if (patchVersion != 0 || !onlySchema)
       Left(Error.Parsing(s"Unknown patch version $patchVersion for LF $languageVersion"))
     else
       attempt(NameOf.qualifiedNameOfCurrentFunc) {
@@ -62,7 +62,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           internedStrings = internedStrings,
           internedDottedNames = internedDottedNames,
           optDependencyTracker = Some(dependencyTracker),
-          onlySerializableDataDefs = onlySerializableDataDefs,
+          onlySchema = onlySchema,
           imports = imports,
         )
 
@@ -70,7 +70,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         val env1 = env0.copy(internedKinds = internedKinds)
         val internedTypes = decodeTypesTable(env1, lfPackage)
         val env2 = env1.copy(internedTypes = internedTypes)
-        val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
+        val internedExprs =
+          if (onlySchema)
+            Vector.empty
+          else
+            lfPackage.getInternedExprsList().asScala.toVector
         val env = env2.copy(internedExprs = internedExprs)
 
         val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
@@ -254,7 +258,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedExprs: collection.IndexedSeq[PLF.Expr] = ImmArraySeq.empty,
       optDependencyTracker: Option[PackageDependencyTracker] = None,
       optModuleName: Option[ModuleName] = None,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
       currentInternedExprId: Option[Int] = None,
       imports: Either[String, collection.IndexedSeq[String]] = Left(
         "package made in com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
@@ -334,7 +338,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       val exceptions = mutable.ArrayBuffer[(DottedName, DefException)]()
       val interfaces = mutable.ArrayBuffer[(DottedName, DefInterface)]()
 
-      if (!onlySerializableDataDefs) {
+      if (!onlySchema) {
         // collect type synonyms
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
@@ -346,14 +350,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
       // collect data types
       lfModule.getDataTypesList.asScala
-        .filter(!onlySerializableDataDefs || _.getSerializable)
+        .filter(!onlySchema || _.getSerializable)
         .foreach { defn =>
           val defName = getInternedDottedName(defn.getNameInternedDname)
           val d = Work.run(decodeDefDataType(defn))
           defs += (defName -> d)
         }
 
-      if (!onlySerializableDataDefs) {
+      if (!onlySchema) {
         // collect values
         lfModule.getValuesList.asScala.foreach { defn =>
           val nameWithType = defn.getNameWithType
@@ -370,7 +374,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         templates += ((defName, Work.run(decodeTemplate(defName, defn))))
       }
 
-      if (!onlySerializableDataDefs) {
+      if (!onlySchema) {
         lfModule.getExceptionsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
@@ -589,10 +593,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                   Ret(
                     Template.build(
                       param = paramName,
-                      precond,
-                      signatories,
-                      choices,
-                      observers,
+                      precond = precond,
+                      signatories = signatories,
+                      choices = choices,
+                      observers = observers,
                       implements = implements,
                       key = key,
                     )
@@ -949,11 +953,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
-      Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
-    }
+    private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] =
+      if (onlySchema)
+        k(EUnit) // we can call k directly because we know there is no recursion on decodeExpr
+      else
+        Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
 
     private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
+      if (onlySchema)
+        throw new IllegalStateException("decodeExpr1 called in onlySchema mode")
       Work.bind(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
           Ret(EVar(getInternedName(lfExpr.getVarInternedStr)))

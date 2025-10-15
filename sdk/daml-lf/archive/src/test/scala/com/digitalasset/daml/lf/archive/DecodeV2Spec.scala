@@ -110,7 +110,7 @@ class DecodeV2Spec
       exprTable,
       None,
       Some(dummyModuleName),
-      onlySerializableDataDefs = false,
+      onlySchema = false,
       None,
       Left("package made in com.digitalasset.daml.lf.archive.DecodeV2Spec"),
     )
@@ -1833,6 +1833,21 @@ class DecodeV2Spec
         ) { case Left(err) =>
           err.msg should include(s"Unknown patch version 1 for LF $version")
         }
+      }
+    }
+
+    "ingnore patch versions when decoding only Schema" in {
+      val pkgId = Ref.PackageId.assertFromString("-pkgId-")
+
+      forEveryVersion { version =>
+        Decode.decodeArchivePayloadSchema(
+          ArchivePayload.Lf2(
+            pkgId = pkgId,
+            proto = DamlLf2.Package.getDefaultInstance,
+            minor = version.minor,
+            patch = 1,
+          )
+        ) shouldBe a[Right[_, _]]
       }
     }
   }
