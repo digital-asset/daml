@@ -2118,7 +2118,7 @@ upgrade-check tool as follows:
 
 .. code:: bash
 
-  > daml upgrade-check --participant helper-1.0.0.dar dep-1.0.0.dar main-1.0.0.dar dep-2.0.0.dar main-2.0.0.dar
+  > dpm upgrade-check --participant helper-1.0.0.dar dep-1.0.0.dar main-1.0.0.dar dep-2.0.0.dar main-2.0.0.dar
   ...
 
 This runs the same upload validation over these DARs that would be run in
@@ -2132,16 +2132,31 @@ compilation.
 
 .. code:: bash
 
-  > daml upgrade-check --compiler helper-1.0.0.dar dep-1.0.0.dar main-1.0.0.dar dep-2.0.0.dar main-2.0.0.dar
+  > dpm upgrade-check --compiler helper-1.0.0.dar dep-1.0.0.dar main-1.0.0.dar dep-2.0.0.dar main-2.0.0.dar
   ...
 
 Dry Run Uploading to a Test Environment
 ---------------------------------------
 
+If you have a test environment with DARs that are not available to you, you may
+not be able to supply a complete list of DARs for your previous model to the
+standalone ``dpm upgrade-check`` tool.
+
 For workflows involving multiple DARs, we recommend more robust testing by
 running a Canton sandbox with the same version and environment as your
 in-production participant and uploading all the old and new packages that
 constitute your Daml app.
+
+If you want to test the validity of your package against a running ledger, but
+without uploading the dar, you can hit the validateDar gRPC endpoint
+
+.. code:: bash
+
+  > grpcurl -plaintext -d @ \
+    localhost:6865 \
+    com.daml.ledger.api.v2.admin.PackageManagementService.ValidateDarFile < helper-1.0.0.dar
+ ...
+
 
 Daml Script Testing
 -------------------
