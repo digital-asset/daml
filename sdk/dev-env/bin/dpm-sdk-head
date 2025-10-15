@@ -39,6 +39,9 @@ for opt in "$@"; do
     --daml-new)
       TO_BUILD+=(daml-new)
       ;;
+    --upgrade-check)
+      TO_BUILD+=(upgrade-check)
+      ;;
     --dpm)
       TO_BUILD+=(dpm)
       ;;
@@ -78,6 +81,7 @@ for opt in "$@"; do
       echo "  --codegen-js Build and update the codegen-js component"
       echo "  --codegen-java Build and update the codegen-java component"
       echo "  --daml-new Build and update the daml-new component"
+      echo "  --upgrade-check Build and update the upgrade-check component"
       echo "  --dpm Fetch and update the dpm component"
       echo "  --version=<version> Set the component and release version to be built, default 0.0.0"
       echo "  --component-version=<version> Set the component version (internal to dpm) to be built, default 0.0.0"
@@ -190,7 +194,7 @@ if [ ! -f "$assembly_location" ]; then
   echo "$(tput setaf 3)Created assembly for $RELEASE_VERSION from ${latest_version}.$(tput sgr 0)"
 fi
 
-all_components=(damlc daml-script codegen-js codegen-java daml-new)
+all_components=(damlc daml-script codegen-js codegen-java daml-new upgrade-check)
 
 # If no explicit components specified, update all
 if [[ ! ${TO_BUILD[@]} ]]; then

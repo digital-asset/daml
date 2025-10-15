@@ -13,6 +13,7 @@ load(
     "lf_scalacopts",
     "lf_scalacopts_stricter",
 )
+load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 
 da_scala_library(
     name = "validation",
@@ -43,6 +44,10 @@ da_scala_library(
     name = "upgrade-check-main",
     srcs = glob(["src/main/**/validation/UpgradeCheckMain.scala"]),
     scala_deps = [
+        "@maven//:com_github_scopt_scopt",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml_common",
+        "@maven//:io_circe_circe_yaml",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
@@ -69,6 +74,28 @@ da_scala_library(
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
+)
+
+da_scala_binary(
+    name = "upgrade-check-dpm-main",
+    main_class = "com.digitalasset.daml.lf.validation.UpgradeCheckDpmMain",
+    resources = glob(["src/main/resources/**/*"]),
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    deps = [
+        ":upgrade-check-main",
+    ],
+)
+
+package_oci_component(
+    name = "upgrade-check-oci",
+    component_manifest = ":component.yaml",
+    platform_agnostic = True,
+    resources = [
+        ":upgrade-check-dpm-main_distribute.jar",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
 )
 
 da_scala_library(
