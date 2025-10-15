@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.{
   SessionSigningKeysConfig,
 }
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.crypto.verifier.SyncCryptoVerifier
 import com.digitalasset.canton.crypto.{
   Crypto,
@@ -26,6 +25,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, participant2}
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -121,10 +121,11 @@ trait SyncCryptoTest
   protected lazy val crypto: Crypto = Crypto
     .create(
       cryptoConfig,
+      CachingConfigs.defaultKmsMetadataCache,
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
-      CryptoPrivateStoreFactory.withoutKms(),
+      Option.empty[ReplicaManager],
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,

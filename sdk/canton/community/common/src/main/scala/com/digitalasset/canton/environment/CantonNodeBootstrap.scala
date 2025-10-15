@@ -37,7 +37,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreFactory}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeBootstrap.HealthDumpFunction
@@ -70,6 +70,7 @@ import com.digitalasset.canton.networking.grpc.{
   CantonMutableHandlerRegistry,
   CantonServerBuilder,
 }
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.{Storage, StorageFactory}
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.Clock
@@ -194,7 +195,7 @@ final case class CantonNodeBootstrapCommonArguments[
     clock: Clock,
     metrics: M,
     storageFactory: StorageFactory,
-    cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
+    replicaManager: Option[ReplicaManager],
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
     writeHealthDumpToFile: HealthDumpFunction,
@@ -466,10 +467,11 @@ abstract class CantonNodeBootstrapImpl[
         Crypto
           .create(
             cryptoConfig,
+            arguments.parameterConfig.cachingConfigs.kmsMetadataCache,
             arguments.parameterConfig.cachingConfigs.sessionEncryptionKeyCache,
             arguments.parameterConfig.cachingConfigs.publicKeyConversionCache,
             storage,
-            arguments.cryptoPrivateStoreFactory,
+            arguments.replicaManager,
             ReleaseProtocolVersion.latest,
             arguments.futureSupervisor,
             arguments.clock,

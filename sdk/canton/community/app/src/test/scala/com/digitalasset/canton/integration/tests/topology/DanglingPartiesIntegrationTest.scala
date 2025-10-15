@@ -22,7 +22,11 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.TopologyManagerError.InvalidOwnerToKeyMappingRemoval
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.store.TimeQuery
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TopologyChangeOp}
+import com.digitalasset.canton.topology.transaction.{
+  HostingParticipant,
+  ParticipantPermission,
+  TopologyChangeOp,
+}
 import monocle.macros.syntax.lens.*
 
 /** Test that the system still works properly after parties are left dangling
@@ -85,8 +89,32 @@ class DanglingPartiesIntegrationTest
           }
           participant.topology.transactions.authorize(sequencer1.synchronizer_id, proposal.txHash)
         }
-        eventually() {
-          participant3.ledger_api.parties.list().map(_.party) should contain(alice)
+
+        participants.all.foreach { p =>
+          eventually() {
+            val mapping =
+              p.topology.party_to_participant_mappings.list(sequencer1.synchronizer_id).loneElement
+            mapping.item.partyId shouldBe alice
+            mapping.item.participants.sortBy(_.participantId) should matchPattern {
+              case Seq(
+                    HostingParticipant(
+                      p1,
+                      ParticipantPermission.Submission,
+                      false, // onboarding
+                    ),
+                    HostingParticipant(
+                      p2,
+                      ParticipantPermission.Confirmation,
+                      false, // onboarding
+                    ),
+                    HostingParticipant(
+                      p3,
+                      ParticipantPermission.Confirmation,
+                      false, // onboarding
+                    ),
+                  ) if (participant1.id == p1 && participant2.id == p2 && participant3.id == p3) =>
+            }
+          }
         }
       }
 

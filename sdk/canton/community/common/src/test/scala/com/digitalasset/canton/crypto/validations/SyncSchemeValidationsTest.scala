@@ -7,8 +7,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, CryptoProvider}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreExtended, CryptoPrivateStoreFactory}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
 import com.digitalasset.canton.topology.{
@@ -31,10 +32,11 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
   private lazy val crypto: Crypto = Crypto
     .create(
       CryptoConfig(),
+      CachingConfigs.defaultKmsMetadataCache,
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
-      CryptoPrivateStoreFactory.withoutKms(),
+      Option.empty[ReplicaManager],
       testedReleaseProtocolVersion,
       futureSupervisor,
       wallClock,

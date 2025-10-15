@@ -31,7 +31,7 @@ val paintId = bootstrap.synchronizer(
 iouSynchronizerOwner.topology.synchronizer_parameters
   .propose_update(iouId, _.update(assignmentExclusivityTimeout = 0 seconds))
 paintSynchronizerOwner.topology.synchronizer_parameters
-  .propose_update(paintId, _.update(assignmentExclusivityTimeout = 2 seconds))
+  .propose_update(paintId, _.update(assignmentExclusivityTimeout = 0 seconds))
 
 // connect participants to the synchronizers
 participant1.synchronizers.connect_local(iou_sequencer, alias = iouAlias)

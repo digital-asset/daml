@@ -277,7 +277,7 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
           targetParticipantId = target.id,
           beginOffsetExclusive = ledgerEndP1,
           exportFilePath = acsSnapshotPath,
-          waitForActivationTimeout = Some(config.NonNegativeFiniteDuration.ofMillis(5)),
+          waitForActivationTimeout = Some(config.NonNegativeFiniteDuration.ofSeconds(1)),
         ),
         _.errorMessage should include(AbortAcsExportForMissingOnboardingFlag(alice, target).cause),
       )

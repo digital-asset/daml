@@ -60,7 +60,7 @@ import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCo
 import com.google.protobuf.ByteString
 
 import scala.collection.concurrent
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class TestProcessingSteps(
     pendingSubmissionMap: concurrent.Map[Int, Unit],
@@ -324,13 +324,6 @@ class TestProcessingSteps(
   override def postProcessResult(verdict: Verdict, pendingSubmissionO: Some[Unit])(implicit
       traceContext: TraceContext
   ): Unit = ()
-
-  override def authenticateInputContracts(
-      parsedRequest: ParsedRequestType
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, TestProcessingError, Unit] =
-    EitherT.rightT(())
 
   override def handleTimeout(parsedRequest: TestParsedRequest)(implicit
       traceContext: TraceContext

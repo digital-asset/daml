@@ -167,7 +167,7 @@ final case class CachingConfigs(
     packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
     packageUpgradeCache: CacheConfigWithSizeOnly = CachingConfigs.defaultPackageUpgradeCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
-    kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
+    kmsMetadataCache: CacheConfig = CachingConfigs.defaultKmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
       CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
     sequencerPayloadCache: CacheConfigWithMemoryBounds = CachingConfigs.defaultSequencerPayloadCache,
@@ -209,7 +209,7 @@ object CachingConfigs {
   )
   val defaultMemberCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
-  val kmsMetadataCache: CacheConfig =
+  val defaultKmsMetadataCache: CacheConfig =
     CacheConfig.apply(maximumSize = PositiveNumeric.tryCreate(20))
   val defaultFinalizedMediatorConfirmationRequestsCache =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))

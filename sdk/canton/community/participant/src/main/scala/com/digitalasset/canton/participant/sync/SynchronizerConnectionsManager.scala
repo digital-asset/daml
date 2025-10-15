@@ -142,6 +142,7 @@ private[sync] class SynchronizerConnectionsManager(
     MutableHealthComponent(loggerFactory, AcsCommitmentProcessor.healthName, timeouts)
 
   // Listeners to synchronizer connections
+  // The listeners are notified only if the connection starts synchronizer processing
   private val connectionListeners = new AtomicReference[List[ConnectionListener]](List.empty)
   def subscribeToConnections(subscriber: ConnectionListener): Unit =
     connectionListeners.updateAndGet(subscriber :: _).discard
@@ -433,6 +434,11 @@ private[sync] class SynchronizerConnectionsManager(
       traceContext: TraceContext
   ): EitherT[Future, SyncServiceError, Unit] =
     EitherT(connectedSynchronizer.start())
+      .map(_ =>
+        aliasManager.synchronizerIdForAlias(synchronizerAlias).foreach { synchronizerId =>
+          connectionListeners.get().foreach(_(Traced(synchronizerId)))
+        }
+      )
       .leftMap(error =>
         SyncServiceError.SyncServiceStartupError.InitError(synchronizerAlias, error)
       )
@@ -1028,24 +1034,15 @@ private[sync] class SynchronizerConnectionsManager(
 
         def handleOutcome(
             outcome: UnlessShutdown[Either[SyncServiceError, PhysicalSynchronizerId]]
-        ): UnlessShutdown[Either[SyncServiceError, PhysicalSynchronizerId]] =
+        ): UnlessShutdown[Either[SyncServiceError, PhysicalSynchronizerId]] = {
           outcome match {
-            case x @ UnlessShutdown.Outcome(Right(_: PhysicalSynchronizerId)) =>
-              aliasManager.synchronizerIdForAlias(synchronizerAlias).foreach { synchronizerId =>
-                connectionListeners.get().foreach(_(Traced(synchronizerId)))
-              }
-              x
-            case UnlessShutdown.AbortedDueToShutdown =>
-              disconnectOn()
-              UnlessShutdown.AbortedDueToShutdown
-            case x @ UnlessShutdown.Outcome(
-                  Left(_: SyncServiceError.SynchronizerRegistration.Error)
-                ) =>
-              x
-            case x @ UnlessShutdown.Outcome(Left(_)) =>
-              disconnectOn()
-              x
+            case UnlessShutdown.Outcome(Right(_: PhysicalSynchronizerId)) =>
+            case UnlessShutdown.AbortedDueToShutdown => disconnectOn()
+            case UnlessShutdown.Outcome(Left(_: SyncServiceError.SynchronizerRegistration.Error)) =>
+            case UnlessShutdown.Outcome(Left(_)) => disconnectOn()
           }
+          outcome
+        }
 
         EitherT(
           ret.value.transform(

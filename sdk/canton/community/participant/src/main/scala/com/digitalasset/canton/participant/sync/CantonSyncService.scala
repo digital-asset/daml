@@ -334,8 +334,9 @@ class CantonSyncService(
   }
 
   subscribeToConnections(_.withTraceContext { implicit traceContext => lsid =>
+    logger.debug(s"Received connection notification of $lsid")
     if (parameters.adminWorkflow.autoLoadDar) {
-      logger.debug(s"Received connection notification of $lsid")
+      logger.debug(s"Vetting admin workflows on $lsid")
       vetAdminWorkflowsOnSynchronizer(lsid)
     }
   })
