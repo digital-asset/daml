@@ -404,7 +404,7 @@ class ContractsService(
 
         private[this] def unsafeRunAsync[A](
             templateIds: Set[TemplateId.RequiredPkg]
-        )(cio: doobie.ConnectionIO[A]) = lockSet.withLocksOn(templateIds) {
+        )(cio: doobie.ConnectionIO[A]): Future[A] = lockSet.withLocksOn(templateIds) {
           dao.transact(cio).unsafeToFuture()
         }
 
