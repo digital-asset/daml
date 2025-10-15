@@ -34,7 +34,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       onlySchema: Boolean,
       patchVersion: Int,
   ): Either[Error, Package] =
-    if (patchVersion != 0 || !onlySchema)
+    if (!onlySchema && patchVersion != 0)
       Left(Error.Parsing(s"Unknown patch version $patchVersion for LF $languageVersion"))
     else
       attempt(NameOf.qualifiedNameOfCurrentFunc) {
