@@ -33,8 +33,6 @@ SORT=$3
 export LANG=C
 
 $DIFF -u <(unzip -Z1 $PROTOS | $SORT | sed 's|^[^/]*/||g') <((cat <<EOF
-com/daml/daml_lf_2_1/daml_lf.proto
-com/daml/daml_lf_2_1/daml_lf2.proto
 com/daml/ledger/api/v2/trace_context.proto
 com/daml/ledger/api/v2/testing/time_service.proto
 com/daml/ledger/api/v2/topology_transaction.proto

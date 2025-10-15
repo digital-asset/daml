@@ -1,23 +1,30 @@
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
-package daml_lf_2_1;
+package daml_lf;
 
-option java_package = "com.daml.daml_lf_2_1";
-option csharp_namespace = "Com.Daml.Daml_Lf_2_1.DamlLf";
+option java_package = "com.digitalasset.daml.lf.archive";
+option csharp_namespace = "Com.DigitalAsset.Daml.Lf.Archive.DamlLf";
 
-import "com/daml/daml_lf_2_1/daml_lf2.proto";
+import "com/digitalasset/daml/lf/archive/daml_lf2.proto";
 
 message ArchivePayload {
   // this is number 3 for historical reasons -- we had
   // Daml-LF v0 and v1 before we had minor versions.
   string minor = 3;
+  int32 patch = 5;
+
   reserved 9999; // for the removed "dev" major version
   reserved 1; // was daml_lf_0
 
   oneof Sum {
-    daml_lf_2.Package daml_lf_2 = 4;
+    // We keep bytes to avoid static dependency
+    bytes daml_lf_1 = 2;
+
+    // Must be encoded as LF2 Package. We store it as `bytes` to use a
+    // different protobuf recursion limit depending of the minor version.
+    bytes daml_lf_2 = 4;
   }
 }
 
@@ -27,6 +34,9 @@ enum HashFunction {
 
 message Archive {
   HashFunction hash_function = 1;
+
+  // deprecated field (bytes hash = 2), replaced by
+  // field 4.
 
   // Must be an encoded ArchivePayload. We store it as `bytes` to
   // simplify hashing and in future signing.
