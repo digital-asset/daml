@@ -40,6 +40,65 @@ class ValueCoderSpec
       ValueCoder.encodeValue(valueVersion = ver, v0 = value0) shouldBe a[Right[_, _]]
       ValueCoder.encodeValue(valueVersion = ver, v0 = value1) shouldBe a[Left[_, _]]
     }
+
+    "fail gracefully on texts with null characters" in {
+
+      val testCases = Table(
+        "LF value with null character",
+        ValueText("->\u0000<-"), // text with null Character
+        ValueOptional(Some(ValueText("\u0000"))), // malformed text nested
+        ValueTextMap(SortedLookupList(Map("key\u0000" -> ValueInt64(0)))),
+        ValueTextMap(
+          SortedLookupList(Map("key\u0001" -> ValueInt64(1), "key\u0001\u0000" -> ValueInt64(2)))
+        ),
+      )
+
+      forAll(testCases) { v =>
+        inside(ValueCoder.encodeValue(valueVersion = SerializationVersion.minVersion, v0 = v)) {
+          case Left(ValueCoder.EncodeError(msg)) => msg should include("null characters")
+        }
+      }
+    }
+  }
+
+  "decode" should {
+    "fail gracefully on malformed texts" in {
+
+      val testCases = Table(
+        "Proto value with null character",
+        proto.Value.newBuilder().setText("->\u0000<-").build(),
+        proto.Value
+          .newBuilder()
+          .setList(
+            proto.Value.List
+              .newBuilder()
+              .addElements(
+                proto.Value.newBuilder().setText("\u0001\u0000")
+              )
+          )
+          .build(),
+        proto.Value
+          .newBuilder()
+          .setTextMap(
+            proto.Value.TextMap
+              .newBuilder()
+              .addEntries(
+                proto.Value.TextMap.Entry
+                  .newBuilder()
+                  .setKey("\u0000")
+                  .setValue(proto.Value.newBuilder().setInt64(0L))
+              )
+          )
+          .build(),
+      )
+
+      forEvery(testCases)(v =>
+        inside(ValueCoder.decodeValue(SerializationVersion.minVersion, v.toByteString)) {
+          case Left(ValueCoder.DecodeError(msg)) =>
+            msg should include("null character")
+        }
+      )
+    }
   }
 
   "encode-decode" should {

@@ -23,31 +23,39 @@ import com.google.protobuf.{ByteString, CodedInputStream}
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.jdk.CollectionConverters._
 
+/** Error type for signalling errors occurring during decoding serialized values
+  * @param errorMessage description
+  */
+final case class DecodeError(errorMessage: String)
+
+object DecodeError extends (String => DecodeError) {
+  private[lf] def apply(version: SerializationVersion, isTooOldFor: String): DecodeError =
+    DecodeError(s"serialization version $version is too old to support $isTooOldFor")
+}
+
+/** Error type for signalling errors occurring during encoding values
+  * @param errorMessage description
+  */
+final case class EncodeError(errorMessage: String)
+
+object EncodeError extends (String => EncodeError) {
+  private[lf] def apply(version: SerializationVersion, isTooOldFor: String): EncodeError =
+    EncodeError(s"serialization version $version is too old to support $isTooOldFor")
+}
+
+object ValueCoder extends ValueCoder(allowNullCharacter = false)
+
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
   */
-object ValueCoder {
+class ValueCoder(allowNullCharacter: Boolean) {
   import Value.MAXIMUM_NESTING
 
-  /** Error type for signalling errors occurring during decoding serialized values
-    * @param errorMessage description
-    */
-  final case class DecodeError(errorMessage: String)
+  type DecodeError = value.DecodeError
+  val DecodeError: value.DecodeError.type = value.DecodeError
 
-  object DecodeError extends (String => DecodeError) {
-    private[lf] def apply(version: SerializationVersion, isTooOldFor: String): DecodeError =
-      DecodeError(s"serialization version $version is too old to support $isTooOldFor")
-  }
-
-  /** Error type for signalling errors occurring during encoding values
-    * @param errorMessage description
-    */
-  final case class EncodeError(errorMessage: String)
-
-  object EncodeError extends (String => EncodeError) {
-    private[lf] def apply(version: SerializationVersion, isTooOldFor: String): EncodeError =
-      EncodeError(s"serialization version $version is too old to support $isTooOldFor")
-  }
+  type EncodeError = value.EncodeError
+  val EncodeError: value.EncodeError.type = value.EncodeError
 
   /** Simple encoding to wire of identifiers
     *
@@ -210,6 +218,12 @@ object ValueCoder {
         if (version >= minVersion)
           throw Err(s"$description is not supported by serialization version $version")
 
+      def ensuresNoNullCharacters(s: String): s.type =
+        if (s.contains('\u0000') && !allowNullCharacter)
+          throw Err(s"text contains null character")
+        else
+          s
+
       def go(nesting: Int, protoValue: proto.Value): Value = {
         if (nesting > MAXIMUM_NESTING) {
           throw Err(
@@ -239,7 +253,7 @@ object ValueCoder {
               val party = Party.fromString(protoValue.getParty)
               party.fold(e => throw Err("error decoding party: " + e), ValueParty)
             case proto.Value.SumCase.TEXT =>
-              ValueText(protoValue.getText)
+              ValueText(ensuresNoNullCharacters(protoValue.getText))
             case proto.Value.SumCase.CONTRACT_ID =>
               val cid = decodeCoid(protoValue.getContractId)
               cid.fold(
@@ -270,7 +284,7 @@ object ValueCoder {
               val entries =
                 textMap.getEntriesList.asScala.view
                   .map { entry =>
-                    entry.getKey -> go(newNesting, entry.getValue)
+                    ensuresNoNullCharacters(entry.getKey) -> go(newNesting, entry.getValue)
                   }
                   .to(ImmArray)
               val map = SortedLookupList
@@ -340,6 +354,12 @@ object ValueCoder {
         if (valueVersion < minVersion)
           throw Err(s"$description is not supported by value version $valueVersion")
 
+      def ensuresNoNullCharacters(s: String): s.type =
+        if (s.contains('\u0000') && !allowNullCharacter)
+          throw Err(s"Null Character in Text")
+        else
+          s
+
       def go(nesting: Int, v: Value): proto.Value = {
         if (nesting > MAXIMUM_NESTING) {
           throw Err(
@@ -359,7 +379,7 @@ object ValueCoder {
             case ValueNumeric(d) =>
               builder.setNumeric(Numeric.toString(d)).build()
             case ValueText(t) =>
-              builder.setText(t).build()
+              builder.setText(ensuresNoNullCharacters(t)).build()
             case ValueParty(p) =>
               builder.setParty(p).build()
             case ValueDate(d) =>
@@ -370,11 +390,8 @@ object ValueCoder {
               builder.setContractId(coid.toBytes.toByteString).build()
             case ValueList(elems) =>
               val listBuilder = proto.Value.List.newBuilder()
-              elems.foreach(elem => {
-                discard(listBuilder.addElements(go(newNesting, elem)))
-              })
+              elems.foreach(elem => discard(listBuilder.addElements(go(newNesting, elem))))
               builder.setList(listBuilder).build()
-
             case ValueRecord(_, fields) =>
               val recordBuilder = proto.Value.Record.newBuilder()
               fields.foreach { case (_, field) =>
@@ -409,7 +426,7 @@ object ValueCoder {
                   protoMap.addEntries(
                     proto.Value.TextMap.Entry
                       .newBuilder()
-                      .setKey(key)
+                      .setKey(ensuresNoNullCharacters(key))
                       .setValue(go(newNesting, value))
                   )
                 )
