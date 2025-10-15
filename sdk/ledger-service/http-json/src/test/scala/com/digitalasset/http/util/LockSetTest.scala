@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.http.util
+
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.ConcurrentHashMap
@@ -11,9 +12,7 @@ import scala.concurrent.duration.DurationInt
 import scala.util.Random
 import scala.jdk.CollectionConverters._
 
-class LockSetTest 
-    extends AnyFlatSpec
-    with Matchers {
+class LockSetTest extends AnyFlatSpec with Matchers {
 
   implicit val ec: ExecutionContext = ExecutionContext.global
 
@@ -28,13 +27,20 @@ class LockSetTest
 
     val futures = (1 to numThreads).map { _ =>
       Future {
-        (1 to repetitions).foreach { _ =>
+        (1 to repetitions).foreach { i =>
           val keysToIncr = Random.shuffle(keys.toVector).take(numKeysToIncr)
-          lockSet.withLocksOn(keysToIncr) {
-            keysToIncr.foreach { k =>
-              counters.put(k, counters.getOrDefault(k, 0L) + 1) // Intentially racy.
+          val task = lockSet
+            .withLocksOn(keysToIncr) {
+              Future {
+                keysToIncr.foreach { k =>
+                  counters.put(k, counters.getOrDefault(k, 0L) + 1) // Intentially racy.
+                }
+                if (i % 2 == 0) throw new RuntimeException("ensure we can handle exceptions")
+              }
             }
-          }
+            .recover { case _: RuntimeException => () }
+
+          val _ = Await.result(task, 10.seconds)
         }
       }
     }
