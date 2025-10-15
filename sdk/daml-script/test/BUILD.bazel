@@ -36,6 +36,8 @@ load(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/crypto/AttestationTestData.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/crypto/AttestationTests.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
@@ -310,6 +312,7 @@ da_scala_test_suite(
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
