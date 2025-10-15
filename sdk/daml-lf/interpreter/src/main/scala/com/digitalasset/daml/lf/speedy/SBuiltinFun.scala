@@ -778,6 +778,15 @@ private[lf] object SBuiltinFun {
           crash("JCE Provider BouncyCastle not found")
         case _: NoSuchAlgorithmException =>
           crash("BouncyCastle provider fails to support SECP256K1")
+        case _: IllegalArgumentException =>
+          Control.Error(
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(
+                getSText(args, 2),
+                cause = "can not parse DER encoded public key hex string",
+              )
+            )
+          )
         case exn: InvalidKeyException =>
           Control.Error(
             IE.Crypto(
@@ -799,6 +808,7 @@ private[lf] object SBuiltinFun {
       }
     }
 
+    @throws(classOf[IllegalArgumentException])
     @throws(classOf[NoSuchAlgorithmException])
     @throws(classOf[InvalidKeySpecException])
     private[speedy] def extractPublicKey(hexEncodedPublicKey: Ref.HexString): PublicKey = {
