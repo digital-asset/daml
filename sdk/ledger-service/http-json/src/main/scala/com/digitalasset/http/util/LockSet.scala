@@ -3,18 +3,18 @@
 
 package com.daml.http.util
 
-import scala.collection.concurrent.TrieMap
-import java.util.concurrent.{Executors, Semaphore}
-import scala.collection.mutable.ListBuffer
-import scala.concurrent.{ExecutionContext, Future}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import java.util.concurrent.{Executors, Semaphore}
+import scala.collection.concurrent.TrieMap
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 /** Utility for sharing a set of locks across threads. Each lock is identified by a key.
   *
   * Assumes that in practice there is a bound on the number of keys used, which can fit in memory.
   */
 class LockSet[K](logger: ContextualizedLogger)(implicit ord: Ordering[K]) {
-  val locks = new TrieMap[K, Semaphore]
+  private val locks = new TrieMap[K, Semaphore]
 
   private val acquisitionEc: ExecutionContext =
     ExecutionContext.fromExecutor(Executors.newCachedThreadPool())
@@ -47,7 +47,7 @@ class LockSet[K](logger: ContextualizedLogger)(implicit ord: Ordering[K]) {
   private def acquireLock(key: K)(implicit lc: LoggingContext): Unit = {
     val lock = locks.getOrElseUpdate(key, new Semaphore(1))
     logger.debug(s"Attempting to acquire lock for $key")
-    lock.acquire()
+    blocking { lock.acquire() }
     logger.debug(s"Acquired lock for $key")
   }
 
