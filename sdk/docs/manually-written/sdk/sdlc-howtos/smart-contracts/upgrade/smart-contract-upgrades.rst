@@ -548,7 +548,7 @@ to test upgrades.
 
 .. code:: bash
 
-  > dpm sandbox
+  > dpm sandbox --json-api-port 7575
   Starting Canton sandbox.
   Listening at port 6865
   Canton sandbox is ready.
@@ -561,7 +561,7 @@ script and place the resulting party for Alice into an output file
 .. code:: bash
 
   > cd v1/my-pkg
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.0.0.dar \
@@ -575,7 +575,7 @@ From inside ``v2/my-pkg``, upload and run the ``getIOU`` script, passing in the
 .. code:: bash
 
   > cd ../../v2/my-pkg
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
@@ -740,7 +740,7 @@ Restart the sandbox and re-upload both v1 and v2:
 .. code:: bash
 
   > cd v1/my-deps
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > # Make a new IOU
   > dpm script \
       --ledger-host localhost --ledger-port 6865 \
@@ -749,7 +749,7 @@ Restart the sandbox and re-upload both v1 and v2:
       --output-file alice-v1
   ...
   > cd ../../v2/my-deps
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   ...
   > dpm script \
       --ledger-host localhost --ledger-port 6865 \
@@ -786,14 +786,14 @@ V2 via ``mkIOUWithoutCurrency``, then run ``doubleIOU`` on it from V1:
 
   > # Create a new v2 IOU contract, without USD as currency
   > cd v2/my-pkg
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > dpm script \
       --ledger-host localhost --ledger-port 6865 \
       --dar .daml/dist/my-pkg-1.1.0.dar \
       --script-name Main:mkIOUWithoutCurrency \
       --output-file alice-v2
   > cd ../../v1/my-pkg
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > dpm script \
   	--ledger-host localhost --ledger-port 6865 \
   	--dar .daml/dist/my-pkg-1.0.0.dar \
@@ -1575,16 +1575,10 @@ DARs. They should both succeed again:
 
   > cd v1/my-pkg
   > dpm build
-  > daml ledger upload-dar --port 6865
-  ...
-  Uploading .daml/dist/my-pkg-1.0.0.dar to localhost:6865
-  DAR upload succeeded.
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > cd ../../v2/my-pkg
   > dpm build
-  > daml ledger upload-dar --port 6865
-  ...
-  Uploading .daml/dist/my-pkg-1.1.0.dar to localhost:6865
-  DAR upload succeeded.
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
 
 Packages with new versions cannot remove an instance that is already
 there. For example, the v2 IOU template cannot remove its instance of
@@ -1596,13 +1590,10 @@ reupload the two versions:
 
   > cd v1/my-pkg
   > dpm build
-  > daml ledger upload-dar --port 6865
-  ...
-  Uploading .daml/dist/my-pkg-1.0.0.dar to localhost:6865
-  DAR upload succeeded.
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > cd ../../v2/my-pkg
   > dpm build
-  > daml ledger upload-dar --port 6865
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   ...
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
   upload-dar did not succeed: ... Implementation of interface ...:MyIface:HasValue by template IOU appears in package that is being upgraded, but does not appear in this package.
@@ -1615,16 +1606,10 @@ Then restart the sandbox and try to reupload the two versions.
 
   > cd v1/my-pkg
   > dpm build
-  > daml ledger upload-dar --port 6865
-  ...
-  Uploading .daml/dist/my-pkg-1.0.0.dar to localhost:6865
-  DAR upload succeeded.
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
   > cd ../../v2/my-pkg
   > dpm build
-  > daml ledger upload-dar --port 6865
-  ...
-  Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
-  DAR upload succeeded.
+  > curl -XPOST -T .daml/dist/my-pkg-1.0.0.dar http://localhost:7575/v2/packages
 
 Similarly to choices, scripts may invoke interface implementations from
 their own version using ``exerciseExactCmd``.
@@ -2152,16 +2137,6 @@ compilation.
 
 Dry Run Uploading to a Test Environment
 ---------------------------------------
-
-If you have a test environment with DARs that are not available to you, you may
-not be able to supply a complete list of DARs for your previous model to the
-standalone ``upgrade-check`` tool.
-
-In this case, we recommend that as a further check for the validity of your
-upgraded package, you perform a dry-run upload of your package to a testing
-environment, using the ``--dry-run`` flag of the ``daml ledger upload-dar``
-command. This also runs the upgrade typechecking, but does not persist your
-package to the ledger.
 
 For workflows involving multiple DARs, we recommend more robust testing by
 running a Canton sandbox with the same version and environment as your
