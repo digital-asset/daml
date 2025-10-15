@@ -1924,7 +1924,7 @@ private[lf] object SBuiltinFun {
     override private[speedy] def execute[Q](
         args: ArraySeq[SValue],
         machine: Machine[Q],
-    ): Control[Nothing] = {
+    ): Control[Q] = {
       val (templateId, record) = getSAnyContract(args, 0)
 
       val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
@@ -1933,7 +1933,11 @@ private[lf] object SBuiltinFun {
             s"template of type ${ifaceId}, but there's no matching interface instance."
         )
       )(iiRef => InterfaceInstanceViewDefRef(iiRef))
-      Control.Expression(SEApp(SEVal(ref), ArraySeq(record)))
+      executeExpression(machine, SEApp(SEVal(ref), ArraySeq(record))) { view =>
+        // Check that the view is serializable
+        val _ = view.toNormalizedValue
+        Control.Value(view)
+      }
     }
   }
 
