@@ -125,3 +125,5 @@ test:windows --test_env=ComSpec
 build -c opt
 
 try-import %workspace%/.bazelrc.local
+
+test --cache_test_results=no
