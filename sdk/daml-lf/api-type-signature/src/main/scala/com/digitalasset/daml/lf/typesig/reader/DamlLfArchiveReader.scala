@@ -15,18 +15,18 @@ object DamlLfArchiveReader {
   private[this] def fromEither[X](either: Either[archive.Error, X]) =
     \/.fromEither(either).leftMap(err => s"Cannot parse archive: $err")
 
-  def readPackage(lf: DamlLf.Archive): String \/ (Ref.PackageId, PackageSchema) =
+  def readPackage(lf: DamlLf.Archive): String \/ (Ref.PackageId, Ast.PackageSignature) =
     fromEither(archive.Reader.readArchive(lf)) flatMap readPackage
 
   def readPackage(
       packageId: Ref.PackageId,
       lf: DamlLf.ArchivePayload,
-  ): String \/ (Ref.PackageId, PackageSchema) =
+  ): String \/ (Ref.PackageId, Ast.PackageSignature) =
     fromEither(archive.Reader.readArchivePayload(packageId, lf)) flatMap readPackage
 
   private[typesig] def readPackage(
       payLoad: archive.ArchivePayload
-  ): String \/ (Ref.PackageId, PackageSchema) =
+  ): String \/ (Ref.PackageId, Ast.PackageSignature) =
     fromEither(archive.Decode.decodeArchivePayloadSchema(payLoad))
 
 }

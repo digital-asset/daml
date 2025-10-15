@@ -102,7 +102,7 @@ object SignatureReader {
     typesig.PackageSignature(dummyPkgId, dummyPkgMetadata, Map.empty, Map.empty)
 
   def readPackageSignature(
-      f: () => String \/ (PackageId, PackageSchema)
+      f: () => String \/ (PackageId, Ast.PackageSignature)
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], typesig.PackageSignature) =
     f() match {
       case -\/(e) =>
@@ -130,31 +130,32 @@ object SignatureReader {
   ): Errors[ErrorLoc, InvalidDataTypeDefinition] =
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
-  private[reader] def foldModule(module: ModuleSchema): State = {
-    val (derrors, dataTypes) = (module.definitions: Iterable[(Ref.DottedName, DefinitionSchema)])
-      .collect { case (name, Ast.DDataType(true, params, dataType)) =>
-        val fullName = QualifiedName(module.name, name)
-        val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
+  private[reader] def foldModule(module: Ast.ModuleSignature): State = {
+    val (derrors, dataTypes) =
+      (module.definitions: Iterable[(Ref.DottedName, Ast.DefinitionSignature)])
+        .collect { case (name, Ast.DDataType(true, params, dataType)) =>
+          val fullName = QualifiedName(module.name, name)
+          val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
-        val result: Error \/ Option[(QualifiedName, TypeDecl)] =
-          dataType match {
-            case dfn: Ast.DataRecord =>
-              val it = module.templates.get(name) match {
-                case Some(tmpl) => template(fullName, dfn, tmpl)
-                case None => record(fullName, tyVars, dfn)
-              }
-              it map some
-            case dfn: Ast.DataVariant =>
-              variant(fullName, tyVars, dfn) map some
-            case dfn: Ast.DataEnum =>
-              enumeration(fullName, tyVars, dfn) map some
-            case Ast.DataInterface =>
-              // ^ never actually used, as far as I can tell -SC
-              \/-(none)
-          }
-        locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
-      }
-      .partitionMap(identity)
+          val result: Error \/ Option[(QualifiedName, TypeDecl)] =
+            dataType match {
+              case dfn: Ast.DataRecord =>
+                val it = module.templates.get(name) match {
+                  case Some(tmpl) => template(fullName, dfn, tmpl)
+                  case None => record(fullName, tyVars, dfn)
+                }
+                it map some
+              case dfn: Ast.DataVariant =>
+                variant(fullName, tyVars, dfn) map some
+              case dfn: Ast.DataEnum =>
+                enumeration(fullName, tyVars, dfn) map some
+              case Ast.DataInterface =>
+                // ^ never actually used, as far as I can tell -SC
+                \/-(none)
+            }
+          locate(Symbol("name"), rootErrOf[ErrorLoc](result)).toEither
+        }
+        .partitionMap(identity)
     val ddts = dataTypes.view.collect { case Some(x) => x }.toMap
 
     val (ierrors, astIfs) = module.interfaces.partitionMap { case (name, astIf) =>
@@ -179,7 +180,7 @@ object SignatureReader {
   private[reader] def template[T >: TypeDecl.Template](
       name: QualifiedName,
       record: Ast.DataRecord,
-      dfn: TemplateSchema,
+      dfn: Ast.TemplateSignature,
   ) =
     for {
       fields <- fieldsOrCons(name, record.fields)
@@ -192,7 +193,7 @@ object SignatureReader {
 
   private[this] def visitChoices[Ty](
       choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      astInterfaces: Map[Ref.TypeConId, TemplateImplementsSchema],
+      astInterfaces: Map[Ref.TypeConId, Ast.TemplateImplementsSignature],
   ): TemplateChoices[Ty] =
     astInterfaces.keySet match {
       case NonEmpty(unresolvedInherited) =>
@@ -202,7 +203,7 @@ object SignatureReader {
 
   private def visitChoice(
       ctx: QualifiedName,
-      choice: TemplateChoiceSchema,
+      choice: Ast.TemplateChoiceSignature,
   ): Error \/ TemplateChoice[Type] =
     for {
       tParam <- toIfaceType(ctx, choice.argBinder._2)
@@ -247,7 +248,7 @@ object SignatureReader {
 
   private[this] def interface(
       name: QualifiedName,
-      astIf: DefInterfaceSchema,
+      astIf: Ast.DefInterfaceSignature,
   ): Error \/ (QualifiedName, DefInterface.FWT) = for {
     choices <- astIf.choices.traverse(visitChoice(name, _))
     rawViewType <- toIfaceType(name, astIf.view)

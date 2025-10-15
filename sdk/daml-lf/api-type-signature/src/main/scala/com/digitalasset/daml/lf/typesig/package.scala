@@ -4,18 +4,9 @@
 package com.digitalasset.daml.lf
 
 import data.Ref
-import language.Ast
 
 // Types to be used internally
 package object typesig {
-
-  type PackageSchema = Ast.GenPackage[_]
-  type ModuleSchema = Ast.GenModule[_]
-  type DefinitionSchema = Ast.GenDefinition[_]
-  type DefInterfaceSchema = Ast.GenDefInterface[_]
-  type TemplateSchema = Ast.GenTemplate[_]
-  type TemplateChoiceSchema = Ast.GenTemplateChoice[_]
-  type TemplateImplementsSchema = Ast.GenTemplateImplements[_]
 
   type FieldWithType = (Ref.Name, Type)
 

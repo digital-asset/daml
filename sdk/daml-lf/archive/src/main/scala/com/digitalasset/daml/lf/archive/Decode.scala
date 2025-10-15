@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.archive
 
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 
 object Decode {
 
@@ -16,11 +16,13 @@ object Decode {
 
   def decodeArchivePayloadSchema(
       payload: ArchivePayload
-  ): Either[Error, (PackageId, Ast.GenPackage[_])] =
-    decodeArchivePayload(payload, onlySchema = true)
+  ): Either[Error, (PackageId, Ast.PackageSignature)] =
+    decodeArchivePayload(payload, onlySchema = true).map { case (pkgId, pkg) =>
+      pkgId -> AstUtil.toSignature(pkg)
+    }
 
   // decode an ArchivePayload
-  private def decodeArchivePayload(
+  private[this] def decodeArchivePayload(
       payload: ArchivePayload,
       onlySchema: Boolean,
   ): Either[Error, (PackageId, Ast.Package)] =
