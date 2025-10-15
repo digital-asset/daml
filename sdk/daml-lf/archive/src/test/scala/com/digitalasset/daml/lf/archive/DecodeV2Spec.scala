@@ -1817,15 +1817,38 @@ class DecodeV2Spec
       }
     }
 
+    val pkgId = Ref.PackageId.assertFromString("-pkgId-")
+
+    val pkg = DamlLf2.Package
+      .newBuilder()
+      .addInternedStrings("foobar")
+      .addInternedStrings("0.0.0")
+      .setMetadata(
+        DamlLf2.PackageMetadata.newBuilder
+          .setNameInternedStr(0)
+          .setVersionInternedStr(1)
+          .build()
+      )
+      .build()
+
     "fail for unknown patch versions" in {
       val pkgId = Ref.PackageId.assertFromString("-pkgId-")
 
       forEveryVersion { version =>
+        Decode.decodeArchivePayload(
+          ArchivePayload.Lf2(
+            pkgId = pkgId,
+            proto = pkg,
+            minor = version.minor,
+            patch = 0,
+          )
+        ) shouldBe a[Right[_, _]]
+
         inside(
           Decode.decodeArchivePayload(
             ArchivePayload.Lf2(
               pkgId = pkgId,
-              proto = DamlLf2.Package.getDefaultInstance,
+              proto = pkg,
               minor = version.minor,
               patch = 1,
             )
@@ -1837,13 +1860,11 @@ class DecodeV2Spec
     }
 
     "ignore patch versions when decoding only Schema" in {
-      val pkgId = Ref.PackageId.assertFromString("-pkgId-")
-
       forEveryVersion { version =>
         Decode.decodeArchivePayloadSchema(
           ArchivePayload.Lf2(
             pkgId = pkgId,
-            proto = DamlLf2.Package.getDefaultInstance,
+            proto = pkg,
             minor = version.minor,
             patch = 1,
           )
