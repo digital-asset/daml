@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.daml.ledger.api.v2.package_reference.VettedPackages
 import com.daml.ledger.api.v2.package_service.PackageServiceGrpc.PackageService
 import com.daml.ledger.api.v2.package_service.{
   GetPackageRequest,
@@ -136,16 +135,11 @@ private[apiserver] final class ApiPackageService(
           .fromProto(request, packageServiceConfig.maxVettedPackagesPageSize)
           .toFuture(ProtoDeserializationFailure.Wrap(_).asGrpcError)
         results <- packageSyncService.listVettedPackages(opts)
+        // TODO(#28528) Use token to limit pagination processing, instead of
+        // post-processing entire listing.
         (pageResults, nextPageToken) = opts.toPage(results)
       } yield ListVettedPackagesResponse(
-        vettedPackages = pageResults.map { vettedPackages =>
-          VettedPackages(
-            packages = vettedPackages.packages.map(_.toProtoLAPI),
-            participantId = vettedPackages.participantId.uid.toProtoPrimitive,
-            synchronizerId = vettedPackages.synchronizerId.toProtoPrimitive,
-            topologySerial = vettedPackages.serial.value,
-          )
-        },
+        vettedPackages = pageResults.map(_.toProtoLAPI),
         nextPageToken = nextPageToken,
       )
     }

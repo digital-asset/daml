@@ -50,7 +50,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter, checked}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Interface for processing steps that are specific to request types (transaction / reassignment).
   * The [[ProtocolProcessor]] wires up these steps with the necessary synchronization and state
@@ -492,10 +492,6 @@ trait ProcessingSteps[
   )(implicit
       traceContext: TraceContext
   ): Unit
-
-  def authenticateInputContracts(parsedRequest: ParsedRequestType)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, RequestError, Unit]
 
   /** Phase 3, step 3: Yields the pending data and confirmation responses for the case that at least
     * one payload is well-formed.

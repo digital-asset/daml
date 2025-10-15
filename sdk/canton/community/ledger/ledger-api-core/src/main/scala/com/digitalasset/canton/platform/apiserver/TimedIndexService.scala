@@ -121,7 +121,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       previousPruneUpToInclusive: Option[Offset],
       previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompletReassignmentOffsets: Vector[Offset],
+      incompleteReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     Timed.future(
       metrics.services.index.prune,
@@ -129,7 +129,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
         previousPruneUpToInclusive = previousPruneUpToInclusive,
         previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
         pruneUpToInclusive = pruneUpToInclusive,
-        incompletReassignmentOffsets = incompletReassignmentOffsets,
+        incompleteReassignmentOffsets = incompleteReassignmentOffsets,
       ),
     )
 

@@ -429,7 +429,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
       case None =>
         EitherT.leftT[FutureUnlessShutdown, KmsKeyId](
           EncryptedPrivateStoreError(
-            "Active replica failed to initialize encrypted crypto private store"
+            "active replica failed to initialize encrypted crypto private store"
           )
         )
     }

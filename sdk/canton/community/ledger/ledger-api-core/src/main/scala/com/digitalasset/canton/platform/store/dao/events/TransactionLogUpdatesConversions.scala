@@ -580,7 +580,7 @@ private[events] object TransactionLogUpdatesConversions {
             offset = reassignmentAccepted.offset,
             nodeId = assigned.nodeId,
             authenticationData = assigned.contractAuthenticationData,
-            // TODO(#27872): Use the assignment representative package ID when available
+            // TODO(#28301): Use the assignment representative package ID when available
             representativePackageId = assigned.createNode.templateId.packageId,
             createdEventWitnesses = assigned.createNode.stakeholders,
             flatEventWitnesses = assigned.createNode.stakeholders,

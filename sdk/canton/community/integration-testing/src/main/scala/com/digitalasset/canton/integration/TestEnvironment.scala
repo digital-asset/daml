@@ -22,9 +22,9 @@ import com.digitalasset.canton.console.{
   LocalInstanceReference,
 }
 import com.digitalasset.canton.crypto.Crypto
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import org.apache.pekko.actor.ActorSystem
@@ -56,10 +56,11 @@ trait TestEnvironment
   private lazy val cryptoET: EitherT[FutureUnlessShutdown, String, Crypto] = Crypto
     .create(
       CryptoConfig(),
+      CachingConfigs.defaultKmsMetadataCache,
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
       CachingConfigs.defaultPublicKeyConversionCache,
       storage,
-      CryptoPrivateStoreFactory.withoutKms(),
+      Option.empty[ReplicaManager],
       testedReleaseProtocolVersion,
       FutureSupervisor.Noop,
       environment.clock,

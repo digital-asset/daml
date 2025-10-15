@@ -42,7 +42,7 @@ sealed trait OfflinePartyReplicationOnboardingCompletionIntegrationTest
       }
 }
 
-final class OffPROnboardingCompletionIntegrationTest
+final class OffPROnboardingFlagClearanceIntegrationTest
     extends OfflinePartyReplicationOnboardingCompletionIntegrationTest {
 
   "Party replication sets and clears the onboarding flag successfully" in { implicit env =>
@@ -99,7 +99,7 @@ final class OffPROnboardingCompletionIntegrationTest
 
     eventually(timeUntilSuccess = 2.minutes, maxPollInterval = 30.seconds) {
       val (onboard, earliestRetryTimestamp) =
-        target.parties.complete_party_onboarding(alice, daId, target, targetLedgerEnd)
+        target.parties.clear_party_onboarding_flag(alice, daId, target, targetLedgerEnd)
       (onboard, earliestRetryTimestamp) shouldBe (true, None)
     }
 

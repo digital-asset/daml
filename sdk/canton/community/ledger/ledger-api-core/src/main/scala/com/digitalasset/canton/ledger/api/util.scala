@@ -188,7 +188,6 @@ final case class DisclosedContract(
   }
 }
 
-// TODO(#25385): Deduplicate with logic from TopologyAwareCommandExecutor
 // Wrapper used for ordering package ids by version
 final case class PackageReference(
     pkgId: LfPackageId,
@@ -753,6 +752,14 @@ final case class EnrichedVettedPackages(
 ) {
   def toPageToken: ListVettedPackagesOpts.PageToken =
     ListVettedPackagesOpts.PageToken(synchronizerId, participantId)
+
+  def toProtoLAPI: package_reference.VettedPackages =
+    package_reference.VettedPackages(
+      packages = packages.map(_.toProtoLAPI),
+      participantId = participantId.uid.toProtoPrimitive,
+      synchronizerId = synchronizerId.toProtoPrimitive,
+      topologySerial = serial.value,
+    )
 }
 
 final case class EnrichedVettedPackage(

@@ -7,11 +7,21 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.kms.{Kms, KmsKeyId}
+import com.digitalasset.canton.crypto.store.db.DbCryptoPrivateStore
+import com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore
 import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.replica.ReplicaManager
+import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ReleaseProtocolVersion
+
+import scala.concurrent.ExecutionContext
 
 sealed trait PrivateKeyWithName extends Product with Serializable {
   type K <: PrivateKey
@@ -97,6 +107,114 @@ trait CryptoPrivateStore extends AutoCloseable {
 
 }
 
+object CryptoPrivateStore {
+
+  private def migratePrivateKeys(
+      storage: Storage,
+      store: CryptoPrivateStore,
+      timeouts: ProcessingTimeout,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] =
+    for {
+      _ <- store.toExtended match {
+        case Some(extendedStore) => extendedStore.migratePrivateKeys(storage.isActive, timeouts)
+        case None => EitherT.pure[FutureUnlessShutdown, CryptoPrivateStoreError](())
+      }
+    } yield store
+
+  /** Creates a non-encrypted crypto private store, backed either by in-memory storage or a
+    * database.
+    */
+  def create(
+      storage: Storage,
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] = {
+    val store = storage match {
+      case jdbc: DbStorage =>
+        val dbCryptoPrivateStore = new DbCryptoPrivateStore(
+          jdbc,
+          releaseProtocolVersion,
+          timeouts,
+          loggerFactory,
+        )
+        dbCryptoPrivateStore
+      case _: MemoryStorage =>
+        new InMemoryCryptoPrivateStore(releaseProtocolVersion, loggerFactory)
+    }
+    migratePrivateKeys(storage, store, timeouts)
+  }
+
+  /** Creates an encrypted crypto private store, which must be backed by a database.
+    *
+    * @param kmsKeyId
+    *   defines key identifier for the wrapper key (e.g. ARN for AWS SDK). When it's None Canton
+    *   will either create a new key or use a previous existent key.
+    * @param reverted
+    *   when true decrypts the stored private keys and stores them in clear, disabling the encrypted
+    *   crypto private key store in the process.
+    */
+  def createEncrypted(
+      storage: Storage,
+      kms: Kms,
+      kmsKeyId: Option[KmsKeyId],
+      reverted: Boolean,
+      replicaManager: Option[ReplicaManager],
+      releaseProtocolVersion: ReleaseProtocolVersion,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] =
+    for {
+      dbCryptoPrivateStore <- storage match {
+        case jdbc: DbStorage =>
+          EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
+            new DbCryptoPrivateStore(
+              jdbc,
+              releaseProtocolVersion,
+              timeouts,
+              loggerFactory,
+            )
+          )
+        case _: MemoryStorage =>
+          EitherT.leftT[FutureUnlessShutdown, DbCryptoPrivateStore](
+            CryptoPrivateStoreError.EncryptedPrivateStoreError(
+              "encryption is only supported for database-backed stores"
+            )
+          )
+      }
+      encryptedPrivateStore <- EncryptedCryptoPrivateStore
+        .create(
+          storage,
+          dbCryptoPrivateStore,
+          kms,
+          kmsKeyId,
+          reverted,
+          releaseProtocolVersion,
+          timeouts,
+          loggerFactory,
+        )
+        .flatMap(migratePrivateKeys(storage, _, timeouts))
+        .map {
+          case encryptedPrivateStore: EncryptedCryptoPrivateStore =>
+            // Register the encrypted private store with the replica manager to refresh the in-memory caches on failover
+            replicaManager.foreach(_.setPrivateKeyStore(encryptedPrivateStore))
+            encryptedPrivateStore
+
+          case store => store
+        }
+    } yield encryptedPrivateStore
+
+}
+
 sealed trait CryptoPrivateStoreError extends Product with Serializable with PrettyPrinting
 object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
 
@@ -161,12 +279,6 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
 
   final case class EncryptedPrivateStoreError(reason: String) extends CryptoPrivateStoreError {
     override protected def pretty: Pretty[EncryptedPrivateStoreError] = prettyOfClass(
-      unnamedParam(_.reason.unquoted)
-    )
-  }
-
-  final case class KmsPrivateStoreError(reason: String) extends CryptoPrivateStoreError {
-    override protected def pretty: Pretty[KmsPrivateStoreError] = prettyOfClass(
       unnamedParam(_.reason.unquoted)
     )
   }

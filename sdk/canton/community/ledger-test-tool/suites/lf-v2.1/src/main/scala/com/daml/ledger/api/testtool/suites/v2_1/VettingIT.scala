@@ -96,24 +96,50 @@ class VettingIT extends LedgerTestSuite {
       response: ListVettedPackagesResponse,
       hasPkgIds: Seq[Ref.PackageId],
       hasNotPkgIds: Seq[Ref.PackageId],
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion =
     inside(response) { case ListVettedPackagesResponse(Seq(vettedPackages), _) =>
-      assertVettedPackagesHasPkgIds(vettedPackages, hasPkgIds, hasNotPkgIds)
+      assertVettedPackagesHasPkgIds(
+        vettedPackages,
+        hasPkgIds,
+        hasNotPkgIds,
+        alternativeSynchronizer = alternativeSynchronizer,
+        alternativeParticipant = alternativeParticipant,
+      )
     }
 
-  private def assertSomeVettedPackagesHasPkgIds(
-      mbVettedPackages: Option[VettedPackages],
-      hasPkgIds: Seq[Ref.PackageId],
-      hasNotPkgIds: Seq[Ref.PackageId],
-  )(implicit pos: Position): Assertion =
-    inside(mbVettedPackages) { case Some(vettedPackages) =>
-      assertVettedPackagesHasPkgIds(vettedPackages, hasPkgIds, hasNotPkgIds)
-    }
+  private def assertUpdateResponseChangedPkgIds(
+      response: UpdateVettedPackagesResponse,
+      hasPkgIds: Seq[Ref.PackageId] = Seq(),
+      hasNotPkgIds: Seq[Ref.PackageId] = Seq(),
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
+  )(implicit pos: Position): Assertion = {
+    val hadPkgIds = hasNotPkgIds
+    val hadNotPkgIds = hasPkgIds
+    assertVettedPackagesHasPkgIds(
+      response.getPastVettedPackages,
+      hasPkgIds = hadPkgIds,
+      hasNotPkgIds = hadNotPkgIds,
+      alternativeSynchronizer = alternativeSynchronizer,
+      alternativeParticipant = alternativeParticipant,
+    )
+    assertVettedPackagesHasPkgIds(
+      response.getNewVettedPackages,
+      hasPkgIds = hasPkgIds,
+      hasNotPkgIds = hasNotPkgIds,
+      alternativeSynchronizer = alternativeSynchronizer,
+      alternativeParticipant = alternativeParticipant,
+    )
+  }
 
   private def assertVettedPackagesHasPkgIds(
       vettedPackages: VettedPackages,
       hasPkgIds: Seq[Ref.PackageId],
       hasNotPkgIds: Seq[Ref.PackageId],
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion = {
     val allPkgIds = vettedPackages.packages.map(_.packageId)
     forAll(hasPkgIds) { pkgId =>
@@ -122,6 +148,8 @@ class VettingIT extends LedgerTestSuite {
     forAll(hasNotPkgIds) { pkgId =>
       allPkgIds should not contain pkgId
     }
+    vettedPackages.synchronizerId should be(alternativeSynchronizer.getOrElse(synchronizerIdOrFail))
+    vettedPackages.participantId should be(alternativeParticipant.getOrElse(participantIdOrFail))
   }
 
   private def assertListResponseHasPkgIdWithBounds(
@@ -139,39 +167,55 @@ class VettingIT extends LedgerTestSuite {
     }
 
   private def assertResponseHasAllVersions(
-      response: ListVettedPackagesResponse
+      response: ListVettedPackagesResponse,
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2, vettingMainPkgIdV1),
       hasNotPkgIds = Seq(vettingAltPkgId),
+      alternativeSynchronizer = alternativeSynchronizer,
+      alternativeParticipant = alternativeParticipant,
     )
 
   private def assertResponseHasV2(
-      response: ListVettedPackagesResponse
+      response: ListVettedPackagesResponse,
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2),
       hasNotPkgIds = Seq(vettingAltPkgId, vettingMainPkgIdV1),
+      alternativeSynchronizer = alternativeSynchronizer,
+      alternativeParticipant = alternativeParticipant,
     )
 
   private def assertResponseHasDep(
-      response: ListVettedPackagesResponse
+      response: ListVettedPackagesResponse,
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(vettingDepPkgId),
       hasNotPkgIds = Seq(vettingMainPkgIdV2, vettingAltPkgId),
+      alternativeSynchronizer = alternativeSynchronizer,
+      alternativeParticipant = alternativeParticipant,
     )
 
   private def assertResponseHasNothing(
-      response: ListVettedPackagesResponse
+      response: ListVettedPackagesResponse,
+      alternativeSynchronizer: Option[String] = None,
+      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(),
       hasNotPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV1, vettingMainPkgIdV2, vettingAltPkgId),
+      alternativeSynchronizer = alternativeSynchronizer,
+      alternativeParticipant = alternativeParticipant,
     )
 
   private def listAllRequest: ListVettedPackagesRequest =
@@ -261,9 +305,7 @@ class VettingIT extends LedgerTestSuite {
       ref: VettedPackagesRef,
       newValidFromInclusive: Option[Timestamp] = None,
       newValidUntilExclusive: Option[Timestamp] = None,
-  )(implicit
-      ec: ExecutionContext
-  ): Future[Unit] =
+  ): Future[UpdateVettedPackagesResponse] =
     participant
       .updateVettedPackages(
         changeOpRequest(
@@ -274,7 +316,6 @@ class VettingIT extends LedgerTestSuite {
           )
         )
       )
-      .map(_ => ())
 
   private def allPackageIds(darName: String): Seq[String] =
     DarDecoder
@@ -548,11 +589,15 @@ class VettingIT extends LedgerTestSuite {
     implicit ec =>
       (participant: ParticipantTestContext) =>
         for {
-          _ <- vetAllInDar(participant, VettingDepDar.path)
-          _ <- vetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
+          vetDep <- vetAllInDar(participant, VettingDepDar.path)
+          vetMain <- vetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
 
           allResponse <- participant.listVettedPackages(listAllRequest)
-        } yield assertResponseHasV2(allResponse),
+        } yield {
+          assertResponseHasV2(allResponse)
+          assertUpdateResponseChangedPkgIds(vetDep, hasPkgIds = Seq(vettingDepPkgId))
+          assertUpdateResponseChangedPkgIds(vetMain, hasPkgIds = Seq(vettingMainPkgIdV2))
+        },
   )
 
   updateTest(
@@ -562,10 +607,13 @@ class VettingIT extends LedgerTestSuite {
       (participant: ParticipantTestContext) =>
         for {
           _ <- vetAllInDar(participant, VettingMainDar_2_0_0.path)
-          _ <- unvetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
+          unvetMain <- unvetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
 
           unvetTestAllResponse <- participant.listVettedPackages(listAllRequest)
-        } yield assertResponseHasDep(unvetTestAllResponse),
+        } yield {
+          assertResponseHasDep(unvetTestAllResponse)
+          assertUpdateResponseChangedPkgIds(unvetMain, hasNotPkgIds = Seq(vettingMainPkgIdV2))
+        },
   )
 
   updateTest(
@@ -574,12 +622,18 @@ class VettingIT extends LedgerTestSuite {
     implicit ec =>
       (participant: ParticipantTestContext) =>
         for {
-          _ <- participant.updateVettedPackages(
+          vetBoth <- participant.updateVettedPackages(
             vetPkgIdsRequest(Seq(vettingMainPkgIdV2, vettingDepPkgId))
           )
 
           vetMainAndDepResponse <- participant.listVettedPackages(listAllRequest)
-        } yield assertResponseHasV2(vetMainAndDepResponse),
+        } yield {
+          assertResponseHasV2(vetMainAndDepResponse)
+          assertUpdateResponseChangedPkgIds(
+            vetBoth,
+            hasPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2),
+          )
+        },
   )
 
   updateTest(
@@ -619,12 +673,15 @@ class VettingIT extends LedgerTestSuite {
       (participant: ParticipantTestContext) =>
         for {
           _ <- vetAllInDar(participant, VettingDepDar.path)
-          _ <- vetPkgsMatchingRef(
+          vetMain <- vetPkgsMatchingRef(
             participant,
             VettedPackagesRef("", vettingMainName, ("2.0.0")),
           )
           vetOnlyV2ByNameAndVersionResponse <- participant.listVettedPackages(listAllRequest)
-        } yield assertResponseHasV2(vetOnlyV2ByNameAndVersionResponse),
+        } yield {
+          assertResponseHasV2(vetOnlyV2ByNameAndVersionResponse)
+          assertUpdateResponseChangedPkgIds(vetMain, hasPkgIds = Seq(vettingMainPkgIdV2))
+        },
   )
 
   updateTest(
@@ -651,7 +708,7 @@ class VettingIT extends LedgerTestSuite {
       (participant: ParticipantTestContext) =>
         for {
           _ <- vetAllInDar(participant, VettingDepDar.path)
-          _ <- vetPkgsMatchingRef(
+          vetMain <- vetPkgsMatchingRef(
             participant,
             VettedPackagesRef(
               vettingMainPkgIdV2,
@@ -660,7 +717,10 @@ class VettingIT extends LedgerTestSuite {
             ),
           )
           vetOnlyV2ByAllResponse <- participant.listVettedPackages(listAllRequest)
-        } yield assertResponseHasV2(vetOnlyV2ByAllResponse),
+        } yield {
+          assertResponseHasV2(vetOnlyV2ByAllResponse)
+          assertUpdateResponseChangedPkgIds(vetMain, hasPkgIds = Seq(vettingMainPkgIdV2))
+        },
   )
 
   updateTest(
@@ -831,14 +891,14 @@ class VettingIT extends LedgerTestSuite {
       listAllResponse <- participant.listVettedPackages(listAllRequest)
       _ <- unvetAllDARMains(participant)
     } yield {
-      assertSomeVettedPackagesHasPkgIds(
-        mbVettedPackages = dryRunUpdateResponse.pastVettedPackages,
+      assertVettedPackagesHasPkgIds(
+        vettedPackages = dryRunUpdateResponse.getPastVettedPackages,
         hasPkgIds = Seq(),
         hasNotPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2, vettingAltPkgId),
       )
 
-      assertSomeVettedPackagesHasPkgIds(
-        mbVettedPackages = dryRunUpdateResponse.newVettedPackages,
+      assertVettedPackagesHasPkgIds(
+        vettedPackages = dryRunUpdateResponse.getNewVettedPackages,
         hasPkgIds = Seq(vettingAltPkgId),
         hasNotPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2),
       )
@@ -1450,8 +1510,32 @@ class VettingIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(participant1, _), Participant(participant2, _)) =>
       for {
+        participant1Id <- participant1.getParticipantId()
+        participant2Id <- participant2.getParticipantId()
         sync1 <- getSynchronizerId(participant1, syncIndex = 1)
         sync2 <- getSynchronizerId(participant1, syncIndex = 2)
+
+        // Previous test runs might mean other participant/synchronizer pairs
+        // will be left over in vetting states. This filters to just pairs from
+        // the changes that we've made, and asserts that they've vetted
+        // vetting-main 2.0.0
+        allPairsVetMain = { (results: Seq[VettedPackages]) =>
+          val filtered = results.filter { result =>
+            val hasSync = Seq(sync1, sync2).contains(result.synchronizerId)
+            val hasParticipant = Seq(participant1Id, participant2Id).contains(result.participantId)
+            hasSync && hasParticipant
+          }
+          filtered should have length 4
+          forAll(filtered) { result =>
+            assertVettedPackagesHasPkgIds(
+              result,
+              hasPkgIds = Seq(vettingMainPkgIdV2),
+              hasNotPkgIds = Seq(),
+              alternativeSynchronizer = Some(result.synchronizerId),
+              alternativeParticipant = Some(result.participantId),
+            )
+          }
+        }
 
         _ <- participant1.uploadDarFile(
           UploadDarFileRequest(
@@ -1478,7 +1562,7 @@ class VettingIT extends LedgerTestSuite {
         // Requesting page of size 0 means requesting server's default page
         // size, which is at least 4
         requestZero <- participant1.listVettedPackages(requestAllPaged(size = 0))
-        _ = requestZero.vettedPackages.length should be >= 4
+        _ = allPairsVetMain(requestZero.vettedPackages)
         _ = vettedPackagesAreSorted(requestZero.vettedPackages)
 
         // Requesting page of size 1 gets one result
@@ -1501,9 +1585,10 @@ class VettingIT extends LedgerTestSuite {
         _ = requestRemainder.vettedPackages.length should be < maxPageSize
 
         // All chained requests should be sorted
-        _ = vettedPackagesAreSorted(
+        chainedRequests =
           requestOne.vettedPackages ++ requestAnotherOne.vettedPackages ++ requestRemainder.vettedPackages
-        )
+        _ = allPairsVetMain(chainedRequests)
+        _ = vettedPackagesAreSorted(chainedRequests)
 
         // Requesting page of size below 0 results in an error
         _ <- participant1
