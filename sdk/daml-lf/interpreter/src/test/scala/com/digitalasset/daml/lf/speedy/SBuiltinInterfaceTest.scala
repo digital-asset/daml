@@ -252,11 +252,6 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
                   , observers (Nil @Party)
                   to upure @Unit ();
               };
-
-              record @serializable Ex = { message: Text } ;
-              exception Ex = {
-                message \(e: Mod:Ex) -> Mod:Ex {message} e
-              };
             }
           """ (ifaceParserParams)
 
