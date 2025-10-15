@@ -15,7 +15,7 @@ import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
 import com.daml.http.json.JsonProtocol.LfValueCodec
 import com.daml.http.query.ValuePredicate
 import com.daml.fetchcontracts.util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep}
-import util.{ApiValueToLfValueConverter, toLedgerId}
+import util.{ApiValueToLfValueConverter, toLedgerId, LockSet}
 import com.daml.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
 import com.daml.fetchcontracts.util.GraphExtensions._
 import com.daml.http.util.FutureUtil.toFuture
@@ -310,6 +310,9 @@ class ContractsService(
   private[this] val SearchDb: Option[Search { type LfV = JsValue }] = daoAndFetch map {
     case (dao, fetch) =>
       new Search {
+        val lockSet =
+          new LockSet[TemplateId.RequiredPkg](logger)(Ordering.by(TemplateId.toLedgerApiValue(_)))
+
         import dao.{logHandler => doobieLog, jdbcDriver}
         // we store create arguments as JSON in DB, that is why it is `JsValue` in the result
         type LfV = JsValue
@@ -328,7 +331,7 @@ class ContractsService(
             resolved <- OptionT(
               resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten)
             )
-            res <- OptionT(unsafeRunAsync {
+            res <- OptionT(unsafeRunAsync(Set(resolved)) {
               import doobie.implicits._, cats.syntax.apply._
               // a single contractId is either present or not; we would only need
               // to fetchAndPersistBracket if we were looking up multiple cids
@@ -359,7 +362,7 @@ class ContractsService(
           import ctx.{jwt, parties, templateIds => templateId, ledgerId}, com.daml.lf.crypto.Hash
           for {
             resolved <- resolveTemplateId(lc)(jwt, ledgerId)(templateId).map(_.toOption.flatten.get)
-            found <- unsafeRunAsync {
+            found <- unsafeRunAsync(Set(resolved)) {
               import doobie.implicits._, cats.syntax.apply._
               // it is possible for the contract under a given key to have been
               // replaced concurrently with a contract unobservable by parties, i.e.
@@ -394,13 +397,18 @@ class ContractsService(
 
           // TODO use `stream` when materializing DBContracts, so we could stream ActiveContracts
           val fv: Future[Vector[domain.ActiveContract[JsValue]]] =
-            unsafeRunAsync(searchDb_(fetch)(ctx, queryParams))
+            unsafeRunAsync(ctx.templateIds)(searchDb_(fetch)(ctx, queryParams))
 
           Source.future(fv).mapConcat(identity).map(\/.right)
         }
 
-        private[this] def unsafeRunAsync[A](cio: doobie.ConnectionIO[A]) =
+        private[this] def unsafeRunAsync[A](
+            templateIds: Set[TemplateId.RequiredPkg]
+        )(cio: doobie.ConnectionIO[A])(implicit
+            lc: LoggingContextOf[InstanceUUID with RequestID]
+        ): Future[A] = lockSet.withLocksOn(templateIds) {
           dao.transact(cio).unsafeToFuture()
+        }
 
         private[this] def timed[A](
             timer: Timer,
