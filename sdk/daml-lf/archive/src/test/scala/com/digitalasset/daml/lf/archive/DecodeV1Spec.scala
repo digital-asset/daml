@@ -95,7 +95,7 @@ class DecodeV1Spec
       typeTable,
       None,
       Some(dummyModuleName),
-      onlySerializableDataDefs = false,
+      onlySchema = false,
     )
   }
 
@@ -907,7 +907,7 @@ class DecodeV1Spec
           IndexedSeq.empty,
           None,
           None,
-          onlySerializableDataDefs = false,
+          onlySchema = false,
         )
         val parseError =
           the[Error.Parsing] thrownBy (decoder

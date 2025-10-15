@@ -110,7 +110,7 @@ class DecodeV2Spec
       exprTable,
       None,
       Some(dummyModuleName),
-      onlySerializableDataDefs = false,
+      onlySchema = false,
       None,
       Left("package made in com.digitalasset.daml.lf.archive.DecodeV2Spec"),
     )
@@ -1817,15 +1817,38 @@ class DecodeV2Spec
       }
     }
 
+    val pkgId = Ref.PackageId.assertFromString("-pkgId-")
+
+    val pkg = DamlLf2.Package
+      .newBuilder()
+      .addInternedStrings("foobar")
+      .addInternedStrings("0.0.0")
+      .setMetadata(
+        DamlLf2.PackageMetadata.newBuilder
+          .setNameInternedStr(0)
+          .setVersionInternedStr(1)
+          .build()
+      )
+      .build()
+
     "fail for unknown patch versions" in {
       val pkgId = Ref.PackageId.assertFromString("-pkgId-")
 
       forEveryVersion { version =>
+        Decode.decodeArchivePayload(
+          ArchivePayload.Lf2(
+            pkgId = pkgId,
+            proto = pkg,
+            minor = version.minor,
+            patch = 0,
+          )
+        ) shouldBe a[Right[_, _]]
+
         inside(
           Decode.decodeArchivePayload(
             ArchivePayload.Lf2(
               pkgId = pkgId,
-              proto = DamlLf2.Package.getDefaultInstance,
+              proto = pkg,
               minor = version.minor,
               patch = 1,
             )
@@ -1833,6 +1856,19 @@ class DecodeV2Spec
         ) { case Left(err) =>
           err.msg should include(s"Unknown patch version 1 for LF $version")
         }
+      }
+    }
+
+    "ignore patch versions when decoding only Schema" in {
+      forEveryVersion { version =>
+        Decode.decodeArchivePayloadSchema(
+          ArchivePayload.Lf2(
+            pkgId = pkgId,
+            proto = pkg,
+            minor = version.minor,
+            patch = 1,
+          )
+        ) shouldBe a[Right[_, _]]
       }
     }
   }

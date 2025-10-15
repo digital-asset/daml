@@ -48,7 +48,9 @@ package object archive {
   val ArchiveReader: GenReader[ArchivePayload] =
     ArchiveParser.andThen(Reader.readArchive)
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
-    ArchiveReader.andThen(Decode.decodeArchivePayload(_))
+    ArchiveReader.andThen(Decode.decodeArchivePayload)
+  val ArchiveSchemaDecoder: GenReader[(PackageId, Ast.GenPackage[_])] =
+    ArchiveReader.andThen(Decode.decodeArchivePayloadSchema)
 
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
     GenReader.Base(
@@ -74,14 +76,6 @@ package object archive {
         DamlLf2.Package.parseFrom(cos)
       },
     )
-
-  def archivePayloadDecoder(
-      hash: PackageId,
-      onlySerializableDataDefs: Boolean = false,
-  ): GenReader[(PackageId, Ast.Package)] =
-    ArchivePayloadParser
-      .andThen(Reader.readArchivePayload(hash, _))
-      .andThen(Decode.decodeArchivePayload(_, onlySerializableDataDefs))
 
   private def ModuleParser(ver: LanguageVersion): GenReader[DamlLf2.Package] =
     ver.major match {
@@ -109,4 +103,6 @@ package object archive {
     new GenUniversalArchiveReader(ArchiveReader)
   val UniversalArchiveDecoder: GenUniversalArchiveReader[(PackageId, Ast.Package)] =
     new GenUniversalArchiveReader(ArchiveDecoder)
+  val UniversaleArchiveSchemaDecoder: GenUniversalArchiveReader[(PackageId, Ast.GenPackage[_])] =
+    new GenUniversalArchiveReader(ArchiveSchemaDecoder)
 }

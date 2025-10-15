@@ -5,14 +5,26 @@ package com.digitalasset.daml.lf.archive
 
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 
 object Decode {
 
-  // decode an ArchivePayload
   def decodeArchivePayload(
+      payload: ArchivePayload
+  ): Either[Error, (PackageId, Ast.Package)] =
+    decodeArchivePayload(payload, onlySchema = false)
+
+  def decodeArchivePayloadSchema(
+      payload: ArchivePayload
+  ): Either[Error, (PackageId, Ast.PackageSignature)] =
+    decodeArchivePayload(payload, onlySchema = true).map { case (pkgId, pkg) =>
+      pkgId -> AstUtil.toSignature(pkg)
+    }
+
+  // decode an ArchivePayload
+  private[this] def decodeArchivePayload(
       payload: ArchivePayload,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean,
   ): Either[Error, (PackageId, Ast.Package)] =
     payload match {
       case ArchivePayload.Lf2(pkgId, protoPkg, minor, patch)
@@ -21,7 +33,7 @@ object Decode {
           .decodePackage(
             pkgId,
             protoPkg,
-            onlySerializableDataDefs,
+            onlySchema,
             patch,
           )
           .map(payload.pkgId -> _)
@@ -31,7 +43,7 @@ object Decode {
           .decodePackage(
             pkgId,
             protoPkg,
-            onlySerializableDataDefs,
+            onlySchema,
           )
           .map(payload.pkgId -> _)
       case _ =>
@@ -41,22 +53,24 @@ object Decode {
   @throws[Error]
   def assertDecodeArchivePayload(
       payload: ArchivePayload,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchivePayload(payload, onlySerializableDataDefs: Boolean))
+    assertRight(decodeArchivePayload(payload, onlySchema = onlySchema))
 
   // decode an Archive
   def decodeArchive(
       archive: DamlLf.Archive,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
-    Reader.readArchive(archive).flatMap(decodeArchivePayload(_, onlySerializableDataDefs))
+    Reader
+      .readArchive(archive)
+      .flatMap(decodeArchivePayload(_, onlySchema = onlySchema))
 
   @throws[Error]
   def assertDecodeArchive(
       archive: DamlLf.Archive,
-      onlySerializableDataDefs: Boolean = false,
+      onlySchema: Boolean = false,
   ): (PackageId, Ast.Package) =
-    assertRight(decodeArchive(archive, onlySerializableDataDefs))
+    assertRight(decodeArchive(archive, onlySchema = onlySchema))
 
 }
