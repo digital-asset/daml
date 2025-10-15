@@ -24,7 +24,7 @@ class AttestationIT(languageVersion: LanguageVersion)
 
   private val majorLanguageVersion: LanguageMajorVersion = languageVersion.major
   private val darPath: Path = rlocation(
-    Paths.get(s"daml-script/test/script-test-v${majorLanguageVersion.pretty}.dev.dar")
+    Paths.get(s"daml-script/test/attestation-test-v${majorLanguageVersion.pretty}.dev.dar")
   )
   private val dar = CompiledDar.read(darPath, Runner.compilerConfig(majorLanguageVersion))
 

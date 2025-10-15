@@ -36,8 +36,6 @@ load(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -L $(location :daml/crypto/AttestationTestData.daml) $$TMP_DIR/daml
-      cp -L $(location :daml/crypto/AttestationTests.daml) $$TMP_DIR/daml
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestContractId.daml) $$TMP_DIR/daml
@@ -130,6 +128,59 @@ EOF
         visibility = ["//visibility:public"],
     )
     for lf_version in ENGINE_LF_DEV_VERSIONS
+]
+
+[
+    genrule(
+        name = "attestation-test-v{}".format(name),
+        srcs =
+            glob(["**/*.daml"]) + [
+                "//daml-script/daml:daml-script-{}.dar".format(target),
+            ],
+        outs = ["attestation-test-v{}.dar".format(name)],
+        cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -L $(location :daml/crypto/AttestationTestData.daml) $$TMP_DIR/daml
+      cp -L $(location :daml/crypto/AttestationTests.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/daml:daml-script-{target}.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: script-test
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script-{target}.dar
+build-options:
+  - --target={target}
+  - --enable-interfaces=yes
+  - --typecheck-upgrades=no
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR --ghc-option=-Werror -o $$PWD/$(location attestation-test-v{name}.dar)
+      rm -rf $$TMP_DIR
+    """.format(
+            name = name,
+            sdk = sdk_version,
+            target = target,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for (target, name) in
+    # TODO(https://github.com/digital-asset/daml/issues/18457): re-enable once
+    #  script tests have been split into those that use keys and those that
+    #  don't.
+    #[(
+    #    lf_version_default_or_latest(major),
+    #    major,
+    #) for major in SUPPORTED_LF_MAJOR_VERSIONS] +
+    [
+        (target, target)
+        for target in ENGINE_LF_DEV_VERSIONS
+    ]
 ]
 
 # A variant of script-test that has not been uploaded to the ledger
@@ -283,8 +334,9 @@ da_scala_test_suite(
     ),
     data = [
         ":script-test-no-ledger.dar",
+        ":attestation-test-v2.dev.dar",
         # TODO((https://github.com/digital-asset/daml/issues/18457): remove these dev dependencies
-        #  oncee integration tests don't depend on keys anymore
+        #  once integration tests don't depend on keys anymore
         ":script-test-v2.dev.dar",
         "//compiler/damlc",
         "//daml-script/runner:daml-script-binary",
