@@ -1,6 +1,9 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- @WARN -Werror=upgrade-interfaces
+-- @WARN -Werror=upgrade-interfaces
+
 module DeeplyNestedValue where
 
 import Daml.Script
@@ -15,39 +18,54 @@ construct x acc  = construct (x-1) (S acc)
 toNat : Int -> Nat
 toNat x = construct x Z
 
-template Contract
+data V = V with
+  n: Nat
+
+interface I where
+  viewtype V
+
+template T
   with
-    party: Party
+    p: Party
     n: Nat
+    i: Int
   where
-    signatory party
+    signatory p
+    implements I where
+      view = V with n = toNat i
+
+    choice BuildNat: Nat
+      controller p
+      do
+        pure (toNat i)
 
 template Helper
   with
-    party : Party
+    p : Party
   where
-    signatory party
+    signatory p
 
-    nonconsuming choice Create: ContractId Contract
-      with i : Int
-      controller party
-      do create Contract with
-           party = party
-           n = toNat i
+    choice CreateContractWithNat: ContractId T
+      with i: Int
+      controller p
+      do create T with p = p; n = toNat i; i = 0
 
-testCreateSucceeds = script do
+-- @ERROR range=54:1-54:11; Value exceeds maximum nesting value
+testCreate = script do
   alice <- allocateParty "Alice"
-  alice `submit` createAndExerciseCmd (Helper alice) (Create 98)
+  alice `submit` createAndExerciseCmd (Helper alice) (CreateContractWithNat 100)
 
--- @ERROR range=43:1-43:16; Value exceeds maximum nesting value
-testCreateFails = script do
+createContract = script do
   alice <- allocateParty "Alice"
-  alice `submit` createAndExerciseCmd (Helper alice) (Create 99)
+  cid <- alice `submit` createCmd (T with p = alice; n = Z; i = 100)
+  pure (alice, cid)
 
-testPureSucceeds = script do
-  pure $ toNat 99
+-- @ERROR range=64:1-64:19; Value exceeds maximum nesting value
+testExerciseResult = script do
+  (alice, cid) <- createContract
+  alice `submit` exerciseCmd cid BuildNat
 
--- TODO it seems that when SValue#toValue throws the test crashed ans freezes
--- remove the function argument, once this is fixed
-testPureFails _ = script do
-   pure $ toNat 100
+-- @ERROR range=69:1-69:9; Value exceeds maximum nesting value
+testView = script do
+  (alice, _) <- createContract
+  queryInterface @I alice
