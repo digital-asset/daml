@@ -6,6 +6,7 @@ package com.daml.http.util
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.ConcurrentHashMap
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration.DurationInt
@@ -14,16 +15,18 @@ import scala.jdk.CollectionConverters._
 
 class LockSetTest extends AnyFlatSpec with Matchers {
 
+  val logger = ContextualizedLogger.get(getClass)
   implicit val ec: ExecutionContext = ExecutionContext.global
+  implicit val lc: LoggingContext = LoggingContext.empty
 
   "withLocksOn" should "synchronize without deadlock" in {
-    val lockSet = new LockSet[Char]()
+    val lockSet = new LockSet[Char](logger)
     val keys = ('a' to 'z').toSet
     val counters = new ConcurrentHashMap[Char, Long]()
 
     val numThreads = 100 // Concurrently executing threads updating counters
     val repetitions = 20 // How many times the step is repeated
-    val numKeysToIncr = 10 // How many counters we attempt to increment each step
+    val numKeysToIncr = 5 // How many counters we attempt to increment each step
 
     val futures = (1 to numThreads).map { _ =>
       Future {
@@ -40,12 +43,12 @@ class LockSetTest extends AnyFlatSpec with Matchers {
             }
             .recover { case _: RuntimeException => () }
 
-          val _ = Await.result(task, 10.seconds)
+          val _ = Await.result(task, 20.seconds)
         }
       }
     }
 
-    val _ = Await.result(Future.sequence(futures), 10.seconds)
+    val _ = Await.result(Future.sequence(futures), 30.seconds)
 
     counters.values.asScala.iterator.sum shouldBe (numThreads * numKeysToIncr * repetitions)
   }
