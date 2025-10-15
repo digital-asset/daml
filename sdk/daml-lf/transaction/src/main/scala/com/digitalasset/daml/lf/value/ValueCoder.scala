@@ -43,12 +43,12 @@ object EncodeError extends (String => EncodeError) {
     EncodeError(s"serialization version $version is too old to support $isTooOldFor")
 }
 
-object ValueCoder extends ValueCoder(allowNullCharacter = false)
+object ValueCoder extends ValueCoder(allowNullCharacters = false)
 
 /** Utilities to serialize and de-serialize Values
   * as they form part of transactions, nodes and contract instances
   */
-class ValueCoder(allowNullCharacter: Boolean) {
+class ValueCoder(allowNullCharacters: Boolean) {
   import Value.MAXIMUM_NESTING
 
   type DecodeError = value.DecodeError
@@ -219,7 +219,7 @@ class ValueCoder(allowNullCharacter: Boolean) {
           throw Err(s"$description is not supported by serialization version $version")
 
       def ensuresNoNullCharacters(s: String): s.type =
-        if (s.contains('\u0000') && !allowNullCharacter)
+        if (!allowNullCharacters && s.contains('\u0000'))
           throw Err(s"text contains null character")
         else
           s
@@ -354,8 +354,8 @@ class ValueCoder(allowNullCharacter: Boolean) {
         if (valueVersion < minVersion)
           throw Err(s"$description is not supported by value version $valueVersion")
 
-      def ensuresNoNullCharacters(s: String): s.type =
-        if (s.contains('\u0000') && !allowNullCharacter)
+      def ensuresNoNullCharacters(s: String): String =
+        if (!allowNullCharacters && s.contains('\u0000'))
           throw Err(s"Null Character in Text")
         else
           s

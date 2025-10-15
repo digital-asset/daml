@@ -16,11 +16,11 @@ import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
 
-object TransactionCoder extends TransactionCoder(allowMalformedText = false)
+object TransactionCoder extends TransactionCoder(allowNullCharacters = false)
 
-class TransactionCoder(allowMalformedText: Boolean) {
+class TransactionCoder(allowNullCharacters: Boolean) {
 
-  val ValueCoder = new value.ValueCoder(allowMalformedText).internal
+  val ValueCoder = new value.ValueCoder(allowNullCharacters = allowNullCharacters).internal
 
   /** Decode a contract instance from wire format
     *

@@ -41,64 +41,85 @@ class ValueCoderSpec
       ValueCoder.encodeValue(valueVersion = ver, v0 = value1) shouldBe a[Left[_, _]]
     }
 
+    val valuesWithNullCharacters = Table(
+      "LF value with null character",
+      ValueText("->\u0000<-"), // text with null Character
+      ValueOptional(Some(ValueText("\u0000"))), // malformed text nested
+      ValueTextMap(SortedLookupList(Map("key\u0000" -> ValueInt64(0)))),
+      ValueTextMap(
+        SortedLookupList(Map("key\u0001" -> ValueInt64(1), "key\u0001\u0000" -> ValueInt64(2)))
+      ),
+    )
+
     "fail gracefully on texts with null characters" in {
-
-      val testCases = Table(
-        "LF value with null character",
-        ValueText("->\u0000<-"), // text with null Character
-        ValueOptional(Some(ValueText("\u0000"))), // malformed text nested
-        ValueTextMap(SortedLookupList(Map("key\u0000" -> ValueInt64(0)))),
-        ValueTextMap(
-          SortedLookupList(Map("key\u0001" -> ValueInt64(1), "key\u0001\u0000" -> ValueInt64(2)))
-        ),
-      )
-
-      forAll(testCases) { v =>
+      forAll(valuesWithNullCharacters) { v =>
         inside(ValueCoder.encodeValue(valueVersion = SerializationVersion.minVersion, v0 = v)) {
-          case Left(ValueCoder.EncodeError(msg)) => msg should include("null characters")
+          case Left(ValueCoder.EncodeError(msg)) =>
+            msg.toLowerCase() should include("null character")
         }
+      }
+    }
+
+    "accepts texts with null characters when allowNullCharacter flag is set" in {
+      val ValueCoder = new lf.value.ValueCoder(allowNullCharacters = true).internal
+
+      forAll(valuesWithNullCharacters) { v =>
+        ValueCoder.encodeValue(valueVersion = SerializationVersion.minVersion, v0 = v) shouldBe a[
+          Right[_, _]
+        ]
       }
     }
   }
 
   "decode" should {
-    "fail gracefully on malformed texts" in {
 
-      val testCases = Table(
-        "Proto value with null character",
-        proto.Value.newBuilder().setText("->\u0000<-").build(),
-        proto.Value
-          .newBuilder()
-          .setList(
-            proto.Value.List
-              .newBuilder()
-              .addElements(
-                proto.Value.newBuilder().setText("\u0001\u0000")
-              )
-          )
-          .build(),
-        proto.Value
-          .newBuilder()
-          .setTextMap(
-            proto.Value.TextMap
-              .newBuilder()
-              .addEntries(
-                proto.Value.TextMap.Entry
-                  .newBuilder()
-                  .setKey("\u0000")
-                  .setValue(proto.Value.newBuilder().setInt64(0L))
-              )
-          )
-          .build(),
-      )
+    val protoWithNullCharacters = Table(
+      "Proto value with null character",
+      proto.Value.newBuilder().setText("->\u0000<-").build(),
+      proto.Value
+        .newBuilder()
+        .setList(
+          proto.Value.List
+            .newBuilder()
+            .addElements(
+              proto.Value.newBuilder().setText("\u0001\u0000")
+            )
+        )
+        .build(),
+      proto.Value
+        .newBuilder()
+        .setTextMap(
+          proto.Value.TextMap
+            .newBuilder()
+            .addEntries(
+              proto.Value.TextMap.Entry
+                .newBuilder()
+                .setKey("\u0000")
+                .setValue(proto.Value.newBuilder().setInt64(0L))
+            )
+        )
+        .build(),
+    )
 
-      forEvery(testCases)(v =>
+    "fail gracefully on texts null characters" in {
+      forEvery(protoWithNullCharacters)(v =>
         inside(ValueCoder.decodeValue(SerializationVersion.minVersion, v.toByteString)) {
           case Left(ValueCoder.DecodeError(msg)) =>
-            msg should include("null character")
+            msg.toLowerCase() should include("null character")
         }
       )
     }
+
+    "accepts texts with null characters when allowNullCharacter flag is set" in {
+
+      val ValueCoder = new lf.value.ValueCoder(allowNullCharacters = true).internal
+
+      forEvery(protoWithNullCharacters)(v =>
+        ValueCoder
+          .decodeValue(SerializationVersion.minVersion, v.toByteString) shouldBe a[Right[_, _]]
+      )
+    }
+
   }
 
   "encode-decode" should {
