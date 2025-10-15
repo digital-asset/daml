@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package language
 
+import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2.maxStableVersion
+
 import scala.annotation.nowarn
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
@@ -194,7 +196,7 @@ object LanguageVersion {
     */
   def defaultOrLatestStable(majorLanguageVersion: LanguageMajorVersion): LanguageVersion = {
     majorLanguageVersion match {
-      case Major.V2 => v2_1
+      case Major.V2 => maxStableVersion
       case _ => notSupported(majorLanguageVersion)
     }
   }
