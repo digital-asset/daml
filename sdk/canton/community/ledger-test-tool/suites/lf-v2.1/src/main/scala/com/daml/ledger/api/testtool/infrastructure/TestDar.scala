@@ -47,5 +47,8 @@ case object VettingMainDar_2_0_0 extends TestDar { val path = "vetting-main-2.0.
 case object VettingMainDar_Split_Lineage_2_0_0 extends TestDar {
   val path = "vetting-main-split-lineage-2.0.0.dar"
 }
+case object VettingMainDar_3_0_0_Incompatible extends TestDar {
+  val path = "vetting-main-3.0.0.dar"
+}
 case object VettingDepDar extends TestDar { val path = "vetting-dep-1.0.0.dar" }
 case object VettingAltDar extends TestDar { val path = "vetting-alt-1.0.0.dar" }

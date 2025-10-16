@@ -36,7 +36,7 @@ class InMemoryPendingOperationStoreTest
     // Insert the corrupt data into the storage (the internal map)
     inMemoryStore.store.put(op.compositeKey, corruptStoredOp)
 
-    Future.successful(())
+    Future.unit
   }
 
   "InMemoryPendingOperationStore" should {

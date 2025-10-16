@@ -1528,6 +1528,10 @@ final class SequencerClientTest
     override def subscriptionRetryPolicyPekko
         : SubscriptionErrorRetryPolicyPekko[SubscriptionError] =
       SubscriptionErrorRetryPolicyPekko.never
+
+    override def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] = ???
   }
 
   private object MockTransport {
@@ -1642,6 +1646,13 @@ final class SequencerClientTest
 
     override protected def loggerFactory: NamedLoggerFactory =
       SequencerClientTest.this.loggerFactory
+
+    override def downloadTopologyStateForInitHash(
+        request: TopologyStateForInitRequest,
+        timeout: Duration,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] = ???
   }
 
   private class MockPool extends SequencerConnectionXPool {

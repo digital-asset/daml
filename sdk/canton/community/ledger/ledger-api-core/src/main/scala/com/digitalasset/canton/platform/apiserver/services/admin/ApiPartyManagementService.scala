@@ -729,7 +729,7 @@ private[apiserver] final class ApiPartyManagementService private (
       authenticatedUserContextF: Future[AuthenticatedUserContext],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     userRights match {
-      case None => Future.successful(())
+      case None => Future.unit
       case Some(rights) =>
         for {
           authenticatedUserContext <- authenticatedUserContextF
@@ -744,7 +744,7 @@ private[apiserver] final class ApiPartyManagementService private (
                   .asGrpcError
               )
             else
-              Future.successful(())
+              Future.unit
         } yield ()
     }
 
@@ -757,7 +757,7 @@ private[apiserver] final class ApiPartyManagementService private (
     identityProviderExists(id)
       .flatMap { idpExists =>
         if (idpExists)
-          Future.successful(())
+          Future.unit
         else
           Future.failed(
             RequestValidationErrors.InvalidArgument

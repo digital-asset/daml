@@ -157,6 +157,13 @@ class BlockSequencer(
     materializer,
     loggerFactory,
   )
+  private val throughputCap =
+    new BlockSequencerThroughputCap(
+      blockSequencerConfig.throughputCap,
+      clock,
+      materializer.system.scheduler,
+      loggerFactory,
+    )
 
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
@@ -189,6 +196,9 @@ class BlockSequencer(
       .async
       .map(updateGenerator.extractBlockEvents)
       .via(stateManager.processBlock(updateGenerator))
+      .wireTap { update =>
+        throughputCap.addBlockUpdate(update.value)
+      }
       .async
       .via(stateManager.applyBlockUpdate(this))
       .wireTap { lastTs =>
@@ -295,6 +305,17 @@ class BlockSequencer(
           )
       }
 
+  private def enforceThroughputCap(
+      submission: SubmissionRequest
+  ): Either[SequencerDeliverError, Unit] =
+    if (throughputCap.shouldRejectTransaction(submission.requestType, submission.sender, 0))
+      Left(
+        SequencerErrors.SubmissionRequestRefused(
+          s"Member ${submission.sender} has reached its throughput cap"
+        )
+      )
+    else Right(())
+
   /** This method rejects submissions before or at the lower bound of sequencing time. It compares
     * clock.now against the configured sequencingTimeLowerBoundExclusive. It cannot use the time
     * from the head state, because any blocks before sequencingTimeLowerBoundExclusive are filtered
@@ -359,6 +380,7 @@ class BlockSequencer(
 
     for {
       _ <- rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
+      _ <- EitherT.fromEither[FutureUnlessShutdown](enforceThroughputCap(submission))
       _ <- rejectSubmissionsIfOverloaded(submission)
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot

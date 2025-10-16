@@ -25,7 +25,7 @@ class DiscardedFutureTest extends AnyWordSpec with Matchers with org.mockito.Moc
   "DiscardedFuture" should {
     "detect statements in blocks that discard a future" in {
       val result = WartTestTraverser(DiscardedFuture) {
-        Future.successful(())
+        Future.unit
         ()
       }
       assertErrors(result, 1)
@@ -43,7 +43,7 @@ class DiscardedFutureTest extends AnyWordSpec with Matchers with org.mockito.Moc
 
     "allow explicit discard calls" in {
       val result = WartTestTraverser(DiscardedFuture) {
-        val _ = Future.successful(())
+        val _ = Future.unit
       }
       assertErrors(result, 0)
     }

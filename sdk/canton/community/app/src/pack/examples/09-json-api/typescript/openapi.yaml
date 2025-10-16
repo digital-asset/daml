@@ -6972,6 +6972,7 @@ components:
             enum:
             - UPDATE_VETTED_PACKAGES_FORCE_FLAG_UNSPECIFIED
             - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
     UpdateVettedPackagesResponse:
       title: UpdateVettedPackagesResponse
       type: object

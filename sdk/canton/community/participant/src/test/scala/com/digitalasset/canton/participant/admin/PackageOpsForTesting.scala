@@ -75,6 +75,7 @@ class PackageOpsForTesting(
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
       allowUnvetPackageIdInUse: Boolean = false,
+      allowVetIncompatibleUpgrades: Boolean = false,
   )(implicit
       tc: TraceContext
   ): EitherT[

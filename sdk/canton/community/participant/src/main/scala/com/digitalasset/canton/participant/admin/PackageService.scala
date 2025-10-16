@@ -262,6 +262,7 @@ class PackageService(
           dryRunSnapshot,
           opts.expectedTopologySerial,
           allowUnvetPackageIdInUse = opts.forceFlags.forceUnvetWithActiveContracts,
+          allowVetIncompatibleUpgrades = opts.forceFlags.forceVetIncompatibleUpgrade,
         )
         .leftWiden[RpcError]
     } yield {

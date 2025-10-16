@@ -5,6 +5,8 @@ package com.digitalasset.canton.sequencing.client.transports.replay
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -27,6 +29,7 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.ByteString
 import io.grpc.Status
 
 import java.nio.file.Path
@@ -147,6 +150,19 @@ class ReplayingEventsSequencerClientTransport(
 
   override def subscriptionRetryPolicyPekko: SubscriptionErrorRetryPolicyPekko[Nothing] =
     SubscriptionErrorRetryPolicyPekko.never
+
+  override def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] =
+    EitherT.rightT[FutureUnlessShutdown, String](
+      TopologyStateForInitHashResponse(
+        Hash.digest(
+          HashPurpose.InitialTopologyStateConsistency,
+          ByteString.copyFromUtf8("42"),
+          Sha256,
+        )
+      )
+    )
 }
 
 object ReplayingEventsSequencerClientTransport {

@@ -4,10 +4,12 @@
 package com.digitalasset.canton.store.memory
 
 import cats.data.{EitherT, OptionT}
+import cats.syntax.either.*
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.PendingOperation.ConflictingPendingOperationError
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.memory.InMemoryPendingOperationStore.compositeKey
 import com.digitalasset.canton.store.{PendingOperation, PendingOperationStore}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -17,7 +19,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 class InMemoryPendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]](
@@ -40,27 +42,29 @@ class InMemoryPendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]](
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ConflictingPendingOperationError, Unit] =
     EitherT.fromEither[FutureUnlessShutdown] {
-      blocking {
-        store.synchronized {
-          val existingOperationO =
-            store.get(operation.compositeKey).map(_.toPendingOperation(opCompanion))
-          existingOperationO match {
-            case Some(existingOperation) if existingOperation != operation =>
-              Left(
-                ConflictingPendingOperationError(
-                  operation.synchronizerId,
-                  operation.key,
-                  operation.name,
-                )
-              )
-            case _ =>
-              val storedOperation =
-                InMemoryPendingOperationStore.StoredPendingOperation.fromPendingOperation(operation)
-              store.putIfAbsent(operation.compositeKey, storedOperation).discard
-              Right(())
-          }
-        }
+      val serializedOp =
+        InMemoryPendingOperationStore.StoredPendingOperation.fromPendingOperation(operation)
+      val storedOperationO = store.updateWith(operation.compositeKey) {
+        case Some(existingSerializedOp) => Some(existingSerializedOp)
+        case None => Some(serializedOp)
       }
+
+      storedOperationO match {
+        case Some(existingSerializedOp) if existingSerializedOp != serializedOp =>
+          Left(
+            ConflictingPendingOperationError(
+              operation.synchronizerId,
+              operation.key,
+              operation.name,
+            )
+          )
+        case Some(_) => Right(())
+        case None =>
+          throw new IllegalStateException(
+            s"Pending operation ${operation.key} was either removed from or never inserted into the in-memory store."
+          )
+      }
+
     }
 
   override def delete(
@@ -80,7 +84,7 @@ class InMemoryPendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]](
     val resultF = FutureUnlessShutdown.fromTry(Try {
       store
         .get(compositeKey(synchronizerId, operationKey, operationName))
-        .map(_.toPendingOperation(opCompanion))
+        .map(_.tryToPendingOperation(opCompanion))
     })
     OptionT(resultF)
   }
@@ -101,17 +105,24 @@ object InMemoryPendingOperationStore {
       name: String,
       serializedOperation: ByteString,
   ) {
-    def toPendingOperation[Op <: HasProtocolVersionedWrapper[Op]](
+
+    /** @throws DbDeserializationException
+      *   Intentionally mimics the behaviour of the database persistence in order to fulfill the
+      *   stated store API contract.
+      */
+    def tryToPendingOperation[Op <: HasProtocolVersionedWrapper[Op]](
         opCompanion: VersioningCompanion[Op]
     ): PendingOperation[Op] =
-      PendingOperation.tryCreate(
-        trigger,
-        name,
-        key,
-        serializedOperation,
-        opCompanion.fromTrustedByteString,
-        serializedSynchronizerId,
-      )
+      PendingOperation
+        .create(
+          trigger,
+          name,
+          key,
+          serializedOperation,
+          opCompanion.fromTrustedByteString,
+          serializedSynchronizerId,
+        )
+        .valueOr(errorMessage => throw new DbDeserializationException(errorMessage))
   }
 
   @VisibleForTesting

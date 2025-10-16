@@ -451,7 +451,7 @@ class LedgerApiServer(
           logger.info(
             s"Creating admin user with id $userId failed. User with this id already exists"
           )
-          Future.successful(())
+          Future.unit
         case other =>
           Utils.handleResult("creating extra admin user")(other).map(_ => ())
       }

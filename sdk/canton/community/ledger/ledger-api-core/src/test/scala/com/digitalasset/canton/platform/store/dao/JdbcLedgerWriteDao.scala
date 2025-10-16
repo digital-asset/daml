@@ -301,4 +301,8 @@ private class JdbcLedgerWriteDao(
     PersistenceResponse.Ok
   }
 
+  override def indexDbPrunedUpTo(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]] =
+    readDao.indexDbPrunedUpTo
 }

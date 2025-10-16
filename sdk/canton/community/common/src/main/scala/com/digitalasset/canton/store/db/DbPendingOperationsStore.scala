@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.db
 
 import cats.data.{EitherT, OptionT}
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -37,14 +38,14 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
 
   import storage.api.*
 
+  implicit val tryPendingOperationGetResult: GetResult[PendingOperation[Op]] =
+    DbPendingOperationsStore.tryGetPendingOperationResult(opCompanion.fromTrustedByteString)
+
   override def insert(
       operation: PendingOperation[Op]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ConflictingPendingOperationError, Unit] = {
-    implicit val pendingOperationGetResult: GetResult[PendingOperation[Op]] =
-      DbPendingOperationsStore.getPendingOperationResult(opCompanion.fromTrustedByteString)
-
     val readAction =
       sql"""
         select operation_trigger, operation_name, operation_key, operation, synchronizer_id
@@ -118,9 +119,6 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
       operationKey: String,
       operationName: NonEmptyString,
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, PendingOperation[Op]] = {
-    implicit val pendingOperationGetResult: GetResult[PendingOperation[Op]] =
-      DbPendingOperationsStore.getPendingOperationResult(opCompanion.fromTrustedByteString)
-
     val selectAction =
       sql"""
         select operation_trigger, operation_name, operation_key, operation, synchronizer_id
@@ -134,21 +132,28 @@ class DbPendingOperationsStore[Op <: HasProtocolVersionedWrapper[Op]](
 
 }
 
-object DbPendingOperationsStore {
+private object DbPendingOperationsStore {
 
-  def getPendingOperationResult[Op <: HasProtocolVersionedWrapper[Op]](
+  /** @throws DbDeserializationException
+    *   Slick's transactional boundaries are managed through DBIOAction, which ultimately produces a
+    *   Future. A Future signals failure with an exception. Therefore, to make a DBIO transaction
+    *   fail and roll back, we must throw an exception from within it.
+    */
+  private def tryGetPendingOperationResult[Op <: HasProtocolVersionedWrapper[Op]](
       operationDeserializer: ByteString => ParsingResult[Op]
   ): GetResult[PendingOperation[Op]] = GetResult { r =>
     import DbStorage.Implicits.getResultByteString
 
-    PendingOperation.tryCreate(
-      trigger = r.<<[String],
-      name = r.<<[String],
-      key = r.<<[String],
-      operationBytes = r.<<[ByteString],
-      operationDeserializer,
-      synchronizerId = r.<<[String],
-    )
+    PendingOperation
+      .create(
+        trigger = r.<<[String],
+        name = r.<<[String],
+        key = r.<<[String],
+        operationBytes = r.<<[ByteString],
+        operationDeserializer,
+        synchronizerId = r.<<[String],
+      )
+      .valueOr(errorMessage => throw new DbDeserializationException(errorMessage))
   }
 
   // For PostgreSQL, `setObject` with `Types.OTHER` is required for handling the custom enum type

@@ -1015,5 +1015,5 @@ object NoOpReassignmentOffsetPersistence extends ReassignmentOffsetPersistence {
   override def persist(
       updates: Seq[(Offset, Update)],
       tracedLogger: TracedLogger,
-  )(implicit traceContext: TraceContext): Future[Unit] = Future.successful(())
+  )(implicit traceContext: TraceContext): Future[Unit] = Future.unit
 }

@@ -686,14 +686,20 @@ class GrpcSequencerIntegrationWithFailingTokenRefreshTest
                 "Failing token refresh",
               ),
               (
+                _.warningMessage should (include(
+                  "Request failed"
+                ) and include("Request: download-topology-state-for-init-hash")),
+                "Request failure",
+              ),
+              (
                 _.warningMessage should include(
-                  "The operation 'Download topology state for init' was not successful."
+                  "The operation 'Get hash for init topology state' was not successful."
                 ),
                 "Attempt failure",
               ),
               (
                 _.warningMessage should include(
-                  "Now retrying operation 'Download topology state for init'."
+                  "Now retrying operation 'Get hash for init topology state'."
                 ),
                 "Retry message",
               ),

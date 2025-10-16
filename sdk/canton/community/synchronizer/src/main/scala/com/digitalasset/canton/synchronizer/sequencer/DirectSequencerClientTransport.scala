@@ -35,6 +35,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -237,6 +238,13 @@ class DirectSequencerClientTransport(
   ): EitherT[Future, String, TopologyStateForInitResponse] =
     throw new UnsupportedOperationException(
       "downloadTopologyStateForInit is not implemented for DirectSequencerClientTransport"
+    )
+
+  override def downloadTopologyStateForInitHash(request: TopologyStateForInitRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] =
+    throw new UnsupportedOperationException(
+      "downloadTopologyStateForInitHash is not implemented for DirectSequencerClientTransport"
     )
 }
 

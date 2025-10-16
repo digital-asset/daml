@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencer.api.v30.{
@@ -34,6 +35,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -186,7 +188,11 @@ class GrpcUserSequencerConnectionXStub(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse] =
+  ): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    TopologyStateForInitResponse,
+  ] =
     // TODO(i26281): Maybe use a `KillSwitch` to enforce a timeout
     for {
       source <-
@@ -280,4 +286,37 @@ class GrpcUserSequencerConnectionXStub(
       )(getObserver = _.observer)(_.subscribe(request.toProtoV30, _))
       .leftMap[SequencerConnectionXStubError](SequencerConnectionXStubError.ConnectionError.apply)
   }
+
+  override def downloadTopologyStateForInitHash(
+      request: TopologyStateForInitRequest,
+      timeout: Duration,
+      retryPolicy: GrpcError => Boolean,
+      logPolicy: GrpcLogPolicy,
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    TopologyStateForInitHashResponse,
+  ] =
+    for {
+      responseP <- connection
+        .sendRequest(
+          requestDescription = "download-topology-state-for-init-hash",
+          stubFactory = sequencerSvcFactory,
+          retryPolicy = retryPolicy,
+          logPolicy = logPolicy,
+          timeout = timeout,
+          metricsContext = metricsContext.withExtraLabels(
+            "endpoint" -> "DownloadTopologyStateForInitHash"
+          ),
+        )(_.downloadTopologyStateForInitHash(request.toHashProtoV30))
+        .leftMap[SequencerConnectionXStubError](
+          SequencerConnectionXStubError.ConnectionError.apply
+        )
+      responseE = TopologyStateForInitHashResponse.fromProtoV30(responseP)
+      response <- EitherT.fromEither[FutureUnlessShutdown](
+        responseE.leftMap[SequencerConnectionXStubError](err =>
+          SequencerConnectionXStubError.DeserializationError(err.message)
+        )
+      )
+    } yield response
 }

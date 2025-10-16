@@ -76,6 +76,7 @@ trait PackageOps extends NamedLogging {
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
       allowUnvetPackageIdInUse: Boolean = false,
+      allowVetIncompatibleUpgrades: Boolean = false,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -213,7 +214,8 @@ class PackageOpsImpl(
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
-      allowUnvetPackageIdInUse: Boolean = false,
+      allowUnvetPackageWithActiveContracts: Boolean = false,
+      allowVetIncompatibleUpgrades: Boolean = false,
   )(implicit
       tc: TraceContext
   ): EitherT[
@@ -233,11 +235,12 @@ class PackageOpsImpl(
               VettedPackageChange.Changed(Some(previousState), target.toVettedPackage)
           }
 
-        val forceFlags =
-          if (allowUnvetPackageIdInUse)
-            ForceFlags(ForceFlag.AllowUnvetPackageWithActiveContracts)
-          else
-            ForceFlags.none
+        val forceFlags = ForceFlags(
+          Set(ForceFlag.AllowUnvetPackageWithActiveContracts)
+            .filter(_ => allowUnvetPackageWithActiveContracts) ++
+            Set(ForceFlag.AllowVetIncompatibleUpgrades)
+              .filter(_ => allowVetIncompatibleUpgrades)
+        )
 
         for {
           topologyManager <- topologyManagerLookup.byPhysicalSynchronizerId(psid)

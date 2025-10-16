@@ -49,7 +49,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiParticipantPruningService private (
-    readBackend: IndexParticipantPruningService with LedgerEndService with IndexUpdateService,
+    readBackend: IndexParticipantPruningService with LedgerEndService,
     syncService: SyncService,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
@@ -108,7 +108,7 @@ final class ApiParticipantPruningService private (
                   stakeholders = Set.empty, // getting all incomplete reassignments
                 )
                 .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
-            previousPrunedOffset <- readBackend.latestPrunedOffset()
+            previousPrunedOffset <- readBackend.indexDbPrunedUpto
             incompleteReassignmentOffsets <-
               getIncompleteReassignmentOffsets(pruneUpTo)
             previousIncompleteReassignmentOffsets <-
@@ -165,7 +165,7 @@ final class ApiParticipantPruningService private (
           Future.failed(new ApiException(StatusProto.toStatusRuntimeException(status)))
         case ParticipantPruned =>
           logger.info(s"Pruned participant ledger up to ${pruneUpTo.unwrap} inclusively.")
-          Future.successful(())
+          Future.unit
       }
   }
 
@@ -206,7 +206,7 @@ final class ApiParticipantPruningService private (
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
-        if (Option(pruneUpTo) < ledgerEnd) Future.successful(())
+        if (Option(pruneUpTo) < ledgerEnd) Future.unit
         else
           Future.failed(
             RequestValidationErrors.OffsetOutOfRange

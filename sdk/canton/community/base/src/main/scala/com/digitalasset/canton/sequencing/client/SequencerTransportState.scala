@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -85,6 +86,14 @@ trait SequencerTransportLookup {
   def transport(sequencerId: SequencerId)(implicit
       traceContext: TraceContext
   ): UnlessShutdown[SequencerClientTransport]
+
+  /** Returns all transports known to the client, healthy or otherwise.
+    * @throws java.lang.IllegalStateException
+    *   if there are currently no transports at all
+    */
+  def allTransports(implicit
+      traceContext: TraceContext
+  ): UnlessShutdown[NonEmpty[Map[SequencerId, SequencerClientTransport]]]
 }
 
 class SequencersTransportState(
@@ -223,6 +232,25 @@ class SequencersTransportState(
       traceContext: TraceContext
   ): UnlessShutdown[SequencerClientTransport] =
     transportState(sequencerId).map(_.transport.clientTransport)
+
+  override def allTransports(implicit
+      traceContext: TraceContext
+  ): UnlessShutdown[NonEmpty[Map[SequencerId, SequencerClientTransport]]] =
+    synchronizeWithClosingSync(functionFullName) {
+      blocking(lock.synchronized {
+        NonEmpty
+          .from(
+            states.view.map { case (sequencerId, state) =>
+              sequencerId -> state.transport.clientTransport
+            }.toMap
+          )
+          .getOrElse(
+            ErrorUtil.internalError(
+              new IllegalStateException("No sequencer transports are currently configured")
+            )
+          )
+      })
+    }
 
   def addSubscription(
       sequencerId: SequencerId,

@@ -1,0 +1,7 @@
+sdk-version: 3.4.0-snapshot.20251014.14318.0.v21c360ce
+name: vetting-main
+source: .
+version: 3.0.0
+dependencies: 
+- daml-prim
+- daml-stdlib

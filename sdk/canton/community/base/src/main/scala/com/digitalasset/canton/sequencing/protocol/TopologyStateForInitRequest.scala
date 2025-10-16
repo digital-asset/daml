@@ -24,6 +24,9 @@ final case class TopologyStateForInitRequest(member: Member)(
 
   def toProtoV30: v30.DownloadTopologyStateForInitRequest =
     v30.DownloadTopologyStateForInitRequest(member.toProtoPrimitive)
+
+  def toHashProtoV30: v30.DownloadTopologyStateForInitHashRequest =
+    v30.DownloadTopologyStateForInitHashRequest(member.toProtoPrimitive)
 }
 
 object TopologyStateForInitRequest extends VersioningCompanion[TopologyStateForInitRequest] {
@@ -48,6 +51,16 @@ object TopologyStateForInitRequest extends VersioningCompanion[TopologyStateForI
       topologyStateForInitRequestP: v30.DownloadTopologyStateForInitRequest
   ): ParsingResult[TopologyStateForInitRequest] = {
     val v30.DownloadTopologyStateForInitRequest(memberP) = topologyStateForInitRequestP
+    for {
+      member <- Member.fromProtoPrimitive(memberP, "member")
+      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
+    } yield TopologyStateForInitRequest(member)(rpv)
+  }
+
+  def fromProtoV30(
+      topologyStateForInitRequestP: v30.DownloadTopologyStateForInitHashRequest
+  ): ParsingResult[TopologyStateForInitRequest] = {
+    val v30.DownloadTopologyStateForInitHashRequest(memberP) = topologyStateForInitRequestP
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
