@@ -116,6 +116,10 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
 
+  def indexDbPrunedUpTo(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]]
+
   /** Return the latest pruned offset inclusive (participant_pruned_up_to_inclusive) from the
     * parameters table (if defined)
     */

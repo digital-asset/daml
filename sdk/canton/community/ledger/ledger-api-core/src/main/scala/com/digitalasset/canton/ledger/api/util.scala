@@ -431,7 +431,8 @@ object TopologyStateFilter {
 }
 
 final case class UpdateVettedPackagesForceFlags(
-    forceUnvetWithActiveContracts: Boolean = false
+    forceUnvetWithActiveContracts: Boolean = false,
+    forceVetIncompatibleUpgrade: Boolean = false,
 )
 
 object UpdateVettedPackagesForceFlags {
@@ -441,7 +442,9 @@ object UpdateVettedPackagesForceFlags {
     Right(
       UpdateVettedPackagesForceFlags(
         forceUnvetWithActiveContracts =
-          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowUnvetPackageWithActiveContracts)
+          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowUnvetPackageWithActiveContracts),
+        forceVetIncompatibleUpgrade =
+          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowVetIncompatibleUpgrades),
       )
     )
 }

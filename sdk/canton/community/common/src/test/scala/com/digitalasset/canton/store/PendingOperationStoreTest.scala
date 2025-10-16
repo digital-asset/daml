@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.store
 
-import cats.implicits.catsSyntaxEitherId
+import cats.syntax.either.*
 import com.digitalasset.canton.config.CantonRequireTypes.NonEmptyString
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protobuf.VersionedMessageV0
@@ -96,7 +96,7 @@ trait PendingOperationStoreTest[Op <: HasProtocolVersionedWrapper[Op]]
     }
 
     "insert and delete an operation" in withStore { store =>
-      val testF = for {
+      for {
         insertResult <- store.insert(op2).value
         _ = insertResult shouldBe Right(())
         retrievedBefore <- store.get(op2.synchronizerId, op2.key, op2.name).value
@@ -106,7 +106,6 @@ trait PendingOperationStoreTest[Op <: HasProtocolVersionedWrapper[Op]]
       } yield {
         retrievedAfter shouldBe None
       }
-      testF
     }
 
     "succeed when deleting a non-existent operation" in withStore { store =>
@@ -207,7 +206,7 @@ object PendingOperationStoreTest {
       data: String,
   ): PendingOperation[TestPendingOperationMessage] =
     PendingOperation
-      .tryCreate(
+      .create(
         trigger = PendingOperationTriggerType.SynchronizerReconnect.asString,
         name = name,
         key = key,
@@ -215,6 +214,7 @@ object PendingOperationStoreTest {
         operationDeserializer = TestPendingOperationMessage.fromTrustedByteString,
         synchronizerId = DefaultTestIdentities.synchronizerId.toProtoPrimitive,
       )
+      .valueOr(errorMessage => throw new DbDeserializationException(errorMessage))
 
   def createInvalid(
       trigger: String = PendingOperationTriggerType.SynchronizerReconnect.asString,
@@ -224,7 +224,7 @@ object PendingOperationStoreTest {
       operationDeserializer: ByteString => ParsingResult[TestPendingOperationMessage] =
         TestPendingOperationMessage.fromTrustedByteString,
       synchronizerId: String = DefaultTestIdentities.synchronizerId.toProtoPrimitive,
-  ) =
+  ): Either[String, PendingOperation[TestPendingOperationMessage]] =
     PendingOperation.create(
       trigger,
       name,
@@ -241,7 +241,7 @@ object PendingOperationStoreTest {
   protected val op3: PendingOperation[TestPendingOperationMessage] =
     createOp("opName3", "opKey3", "operation-3-data")
   protected val op1Modified: PendingOperation[TestPendingOperationMessage] =
-    op1.copy(operation = createMessage("modified-data"))
+    op1.cp(operation = createMessage("modified-data"))
 
   private def protocolVersionRepresentative(
       pv: ProtocolVersion
@@ -288,7 +288,7 @@ final class PendingOperationTest extends AnyWordSpec with BaseTest {
 
     "fail to create an operation with an unknown trigger" in {
       val result = createInvalid(trigger = "unknown-trigger")
-      result shouldBe Left("Invalid pending_operation_trigger_type in database: unknown-trigger")
+      result shouldBe Left("Unknown pending operation trigger type: unknown-trigger")
     }
 
     "fail to create an operation with an empty name" in {
@@ -303,7 +303,7 @@ final class PendingOperationTest extends AnyWordSpec with BaseTest {
 
     "fail to create an operation with invalid synchronizer ID" in {
       val result = createInvalid(synchronizerId = "invalid-sync-id")
-      result.left.value should include("Failed to parse a unique ID invalid-sync-id")
+      result.left.value should include("Failed to deserialize synchronizer ID string")
     }
 
   }

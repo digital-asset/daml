@@ -43,6 +43,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   SubmissionRequest,
   SubscriptionRequest,
+  TopologyStateForInitHashResponse,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -271,4 +272,19 @@ class GrpcSequencerConnectionX(
 
   override val subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
     new GrpcSubscriptionErrorRetryPolicy(loggerFactory)
+
+  override def downloadTopologyStateForInitHash(
+      request: TopologyStateForInitRequest,
+      timeout: Duration,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] = {
+    logger.debug("Downloading topology state for initialization, fetching hash")
+    for {
+      result <- stub.downloadTopologyStateForInitHash(request, timeout).leftMap(_.toString)
+      _ = logger.debug(
+        s"Downloaded topology state for initialization hash ${result.topologyStateHash}"
+      )
+    } yield result
+  }
 }

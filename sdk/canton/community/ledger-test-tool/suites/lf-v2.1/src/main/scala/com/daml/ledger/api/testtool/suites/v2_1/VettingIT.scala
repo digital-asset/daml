@@ -21,8 +21,10 @@ import com.daml.ledger.api.testtool.infrastructure.{
   VettingDepDar,
   VettingMainDar_1_0_0,
   VettingMainDar_2_0_0,
+  VettingMainDar_3_0_0_Incompatible,
   VettingMainDar_Split_Lineage_2_0_0,
 }
+import com.daml.ledger.api.v2.admin.package_management_service.UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
 import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesForceFlag,
   UpdateVettedPackagesRequest,
@@ -46,6 +48,7 @@ import com.daml.ledger.test.java.vetting_main_1_0_0.main.{
   MainTSimple as MainTSimple_1_0_0,
 }
 import com.daml.ledger.test.java.vetting_main_2_0_0.main.MainT as MainT_2_0_0
+import com.daml.ledger.test.java.vetting_main_3_0_0.main.MainT as MainT_3_0_0
 import com.daml.ledger.test.java.vetting_main_split_lineage_2_0_0.main.DifferentMainT as MainT_Split_Lineage_2_0_0
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.ledger.api.{
@@ -76,6 +79,8 @@ class VettingIT extends LedgerTestSuite {
   private val vettingMainPkgIdV2 = Ref.PackageId.assertFromString(MainT_2_0_0.PACKAGE_ID)
   private val vettingMainPkgIdV2SplitLineage =
     Ref.PackageId.assertFromString(MainT_Split_Lineage_2_0_0.PACKAGE_ID)
+  private val vettingMainPkgIdV3UpgradeIncompatible =
+    Ref.PackageId.assertFromString(MainT_3_0_0.PACKAGE_ID)
 
   private val vettingDepName = "vetting-dep"
   private val vettingMainName = "vetting-main"
@@ -269,6 +274,7 @@ class VettingIT extends LedgerTestSuite {
       alternativeSynchronizer: Option[String] = None,
       expectedTopologySerial: Option[PriorTopologySerial] = None,
       allowUnvetWithActiveContracts: Boolean = false,
+      allowVetIncompatibleUpgrades: Boolean = false,
   ): UpdateVettedPackagesRequest =
     UpdateVettedPackagesRequest(
       operations.map(VettedPackagesChange(_)),
@@ -278,7 +284,9 @@ class VettingIT extends LedgerTestSuite {
       Seq(
         UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS
       )
-        .filter(_ => allowUnvetWithActiveContracts),
+        .filter(_ => allowUnvetWithActiveContracts) ++ Seq(
+        UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
+      ).filter(_ => allowVetIncompatibleUpgrades),
     )
 
   private def changeOpRequest(
@@ -292,12 +300,15 @@ class VettingIT extends LedgerTestSuite {
       dryRun: Boolean = false,
       alternativeSynchronizer: Option[String] = None,
       expectedTopologySerial: Option[PriorTopologySerial] = None,
+      allowVetIncompatibleUpgrades: Boolean = false,
   ): UpdateVettedPackagesRequest =
     changeOpsRequest(
-      Seq(refsToVetOp(pkgIds.map((pkgId: String) => VettedPackagesRef(pkgId, "", "")))),
-      dryRun,
-      alternativeSynchronizer,
-      expectedTopologySerial,
+      operations =
+        Seq(refsToVetOp(pkgIds.map((pkgId: String) => VettedPackagesRef(pkgId, "", "")))),
+      dryRun = dryRun,
+      alternativeSynchronizer = alternativeSynchronizer,
+      expectedTopologySerial = expectedTopologySerial,
+      allowVetIncompatibleUpgrades = allowVetIncompatibleUpgrades,
     )
 
   private def vetPkgsMatchingRef(
@@ -427,6 +438,8 @@ class VettingIT extends LedgerTestSuite {
             VettingMainDar_1_0_0.path,
             VettingMainDar_2_0_0.path,
             VettingAltDar.path,
+            VettingMainDar_Split_Lineage_2_0_0.path,
+            VettingMainDar_3_0_0_Incompatible.path,
           ),
           alternativeSynchronizer = Some(syncId),
         )
@@ -990,6 +1003,9 @@ class VettingIT extends LedgerTestSuite {
       _ <- participant.uploadDarFile(
         uploadDarFileDontVetRequest(VettingMainDar_Split_Lineage_2_0_0.path)
       )
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_3_0_0_Incompatible.path)
+      )
 
       // Dry-run vetting without dependencies (should fail)
       _ <- participant
@@ -1039,6 +1055,65 @@ class VettingIT extends LedgerTestSuite {
           "Vetting a package while unvetting its dependencies should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
           ParticipantTopologyManagerError.DependenciesNotVetted,
         )
+
+      // Vetting an upgrade incompatible package without the force flag should fail
+      _ <- participant
+        .updateVettedPackages(
+          vetPkgIdsRequest(
+            Seq(vettingMainPkgIdV2, vettingMainPkgIdV3UpgradeIncompatible)
+          )
+        )
+        .mustFailWith(
+          "Vetting an upgrade-incompatible package without the force flag should give NOT_VALID_UPGRADE_PACKAGE error",
+          ParticipantTopologyManagerError.Upgradeability,
+        )
+
+      _ <- unvetAllDARMains(participant)
+    } yield ()
+  })
+
+  test(
+    "PVSkipCheckUpgradeInvariantsWithForceFlag",
+    """Upgrade invariants are not checked when UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES is set,
+      |including during dry run""".stripMargin,
+    allocate(NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant, _)) =>
+    for {
+      _ <- setNodeIds(participant)
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
+      )
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_3_0_0_Incompatible.path)
+      )
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_Split_Lineage_2_0_0.path)
+      )
+
+      _ <- vetAllInDar(participant, VettingDepDar.path)
+
+      // Vet two upgrade-incompatible packages with the force flag (should succeed)
+      upgradeIncompatibleVet = vetPkgIdsRequest(
+        Seq(vettingMainPkgIdV2, vettingMainPkgIdV3UpgradeIncompatible),
+        allowVetIncompatibleUpgrades = true,
+      )
+
+      // Dry-run
+      _ <- participant.updateVettedPackages(upgradeIncompatibleVet.copy(dryRun = true))
+      // Vet
+      _ <- participant.updateVettedPackages(upgradeIncompatibleVet)
+
+      // Vet two packages with the same version with the force flag (should succeed)
+      sameVersionVet = vetPkgIdsRequest(
+        Seq(vettingMainPkgIdV2, vettingMainPkgIdV2SplitLineage),
+        allowVetIncompatibleUpgrades = true,
+      )
+
+      // Dry-run
+      _ <- participant.updateVettedPackages(sameVersionVet.copy(dryRun = true))
+      // Vet
+      _ <- participant.updateVettedPackages(sameVersionVet)
 
       _ <- unvetAllDARMains(participant)
     } yield ()

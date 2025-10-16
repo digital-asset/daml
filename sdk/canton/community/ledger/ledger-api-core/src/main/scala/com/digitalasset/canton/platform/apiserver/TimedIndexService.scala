@@ -133,6 +133,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       ),
     )
 
+  def indexDbPrunedUpto(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[Offset]] =
+    delegate.indexDbPrunedUpto
+
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 

@@ -175,7 +175,7 @@ final class IndexServiceOwner(
         .flatMap {
           case Some(`participantId`) =>
             logger.info(s"Found existing participant with ID: $participantId`")
-            Future.successful(())
+            Future.unit
           case Some(foundParticipantId) =>
             Future.failed(
               new MismatchException.ParticipantId(

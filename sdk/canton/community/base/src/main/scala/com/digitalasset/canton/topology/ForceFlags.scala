@@ -13,7 +13,7 @@ import scala.language.implicitConversions
 
 /** A force flag is used to override specific safety checks in the topology manager.
   */
-sealed abstract class ForceFlag(val toProtoV30: v30.ForceFlag) {
+sealed abstract class ForceFlag(val toProtoV30: v30.ForceFlag) extends Product with Serializable {
   def and(forceFlag: ForceFlag): ForceFlags = ForceFlags(forceFlag)
 }
 

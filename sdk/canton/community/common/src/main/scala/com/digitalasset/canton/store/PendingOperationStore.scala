@@ -12,14 +12,17 @@ import com.digitalasset.canton.store.PendingOperation.{
   ConflictingPendingOperationError,
   PendingOperationTriggerType,
 }
-import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HasProtocolVersionedWrapper, VersioningCompanion}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-import scala.util.Try
-
+/** @tparam Op
+  *   A protobuf message that implements
+  *   [[com.digitalasset.canton.version.HasProtocolVersionedWrapper]] that contains the relevant
+  *   data for executing the pending operation.
+  */
 trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
 
   protected def opCompanion: VersioningCompanion[Op]
@@ -95,13 +98,31 @@ trait PendingOperationStore[Op <: HasProtocolVersionedWrapper[Op]] {
 
 }
 
-final case class PendingOperation[Op <: HasProtocolVersionedWrapper[Op]] private[store] (
+/** @tparam Op
+  *   A protobuf message that implements
+  *   [[com.digitalasset.canton.version.HasProtocolVersionedWrapper]] that contains the relevant
+  *   data for executing the pending operation.
+  */
+final case class PendingOperation[Op <: HasProtocolVersionedWrapper[Op]] private (
     trigger: PendingOperationTriggerType,
     name: NonEmptyString,
     key: String,
     operation: Op,
     synchronizerId: SynchronizerId,
 ) {
+
+  /** Standard `copy` but with less strict visibility for testing purposes.
+    */
+  @VisibleForTesting
+  private[store] def cp(
+      trigger: PendingOperationTriggerType = this.trigger,
+      name: NonEmptyString = this.name,
+      key: String = this.key,
+      operation: Op = this.operation,
+      synchronizerId: SynchronizerId = this.synchronizerId,
+  ): PendingOperation[Op] =
+    this.copy(trigger, name, key, operation, synchronizerId)
+
   private[store] def compositeKey: (SynchronizerId, String, NonEmptyString) =
     (synchronizerId, key, name)
 
@@ -117,46 +138,24 @@ object PendingOperation {
       operationDeserializer: ByteString => ParsingResult[Op],
       synchronizerId: String,
   ): Either[String, PendingOperation[Op]] =
-    Try(
-      tryCreate(trigger, name, key, operationBytes, operationDeserializer, synchronizerId)
-    ).toEither.leftMap(_.getMessage)
-
-  /** Factory method to create an instance from database values. Performs validation and throws
-    * DbDeserializationException on failure.
-    */
-  private[store] def tryCreate[Op <: HasProtocolVersionedWrapper[Op]](
-      trigger: String,
-      name: String,
-      key: String,
-      operationBytes: ByteString,
-      operationDeserializer: ByteString => ParsingResult[Op],
-      synchronizerId: String,
-  ): PendingOperation[Op] = {
-    val validTrigger = PendingOperationTriggerType
-      .fromString(trigger)
-      .getOrElse(
-        throw new DbDeserializationException(
-          s"Invalid pending_operation_trigger_type in database: $trigger"
-        )
-      )
-    val validName = if (name.isBlank) {
-      throw new DbDeserializationException(
-        s"Missing pending operation name (blank): $name"
-      )
-    } else {
-      NonEmptyString.tryCreate(name)
-    }
-    val validOperation = operationDeserializer(operationBytes).valueOr(error =>
-      throw new DbDeserializationException(
+    for {
+      validTrigger <- PendingOperationTriggerType.fromString(trigger)
+      validName <- NonEmptyString
+        .create(name)
+        .leftMap(_ => s"Missing pending operation name (blank): $name")
+      validOperation <- operationDeserializer(operationBytes).leftMap(error =>
         s"Failed to deserialize pending operation byte string: $error"
       )
+      validUniqueId <- UniqueIdentifier
+        .fromProtoPrimitive(synchronizerId, "synchronizerId")
+        .leftMap(error => s"Failed to deserialize synchronizer ID string: ${error.message}")
+    } yield PendingOperation(
+      validTrigger,
+      validName,
+      key,
+      validOperation,
+      SynchronizerId(validUniqueId),
     )
-    val validSynchronizerId = SynchronizerId(
-      UniqueIdentifier.deserializeFromDb(synchronizerId) // throws DbDeserializationException
-    )
-
-    PendingOperation(validTrigger, validName, key, validOperation, validSynchronizerId)
-  }
 
   sealed trait PendingOperationTriggerType extends Product with Serializable {
     def asString: String

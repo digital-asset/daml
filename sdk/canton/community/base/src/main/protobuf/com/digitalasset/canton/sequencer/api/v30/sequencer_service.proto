@@ -95,6 +95,10 @@ service SequencerService {
   // known on the synchronizer.
   rpc DownloadTopologyStateForInit(DownloadTopologyStateForInitRequest) returns (stream DownloadTopologyStateForInitResponse);
 
+  // Returns a hash of a result equivalent to DownloadTopologyStateForInit call
+  // for a BFT check without transferring the full state.
+  rpc DownloadTopologyStateForInitHash(DownloadTopologyStateForInitHashRequest) returns (DownloadTopologyStateForInitHashResponse);
+
   // Return the currently known traffic state for a member. Callers must be authorized to request the traffic state.
   rpc GetTrafficStateForMember(GetTrafficStateForMemberRequest) returns (GetTrafficStateForMemberResponse);
 
@@ -180,11 +184,26 @@ message AcknowledgeSignedResponse {}
 message DownloadTopologyStateForInitRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
+  // Member for which to get the topology state
   string member = 1;
 }
 
 message DownloadTopologyStateForInitResponse {
   com.digitalasset.canton.topology.admin.v30.TopologyTransactions topology_transactions = 1;
+}
+
+message DownloadTopologyStateForInitHashRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // Member for which to get the topology state hash
+  string member = 1;
+}
+
+message DownloadTopologyStateForInitHashResponse {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // Hash of contents of a call to DownloadTopologyStateForInit
+  bytes topology_state_hash = 1;
 }
 
 message GetTrafficStateForMemberRequest {

@@ -95,8 +95,8 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.collection.IterableUtil
-import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, NoExceptionRetryPolicy}
-import com.digitalasset.canton.{SequencerAlias, SequencerCounter, config, time}
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
+import com.digitalasset.canton.{SequencerAlias, SequencerCounter, config, lifecycle, time}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -921,6 +921,52 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
     val triedSequencersRef = new AtomicReference[Set[SequencerId]](Set.empty)
+    val request = TopologyStateForInitRequest(member, protocolVersion)
+
+    def bftInitTopologyStateHash(
+        request: TopologyStateForInitRequest
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitHashResponse] =
+      if (config.useNewConnectionPool) {
+        NonEmpty
+          .from(connectionPool.getOneConnectionPerSequencer("init-topology-state-hash"))
+          .fold(
+            EitherT.leftT[FutureUnlessShutdown, TopologyStateForInitHashResponse](
+              "No connection available to get initial topology state hash"
+            )
+          )(sequencerConnections =>
+            BftSender
+              .makeRequest(
+                "init-topology-state-hash",
+                futureSupervisor,
+                logger,
+                sequencerConnections,
+                sequencerTransports.sequencerTrustThreshold,
+              )(
+                _.downloadTopologyStateForInitHash(request, timeouts.network.duration)
+              )(identity)
+              .leftMap(err => s"Failed to get initial topology state hash: $err")
+          )
+      } else {
+        EitherT
+          .liftF(
+            lifecycle.FutureUnlessShutdown.lift(
+              sequencersTransportState.allTransports
+            )
+          )
+          .flatMap(transportsMap =>
+            BftSender
+              .makeRequest(
+                "init-topology-state-hash",
+                futureSupervisor,
+                logger,
+                transportsMap,
+                sequencerTransports.sequencerTrustThreshold,
+              )(
+                _.downloadTopologyStateForInitHash(request)
+              )(identity)
+              .leftMap(err => s"Failed to get initial topology state hash: $err")
+          )
+      }
 
     def downloadSnapshot(
         request: TopologyStateForInitRequest
@@ -955,19 +1001,15 @@ abstract class SequencerClientImpl(
       resultET.map(_.topologyTransactions.value)
     }
 
-    val request = TopologyStateForInitRequest(member, protocolVersion)
-    val resultFUS = retry
-      .Pause(
-        logger = logger,
-        hasSynchronizeWithClosing = closeContext.context,
-        maxRetries = maxRetries,
-        delay = 1.second,
-        operationName = "Download topology state for init",
-        retryLogLevel = retryLogLevel,
-      )
-      .unlessShutdown(downloadSnapshot(request).value, NoExceptionRetryPolicy)
-
-    EitherT(resultFUS)
+    BftTopologyForInitDownloader.downloadAndVerifyTopologyTxs(
+      maxRetries,
+      retryLogLevel,
+      retryDelay = 1.second,
+      request,
+      loggerFactory,
+      bftInitTopologyStateHash,
+      downloadSnapshot,
+    )
   }
 
   override val timeFetcher =

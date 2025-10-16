@@ -975,6 +975,15 @@ object CantonConfig {
       deriveReader[SequencerHighAvailabilityConfig]
     lazy implicit final val sequencerConfigDatabaseReader: ConfigReader[SequencerConfig.Database] =
       deriveReader[SequencerConfig.Database]
+    lazy implicit final val throughputCapConfigReader
+        : ConfigReader[BlockSequencerConfig.ThroughputCapConfig] =
+      deriveReader[BlockSequencerConfig.ThroughputCapConfig]
+    lazy implicit final val throughputCapByMessageTypeConfigReader
+        : ConfigReader[BlockSequencerConfig.ThroughputCapByMessageTypeConfig] =
+      deriveReader[BlockSequencerConfig.ThroughputCapByMessageTypeConfig]
+    lazy implicit final val individualThroughputCapConfigReader
+        : ConfigReader[BlockSequencerConfig.IndividualThroughputCapConfig] =
+      deriveReader[BlockSequencerConfig.IndividualThroughputCapConfig]
     lazy implicit final val individualCircuitBreakerConfigReader
         : ConfigReader[BlockSequencerConfig.IndividualCircuitBreakerConfig] =
       deriveReader[BlockSequencerConfig.IndividualCircuitBreakerConfig]
@@ -1647,6 +1656,15 @@ object CantonConfig {
       deriveWriter[SequencerHighAvailabilityConfig]
     lazy implicit final val sequencerConfigDatabaseWriter: ConfigWriter[SequencerConfig.Database] =
       deriveWriter[SequencerConfig.Database]
+    lazy implicit final val throughputCapConfigWriter
+        : ConfigWriter[BlockSequencerConfig.ThroughputCapConfig] =
+      deriveWriter[BlockSequencerConfig.ThroughputCapConfig]
+    lazy implicit final val throughputCapByMessageTypeConfigWriter
+        : ConfigWriter[BlockSequencerConfig.ThroughputCapByMessageTypeConfig] =
+      deriveWriter[BlockSequencerConfig.ThroughputCapByMessageTypeConfig]
+    lazy implicit final val individualThroughputCapConfigWriter
+        : ConfigWriter[BlockSequencerConfig.IndividualThroughputCapConfig] =
+      deriveWriter[BlockSequencerConfig.IndividualThroughputCapConfig]
     lazy implicit final val individualCircuitBreakerConfigWriter
         : ConfigWriter[BlockSequencerConfig.IndividualCircuitBreakerConfig] =
       deriveWriter[BlockSequencerConfig.IndividualCircuitBreakerConfig]
