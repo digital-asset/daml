@@ -762,7 +762,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             "contract observers",
             "key",
             "maintainers",
-            "view",
             "ends test",
           )
         }
