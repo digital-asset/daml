@@ -24,8 +24,8 @@ import scala.concurrent.Future
 
 // Split the Upgrade unit tests over two suites, which seems to be the sweet
 // spot (~25s instead of ~35s runtime)
-class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(2, 0)
-class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
+class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 1, 0)
+class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 1, 0)
 
 /** A test suite to run the UpgradesMatrix matrix directly in the engine
   *
@@ -33,10 +33,10 @@ class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
   * (~5000s) because it does not need to spin up Canton, so we can use this for
   * sanity checking before running UpgradesMatrixIT.
   */
-abstract class UpgradesMatrixUnit(n: Int, k: Int)
+abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: Int, k: Int)
     extends UpgradesMatrix[Error, (SubmittedTransaction, Transaction.Metadata)](
       UpgradesMatrix.IdeLedger,
-      UpgradesMatrixCasesV2MaxStable,
+      upgradesMatrixCases,
       Some((n, k)),
     )
     with ParallelTestExecution {
@@ -104,7 +104,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       ),
       signatories = immutable.TreeSet(setupData.alice),
       stakeholders = immutable.TreeSet(setupData.alice),
-      contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
+      contractKeyWithMaintainers = testHelper.globalContractKeyWithMaintainers(setupData),
       createdAt = CreationTime.CreatedAt(Time.Timestamp.Epoch),
       authenticationData = Bytes.assertFromString("00"),
     )
@@ -129,11 +129,12 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     }
     val lookupContractByKey = contractOrigin match {
       case UpgradesMatrixCases.Global | UpgradesMatrixCases.Disclosed =>
-        val keyMap = Map(
+        val keyMap =
           testHelper
             .globalContractKeyWithMaintainers(setupData)
-            .globalKey -> setupData.globalContractId
-        )
+            .toList
+            .map(kwm => kwm.globalKey -> setupData.globalContractId)
+            .toMap
         ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
       case _ => PartialFunction.empty
     }
