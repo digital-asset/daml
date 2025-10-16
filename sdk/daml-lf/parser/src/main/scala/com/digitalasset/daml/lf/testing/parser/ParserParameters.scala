@@ -15,13 +15,23 @@ case class ParserParameters[P](
 object ParserParameters {
 
   def defaultFor[P](majorLanguageVersion: LanguageMajorVersion): ParserParameters[P] = {
+
     majorLanguageVersion match {
+      case LanguageMajorVersion.V1 =>
+        throw new IllegalArgumentException("Lf1 is not supported")
+      case LanguageMajorVersion.V2 =>
+        defaultForMinor(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2))
+    }
+  }
+
+  def defaultForMinor[P](languageVersion: LanguageVersion): ParserParameters[P] = {
+    languageVersion.major match {
       case LanguageMajorVersion.V1 =>
         throw new IllegalArgumentException("Lf1 is not supported")
       case LanguageMajorVersion.V2 =>
         ParserParameters(
           defaultPackageId = Ref.PackageId.assertFromString("-pkgId-"),
-          LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
+          languageVersion,
         )
     }
   }
