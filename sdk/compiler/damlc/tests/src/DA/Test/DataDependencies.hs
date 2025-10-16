@@ -28,6 +28,9 @@ import Test.Tasty.HUnit
 
 import SdkVersion (SdkVersioned, damlStdlib, sdkVersion, withSdkVersions)
 
+--TODO(https://github.com/digital-asset/daml/issues/22159): assess which of
+--these cases can be extended in terms of lf versions tested
+
 main :: IO ()
 main = withSdkVersions $ do
     setEnv "TASTY_NUM_THREADS" "3" True
@@ -36,6 +39,8 @@ main = withSdkVersions $ do
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
         let targetDevVersion = LF.version2_dev
+        --TODO(https://github.com/digital-asset/daml/issues/22159): remove this
+        --version, since nowadays, all lf supports exceptions
         let exceptionsVersion = minExceptionVersion LF.V2
         let simpleDalfLfVersion = LF.defaultOrLatestStable LF.V2
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-2.dev.dar")
