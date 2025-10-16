@@ -3,23 +3,31 @@
 
 package com.digitalasset.daml.lf.archive
 
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
 
 object Decode {
 
+  /*
+   * Decodes an ArchivePayload into a complete AST.
+   * Returns an error if the payload is invalid or contains an unknown LF version.
+   */
   def decodeArchivePayload(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.Package)] =
     decodeArchivePayload(payload, onlySchema = false)
 
+  /*
+   * Decodes an ArchivePayload into a serializable schema, a partial AST containing
+   * only templates, interfaces, and serializable data type definitions, ignoring
+   * any other definition and the embedded expressions within those definitions.
+   * Ignores the package patch version but returns an error if anything it reads is invalid.
+   */
   def decodeArchivePayloadSchema(
       payload: ArchivePayload
   ): Either[Error, (PackageId, Ast.PackageSignature)] =
-    decodeArchivePayload(payload, onlySchema = true).map { case (pkgId, pkg) =>
-      pkgId -> AstUtil.toSignature(pkg)
-    }
+    decodeArchivePayload(payload, onlySchema = true)
+      .map { case (pkgId, pkg) => pkgId -> AstUtil.toSignature(pkg) }
 
   // decode an ArchivePayload
   private[this] def decodeArchivePayload(
@@ -63,7 +71,7 @@ object Decode {
       onlySchema: Boolean = false,
   ): Either[Error, (PackageId, Ast.Package)] =
     Reader
-      .readArchive(archive)
+      .readArchive(archive, onlySchema)
       .flatMap(decodeArchivePayload(_, onlySchema = onlySchema))
 
   @throws[Error]
