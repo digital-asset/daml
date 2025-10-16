@@ -468,7 +468,6 @@ daml_test(
     # lf versions need to run here
     target = "2.1",
     deps = ["//daml-script/daml:daml-script-2.1.dar"],
-    tags=["lf_2_1_allowed"]
 )
 
 daml_test(
