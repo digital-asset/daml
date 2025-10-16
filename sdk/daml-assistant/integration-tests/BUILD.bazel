@@ -135,7 +135,7 @@ da_haskell_test(
 
 da_haskell_test(
     name = "quickstart-tests",
-    timeout = "long",
+    timeout = "moderate",
     srcs = [
         "src/DA/Daml/Assistant/QuickstartTests.hs",
     ],
