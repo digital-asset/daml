@@ -162,6 +162,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 1. Kill `daml start` with `Ctrl-C` (followed by "y" because Windows).
 
 1. Build all packages by moving out of the main package (`cd ..`) and running `daml build --all`.
+   (The first line should say `Running multi-package build of all packages in <location>`)
 
 1. Run `daml studio --replace=always` and open `test/daml/Test.daml`. Verify that there is a `Script results` link above `main` (in the code), click on it, and
    verify that the script result appears within 30 seconds.
@@ -198,9 +199,9 @@ You will now also need to test the release using DPM, please follow the instruct
    https://get.digitalasset.com/install/windows/dpm-${version}-windows-amd64.exe
 
    ```
+   If running `dpm` fails with a "cannot find command" error, inform the language team on #team-daml-language, and then proceed with testing by running `setx /M PATH "%PATH%;%APPDATA%\dpm\bin"` in an administrator command prompt and restarting your existing terminals.
 
-1. Be sure to use a new terminal (created after installation) for the following steps.
-   If running `dpm` fails with a "cannot find command" error, run `setx /M PATH "%PATH%;%APPDATA%\dpm\bin"` in an administrator command prompt, and restart your existing terminals.
+1. Run `dpm versions` and verify the (green) version is what you expect. If you used the latest-download URL to get DPM and thus don't know what version to expect, ensure it is less than a week old for weekly testing.
 
 1. Run `dpm versions` and verify the (green) version is what you expect. If you did not know what version to expect, ensure it is less than a week old for weekly testing.
    (If it is too old, leave a message about this in #project-dpm and pause testing until you get a response. #project-dpm is US based so consider this for timezones.)
@@ -213,6 +214,7 @@ You will now also need to test the release using DPM, please follow the instruct
    `cd myproject`.
 
 1. Build all packages by running `dpm build --all`.
+   (The first line should say `Running multi-package build of all packages in <location>`)
 
 1. Run `dpm sandbox --dar ./main/.daml/dist/myproject-main-1.0.0.dar`. Wait for "Canton sandbox is ready." (it may take up to around 2 minutes)
 
@@ -336,6 +338,7 @@ You will now also need to test the release using DPM, please follow the instruct
   then cd into it.
 
 1. Build it using `daml build --all`
+   (The first line should say `Running multi-package build of all packages in <location>`)
 
 1. Run `daml studio --replace=always`. This should open VSCode and trigger the
    Daml extension that's bundled with the new SDK version (the new VSCode
@@ -474,6 +477,7 @@ You will now also need to test the release using DPM, please follow the instruct
   then cd into it.
 
 1. Build it using `dpm build --all`
+   (The first line should say `Running multi-package build of all packages in <location>`)
 
 1. Run `dpm studio --replace=always`. This should open VSCode and trigger the
    Daml extension that's bundled with the new SDK version (the new VSCode
