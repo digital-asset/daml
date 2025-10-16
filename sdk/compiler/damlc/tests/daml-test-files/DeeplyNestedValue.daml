@@ -7,6 +7,7 @@
 module DeeplyNestedValue where
 
 import Daml.Script
+import DA.Assert
 
 data Nat = Z | S Nat
   deriving (Eq, Show)
@@ -18,8 +19,8 @@ construct x acc  = construct (x-1) (S acc)
 toNat : Int -> Nat
 toNat x = construct x Z
 
-data V = V with
-  n: Nat
+data V = V with n: Nat
+  deriving (Eq, Show)
 
 interface I where
   viewtype V
@@ -50,7 +51,7 @@ template Helper
       controller p
       do create T with p = p; n = toNat i; i = 0
 
--- @ERROR range=54:1-54:11; Value exceeds maximum nesting value
+-- @ERROR range=55:1-55:11; Value exceeds maximum nesting value
 testCreate = script do
   alice <- allocateParty "Alice"
   alice `submit` createAndExerciseCmd (Helper alice) (CreateContractWithNat 100)
@@ -60,12 +61,12 @@ createContract = script do
   cid <- alice `submit` createCmd (T with p = alice; n = Z; i = 100)
   pure (alice, cid)
 
--- @ERROR range=64:1-64:19; Value exceeds maximum nesting value
+-- @ERROR range=65:1-65:19; Value exceeds maximum nesting value
 testExerciseResult = script do
   (alice, cid) <- createContract
   alice `submit` exerciseCmd cid BuildNat
 
--- @ERROR range=69:1-69:9; Value exceeds maximum nesting value
 testView = script do
-  (alice, _) <- createContract
-  queryInterface @I alice
+  (alice, cid) <- createContract
+  res <- queryInterface @I alice
+  res === [(coerceContractId cid, None)]
