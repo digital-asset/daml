@@ -44,21 +44,23 @@ package object archive {
   private val EXTENDED_PROTOBUF_RECURSION_LIMIT: Int = 1000
 
   val ArchiveParser: GenReader[DamlLf.Archive] =
-    GenReader.Base(getClass.getCanonicalName + ".ArchiveParser", DamlLf.Archive.parseFrom)
+    GenReader(getClass.getCanonicalName + ".ArchiveParser", DamlLf.Archive.parseFrom)
   val ArchiveReader: GenReader[ArchivePayload] =
-    ArchiveParser.andThen(Reader.readArchive)
+    ArchiveParser.andThen(Reader.readArchive(_, schemaMode = false))
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
     ArchiveReader.andThen(Decode.decodeArchivePayload)
-  val ArchiveSchemaDecoder: GenReader[(PackageId, Ast.GenPackage[_])] =
-    ArchiveReader.andThen(Decode.decodeArchivePayloadSchema)
+  val ArchiveSchemaReader: GenReader[ArchivePayload] =
+    ArchiveParser.andThen(Reader.readArchive(_, schemaMode = true))
+  val ArchiveSchemaDecoder: GenReader[(PackageId, Ast.PackageSignature)] =
+    ArchiveSchemaReader.andThen(Decode.decodeArchivePayloadSchema)
 
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
-    GenReader.Base(
+    GenReader(
       getClass.getCanonicalName + ".ArchivePayloadParser",
       DamlLf.ArchivePayload.parseFrom,
     )
   val lf1PackageParser: GenReader[DamlLf1.Package] =
-    GenReader.Base(
+    GenReader(
       getClass.getCanonicalName + ".Lf1PackageParser",
       { cos =>
         discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
@@ -67,7 +69,7 @@ package object archive {
     )
 
   def lf2PackageParser(minor: LanguageVersion.Minor): GenReader[DamlLf2.Package] =
-    GenReader.Base(
+    GenReader(
       getClass.getCanonicalName + ".Lf2PackageParser",
       { cos =>
         val langVersion = LanguageVersion(LanguageVersion.Major.V2, minor)
@@ -80,7 +82,7 @@ package object archive {
   private def ModuleParser(ver: LanguageVersion): GenReader[DamlLf2.Package] =
     ver.major match {
       case LanguageMajorVersion.V2 =>
-        GenReader.Base(
+        GenReader(
           getClass.getCanonicalName + ".ModuleParser",
           { cos =>
             if (ver < LanguageVersion.Features.flatArchive)
@@ -103,6 +105,6 @@ package object archive {
     new GenUniversalArchiveReader(ArchiveReader)
   val UniversalArchiveDecoder: GenUniversalArchiveReader[(PackageId, Ast.Package)] =
     new GenUniversalArchiveReader(ArchiveDecoder)
-  val UniversaleArchiveSchemaDecoder: GenUniversalArchiveReader[(PackageId, Ast.GenPackage[_])] =
+  val UniversalArchiveSchemaDecoder: GenUniversalArchiveReader[(PackageId, Ast.PackageSignature)] =
     new GenUniversalArchiveReader(ArchiveSchemaDecoder)
 }
