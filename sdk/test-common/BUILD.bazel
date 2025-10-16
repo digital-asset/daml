@@ -414,11 +414,11 @@ da_scala_dar_resources_library(
         (
             "FailsWhenNewerPackagesUsesAnOlderLFVersion",
             {"lf_version": "2.dev"},
-            {"lf_version": "2.1"},
+            {"lf_version": "2.2"},
         ),
         (
             "SucceedsWhenNewerPackagesUsesANewerLFVersion",
-            {"lf_version": "2.1"},
+            {"lf_version": "2.2"},
             {"lf_version": "2.dev"},
         ),
         (
