@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
@@ -27,16 +27,11 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class SerializationVersionTestV2 extends SerializationVersionTest(V2)
-
-class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
+class SerializationVersionTest
     extends AnyFreeSpec
     with Matchers
     with Inside
     with TableDrivenPropertyChecks {
-
-  val helpers = new SerializationVersionTestHelpers(majorLanguageVersion)
-  import helpers._
 
   "interface and transaction versioning" - {
 
@@ -54,7 +49,7 @@ class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
       val oldPkg2 = interfacesPkg.copy(languageVersion = oldLfVersion)
       val newPkg1 = implementsPkg.copy(languageVersion = newLfVersion)
       val pkgs = SpeedyTestLib.typeAndCompile(
-        majorLanguageVersion,
+        V2,
         Map(
           templatePkgId -> oldPkg1,
           interfacesPkgId -> oldPkg2,
@@ -81,7 +76,7 @@ class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
 
     "template version == interface version" in {
       val pkgs = SpeedyTestLib.typeAndCompile(
-        majorLanguageVersion,
+        V2,
         Map(
           templatePkgId -> templatePkg,
           interfacesPkgId -> interfacesPkg,
@@ -106,20 +101,8 @@ class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
-}
 
-private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
-
-  val (commonLfVersion, oldLfVersion, newLfVersion) = majorLanguageVersion match {
-    case V2 =>
-      (
-        LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
-        LanguageVersion.v2_1,
-        LanguageVersion.v2_dev,
-      )
-    case _ =>
-      throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} is not supported")
-  }
+  val List(oldLfVersion, commonLfVersion, newLfVersion) = LanguageVersion.AllV2
 
   val commonVersion = SerializationVersion.assign(commonLfVersion)
   val oldVersion = SerializationVersion.assign(oldLfVersion)
@@ -241,7 +224,7 @@ private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: Language
     (implementsTemplateId, implementsInterfaceId, implementsContract)
   )
 
-  def evaluateBeginExercise(
+  private[lf] def evaluateBeginExercise(
       pkgs: CompiledPackages,
       templateId: TypeConId,
       interfaceId: Option[TypeConId],
