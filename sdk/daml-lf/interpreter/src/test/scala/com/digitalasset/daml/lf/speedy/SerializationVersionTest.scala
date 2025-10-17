@@ -224,7 +224,7 @@ class SerializationVersionTest
     (implementsTemplateId, implementsInterfaceId, implementsContract)
   )
 
- private def evaluateBeginExercise(
+  private def evaluateBeginExercise(
       pkgs: CompiledPackages,
       templateId: TypeConId,
       interfaceId: Option[TypeConId],
