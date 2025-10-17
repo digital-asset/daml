@@ -27,16 +27,11 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.collection.immutable.ArraySeq
 
-class SerializationVersionTestV2 extends SerializationVersionTest(V2)
-
-class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
+class SerializationVersionTest
     extends AnyFreeSpec
     with Matchers
     with Inside
     with TableDrivenPropertyChecks {
-
-  val helpers = new SerializationVersionTestHelpers(majorLanguageVersion)
-  import helpers._
 
   "interface and transaction versioning" - {
 
@@ -106,20 +101,8 @@ class SerializationVersionTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
-}
 
-private[lf] class SerializationVersionTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
-
-  val (commonLfVersion, oldLfVersion, newLfVersion) = majorLanguageVersion match {
-    case V2 =>
-      (
-        LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2),
-        LanguageVersion.v2_1,
-        LanguageVersion.v2_dev,
-      )
-    case _ =>
-      throw new IllegalArgumentException(s"${majorLanguageVersion.pretty} is not supported")
-  }
+  val List(oldLfVersion, commonLfVersion, newLfVersion) = LanguageVersion.AllV2
 
   val commonVersion = SerializationVersion.assign(commonLfVersion)
   val oldVersion = SerializationVersion.assign(oldLfVersion)
