@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -30,9 +30,10 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class ReinterpretTestV2 extends ReinterpretTest(LanguageMajorVersion.V2)
+class ReinterpretTestV2
+    extends ReinterpretTest(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2))
 
-class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
+abstract class ReinterpretTest(languageVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -41,7 +42,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   import ReinterpretTest._
 
-  private[this] val version = SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
+  private[this] val version = SerializationVersion.assign(languageVersion)
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
@@ -53,7 +54,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private val (miniTestsPkgId, miniTestsPkg, allPackages) = loadPackage(
-    s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/tests/ReinterpretTests-v${languageVersion.major.pretty}.dar"
   )
 
   private val defaultContracts: Map[ContractId, FatContractInstance] =
@@ -73,7 +74,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def freshEngine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
+      allowedLanguageVersions = language.LanguageVersion.AllVersions(languageVersion.major),
       forbidLocalContractIds = true,
     )
   )
