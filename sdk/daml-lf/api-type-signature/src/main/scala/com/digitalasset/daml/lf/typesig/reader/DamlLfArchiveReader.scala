@@ -22,7 +22,9 @@ object DamlLfArchiveReader {
       packageId: Ref.PackageId,
       lf: DamlLf.ArchivePayload,
   ): String \/ (Ref.PackageId, Ast.PackageSignature) =
-    fromEither(archive.Reader.readArchivePayload(packageId, lf)) flatMap readPackage
+    fromEither(
+      archive.Reader.readArchivePayload(packageId, lf, schemaMode = true)
+    ) flatMap readPackage
 
   private[typesig] def readPackage(
       payLoad: archive.ArchivePayload
