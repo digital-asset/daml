@@ -108,7 +108,7 @@ final class ApiParticipantPruningService private (
                   stakeholders = Set.empty, // getting all incomplete reassignments
                 )
                 .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
-            previousPrunedOffset <- readBackend.indexDbPrunedUpto
+            previousPrunedOffset <- readBackend.indexDbPrunedUpTo
             incompleteReassignmentOffsets <-
               getIncompleteReassignmentOffsets(pruneUpTo)
             previousIncompleteReassignmentOffsets <-
@@ -173,7 +173,7 @@ final class ApiParticipantPruningService private (
       previousPruneUpToInclusive: Option[Offset],
       previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpTo: Offset,
-      incompleteReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.unwrap} inclusively.")
     readBackend
@@ -181,7 +181,7 @@ final class ApiParticipantPruningService private (
         previousPruneUpToInclusive = previousPruneUpToInclusive,
         previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
         pruneUpToInclusive = pruneUpTo,
-        incompleteReassignmentOffsets = incompleteReassignmentOffsets,
+        incompletReassignmentOffsets = incompletReassignmentOffsets,
       )
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo.unwrap} inclusively.")

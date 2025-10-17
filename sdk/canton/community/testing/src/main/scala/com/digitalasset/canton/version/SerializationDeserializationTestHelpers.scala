@@ -38,7 +38,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   /** We use 10 seconds default for `warnWhenTestRunsLongerThan` to have a very generous buffer to
     * prevent test flakiness. On CI, tests should normally finish within 1 to 3 seconds.
     */
-  private val maxDurationWarning: Duration = 20.seconds
+  private val maxDurationWarning: Duration = 10.second
 
   /** Test for classes extending `HasVersionedWrapper` (protocol version passed to the serialization
     * method), without context for deserialization.

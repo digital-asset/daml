@@ -11,7 +11,7 @@ import com.typesafe.config.ConfigValue
 
 sealed trait KmsConfig {
 
-  /** Session signing keys configuration for KMS (by default session signing keys are enabled). */
+  /** Session signing keys configuration for KMS */
   def sessionSigningKeys: SessionSigningKeysConfig
 
   /** Retry configuration for KMS operations */

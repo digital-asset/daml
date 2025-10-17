@@ -4,7 +4,7 @@
 package com.digitalasset.canton.version
 
 import cats.syntax.either.*
-import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -226,9 +226,8 @@ object ProtocolVersion {
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
   // All stable protocol versions supported by this release
-  // TODO(#15561) Switch to non-empty again
-  val stable: List[ProtocolVersion] =
-    parseFromBuildInfo(BuildInfo.stableProtocolVersions.toSeq)
+  val stable: NonEmpty[List[ProtocolVersion]] =
+    NonEmptyUtil.fromUnsafe(parseFromBuildInfo(BuildInfo.stableProtocolVersions))
 
   private val deprecated: Seq[ProtocolVersion] = Seq()
 
@@ -247,7 +246,7 @@ object ProtocolVersion {
     )
 
   val alpha: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha]]] =
-    NonEmpty.mk(List, ProtocolVersion.v34, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.dev)
 
   val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
     parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
@@ -260,11 +259,10 @@ object ProtocolVersion {
   require(
     allProtocolVersions.sizeCompare(allProtocolVersions.distinct) == 0,
     s"All the protocol versions should be distinct." +
-      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted.forgetNE, "alpha" -> alpha.forgetNE, "stable" -> stable)}",
+      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted.forgetNE, "alpha" -> alpha.forgetNE, "stable" -> stable.forgetNE)}",
   )
-
-  // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
-  val latest: ProtocolVersion = stable.lastOption.getOrElse(alpha.head1)
+// All stable protocol versions supported by this release
+  val latest: ProtocolVersion = stable.last1
 
   /** The protocol version used to bootstrap a synchronizer.
     *
@@ -283,8 +281,8 @@ object ProtocolVersion {
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
     ProtocolVersion.createAlpha(Int.MaxValue)
 
-  lazy val v34: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
-    ProtocolVersion.createAlpha(34)
+  lazy val v34: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
+    ProtocolVersion.createStable(34)
 
   // Minimum stable protocol version introduced
   lazy val minimum: ProtocolVersion = v34

@@ -264,7 +264,6 @@ class ParticipantNodeBootstrap(
           nextPackageIds,
           packageMetadataView,
           dryRunSnapshot,
-          acsInspections = () => acsInspectionPerSynchronizer(),
           forceFlags,
           disableUpgradeValidation = parameters.disableUpgradeValidation,
         )

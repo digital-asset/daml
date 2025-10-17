@@ -1073,6 +1073,11 @@ abstract class ProtocolProcessor[
         )
         .leftMap(err => steps.embedRequestError(RequestTrackerError(err)))
 
+      // TODO(i12928): non-authenticated contracts will crash the participant
+      _ <- steps
+        .authenticateInputContracts(parsedRequest)
+        .mapK(FutureUnlessShutdown.outcomeK)
+
       pendingDataAndResponsesAndTimeoutEvent <-
         if (isCleanReplay(rc)) {
           val pendingData =
