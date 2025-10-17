@@ -702,13 +702,15 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "  - daml-stdlib"
               , "data-dependencies:"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
-              , "build-options: [--target=2.1]"
+              --TODO(https://github.com/digital-asset/daml/issues/22103):
+              --evaluate which lf versions need to run here
+              , "build-options: [--target=2.2]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
               , "import A ()"
               ]
-          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.1 but dependencies have incompatible LF versions"
+          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.2 but dependencies have incompatible LF versions"
 
     , testCaseSteps "Error on newer LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -737,13 +739,15 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "  - daml-prim"
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
-              , "build-options: [--target=2.1]"
+              --TODO(https://github.com/digital-asset/daml/issues/22103):
+              --evaluate which lf versions need to run here
+              , "build-options: [--target=2.2]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "module B where"
               , "import A ()"
               ]
-          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.1 but dependencies have different LF versions"
+          buildPackageError (tmpDir </> "b") "" "Targeted LF version 2.2 but dependencies have different LF versions"
 
     , testCaseSteps "Error on inconsistent LF dependency" $ \step -> withTempDir $ \tmpDir -> do
           step "Building 'a"
@@ -754,7 +758,9 @@ tests Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
-              , "build-options: [--target=2.1]"
+              --TODO(https://github.com/digital-asset/daml/issues/22103):
+              --evaluate which lf versions need to run here
+              , "build-options: [--target=2.2]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "module A where"
