@@ -305,7 +305,7 @@ daml_compile(
     name = "legacy-script",
     srcs = [":daml/fake-legacy-script/Daml/Script.daml"],
     project_name = "daml-script",
-    target = "2.1",
+    target = "2.2",
     version = "1.0.0",
 )
 
