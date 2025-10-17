@@ -265,12 +265,15 @@ packageSummaryFromDamlYaml path = do
     canonDeps <- lift $ withCurrentDirectory (unPackageHome path) $ traverse canonicalizePath $ dataDeps <> directDarDeps
     name <- except $ queryPackageConfigRequired ["name"] package
     version <- except $ queryPackageConfigRequired ["version"] package
-    releaseVersion <- except $ queryPackageConfigRequired ["sdk-version"] package
+    releaseVersion <- except $ queryPackageConfig ["sdk-version"] package
     -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
     -- Just saying its invalid is enough
 
-    unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "package" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
-      $ parseUnresolvedVersion releaseVersion
+    unresolvedReleaseVersion <- except $
+        case releaseVersion of
+          Just ver -> first (const $ ConfigFieldInvalid "package" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack ver)
+              $ fmap Just $ parseUnresolvedVersion ver
+          Nothing -> Right Nothing
 
     let overrideMapToMaybe :: T.Text -> Map.Map T.Text T.Text -> Either ConfigError (Maybe T.Text)
         overrideMapToMaybe componentName m =

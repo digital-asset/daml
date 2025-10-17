@@ -115,8 +115,12 @@ ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
 ensureIdeSdkInstalledDamlAssistant :: MultiIdeState -> SdkVersionData -> PackageHome -> SubIdeData -> IO SubIdeData
 ensureIdeSdkInstalledDamlAssistant miState ver home ideData = do
   damlPath <- getDamlPath
-  installedVersions <- getInstalledSdkVersions damlPath
-  let versionIsInstalled = any (\installedVer -> unwrapUnresolvedReleaseVersion (svdVersion ver) == releaseVersionFromReleaseVersion installedVer) installedVersions
+  versionIsInstalled <-
+    case svdVersion ver of
+      Nothing -> pure True
+      Just ver -> do
+        installedVersions <- getInstalledSdkVersions damlPath
+        return $ any (\installedVer -> unwrapUnresolvedReleaseVersion ver == releaseVersionFromReleaseVersion installedVer) installedVersions
 
   globalErrorStatus <- getGlobalErrorStatusWithPackageRestart miState home
 
@@ -150,7 +154,7 @@ tryAskForSdkInstall miState makeMissingSdkIdeDiagnosticMessage ver home = do
   
   (newInstallDatas, disableDiagnostic) <- case sidStatus installData of
     SISCanAsk -> do  
-        if unresolvedReleaseVersionToString (svdVersion ver) == "0.0.0" then do
+        if "0.0.0" `elem` fmap unresolvedReleaseVersionToString (svdVersion ver) then do
           let errText = "Version 0.0.0 is not installed, it can be installed by building daml-head locally."
               installData' = installData {sidStatus = SISFailed errText Nothing}
           addHomeAndReturn installData' (LSP.DsError, errText)
@@ -213,14 +217,14 @@ updateSdkInstallStatus miState installDatas ver severity message newStatus = do
 -- of the form `${version}-with-overrides-${overrides-hash}`
 sdkVersionDataToVersionIdentifier :: SdkVersionData -> T.Text
 sdkVersionDataToVersionIdentifier ver =
-  let verStr = T.pack $ unresolvedReleaseVersionToString $ svdVersion ver
+  let verStr = renderOptionalUnresolvedReleaseVersion (svdVersion ver)
    in verStr <> "-with-overrides-" <> sdkVersionDataOverridesHash ver
 
 -- Takes version identifier of form `3.3.0-with-overrides-<overrides-hash>` and finds the correct sdkInstallData
 getSdkInstallDataFromIdentifier :: T.Text -> SdkInstallDatas -> Maybe SdkInstallData
 getSdkInstallDataFromIdentifier (T.splitOn "-with-overrides-" -> [verStr, overridesHash]) installDatas = do
   ver <- eitherToMaybe $ parseUnresolvedVersion verStr
-  let keyCandidates = filter ((==ver) . svdVersion) $ Map.keys installDatas
+  let keyCandidates = filter (elem ver . svdVersion) $ Map.keys installDatas
   sdkVersionData <- find ((==overridesHash) . sdkVersionDataOverridesHash) keyCandidates
   Map.lookup sdkVersionData installDatas
 getSdkInstallDataFromIdentifier _ _ = Nothing
@@ -424,7 +428,10 @@ installSdkDamlAssistant versionData outputLogVar report = do
   -- Override the cache timeout to 5 minutes, to be sure we have a recent cache
   let useCache = (mkUseCache cachePath damlPath) {overrideTimeout = Just $ CacheTimeout 300}
 
-  version <- resolveReleaseVersionUnsafe useCache $ svdVersion versionData
+  version <- 
+      case svdVersion versionData of
+        Just ver -> resolveReleaseVersionUnsafe useCache ver
+        Nothing -> throwIO $ assistantError "Missing sdk-version, please specify sdk-version in daml.yaml or use DPM with overrides."
   damlConfigE <- tryConfig $ readDamlConfig damlPath
   let env = InstallEnv
         { options = InstallOptions

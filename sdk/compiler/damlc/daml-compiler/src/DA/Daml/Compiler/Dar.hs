@@ -67,7 +67,7 @@ import HscTypes
 import qualified Data.SemVer as V
 import DA.Daml.Project.Types (PackagePath (..), UnresolvedReleaseVersion(..))
 
-import SdkVersion.Class (SdkVersioned)
+import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 
 -- | Create a DAR file by running a ZipArchive action.
@@ -127,7 +127,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
             pure $ Just
-              ( createArchive pName pVersion pSdkVersion (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+              ( createArchive pName pVersion (fromMaybe unresolvedBuiltinSdkVersion pSdkVersion) (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
               , Nothing
               )
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
@@ -184,7 +184,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typechecke
                  srcRoot <- getSrcRoot pSrc
                  pure
                    ( createArchive
-                       pName pVersion pSdkVersion
+                       pName pVersion (fromMaybe unresolvedBuiltinSdkVersion pSdkVersion)
                        pkgId
                        dalf
                        dalfDependencies

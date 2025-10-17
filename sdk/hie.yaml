@@ -5,6 +5,8 @@ cradle:
   multi:
     - path: "."
       config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc:damlc@ghci@bios" } } }
+    - path: "./compiler/damlc/daml-package-config/test"
+      config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc/daml-package-config:tests@ghci@bios" }}}
     - path: "./compiler/damlc/tests"
       config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc/tests:tests@ghci@bios"}}}
     - path: "./release/src"
