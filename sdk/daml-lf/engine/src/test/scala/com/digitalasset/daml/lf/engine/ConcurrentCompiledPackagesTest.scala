@@ -27,15 +27,15 @@ abstract class ConcurrentCompiledPackagesTest(languageVersion: LanguageVersion)
 
   s"ConcurrentCompiledPackages with ${languageVersion}" should {
 
-    "load valid package" in {
+    val pkg =
+      p"""
+        metadata ( 'pkg' : '1.0.0' )
+        module Mod {
+          val string: Text = "t";
+        }
+      """
 
-      val pkg =
-        p"""
-          metadata ( 'pkg' : '1.0.0' )
-          module Mod {
-            val string: Text = "t";
-          }
-        """
+    "load valid package" in {
 
       new ConcurrentCompiledPackages(Compiler.Config.Dev(languageVersion.major))
         .addPackage(parserParameters.defaultPackageId, pkg) shouldBe ResultDone(())
