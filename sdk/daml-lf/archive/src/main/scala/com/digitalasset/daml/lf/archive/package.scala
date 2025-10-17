@@ -100,11 +100,16 @@ package object archive {
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)
   val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = GenDarReader(ArchiveDecoder)
+  val DarSchemaReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveSchemaReader)
+  val DarSchemaDecoder: GenDarReader[(PackageId, Ast.PackageSignature)] = GenDarReader(
+    ArchiveSchemaDecoder
+  )
 
+  @deprecated("Use DarReader instead", since = "3.4.0")
   val UniversalArchiveReader: GenUniversalArchiveReader[ArchivePayload] =
     new GenUniversalArchiveReader(ArchiveReader)
+  @deprecated("Use DarDecoder instead", since = "3.4.0")
   val UniversalArchiveDecoder: GenUniversalArchiveReader[(PackageId, Ast.Package)] =
     new GenUniversalArchiveReader(ArchiveDecoder)
-  val UniversalArchiveSchemaDecoder: GenUniversalArchiveReader[(PackageId, Ast.PackageSignature)] =
-    new GenUniversalArchiveReader(ArchiveSchemaDecoder)
+
 }
