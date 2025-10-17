@@ -43,7 +43,7 @@ message SignedMessage {
 message ConnectionOpened {}
 
 message AvailabilityMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   oneof message {
     google.protobuf.Empty ping = 1;
     StoreRequest store_request = 2;
@@ -60,7 +60,7 @@ message StoreRequest {
 }
 
 message Batch {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   repeated OrderingRequest ordering_requests = 1;
   // epoch number assigned to batch at the time of creation corresponding to last know epoch number at the availability module.
   // it is used for inferring the expiration of the batch.
@@ -106,7 +106,7 @@ message AvailabilityAck {
 }
 
 message ConsensusMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   BlockMetadata block_metadata = 1;
   int64 view_number = 2;
   string from = 3;
@@ -199,7 +199,7 @@ message RetransmissionResponse {
 // where receiving node will compute what they can retransmit based on what the requesting
 // node is lacking from looking at this status message.
 message EpochStatus {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   int64 epoch_number = 1;
   repeated SegmentStatus segments = 2;
@@ -238,7 +238,7 @@ message BlockInProgress {
 
 // State transfer
 message StateTransferMessage {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   oneof message {
     BlockTransferRequest block_request = 1;
     BlockTransferResponse block_response = 2;

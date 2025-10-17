@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.api.{
   ListVettedPackagesOpts,
   PriorTopologySerial,
   SinglePackageTargetVetting,
+  UpdateVettedPackagesForceFlags,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -74,8 +75,7 @@ class PackageOpsForTesting(
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
-      allowUnvetPackageIdInUse: Boolean = false,
-      allowVetIncompatibleUpgrades: Boolean = false,
+      updateForceFlags: Option[UpdateVettedPackagesForceFlags] = None,
   )(implicit
       tc: TraceContext
   ): EitherT[

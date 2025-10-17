@@ -28,7 +28,13 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.transaction.VettedPackage
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ForceFlag,
+  ForceFlags,
+  ParticipantId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.util.{EitherUtil, OptionUtil}
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
@@ -431,9 +437,17 @@ object TopologyStateFilter {
 }
 
 final case class UpdateVettedPackagesForceFlags(
-    forceUnvetWithActiveContracts: Boolean = false,
     forceVetIncompatibleUpgrade: Boolean = false,
-)
+    forceUnvettedDependencies: Boolean = false,
+) {
+  def toForceFlags =
+    ForceFlags(
+      Set(ForceFlag.AllowVetIncompatibleUpgrades)
+        .filter(_ => forceVetIncompatibleUpgrade) ++
+        Set(ForceFlag.AllowUnvettedDependencies)
+          .filter(_ => forceUnvettedDependencies)
+    )
+}
 
 object UpdateVettedPackagesForceFlags {
   def fromProto(
@@ -441,12 +455,13 @@ object UpdateVettedPackagesForceFlags {
   ): ParsingResult[UpdateVettedPackagesForceFlags] =
     Right(
       UpdateVettedPackagesForceFlags(
-        forceUnvetWithActiveContracts =
-          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowUnvetPackageWithActiveContracts),
         forceVetIncompatibleUpgrade =
           forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowVetIncompatibleUpgrades),
+        forceUnvettedDependencies =
+          forceFlags.exists(_.isUpdateVettedPackagesForceFlagAllowUnvettedDependencies),
       )
     )
+
 }
 
 final case class UpdateVettedPackagesOpts(

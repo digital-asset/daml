@@ -55,7 +55,7 @@ trait SandboxRequiringAuthorizationFuns {
 
   protected def standardToken(
       userId: String,
-      expiresIn: Option[Duration] = None,
+      expiresIn: Option[Duration] = Some(Duration.ofMinutes(5)),
       participantId: Option[String] = None,
       issuer: Option[String] = None,
   ): StandardJWTPayload =

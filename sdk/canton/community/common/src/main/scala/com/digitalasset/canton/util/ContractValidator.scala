@@ -45,6 +45,8 @@ trait ContractValidator {
 
 object ContractValidator {
 
+  type ContractAuthenticatorFn = (FatContractInstance, LfHash) => Either[String, Unit]
+
   def apply(
       cryptoOps: HashOps & HmacOps,
       engine: Engine,

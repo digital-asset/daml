@@ -10,7 +10,6 @@ import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.*
 
@@ -34,8 +33,7 @@ trait DbTest
 
   /** Flag to define the migration mode for the schemas */
   def migrationMode: MigrationMode =
-    // TODO(i15561): Revert back to `== ProtocolVersion.dev` once v30 is a stable Daml 3 protocol version
-    if (BaseTest.testedProtocolVersion >= ProtocolVersion.v34) MigrationMode.DevVersion
+    if (BaseTest.testedProtocolVersion.isDev) MigrationMode.DevVersion
     else MigrationMode.Standard
 
   protected def mkDbConfig(basicConfig: DbBasicConfig): DbConfig
