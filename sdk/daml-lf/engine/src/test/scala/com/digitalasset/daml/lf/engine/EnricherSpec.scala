@@ -57,6 +57,8 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
 
         module Mod {
 
+          variant @serializable Nat = Z : Unit | S: Mod:Nat;
+
           record @serializable MyUnit = {};
           record @serializable Record = { field : Int64, optField: Option Int64 };
           variant @serializable Variant = variant1 : Text | variant2 : Int64 ;
@@ -236,7 +238,7 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "do not add trailing None fields when instructed" in {
+    "not add trailing None fields when instructed" in {
       val enricher = new Enricher(engine, addTrailingNoneFields = false)
 
       val testCases = Table[Type, Value, Value](
@@ -259,9 +261,48 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       forEvery(testCases) { (typ, input, output) =>
-        if (typ == TTyCon("Mod:Record"))
-          enricher.enrichValue(typ, input) shouldBe ResultDone(output)
+        enricher.enrichValue(typ, input) shouldBe ResultDone(output)
       }
+    }
+
+    "blow up if it encounters texts with null characters" in {
+      val enricher = new Enricher(engine, addTrailingNoneFields = false)
+
+      val testCases = Table(
+        "type" -> "LF value with null character",
+        TText -> ValueText("->\u0000<-"),
+        TOptional(TText) -> ValueOptional(Some(ValueText("\u0000"))),
+        TTextMap(TInt64) -> ValueTextMap(SortedLookupList(Map("key\u0000" -> ValueInt64(0)))),
+        TTextMap(TInt64) -> ValueTextMap(
+          SortedLookupList(Map("key\u0001" -> ValueInt64(1), "key\u0001\u0000" -> ValueInt64(2)))
+        ),
+      )
+
+      forEvery(testCases) { (typ, input) =>
+        inside(enricher.enrichValue(typ, input)) { case ResultError(err) =>
+          err.message.toLowerCase() should include("null character")
+        }
+      }
+    }
+
+    "blow up if it encounters too deeply nested values" in {
+      val enricher = new Enricher(engine, addTrailingNoneFields = false)
+
+      def toNat(i: Int): ValueVariant =
+        if (i <= 0) ValueVariant(None, "Z", ValueUnit)
+        else ValueVariant(None, "S", toNat(i - 1))
+
+      val TNat = TTyCon("Mod:Nat")
+
+      enricher.enrichValue(
+        TList(TNat),
+        ValueList(List.range(0, 99).map(toNat).to(FrontStack)),
+      ) shouldBe a[ResultDone[_]]
+      enricher.enrichValue(TNat, toNat(100)) shouldBe a[ResultError]
+      enricher.enrichValue(
+        TList(TNat),
+        ValueList(List.range(0, 101).map(toNat).to(FrontStack)),
+      ) shouldBe a[ResultError]
     }
   }
 
