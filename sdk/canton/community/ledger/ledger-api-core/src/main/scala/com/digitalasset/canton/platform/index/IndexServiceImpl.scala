@@ -379,7 +379,7 @@ private[index] class IndexServiceImpl(
       previousPruneUpToInclusive: Option[Offset],
       previousIncompleteReassignmentOffsets: Vector[Offset],
       pruneUpToInclusive: Offset,
-      incompleteReassignmentOffsets: Vector[Offset],
+      incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
@@ -388,11 +388,11 @@ private[index] class IndexServiceImpl(
       previousPruneUpToInclusive = previousPruneUpToInclusive,
       previousIncompleteReassignmentOffsets = previousIncompleteReassignmentOffsets,
       pruneUpToInclusive = pruneUpToInclusive,
-      incompleteReassignmentOffsets = incompleteReassignmentOffsets,
+      incompletReassignmentOffsets = incompletReassignmentOffsets,
     )
   }
 
-  override def indexDbPrunedUpto(implicit
+  override def indexDbPrunedUpTo(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[Offset]] =
     ledgerDao.indexDbPrunedUpTo

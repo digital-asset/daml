@@ -629,10 +629,24 @@ private final case class LedgerServicesJson(
       result
     }
 
-    override def validateDarFile(request: ValidateDarFileRequest): Future[ValidateDarFileResponse] =
-      throw new UnsupportedOperationException(
-        "ValidateDarFile is not available in JSON API"
+    override def validateDarFile(
+        request: ValidateDarFileRequest
+    ): Future[ValidateDarFileResponse] = {
+      val src: Source[ByteString, NotUsed] = Source.fromIterator(() =>
+        request.darFile
+          .asReadOnlyByteBufferList()
+          .iterator
+          .asScala
+          .map(org.apache.pekko.util.ByteString(_))
       )
+      clientCall(
+        JsPackageService.validateDar,
+        (
+          src,
+          OptionUtil.emptyStringAsNone(request.synchronizerId),
+        ),
+      )
+    }.map(_ => ValidateDarFileResponse())
 
     override def updateVettedPackages(
         request: UpdateVettedPackagesRequest

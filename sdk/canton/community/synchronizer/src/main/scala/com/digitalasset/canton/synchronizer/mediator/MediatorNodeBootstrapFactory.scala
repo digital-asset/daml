@@ -5,8 +5,8 @@ package com.digitalasset.canton.synchronizer.mediator
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.environment.NodeFactoryArguments
-import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.StorageSingleFactory
 import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import org.apache.pekko.actor.ActorSystem
@@ -42,7 +42,12 @@ object CommunityMediatorNodeBootstrapFactory extends MediatorNodeBootstrapFactor
     arguments
       .toCantonNodeBootstrapCommonArguments(
         new StorageSingleFactory(arguments.config.storage),
-        Option.empty[ReplicaManager],
+        new CryptoPrivateStoreFactory(
+          arguments.config.crypto.provider,
+          arguments.config.parameters.caching.kmsMetadataCache,
+          arguments.config.crypto.privateKeyStore,
+          replicaManager = None,
+        ),
       )
       .map { bootstrapArguments =>
         new MediatorNodeBootstrap(

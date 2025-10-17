@@ -16,7 +16,6 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.testtool.infrastructure.{
   Dars,
   LedgerTestSuite,
-  TestConstraints,
   VettingAltDar,
   VettingDepDar,
   VettingMainDar_1_0_0,
@@ -24,7 +23,6 @@ import com.daml.ledger.api.testtool.infrastructure.{
   VettingMainDar_3_0_0_Incompatible,
   VettingMainDar_Split_Lineage_2_0_0,
 }
-import com.daml.ledger.api.v2.admin.package_management_service.UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
 import com.daml.ledger.api.v2.admin.package_management_service.{
   UpdateVettedPackagesForceFlag,
   UpdateVettedPackagesRequest,
@@ -101,50 +99,24 @@ class VettingIT extends LedgerTestSuite {
       response: ListVettedPackagesResponse,
       hasPkgIds: Seq[Ref.PackageId],
       hasNotPkgIds: Seq[Ref.PackageId],
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion =
     inside(response) { case ListVettedPackagesResponse(Seq(vettedPackages), _) =>
-      assertVettedPackagesHasPkgIds(
-        vettedPackages,
-        hasPkgIds,
-        hasNotPkgIds,
-        alternativeSynchronizer = alternativeSynchronizer,
-        alternativeParticipant = alternativeParticipant,
-      )
+      assertVettedPackagesHasPkgIds(vettedPackages, hasPkgIds, hasNotPkgIds)
     }
 
-  private def assertUpdateResponseChangedPkgIds(
-      response: UpdateVettedPackagesResponse,
-      hasPkgIds: Seq[Ref.PackageId] = Seq(),
-      hasNotPkgIds: Seq[Ref.PackageId] = Seq(),
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
-  )(implicit pos: Position): Assertion = {
-    val hadPkgIds = hasNotPkgIds
-    val hadNotPkgIds = hasPkgIds
-    assertVettedPackagesHasPkgIds(
-      response.getPastVettedPackages,
-      hasPkgIds = hadPkgIds,
-      hasNotPkgIds = hadNotPkgIds,
-      alternativeSynchronizer = alternativeSynchronizer,
-      alternativeParticipant = alternativeParticipant,
-    )
-    assertVettedPackagesHasPkgIds(
-      response.getNewVettedPackages,
-      hasPkgIds = hasPkgIds,
-      hasNotPkgIds = hasNotPkgIds,
-      alternativeSynchronizer = alternativeSynchronizer,
-      alternativeParticipant = alternativeParticipant,
-    )
-  }
+  private def assertSomeVettedPackagesHasPkgIds(
+      mbVettedPackages: Option[VettedPackages],
+      hasPkgIds: Seq[Ref.PackageId],
+      hasNotPkgIds: Seq[Ref.PackageId],
+  )(implicit pos: Position): Assertion =
+    inside(mbVettedPackages) { case Some(vettedPackages) =>
+      assertVettedPackagesHasPkgIds(vettedPackages, hasPkgIds, hasNotPkgIds)
+    }
 
   private def assertVettedPackagesHasPkgIds(
       vettedPackages: VettedPackages,
       hasPkgIds: Seq[Ref.PackageId],
       hasNotPkgIds: Seq[Ref.PackageId],
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
   )(implicit pos: Position): Assertion = {
     val allPkgIds = vettedPackages.packages.map(_.packageId)
     forAll(hasPkgIds) { pkgId =>
@@ -153,8 +125,6 @@ class VettingIT extends LedgerTestSuite {
     forAll(hasNotPkgIds) { pkgId =>
       allPkgIds should not contain pkgId
     }
-    vettedPackages.synchronizerId should be(alternativeSynchronizer.getOrElse(synchronizerIdOrFail))
-    vettedPackages.participantId should be(alternativeParticipant.getOrElse(participantIdOrFail))
   }
 
   private def assertListResponseHasPkgIdWithBounds(
@@ -172,55 +142,39 @@ class VettingIT extends LedgerTestSuite {
     }
 
   private def assertResponseHasAllVersions(
-      response: ListVettedPackagesResponse,
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
+      response: ListVettedPackagesResponse
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2, vettingMainPkgIdV1),
       hasNotPkgIds = Seq(vettingAltPkgId),
-      alternativeSynchronizer = alternativeSynchronizer,
-      alternativeParticipant = alternativeParticipant,
     )
 
   private def assertResponseHasV2(
-      response: ListVettedPackagesResponse,
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
+      response: ListVettedPackagesResponse
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2),
       hasNotPkgIds = Seq(vettingAltPkgId, vettingMainPkgIdV1),
-      alternativeSynchronizer = alternativeSynchronizer,
-      alternativeParticipant = alternativeParticipant,
     )
 
   private def assertResponseHasDep(
-      response: ListVettedPackagesResponse,
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
+      response: ListVettedPackagesResponse
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(vettingDepPkgId),
       hasNotPkgIds = Seq(vettingMainPkgIdV2, vettingAltPkgId),
-      alternativeSynchronizer = alternativeSynchronizer,
-      alternativeParticipant = alternativeParticipant,
     )
 
   private def assertResponseHasNothing(
-      response: ListVettedPackagesResponse,
-      alternativeSynchronizer: Option[String] = None,
-      alternativeParticipant: Option[String] = None,
+      response: ListVettedPackagesResponse
   )(implicit pos: Position): Assertion =
     assertListResponseHasPkgIds(
       response = response,
       hasPkgIds = Seq(),
       hasNotPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV1, vettingMainPkgIdV2, vettingAltPkgId),
-      alternativeSynchronizer = alternativeSynchronizer,
-      alternativeParticipant = alternativeParticipant,
     )
 
   private def listAllRequest: ListVettedPackagesRequest =
@@ -273,8 +227,8 @@ class VettingIT extends LedgerTestSuite {
       dryRun: Boolean = false,
       alternativeSynchronizer: Option[String] = None,
       expectedTopologySerial: Option[PriorTopologySerial] = None,
-      allowUnvetWithActiveContracts: Boolean = false,
       allowVetIncompatibleUpgrades: Boolean = false,
+      allowUnvettedDependencies: Boolean = false,
   ): UpdateVettedPackagesRequest =
     UpdateVettedPackagesRequest(
       operations.map(VettedPackagesChange(_)),
@@ -282,11 +236,10 @@ class VettingIT extends LedgerTestSuite {
       alternativeSynchronizer.getOrElse(synchronizerIdOrFail),
       expectedTopologySerial,
       Seq(
-        UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS
-      )
-        .filter(_ => allowUnvetWithActiveContracts) ++ Seq(
-        UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
-      ).filter(_ => allowVetIncompatibleUpgrades),
+        UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
+      ).filter(_ => allowVetIncompatibleUpgrades) ++ Seq(
+        UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
+      ).filter(_ => allowUnvettedDependencies),
     )
 
   private def changeOpRequest(
@@ -301,6 +254,7 @@ class VettingIT extends LedgerTestSuite {
       alternativeSynchronizer: Option[String] = None,
       expectedTopologySerial: Option[PriorTopologySerial] = None,
       allowVetIncompatibleUpgrades: Boolean = false,
+      allowUnvettedDependencies: Boolean = false,
   ): UpdateVettedPackagesRequest =
     changeOpsRequest(
       operations =
@@ -309,6 +263,7 @@ class VettingIT extends LedgerTestSuite {
       alternativeSynchronizer = alternativeSynchronizer,
       expectedTopologySerial = expectedTopologySerial,
       allowVetIncompatibleUpgrades = allowVetIncompatibleUpgrades,
+      allowUnvettedDependencies = allowUnvettedDependencies,
     )
 
   private def vetPkgsMatchingRef(
@@ -316,7 +271,9 @@ class VettingIT extends LedgerTestSuite {
       ref: VettedPackagesRef,
       newValidFromInclusive: Option[Timestamp] = None,
       newValidUntilExclusive: Option[Timestamp] = None,
-  ): Future[UpdateVettedPackagesResponse] =
+  )(implicit
+      ec: ExecutionContext
+  ): Future[Unit] =
     participant
       .updateVettedPackages(
         changeOpRequest(
@@ -327,6 +284,7 @@ class VettingIT extends LedgerTestSuite {
           )
         )
       )
+      .map(_ => ())
 
   private def allPackageIds(darName: String): Seq[String] =
     DarDecoder
@@ -372,7 +330,6 @@ class VettingIT extends LedgerTestSuite {
       dryRun: Boolean,
       alternativeSynchronizer: Option[String],
       expectedTopologySerial: Option[PriorTopologySerial],
-      unvetWithActiveContracts: Boolean,
   ): Future[UpdateVettedPackagesResponse] = {
     val mainPackageIds = darNames.map(mainPackageId(_))
 
@@ -387,7 +344,6 @@ class VettingIT extends LedgerTestSuite {
           dryRun = dryRun,
           alternativeSynchronizer = alternativeSynchronizer,
           expectedTopologySerial = expectedTopologySerial,
-          allowUnvetWithActiveContracts = unvetWithActiveContracts,
         )
       )
   }
@@ -396,7 +352,6 @@ class VettingIT extends LedgerTestSuite {
       ledger: ParticipantTestContext,
       darNames: Seq[String],
       alternativeSynchronizer: Option[String] = None,
-      unvetWithActiveContracts: Boolean = false,
   ): Future[UpdateVettedPackagesResponse] =
     opDARMains(
       refsToUnvetOp,
@@ -405,7 +360,6 @@ class VettingIT extends LedgerTestSuite {
       dryRun = false,
       alternativeSynchronizer = alternativeSynchronizer,
       expectedTopologySerial = None,
-      unvetWithActiveContracts = unvetWithActiveContracts,
     )
 
   private def vetDARMains(
@@ -422,7 +376,6 @@ class VettingIT extends LedgerTestSuite {
       dryRun,
       alternativeSynchronizer,
       expectedTopologySerial,
-      unvetWithActiveContracts = false,
     )
 
   private def unvetAllDARMains(
@@ -602,15 +555,11 @@ class VettingIT extends LedgerTestSuite {
     implicit ec =>
       (participant: ParticipantTestContext) =>
         for {
-          vetDep <- vetAllInDar(participant, VettingDepDar.path)
-          vetMain <- vetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
+          _ <- vetAllInDar(participant, VettingDepDar.path)
+          _ <- vetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
 
           allResponse <- participant.listVettedPackages(listAllRequest)
-        } yield {
-          assertResponseHasV2(allResponse)
-          assertUpdateResponseChangedPkgIds(vetDep, hasPkgIds = Seq(vettingDepPkgId))
-          assertUpdateResponseChangedPkgIds(vetMain, hasPkgIds = Seq(vettingMainPkgIdV2))
-        },
+        } yield assertResponseHasV2(allResponse),
   )
 
   updateTest(
@@ -620,13 +569,10 @@ class VettingIT extends LedgerTestSuite {
       (participant: ParticipantTestContext) =>
         for {
           _ <- vetAllInDar(participant, VettingMainDar_2_0_0.path)
-          unvetMain <- unvetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
+          _ <- unvetDARMains(participant, Seq(VettingMainDar_2_0_0.path))
 
           unvetTestAllResponse <- participant.listVettedPackages(listAllRequest)
-        } yield {
-          assertResponseHasDep(unvetTestAllResponse)
-          assertUpdateResponseChangedPkgIds(unvetMain, hasNotPkgIds = Seq(vettingMainPkgIdV2))
-        },
+        } yield assertResponseHasDep(unvetTestAllResponse),
   )
 
   updateTest(
@@ -635,18 +581,12 @@ class VettingIT extends LedgerTestSuite {
     implicit ec =>
       (participant: ParticipantTestContext) =>
         for {
-          vetBoth <- participant.updateVettedPackages(
+          _ <- participant.updateVettedPackages(
             vetPkgIdsRequest(Seq(vettingMainPkgIdV2, vettingDepPkgId))
           )
 
           vetMainAndDepResponse <- participant.listVettedPackages(listAllRequest)
-        } yield {
-          assertResponseHasV2(vetMainAndDepResponse)
-          assertUpdateResponseChangedPkgIds(
-            vetBoth,
-            hasPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2),
-          )
-        },
+        } yield assertResponseHasV2(vetMainAndDepResponse),
   )
 
   updateTest(
@@ -686,15 +626,12 @@ class VettingIT extends LedgerTestSuite {
       (participant: ParticipantTestContext) =>
         for {
           _ <- vetAllInDar(participant, VettingDepDar.path)
-          vetMain <- vetPkgsMatchingRef(
+          _ <- vetPkgsMatchingRef(
             participant,
             VettedPackagesRef("", vettingMainName, ("2.0.0")),
           )
           vetOnlyV2ByNameAndVersionResponse <- participant.listVettedPackages(listAllRequest)
-        } yield {
-          assertResponseHasV2(vetOnlyV2ByNameAndVersionResponse)
-          assertUpdateResponseChangedPkgIds(vetMain, hasPkgIds = Seq(vettingMainPkgIdV2))
-        },
+        } yield assertResponseHasV2(vetOnlyV2ByNameAndVersionResponse),
   )
 
   updateTest(
@@ -721,7 +658,7 @@ class VettingIT extends LedgerTestSuite {
       (participant: ParticipantTestContext) =>
         for {
           _ <- vetAllInDar(participant, VettingDepDar.path)
-          vetMain <- vetPkgsMatchingRef(
+          _ <- vetPkgsMatchingRef(
             participant,
             VettedPackagesRef(
               vettingMainPkgIdV2,
@@ -730,10 +667,7 @@ class VettingIT extends LedgerTestSuite {
             ),
           )
           vetOnlyV2ByAllResponse <- participant.listVettedPackages(listAllRequest)
-        } yield {
-          assertResponseHasV2(vetOnlyV2ByAllResponse)
-          assertUpdateResponseChangedPkgIds(vetMain, hasPkgIds = Seq(vettingMainPkgIdV2))
-        },
+        } yield assertResponseHasV2(vetOnlyV2ByAllResponse),
   )
 
   updateTest(
@@ -904,14 +838,14 @@ class VettingIT extends LedgerTestSuite {
       listAllResponse <- participant.listVettedPackages(listAllRequest)
       _ <- unvetAllDARMains(participant)
     } yield {
-      assertVettedPackagesHasPkgIds(
-        vettedPackages = dryRunUpdateResponse.getPastVettedPackages,
+      assertSomeVettedPackagesHasPkgIds(
+        mbVettedPackages = dryRunUpdateResponse.pastVettedPackages,
         hasPkgIds = Seq(),
         hasNotPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2, vettingAltPkgId),
       )
 
-      assertVettedPackagesHasPkgIds(
-        vettedPackages = dryRunUpdateResponse.getNewVettedPackages,
+      assertSomeVettedPackagesHasPkgIds(
+        mbVettedPackages = dryRunUpdateResponse.newVettedPackages,
         hasPkgIds = Seq(vettingAltPkgId),
         hasNotPkgIds = Seq(vettingDepPkgId, vettingMainPkgIdV2),
       )
@@ -990,141 +924,10 @@ class VettingIT extends LedgerTestSuite {
   })
 
   test(
-    "PVCheckUpgradeInvariants",
-    "Upgrade invariants are checked, including during dry run",
-    allocate(NoParties),
-    runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(participant, _)) =>
-    for {
-      _ <- setNodeIds(participant)
-      _ <- participant.uploadDarFile(
-        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
-      )
-      _ <- participant.uploadDarFile(
-        uploadDarFileDontVetRequest(VettingMainDar_Split_Lineage_2_0_0.path)
-      )
-      _ <- participant.uploadDarFile(
-        uploadDarFileDontVetRequest(VettingMainDar_3_0_0_Incompatible.path)
-      )
-
-      // Dry-run vetting without dependencies (should fail)
-      _ <- participant
-        .updateVettedPackages(vetPkgIdsRequest(pkgIds = Seq(vettingMainPkgIdV2), dryRun = true))
-        .mustFailWith(
-          "Vetting a package without its dependencies in a dry run should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
-          ParticipantTopologyManagerError.DependenciesNotVetted,
-        )
-
-      // Vet without dependencies (should fail)
-      _ <- participant
-        .updateVettedPackages(
-          vetPkgIdsRequest(Seq(vettingMainPkgIdV2))
-        )
-        .mustFailWith(
-          "Vetting a package without its dependencies should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
-          ParticipantTopologyManagerError.DependenciesNotVetted,
-        )
-
-      _ <- vetAllInDar(participant, VettingDepDar.path)
-
-      // Vet two packages with the same version (should fail)
-      _ <- participant
-        .updateVettedPackages(
-          vetPkgIdsRequest(Seq(vettingMainPkgIdV2, vettingMainPkgIdV2SplitLineage))
-        )
-        .mustFailWith(
-          "Update should fail to vet package with same name and version with KNOWN_PACKAGE_VERSION error",
-          ParticipantTopologyManagerError.UpgradeVersion,
-        )
-
-      // Vet a package while unvetting its dependencies (should fail)
-      _ <- participant
-        .updateVettedPackages(
-          changeOpsRequest(
-            Seq(
-              refsToVetOp(
-                Seq(VettedPackagesRef(vettingMainPkgIdV2, "", ""))
-              ),
-              refsToUnvetOp(
-                Seq(VettedPackagesRef(vettingDepPkgId, "", ""))
-              ),
-            )
-          )
-        )
-        .mustFailWith(
-          "Vetting a package while unvetting its dependencies should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
-          ParticipantTopologyManagerError.DependenciesNotVetted,
-        )
-
-      // Vetting an upgrade incompatible package without the force flag should fail
-      _ <- participant
-        .updateVettedPackages(
-          vetPkgIdsRequest(
-            Seq(vettingMainPkgIdV2, vettingMainPkgIdV3UpgradeIncompatible)
-          )
-        )
-        .mustFailWith(
-          "Vetting an upgrade-incompatible package without the force flag should give NOT_VALID_UPGRADE_PACKAGE error",
-          ParticipantTopologyManagerError.Upgradeability,
-        )
-
-      _ <- unvetAllDARMains(participant)
-    } yield ()
-  })
-
-  test(
-    "PVSkipCheckUpgradeInvariantsWithForceFlag",
-    """Upgrade invariants are not checked when UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES is set,
-      |including during dry run""".stripMargin,
-    allocate(NoParties),
-    runConcurrently = false,
-  )(implicit ec => { case Participants(Participant(participant, _)) =>
-    for {
-      _ <- setNodeIds(participant)
-      _ <- participant.uploadDarFile(
-        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
-      )
-      _ <- participant.uploadDarFile(
-        uploadDarFileDontVetRequest(VettingMainDar_3_0_0_Incompatible.path)
-      )
-      _ <- participant.uploadDarFile(
-        uploadDarFileDontVetRequest(VettingMainDar_Split_Lineage_2_0_0.path)
-      )
-
-      _ <- vetAllInDar(participant, VettingDepDar.path)
-
-      // Vet two upgrade-incompatible packages with the force flag (should succeed)
-      upgradeIncompatibleVet = vetPkgIdsRequest(
-        Seq(vettingMainPkgIdV2, vettingMainPkgIdV3UpgradeIncompatible),
-        allowVetIncompatibleUpgrades = true,
-      )
-
-      // Dry-run
-      _ <- participant.updateVettedPackages(upgradeIncompatibleVet.copy(dryRun = true))
-      // Vet
-      _ <- participant.updateVettedPackages(upgradeIncompatibleVet)
-
-      // Vet two packages with the same version with the force flag (should succeed)
-      sameVersionVet = vetPkgIdsRequest(
-        Seq(vettingMainPkgIdV2, vettingMainPkgIdV2SplitLineage),
-        allowVetIncompatibleUpgrades = true,
-      )
-
-      // Dry-run
-      _ <- participant.updateVettedPackages(sameVersionVet.copy(dryRun = true))
-      // Vet
-      _ <- participant.updateVettedPackages(sameVersionVet)
-
-      _ <- unvetAllDARMains(participant)
-    } yield ()
-  })
-
-  test(
     "PVValidateDarCheckUpgradeInvariants",
     "Upgrade invariants are checked, including during validate dar request",
     allocate(NoParties),
     runConcurrently = false,
-    limitation = TestConstraints.GrpcOnly(reason = "ValidateDarFile is not available in JSON API"),
   )(implicit ec => { case Participants(Participant(participant, _)) =>
     for {
       _ <- setNodeIds(participant)
@@ -1136,6 +939,7 @@ class VettingIT extends LedgerTestSuite {
           synchronizerIdOrFail,
         )
       )
+
       _ <- participant
         .validateDarFile(
           ValidateDarFileRequest(
@@ -1148,6 +952,201 @@ class VettingIT extends LedgerTestSuite {
           "Update should fail to vet package with same name and version with KNOWN_PACKAGE_VERSION error",
           ParticipantTopologyManagerError.UpgradeVersion,
         )
+
+      _ <- participant
+        .validateDarFile(
+          ValidateDarFileRequest(
+            Dars.read(VettingMainDar_3_0_0_Incompatible.path),
+            "",
+            synchronizerId = synchronizerIdOrFail,
+          )
+        )
+        .mustFailWith(
+          "Validating an upgrade-incompatible package should yield NOT_VALID_UPGRADE_PACKAGE error",
+          ParticipantTopologyManagerError.Upgradeability,
+        )
+
+      _ <- unvetAllDARMains(participant)
+    } yield ()
+  })
+
+  test(
+    "PVCheckUnvettedPackagesExceptWithForceFlag",
+    """Unvetted packages are checked, including during dry run, except when UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES is set.""",
+    allocate(NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant, _)) =>
+    for {
+      _ <- setNodeIds(participant)
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingDepDar.path)
+      )
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
+      )
+
+      vetMainWithoutDepRequest = vetPkgIdsRequest(Seq(vettingMainPkgIdV2))
+      forceFlags = Seq(
+        UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
+      )
+
+      // Dry-run vetting without dependencies (should fail)
+      _ <- participant
+        .updateVettedPackages(vetMainWithoutDepRequest.copy(dryRun = true))
+        .mustFailWith(
+          "Vetting a package without its dependencies in a dry run should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
+          ParticipantTopologyManagerError.DependenciesNotVetted,
+        )
+
+      // Vet without dependencies (should fail)
+      _ <- participant
+        .updateVettedPackages(vetMainWithoutDepRequest)
+        .mustFailWith(
+          "Vetting a package without its dependencies should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
+          ParticipantTopologyManagerError.DependenciesNotVetted,
+        )
+
+      // Dry-run vetting without dependencies with force flag (should succeed)
+      _ <- participant.updateVettedPackages(
+        vetMainWithoutDepRequest.copy(dryRun = true, updateVettedPackagesForceFlags = forceFlags)
+      )
+
+      // Vet without dependencies with force flag (should succeed)
+      _ <- participant.updateVettedPackages(
+        vetMainWithoutDepRequest.copy(updateVettedPackagesForceFlags = forceFlags)
+      )
+
+      _ <- unvetAllDARMains(participant)
+      _ <- vetAllInDar(participant, VettingDepDar.path)
+
+      vetMainWhileUnvettingDepOps =
+        Seq(
+          refsToVetOp(
+            Seq(VettedPackagesRef(vettingMainPkgIdV2, "", ""))
+          ),
+          refsToUnvetOp(
+            Seq(VettedPackagesRef(vettingDepPkgId, "", ""))
+          ),
+        )
+
+      // Dry run vet a package while unvetting its dependencies (should fail)
+      _ <- participant
+        .updateVettedPackages(changeOpsRequest(vetMainWhileUnvettingDepOps))
+        .mustFailWith(
+          "Vetting a package while unvetting its dependencies should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
+          ParticipantTopologyManagerError.DependenciesNotVetted,
+        )
+
+      // Vet a package while unvetting its dependencies (should fail)
+      _ <- participant
+        .updateVettedPackages(changeOpsRequest(vetMainWhileUnvettingDepOps))
+        .mustFailWith(
+          "Vetting a package while unvetting its dependencies should give TOPOLOGY_DEPENDENCIES_NOT_VETTED",
+          ParticipantTopologyManagerError.DependenciesNotVetted,
+        )
+
+      // Vet a package while unvetting its dependencies, dry run, with force flag (should succeed)
+      _ <- participant
+        .updateVettedPackages(
+          changeOpsRequest(
+            vetMainWhileUnvettingDepOps,
+            dryRun = true,
+            allowUnvettedDependencies = true,
+          )
+        )
+
+      // Vet a package while unvetting its dependencies, with force flag (should succeed)
+      _ <- participant
+        .updateVettedPackages(
+          changeOpsRequest(vetMainWhileUnvettingDepOps, allowUnvettedDependencies = true)
+        )
+
+      _ <- unvetAllDARMains(participant)
+    } yield ()
+  })
+
+  test(
+    "PVCheckUpgradeInvariantsExceptWithForceFlag",
+    """Upgrade invariants are checked, including dry run, except when UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES is set.""",
+    allocate(NoParties),
+    runConcurrently = false,
+  )(implicit ec => { case Participants(Participant(participant, _)) =>
+    for {
+      _ <- setNodeIds(participant)
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_2_0_0.path)
+      )
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_3_0_0_Incompatible.path)
+      )
+      _ <- participant.uploadDarFile(
+        uploadDarFileDontVetRequest(VettingMainDar_Split_Lineage_2_0_0.path)
+      )
+
+      _ <- vetAllInDar(participant, VettingDepDar.path)
+
+      // Vet two upgrade-incompatible packages
+      upgradeIncompatibleVet = vetPkgIdsRequest(
+        Seq(vettingMainPkgIdV2, vettingMainPkgIdV3UpgradeIncompatible)
+      )
+      forceFlags = Seq(
+        UpdateVettedPackagesForceFlag.UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
+      )
+
+      // Dry run, without the force flag (should fail)
+      _ <- participant
+        .updateVettedPackages(upgradeIncompatibleVet.copy(dryRun = true))
+        .mustFailWith(
+          "Vetting an upgrade-incompatible package without the force flag should give NOT_VALID_UPGRADE_PACKAGE error",
+          ParticipantTopologyManagerError.Upgradeability,
+        )
+
+      // Vet, without the force flag (should fail)
+      _ <- participant
+        .updateVettedPackages(upgradeIncompatibleVet)
+        .mustFailWith(
+          "Vetting an upgrade-incompatible package without the force flag should give NOT_VALID_UPGRADE_PACKAGE error",
+          ParticipantTopologyManagerError.Upgradeability,
+        )
+
+      // Dry-run, with force flag (should succeed)
+      _ <- participant.updateVettedPackages(
+        upgradeIncompatibleVet.copy(updateVettedPackagesForceFlags = forceFlags, dryRun = true)
+      )
+
+      // Vet, with force flag (should succeed)
+      _ <- participant.updateVettedPackages(
+        upgradeIncompatibleVet.copy(updateVettedPackagesForceFlags = forceFlags)
+      )
+
+      // Vet two packages with the same version
+      sameVersionVet = vetPkgIdsRequest(Seq(vettingMainPkgIdV2, vettingMainPkgIdV2SplitLineage))
+
+      // Dry run without force flag (should fail)
+      _ <- participant
+        .updateVettedPackages(sameVersionVet.copy(dryRun = true))
+        .mustFailWith(
+          "Update should fail to vet package with same name and version with KNOWN_PACKAGE_VERSION error",
+          ParticipantTopologyManagerError.UpgradeVersion,
+        )
+
+      // Vet without force flag (should fail)
+      _ <- participant
+        .updateVettedPackages(sameVersionVet)
+        .mustFailWith(
+          "Update should fail to vet package with same name and version with KNOWN_PACKAGE_VERSION error",
+          ParticipantTopologyManagerError.UpgradeVersion,
+        )
+
+      // Dry-run with force flag (should succeed)
+      _ <- participant.updateVettedPackages(
+        sameVersionVet.copy(updateVettedPackagesForceFlags = forceFlags, dryRun = true)
+      )
+
+      // Vet with force flag (should succeed)
+      _ <- participant.updateVettedPackages(
+        sameVersionVet.copy(updateVettedPackagesForceFlags = forceFlags)
+      )
 
       _ <- unvetAllDARMains(participant)
     } yield ()
@@ -1585,32 +1584,8 @@ class VettingIT extends LedgerTestSuite {
   )(implicit ec => {
     case Participants(Participant(participant1, _), Participant(participant2, _)) =>
       for {
-        participant1Id <- participant1.getParticipantId()
-        participant2Id <- participant2.getParticipantId()
         sync1 <- getSynchronizerId(participant1, syncIndex = 1)
         sync2 <- getSynchronizerId(participant1, syncIndex = 2)
-
-        // Previous test runs might mean other participant/synchronizer pairs
-        // will be left over in vetting states. This filters to just pairs from
-        // the changes that we've made, and asserts that they've vetted
-        // vetting-main 2.0.0
-        allPairsVetMain = { (results: Seq[VettedPackages]) =>
-          val filtered = results.filter { result =>
-            val hasSync = Seq(sync1, sync2).contains(result.synchronizerId)
-            val hasParticipant = Seq(participant1Id, participant2Id).contains(result.participantId)
-            hasSync && hasParticipant
-          }
-          filtered should have length 4
-          forAll(filtered) { result =>
-            assertVettedPackagesHasPkgIds(
-              result,
-              hasPkgIds = Seq(vettingMainPkgIdV2),
-              hasNotPkgIds = Seq(),
-              alternativeSynchronizer = Some(result.synchronizerId),
-              alternativeParticipant = Some(result.participantId),
-            )
-          }
-        }
 
         _ <- participant1.uploadDarFile(
           UploadDarFileRequest(
@@ -1637,7 +1612,7 @@ class VettingIT extends LedgerTestSuite {
         // Requesting page of size 0 means requesting server's default page
         // size, which is at least 4
         requestZero <- participant1.listVettedPackages(requestAllPaged(size = 0))
-        _ = allPairsVetMain(requestZero.vettedPackages)
+        _ = requestZero.vettedPackages.length should be >= 4
         _ = vettedPackagesAreSorted(requestZero.vettedPackages)
 
         // Requesting page of size 1 gets one result
@@ -1660,10 +1635,9 @@ class VettingIT extends LedgerTestSuite {
         _ = requestRemainder.vettedPackages.length should be < maxPageSize
 
         // All chained requests should be sorted
-        chainedRequests =
+        _ = vettedPackagesAreSorted(
           requestOne.vettedPackages ++ requestAnotherOne.vettedPackages ++ requestRemainder.vettedPackages
-        _ = allPairsVetMain(chainedRequests)
-        _ = vettedPackagesAreSorted(chainedRequests)
+        )
 
         // Requesting page of size below 0 results in an error
         _ <- participant1
@@ -1861,7 +1835,6 @@ class VettingIT extends LedgerTestSuite {
       unvetMain <- unvetDARMains(
         participant,
         Seq(VettingMainDar_1_0_0.path),
-        unvetWithActiveContracts = true,
       )
 
       _ <- unvetAllDARMains(participant)

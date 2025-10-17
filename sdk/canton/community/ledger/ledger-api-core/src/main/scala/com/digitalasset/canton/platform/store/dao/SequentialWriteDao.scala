@@ -70,6 +70,12 @@ object SequentialWriteDao {
       )
     }
 
+  val noop: SequentialWriteDao = NoopSequentialWriteDao
+}
+
+private[dao] object NoopSequentialWriteDao extends SequentialWriteDao {
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
+    throw new UnsupportedOperationException
 }
 
 private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](

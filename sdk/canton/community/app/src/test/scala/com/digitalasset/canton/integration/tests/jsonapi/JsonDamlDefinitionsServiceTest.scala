@@ -60,65 +60,64 @@ class JsonDamlDefinitionsServiceTest
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
 
   "Daml definitions service" should {
-    // TODO(#21695): Test only used to generate golden files.
-    //               Ignore once stable
-    "output the definitions of the reference DAR" in httpTestFixture { fixture =>
-      val darContent: ByteString =
-        protobuf.ByteString.copyFrom(Files.readAllBytes(File(ReferenceTestDar).path))
+    "output the definitions of the reference DAR" onlyRunWithOrGreaterThan (ProtocolVersion.dev) in httpTestFixture {
+      fixture =>
+        val darContent: ByteString =
+          protobuf.ByteString.copyFrom(Files.readAllBytes(File(ReferenceTestDar).path))
 
-      fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
-        for {
-          _ <- fixture
-            .postBinaryContent(Uri.Path("/v2/packages"), darContent, headers)
-            .map { case (status, _) => status should be(StatusCodes.OK) }
+        fixture.getUniquePartyAndAuthHeaders("Alice").flatMap { case (_, headers) =>
+          for {
+            _ <- fixture
+              .postBinaryContent(Uri.Path("/v2/packages"), darContent, headers)
+              .map { case (status, _) => status should be(StatusCodes.OK) }
 
-          selectedPackagesIds <- findTestPackages(fixture, headers)
-          _ = selectedPackagesIds.foreach { packageId =>
-            File(s"$RootTestResources/$packageId")
-              .createDirectoryIfNotExists(createParents = true)
-              .discard
-            fixture
-              .getRequestString(Uri.Path(s"/v2/definitions/packages/$packageId"), headers)
-              .map { case (code, packageSigResult) =>
-                code should be(StatusCodes.OK)
-                val prettyResult = packageSigResult.parseJson.sortedPrint
-                File(s"$RootTestResources/$packageId/package-signature.json")
-                  .createFileIfNotExists()
-                  .overwrite(prettyResult)
-                  .discard
-              }
-              .futureValue
-          }
+            selectedPackagesIds <- findTestPackages(fixture, headers)
+            _ = selectedPackagesIds.foreach { packageId =>
+              File(s"$RootTestResources/$packageId")
+                .createDirectoryIfNotExists(createParents = true)
+                .discard
+              fixture
+                .getRequestString(Uri.Path(s"/v2/definitions/packages/$packageId"), headers)
+                .map { case (code, packageSigResult) =>
+                  code should be(StatusCodes.OK)
+                  val prettyResult = packageSigResult.parseJson.sortedPrint
+                  File(s"$RootTestResources/$packageId/package-signature.json")
+                    .createFileIfNotExists()
+                    .overwrite(prettyResult)
+                    .discard
+                }
+                .futureValue
+            }
 
-          templateIds <- fixture
-            .getRequestString(Uri.Path("/v2/definitions/templates"), headers)
-            .map(_._2)
-            .map(
-              decode[AllTemplatesResponse](_)
-                .getOrElse(fail("unexpectedly failed"))
-                .templates
-                .filter(templateId => selectedPackagesIds.contains(templateId.packageId))
-            )
+            templateIds <- fixture
+              .getRequestString(Uri.Path("/v2/definitions/templates"), headers)
+              .map(_._2)
+              .map(
+                decode[AllTemplatesResponse](_)
+                  .getOrElse(fail("unexpectedly failed"))
+                  .templates
+                  .filter(templateId => selectedPackagesIds.contains(templateId.packageId))
+              )
 
-          _ = templateIds.foreach { templateId =>
-            fixture
-              .getRequestString(Uri.Path(s"/v2/definitions/templates/$templateId"), headers)
-              .map { case (code, templateDefResult) =>
-                code should be(StatusCodes.OK)
-                val packageId = templateId.packageId
+            _ = templateIds.foreach { templateId =>
+              fixture
+                .getRequestString(Uri.Path(s"/v2/definitions/templates/$templateId"), headers)
+                .map { case (code, templateDefResult) =>
+                  code should be(StatusCodes.OK)
+                  val packageId = templateId.packageId
 
-                val templateIdPath =
-                  s"$RootTestResources/$packageId/${windowsSafeTemplateId(templateId.toString())}.json"
-                val prettyResult = templateDefResult.parseJson.sortedPrint
-                File(templateIdPath)
-                  .createFileIfNotExists()
-                  .overwrite(prettyResult)
-                  .discard
-              }
-              .futureValue
-          }
-        } yield ()
-      }
+                  val templateIdPath =
+                    s"$RootTestResources/$packageId/${windowsSafeTemplateId(templateId.toString())}.json"
+                  val prettyResult = templateDefResult.parseJson.sortedPrint
+                  File(templateIdPath)
+                    .createFileIfNotExists()
+                    .overwrite(prettyResult)
+                    .discard
+                }
+                .futureValue
+            }
+          } yield ()
+        }
     }
 
     // TODO(#27652): re-enable after using DARs generated with SBT or non-dev dars

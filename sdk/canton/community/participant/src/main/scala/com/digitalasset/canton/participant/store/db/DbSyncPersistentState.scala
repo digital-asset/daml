@@ -208,8 +208,6 @@ class DbPhysicalSyncPersistentState(
         nextPackageIds,
         packageMetadataView,
         dryRunSnapshot,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,
         parameters.disableUpgradeValidation,
       )

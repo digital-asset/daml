@@ -500,12 +500,8 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         // because it can't decrypt the confirmation request.
         loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
           {
-            clue(
-              "advancing clock and checking that participant1 is connected to the synchronizer"
-            ) {
-              env.environment.simClock.foreach(_.advance(java.time.Duration.ofSeconds(5)))
-              participant1.synchronizers.list_connected() should not be empty
-            }
+            env.environment.simClock.foreach(_.advance(java.time.Duration.ofSeconds(5)))
+            participant1.synchronizers.list_connected() should not be empty
 
             clue("pinging to halt") {
               pokeAndAdvance(Future {
@@ -517,24 +513,16 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             // because the poisonous event was the last event received.
             // The participant will only disconnect from a synchronizer if (1) the application handler has thrown an exception
             // and (2) another event arrives to the SequencerClient.
-            clue("disconnecting participant1 from synchronizer") {
-              Try(participant1.synchronizers.disconnect(daName))
-            }
+            Try(participant1.synchronizers.disconnect(daName))
             // Restart participant to clean up CantonSyncService
-            clue("stopping participant1") {
-              Try(participant1.stop())
-            }
-            clue("starting participant1") {
-              participant1.start()
-            }
-            clue("checking that participant1 is NOT connected to the synchronizer") {
-              participant1.synchronizers.list_connected() shouldBe empty
-            }
+            Try(participant1.stop())
+            participant1.start()
+            participant1.synchronizers.list_connected() shouldBe empty
           },
           forAtLeast(1, _) {
             _.toString should include("Can't decrypt the randomness of the view")
           },
-          timeUntilSuccess = 45.seconds,
+          timeUntilSuccess = 30.seconds,
           maxPollInterval = 3.second,
         )
       }

@@ -435,10 +435,11 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
   private def sessionSigningKeysOnlyWithKms(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    val errors = config.allNodes.toSeq.mapFilter { case (_, nodeConfig) =>
+    val nonStandardConfig = config.parameters.nonStandardConfig
+    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
       val cryptoConfig = nodeConfig.crypto
       cryptoConfig.kms match {
-        case Some(kmsConfig) =>
+        case Some(kmsConfig) if kmsConfig.sessionSigningKeys.enabled && nonStandardConfig =>
           val sessionSigningKeysConfig = kmsConfig.sessionSigningKeys
           cryptoConfig.provider match {
             case CryptoProvider.Kms =>
@@ -465,10 +466,15 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
               else None
             case _ => None
           }
-        case None => None
+        // TODO(#27529): Enable without nonStandardConfig after the topology snapshot problem has been fixed
+        case Some(kmsConfig) if kmsConfig.sessionSigningKeys.enabled && !nonStandardConfig =>
+          Some(
+            s"Enabling session signing keys for ${nodeConfig.nodeTypeName} ${name.unwrap} is NOT " +
+              s"recommended and requires you to explicitly set canton.parameters.non-standard-config = yes"
+          )
+        case _ => None
       }
     }
-
     toValidated(errors)
   }
 

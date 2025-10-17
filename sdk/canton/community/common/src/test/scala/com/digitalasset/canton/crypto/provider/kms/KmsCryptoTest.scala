@@ -16,8 +16,8 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.Kms
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import monocle.macros.syntax.lens.*
@@ -69,11 +69,15 @@ trait KmsCryptoTest
     Crypto
       .create(
         config,
-        CachingConfigs.defaultKmsMetadataCache,
         CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
         CachingConfigs.defaultPublicKeyConversionCache,
         new MemoryStorage(loggerFactory, timeouts),
-        Option.empty[ReplicaManager],
+        new CryptoPrivateStoreFactory(
+          CryptoProvider.Kms,
+          CachingConfigs.kmsMetadataCache,
+          config.privateKeyStore,
+          replicaManager = None,
+        ),
         testedReleaseProtocolVersion,
         futureSupervisor,
         wallClock,
