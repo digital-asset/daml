@@ -174,14 +174,18 @@ class ContractValidatorTest
     }
 
     "using a changed package-name" should {
-      "fail authentication" ignore {
+      "fail authentication" in {
+        val expected = "definitely-changed-package-name"
         val invalid: FatContractInstance = ExampleContractFactory
           .modify[CreatedAt](
             contractInstance,
-            packageName = Some(LfPackageName.assertFromString("definitely-changed-package-name")),
+            packageName = Some(LfPackageName.assertFromString(expected)),
           )
           .inst
-        assertAuthenticationError(invalid)
+        assertErrorRegex(
+          invalid,
+          s"ValidationFailed.*${invalid.contractId.coid}.*package name mismatch.*$expected",
+        )
       }
     }
 

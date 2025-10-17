@@ -13,7 +13,7 @@ import com.daml.jwt.{
 }
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 /** some helpers in other to use with ad-hoc JWT authentication */
 object JwtTokenUtilities {
@@ -21,7 +21,7 @@ object JwtTokenUtilities {
   def buildUnsafeToken(
       secret: String,
       userId: Option[String] = None,
-      exp: Option[Instant] = None,
+      exp: Option[Instant] = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
       scope: Option[String] = None,
   ): String = {
     val payload = StandardJWTPayload(

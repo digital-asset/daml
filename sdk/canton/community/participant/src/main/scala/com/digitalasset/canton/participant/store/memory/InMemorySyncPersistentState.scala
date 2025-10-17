@@ -145,8 +145,6 @@ class InMemoryPhysicalSyncPersistentState(
         nextPackageIds,
         packageMetadataView,
         dryRunSnapshot,
-        acsInspections =
-          () => Map(logicalSyncPersistentState.lsid -> logicalSyncPersistentState.acsInspection),
         forceFlags,
         disableUpgradeValidation = parameters.disableUpgradeValidation,
       )

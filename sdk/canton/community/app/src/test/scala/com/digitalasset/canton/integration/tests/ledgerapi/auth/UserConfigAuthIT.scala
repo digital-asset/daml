@@ -83,7 +83,7 @@ class UserConfigAuthIT
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(defaultScope),
@@ -93,7 +93,7 @@ class UserConfigAuthIT
     issuer = None,
     participantId = None,
     userId = configuredUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -103,7 +103,7 @@ class UserConfigAuthIT
     issuer = None,
     participantId = None,
     userId = otherUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -254,6 +254,8 @@ class UserConfigAuthIT
                 ),
             )
           )
+          .focus(_.ledgerApi.adminTokenConfig.adminClaim)
+          .replace(true)
       }(config)
   }
 }

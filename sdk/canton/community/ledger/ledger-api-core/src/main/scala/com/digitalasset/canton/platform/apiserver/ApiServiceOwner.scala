@@ -39,7 +39,6 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
@@ -56,6 +55,7 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.{BindableService, ServerInterceptor}

@@ -13,7 +13,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.platform.config.CommandServiceConfig
@@ -21,6 +20,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId, LfValue}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -297,19 +297,15 @@ class StoreBackedCommandInterpreterSpec
       val commands = repeatCycleApiCommand(invalidCid)
 
       val sut = mkSut(testEngine.engine, contractStore = contractStore)
-
-      // TODO(#27344) - This should not throw an exception but return a failure error cause
-      loggerFactory.suppressErrors {
-        sut
-          .interpret(commands, submissionSeed)(
-            LoggingContextWithTrace(loggerFactory),
-            executionContext,
-          )
-          .failed
-          .map { _ =>
-            succeed
-          }
-      }
+      sut
+        .interpret(commands, submissionSeed)(
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
+        )
+        .failed
+        .map { _ =>
+          succeed
+        }
 
     }
 

@@ -111,7 +111,7 @@ class SynchronizersFilterTest
       )
     }
 
-    // TODO(#15561) Re-enable this test when we have a stable protocol version
+    // TODO(#28592) Fix test
     "reject synchronizers when the minimum protocol version is not satisfied " ignore {
       import SimpleTopology.*
 
