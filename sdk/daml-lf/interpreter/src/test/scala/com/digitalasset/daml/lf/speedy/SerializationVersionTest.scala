@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
@@ -224,7 +224,7 @@ class SerializationVersionTest
     (implementsTemplateId, implementsInterfaceId, implementsContract)
   )
 
-  private def evaluateBeginExercise(
+  private[lf] def evaluateBeginExercise(
       pkgs: CompiledPackages,
       templateId: TypeConId,
       interfaceId: Option[TypeConId],
