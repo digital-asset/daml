@@ -4,7 +4,6 @@ source: src
 version: 0.0.1
 # script-build-options-begin
 build-options:
-  - --target=2.1
   - -Wupgrade-interfaces
 # script-build-options-end
 # script-dependencies-begin
