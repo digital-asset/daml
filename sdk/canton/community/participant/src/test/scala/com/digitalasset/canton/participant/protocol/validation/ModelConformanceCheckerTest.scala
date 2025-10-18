@@ -28,11 +28,11 @@ import com.digitalasset.canton.participant.util.DAMLe.{
   PackageResolver,
   ReInterpretationResult,
 }
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ContractValidator, TestContractHasher}
 import com.digitalasset.canton.{

@@ -18,6 +18,7 @@ final class OpenApiTests
     "events",
     "idps",
     "interactive-submission",
+    "dars",
     "packages",
     "package-vetting",
     "parties",

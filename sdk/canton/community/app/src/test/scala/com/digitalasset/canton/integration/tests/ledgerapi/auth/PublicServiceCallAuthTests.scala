@@ -38,7 +38,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
       .setHappyCase("Ledger API client can make a call with token expiring tomorrow") in {
       implicit env =>
         import env.*
-        expectSuccess(serviceCall(canReadAsRandomPartyExpiresTomorrow))
+        expectSuccess(serviceCall(canReadAsRandomPartyExpiresInAnHour))
     }
 
     "allow calls with read-only token without expiration" taggedAs securityAsset
@@ -60,7 +60,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
         "Ledger API client can make a call with non-expired `participant_admin` user token"
       ) in { implicit env =>
       import env.*
-      val payload = standardToken(participantAdmin, Some(Duration.ofDays(1)))
+      val payload = standardToken(participantAdmin, Some(Duration.ofHours(1)))
       expectSuccess(serviceCallWithPayload(payload))
     }
 
@@ -133,7 +133,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
         "Ledger API client can make a call with explicitly non-expired read/write token"
       ) in { implicit env =>
       import env.*
-      expectSuccess(serviceCall(canActAsRandomPartyExpiresTomorrow))
+      expectSuccess(serviceCall(canActAsRandomPartyExpiresInAnHour))
     }
     "allow calls with read/write token without expiration" taggedAs securityAsset
       .setHappyCase(
@@ -156,7 +156,7 @@ trait PublicServiceCallAuthTests extends SecuredServiceCallAuthTests {
         "Ledger API client can make a call with explicitly non-expired admin token"
       ) in { implicit env =>
       import env.*
-      expectSuccess(serviceCall(canReadAsAdminExpiresTomorrow))
+      expectSuccess(serviceCall(canReadAsAdminExpiresInAnHour))
     }
 
     "allow calls with admin token without expiration" taggedAs securityAsset.setHappyCase(

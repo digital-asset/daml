@@ -312,19 +312,39 @@ create table par_last_computed_acs_commitments (
     ts bigint not null
 );
 
--- Stores the snapshot ACS commitments (per stakeholder set)
+-- Stores the snapshot of running ACS commitments (per stakeholder set), useful for computation caching
 create table par_commitment_snapshot (
     synchronizer_idx integer not null,
     -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
-    -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-    stakeholders_hash varchar not null,
+    -- a binary-encoded hash for indexing
+    stakeholders_hash binary varying not null,
     stakeholders integer array not null,
     commitment binary large object not null,
     primary key (synchronizer_idx, stakeholders_hash)
 );
 
--- Stores the time (along with a tie-breaker) of the ACS commitment snapshot
+-- Stores the time (along with a tie-breaker) of the running ACS commitment snapshot used for computation caching
 create table par_commitment_snapshot_time (
+    synchronizer_idx integer not null,
+    -- UTC timestamp in microseconds relative to EPOCH
+    ts bigint not null,
+    tie_breaker bigint not null,
+    primary key (synchronizer_idx)
+);
+
+-- Stores the snapshot of running ACS commitments (per stakeholder set) for checkpointing
+create table par_commitment_checkpoint_snapshot (
+    synchronizer_idx integer not null,
+    -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
+    -- a binary-encoded hash for indexing
+    stakeholders_hash binary varying not null,
+    stakeholders integer array not null,
+    commitment binary large object not null,
+    primary key (synchronizer_idx, stakeholders_hash)
+);
+
+-- Stores the time (along with a tie-breaker) of the running ACS commitment snapshot used for checkpointing
+create table par_commitment_checkpoint_snapshot_time (
     synchronizer_idx integer not null,
     -- UTC timestamp in microseconds relative to EPOCH
     ts bigint not null,

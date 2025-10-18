@@ -208,7 +208,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(defaultScope),
@@ -229,7 +229,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(ExpectedAudience),
     scope = None,
@@ -252,7 +252,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = privilegedEphemeralUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(privilegedScope),
@@ -276,7 +276,7 @@ class JsonApiAuthIT
     issuer = None,
     participantId = None,
     userId = privilegedEphemeralUser,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(privilegedAudience),
     scope = None,
@@ -577,8 +577,10 @@ class JsonApiAuthIT
                 ),
             )
           )
-          .focus(_.adminApi.adminTokenConfig.fixedAdminToken)
+          .focus(_.ledgerApi.adminTokenConfig.fixedAdminToken)
           .replace(Some(fallbackToken.secret))
+          .focus(_.ledgerApi.adminTokenConfig.adminClaim)
+          .replace(true)
       }(config)
   }
 }

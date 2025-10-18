@@ -87,7 +87,7 @@ abstract class LSUCancellationIntegrationTest extends LSUBase {
     lowerBound1 ++ lowerBound2 ++ List(
       ConfigTransforms.disableAutoInit(allNewNodes),
       ConfigTransforms.useStaticTime,
-    )
+    ) ++ ConfigTransforms.enableAlphaVersionSupport
   }
 
   override lazy val environmentDefinition: EnvironmentDefinition =

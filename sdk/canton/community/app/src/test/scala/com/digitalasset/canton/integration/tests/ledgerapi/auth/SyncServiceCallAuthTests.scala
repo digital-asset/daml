@@ -47,7 +47,7 @@ trait SyncServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
         "Ledger API client can make a call with explicitly non-expired read/write token"
       ) in { implicit env =>
       import env.*
-      successfulBehavior(serviceCall(canActAsMainActorExpiresTomorrow))
+      successfulBehavior(serviceCall(canActAsMainActorExpiresInAnHour))
     }
     "allow calls with read/write token without expiration" taggedAs securityAsset
       .setHappyCase(
@@ -94,7 +94,7 @@ trait SyncServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
         attackPermissionDenied(threat = "Present a explicitly non-expired read-only JWT")
       ) in { implicit env =>
       import env.*
-      expectPermissionDenied(serviceCall(canReadAsMainActorExpiresTomorrow))
+      expectPermissionDenied(serviceCall(canReadAsMainActorExpiresInAnHour))
     }
     "deny calls with read-only token without expiration" taggedAs securityAsset.setAttack(
       attackPermissionDenied(threat = "Present a read-only JWT without expiration")

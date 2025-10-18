@@ -64,6 +64,7 @@ import scala.util.{Failure, Success, Try}
 /** grpc service to allow modifying party hosting on participants
   */
 class GrpcPartyManagementService(
+    participantId: ParticipantId,
     adminWorkflowO: Option[PartyReplicationAdminWorkflow],
     processingTimeout: ProcessingTimeout,
     sync: CantonSyncService,
@@ -208,11 +209,16 @@ class GrpcPartyManagementService(
         .leftMap(PartyManagementServiceError.InvalidState.Error(_))
       allLogicalSynchronizerIds = sync.syncPersistentStateManager.getAllLatest.keySet
 
-      validRequest <- validateExportPartyAcsRequest(request, ledgerEnd, allLogicalSynchronizerIds)
+      validRequest <- validatePartyReplicationCommonRequestParams(
+        request.partyId,
+        request.synchronizerId,
+        request.beginOffsetExclusive,
+        request.waitForActivationTimeout,
+      )(ledgerEnd, allLogicalSynchronizerIds)
+
       ValidPartyReplicationCommonRequestParams(
         party,
         synchronizerId,
-        targetParticipant,
         beginOffsetExclusive,
         waitForActivationTimeout,
       ) = validRequest
@@ -222,13 +228,20 @@ class GrpcPartyManagementService(
         PartyManagementServiceError.InvalidState.Error("Unavailable internal index service"),
       )
 
+      targetParticipant <- EitherT.fromEither[FutureUnlessShutdown](
+        UniqueIdentifier
+          .fromProtoPrimitive(request.targetParticipantUid, "target_participant_uid")
+          .map(ParticipantId(_))
+          .leftMap(error => PartyManagementServiceError.InvalidArgument.Error(error.message))
+      )
+
       topologyTx <-
         findSinglePartyActivationTopologyTransaction(
           indexService,
           party,
           beginOffsetExclusive,
           synchronizerId,
-          targetParticipant,
+          targetParticipant = targetParticipant,
           waitForActivationTimeout,
         )
 
@@ -242,9 +255,7 @@ class GrpcPartyManagementService(
         client.awaitSnapshot(activationTimestamp.immediateSuccessor)
       )
       // TODO(#28208) - Indirection because LAPI topology transaction does not include the onboarding flag
-      activeParticipants <- EitherT.right(
-        snapshot.activeParticipantsOf(party.toLf)
-      )
+      activeParticipants <- EitherT.right(snapshot.activeParticipantsOf(party.toLf))
       _ <-
         EitherT.cond[FutureUnlessShutdown](
           activeParticipants.exists { case (participantId, participantAttributes) =>
@@ -265,7 +276,7 @@ class GrpcPartyManagementService(
           .flatMap(snapshot =>
             snapshot.inspectKnownParties(
               filterParty = "",
-              filterParticipant = targetParticipant.uid.toProtoPrimitive,
+              filterParticipant = targetParticipant.filterString,
             )
           )
       )
@@ -290,29 +301,9 @@ class GrpcPartyManagementService(
     mapErrNewEUS(res.leftMap(_.toCantonRpcError))
   }
 
-  private def validateExportPartyAcsRequest(
-      request: v30.ExportPartyAcsRequest,
-      ledgerEnd: Offset,
-      synchronizerIds: Set[SynchronizerId],
-  )(implicit
-      elc: ErrorLoggingContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    PartyManagementServiceError,
-    ValidPartyReplicationCommonRequestParams,
-  ] =
-    validatePartyReplicationCommonRequestParams(
-      request.partyId,
-      request.synchronizerId,
-      request.targetParticipantUid,
-      request.beginOffsetExclusive,
-      request.waitForActivationTimeout,
-    )(ledgerEnd, synchronizerIds)
-
   private def validatePartyReplicationCommonRequestParams(
       partyId: String,
       synchronizerId: String,
-      targetParticipantUid: String,
       beginOffsetExclusive: Long,
       waitForActivationTimeout: Option[Duration],
   )(
@@ -338,12 +329,6 @@ class GrpcPartyManagementService(
         parsedSynchronizerId,
         OtherError(s"Synchronizer ID $parsedSynchronizerId is unknown"),
       )
-      targetParticipantId <- UniqueIdentifier
-        .fromProtoPrimitive(
-          targetParticipantUid,
-          "target_participant_uid",
-        )
-        .map(ParticipantId(_))
       parsedBeginOffsetExclusive <- ProtoConverter
         .parseOffset("begin_offset_exclusive", beginOffsetExclusive)
       beginOffsetExclusive <- Either.cond(
@@ -359,7 +344,6 @@ class GrpcPartyManagementService(
     } yield ValidPartyReplicationCommonRequestParams(
       party,
       synchronizerId,
-      targetParticipantId,
       beginOffsetExclusive,
       waitForActivationTimeout,
     )
@@ -704,7 +688,6 @@ class GrpcPartyManagementService(
       ValidPartyReplicationCommonRequestParams(
         party,
         synchronizerId,
-        targetParticipant,
         beginOffsetExclusive,
         waitForActivationTimeout,
       ) = validRequest
@@ -720,7 +703,7 @@ class GrpcPartyManagementService(
           party,
           beginOffsetExclusive,
           synchronizerId,
-          targetParticipant,
+          targetParticipant = participantId,
           waitForActivationTimeout,
         )
 
@@ -738,14 +721,14 @@ class GrpcPartyManagementService(
         snapshot.activeParticipantsOf(party.toLf)
       )
       _ <- EitherT.cond[FutureUnlessShutdown](
-        activeParticipants.exists { case (participantId, participantAttributes) =>
-          participantId == targetParticipant &&
+        activeParticipants.exists { case (pId, participantAttributes) =>
+          pId == participantId &&
           participantAttributes.onboarding
         },
         (),
         PartyManagementServiceError.InvalidState.MissingOnboardingFlagCannotCompleteOnboarding(
           party,
-          targetParticipant,
+          participantId,
         ): PartyManagementServiceError,
       )
 
@@ -758,7 +741,7 @@ class GrpcPartyManagementService(
       onboarding = new PartyOnboardingCompletion(
         party,
         synchronizerId,
-        targetParticipant,
+        participantId,
         timeTracker,
         topologyManager,
         topologyStore,
@@ -786,7 +769,6 @@ class GrpcPartyManagementService(
     validatePartyReplicationCommonRequestParams(
       request.partyId,
       request.synchronizerId,
-      request.targetParticipantUid,
       request.beginOffsetExclusive,
       request.waitForActivationTimeout,
     )(ledgerEnd, synchronizerIds)
@@ -856,7 +838,6 @@ object GrpcPartyManagementService {
 private final case class ValidPartyReplicationCommonRequestParams(
     party: PartyId,
     synchronizerId: SynchronizerId,
-    targetParticipant: ParticipantId,
     beginOffsetExclusive: Offset,
     waitForActivationTimeout: Option[NonNegativeFiniteDuration],
 )

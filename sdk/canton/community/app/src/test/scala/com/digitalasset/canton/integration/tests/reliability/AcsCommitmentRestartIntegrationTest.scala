@@ -6,15 +6,17 @@ package com.digitalasset.canton.integration.tests.reliability
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeProportion
-import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig}
+import com.digitalasset.canton.config.{CommitmentSendDelay, DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.LocalParticipantReference
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
+  UseH2,
   UsePostgres,
   UseProgrammableSequencer,
   UseReferenceBlockSequencer,
 }
+import com.digitalasset.canton.integration.tests.util.{CommitmentTestUtil, IntervalDuration}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -22,6 +24,7 @@ import com.digitalasset.canton.integration.{
   HasCycleUtils,
   SharedEnvironment,
 }
+import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -34,6 +37,7 @@ import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
 import com.digitalasset.canton.{LedgerParticipantId, config}
 import monocle.Monocle.toAppliedFocusOps
+import org.slf4j.event.Level
 
 import java.time.Duration
 import scala.jdk.CollectionConverters.*
@@ -43,17 +47,22 @@ trait AcsCommitmentRestartIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with HasProgrammableSequencer
-    with HasCycleUtils {
+    with HasCycleUtils
+    with CommitmentTestUtil {
 
   private lazy val reconciliationInterval = PositiveSeconds.tryOfSeconds(60)
   private lazy val confirmationResponseTimeout = Duration.ofMinutes(1)
   private lazy val mediatorReactionTimeout = Duration.ofHours(1)
+  private lazy val checkpointInterval = PositiveSeconds.tryOfSeconds(7)
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ProgrammableSequencer.configOverride(this.getClass.toString, loggerFactory),
+        ConfigTransforms.updateCommitmentCheckpointInterval(
+          PositiveDurationSeconds.ofSeconds(checkpointInterval.duration.getSeconds)
+        ),
       )
       .updateTestingConfig(
         _.focus(_.commitmentSendDelay).replace(
@@ -158,7 +167,6 @@ trait AcsCommitmentRestartIntegrationTest
     }
 
     // restart the participant and reset the ledger-ends
-    participant1.synchronizers.disconnect(daName)
     participant1.stop()
     withLedgerApiStoreFor(participant1)(
       _.moveLedgerEndBackToScratch().futureValueUS
@@ -216,14 +224,125 @@ trait AcsCommitmentRestartIntegrationTest
     }
   }
 
+  "checkpointing triggers at checkpoint boundaries and at interval boundaries" in { implicit env =>
+    import env.*
+    val simClock = environment.simClock.value
+
+    val now = simClock.uniqueTime()
+    // Align clock to checkpoint boundary
+    val start = now.getEpochSecond % checkpointInterval.duration.toSeconds match {
+      case 0 => now
+      case mod =>
+        val toAdd = checkpointInterval.duration.toSeconds - mod
+        simClock.advance(java.time.Duration.ofSeconds(toAdd))
+        simClock.uniqueTime()
+    }
+
+    // create some contracts to have ACS changes, and have the changes span over two checkpoint intervals
+    val step = checkpointInterval.duration.toSeconds / 2
+    val acsChangeTimes = (1 to 4).map(step * _)
+    simClock.advance(java.time.Duration.ofSeconds(step))
+    acsChangeTimes.foreach { i =>
+      val createIouCmd = new Iou(
+        participant1.adminParty.toProtoPrimitive,
+        participant2.adminParty.toProtoPrimitive,
+        new Amount(i.toDouble.toBigDecimal, "USD"),
+        List.empty.asJava,
+      ).create.commands.asScala.toSeq
+      participant1.ledger_api.javaapi.commands
+        .submit(Seq(participant1.adminParty), createIouCmd)
+      simClock.advance(java.time.Duration.ofSeconds(step))
+    }
+
+    // crash the participant
+    participant1.stop()
+
+    // participant should restore from checkpoint = start + checkpointInterval
+    val expectedCheckpoint = start.plusSeconds(checkpointInterval.duration.getSeconds)
+    val expectedReplayTsExclusive = start.plusSeconds(step * 2)
+    val expectedReplayTsInclusive = start.plusSeconds(step * 3)
+    val expectedReplayTsEnd = start.plusSeconds(step * 4)
+    logger.debug(
+      s"Should replay from the latest watermark just before checkpoint $expectedCheckpoint," +
+        s" and the watermark is at $expectedReplayTsExclusive (exclusive). Replay should be between" +
+        s"$expectedReplayTsInclusive (inclusive) and $expectedReplayTsEnd"
+    )
+    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.INFO))(
+      {
+        participant1.start()
+        participant1.synchronizers.reconnect_all()
+        eventually() {
+          participant1.synchronizers
+            .list_connected()
+            .map(_.physicalSynchronizerId) should contain(daId)
+        }
+      },
+      logs => {
+        forAtLeast(1, logs)(m =>
+          // We don't match on precision lower than second, therefore we floor and remove the "Z" at the end with dropRight
+          m.message should startWith regex s"Replaying 2 ACS changes between TimeOfChange\\(timestamp = ${CantonTimestampSecond.floor(expectedReplayTsExclusive).toString.dropRight(1)}.*\\) \\(exclusive\\) and TimeOfChange\\(timestamp = ${CantonTimestampSecond
+              .floor(expectedReplayTsEnd)
+              .toString
+              .dropRight(1)}.*"
+        )
+      },
+    )
+
+    // test that checkpointing also triggers at interval boundaries, which here are not a multiple of checkpoint boundaries
+    assert(reconciliationInterval.duration.getSeconds % checkpointInterval.duration.getSeconds != 0)
+
+    // advance past a reconciliation interval
+    val reconciliationIntervalTick =
+      tickAfter(simClock.uniqueTime())(IntervalDuration(reconciliationInterval.duration))
+    simClock.advanceTo(reconciliationIntervalTick.forgetRefinement.immediateSuccessor)
+    // advance a step, which is smaller than a checkpoint interval, and create a contract
+    simClock.advance(java.time.Duration.ofSeconds(step))
+    val createIouCmd = new Iou(
+      participant1.adminParty.toProtoPrimitive,
+      participant2.adminParty.toProtoPrimitive,
+      new Amount(1.toBigDecimal, "USD"),
+      List.empty.asJava,
+    ).create.commands.asScala.toSeq
+    participant1.ledger_api.javaapi.commands
+      .submit(Seq(participant1.adminParty), createIouCmd)
+
+    eventually() {
+      val commitmentsFromP1 = participant2.commitments.received(
+        daName,
+        reconciliationIntervalTick.toInstant.minusMillis(1),
+        reconciliationIntervalTick.toInstant,
+        Some(participant1),
+      )
+      commitmentsFromP1 should have size 1
+    }
+
+    // last checkpoint should be at interval boundary `reconciliationIntervalTick`, and we should replay just one change after
+    // crash the participant
+    participant1.stop()
+    loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.INFO))(
+      {
+        participant1.start()
+        participant1.synchronizers.reconnect_all()
+        eventually() {
+          participant1.synchronizers
+            .list_connected()
+            .map(_.physicalSynchronizerId) should contain(daId)
+        }
+      },
+      logs => {
+        forAtLeast(1, logs)(m => m.message should startWith regex s"Replaying 1 ACS changes.*")
+      },
+    )
+  }
+
   // TODO(i19694): Extend test coverage to: forcing recovery of the ACS Commitment processor, testing ACS Commitment with successful and not-succesful repair operations.
 }
 
-//class AcsCommitmentRestartIntegrationTestH2 extends AcsCommitmentRestartIntegrationTest {
-//  registerPlugin(new UseH2(loggerFactory))
-//  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
-//  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
-//}
+class AcsCommitmentRestartIntegrationTestH2 extends AcsCommitmentRestartIntegrationTest {
+  registerPlugin(new UseH2(loggerFactory))
+  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
+}
 
 class AcsCommitmentRestartIntegrationTestPostgres extends AcsCommitmentRestartIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))

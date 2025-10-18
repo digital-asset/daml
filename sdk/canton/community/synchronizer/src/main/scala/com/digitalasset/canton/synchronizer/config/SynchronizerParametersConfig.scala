@@ -53,8 +53,7 @@ final case class SynchronizerParametersConfig(
     requiredCryptoKeyFormats: Option[NonEmpty[Set[CryptoKeyFormat]]] = None,
     requiredSignatureFormats: Option[NonEmpty[Set[SignatureFormat]]] = None,
     topologyChangeDelay: Option[NonNegativeFiniteDuration] = None,
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    override val alphaVersionSupport: Boolean = true,
+    override val alphaVersionSupport: Boolean = false,
     override val betaVersionSupport: Boolean = false,
     override val dontWarnOnDeprecatedPV: Boolean = false,
 ) extends ProtocolConfig

@@ -50,7 +50,7 @@ trait LSUBase
     ++ List(
       ConfigTransforms.disableAutoInit(newOldNodesResolution.keySet),
       ConfigTransforms.useStaticTime,
-    )
+    ) ++ ConfigTransforms.enableAlphaVersionSupport
 
   protected def fixtureWithDefaults(upgradeTime: CantonTimestamp = upgradeTime)(implicit
       env: TestConsoleEnvironment

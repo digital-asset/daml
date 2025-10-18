@@ -26,6 +26,7 @@ import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.CommitmentsMismatch
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.ReceivedCmtState.Mismatch
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
+import com.digitalasset.canton.participant.store.UpdateMode
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.topology.SynchronizerId
 import monocle.Monocle.toAppliedFocusOps
@@ -184,6 +185,7 @@ trait AcsCommitmentRepairIntegrationTest
             recordTime,
             updates = Map.empty,
             deletes = runningCmts.keySet,
+            UpdateMode.Checkpoint,
           )
         }
         .futureValueUS
