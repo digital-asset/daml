@@ -307,14 +307,16 @@ class BlockSequencer(
 
   private def enforceThroughputCap(
       submission: SubmissionRequest
-  ): Either[SequencerDeliverError, Unit] =
-    if (throughputCap.shouldRejectTransaction(submission.requestType, submission.sender, 0))
-      Left(
-        SequencerErrors.SubmissionRequestRefused(
-          s"Member ${submission.sender} has reached its throughput cap"
-        )
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    EitherT
+      .fromEither[FutureUnlessShutdown](
+        throughputCap.shouldRejectTransaction(submission.requestType, submission.sender, 0)
       )
-    else Right(())
+      .leftMap { msg =>
+        SequencerErrors.Overloaded(
+          s"Member ${submission.sender} has reached its throughput cap: $msg"
+        )
+      }
 
   /** This method rejects submissions before or at the lower bound of sequencing time. It compares
     * clock.now against the configured sequencingTimeLowerBoundExclusive. It cannot use the time
@@ -380,7 +382,7 @@ class BlockSequencer(
 
     for {
       _ <- rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
-      _ <- EitherT.fromEither[FutureUnlessShutdown](enforceThroughputCap(submission))
+      _ <- enforceThroughputCap(submission)
       _ <- rejectSubmissionsIfOverloaded(submission)
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot

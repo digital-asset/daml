@@ -33,6 +33,7 @@ import com.digitalasset.canton.participant.admin.data.{
 }
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ShowUtil.*
@@ -67,12 +68,20 @@ abstract class AcsImportRepresentativePackageIdSelectionIntegrationTest
   private val FooV2PkgId = upgrades.v2.java.foo.Foo.PACKAGE_ID
   private val FooV3PkgId = upgrades.v3.java.foo.Foo.PACKAGE_ID
 
+  // TODO(#27707) - Remove when ACS commitments consider the onboarding flag
+  // Alice's replication to the target participant may trigger ACS commitment mismatch warnings.
+  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
+  // test flakes, `reconciliationInterval` is set to ten years.
+  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
+
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
       .prependConfigTransforms(ConfigTransforms.enableHttpLedgerApi)
       .withSetup { implicit env =>
         import env.*
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        sequencer1.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
         participant1.dars.upload(FooV1Path)
       }
 

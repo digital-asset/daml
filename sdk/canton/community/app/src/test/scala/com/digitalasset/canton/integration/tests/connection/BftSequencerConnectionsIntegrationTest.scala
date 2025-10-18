@@ -28,6 +28,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
   SubmissionRequestAmplification,
 }
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.{SequencerAlias, config}
 import org.scalatest.Assertion
 
@@ -72,7 +73,13 @@ sealed trait BftSequencerConnectionsIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S4M1_Config
-      .addConfigTransforms(ConfigTransforms.setConnectionPool(true))
+      .addConfigTransforms(
+        ConfigTransforms.setConnectionPool(true),
+        // Increase the acknowledgement interval to avoid flakes with failing acknowledgements log messages
+        ConfigTransforms.updateSequencerClientAcknowledgementInterval(
+          NonNegativeFiniteDuration.tryOfMinutes(60)
+        ),
+      )
       .withManualStart
       .withSetup { implicit env =>
         import env.*

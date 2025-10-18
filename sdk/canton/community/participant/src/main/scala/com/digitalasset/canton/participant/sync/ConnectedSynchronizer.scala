@@ -1093,6 +1093,7 @@ object ConnectedSynchronizer {
           parameters.batchingConfig,
           doNotAwaitOnCheckingIncomingCommitments =
             parameters.doNotAwaitOnCheckingIncomingCommitments,
+          commitmentCheckpointInterval = parameters.commitmentCheckpointInterval,
         )
         topologyProcessor <- topologyProcessorFactory.create(
           acsCommitmentProcessor.scheduleTopologyTick
