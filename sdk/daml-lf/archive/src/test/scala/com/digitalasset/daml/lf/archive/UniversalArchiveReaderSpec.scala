@@ -10,6 +10,7 @@ import org.scalatest.TryValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
+@scala.annotation.nowarn("msg=deprecated")
 class UniversalArchiveReaderSpec extends AnyFlatSpec with Matchers with TryValues {
 
   private val darFile = new File(rlocation("daml-lf/archive/DarReaderTest.dar"))
