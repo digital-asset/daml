@@ -93,9 +93,9 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
     ServiceCallContext(
       Option(toHeader(expiringIn(Duration.ofDays(-1), standardToken(mainActorReadUser))))
     )
-  protected def canReadAsMainActorExpiresTomorrow =
+  protected def canReadAsMainActorExpiresInAnHour =
     ServiceCallContext(
-      Option(toHeader(expiringIn(Duration.ofDays(1), standardToken(mainActorReadUser))))
+      Option(toHeader(expiringIn(Duration.ofHours(1), standardToken(mainActorReadUser))))
     )
 
   protected def canActAsMainActor =
@@ -104,9 +104,9 @@ trait ServiceCallWithMainActorAuthTests extends SecuredServiceCallAuthTests {
     ServiceCallContext(
       Option(toHeader(expiringIn(Duration.ofDays(-1), standardToken(mainActorActUser))))
     )
-  protected def canActAsMainActorExpiresTomorrow =
+  protected def canActAsMainActorExpiresInAnHour =
     ServiceCallContext(
-      Option(toHeader(expiringIn(Duration.ofDays(1), standardToken(mainActorActUser))))
+      Option(toHeader(expiringIn(Duration.ofHours(1), standardToken(mainActorActUser))))
     )
 
   protected def canExecuteAsMainActor =

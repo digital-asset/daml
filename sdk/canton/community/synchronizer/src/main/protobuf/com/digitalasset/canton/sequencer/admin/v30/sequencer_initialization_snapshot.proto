@@ -11,7 +11,7 @@ import "com/digitalasset/canton/protocol/v30/traffic_control_parameters.proto";
 import "scalapb/scalapb.proto";
 
 message SequencerSnapshot {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   int64 latest_timestamp = 1; // in microseconds of UTC time since Unix epoch
   uint64 last_block_height = 2;

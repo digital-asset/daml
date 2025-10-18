@@ -686,7 +686,6 @@ object ParticipantAdminCommands {
     final case class ClearPartyOnboardingFlag(
         party: PartyId,
         synchronizerId: SynchronizerId,
-        targetParticipantId: ParticipantId,
         beginOffsetExclusive: NonNegativeLong,
         waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
     ) extends GrpcAdminCommand[
@@ -705,7 +704,6 @@ object ParticipantAdminCommands {
           v30.ClearPartyOnboardingFlagRequest(
             party.toProtoPrimitive,
             synchronizerId.toProtoPrimitive,
-            targetParticipantId.uid.toProtoPrimitive,
             beginOffsetExclusive.unwrap,
             waitForActivationTimeout.map(_.toProtoPrimitive),
           )

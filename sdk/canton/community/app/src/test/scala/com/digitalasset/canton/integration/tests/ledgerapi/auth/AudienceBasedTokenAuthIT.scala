@@ -51,7 +51,7 @@ class AudienceBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertion
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Audience,
     audiences = List(ExpectedAudience),
     scope = None,

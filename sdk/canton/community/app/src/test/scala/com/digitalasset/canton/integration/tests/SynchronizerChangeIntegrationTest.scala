@@ -678,7 +678,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           val iou = createIou(alice, bank, painter)
           val iouId = iou.id.toLf
 
-          // paintOfferId <- submit alice do
+          // paintOfferId <- submit alice dos
           //   create $ OfferToPaintHouseByOwner with painter = painter; houseOwner = alice; bank = bank; iouId = iouId
           val cmd = createPaintOfferCmd(alice, bank, painter, iouId)
           clue("creating paint offer") {

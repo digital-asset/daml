@@ -37,7 +37,7 @@ import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
 
 import java.nio.file.Path
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 
 /** Base for all participant configs - both local and remote */
 trait BaseParticipantConfig extends NodeConfig with Product with Serializable {
@@ -248,7 +248,7 @@ final case class LedgerApiServerConfig(
       InteractiveSubmissionServiceConfig.Default,
     topologyAwarePackageSelection: TopologyAwarePackageSelectionConfig =
       TopologyAwarePackageSelectionConfig.Default,
-    maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
+    maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(5.minutes),
     jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
@@ -356,6 +356,10 @@ object TestingTimeServiceConfig {
   * @param doNotAwaitOnCheckingIncomingCommitments
   *   Enable fully asynchronous checking of incoming commitments. This may result in some incoming
   *   commitments not being checked in case of crashes or HA failovers.
+  * @param commitmentCheckpointInterval
+  *   Checkpoint interval for commitments. Smaller intervals lead to less resource-intensive crash
+  *   recovery, at the cost of more frequent DB writing of checkpoints. Regardless of this
+  *   checkpoint interval, checkpointing is also performed at reconciliation interval boundaries.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -369,8 +373,7 @@ final case class ParticipantNodeParameterConfig(
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
-    alphaVersionSupport: Boolean = true,
+    alphaVersionSupport: Boolean = false,
     betaVersionSupport: Boolean = false,
     dontWarnOnDeprecatedPV: Boolean = false,
     warnIfOverloadedFor: Option[config.NonNegativeFiniteDuration] = Some(
@@ -391,6 +394,8 @@ final case class ParticipantNodeParameterConfig(
     activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
     reassignmentsConfig: ReassignmentsConfig = ReassignmentsConfig(),
     doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
+    commitmentCheckpointInterval: config.PositiveDurationSeconds =
+      config.PositiveDurationSeconds.ofMinutes(1),
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

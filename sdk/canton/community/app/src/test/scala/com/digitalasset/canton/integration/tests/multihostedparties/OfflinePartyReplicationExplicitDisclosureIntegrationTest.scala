@@ -76,7 +76,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
 
     eventually(timeUntilSuccess = 2.minutes, maxPollInterval = 30.seconds) {
       val (onboard, earliestRetryTimestamp) =
-        target.parties.clear_party_onboarding_flag(alice, daId, target, beforeTargetReconnectOffset)
+        target.parties.clear_party_onboarding_flag(alice, daId, beforeTargetReconnectOffset)
       (onboard, earliestRetryTimestamp) shouldBe (true, None)
     }
 

@@ -8,17 +8,15 @@ import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.ledger.api.{
   ListVettedPackagesOpts,
+  ParticipantVettedPackages,
   PriorTopologySerial,
   SinglePackageTargetVetting,
+  UpdateVettedPackagesForceFlags,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode.PackageInUse
-import com.digitalasset.canton.participant.topology.{
-  PackageOps,
-  ParticipantTopologyManagerError,
-  ParticipantVettedPackages,
-}
+import com.digitalasset.canton.participant.topology.{PackageOps, ParticipantTopologyManagerError}
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.{ForceFlags, ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -74,8 +72,7 @@ class PackageOpsForTesting(
       synchronizeVetting: PackageVettingSynchronization,
       dryRunSnapshot: Option[PackageMetadata],
       expectedTopologySerial: Option[PriorTopologySerial],
-      allowUnvetPackageIdInUse: Boolean = false,
-      allowVetIncompatibleUpgrades: Boolean = false,
+      updateForceFlags: Option[UpdateVettedPackagesForceFlags] = None,
   )(implicit
       tc: TraceContext
   ): EitherT[

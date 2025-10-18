@@ -22,13 +22,13 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandInterpreter.PackageResolver
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.protocol.{CantonContractIdVersion, LfFatContractInst}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.PackageId

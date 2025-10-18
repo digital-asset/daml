@@ -349,7 +349,7 @@ create or replace view debug.par_last_computed_acs_commitments as
 create or replace view debug.par_commitment_snapshot as
   select
     debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
-    stakeholders_hash,
+    lower(encode(stakeholders_hash, 'hex')) as stakeholders_hash,
     stakeholders,
     commitment
   from par_commitment_snapshot;
@@ -360,6 +360,21 @@ create or replace view debug.par_commitment_snapshot_time as
     debug.canton_timestamp(ts) as ts,
     tie_breaker
   from par_commitment_snapshot_time;
+
+  create or replace view debug.par_commitment_checkpoint_snapshot as
+    select
+      debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+      lower(encode(stakeholders_hash, 'hex')) as stakeholders_hash,
+      stakeholders,
+      commitment
+    from par_commitment_checkpoint_snapshot;
+
+  create or replace view debug.par_commitment_checkpoint_snapshot_time as
+    select
+      debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+      debug.canton_timestamp(ts) as ts,
+      tie_breaker
+    from par_commitment_checkpoint_snapshot_time;
 
 
 create or replace view debug.par_commitment_reinitialization as

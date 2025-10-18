@@ -146,6 +146,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
         rt: RecordTime,
         updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
         deletes: Set[SortedSet[LfPartyId]],
+        updateMode: UpdateMode,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
       incrementCounterAndErr()
 
