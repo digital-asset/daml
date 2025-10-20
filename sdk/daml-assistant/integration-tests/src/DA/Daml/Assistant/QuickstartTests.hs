@@ -68,7 +68,7 @@ quickSandbox projDir = do
     withDevNull $ \devNull -> do
         callCommandSilent $ unwords ["daml", "new", projDir, "--template=quickstart-java"]
         -- TODO(#14706): remove explicit target once the default major version is 2
-        callCommandSilentIn projDir "daml build --target=2.1"
+        callCommandSilentIn projDir "daml build --target=2.2"
         ports <- sandboxPorts
         let portFile = "portfile.json"
         let darFile = ".daml" </> "dist" </> "quickstart-0.0.1.dar"
@@ -192,7 +192,7 @@ quickstartTests quickstartDir mvnDir getSandbox =
                 callCommandSilentIn dir $ unwords ["daml", "new", dir </> "quickstart", "--template=quickstart-java"]
                 let projEnv = [(packagePathEnvVar, dir </> "quickstart")]
                 -- TODO(#14706): remove explicit target once the default major version is 2
-                callCommandSilentWithEnvIn dir projEnv "daml build --target=2.1"
+                callCommandSilentWithEnvIn dir projEnv "daml build --target=2.2"
                 callCommandSilentWithEnvIn dir projEnv "daml codegen java"
                 pure ()
   where
