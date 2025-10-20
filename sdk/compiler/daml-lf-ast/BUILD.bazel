@@ -58,12 +58,15 @@ da_haskell_test(
 # The main genrule that creates the Haskell source file.
 genrule(
     name = "generated_haskell_versions_src",
-    srcs = ["//daml-lf/language:version_data_json", "src/DA/Daml/LF/Ast/Version/VersionType.hs"],
+    srcs = [
+        "//daml-lf/language:version_data_json",
+        "src/DA/Daml/LF/Ast/Version/VersionType.hs",
+    ],
     outs = ["src/DA/Daml/LF/Ast/Version/GeneratedVersions.hs"],
-    # The tool is our Python script. Use its correct label.
-    tools = ["//daml-lf/language:generate_haskell_versions"],
     # Use the correct label in the cmd as well.
     cmd = "$(location //daml-lf/language:generate_haskell_versions) $(location //daml-lf/language:version_data_json) $@",
+    # The tool is our Python script. Use its correct label.
+    tools = ["//daml-lf/language:generate_haskell_versions"],
 )
 
 generate_and_track_cabal("daml-lf-ast")

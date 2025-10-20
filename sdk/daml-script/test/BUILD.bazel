@@ -15,8 +15,8 @@ load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "DEV_VERSION",
     "DEFAULT_VERSION",
+    "DEV_VERSION",
     "mangle_for_damlc",
 )
 

@@ -10,12 +10,12 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "RAW_ALL_LF_VERSIONS",
     "ALL_LF_VERSIONS",
-    "STABLE_LF_VERSIONS",
-    "LATEST_STABLE_VERSION",
     "DEFAULT_VERSION",
     "DEV_VERSION",
+    "LATEST_STABLE_VERSION",
+    "RAW_ALL_LF_VERSIONS",
+    "STABLE_LF_VERSIONS",
     "STAGING_VERSION",
 )
 
@@ -49,7 +49,6 @@ da_scala_test(
     ],
 )
 
-
 _VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
 
 # A genrule to produce a JSON file from our Starlark data.
@@ -80,8 +79,8 @@ EOF
 py_binary(
     name = "generate_haskell_versions",
     srcs = ["generate_haskell_versions.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
     # If you have dependencies like `six`, add them here.
     # For this script, we only use standard libraries.
     deps = [],
-    visibility = _VERSION_GENERATING_PACKAGES,
 )
