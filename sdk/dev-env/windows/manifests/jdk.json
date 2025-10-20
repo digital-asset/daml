@@ -1,7 +1,7 @@
 {"homepage": "https://jdk.java.net/archive/",
  "version": "21.0.2",
  "license": "GPL-2.0-only WITH Classpath-exception-2.0",
- "architecture": {"64bit": {"url": "https://download.java.net/java/GA/jdk22/830ec9fcccef480bb3e73fb7ecafe059/36/GPL/openjdk-22_windows-x64_bin.zip",
+ "architecture": {"64bit": {"url": "https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_windows-x64_bin.zip",
                             "hash": "b6c17e747ae78cdd6de4d7532b3164b277daee97c007d3eaa2b39cca99882664",
                             "extract_dir": "jdk-21.0.2"}},
  "env_add_path": "bin",
