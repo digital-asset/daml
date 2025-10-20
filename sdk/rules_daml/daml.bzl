@@ -3,7 +3,7 @@
 
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
-load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "version_in")
+load("//daml-lf/language:daml-lf.bzl", "ALL_LF_VERSIONS", "version_in")
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -318,7 +318,7 @@ _default_project_version = "1.0.0"
 default_damlc_opts = ["--ghc-option=-Werror", "--log-level=WARNING"]
 
 def using_local_compiler(target):
-    return not target or target in COMPILER_LF_VERSIONS
+    return not target or target in ALL_LF_VERSIONS
 
 def damlc_for_target(target):
     if using_local_compiler(target):

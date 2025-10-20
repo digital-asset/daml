@@ -10,9 +10,9 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "RAW_ALL_VERSIONS",
-    "ALL_VERSIONS",
-    "STABLE_VERSIONS",
+    "RAW_ALL_LF_VERSIONS",
+    "ALL_LF_VERSIONS",
+    "STABLE_LF_VERSIONS",
     "LATEST_STABLE_VERSION",
     "DEFAULT_VERSION",
     "DEV_VERSION",
@@ -65,9 +65,9 @@ EOF
         # We pass a dictionary to the JSON generator.
         # This makes the input file self-documenting.
         json = json.encode({
-            "RAW_ALL": RAW_ALL_VERSIONS,
-            "ALL": ALL_VERSIONS,
-            "STABLE": STABLE_VERSIONS,
+            "RAW_ALL": RAW_ALL_LF_VERSIONS,
+            "ALL": ALL_LF_VERSIONS,
+            "STABLE": STABLE_LF_VERSIONS,
             "LATEST_STABLE": LATEST_STABLE_VERSION,
             "DEFAULT": DEFAULT_VERSION,
             "DEV": DEV_VERSION,

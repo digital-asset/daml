@@ -92,9 +92,10 @@ def _init_versions():
 _versions = _init_versions()
 
 # Export the public API from the returned struct.
-RAW_ALL_VERSIONS = _versions.raw_all
-ALL_VERSIONS = _versions.all
-STABLE_VERSIONS = _versions.stable
+RAW_ALL_LF_VERSIONS = _versions.raw_all
+ALL_LF_VERSIONS = _versions.all
+STABLE_LF_VERSIONS = _versions.stable
+
 LATEST_STABLE_VERSION = _versions.latest_stable
 DEFAULT_VERSION = _versions.default
 DEV_VERSION = _versions.dev
@@ -103,8 +104,6 @@ STAGING_VERSION = _versions.staging
 # renames for backwards compatibility
 # usage depricated, use versions above
 ENGINE_LF_DEV_VERSIONS = [DEV_VERSION]
-ENGINE_LF_VERSIONS = ALL_VERSIONS
-COMPILER_LF_VERSIONS = ALL_VERSIONS
 ### End of definitions that rest of file points to
 
 def mangle_for_java(name):
@@ -213,7 +212,7 @@ def lf_versions_aggregate(versions):
 lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
 
 # LF Versions supported by the dar reader
-READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ENGINE_LF_VERSIONS
+READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ALL_LF_VERSIONS
 
 def lf_version_is_dev(versionStr):
     return _minor_str(versionStr) == "dev"
@@ -222,7 +221,7 @@ def lf_version_is_dev(versionStr):
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
 
 # All LF major versions supported by the compiler
-COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in COMPILER_LF_VERSIONS]).to_list()
+COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in ALL_LF_VERSIONS]).to_list()
 
 # The major version of the default LF version
 LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))
