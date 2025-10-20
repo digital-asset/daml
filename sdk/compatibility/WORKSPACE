@@ -85,7 +85,7 @@ load(
     "nixpkgs_package",
     "nixpkgs_python_configure",
 )
-load("//:versions.bzl", "latest_stable_version", "sdk_versions", "version_sha256s")
+load("//:versions.bzl", "latest_stable_sdk_version", "sdk_versions", "version_sha256s")
 
 common_nix_file_deps = [
     "@daml//nix:bazel.nix",
@@ -389,11 +389,9 @@ load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "sc
 maven_install(
     name = "maven",
     artifacts = [
-        "com.daml:bindings-akka_2.13:{}".format("2.7.6"),
-        "com.daml:daml-lf-archive-reader_2.13:{}".format(latest_stable_version),
-        "com.daml:daml-lf-transaction_2.13:{}".format(latest_stable_version),
-        "com.daml:ledger-api-common_2.13:{}".format(latest_stable_version),
-        "com.daml:lf-value-json_2.13:{}".format(latest_stable_version),
+        "com.daml:daml-lf-archive-reader_2.13:{}".format(latest_stable_sdk_version),
+        "com.daml:daml-lf-transaction_2.13:{}".format(latest_stable_sdk_version),
+        "com.daml:lf-value-json_2.13:{}".format(latest_stable_sdk_version),
         "io.grpc:grpc-api:{}".format(grpc_version),
         "io.grpc:grpc-core:{}".format(grpc_version),
         "io.grpc:grpc-netty:{}".format(grpc_version),

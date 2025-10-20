@@ -150,9 +150,11 @@ os_name = "linux" if not is_windows else "windows"
 command_targets = {
     "install_from_version": [
         "0.0.0",
+        "3.3.0-snapshot.20250930.0",
     ],
     "build_from_version": [
         "0.0.0",
+        "3.3.0-snapshot.20250930.0",
     ],
     "install_with_custom_version_and_build": [
         "0.0.0",
