@@ -74,7 +74,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
-import SdkVersion.Class (SdkVersioned, damlStdlib)
+import SdkVersion.Class (SdkVersioned, damlStdlib, unresolvedBuiltinSdkVersion)
 
 -- | Create the package database containing the given dar packages.
 --
@@ -1001,12 +1001,13 @@ setupPackageDbFromPackageConfig
     -> IO ()
 setupPackageDbFromPackageConfig packageRoot opts PackageConfigFields {..} =
     withPkgDbLock packageRoot $ do
+        let sdkVersion = fromMaybe unresolvedBuiltinSdkVersion pSdkVersion
         damlAssistantIsSet <- damlAssistantIsSet
         releaseVersion <- if damlAssistantIsSet
             then do
               damlPath <- getDamlPath
               damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
               wrapErr "installing dependencies and initializing package database" $
-                resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
-            else pure (unsafeResolveReleaseVersion pSdkVersion)
+                resolveReleaseVersionUnsafe (envUseCache damlEnv) sdkVersion
+            else pure (unsafeResolveReleaseVersion sdkVersion)
         unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes

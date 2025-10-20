@@ -29,6 +29,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isNothing, listToMaybe)
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import Data.Time.Clock (NominalDiffTime, UTCTime, diffUTCTime)
 import qualified Language.LSP.Types as LSP
 import System.IO.Extra
@@ -254,7 +255,7 @@ emptyGlobalErrors :: GlobalErrors
 emptyGlobalErrors = GlobalErrors Nothing Nothing Set.empty
 
 data SdkVersionData = SdkVersionData
-  { svdVersion :: UnresolvedReleaseVersion
+  { svdVersion :: Maybe UnresolvedReleaseVersion
   , svdOverrides :: Map.Map T.Text (Maybe T.Text)
     -- ^ Overrides for checking equality with DPM
     -- Map from component name to maybe component version (Nothing -> local path)
@@ -263,8 +264,13 @@ data SdkVersionData = SdkVersionData
 
 -- Shows SDK version with the number of overrides, rather than overrides themselves, to reduce clutter
 renderSdkVersionData :: SdkVersionData -> T.Text
-renderSdkVersionData (SdkVersionData ver overrides) | Map.null overrides = T.pack $ unresolvedReleaseVersionToString ver
-renderSdkVersionData (SdkVersionData ver overrides) = T.pack $ unresolvedReleaseVersionToString ver <> " (with " <> show (Map.size overrides) <> " override(s))"
+renderSdkVersionData (SdkVersionData ver overrides) 
+  | Map.null overrides = renderOptionalUnresolvedReleaseVersion ver
+  | otherwise = renderOptionalUnresolvedReleaseVersion ver <> " (with " <> T.show (Map.size overrides) <> " override(s))"
+
+renderOptionalUnresolvedReleaseVersion :: Maybe UnresolvedReleaseVersion -> T.Text
+renderOptionalUnresolvedReleaseVersion ver = T.pack $ maybe "<omitted>" unresolvedReleaseVersionToString ver
+
 
 -- Whether an SDK version uses any local-path overrides, which would mean such an environment should be restarted
 -- more often

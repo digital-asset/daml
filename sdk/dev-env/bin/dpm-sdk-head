@@ -199,6 +199,9 @@ all_components=(damlc daml-script codegen-js codegen-java daml-new upgrade-check
 # If no explicit components specified, update all
 if [[ ! ${TO_BUILD[@]} ]]; then
   TO_BUILD=("${all_components[@]}")
+else
+  # If an explicit component is given, skip jars
+  SKIP_JARS=1
 fi
 
 # Imitate `chronic` from coreutils
