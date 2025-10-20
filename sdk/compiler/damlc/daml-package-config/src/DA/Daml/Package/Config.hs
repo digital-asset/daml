@@ -131,7 +131,7 @@ overrideSdkVersion pkgConfig = do
         Just (Left sdkVersionError) -> do
             hPutStrLn stderr $ unwords
                 [ "Warning: Using SDK version "
-                , maybe "<omitted>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
+                , maybe "<dpm-component-overrides>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
                 , " from config instead of "
                 , sdkVersionEnvVar
                 , " enviroment variable because it doesn't contain a valid version.\n"
@@ -146,7 +146,7 @@ overrideSdkVersion pkgConfig = do
                     , "from"
                     , sdkVersionEnvVar
                     , "enviroment variable instead of SDK version"
-                    , maybe "<omitted>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
+                    , maybe "<dpm-component-overrides>" (V.toString . unwrapUnresolvedReleaseVersion) (pSdkVersion pkgConfig)
                     , "from"
                     , packageConfigName
                     , "config file."

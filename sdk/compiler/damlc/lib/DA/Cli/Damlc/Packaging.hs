@@ -1001,13 +1001,13 @@ setupPackageDbFromPackageConfig
     -> IO ()
 setupPackageDbFromPackageConfig packageRoot opts PackageConfigFields {..} =
     withPkgDbLock packageRoot $ do
-        let sdkVersion' = fromMaybe unresolvedBuiltinSdkVersion pSdkVersion
+        let sdkVersion = fromMaybe unresolvedBuiltinSdkVersion pSdkVersion
         damlAssistantIsSet <- damlAssistantIsSet
         releaseVersion <- if damlAssistantIsSet
             then do
               damlPath <- getDamlPath
               damlEnv <- getDamlEnv damlPath (LookForPackagePath False)
               wrapErr "installing dependencies and initializing package database" $
-                resolveReleaseVersionUnsafe (envUseCache damlEnv) sdkVersion'
-            else pure (unsafeResolveReleaseVersion sdkVersion')
+                resolveReleaseVersionUnsafe (envUseCache damlEnv) sdkVersion
+            else pure (unsafeResolveReleaseVersion sdkVersion)
         unsafeSetupPackageDb packageRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
