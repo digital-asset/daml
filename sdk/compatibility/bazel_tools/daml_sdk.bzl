@@ -5,6 +5,7 @@ load("@os_info//:os_info.bzl", "is_windows", "os_name")
 load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
 load("//bazel_tools:versions.bzl", "versions")
+load("//:versions.bzl", "internal_sdk_versions")
 
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -27,6 +28,8 @@ def _daml_sdk_impl(ctx):
     # location and set the symlink ourselves.
     out_dir = ctx.path("sdk").get_child("sdk").get_child(ctx.attr.version)
 
+    internal_sdk_version = internal_sdk_versions.get(ctx.attr.version, default = ctx.attr.version)
+
     if ctx.attr.sdk_tarball:
         ctx.extract(
             ctx.attr.sdk_tarball,
@@ -47,9 +50,9 @@ def _daml_sdk_impl(ctx):
         ctx.download_and_extract(
             output = out_dir,
             url =
-                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(ctx.attr.version, ctx.attr.version, ctx.attr.os_name),
+                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(ctx.attr.version, internal_sdk_version, ctx.attr.os_name),
             sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
-            stripPrefix = "sdk-{}".format(ctx.attr.version),
+            stripPrefix = "sdk-{}".format(internal_sdk_version),
         )
         sdk_checksum = ctx.attr.sdk_sha256[ctx.attr.os_name]
     else:
@@ -70,7 +73,7 @@ def _daml_sdk_impl(ctx):
         else:
             ctx.download(
                 output = "daml-{}.tgz".format(lib),
-                url = "https://registry.npmjs.org/@daml/{}/-/{}-{}.tgz".format(lib, lib, ctx.attr.version),
+                url = "https://registry.npmjs.org/@daml/{}/-/{}-{}.tgz".format(lib, lib, internal_sdk_version),
                 sha256 = getattr(ctx.attr, "daml_{}_sha256".format(lib)),
             )
 

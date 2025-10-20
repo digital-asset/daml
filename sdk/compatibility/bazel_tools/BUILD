@@ -1,5 +1,5 @@
 load("@daml//bazel_tools:haskell.bzl", "da_haskell_library")
-load("//:versions.bzl", "latest_stable_version")
+load("//:versions.bzl", "latest_stable_release_version")
 
 exports_files([
     "daml_ledger_test.sh",
@@ -17,7 +17,7 @@ module Versions where
 latestStableVersion :: String
 latestStableVersion = "{}"
 EOF
-""".format(latest_stable_version),
+""".format(latest_stable_release_version),
 )
 
 da_haskell_library(

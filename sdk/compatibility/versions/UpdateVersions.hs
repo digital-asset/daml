@@ -64,6 +64,9 @@ renderVersionsFile versions =
         , [ "version_sha256s = {"]
         , concatMap renderChecksums (Map.toList $ snd <$> versions)
         , [ "}" ]
+        , [ "internal_sdk_versions = {" ]
+        , map renderInternalVersions (Map.toList $ fst <$> versions)
+        , [ "}" ]
         ]
   where
     renderChecksums (ver, Checksums{..}) = concat
@@ -84,6 +87,7 @@ renderVersionsFile versions =
       , SemVer.version 3 3 0 [fromJust $ SemVer.textual "snapshot", SemVer.numeric 20250926, SemVer.numeric 13852, SemVer.numeric 1, fromJust $ SemVer.textual "v4f3223e3"] []
       )
     latestVersion = if Map.null versions then firstVersion else Map.findMax $ fst <$> versions
+    renderInternalVersions (releaseVer, sdkVer) = "    \"" <> SemVer.toText releaseVer <> "\": \"" <> SemVer.toText sdkVer <> "\","
 
 data Opts = Opts
   { outputFile :: FilePath

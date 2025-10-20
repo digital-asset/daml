@@ -60,7 +60,7 @@ withSandbox getTools mbSecret f =
       in withResource createSandbox destroySandbox (f . fmap fst)
   where
     tweakArg portFile = replace "__PORTFILE__" portFile
-    portArgNames = ["--port=", "--admin-api-port=", "--domain-public-port=", "--domain-admin-port="]
+    portArgNames = ["--port=", "--admin-api-port=", "--sequencer-public-port=", "--sequencer-admin-port="]
 
 newtype DamlOption = DamlOption FilePath
 instance IsOption DamlOption where

@@ -24,3 +24,6 @@ version_sha256s = {
         "daml_ledger": "48c1ef6c1447ffa2c49aebcc8b0264ebf865307e769a4be6fb86c98ae82cbeef",
     },
 }
+internal_sdk_versions = {
+    "3.3.0-snapshot.20250930.0": "3.3.0-snapshot.20250926.13852.1.v4f3223e3",
+}
