@@ -96,7 +96,7 @@ object DefaultProcessingTimeouts {
 
   val shutdownProcessing: NonNegativeDuration = NonNegativeDuration.tryFromDuration(60.seconds)
 
-  val shutdownShort: NonNegativeDuration = NonNegativeDuration.tryFromDuration(3.seconds)
+  val shutdownShort: NonNegativeDuration = NonNegativeDuration.tryFromDuration(5.seconds)
 
   val closing: NonNegativeDuration = NonNegativeDuration.tryFromDuration(10.seconds)
 

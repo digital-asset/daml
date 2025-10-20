@@ -146,6 +146,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "text",
+        "time",
         "uuid",
         "zip-archive",
     ],

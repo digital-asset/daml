@@ -16,6 +16,7 @@ import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file.{Path, Paths}
+import java.time.{Duration, Instant}
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
@@ -84,10 +85,16 @@ final case class CantonConfig(
 
   lazy val ledgerIds = participantIds.asInstanceOf[Vector[String]]
 
-  def getToken(userId: Ref.IdString.UserId): Option[String] =
-    CantonRunner.getToken(userId, authSecret, targetScope)
+  def getToken(
+      userId: Ref.IdString.UserId,
+      exp: Option[Instant],
+  ): Option[String] =
+    CantonRunner.getToken(userId, authSecret, targetScope, exp)
 
-  lazy val adminToken: Option[String] = getToken(CantonRunner.adminUserId)
+  lazy val adminToken: Option[String] = getToken(
+    userId = CantonRunner.adminUserId,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(3).toNanos)),
+  )
 
   def tlsClientConfig: TlsConfiguration = tlsConfig.fold(CantonConfig.noTlsConfig)(_.clientConfig)
 

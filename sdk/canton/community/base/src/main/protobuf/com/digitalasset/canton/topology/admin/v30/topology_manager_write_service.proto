@@ -246,8 +246,9 @@ enum ForceFlag {
    * Using this force flag likely causes the transaction to be rejected at a later stage of the processing.
    */
   FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS = 7;
-  /** Required when unvetting a package with active contracts */
-  FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8;
+  // Previously FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS, now allowed without flag as it is not a dangerous operation anymore.
+  reserved 8;
+  reserved "FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS";
   /** Required when increasing the submission time record time tolerance */
   FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
   /** Required when we want to change all participants' permissions to observation while the party is still a signatory of a contract. */

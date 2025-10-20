@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
-  version: 3.4.0-SNAPSHOT
+  version: 3.5.0-SNAPSHOT
 paths:
   /v2/commands/submit-and-wait:
     post:
@@ -316,6 +316,89 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/dars/validate:
+    post:
+      description: Validates a DAR for upgrade-compatibility against the current vetting
+        state on the target synchronizer
+      operationId: postV2DarsValidate
+      parameters:
+      - name: synchronizerId
+        in: query
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: ''
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            synchronizerId, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/dars:
+    post:
+      description: Upload a DAR to the participant node
+      operationId: postV2Dars
+      parameters:
+      - name: vetAllPackages
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: synchronizerId
+        in: query
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadDarFileResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            vetAllPackages, Invalid value for: query parameter synchronizerId, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/packages:
     get:
       description: List all packages uploaded on the participant node
@@ -343,7 +426,8 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
     post:
-      description: Upload a DAR to the participant node
+      description: Upload a DAR to the participant node. Behaves the same as /dars.
+        This endpoint will be deprecated and removed in a future release.
       operationId: postV2Packages
       parameters:
       - name: vetAllPackages
@@ -6971,8 +7055,8 @@ components:
             type: string
             enum:
             - UPDATE_VETTED_PACKAGES_FORCE_FLAG_UNSPECIFIED
-            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS
             - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_VET_INCOMPATIBLE_UPGRADES
+            - UPDATE_VETTED_PACKAGES_FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
     UpdateVettedPackagesResponse:
       title: UpdateVettedPackagesResponse
       type: object
