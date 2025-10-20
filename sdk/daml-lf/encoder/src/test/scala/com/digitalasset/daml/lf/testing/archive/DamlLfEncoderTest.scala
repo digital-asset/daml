@@ -6,13 +6,7 @@ package com.digitalasset.daml.lf.testing.archive
 import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.DamlLf2
-import com.digitalasset.daml.lf.archive.{
-  ArchivePayload,
-  Dar,
-  DecodeV2,
-  DarDecoder,
-  DarReader,
-}
+import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DecodeV2, DarDecoder, DarReader}
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.data.Ref.ModuleName
 import com.digitalasset.daml.lf.language.Ast
@@ -159,7 +153,9 @@ class DamlLfEncoderTest
         version =>
           val Right(dar) =
             DarDecoder
-              .readArchiveFromFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
+              .readArchiveFromFile(
+                new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar"))
+              )
           val (_, mainPkg) = dar.main
           val builtinInModule = mainPkg
             .modules(builtinMod)
