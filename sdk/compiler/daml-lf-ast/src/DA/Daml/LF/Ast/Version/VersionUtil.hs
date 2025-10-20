@@ -27,13 +27,6 @@ canDependOn :: Version -> Version -> Bool
 canDependOn (Version major1 minor1) (Version major2 minor2) =
   major1 == major2 && minor1 >= minor2
 
--- Must be kept in sync with COMPILER_LF_VERSION in daml-lf.bzl.
-supportedOutputVersions :: [Version]
-supportedOutputVersions = allVersions
-
-supportedInputVersions :: [Version]
-supportedInputVersions = supportedOutputVersions
-
 -- | The Daml-LF version used by default by the compiler if it matches the
 -- provided major version, the latest non-dev version with that major version
 -- otherwise. This function is meant to be used in tests who want to test the
@@ -48,7 +41,7 @@ defaultOrLatestStable major
         Version major $
             maximum
                 [ minv
-                | Version majv minv@(PointStable _) <- supportedOutputVersions
+                | Version majv minv@(PointStable _) <- allLfVersions
                 , majv == major
                 ]
 
