@@ -129,13 +129,14 @@ abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: I
     }
     val lookupContractByKey = contractOrigin match {
       case UpgradesMatrixCases.Global | UpgradesMatrixCases.Disclosed =>
-        val keyMap =
-          testHelper
-            .globalContractKeyWithMaintainers(setupData)
-            .toList
-            .map(kwm => kwm.globalKey -> setupData.globalContractId)
-            .toMap
-        ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
+        (
+            (kwm: GlobalKeyWithMaintainers) =>
+              testHelper
+                .globalContractKeyWithMaintainers(setupData)
+                .flatMap(helperKey =>
+                  Option.when(helperKey.globalKey == kwm.globalKey)(setupData.globalContractId)
+                )
+        ).unlift
       case _ => PartialFunction.empty
     }
 

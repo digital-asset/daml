@@ -195,8 +195,10 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       languageVersion = langVersion,
     )
 
-  def onlyIfKeys[A](a: => A)(implicit m: Monoid[A]) =
-    if (langVersion >= LanguageVersion.Features.contractKeys) a else m.empty
+  def ifKeys[A](ifTrue: => A, ifFalse: => A): A =
+    if (langVersion >= LanguageVersion.Features.contractKeys) ifTrue else ifFalse
+  def whenKeysOtherwiseNone[A](a: => A): Option[A] = ifKeys(Some(a), None)
+  def whenKeysOtherwiseEmpty[A](a: => A)(implicit m: Monoid[A]) = ifKeys(a, m.empty)
 
   val serializationVersion = SerializationVersion.assign(langVersion)
 
@@ -381,7 +383,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |
          |    $interfaceInstance
          |
-         |    ${onlyIfKeys(s"key @Mod:${templateName}Key ($key) ($maintainers);")}
+         |    ${whenKeysOtherwiseEmpty(s"key @Mod:${templateName}Key ($key) ($maintainers);")}
          |  };""".stripMargin
 
     def v1TemplateDefinition: String = templateDefinition(
@@ -569,7 +571,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
          |""".stripMargin
 
-      nonByKeyChoices + onlyIfKeys(byKeyChoices)
+      nonByKeyChoices + whenKeysOtherwiseEmpty(byKeyChoices)
     }
 
     def clientChoicesLocal(
@@ -740,7 +742,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
            |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
            |""".stripMargin
 
-      nonByKeyChoices + onlyIfKeys(byKeyChoices)
+      nonByKeyChoices + whenKeysOtherwiseEmpty(byKeyChoices)
     }
   }
 
@@ -1780,7 +1782,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     ThrowingInterfaceChoiceControllers,
     ThrowingInterfaceChoiceObservers,
     ThrowingView,
-  ) ++ onlyIfKeys(
+  ) ++ whenKeysOtherwiseEmpty(
     List(
       // keys and maintainers
       ChangedKey,
@@ -1930,7 +1932,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       ExerciseInterface,
       Fetch,
       FetchInterface,
-    ) ++ onlyIfKeys(
+    ) ++ whenKeysOtherwiseEmpty(
       List(
         ExerciseByKey,
         FetchByKey,
@@ -2004,7 +2006,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     )
 
     def globalContractKeyWithMaintainers(setupData: SetupData): Option[GlobalKeyWithMaintainers] =
-      Option.when(langVersion >= LanguageVersion.Features.contractKeys)(
+      whenKeysOtherwiseNone(
         GlobalKeyWithMaintainers.assertBuild(
           v1TplId,
           globalContractv1Key(setupData),
