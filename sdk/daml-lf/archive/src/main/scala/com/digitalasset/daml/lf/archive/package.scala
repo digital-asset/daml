@@ -105,7 +105,7 @@ package object archive {
     ArchiveSchemaDecoder
   )
 
-  @deprecated("Use DarReader instead", since = "3.4.0")
+  @deprecated("Use DarDecoder instead", since = "3.4.0")
   val UniversalArchiveReader: GenUniversalArchiveReader[ArchivePayload] =
     new GenUniversalArchiveReader(ArchiveReader)
   @deprecated("Use DarDecoder instead", since = "3.4.0")
