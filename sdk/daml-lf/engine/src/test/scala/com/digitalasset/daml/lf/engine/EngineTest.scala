@@ -10,7 +10,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContaine
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data.Ref._
@@ -2965,7 +2965,7 @@ class EngineTestHelpers(
   val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     assert(
       compiledPackages.addPackage(mainPkgId, mainPkg).consume(pkgs = packages.all.toMap).isRight
