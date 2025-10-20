@@ -325,49 +325,49 @@ main = tests
   -- TODO(https://github.com/digital-asset/daml/issues/21667): enable the broken tests once canton uses contract ID v12
   [ subtree "should reject field renaming"
     [ subtree "in fetches"
-      [ brokenOnIDELedger ("from choice body" , fieldRenamingFetchChoiceBody)
+      [ ("from choice body" , fieldRenamingFetchChoiceBody)
       , ("of local contract", fieldRenamingFetchLocal)
       ]
     , subtree "in exercises"
-      [ brokenOnIDELedger ("in command", fieldRenamingExerciseCommand)
-      , brokenOnIDELedger ("from choice body", fieldRenamingExerciseChoiceBody)
+      [ ("in command", fieldRenamingExerciseCommand)
+      , ("from choice body", fieldRenamingExerciseChoiceBody)
       , ("of local contract", fieldRenamingExerciseLocal)
       ]
     , subtree "in interface exercises"
-      [ brokenOnIDELedger ("in command", fieldRenamingExerciseInterfaceCommand)
-      , brokenOnIDELedger ("from choice body", fieldRenamingExerciseInterfaceChoiceBody)
+      [ ("in command", fieldRenamingExerciseInterfaceCommand)
+      , ("from choice body", fieldRenamingExerciseInterfaceChoiceBody)
       , ("of local contract", fieldRenamingExerciseInterfaceLocal)
       ]
     ]
   , subtree "should reject variant rank change"
     [ subtree "in fetches"
-      [ brokenOnIDELedger ("from choice body", variantRankChangeFetchChoiceBody)
+      [ ("from choice body", variantRankChangeFetchChoiceBody)
       , ("of local contract", variantRankChangeFetchLocal)
       ]
     , subtree "in exercises"
-      [ brokenOnIDELedger ("in command", variantRankChangeExerciseCommand)
-      , brokenOnIDELedger ("from choice body", variantRankChangeExerciseChoiceBody)
+      [ ("in command", variantRankChangeExerciseCommand)
+      , ("from choice body", variantRankChangeExerciseChoiceBody)
       , ("of local contract", variantRankChangeExerciseLocal)
       ]
     , subtree "in interface exercises"
-      [ brokenOnIDELedger ("in command", variantRankChangeExerciseInterfaceCommand)
-      , brokenOnIDELedger ("from choice body", variantRankChangeExerciseInterfaceChoiceBody)
+      [ ("in command", variantRankChangeExerciseInterfaceCommand)
+      , ("from choice body", variantRankChangeExerciseInterfaceChoiceBody)
       , ("of local contract", variantRankChangeExerciseInterfaceLocal)
       ]
     ]
   , subtree "should reject enum rank change"
     [ subtree "in fetches"
-      [ brokenOnIDELedger ("from choice body", enumRankChangeFetchChoiceBody)
+      [ ("from choice body", enumRankChangeFetchChoiceBody)
       , ("of local contract", enumRankChangeFetchLocal)
       ]
     , subtree "in exercises"
-      [ brokenOnIDELedger ("in command", enumRankChangeExerciseCommand)
-      , brokenOnIDELedger ("from choice body", enumRankChangeExerciseChoiceBody)
+      [ ("in command", enumRankChangeExerciseCommand)
+      , ("from choice body", enumRankChangeExerciseChoiceBody)
       , ("of local contract", enumRankChangeExerciseLocal)
       ]
     , subtree "in interface exercises"
-      [ brokenOnIDELedger ("in command", enumRankChangeExerciseInterfaceCommand)
-      , brokenOnIDELedger ("from choice body", enumRankChangeExerciseInterfaceChoiceBody)
+      [ ("in command", enumRankChangeExerciseInterfaceCommand)
+      , ("from choice body", enumRankChangeExerciseInterfaceChoiceBody)
       , ("of local contract", enumRankChangeExerciseInterfaceLocal)
       ]
     ]
