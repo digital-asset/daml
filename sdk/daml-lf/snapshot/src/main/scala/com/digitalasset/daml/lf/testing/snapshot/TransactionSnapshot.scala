@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package testing.snapshot
 
-import com.digitalasset.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder}
+import com.digitalasset.daml.lf.archive.{ArchiveDecoder, DarDecoder}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -80,7 +80,7 @@ private[snapshot] object TransactionSnapshot {
 
   def loadDar(darFile: Path): Map[Ref.PackageId, Ast.Package] = {
     println(s"%%% loading dar file $darFile ...")
-    UniversalArchiveDecoder.assertReadFile(darFile.toFile).all.toMap
+    DarDecoder.assertReadArchiveFromFile(darFile.toFile).all.toMap
   }
 
   def compile(

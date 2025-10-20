@@ -6,7 +6,7 @@ package engine
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.language.Ast.Package
@@ -49,7 +49,7 @@ class InterfaceViewSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     val (mainPkgId, mainPkg) = packages.main
     (mainPkgId, mainPkg, packages.all.toMap)
   }
