@@ -10,8 +10,8 @@ import com.digitalasset.daml.lf.archive.{
   ArchivePayload,
   Dar,
   DecodeV2,
-  UniversalArchiveDecoder,
-  UniversalArchiveReader,
+  DarDecoder,
+  DarReader,
 }
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.data.Ref.ModuleName
@@ -108,8 +108,8 @@ class DamlLfEncoderTest
 
       forEvery(versions) { (version, expectedModules) =>
         val dar =
-          UniversalArchiveReader
-            .readFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
+          DarReader
+            .readArchiveFromFile(new File(rlocation(s"daml-lf/encoder/test-$version.dar")))
 
         dar shouldBe a[Right[_, _]]
 
@@ -158,8 +158,8 @@ class DamlLfEncoderTest
       forEvery(Table("version", LanguageVersion.AllV2.filter(LanguageVersion.v2_dev < _): _*)) {
         version =>
           val Right(dar) =
-            UniversalArchiveDecoder
-              .readFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
+            DarDecoder
+              .readArchiveFromFile(new File(rlocation(s"daml-lf/encoder/test-${version.pretty}.dar")))
           val (_, mainPkg) = dar.main
           val builtinInModule = mainPkg
             .modules(builtinMod)
