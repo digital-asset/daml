@@ -24,9 +24,7 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "ALL_LF_VERSIONS",
-    "lf_version_configuration",
-    "lf_version_default_or_latest",
-    "lf_version_is_dev",
+    "DEFAULT_VERSION",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -164,7 +162,7 @@ daml_compile(
     srcs = [
         "src/test/daml/Bar.daml",
     ],
-    target = lf_version_configuration.get("default"),
+    target = DEFAULT_VERSION,
 )
 
 dar_to_java(

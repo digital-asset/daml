@@ -16,7 +16,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "lf_version_default_or_latest",
+    "DEFAULT_VERSION",
+    "RAW_DEFAULT_VERSION",
 )
 load(
     "//language-support/java/codegen:codegen.bzl",
@@ -71,68 +72,72 @@ da_scala_benchmark_jmh(
 )
 
 [
-    [
-        daml_compile(
-            name = "ReplayBenchmark-v{}".format(major),
-            srcs = glob(["src/test/daml/**/*.daml"]),
-            dependencies = ["//daml-script/daml:daml-script.dar"],
-            target = lf_version_default_or_latest(major),
-        ),
-        dar_to_java(
-            name = "ReplayBenchmark-v{}-codegen".format(major),
-            src = ":ReplayBenchmark-v{}.dar".format(major),
-            package_prefix = "com.daml.lf.testing.snapshot.java",
-        ),
-        da_scala_test_suite(
-            name = "replay-benchmark-tests-v{}".format(major),
-            srcs = glob(
-                ["src/test/scala/**/*.scala"],
-                exclude = [
-                    "src/test/scala/**/GenerateSnapshots.scala",
-                    "src/test/scala/**/ExtractSnapshotChoices.scala",
-                ],
-            ),
-            data = [":ReplayBenchmark-v{}.dar".format(major)],
-            scala_deps = [
-                "@maven//:org_apache_pekko_pekko_actor",
-                "@maven//:org_apache_pekko_pekko_stream",
-                "@maven//:org_scalatest_scalatest_core",
-                "@maven//:org_scalatest_scalatest_matchers_core",
-                "@maven//:org_scalatest_scalatest_shouldmatchers",
-                "@maven//:org_scalatest_scalatest_wordspec",
-                "@maven//:org_scalaz_scalaz_core",
-            ],
-            deps = [
-                ":replay-benchmark_compiled_benchmark_lib",
-                ":replay-benchmark_generator",
-                ":ReplayBenchmark-v{}-codegen".format(major),
-                ":snapshot",
-                "//bazel_tools/runfiles:scala_runfiles",
-                "//canton:community_ledger_ledger-common",
-                "//canton:community_util-observability",
-                "//daml-lf/archive:daml_lf_archive_reader",
-                "//daml-lf/data",
-                "//daml-lf/engine",
-                "//daml-lf/interpreter",
-                "//daml-lf/language",
-                "//daml-lf/parser",
-                "//daml-lf/stable-packages",
-                "//daml-lf/transaction",
-                "//daml-lf/transaction-test-lib",
-                "//daml-script/runner:script-runner-lib",
-                "//daml-script/test:test-utils",
-                "//libs-scala/contextualized-logging",
-                "//libs-scala/ledger-resources",
-                "//libs-scala/ports",
-                "//libs-scala/resources",
-                "//libs-scala/rs-grpc-bridge",
-                "//libs-scala/testing-utils",
-                "//test-common/canton/it-lib",
+    daml_compile(
+        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
+        name = "ReplayBenchmark-v2",
+        srcs = glob(["src/test/daml/**/*.daml"]),
+        dependencies = ["//daml-script/daml:daml-script.dar"],
+        target = DEFAULT_VERSION,
+    ),
+    dar_to_java(
+        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
+        name = "ReplayBenchmark-v{}-codegen".format("2"),
+        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
+        src = ":ReplayBenchmark-v2.dar",
+        package_prefix = "com.daml.lf.testing.snapshot.java",
+    ),
+    da_scala_test_suite(
+        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
+        name = "replay-benchmark-tests-v2",
+        srcs = glob(
+            ["src/test/scala/**/*.scala"],
+            exclude = [
+                "src/test/scala/**/GenerateSnapshots.scala",
+                "src/test/scala/**/ExtractSnapshotChoices.scala",
             ],
         ),
-    ]
-    for major in COMPILER_LF_MAJOR_VERSIONS
+        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
+        data = [":ReplayBenchmark-v2.dar"],
+        scala_deps = [
+            "@maven//:org_apache_pekko_pekko_actor",
+            "@maven//:org_apache_pekko_pekko_stream",
+            "@maven//:org_scalatest_scalatest_core",
+            "@maven//:org_scalatest_scalatest_matchers_core",
+            "@maven//:org_scalatest_scalatest_shouldmatchers",
+            "@maven//:org_scalatest_scalatest_wordspec",
+            "@maven//:org_scalaz_scalaz_core",
+        ],
+        deps = [
+            ":replay-benchmark_compiled_benchmark_lib",
+            ":replay-benchmark_generator",
+            # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
+            ":ReplayBenchmark-v{}-codegen".format("2"),
+            ":snapshot",
+            "//bazel_tools/runfiles:scala_runfiles",
+            "//canton:community_ledger_ledger-common",
+            "//canton:community_util-observability",
+            "//daml-lf/archive:daml_lf_archive_reader",
+            "//daml-lf/data",
+            "//daml-lf/engine",
+            "//daml-lf/interpreter",
+            "//daml-lf/language",
+            "//daml-lf/parser",
+            "//daml-lf/stable-packages",
+            "//daml-lf/transaction",
+            "//daml-lf/transaction-test-lib",
+            "//daml-script/runner:script-runner-lib",
+            "//daml-script/test:test-utils",
+            "//libs-scala/contextualized-logging",
+            "//libs-scala/ledger-resources",
+            "//libs-scala/ports",
+            "//libs-scala/resources",
+            "//libs-scala/rs-grpc-bridge",
+            "//libs-scala/testing-utils",
+            "//test-common/canton/it-lib",
+        ],
+    ),
 ] if not is_windows else []
+
 
 [
     da_scala_test_suite(

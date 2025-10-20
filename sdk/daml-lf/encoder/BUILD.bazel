@@ -12,8 +12,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "ALL_LF_VERSIONS",
-    "lf_version_configuration",
     "lf_version_is_dev",
+    "lf_version_configuration",
     "mangle_for_java",
     "version_in",
 )
@@ -124,7 +124,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                "--dev" if (lf_version_is_dev(target) or target == lf_version_configuration.get("preview")) else "",
+                "--dev" if (lf_version_is_dev(target)) else "",
             ],
             data = [
                 "//daml-lf/repl",
