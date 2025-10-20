@@ -9,8 +9,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "ENGINE_LF_DEV_VERSIONS",
-    "lf_version_default_or_latest",
+    "DEV_VERSION",
+    "DEFAULT_VERSION",
     "mangle_for_damlc",
 )
 load("@os_info//:os_info.bzl", "is_intel")
@@ -22,7 +22,7 @@ load("@os_info//:os_info.bzl", "is_intel")
 #     daml_compile(
 #         name = "Exceptions-v{}".format(major),
 #         srcs = ["Exceptions.daml"],
-#         target = lf_version_default_or_latest(major),
+#         target = DEFAULT_VERSION,
 #         visibility = ["//daml-lf:__subpackages__"],
 #     )
 #     for major in LF_MAJOR_VERSIONS
@@ -35,7 +35,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         target = version,
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for version in ENGINE_LF_DEV_VERSIONS
+    for version in [DEV_VERSION]
 ]
 
 [
@@ -43,7 +43,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         name = "Interfaces-v{}".format(major),
         srcs = ["Interfaces.daml"],
         enable_interfaces = True,
-        target = lf_version_default_or_latest(major),
+        target = DEFAULT_VERSION,
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
@@ -54,7 +54,7 @@ load("@os_info//:os_info.bzl", "is_intel")
         name = "InterfaceViews-v{}".format(major),
         srcs = ["InterfaceViews.daml"],
         enable_interfaces = True,
-        target = lf_version_default_or_latest(major),
+        target = DEFAULT_VERSION,
         visibility = ["//daml-lf:__subpackages__"],
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
@@ -73,5 +73,5 @@ daml_build_test(
         target = version,
         visibility = ["//daml-lf:__subpackages__"],
     )
-    for version in ENGINE_LF_DEV_VERSIONS
+    for version in [DEV_VERSION]
 ]
