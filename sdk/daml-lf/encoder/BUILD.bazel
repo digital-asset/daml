@@ -123,7 +123,7 @@ da_scala_binary(
             args = [
                 "$(location //daml-lf/repl:repl)",
                 "$(location :testing-dar-%s)" % target,
-                "--dev" if (lf_version_is_dev(target)) else "",
+                "--dev" if lf_version_is_dev(target) else "",
             ],
             data = [
                 "//daml-lf/repl",

@@ -12,8 +12,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "DEV_VERSION",
     "DEFAULT_VERSION",
+    "DEV_VERSION",
     "mangle_for_damlc",
 )
 load(

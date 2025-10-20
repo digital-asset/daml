@@ -138,7 +138,6 @@ da_scala_benchmark_jmh(
     ),
 ] if not is_windows else []
 
-
 [
     da_scala_test_suite(
         name = "generate-snapshots",
