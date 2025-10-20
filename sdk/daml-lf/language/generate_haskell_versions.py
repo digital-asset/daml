@@ -84,12 +84,12 @@ import DA.Daml.LF.Ast.Version.VersionType
 
     # 2. Generate lists and single variables by calling the new helper functions
     output.extend(generate_haskell_list(
-        name="allVersions",
+        name="allLfVersions",
         docstring="A list of all versions.",
         version_strings=data["ALL"],
     ))
     output.extend(generate_haskell_list(
-        name="stableVersions",
+        name="stableLfVersions",
         docstring="A list of all stable versions.",
         version_strings=data["STABLE"],
     ))
