@@ -7,7 +7,7 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:versions.bzl", "version_to_name", "versions")
-load("//:versions.bzl", "latest_stable_release_version")
+load("//:versions.bzl", "latest_stable_version")
 
 def in_range(version, range):
     start = range.get("start")
@@ -21,7 +21,7 @@ def in_range(version, range):
     return True
 
 def extra_tags(sdk_version, platform_version):
-    if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable_release_version]):
+    if sorted([sdk_version, platform_version]) == sorted(["0.0.0", latest_stable_version]):
         # These tests are the ones that we check on each PR since they
         # are the most useful ones and hopefully fast enough.
         return ["head-quick"]

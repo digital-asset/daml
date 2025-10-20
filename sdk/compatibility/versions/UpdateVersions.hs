@@ -59,8 +59,7 @@ renderVersionsFile versions =
         , [ "stable_versions = [" ]
         , map renderVersion (Map.keys stableVersions <> [headVersion])
         , [ "]" ]
-        , [ "latest_stable_release_version = \"" <> SemVer.toText (fst latestVersion) <> "\"" ]
-        , [ "latest_stable_sdk_version = \"" <> SemVer.toText (snd latestVersion) <> "\"" ]
+        , [ "latest_stable_version = \"" <> SemVer.toText latestVersion <> "\"" ]
         , [ "version_sha256s = {"]
         , concatMap renderChecksums (Map.toList $ snd <$> versions)
         , [ "}" ]
@@ -82,11 +81,8 @@ renderVersionsFile versions =
     renderDigest digest = T.pack $ show (convertToBase Base16 digest :: ByteString)
     renderVersion ver = "    \"" <> SemVer.toText ver <> "\","
     stableVersions = Map.filterWithKey (const . null . view SemVer.release) versions
-    firstVersion =
-      ( SemVer.version 3 3 0 [fromJust $ SemVer.textual "snapshot", SemVer.numeric 20250930, SemVer.numeric 0] []
-      , SemVer.version 3 3 0 [fromJust $ SemVer.textual "snapshot", SemVer.numeric 20250926, SemVer.numeric 13852, SemVer.numeric 1, fromJust $ SemVer.textual "v4f3223e3"] []
-      )
-    latestVersion = if Map.null versions then firstVersion else Map.findMax $ fst <$> versions
+    firstVersion = SemVer.version 3 3 0 [fromJust $ SemVer.textual "snapshot", SemVer.numeric 20250930, SemVer.numeric 0] []
+    latestVersion = if Map.null versions then firstVersion else fst $ Map.findMax versions
     renderInternalVersions (releaseVer, sdkVer) = "    \"" <> SemVer.toText releaseVer <> "\": \"" <> SemVer.toText sdkVer <> "\","
 
 data Opts = Opts

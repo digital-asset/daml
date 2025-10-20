@@ -13,8 +13,7 @@ platform_versions = [
 stable_versions = [
     "0.0.0",
 ]
-latest_stable_release_version = "3.3.0-snapshot.20250930.0"
-latest_stable_sdk_version = "3.3.0-snapshot.20250926.13852.1.v4f3223e3"
+latest_stable_version = "3.3.0-snapshot.20250930.0"
 version_sha256s = {
     "3.3.0-snapshot.20250930.0": {
         "linux": "aac8d2cf931af2122287e0a1a79488fcc2daa2181e5d562cab72d72350a5834e",
