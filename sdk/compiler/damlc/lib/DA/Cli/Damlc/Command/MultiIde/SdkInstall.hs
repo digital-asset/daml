@@ -19,7 +19,7 @@ import Control.Concurrent.MVar
 import Control.Concurrent.STM.TMVar
 import Control.Exception (SomeException, displayException, throwIO)
 import Control.Lens ((^.), (&))
-import Control.Monad (foldM, forM_, void, unless, when)
+import Control.Monad (foldM, forM_, void, when)
 import Control.Monad.STM
 import Data.Aeson (fromJSON, toJSON)
 import qualified Data.Yaml as Y
