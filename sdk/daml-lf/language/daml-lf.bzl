@@ -3,75 +3,64 @@
 
 load("@os_info//:os_info.bzl", "is_intel")
 
-# Define each version as a dictionary with structured data.
-_versions_definitions = [
-    {
-        "major": "2",
-        "minor": "1",
-        "status": "stable",
-    },
-    {
-        "major": "2",
-        "minor": "2",
-        "status": "stable",
-        "default": True,
-    },
-    # {
-    #     "major": "2",
-    #     "minor": "3",
-    #     "status": "staging",
-    # },
-    {
-        "major": "2",
-        "minor": "dev",
-        "status": "dev",
-    },
-]
-
 def _to_dotted_version(v):
-    """Converts a single version dictionary to a string like "2.2"."""
-    return "{}.{}".format(v["major"], v["minor"])
+    """Converts a single version struct to a string like "2.2"."""
+    return "{}.{}".format(v.major, v.minor)
 
 def _to_dotted_versions(versions):
-    """Converts a list of version dictionaries to a list of strings."""
+    """Converts a list of version structs to a list of strings."""
     return [_to_dotted_version(v) for v in versions]
 
-def _get_versions(filter_statuses = None):
-    """Helper to filter versions based on a list of statuses."""
-    if filter_statuses == None:
-        return _versions_definitions
-    return [v for v in _versions_definitions if v["status"] in filter_statuses]
+# --- Main Processing Function ---
 
-def _init_versions():
+def _init_data():
     """
-    Performs all version calculations and returns them in a struct.
-    This encapsulates all logic to avoid top-level 'if' statements.
+    Initializes all version data, fully encapsulating the definitions and logic.
     """
-    all_versions = _get_versions()
-    stable_versions = _get_versions(["stable"])
+
+    # Definition of versions
+    # Encapsulated in _init_data, NOT TO BE USED OUTSIDE (use variables instead)
+    V2_1 = struct(major = "2", minor = "1", status = "stable")
+    V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
+    # V2_3 = struct(major = "2", minor = "3", status = "staging")
+    V2_DEV = struct(major = "2", minor = "dev", status = "dev")
+
+    all_versions_structs = [
+        V2_1,
+        V2_2,
+        # V2_3,
+        V2_DEV,
+    ]
+
+    # Data for (list of) version variables
+    def _get_by_status(status):
+        """Filters the master list by status."""
+        return [v for v in all_versions_structs if v.status == status]
+
+    stable_versions = _get_by_status("stable")
+    dev_definitions = _get_by_status("dev")
+    staging_versions_list = _get_by_status("staging")
+
+    # The 'default' check is a unique filter, so a list comprehension is still
+    # clearest here.
+    default_definitions = [v for v in all_versions_structs if hasattr(v, "default") and v.default]
 
     if not stable_versions:
         fail("No stable versions were found. Cannot determine the latest stable version.")
     latest_stable = stable_versions[-1]
 
-    _default_definitions = [v for v in _versions_definitions if v.get("default")]
-    if len(_default_definitions) != 1:
-        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(_default_definitions)))
-    default_version = _default_definitions[0]
+    if len(default_definitions) != 1:
+        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(default_definitions)))
+    default_version = default_definitions[0]
 
-    _dev_definitions = _get_versions(["dev"])
-    if len(_dev_definitions) != 1:
-        fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(_dev_definitions)))
-    dev_version = _dev_definitions[0]
+    if len(dev_definitions) != 1:
+        fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(dev_definitions)))
+    dev_version = dev_definitions[0]
 
-    _staging_versions_list = _get_versions(["staging"])
-    if _staging_versions_list:
-        staging_version = _staging_versions_list[-1]
-    else:
-        staging_version = latest_stable
+    staging_version = staging_versions_list[-1] if staging_versions_list else latest_stable
 
     return struct(
-        all = all_versions,
+        all = all_versions_structs,
         stable = stable_versions,
         latest_stable = latest_stable,
         default = default_version,
@@ -82,18 +71,18 @@ def _init_versions():
 # --- Public interface of this .bzl file ---
 
 # Call the private function once to compute all version variables.
-_versions = _init_versions()
+_data = _init_data()
 
 # Export the public API from the returned struct.
-RAW_ALL_LF_VERSIONS = _versions.all
-ALL_LF_VERSIONS = _to_dotted_versions(_versions.all)
-STABLE_LF_VERSIONS = _to_dotted_versions(_versions.stable)
+RAW_ALL_LF_VERSIONS = _data.all
+ALL_LF_VERSIONS = _to_dotted_versions(_data.all)
+STABLE_LF_VERSIONS = _to_dotted_versions(_data.stable)
 
-LATEST_STABLE_VERSION = _to_dotted_version(_versions.latest_stable)
-RAW_DEFAULT_VERSION = _versions.default
+LATEST_STABLE_VERSION = _to_dotted_version(_data.latest_stable)
+RAW_DEFAULT_VERSION = _data.default
 DEFAULT_VERSION = _to_dotted_version(RAW_DEFAULT_VERSION)
-DEV_VERSION = _to_dotted_version(_versions.dev)
-STAGING_VERSION = _to_dotted_version(_versions.staging)
+DEV_VERSION = _to_dotted_version(_data.dev)
+STAGING_VERSION = _to_dotted_version(_data.staging)
 
 # configuration to maintain old-style names
 lf_version_configuration = {
