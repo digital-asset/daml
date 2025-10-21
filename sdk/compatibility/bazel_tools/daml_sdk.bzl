@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@os_info//:os_info.bzl", "is_windows", "os_name")
+load("@os_info//:os_info.bzl", "is_windows", "os_arch", "os_name")
 load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_tool_home", "dadew_where")
 load("@io_bazel_rules_scala//scala:scala_cross_version.bzl", "default_maven_server_urls")
 load("//bazel_tools:versions.bzl", "versions")
@@ -50,7 +50,7 @@ def _daml_sdk_impl(ctx):
         ctx.download_and_extract(
             output = out_dir,
             url =
-                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(ctx.attr.version, internal_sdk_version, ctx.attr.os_name),
+                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}-{}.tar.gz".format(ctx.attr.version, internal_sdk_version, ctx.attr.os_name, ctx.attr.arch),
             sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
             stripPrefix = "sdk-{}".format(internal_sdk_version),
         )
@@ -136,6 +136,7 @@ _daml_sdk = repository_rule(
     attrs = {
         "version": attr.string(mandatory = True),
         "os_name": attr.string(mandatory = False, default = os_name),
+        "arch": attr.string(mandatory = False, default = os_arch),
         "sdk_sha256": attr.string_dict(mandatory = False),
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
         "daml_types_tarball": attr.label(allow_single_file = True, mandatory = False),
