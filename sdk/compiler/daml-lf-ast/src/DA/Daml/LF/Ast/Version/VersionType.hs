@@ -10,6 +10,7 @@ import           Control.DeepSeq
 import           Data.Data
 import           Data.List (intercalate)
 import           Data.Maybe (catMaybes)
+import qualified Data.Text as T
 
 import           GHC.Generics
 
@@ -21,7 +22,7 @@ data Version = Version
     { versionMajor :: MajorVersion
     , versionMinor :: MinorVersion
     }
-    deriving (Eq, Data, Generic, NFData, Show)
+    deriving (Eq, Data, Generic, NFData, Show, Ord)
 
 data MajorVersion = V2
   deriving (Eq, Data, Generic, NFData, Ord, Show, Enum, Bounded)
@@ -103,6 +104,18 @@ renderFeatureVersionReq (VersionReq req) = renderRanges (req V2)
 
     renderRange cons = \case
         R.Empty -> Nothing
+        R.From low ->
+              Just $
+                unwords
+                    [ "from"
+                    , renderVersion (cons low)
+                    ]
+        R.Until high ->
+              Just $
+                unwords
+                    [ "unitl"
+                    , renderVersion (cons high)
+                    ]
         R.Inclusive low high
           | low == high -> Just $ renderVersion (cons low)
           | otherwise ->
@@ -118,3 +131,12 @@ instance Pretty Version where
 
 instance Pretty VersionReq where
   pPrint = string . renderFeatureVersionReq
+
+-- Features
+type VersionReq' = R.Range Version
+
+data Feature' = Feature'
+    { featureName' :: !T.Text
+    , featureVersionReq' :: !VersionReq'
+    , featureCppFlag' :: T.Text
+    } deriving Show
