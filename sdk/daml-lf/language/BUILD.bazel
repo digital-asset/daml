@@ -20,6 +20,7 @@ load(
     "RAW_ALL_LF_VERSIONS",
     "STABLE_LF_VERSIONS",
     "STAGING_LF_VERSION",
+    "FEATURES",
 )
 
 da_scala_library(
@@ -54,8 +55,6 @@ da_scala_test(
 
 _VERSION_GENERATING_PACKAGES = ["//compiler/daml-lf-ast:__pkg__"]
 
-# A genrule to produce a JSON file from our Starlark data.
-# This acts as a stable interface for our generator script.
 genrule(
     name = "version_data_json",
     outs = ["versions.json"],
@@ -84,4 +83,25 @@ py_binary(
     name = "generate_haskell_versions",
     srcs = ["generate_haskell_versions.py"],
     visibility = _VERSION_GENERATING_PACKAGES,
+)
+
+genrule(
+    name = "feature_data_json",
+    outs = ["features.json"],
+    cmd = """
+cat << EOF > $@
+{json}
+EOF
+""".format(
+        # The FEATURES variable comes from your _init_data() function.
+        json = json.encode(FEATURES),
+    ),
+    visibility = _VERSION_GENERATING_PACKAGES,  # Or your preferred visibility
+)
+
+py_binary(
+    name = "generate_haskell_features",
+    srcs = ["generate_haskell_features.py"],
+    visibility = _VERSION_GENERATING_PACKAGES,
+    deps = [],
 )

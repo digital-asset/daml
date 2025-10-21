@@ -15,9 +15,9 @@ import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 
 import           GHC.Stack                  (HasCallStack)
-import Language.LSP.Types
-import           Outputable (Outputable(..), text)
-import Text.Printf (printf)
+import           Language.LSP.Types
+import           Outputable                 (Outputable(..), text)
+import           Text.Printf                (printf)
 
 mkVar :: T.Text -> ExprVarName
 mkVar = ExprVarName
