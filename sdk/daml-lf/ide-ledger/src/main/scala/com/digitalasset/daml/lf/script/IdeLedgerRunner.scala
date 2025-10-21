@@ -48,7 +48,6 @@ private[lf] object IdeLedgerRunner {
 
   final case class Commit[+R](
       result: R,
-      value: SValue,
       tx: IncompleteTransaction,
   ) extends SubmissionResult[R]
 
@@ -421,7 +420,7 @@ private[lf] object IdeLedgerRunner {
           }
         case SResultInterruption =>
           Interruption(continue)
-        case SResult.SResultFinal(resultValue) =>
+        case SResult.SResultFinal(_) =>
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _)) =>
               val committedTx = CommittedTransaction(enrich(suffixer.suffixCids(tx)))
@@ -429,7 +428,7 @@ private[lf] object IdeLedgerRunner {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
-                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
+                  Commit(r, enrich(ledgerMachine.incompleteTransaction))
               }
             case Left(err) =>
               throw err
