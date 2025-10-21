@@ -36,7 +36,7 @@ main = withSdkVersions $ do
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
         let targetDevVersion = LF.devVersion
-        let exceptionsVersion = minExceptionVersion LF.V2
+        let exceptionsVersion = minExceptionVersion
         let simpleDalfLfVersion = LF.defaultVersion
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-2.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
@@ -45,10 +45,7 @@ main = withSdkVersions $ do
     let testTrees = [tests v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
-    minExceptionVersion major =
-        fromJustNote
-            "exceptions should have a minor version for every existing major version"
-            (LF.featureMinVersion LF.featureExceptions major)
+    minExceptionVersion = minBound LF.featureExceptions
 
 data TestArgs = TestArgs
   { targetDevVersion :: LF.Version
@@ -2818,4 +2815,3 @@ tests TestArgs{..} =
     damlcForTarget target
       | target `elem` LF.allLfVersions = damlc
       | otherwise = damlcLegacy
-

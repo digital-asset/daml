@@ -56,17 +56,17 @@ import DA.Daml.LF.Ast.Version.GeneratedVersions
         version_req_hs = to_haskell_range(feature["version_req"])
 
         output.extend([
-            f"{var_name} :: Feature'",
-            f"{var_name} = Feature'",
-            f"    {{ featureName' = \"{name_pretty}\"",
-            f"    , featureVersionReq' = {version_req_hs}",
-            f"    , featureCppFlag' = \"{cpp_flag}\"",
+            f"{var_name} :: Feature",
+            f"{var_name} = Feature",
+            f"    {{ featureName = \"{name_pretty}\"",
+            f"    , featureVersionReq = {version_req_hs}",
+            f"    , featureCppFlag = \"{cpp_flag}\"",
             f"    }}\n",
         ])
 
     all_feature_names = [f["name"] for f in features_data]
     output.extend([
-        "allFeatures :: [Feature']",
+        "allFeatures :: [Feature]",
         "allFeatures = [{}]\n".format(", ".join(all_feature_names)),
     ])
 

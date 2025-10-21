@@ -76,6 +76,10 @@ def _init_data():
     # [x..y], only low = x -> [x..], only high y = [..y], none = []
     features_definitions = [
         {
+            # Unstable, experimental features. This should stay in x.dev
+            # forever. Features implemented with this flag should be moved to a
+            # separate feature flag once the decision to add them permanently
+            # has been made.
             "name": "featureUnstable",
             "name_pretty": "Unstable, experimental features",
             "cpp_flag": "DAML_UNSTABLE",
