@@ -8,7 +8,7 @@ import java.util.concurrent.{Executors, Semaphore, TimeoutException, TimeUnit}
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.concurrent.duration.{Deadline, FiniteDuration, NANOSECONDS}
+import scala.concurrent.duration.{Deadline, FiniteDuration, MINUTES}
 
 /** Utility for sharing a set of locks across threads. Each lock is identified by a key.
   *
@@ -22,7 +22,7 @@ class LockSet[K](logger: ContextualizedLogger)(implicit ord: Ordering[K]) {
 
   def withLocksOn[A](
       keysItr: Iterable[K],
-      acquireTimeout: FiniteDuration = FiniteDuration(Long.MaxValue, NANOSECONDS),
+      acquireTimeout: FiniteDuration = FiniteDuration(1, MINUTES),
       opName: String = "",
   )(block: => Future[A])(implicit callerEc: ExecutionContext, lc: LoggingContext): Future[A] = {
     val keys = keysItr.toSet.toSeq.sorted

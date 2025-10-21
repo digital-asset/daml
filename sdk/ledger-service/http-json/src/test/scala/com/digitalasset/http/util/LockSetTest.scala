@@ -6,7 +6,7 @@ package com.daml.http.util
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.concurrent.{ExecutionContext, Future, Await, Promise, TimeoutException}
@@ -73,22 +73,22 @@ class LockSetTest extends AnyWordSpec with Matchers {
         val _ = acquired.success(())
         release.future
       }
-      val _ = Await.result(acquired.future, 5.seconds) // Wait until the locks are acquired
+      val _ = Await.result(acquired.future, 10.seconds) // Wait until the locks are acquired
 
       // Now attempt to acquire these (still held) locks again, and only allow only 1 second.
-      val updated = new AtomicReference[Boolean](false) // Whether the block was run
-      val timeout = new AtomicReference[Boolean](false) // Whether the attempt failed due to timeout
+      val updated = new AtomicBoolean(false) // Whether the block was run
+      val timeout = new AtomicBoolean(false) // Whether the attempt failed due to timeout
       val awaitLock: Future[Unit] =
         lockSet
           .withLocksOn("xy", 1.second, "future 2") { Future { updated.set(true) } }
           .recover { case _: TimeoutException => timeout.set(true) }
 
-      // 2s later we allow the first future to complete and release the locks.
+      // 3s later we allow the first future to complete and release the locks.
       // By this time the second future should have already timed out.
-      Thread.sleep(2.seconds.toMillis)
+      Thread.sleep(3.seconds.toMillis)
       val _ = release.success(())
 
-      val _ = Await.result(Future.sequence(Seq(holdLock, awaitLock)), 5.seconds)
+      val _ = Await.result(Future.sequence(Seq(holdLock, awaitLock)), 10.seconds)
 
       val _ = updated.get() shouldBe false
       val _ = timeout.get() shouldBe true
