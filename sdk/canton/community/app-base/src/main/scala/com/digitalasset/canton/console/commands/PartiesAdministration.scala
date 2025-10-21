@@ -1201,7 +1201,7 @@ class ParticipantPartiesAdministrationGroup(
     "Clears the onboarding flag for a party."
   )
   @Help.Description(
-    """Instructs the target participant to unilaterally clear the 'onboarding' flag on the
+    """Instructs the participant to unilaterally clear the 'onboarding' flag on the
       |party-to-participant topology mapping.
       |
       |This operation is time-sensitive. If run too soon, the flag cannot be safely cleared,
@@ -1212,7 +1212,7 @@ class ParticipantPartiesAdministrationGroup(
       |the underlying change may take time to become effective.
       |
       |Prerequisite: A prior party-to-participant mapping topology transaction must exist
-      |that activates the party on the target participant with the onboarding flag set to
+      |that activates the party on the participant with the onboarding flag set to
       |true.
       |
       |Returns a tuple with the current status:
@@ -1222,12 +1222,10 @@ class ParticipantPartiesAdministrationGroup(
       |           time to run the command again.
       |
       |The arguments are:
-      |- party: The party being onboarded, it must already be active on the target participant.
+      |- party: The party being onboarded, it must already be active on the participant.
       |- synchronizerId: Restricts the party onboarding to the given synchronizer.
-      |- targetParticipantId: Unique identifier of the target participant where the party
-      |                       has been onboarded.
       |- beginOffsetExclusive: Exclusive ledger offset used as a starting point to find the
-      |                        party's activation on the target participant.
+      |                        party's activation on the participant.
       |- waitForActivationTimeout: The maximum duration the service will wait to find the
       |                            topology transaction that activates the party.
     """
@@ -1235,7 +1233,6 @@ class ParticipantPartiesAdministrationGroup(
   def clear_party_onboarding_flag(
       party: PartyId,
       synchronizerId: SynchronizerId,
-      targetParticipantId: ParticipantId,
       beginOffsetExclusive: Long,
       waitForActivationTimeout: Option[config.NonNegativeFiniteDuration] = Some(
         config.NonNegativeFiniteDuration.ofMinutes(2)
@@ -1246,7 +1243,6 @@ class ParticipantPartiesAdministrationGroup(
         ParticipantAdminCommands.PartyManagement.ClearPartyOnboardingFlag(
           party,
           synchronizerId,
-          targetParticipantId,
           NonNegativeLong.tryCreate(beginOffsetExclusive),
           waitForActivationTimeout,
         )

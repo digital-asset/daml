@@ -230,13 +230,38 @@ trait PackageUploadIntegrationTest
   }
 
   "dar inspection" should {
-    "show content of dars" in { implicit env =>
+    "show the content of a DAR if it was uploaded via the Admin API" in { implicit env =>
       import env.*
 
       participant3.synchronizers.connect_local(sequencer1, alias = daName)
+      participant3.dars.list(filterName = "CantonExamples") shouldBe empty
+
       participant3.dars.upload(CantonExamplesPath)
 
       val items = participant3.dars.list(filterName = "CantonExamples")
+      items should have length (1)
+
+      val dar = items.loneElement
+
+      // list contents
+      val content = participant3.dars.get_contents(dar.mainPackageId)
+      content.description.name shouldBe dar.name
+
+      // packages should exist ...
+      val allPackages = participant3.packages.list().map(_.packageId).toSet
+      forAll((content.packages)) { pkg =>
+        allPackages contains pkg.packageId
+      }
+    }
+
+    "show the content of a DAR if it was uploaded via the Ledger API" in { implicit env =>
+      import env.*
+
+      participant3.synchronizers.connect_local(sequencer1, alias = daName)
+      participant3.dars.list(filterName = "CantonTests") shouldBe empty
+      participant3.ledger_api.packages.upload_dar(CantonTestsPath)
+
+      val items = participant3.dars.list(filterName = "CantonTests")
       items should have length (1)
 
       val dar = items.loneElement

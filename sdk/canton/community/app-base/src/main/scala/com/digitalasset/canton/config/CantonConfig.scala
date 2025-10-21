@@ -486,6 +486,7 @@ final case class CantonConfig(
         doNotAwaitOnCheckingIncomingCommitments =
           participantParameters.doNotAwaitOnCheckingIncomingCommitments,
         disableOptionalTopologyChecks = participantConfig.topology.disableOptionalTopologyChecks,
+        commitmentCheckpointInterval = participantParameters.commitmentCheckpointInterval,
       )
     }
 

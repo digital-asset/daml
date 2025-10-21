@@ -34,7 +34,8 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
       s"$cantonBin --help" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Usage: canton [daemon|run|generate|sandbox] [options] <args>..."),
+        shouldContain =
+          Seq("Usage: canton [daemon|run|generate|sandbox|sandbox-console] [options] <args>..."),
       )
     }
 
@@ -42,7 +43,8 @@ abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
       s"$cantonBin" ! processLogger
       checkOutput(
         processLogger,
-        shouldContain = Seq("Usage: canton [daemon|run|generate|sandbox] [options] <args>..."),
+        shouldContain =
+          Seq("Usage: canton [daemon|run|generate|sandbox|sandbox-console] [options] <args>..."),
         shouldSucceed = false,
       )
     }

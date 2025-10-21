@@ -99,7 +99,7 @@ final class OffPROnboardingFlagClearanceIntegrationTest
 
     eventually(timeUntilSuccess = 2.minutes, maxPollInterval = 30.seconds) {
       val (onboard, earliestRetryTimestamp) =
-        target.parties.clear_party_onboarding_flag(alice, daId, target, targetLedgerEnd)
+        target.parties.clear_party_onboarding_flag(alice, daId, targetLedgerEnd)
       (onboard, earliestRetryTimestamp) shouldBe (true, None)
     }
 

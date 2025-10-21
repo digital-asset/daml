@@ -47,7 +47,6 @@ import scalaz.syntax.tag.*
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import scala.collection.immutable
-import scala.math.Ordering.Implicits.*
 import scala.util.Try
 
 final case class UpdateFormat(
@@ -243,7 +242,7 @@ object Logging {
 final case class ListVettedPackagesOpts(
     packageFilter: Option[PackageMetadataFilter],
     topologyStateFilter: Option[TopologyStateFilter],
-    pageToken: Option[ListVettedPackagesOpts.PageToken],
+    pageToken: PageToken,
     pageSize: PositiveInt,
 ) {
   def toPackagePredicate(metadata: PackageMetadata): Ref.PackageId => Boolean = {
@@ -251,59 +250,116 @@ final case class ListVettedPackagesOpts(
       packageFilter.forall(_.toPredicate(metadata)(pkgId))
   }
 
-  def participantsNE: Option[NonEmpty[Set[ParticipantId]]] =
-    topologyStateFilter.flatMap(filter => NonEmpty.from(filter.participantIds.toSet))
-
-  def synchronizersNE: Option[NonEmpty[Set[SynchronizerId]]] =
-    topologyStateFilter.flatMap(filter => NonEmpty.from(filter.synchronizerIds.toSet))
-
-  private def greaterThanToken(vettedPackages: EnrichedVettedPackages): Boolean =
-    pageToken match {
-      case None => true
-      case Some(token) =>
-        vettedPackages.toPageToken.toSortingTuple > token.toSortingTuple
+  // Get sorted list of filtering participants that, given their synchronizer, exceed the page token
+  // If no participants exceed the token, None is returned
+  // If no filtering participants were specified in topologyStateFilter, Some(None) is returned.
+  def userSpecifiedParticipantsInToken(
+      synchronizerId: SynchronizerId
+  ): Option[Option[NonEmpty[Set[ParticipantId]]]] = {
+    val userSpecifiedParticipants =
+      topologyStateFilter.flatMap(filter => NonEmpty.from(filter.participantIds.toSet))
+    userSpecifiedParticipants match {
+      case None => Some(None)
+      case Some(nonEmptyParticipants) =>
+        val participantsMatchingToken =
+          nonEmptyParticipants.forgetNE
+            .filter(pageToken.participantExceedsBound(synchronizerId, _))
+        NonEmpty.from(participantsMatchingToken).map(Some(_))
     }
+  }
 
-  def toPage(
-      results: Seq[EnrichedVettedPackages]
-  ): (
-      Seq[EnrichedVettedPackages],
-      String,
-  ) = {
-    val page = results
-      .filter(greaterThanToken(_))
-      .sortBy(_.toPageToken.toSortingTuple)
-      .take(pageSize.value)
-    val nextToken = page.lastOption
-      .map(_.toPageToken.encodeString)
-      .getOrElse("")
-    (page, nextToken)
+  // Get sorted list of synchronizers that could match the page token (i.e.
+  // greater than or equal to page token's synchronizer). If no synchronizers
+  // are specified in topologyStateFilter, use the default list provided.
+  def filterSynchronizersInToken(default: Set[SynchronizerId]): Seq[SynchronizerId] =
+    pageToken.sortAndFilterSynchronizers(
+      topologyStateFilter
+        .flatMap(filter => NonEmpty.from(filter.synchronizerIds.toSet))
+        .map(_.forgetNE)
+        .getOrElse(default)
+        .toSeq
+    )
+}
+
+sealed trait PageToken {
+  import PageToken.*
+
+  def encode: String
+
+  def synchronizerMeetsBound(synchronizerId: SynchronizerId): Boolean
+
+  def participantExceedsBound(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean
+
+  def sortAndFilterSynchronizers(synchronizerIds: Seq[SynchronizerId]): Seq[SynchronizerId] =
+    synchronizerIds
+      .filter(synchronizerMeetsBound(_))
+      .sorted(orderingSynchronizerId)
+
+  def sortAndFilterVettedPackages[A <: VettedPackages](
+      vettedPackages: Seq[A]
+  ): Seq[A] =
+    vettedPackages
+      .filter(vp => participantExceedsBound(vp.synchronizerId, vp.participantId))
+      .sortBy(_.toBoundedPageToken)(orderingBoundedPageToken)
+}
+
+final case class BoundedPageToken(
+    synchronizerBound: SynchronizerId,
+    participantBound: ParticipantId,
+) extends PageToken {
+  import PageToken.*
+
+  override def synchronizerMeetsBound(synchronizerId: SynchronizerId): Boolean =
+    orderingSynchronizerId.gteq(synchronizerId, synchronizerBound)
+
+  override def participantExceedsBound(
+      synchronizerId: SynchronizerId,
+      participantId: ParticipantId,
+  ): Boolean =
+    orderingBoundedPageToken.gt(BoundedPageToken(synchronizerId, participantId), this)
+
+  override def encode: String = {
+    val bytes = Base64.getUrlEncoder.encode(
+      ListVettedPackagesPageTokenPayload(
+        synchronizerId = synchronizerBound.uid.toProtoPrimitive,
+        participantId = participantBound.uid.toProtoPrimitive,
+      ).toByteArray
+    )
+    new String(bytes, StandardCharsets.UTF_8)
   }
 }
 
-object ListVettedPackagesOpts {
-  final case class PageToken(synchronizerId: SynchronizerId, participantId: ParticipantId) {
-    def encodeString: String = {
-      val bytes = Base64.getUrlEncoder.encode(
-        ListVettedPackagesPageTokenPayload(
-          synchronizerId = synchronizerId.uid.toProtoPrimitive,
-          participantId = participantId.uid.toProtoPrimitive,
-        ).toByteArray
-      )
-      new String(bytes, StandardCharsets.UTF_8)
-    }
+final case object InitialPageToken extends PageToken {
+  override def synchronizerMeetsBound(synchronizerId: SynchronizerId): Boolean = true
 
-    def toSortingTuple: (String, String) =
-      synchronizerId.uid.toProtoPrimitive -> participantId.uid.toProtoPrimitive
-  }
+  override def participantExceedsBound(
+      synchronizerId: SynchronizerId,
+      participantId: ParticipantId,
+  ): Boolean = true
 
-  object PageToken {
-    def decodeString(raw: String): ParsingResult[PageToken] = {
-      def invalidPageToken(suffix: String): ValueConversionError =
-        ValueConversionError(
-          error = s"Invalid page token for ListVettedPackagesRequest: $suffix",
-          field = "page_token",
-        )
+  override def encode: String = ""
+}
+
+object PageToken {
+  val orderingSynchronizerId = Ordering.by[SynchronizerId, String](_.uid.toProtoPrimitive)
+  val orderingParticipantId = Ordering.by[ParticipantId, String](_.uid.toProtoPrimitive)
+  val orderingBoundedPageToken: Ordering[BoundedPageToken] =
+    Ordering
+      .by[BoundedPageToken, SynchronizerId](_.synchronizerBound)(orderingSynchronizerId)
+      .orElseBy(_.participantBound)(orderingParticipantId)
+  val orderingParticipantVettedPackages: Ordering[VettedPackages] =
+    orderingBoundedPageToken.on(_.toBoundedPageToken)
+
+  def invalidPageToken(suffix: String): ValueConversionError =
+    ValueConversionError(
+      error = s"Invalid page token for ListVettedPackagesRequest: $suffix",
+      field = "page_token",
+    )
+
+  def decode(raw: String): ParsingResult[PageToken] =
+    if (raw.isEmpty) {
+      Right(InitialPageToken)
+    } else {
       val bytes = raw.getBytes(StandardCharsets.UTF_8)
       for {
         decodedBytes <- Try[Array[Byte]](Base64.getUrlDecoder.decode(bytes)).toEither.left
@@ -330,13 +386,14 @@ object ListVettedPackagesOpts {
                 s"Couldn't extract token's participant ID: ${uniqueIdentifierErr.message}"
               )
             )
-      } yield PageToken(
-        SynchronizerId(synchronizerId),
-        ParticipantId(participantId),
+      } yield BoundedPageToken(
+        synchronizerBound = SynchronizerId(synchronizerId),
+        participantBound = ParticipantId(participantId),
       )
     }
-  }
+}
 
+object ListVettedPackagesOpts {
   def fromProto(
       req: package_service.ListVettedPackagesRequest,
       serverPageSize: PositiveInt,
@@ -344,10 +401,7 @@ object ListVettedPackagesOpts {
     for {
       packageMetadataFilter <- req.packageMetadataFilter.traverse(PackageMetadataFilter.fromProto)
       topologyStateFilter <- req.topologyStateFilter.traverse(TopologyStateFilter.fromProto)
-      pageToken <-
-        OptionUtil
-          .emptyStringAsNone(req.pageToken)
-          .traverse(PageToken.decodeString)
+      pageToken <- PageToken.decode(req.pageToken)
       requestPageSize <- ProtoConverter.parseNonNegativeInt("page_size", req.pageSize)
       _ <- EitherUtil.condUnit(
         requestPageSize.value <= serverPageSize.value,
@@ -762,15 +816,25 @@ final case class SinglePackageTargetVetting[R](
   def isUnvetting: Boolean = bounds.isEmpty
 }
 
+sealed trait VettedPackages {
+  def participantId: ParticipantId
+  def synchronizerId: SynchronizerId
+  def toBoundedPageToken: BoundedPageToken = BoundedPageToken(synchronizerId, participantId)
+}
+
+final case class ParticipantVettedPackages(
+    packages: Seq[VettedPackage],
+    participantId: ParticipantId,
+    synchronizerId: SynchronizerId,
+    serial: PositiveInt,
+) extends VettedPackages
+
 final case class EnrichedVettedPackages(
     packages: Seq[EnrichedVettedPackage],
     participantId: ParticipantId,
     synchronizerId: SynchronizerId,
     serial: PositiveInt,
-) {
-  def toPageToken: ListVettedPackagesOpts.PageToken =
-    ListVettedPackagesOpts.PageToken(synchronizerId, participantId)
-
+) extends VettedPackages {
   def toProtoLAPI: package_reference.VettedPackages =
     package_reference.VettedPackages(
       packages = packages.map(_.toProtoLAPI),

@@ -10,8 +10,6 @@ import com.daml.nameof.NameOf
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.setParameterLengthLimitedString
-import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
@@ -27,6 +25,7 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   CommitmentQueue,
   IncrementalCommitmentStore,
+  UpdateMode,
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
@@ -511,11 +510,11 @@ class DbIncrementalCommitmentStore(
       res <- storage.query(
         (for {
           tsWithTieBreaker <-
-            sql"""select ts, tie_breaker from par_commitment_snapshot_time where synchronizer_idx = $indexedSynchronizer"""
+            sql"""select ts, tie_breaker from par_commitment_checkpoint_snapshot_time where synchronizer_idx = $indexedSynchronizer"""
               .as[(CantonTimestamp, Long)]
               .headOption
           snapshotWithInternedIds <-
-            sql"""select stakeholders, commitment from par_commitment_snapshot where synchronizer_idx = $indexedSynchronizer"""
+            sql"""select stakeholders, commitment from par_commitment_checkpoint_snapshot where synchronizer_idx = $indexedSynchronizer"""
               .as[(Vector[Int], AcsCommitment.CommitmentType)]
           stringInterning = stringInterningEval.value
           snapshot = snapshotWithInternedIds.map { case (internedParties, commitmentType) =>
@@ -538,7 +537,7 @@ class DbIncrementalCommitmentStore(
 
   override def watermark(implicit traceContext: TraceContext): FutureUnlessShutdown[RecordTime] = {
     val query =
-      sql"""select ts, tie_breaker from par_commitment_snapshot_time where synchronizer_idx=$indexedSynchronizer"""
+      sql"""select ts, tie_breaker from par_commitment_checkpoint_snapshot_time where synchronizer_idx=$indexedSynchronizer"""
         .as[(CantonTimestamp, Long)]
         .headOption
     storage
@@ -551,28 +550,48 @@ class DbIncrementalCommitmentStore(
       rt: RecordTime,
       updates: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deletes: Set[SortedSet[LfPartyId]],
+      updateMode: UpdateMode,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    def partySetHash(parties: SortedSet[LfPartyId]): String68 =
+
+    val tablesToUpdate = updateMode match {
+      case UpdateMode.Checkpoint =>
+        Seq("par_commitment_checkpoint_snapshot")
+      case UpdateMode.Efficiency =>
+        Seq("par_commitment_snapshot")
+    }
+
+    val tablesToUpdateTs = updateMode match {
+      case UpdateMode.Checkpoint =>
+        Seq("par_commitment_checkpoint_snapshot_time")
+      case UpdateMode.Efficiency =>
+        Seq("par_commitment_snapshot_time")
+    }
+
+    def partySetHash(parties: SortedSet[LfPartyId]): ByteString =
       Hash
         .digest(
           HashPurpose.Stakeholders,
           DeterministicEncoding.encodeSeqWith(parties.toList)(DeterministicEncoding.encodeParty),
           HashAlgorithm.Sha256,
         )
-        .toLengthLimitedHexString
+        .getCryptographicEvidence
 
-    def deleteCommitments(stakeholders: List[SortedSet[LfPartyId]]): DbAction.All[Unit] = {
-      val deleteStatement =
-        "delete from par_commitment_snapshot where synchronizer_idx = ? and stakeholders_hash = ?"
-      DbStorage.bulkOperation_(deleteStatement, stakeholders, storage.profile) { pp => stkhs =>
-        pp >> indexedSynchronizer
-        pp >> partySetHash(stkhs)
+    def deleteCommitments(stakeholders: List[SortedSet[LfPartyId]]): Seq[DbAction.All[Unit]] = {
+      val deleteStatements = tablesToUpdate.map { table =>
+        s"delete from $table where synchronizer_idx = ? and stakeholders_hash = ?"
+      }
+
+      deleteStatements.map { deleteStatement =>
+        DbStorage.bulkOperation_(deleteStatement, stakeholders, storage.profile) { pp => stkhs =>
+          pp >> indexedSynchronizer
+          pp >> pp.setBytes(partySetHash(stkhs).toByteArray)
+        }
       }
     }
 
     def storeUpdates(
         updates: List[(SortedSet[LfPartyId], AcsCommitment.CommitmentType)]
-    ): DbAction.All[Unit] = {
+    ): Seq[DbAction.All[Unit]] = {
       val stringInterning = stringInterningEval.value
 
       def setParams(
@@ -580,40 +599,52 @@ class DbIncrementalCommitmentStore(
       ): ((SortedSet[LfPartyId], AcsCommitment.CommitmentType)) => Unit = {
         case (stkhs, commitment) =>
           pp >> indexedSynchronizer
-          pp >> partySetHash(stkhs)
+          pp >> pp.setBytes(partySetHash(stkhs).toByteArray)
           pp >> stkhs.view.map(stringInterning.party.internalize).toVector
           pp >> commitment
       }
 
-      val statement = storage.profile match {
+      val updateStatements = storage.profile match {
         case _: DbStorage.Profile.H2 =>
-          """merge into par_commitment_snapshot (synchronizer_idx, stakeholders_hash, stakeholders, commitment)
+          tablesToUpdate.map { table =>
+            s"""merge into $table(synchronizer_idx, stakeholders_hash, stakeholders, commitment)
                    values (?, ?, ?, ?)"""
+          }
 
         case _: DbStorage.Profile.Postgres =>
-          """insert into par_commitment_snapshot (synchronizer_idx, stakeholders_hash, stakeholders, commitment)
+          tablesToUpdate.map { table =>
+            s"""insert into $table(synchronizer_idx, stakeholders_hash, stakeholders, commitment)
                  values (?, ?, ?, ?) on conflict (synchronizer_idx, stakeholders_hash) do update set commitment = excluded.commitment"""
+          }
       }
-      DbStorage.bulkOperation_(
-        statement,
-        updates,
-        storage.profile,
-      )(setParams)
+
+      updateStatements.map { statement =>
+        DbStorage.bulkOperation_(
+          statement,
+          updates,
+          storage.profile,
+        )(setParams)
+      }
     }
 
-    def insertRt(rt: RecordTime): DbAction.WriteOnly[Int] =
+    def insertRt(rt: RecordTime): Seq[DbAction.WriteOnly[Int]] =
       storage.profile match {
         case _: DbStorage.Profile.H2 =>
-          sqlu"""merge into par_commitment_snapshot_time (synchronizer_idx, ts, tie_breaker) values ($indexedSynchronizer, ${rt.timestamp}, ${rt.tieBreaker})"""
+          tablesToUpdateTs.map { table =>
+            sqlu"""merge into #$table(synchronizer_idx, ts, tie_breaker) values ($indexedSynchronizer, ${rt.timestamp}, ${rt.tieBreaker})"""
+          }
         case _: DbStorage.Profile.Postgres =>
-          sqlu"""insert into par_commitment_snapshot_time(synchronizer_idx, ts, tie_breaker) values ($indexedSynchronizer, ${rt.timestamp}, ${rt.tieBreaker})
+          tablesToUpdateTs.map { table =>
+            sqlu"""insert into #$table(synchronizer_idx, ts, tie_breaker) values ($indexedSynchronizer, ${rt.timestamp}, ${rt.tieBreaker})
                  on conflict (synchronizer_idx) do update set ts = ${rt.timestamp}, tie_breaker = ${rt.tieBreaker}"""
+          }
       }
 
     val updateList = updates.toList
     val deleteList = deletes.toList
 
-    val operations = List(insertRt(rt), storeUpdates(updateList), deleteCommitments(deleteList))
+    val operations = insertRt(rt) ++ storeUpdates(updateList) ++ deleteCommitments(deleteList)
+    logger.debug(s"$operations")
 
     storage.queryAndUpdate(
       DBIO.seq(operations*).transactionally.withTransactionIsolation(Serializable),

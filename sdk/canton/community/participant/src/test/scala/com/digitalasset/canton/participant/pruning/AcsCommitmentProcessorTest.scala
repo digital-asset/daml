@@ -19,6 +19,7 @@ import com.digitalasset.canton.config.{
   CommitmentSendDelay,
   DefaultProcessingTimeouts,
   NonNegativeDuration,
+  PositiveDurationSeconds,
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.*
@@ -87,7 +88,7 @@ import java.time.Duration as JDuration
 import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
-import scala.collection.immutable.{Seq, SortedSet}
+import scala.collection.immutable.{Seq, Set, SortedSet}
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -383,6 +384,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         increasePerceivedComputationTimeForCommitments
       )(interval.duration.multipliedBy(2)),
       doNotAwaitOnCheckingIncomingCommitments = false,
+      commitmentCheckpointInterval = PositiveDurationSeconds.ofSeconds(interval.duration.getSeconds),
     )
     (acsCommitmentProcessor, store, sequencerClient, changes, acsCommitmentConfigStore)
   }
@@ -1882,6 +1884,117 @@ class AcsCommitmentProcessorTest
       snap3.active.keySet shouldBe Set(SortedSet(alice, carol), SortedSet(bob, carol))
       snap3.delta.keySet shouldBe Set(SortedSet(alice, carol))
       snap3.deleted shouldBe Set.empty
+    }
+
+    "running commitments work as expected with garbage collection" in {
+      val rc =
+        new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+
+      rc.watermark shouldBe RecordTime.MinValue
+      rc.snapshot(gc = false) shouldBe CommitmentSnapshot(
+        RecordTime.MinValue,
+        Map.empty,
+        Map.empty,
+        Set.empty,
+      )
+      val ch1 = AcsChange(
+        activations = Map(
+          coid(0, 0) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(alice, bob),
+              initialReassignmentCounter,
+            ),
+          coid(0, 1) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(bob, carol),
+              initialReassignmentCounter,
+            ),
+        ),
+        deactivations = Map.empty,
+      )
+      rc.update(rt(1, 0), ch1)
+      rc.watermark shouldBe rt(1, 0)
+      val snap1 = rc.snapshot(gc = false)
+      snap1.recordTime shouldBe rt(1, 0)
+      snap1.active.keySet shouldBe Set(SortedSet(alice, bob), SortedSet(bob, carol))
+      snap1.delta.keySet shouldBe Set(SortedSet(alice, bob), SortedSet(bob, carol))
+      snap1.deleted shouldBe Set.empty
+
+      val ch2 = AcsChange(
+        deactivations = Map(
+          coid(0, 0) -> ContractStakeholdersAndReassignmentCounter(
+            Set(alice, bob),
+            initialReassignmentCounter,
+          )
+        ),
+        activations = Map(
+          coid(1, 1) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(alice, carol),
+              initialReassignmentCounter,
+            )
+        ),
+      )
+      rc.update(rt(1, 1), ch2)
+      rc.watermark shouldBe rt(1, 1)
+      val snap2 = rc.snapshot(gc = false)
+      snap2.recordTime shouldBe rt(1, 1)
+      snap2.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, bob),
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      // doesn't contain (alice, bob) because delta doesn't contain deleted
+      snap2.delta.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap2.deleted shouldBe Set(SortedSet(alice, bob))
+
+      val ch3 = AcsChange(
+        deactivations = Map.empty,
+        activations = Map(
+          coid(2, 1) ->
+            ContractStakeholdersAndReassignmentCounter(
+              Set(alice, carol),
+              initialReassignmentCounter,
+            )
+        ),
+      )
+      rc.update(rt(3, 0), ch3)
+      val snap3 = rc.snapshot(gc = false)
+      snap3.recordTime shouldBe rt(3, 0)
+      snap3.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, bob),
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3.delta.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3.deleted shouldBe Set(SortedSet(alice, bob))
+
+      val snap3WithGc = rc.snapshot()
+      snap3WithGc.recordTime shouldBe rt(3, 0)
+      snap3WithGc.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3WithGc.delta.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap3WithGc.deleted shouldBe Set(SortedSet(alice, bob))
+
+      val snap4WithGc = rc.snapshot()
+      snap4WithGc.recordTime shouldBe rt(3, 0)
+      snap4WithGc.active.keySet should contain theSameElementsAs Set(
+        SortedSet(alice, carol),
+        SortedSet(bob, carol),
+      )
+      snap4WithGc.delta.keySet shouldBe empty
+      snap4WithGc.deleted shouldBe empty
     }
 
     "contracts differing by reassignment counter result in different commitments if the PV support reassignment counters" in {

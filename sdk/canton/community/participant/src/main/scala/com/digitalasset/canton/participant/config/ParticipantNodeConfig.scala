@@ -356,6 +356,10 @@ object TestingTimeServiceConfig {
   * @param doNotAwaitOnCheckingIncomingCommitments
   *   Enable fully asynchronous checking of incoming commitments. This may result in some incoming
   *   commitments not being checked in case of crashes or HA failovers.
+  * @param commitmentCheckpointInterval
+  *   Checkpoint interval for commitments. Smaller intervals lead to less resource-intensive crash
+  *   recovery, at the cost of more frequent DB writing of checkpoints. Regardless of this
+  *   checkpoint interval, checkpointing is also performed at reconciliation interval boundaries.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -390,6 +394,8 @@ final case class ParticipantNodeParameterConfig(
     activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
     reassignmentsConfig: ReassignmentsConfig = ReassignmentsConfig(),
     doNotAwaitOnCheckingIncomingCommitments: Boolean = false,
+    commitmentCheckpointInterval: config.PositiveDurationSeconds =
+      config.PositiveDurationSeconds.ofMinutes(1),
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

@@ -15,6 +15,7 @@ import com.digitalasset.canton.ledger.api.{
   EnrichedVettedPackage,
   EnrichedVettedPackages,
   ListVettedPackagesOpts,
+  ParticipantVettedPackages,
   SinglePackageTargetVetting,
   UpdateVettedPackagesOpts,
   VettedPackagesRef,
@@ -43,7 +44,7 @@ import com.digitalasset.canton.participant.store.memory.{
   MutablePackageMetadataView,
   PackageMetadataView,
 }
-import com.digitalasset.canton.participant.topology.{PackageOps, ParticipantVettedPackages}
+import com.digitalasset.canton.participant.topology.PackageOps
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
