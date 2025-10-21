@@ -72,8 +72,8 @@ def daml_ledger_test(
 
 def daml_lf_compatible(sdk_version, platform_version):
     return (
-      # any post 3.4 platform supports any pre 3x SDK
-      in_range(platform_version, {"start": "3.4.0-snapshot"}) and in_range(sdk_version, {"start": "3.0.0-snapshot"})
+        # any post 3.4 platform supports any pre 3x SDK
+        in_range(platform_version, {"start": "3.4.0-snapshot"}) and in_range(sdk_version, {"start": "3.0.0-snapshot"})
     )
 
 def sdk_platform_test(sdk_version, platform_version):
