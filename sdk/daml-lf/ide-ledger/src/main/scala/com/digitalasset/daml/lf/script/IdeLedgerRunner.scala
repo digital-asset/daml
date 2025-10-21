@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy._
+import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -270,13 +271,13 @@ private[lf] object IdeLedgerRunner {
     * [compiledPackages].
     */
   private[this] class CidSuffixer(compiledPackages: CompiledPackages) {
-    val valueTranslator = new speedy.ValueTranslator(
+    private[this] val valueTranslator = new speedy.ValueTranslator(
       compiledPackages.pkgInterface,
       forbidLocalContractIds = false,
       forbidTrailingNones = false,
     )
 
-    def hashCreateNode(createNode: Node.Create): crypto.Hash = {
+    private[this] def hashCreateNode(createNode: Node.Create): crypto.Hash = {
       val sValue = valueTranslator
         .translateValue(Ast.TTyCon(createNode.templateId), createNode.arg)
         .fold(
@@ -292,16 +293,25 @@ private[lf] object IdeLedgerRunner {
     }
 
     def suffixCids(tx: VersionedTransaction): VersionedTransaction = {
-      val cidMapping: Map[ContractId, ContractId] = for {
-        localContract <- tx.localContracts[ContractId]
-        (cid, (_, createNode)) = localContract
-      } yield cid -> cid
-        .suffixCid(
-          _ => hashCreateNode(createNode).bytes,
-          _ => hashCreateNode(createNode).bytes,
+      val cidMapping = tx
+        .foldInExecutionOrder(Map.empty[ContractId, ContractId].withDefault(identity))(
+          exerciseBegin = (mapping, _, _) => (mapping, ChildrenRecursion.DoRecurse),
+          rollbackBegin = (mapping, _, _) => (mapping, ChildrenRecursion.DoRecurse),
+          leaf = (mapping, _, leaf) => {
+            leaf match {
+              case create: Node.Create =>
+                val suffix = hashCreateNode(create.mapCid(mapping)).bytes
+                mapping + (create.coid -> data.assertRight(
+                  create.coid.suffixCid(_ => suffix, _ => suffix)
+                ))
+              case _ =>
+                mapping
+            }
+          },
+          exerciseEnd = (mapping, _, _) => mapping,
+          rollbackEnd = (mapping, _, _) => mapping,
         )
-        .fold(e => crash(s"unexpected error when suffixing contract ID $cid: $e"), identity)
-      tx.mapCid(cid => cidMapping.getOrElse(cid, cid))
+      tx.mapCid(cidMapping)
     }
   }
 
