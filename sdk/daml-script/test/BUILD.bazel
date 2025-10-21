@@ -177,7 +177,7 @@ EOF
     #) for major in SUPPORTED_LF_MAJOR_VERSIONS] +
     [
         (target, target)
-        for target in ENGINE_LF_DEV_VERSIONS
+        for target in [DEV_VERSION]
     ]
 ]
 
