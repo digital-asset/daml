@@ -33,18 +33,10 @@ import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker}
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.store.TopologyStore
-import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{
-  ParticipantId,
-  PartyId,
-  SynchronizerId,
-  SynchronizerTopologyManager,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
@@ -416,28 +408,6 @@ class GrpcPartyManagementService(
       topoClient <- sync.lookupTopologyClient(psid).toRight("Absent topology client")
     } yield topoClient
 
-  private def findTopologyServices(
-      synchronizerId: SynchronizerId,
-      sync: CantonSyncService,
-  ): Either[
-    String,
-    (SynchronizerTopologyManager, TopologyStore[SynchronizerStore], SynchronizerTimeTracker),
-  ] =
-    for {
-      psid <- sync.syncPersistentStateManager
-        .latestKnownPSId(synchronizerId)
-        .toRight(s"Undefined physical synchronizer ID for given $synchronizerId")
-      topologyStore <- sync.syncPersistentStateManager
-        .get(psid)
-        .map(_.topologyStore)
-        .toRight("Cannot get topology store")
-      topologyManager <- sync.syncPersistentStateManager
-        .get(psid)
-        .map(_.topologyManager)
-        .toRight("Cannot get topology manager")
-      timeTracker <- sync.lookupSynchronizerTimeTracker(synchronizerId)
-    } yield (topologyManager, topologyStore, timeTracker)
-
   /*
  Note that `responseObserver` originates from `GrpcStreamingUtils.streamToServer` which is
  a wrapper that turns the responses into a promise/future. This is not a true bidirectional stream.
@@ -732,20 +702,21 @@ class GrpcPartyManagementService(
         ): PartyManagementServiceError,
       )
 
-      topoServices <- EitherT
-        .fromEither[FutureUnlessShutdown](findTopologyServices(synchronizerId, sync))
-        .leftMap(PartyManagementServiceError.InvalidState.Error(_): PartyManagementServiceError)
-
-      (topologyManager, topologyStore, timeTracker) = topoServices
+      connectedSynchronizer <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          sync
+            .readyConnectedSynchronizerById(synchronizerId)
+            .toRight(
+              PartyManagementServiceError.InvalidState.Error(
+                s"Not connected to synchronizer $synchronizerId"
+              ): PartyManagementServiceError
+            )
+        )
 
       onboarding = new PartyOnboardingCompletion(
         party,
-        synchronizerId,
         participantId,
-        timeTracker,
-        topologyManager,
-        topologyStore,
-        client,
+        connectedSynchronizer,
         loggerFactory,
       )
 

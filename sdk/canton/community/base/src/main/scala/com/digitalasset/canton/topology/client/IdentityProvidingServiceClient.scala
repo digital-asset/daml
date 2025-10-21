@@ -1097,7 +1097,7 @@ trait VettedPackagesLoader {
       participant: ParticipantId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]]
 
-  def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+  def loadVettedPackages(participants: Set[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]]
 }

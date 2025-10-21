@@ -8,28 +8,16 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.time.SynchronizerTimeTracker
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
-import com.digitalasset.canton.topology.store.TopologyStore
-import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
-import com.digitalasset.canton.topology.{
-  ParticipantId,
-  PartyId,
-  SynchronizerId,
-  SynchronizerTopologyManager,
-}
+import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
+import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
 final class PartyOnboardingCompletion(
     partyId: PartyId,
-    synchronizerId: SynchronizerId,
     targetParticipantId: ParticipantId,
-    synchronizerTimeTracker: SynchronizerTimeTracker,
-    topologyManager: SynchronizerTopologyManager,
-    topologyStore: TopologyStore[SynchronizerStore],
-    topologyClient: SynchronizerTopologyClient,
+    connectedSynchronizer: ConnectedSynchronizer,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -48,13 +36,9 @@ final class PartyOnboardingCompletion(
   ): EitherT[FutureUnlessShutdown, String, (Boolean, Option[CantonTimestamp])] =
     topologyWorkflow.authorizeOnboardedTopology(
       partyId,
-      synchronizerId,
       targetParticipantId,
       onboardingEffectiveAt,
-      synchronizerTimeTracker,
-      topologyManager,
-      topologyStore,
-      topologyClient,
+      connectedSynchronizer,
     )
 
 }
