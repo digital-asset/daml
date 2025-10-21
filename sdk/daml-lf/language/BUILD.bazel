@@ -65,12 +65,12 @@ EOF
         # This makes the input file self-documenting.
         json = json.encode({
             "RAW_ALL": RAW_ALL_LF_VERSIONS,
-            "ALL": ALL_LF_VERSIONS,
-            "STABLE": STABLE_LF_VERSIONS,
-            "LATEST_STABLE": LATEST_STABLE_VERSION,
-            "DEFAULT": DEFAULT_VERSION,
-            "DEV": DEV_VERSION,
-            "STAGING": STAGING_VERSION,
+            "allLfVersions": ALL_LF_VERSIONS,
+            "stableLfVersions": STABLE_LF_VERSIONS,
+            "latestStableVersion": LATEST_STABLE_VERSION,
+            "defaultVersion": DEFAULT_VERSION,
+            "devVersion": DEV_VERSION,
+            "stagingVersion": STAGING_VERSION,
         }),
     ),
     visibility = _VERSION_GENERATING_PACKAGES,
