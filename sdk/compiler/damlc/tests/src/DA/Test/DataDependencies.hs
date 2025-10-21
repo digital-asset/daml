@@ -81,8 +81,6 @@ lfVersionTestPairsV2 =
         nPlusOnePairs = zip supportedVersions (tail supportedVersions)
         selfPair = (LF.devVersion, LF.devVersion)
      in selfPair : nPlusOnePairs
-  where
-    hasMajorVersion major v = LF.versionMajor v == major
 
 tests :: SdkVersioned => TestArgs -> TestTree
 tests TestArgs{..} =
@@ -2818,6 +2816,6 @@ tests TestArgs{..} =
 
     damlcForTarget :: LF.Version -> FilePath
     damlcForTarget target
-      | target `elem` LF.supportedVersions = damlc
+      | target `elem` LF.allLfVersions = damlc
       | otherwise = damlcLegacy
 
