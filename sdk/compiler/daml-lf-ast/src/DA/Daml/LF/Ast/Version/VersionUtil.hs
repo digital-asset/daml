@@ -19,6 +19,8 @@ import Control.Lens (Getting, view)
 import Control.Monad.Reader.Class
 
 import DA.Daml.LF.Ast.Version.VersionType
+import DA.Daml.LF.Ast.Version.GeneratedVersions ( defaultVersion )
+import DA.Daml.LF.Ast.Version.GeneratedFeatures
 
 -- | x `canDependOn` y if dars compiled to version x can depend on dars compiled
 -- to version y.
@@ -29,140 +31,6 @@ canDependOn (Version major1 minor1) (Version major2 minor2) =
 isDevVersion :: Version -> Bool
 isDevVersion (Version _ PointDev) = True
 isDevVersion _ = False
-
--- | @version `satisfies` versionReq@ iff version is part of the set of versions
--- described by versionReq.
-satisfies :: Version -> VersionReq -> Bool
-satisfies (Version major minor) (VersionReq req) = minor `R.elem` req major
-
--- | The set of language versions made of only dev versions.
-devOnly :: VersionReq
-devOnly = VersionReq (\_ -> R.Inclusive PointDev PointDev)
-
--- | The minor version range [v .. dev]. Shorthand used in the definition of
--- features below.
-allMinorVersionsAfter :: MinorVersion -> R.Range MinorVersion
-allMinorVersionsAfter v = R.Inclusive v PointDev
-
--- | The minor version range [1 .. dev]. Shorthand used in the definition of
--- features below.
-allMinorVersions :: R.Range MinorVersion
-allMinorVersions = allMinorVersionsAfter (PointStable 1)
-
--- | The empty minor version range. Shorthand used in the definition of features
--- below.
-noMinorVersion :: R.Range MinorVersion
-noMinorVersion = R.Empty
-
-data Feature = Feature
-    { featureName :: !T.Text
-    , featureVersionReq :: !VersionReq
-    , featureCppFlag :: Maybe T.Text
-        -- ^ CPP flag to test for availability of the feature.
-    } deriving Show
-
--- | The earliest version of a feature for a given major version, if it exists.
-featureMinVersion :: Feature -> MajorVersion -> Maybe Version
-featureMinVersion Feature{featureVersionReq = VersionReq rangeForMajor} major =
-  Version major <$> R.minBound (rangeForMajor major)
-
--- Unstable, experimental features. This should stay in x.dev forever.
--- Features implemented with this flag should be moved to a separate
--- feature flag once the decision to add them permanently has been made.
-featureUnstable :: Feature
-featureUnstable = Feature
-    { featureName = "Unstable, experimental features"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_UNSTABLE"
-    }
-
-featureTextMap :: Feature
-featureTextMap = Feature
-    { featureName = "TextMap type"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_TEXTMAP"
-    }
-
-featureBigNumeric :: Feature
-featureBigNumeric = Feature
-    { featureName = "BigNumeric type"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_BIGNUMERIC"
-    }
-
-featureExceptions :: Feature
-featureExceptions = Feature
-    { featureName = "Daml Exceptions"
-    , featureVersionReq = VersionReq \case
-          V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_EXCEPTIONS"
-    }
-
-featureExtendedInterfaces :: Feature
-featureExtendedInterfaces = Feature
-    { featureName = "Guards in interfaces"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_INTERFACE_EXTENDED"
-    }
-
-featureChoiceFuncs :: Feature
-featureChoiceFuncs = Feature
-    { featureName = "choiceController and choiceObserver functions"
-    -- TODO: https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
-    , featureVersionReq = VersionReq $ const noMinorVersion
-    , featureCppFlag = Just "DAML_CHOICE_FUNCS"
-    }
-
-featureTemplateTypeRepToText :: Feature
-featureTemplateTypeRepToText = Feature
-    { featureName = "templateTypeRepToText function"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
-    }
-
-featureContractKeys :: Feature
-featureContractKeys = Feature
-    { featureName = "Contract Keys"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_CONTRACT_KEYS"
-    }
-
-featureFlatArchive :: Feature
-featureFlatArchive = Feature
-    { featureName = "Flat Archive"
-    , featureVersionReq = VersionReq $ \case
-          V2 -> allMinorVersionsAfter (PointStable 2)
-    , featureCppFlag = Just "DAML_FLATARCHIVE"
-    }
-
-featurePackageImports :: Feature
-featurePackageImports = Feature
-    { featureName = "Explicit package imports"
-    , featureVersionReq = VersionReq $ \case
-          V2 -> allMinorVersionsAfter (PointStable 2)
-    , featureCppFlag = Just "DAML_PackageImports"
-    }
-
-featureComplexAnyType :: Feature
-featureComplexAnyType = Feature
-    { featureName = "Complex Any type"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_COMPLEX_ANY_TYPE"
-    }
-
-featureCryptoUtility :: Feature
-featureCryptoUtility = Feature
-    { featureName = "Crypto Utility Function"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_CRYPTO_UTILITY"
-    }
-
-featureExperimental :: Feature
-featureExperimental = Feature
-    { featureName = "Daml Experimental"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_EXPERIMENTAL"
-    }
 
 -- | CPP flags of past features that have become part of LF but that some
 -- clients might still depend on being defined.
@@ -176,26 +44,12 @@ foreverCppFlags =
 -- TODO: https://github.com/digital-asset/daml/issues/15882
 -- Ought we have "featureChoiceAuthority" ?
 
-allFeatures :: [Feature]
-allFeatures =
-    [ featureTextMap
-    , featureBigNumeric
-    , featureExceptions
-    , featureExtendedInterfaces
-    , featureChoiceFuncs
-    , featureTemplateTypeRepToText
-    , featureContractKeys
-    , featureUnstable
-    , featureExperimental
-    , featureCryptoUtility
-    ]
-
 -- | A map from feature CPP flags to features.
 featureMap :: MS.Map T.Text Feature
 featureMap = MS.fromList
     [ (key, feature)
     | feature <- allFeatures
-    , Just key <- [featureCppFlag feature]
+    , key <- [featureCppFlag feature]
     ]
 
 -- | Return the version requirements associated with a feature flag.
@@ -221,7 +75,7 @@ allFeaturesForVersion version = filter (supports version) allFeatures
 
 -- | Whether the given language version supports the given language feature.
 supports :: Version -> Feature -> Bool
-supports version feature = version `satisfies` featureVersionReq feature
+supports version feature = version `R.elem` featureVersionReq feature
 
 readSimpleInt :: ReadP Int
 readSimpleInt = read <$> munch1 isDigit
