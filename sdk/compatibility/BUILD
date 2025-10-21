@@ -202,6 +202,7 @@ command_post_failure_behaviours = {
             ":new_cache",
             ":old_cache",
             ":releases-github-api.json",
+            "@daml-sdk-3.3.0-snapshot.20250926.13852.1.v4f3223e3-tarball//file",
             "@head_sdk//:daml" if not is_windows else "@head_sdk//:daml.exe",
             "@head_sdk//:sdk-release-tarball-ce.tar.gz",
         ],
