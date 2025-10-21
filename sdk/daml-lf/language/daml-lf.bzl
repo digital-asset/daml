@@ -18,8 +18,10 @@ def _init_data():
     Initializes all version data, fully encapsulating the definitions and logic.
     """
 
-    # Definition of versions
-    # Encapsulated in _init_data, NOT TO BE USED OUTSIDE (use variables instead)
+    ### Versions
+
+    # Version variables encapsulated in _init_data, NOT TO BE USED OUTSIDE (use
+    # variables instead)
     V2_1 = struct(major = "2", minor = "1", status = "stable")
     V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
 
@@ -33,7 +35,6 @@ def _init_data():
         V2_DEV,
     ]
 
-    # Data for (list of) version variables
     def _get_by_status(status):
         """Filters the master list by status."""
         return [v for v in all_versions_structs if v.status == status]
@@ -42,23 +43,118 @@ def _init_data():
     dev_definitions = _get_by_status("dev")
     staging_versions_list = _get_by_status("staging")
 
-    # The 'default' check is a unique filter, so a list comprehension is still
+    # The 'default' check is a unique filter, so a list comprehension is
     # clearest here.
     default_definitions = [v for v in all_versions_structs if hasattr(v, "default") and v.default]
 
     if not stable_versions:
         fail("No stable versions were found. Cannot determine the latest stable version.")
-    latest_stable = stable_versions[-1]
+    else:
+        latest_stable = stable_versions[-1]
 
     if len(default_definitions) != 1:
         fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(default_definitions)))
-    default_version = default_definitions[0]
+    else:
+        default_version = default_definitions[0]
 
     if len(dev_definitions) != 1:
         fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(dev_definitions)))
-    dev_version = dev_definitions[0]
+    else:
+        dev_version = dev_definitions[0]
 
     staging_version = staging_versions_list[-1] if staging_versions_list else latest_stable
+
+    ### Features
+
+    # Helpers
+    dev_only = {
+        "low": V2_DEV,
+        "high": V2_DEV,
+    }
+
+    # version_req: just leave off a bound if its not needed, low=x high=y ->
+    # [x..y], only low = x -> [x..], only high y = [..y], none = []
+    features_definitions = [
+        {
+            "name": "featureUnstable",
+            "name_pretty": "Unstable, experimental features",
+            "cpp_flag": "DAML_UNSTABLE",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureTextMap",
+            "name_pretty": "TextMap type",
+            "cpp_flag": "DAML_TEXTMAP",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureBigNumeric",
+            "name_pretty": "BigNumeric type",
+            "cpp_flag": "DAML_BIGNUMERIC",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExceptions",
+            "name_pretty": "Daml Exceptions",
+            "cpp_flag": "DAML_EXCEPTIONS",
+            "version_req": {"low": V2_1},
+        },
+        {
+            "name": "featureExtendedInterfaces",
+            "name_pretty": "Guards in interfaces",
+            "cpp_flag": "DAML_INTERFACE_EXTENDED",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureChoiceFuncs",
+            "name_pretty": "choiceController and choiceObserver functions",
+            "cpp_flag": "DAML_CHOICE_FUNCS",
+            # TODO: https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
+            "version_req": {},
+        },
+        {
+            "name": "featureTemplateTypeRepToText",
+            "name_pretty": "templateTypeRepToText function",
+            "cpp_flag": "DAML_TEMPLATE_TYPEREP_TO_TEXT",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureContractKeys",
+            "name_pretty": "Contract Keys",
+            "cpp_flag": "DAML_CONTRACT_KEYS",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureFlatArchive",
+            "name_pretty": "Flat Archive",
+            "cpp_flag": "DAML_FLATARCHIVE",
+            "version_req": {"low": V2_2},
+        },
+        {
+            "name": "featurePackageImports",
+            "name_pretty": "Explicit package imports",
+            "cpp_flag": "DAML_PackageImports",
+            "version_req": {"low": V2_2},
+        },
+        {
+            "name": "featureComplexAnyType",
+            "name_pretty": "Complex Any type",
+            "cpp_flag": "DAML_COMPLEX_ANY_TYPE",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureCryptoUtility",
+            "name_pretty": "Crypto Utility Function",
+            "cpp_flag": "DAML_CRYPTO_UTILITY",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExperimental",
+            "name_pretty": "Daml Experimental",
+            "cpp_flag": "DAML_EXPERIMENTAL",
+            "version_req": dev_only,
+        },
+    ]
 
     return struct(
         all = all_versions_structs,
@@ -67,6 +163,7 @@ def _init_data():
         default = default_version,
         dev = dev_version,
         staging = staging_version,
+        features = features_definitions
     )
 
 # --- Public interface of this .bzl file ---
@@ -84,6 +181,8 @@ RAW_DEFAULT_VERSION = _data.default
 DEFAULT_VERSION = _to_dotted_version(RAW_DEFAULT_VERSION)
 DEV_VERSION = _to_dotted_version(_data.dev)
 STAGING_VERSION = _to_dotted_version(_data.staging)
+
+FEATURES = _data.features
 
 # configuration to maintain old-style names
 lf_version_configuration = {
