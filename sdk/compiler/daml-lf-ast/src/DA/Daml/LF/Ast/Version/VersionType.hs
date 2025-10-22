@@ -48,7 +48,7 @@ renderVersion (Version major minor) =
 
 -- | A datatype describing a set of language versions. Used in the definition of
 -- 'Feature' below.
-newtype VersionReq = VersionReq (MajorVersion -> R.Range MinorVersion)
+newtype VersionReq = VersionReq {unVersionReq :: MajorVersion -> R.Range MinorVersion}
 
 -- >>> show (VersionReq (\V2 -> allMinorVersions))
 -- Variable not in scope: allV2MinorVersions :: Range MinorVersion
