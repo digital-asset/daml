@@ -59,20 +59,14 @@ main = withSdkVersions $ do
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptService lfVersion)
-                | lfVersion <-
-                    map
-                        LF.defaultOrLatestStable
-                        [minBound @LF.MajorVersion .. maxBound]
+                | lfVersion <- [LF.defaultVersion]
                 ]
             , testGroup
                 "With Contract Keys"
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <-
-                    map
-                        (LF.featureMinVersion LF.featureContractKeys)
-                        [minBound @LF.MajorVersion .. maxBound]
+                | lfVersion <- [LF.defaultVersion]
                 ]
             ]
 

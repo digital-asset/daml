@@ -19,31 +19,12 @@ import Control.Lens (Getting, view)
 import Control.Monad.Reader.Class
 
 import DA.Daml.LF.Ast.Version.VersionType
-import DA.Daml.LF.Ast.Version.GeneratedVersions
 
 -- | x `canDependOn` y if dars compiled to version x can depend on dars compiled
 -- to version y.
 canDependOn :: Version -> Version -> Bool
 canDependOn (Version major1 minor1) (Version major2 minor2) =
   major1 == major2 && minor1 >= minor2
-
--- | The Daml-LF version used by default by the compiler if it matches the
--- provided major version, the latest non-dev version with that major version
--- otherwise. This function is meant to be used in tests who want to test the
--- closest thing to the default user experience given a major version.
---
--- >>> map (renderVersion . defaultOrLatestStable) [minBound .. maxBound]
--- ["2.1"]
-defaultOrLatestStable :: MajorVersion -> Version
-defaultOrLatestStable major
-    | versionMajor defaultVersion == major = defaultVersion
-    | otherwise =
-        Version major $
-            maximum
-                [ minv
-                | Version majv minv@(PointStable _) <- allLfVersions
-                , majv == major
-                ]
 
 isDevVersion :: Version -> Bool
 isDevVersion (Version _ PointDev) = True
