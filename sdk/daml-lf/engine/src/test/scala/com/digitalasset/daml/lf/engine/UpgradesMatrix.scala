@@ -56,7 +56,6 @@ import scala.language.implicitConversions
   * multiple Canton runners.
   */
 abstract class UpgradesMatrix[Err, Res](
-    val underlyingLedger: UpgradesMatrix.UnderlyingLedger,
     val cases: UpgradesMatrixCases,
     nk: Option[(Int, Int)] = None,
 ) extends AsyncFreeSpec
@@ -92,7 +91,6 @@ abstract class UpgradesMatrix[Err, Res](
             for (creationPackageStatus <- cases.creationPackageStatuses) {
               testHelper
                 .makeApiCommands(
-                  underlyingLedger,
                   operation,
                   catchBehavior,
                   entryPoint,
@@ -143,12 +141,6 @@ abstract class UpgradesMatrix[Err, Res](
       }
     }
   }
-}
-
-object UpgradesMatrix {
-  sealed abstract class UnderlyingLedger
-  case object IdeLedger extends UnderlyingLedger
-  case object CantonLedger extends UnderlyingLedger
 }
 
 // Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
@@ -2016,7 +2008,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       )
 
     def makeApiCommands(
-        underlyingLedger: UpgradesMatrix.UnderlyingLedger,
         operation: Operation,
         catchBehavior: CatchBehavior,
         entryPoint: EntryPoint,
@@ -2042,16 +2033,6 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
         contractOrigin,
         creationPackageStatus,
       ) match {
-        case (
-              DifferentlyNamedTemplateArg | DifferentlyNamedFieldInRecordArg |
-              DifferentlyRankedConstructorInVariantArg | DifferentlyRankedConstructorInEnumArg,
-              _,
-              _,
-              _,
-              Global | Disclosed,
-              _,
-            ) if underlyingLedger == UpgradesMatrix.IdeLedger =>
-          None
         case (_, _, _, _, Local, CreationPackageUnvetted) =>
           None // local contracts cannot be created from unvetted packages
         case (_, Fetch | FetchInterface | FetchByKey | LookupByKey, _, Command, _, _) =>
