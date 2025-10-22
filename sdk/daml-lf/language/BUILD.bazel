@@ -13,11 +13,11 @@ load(
     "ALL_LF_VERSIONS",
     "DEFAULT_VERSION",
     "DEV_VERSION",
+    "FEATURES",
     "LATEST_STABLE_VERSION",
     "RAW_ALL_LF_VERSIONS",
     "STABLE_LF_VERSIONS",
     "STAGING_VERSION",
-    "FEATURES",
 )
 
 da_scala_library(
@@ -95,7 +95,7 @@ EOF
         # The FEATURES variable comes from your _init_data() function.
         json = json.encode(FEATURES),
     ),
-    visibility = _VERSION_GENERATING_PACKAGES, # Or your preferred visibility
+    visibility = _VERSION_GENERATING_PACKAGES,  # Or your preferred visibility
 )
 
 py_binary(

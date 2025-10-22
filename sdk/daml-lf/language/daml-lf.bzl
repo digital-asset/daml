@@ -167,7 +167,7 @@ def _init_data():
         default = default_version,
         dev = dev_version,
         staging = staging_version,
-        features = features_definitions
+        features = features_definitions,
     )
 
 # --- Public interface of this .bzl file ---
