@@ -178,9 +178,9 @@ readPortFileWith parseFn ph n file = do
 
 decodeCantonPort :: String -> String -> Maybe Int
 decodeCantonPort participantName json = do
-    participants :: Map.Map String (Map.Map String Int) <- Aeson.decode (BSL8.pack json)
+    participants :: Map.Map String (Map.Map String (Maybe Int)) <- Aeson.decode (BSL8.pack json)
     ports <- Map.lookup participantName participants
-    Map.lookup "ledgerApi" ports
+    join $ Map.lookup "ledgerApi" ports
 
 decodeCantonSandboxPort :: String -> Maybe Int
 decodeCantonSandboxPort = decodeCantonPort "sandbox"

@@ -51,7 +51,7 @@ jobs:
       rotate
       git add .
       open_pr "$BRANCH" "$TITLE" "$BODY" "$PR_NUMBER"
-      trigger_azure $(System.AccessToken) "PRs" --branch $BRANCH
+      trigger_azure $AZURE_DEVOPS_EXT_PAT "PRs" --branch $BRANCH
       request_pr_review $(cat "$PR_NUMBER") "$NEXT_GH"
     env:
       AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

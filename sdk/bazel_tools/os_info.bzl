@@ -13,6 +13,7 @@ is_linux = is_linux_intel or is_linux_arm
 is_windows = cpu_value == "x64_windows"
 os_name = "macos" if is_darwin else "linux" if is_linux_intel or is_linux_arm else "windows"
 is_intel = is_windows or is_darwin or is_linux_intel
+os_arch = "x86_64" if is_windows or is_linux_intel else "arm64" if is_darwin_arm64 else "aarch64"
 """
 
 def _os_info_impl(repository_ctx):
