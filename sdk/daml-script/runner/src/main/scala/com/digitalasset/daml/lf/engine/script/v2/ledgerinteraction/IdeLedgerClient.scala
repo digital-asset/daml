@@ -634,7 +634,7 @@ class IdeLedgerClient(
           case IdeLedgerRunner.Interruption(continue) =>
             loop(continue())
           case err: IdeLedgerRunner.SubmissionError => Left(err)
-          case commit @ IdeLedgerRunner.Commit(result, _, _) =>
+          case commit @ IdeLedgerRunner.Commit(result, _) =>
             val referencedParties: Set[Party] =
               result.richTransaction.blindingInfo.disclosure.values
                 .fold(Set.empty[Party])(_ union _)
@@ -745,7 +745,7 @@ class IdeLedgerClient(
         commands,
         optLocation,
       ) match {
-        case Right(IdeLedgerRunner.Commit(result, _, tx)) =>
+        case Right(IdeLedgerRunner.Commit(result, tx)) =>
           val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
