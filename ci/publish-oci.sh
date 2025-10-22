@@ -93,7 +93,6 @@ function publish_artifact {
     "${HOME}"/.dpm/bin/dpm \
       repo publish-component \
         "${artifact_name}" "${RELEASE_TAG}" \
-        --extra-tags main \
         --extra-tags $(extract_major_minor ${RELEASE_TAG}) \
         ${platform_args[@]} \
         --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
