@@ -9,8 +9,9 @@ module DA.Daml.LF.Ast.Version.VersionType (
 
 import           Control.DeepSeq
 
+import           Data.Aeson           as Aeson
 import           Data.Data
-import qualified Data.Text as T
+import qualified Data.Text            as T
 
 import           GHC.Generics
 
@@ -22,16 +23,16 @@ data Version = Version
     { versionMajor :: MajorVersion
     , versionMinor :: MinorVersion
     }
-    deriving (Eq, Data, Generic, NFData, Show, Ord)
+    deriving (Eq, Data, Generic, NFData, Show, Ord, Aeson.FromJSON, Aeson.ToJSON)
 
 data MajorVersion = V2
-  deriving (Eq, Data, Generic, NFData, Ord, Show, Enum, Bounded)
+  deriving (Eq, Data, Generic, NFData, Ord, Show, Enum, Bounded, Aeson.FromJSON, Aeson.ToJSON)
 
 data MinorVersion =
     PointStable Int
   | PointStaging Int
   | PointDev
-  deriving (Eq, Data, Generic, NFData, Show)
+  deriving (Eq, Data, Generic, NFData, Show, Aeson.FromJSON, Aeson.ToJSON)
 
 -- | Explicit versinon of Ord Minorversion, without any pattern wildcards, set
 -- up to break when we add a constructor. We use this instance for comparing
