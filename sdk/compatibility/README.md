@@ -18,7 +18,6 @@ tests run on CI.
 We include the following SDK versions in our tests:
 
 1. All stable SDK versions.
-2. [WRONG] All latest snapshots `x.y.z-snapshot-*` for which there is no stable release `x.y.z`
 2. Latest `3.3.X` snapshot.
 3. HEAD.
 
