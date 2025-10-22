@@ -75,8 +75,8 @@ genrule(
     srcs = ["//daml-lf/language:feature_data_json"],
     # The output path must match the Haskell module name from the script.
     outs = ["src/DA/Daml/LF/Ast/Version/GeneratedFeatures.hs"],
-    # The tool is the new Python script for generating features.
-    tools = ["//daml-lf/language:generate_haskell_features"],
     # The command runs the tool with the JSON input and the output file path.
     cmd = "$(location //daml-lf/language:generate_haskell_features) $(location //daml-lf/language:feature_data_json) $@",
+    # The tool is the new Python script for generating features.
+    tools = ["//daml-lf/language:generate_haskell_features"],
 )
