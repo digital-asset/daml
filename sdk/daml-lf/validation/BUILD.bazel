@@ -126,6 +126,7 @@ da_scala_library(
         [
             "//canton:community_admin-api_proto_scala",
         ],
+    override_scalacopts = ["-Wconf:cat=deprecation&msg=in\\ proto\\ file:s"],
     scala_deps = [
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
