@@ -22,10 +22,12 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import scala.collection.immutable
 import scala.concurrent.Future
 
-// Split the Upgrade unit tests over two suites, which seems to be the sweet
-// spot (~25s instead of ~35s runtime)
-class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 1, 0)
-class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 1, 0)
+// Split the Upgrade unit tests over four suites, which seems to be the sweet
+// spot (~95s instead of ~185s runtime)
+class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 2, 0)
+class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 2, 1)
+class UpgradesMatrixUnit2 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 2, 0)
+class UpgradesMatrixUnit3 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 2, 1)
 
 /** A test suite to run the UpgradesMatrix matrix directly in the engine
   *

@@ -211,7 +211,7 @@ da_scala_test(
 
 da_scala_test(
     name = "upgrade-test",
-    timeout = "long",
+    timeout = "moderate",
     srcs = glob([
         "src/test/**/UpgradesMatrix.scala",
         "src/test/**/UpgradesMatrixUnit.scala",
