@@ -502,8 +502,7 @@ final class PartyReplicator(
         for {
           authorizedAtO <- topologyWorkflow.authorizeOnboardingTopology(
             params,
-            connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
-            connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
+            connectedSynchronizer,
           )
           // To be sure the authorization has become effective, wait until the topology change is visible via the ledger api
           _ <- authorizedAtO match {
@@ -816,10 +815,7 @@ final class PartyReplicator(
         isPartyOnboarded <- topologyWorkflow.authorizeOnboardedTopology(
           status.params,
           status.effectiveAt,
-          connectedSynchronizer.ephemeral.timeTracker,
-          connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
-          connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
-          connectedSynchronizer.synchronizerHandle.topologyClient,
+          connectedSynchronizer,
         )
       } yield {
         if (isAgreementArchived && isPartyOnboarded) {

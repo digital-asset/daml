@@ -14,6 +14,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Crypto, SynchronizerCrypto}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
@@ -43,6 +44,7 @@ import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.{immutable, mutable}
+import scala.compat.java8.DurationConverters.DurationOps
 import scala.concurrent.{ExecutionContextExecutor, blocking}
 import scala.util.Random
 
@@ -245,27 +247,47 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     private case class RestartData(
         scheduled: Boolean,
         delay: cantonConfig.NonNegativeFiniteDuration,
+        initialStartTimeO: Option[CantonTimestamp],
     )
 
     private val restartDataRef = new AtomicReference[RestartData](
-      RestartData(scheduled = false, delay = config.minRestartConnectionDelay)
+      RestartData(
+        scheduled = false,
+        delay = config.minRestartConnectionDelay,
+        initialStartTimeO = None,
+      )
     )
 
     private def resetRestartDelay(): Unit = restartDataRef.getAndUpdate {
-      _.copy(delay = config.minRestartConnectionDelay)
+      _.copy(
+        delay = config.minRestartConnectionDelay,
+        initialStartTimeO = None,
+      )
     }.discard
 
     private def scheduleRestart()(implicit traceContext: TraceContext): Unit = {
-      val RestartData(restartAlreadyScheduled, delay) = restartDataRef.getAndUpdate {
-        case RestartData(false, delay) =>
-          RestartData(
-            scheduled = true,
-            // Exponentially backoff the restart delay, bounded by the max
-            delay = canton.config.NonNegativeFiniteDuration.tryFromDuration(
-              (delay.duration * 2).min(config.maxRestartConnectionDelay.duration)
-            ),
+      val RestartData(restartAlreadyScheduled, delay, initialStartTimeO) =
+        restartDataRef.getAndUpdate {
+          case current @ RestartData(false, delay, _) =>
+            current.copy(
+              scheduled = true,
+              // Exponentially backoff the restart delay, bounded by the max
+              delay = canton.config.NonNegativeFiniteDuration.tryFromDuration(
+                (delay.duration * 2).min(config.maxRestartConnectionDelay.duration)
+              ),
+            )
+          case other => other
+        }
+
+      initialStartTimeO.foreach { initialStartTime =>
+        val durationSinceInitialStart = (wallClock.now - initialStartTime).toScala
+        if (durationSinceInitialStart > config.warnConnectionValidationDelay.duration) {
+          logger.warn(
+            s"Connection has failed validation since $initialStartTime" +
+              s" (${LoggerUtil.roundDurationForHumans(durationSinceInitialStart)} ago)." +
+              s" Last failure reason: \"${connection.lastFailureReason.getOrElse("N/A")}\""
           )
-        case other => other
+        }
       }
 
       if (restartAlreadyScheduled)
@@ -289,10 +311,17 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         }
       }
 
-    def startConnection()(implicit traceContext: TraceContext): Unit =
+    def startConnection()(implicit traceContext: TraceContext): Unit = {
+      restartDataRef.getAndUpdate {
+        case current @ RestartData(_, _, None) =>
+          current.copy(initialStartTimeO = Some(wallClock.now))
+        case other => other
+      }.discard
+
       connection
         .start()
         .valueOr(err => logger.warn(s"Failed to start connection ${connection.name}: $err"))
+    }
 
     private def register(): Unit =
       connection.health

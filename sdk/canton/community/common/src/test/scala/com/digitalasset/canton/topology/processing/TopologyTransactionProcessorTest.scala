@@ -188,6 +188,7 @@ abstract class TopologyTransactionProcessorTest
               effectiveTimestamp: EffectiveTime,
               sequencerCounter: SequencerCounter,
               transactions: Seq[GenericSignedTopologyTransaction],
+              synchronizerId: SynchronizerId,
           )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
             if (transactions.nonEmpty) {
               testTopoSubscriberCalledWithTxs = true

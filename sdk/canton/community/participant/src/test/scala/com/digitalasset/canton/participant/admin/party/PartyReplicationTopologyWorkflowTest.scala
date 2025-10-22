@@ -9,9 +9,15 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{Fingerprint, Hash, HashAlgorithm, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.store.SyncPersistentState
+import com.digitalasset.canton.participant.sync.{ConnectedSynchronizer, SyncEphemeralState}
+import com.digitalasset.canton.participant.synchronizer.SynchronizerHandle
 import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock, SynchronizerTimeTracker}
-import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
+import com.digitalasset.canton.topology.client.{
+  StoreBasedSynchronizerTopologyClient,
+  SynchronizerTopologyClientWithInit,
+}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -31,6 +37,7 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMapping,
 }
 import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
   ForceFlags,
   ParticipantId,
   PartyId,
@@ -121,6 +128,45 @@ class PartyReplicationTopologyWorkflowTest
       loggerFactory = loggerFactory,
     )
 
+  private def mockConnectedSynchronizer(
+      topologyStore: TopologyStore[SynchronizerStore],
+      topologyManager: SynchronizerTopologyManager,
+  ) =
+    mock[ConnectedSynchronizer].tap { cs =>
+      val syncPersistentState = mock[SyncPersistentState].tap { ps =>
+        when(ps.topologyStore).thenReturn(topologyStore)
+        when(ps.topologyManager).thenReturn(topologyManager)
+      }
+      val synchronizerHandle = mock[SynchronizerHandle].tap { sh =>
+        when(sh.syncPersistentState).thenReturn(syncPersistentState)
+      }
+      when(cs.psid).thenReturn(physicalSynchronizerId)
+      when(cs.synchronizerHandle).thenReturn(synchronizerHandle)
+    }
+
+  private def mockConnectedSynchronizer(
+      topologyStore: TopologyStore[SynchronizerStore],
+      topologyClient: SynchronizerTopologyClientWithInit,
+      topologyManager: SynchronizerTopologyManager,
+      synchronizerTimeTracker: SynchronizerTimeTracker,
+  ) =
+    mock[ConnectedSynchronizer].tap { cs =>
+      val ephemeralState = mock[SyncEphemeralState].tap { es =>
+        when(es.timeTracker).thenReturn(synchronizerTimeTracker)
+      }
+      val syncPersistentState = mock[SyncPersistentState].tap { ps =>
+        when(ps.topologyStore).thenReturn(topologyStore)
+        when(ps.topologyManager).thenReturn(topologyManager)
+      }
+      val synchronizerHandle = mock[SynchronizerHandle].tap { sh =>
+        when(sh.syncPersistentState).thenReturn(syncPersistentState)
+        when(sh.topologyClient).thenReturn(topologyClient)
+      }
+      when(cs.psid).thenReturn(physicalSynchronizerId)
+      when(cs.ephemeral).thenReturn(ephemeralState)
+      when(cs.synchronizerHandle).thenReturn(synchronizerHandle)
+    }
+
   private def mockTopologyManager() =
     mock[SynchronizerTopologyManager].tap { tm =>
       when(tm.psid).thenReturn(physicalSynchronizerId)
@@ -169,6 +215,8 @@ class PartyReplicationTopologyWorkflowTest
         val tw = topologyWorkflow()
         val topologyManager = mockTopologyManager()
         val topologyStore = newTopologyStore()
+        val connectedSynchronizer =
+          mockConnectedSynchronizer(topologyStore, topologyManager)
 
         when(
           topologyManager.proposeAndAuthorize(
@@ -192,13 +240,13 @@ class PartyReplicationTopologyWorkflowTest
         for {
           _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
           effectiveTsBeforeO <- tw
-            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .authorizeOnboardingTopology(params, connectedSynchronizer)
             .valueOrFail("expect authorization to succeed")
           _ <- add(topologyStore)(tsSerial, serial, ptpProposal).map(tx =>
             Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
           )
           effectiveTsAfterO <- tw
-            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .authorizeOnboardingTopology(params, connectedSynchronizer)
             .valueOrFail("expect authorization to succeed")
         } yield {
           effectiveTsBeforeO shouldBe None
@@ -210,6 +258,8 @@ class PartyReplicationTopologyWorkflowTest
         val tw = topologyWorkflow()
         val topologyManager = mockTopologyManager()
         val topologyStore = newTopologyStore()
+        val connectedSynchronizer =
+          mockConnectedSynchronizer(topologyStore, topologyManager)
 
         when(
           topologyManager.extendSignature(
@@ -231,13 +281,13 @@ class PartyReplicationTopologyWorkflowTest
           _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
           _ <- add(topologyStore)(tsSerial, serial, ptpProposal, proposal = true)
           effectiveTsBeforeO <- tw
-            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .authorizeOnboardingTopology(params, connectedSynchronizer)
             .valueOrFail("expect authorization to succeed")
           _ <- add(topologyStore)(tsSerial, serial, ptpProposal).map(tx =>
             Right(tx): Either[TopologyManagerError, GenericSignedTopologyTransaction]
           )
           effectiveTsAfterO <- tw
-            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .authorizeOnboardingTopology(params, connectedSynchronizer)
             .valueOrFail("expect authorization to succeed")
         } yield {
           effectiveTsBeforeO shouldBe None
@@ -247,23 +297,24 @@ class PartyReplicationTopologyWorkflowTest
 
       "detect party not hosted on synchronizer" in {
         val tw = topologyWorkflow()
-        val topologyManager = mockTopologyManager()
-        val topologyStore = newTopologyStore()
+        val connectedSynchronizer =
+          mockConnectedSynchronizer(newTopologyStore(), mockTopologyManager())
         tw
-          .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+          .authorizeOnboardingTopology(params, connectedSynchronizer)
           .leftOrFail("expect failure")
           .map(_ should include regex "Party .* not hosted by source participant")
       }.failOnShutdown
 
       "detect party not hosted on source participant" in {
         val tw = topologyWorkflow()
-        val topologyManager = mockTopologyManager()
         val topologyStore = newTopologyStore()
+        val connectedSynchronizer =
+          mockConnectedSynchronizer(topologyStore, mockTopologyManager())
 
         for {
           _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpPartyMissingFromSP)
           err <- tw
-            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .authorizeOnboardingTopology(params, connectedSynchronizer)
             .leftOrFail("expect failure")
         } yield {
           err should include regex "Party .* not hosted by source participant"
@@ -272,13 +323,14 @@ class PartyReplicationTopologyWorkflowTest
 
       "detect party not hosted on target participant as onboarding after authorization at serial" in {
         val tw = topologyWorkflow()
-        val topologyManager = mockTopologyManager()
         val topologyStore = newTopologyStore()
+        val connectedSynchronizer =
+          mockConnectedSynchronizer(topologyStore, mockTopologyManager())
 
         for {
           _ <- add(topologyStore)(tsSerial, serial, ptpProposalMissingOnboardingFlag)
           err <- tw
-            .authorizeOnboardingTopology(params, topologyManager, topologyStore)
+            .authorizeOnboardingTopology(params, connectedSynchronizer)
             .leftOrFail("expect failure")
         } yield {
           err should include regex "Target participant .* not authorized to onboard party .* even though just added"
@@ -289,8 +341,8 @@ class PartyReplicationTopologyWorkflowTest
     "onboarded" should {
       "complete authorization only when prerequisites are met" in {
         val tw = topologyWorkflow()
-        val topologyManager = mockTopologyManager()
         val topologyStore = newTopologyStore()
+        val topologyManager = mockTopologyManager()
         val clock = new SimClock(loggerFactory = loggerFactory)
         clock.advanceTo(tsSerial)
         val topologyClient = new StoreBasedSynchronizerTopologyClient(
@@ -302,10 +354,26 @@ class PartyReplicationTopologyWorkflowTest
           loggerFactory = loggerFactory,
           staticSynchronizerParameters = defaultStaticSynchronizerParameters,
         )
-        val onboardingTs = tsSerialMinusOne
-        // unsafe time means less than the default one minute decision time
         val synchronizerLatestTimeObservedUnsafe = Some(CantonTimestamp.ofEpochSecond(20L))
         val synchronizerLatestTimeObservedSafe = Some(CantonTimestamp.ofEpochSecond(3600L))
+        val connectedSynchronizerSafe =
+          mockConnectedSynchronizer(
+            topologyStore,
+            topologyClient,
+            topologyManager,
+            mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
+          )
+
+        val connectedSynchronizerUnsafe =
+          mockConnectedSynchronizer(
+            topologyStore,
+            topologyClient,
+            topologyManager,
+            mockSynchronizerTimeTracker(synchronizerLatestTimeObservedUnsafe),
+          )
+
+        val onboardingTs = tsSerialMinusOne
+        // unsafe time means less than the default one minute decision time
 
         when(
           topologyManager.proposeAndAuthorize(
@@ -334,6 +402,7 @@ class PartyReplicationTopologyWorkflowTest
             EffectiveTime(tsSerial),
             SequencerCounter.Genesis,
             Seq.empty,
+            DefaultTestIdentities.synchronizerId,
           )
           _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore2, ptpBefore)
           _ <- add(topologyStore)(
@@ -348,10 +417,7 @@ class PartyReplicationTopologyWorkflowTest
             .authorizeOnboardedTopology(
               params,
               tsSerialMinusTwo,
-              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
-              topologyManager,
-              topologyStore,
-              topologyClient,
+              connectedSynchronizerSafe,
             )
             .leftOrFail("expect premature authorization to fail")
           _ <- add(topologyStore)(onboardingTs, serialBefore, ptpProposal)
@@ -359,30 +425,21 @@ class PartyReplicationTopologyWorkflowTest
             .authorizeOnboardedTopology(
               params,
               onboardingTs,
-              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedUnsafe),
-              topologyManager,
-              topologyStore,
-              topologyClient,
+              connectedSynchronizerUnsafe,
             )
             .valueOrFail("expect authorization to not happen due to unsafe time")
           isOnboardedAfterFirstSafeCall <- tw
             .authorizeOnboardedTopology(
               params,
               onboardingTs,
-              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
-              topologyManager,
-              topologyStore,
-              topologyClient,
+              connectedSynchronizerSafe,
             )
             .valueOrFail("expect authorization to succeed")
           isOnboardedAfterSecondSafeCall <- tw
             .authorizeOnboardedTopology(
               params,
               onboardingTs,
-              mockSynchronizerTimeTracker(synchronizerLatestTimeObservedSafe),
-              topologyManager,
-              topologyStore,
-              topologyClient,
+              connectedSynchronizerSafe,
             )
             .valueOrFail("expect second call observe party onboarded")
         } yield {

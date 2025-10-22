@@ -49,6 +49,7 @@ class MissingKeysAlerter(
           effectiveTimestamp: EffectiveTime,
           sequencerCounter: SequencerCounter,
           transactions: Seq[GenericSignedTopologyTransaction],
+          synchronizerId: SynchronizerId,
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         FutureUnlessShutdown.pure(
           processTransactions(effectiveTimestamp.value, transactions)

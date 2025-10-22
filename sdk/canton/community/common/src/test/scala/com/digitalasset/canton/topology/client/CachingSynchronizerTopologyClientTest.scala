@@ -15,7 +15,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{DefaultTestIdentities, KeyCollection, TestingOwnerWithKeys}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  KeyCollection,
+  SynchronizerId,
+  TestingOwnerWithKeys,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter, config}
 import org.scalatest.wordspec.AsyncWordSpecLike
@@ -93,6 +98,7 @@ class CachingSynchronizerTopologyClientTest
         any[CantonTimestamp],
         any[SequencerCounter],
         anySeq[GenericSignedTopologyTransaction],
+        any[SynchronizerId],
       )(any[TraceContext])
     ).thenReturn(FutureUnlessShutdown.unit)
 
@@ -105,16 +111,34 @@ class CachingSynchronizerTopologyClientTest
 
       for {
         _ <- cc
-          .observed(ts1, ts1, SequencerCounter(1), Seq(mockTransaction))
+          .observed(
+            ts1,
+            ts1,
+            SequencerCounter(1),
+            Seq(mockTransaction),
+            DefaultTestIdentities.synchronizerId,
+          )
         sp0a <- cc.snapshot(ts0)
         sp0b <- cc.snapshot(ts1)
-        _ = cc.observed(ts1.plusSeconds(10), ts1.plusSeconds(10), SequencerCounter(1), Seq())
+        _ = cc.observed(
+          ts1.plusSeconds(10),
+          ts1.plusSeconds(10),
+          SequencerCounter(1),
+          Seq(),
+          DefaultTestIdentities.synchronizerId,
+        )
         keys0a <- sp0a.allKeys(owner)
         keys0b <- sp0b.allKeys(owner)
         keys1a <- cc.snapshot(ts1.plusSeconds(5)).flatMap(_.allKeys(owner))
-        _ = cc.observed(ts2, ts2, SequencerCounter(1), Seq(mockTransaction))
+        _ = cc.observed(
+          ts2,
+          ts2,
+          SequencerCounter(1),
+          Seq(mockTransaction),
+          DefaultTestIdentities.synchronizerId,
+        )
         keys1b <- cc.snapshot(ts2).flatMap(_.allKeys(owner))
-        _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq())
+        _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq(), DefaultTestIdentities.synchronizerId)
         keys2a <- cc.snapshot(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
         keys2b <- cc.snapshot(ts3).flatMap(_.allKeys(owner))
       } yield {

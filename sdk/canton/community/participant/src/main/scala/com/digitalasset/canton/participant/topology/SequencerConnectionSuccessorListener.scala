@@ -25,7 +25,11 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
-import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{
+  KnownPhysicalSynchronizerId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
@@ -63,6 +67,7 @@ class SequencerConnectionSuccessorListener(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
+      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     Monad[FutureUnlessShutdown].whenA(
       transactions.exists(_.mapping.code == Code.SequencerConnectionSuccessor)
