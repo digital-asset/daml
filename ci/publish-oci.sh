@@ -92,9 +92,17 @@ function publish_artifact {
     info "Uploading ${artifact_name} to oci registry...\n"
     "${HOME}"/.dpm/bin/dpm \
       repo publish-component \
-        "${artifact_name}" "${RELEASE_TAG}" --extra-tags main ${platform_args[@]} \
+        "${artifact_name}" "${RELEASE_TAG}" \
+        --extra-tags main \
+        --extra-tags $(extract_major_minor ${RELEASE_TAG}) \
+        ${platform_args[@]} \
         --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
+}
+
+function extract_major_minor() {
+  version="$1"
+  echo "$version" | grep -oE '^[0-9]+\.[0-9]+'
 }
 
 for component in "${components[@]}"; do
