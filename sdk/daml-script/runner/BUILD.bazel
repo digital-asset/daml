@@ -42,6 +42,7 @@ da_scala_library(
             # ProtocolVersionAnnotation.scala violates this warning
             "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
             "-deprecation",
+            "-Xlint:deprecation",
         ]
     ],
     scala_deps = [
