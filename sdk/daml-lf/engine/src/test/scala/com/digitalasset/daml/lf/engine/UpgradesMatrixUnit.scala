@@ -35,7 +35,6 @@ class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 1
   */
 abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: Int, k: Int)
     extends UpgradesMatrix[Error, (SubmittedTransaction, Transaction.Metadata)](
-      UpgradesMatrix.IdeLedger,
       upgradesMatrixCases,
       Some((n, k)),
     )
@@ -140,6 +139,18 @@ abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: I
       case _ => PartialFunction.empty
     }
 
+    def hash(fci: FatContractInstance): crypto.Hash =
+      newEngine()
+        .hashCreateNode(fci.toCreateNode, identity, crypto.Hash.HashingMethod.TypedNormalForm)
+        .consume(pkgs = cases.allPackages)
+        .fold(e => throw new IllegalArgumentException(s"hashing $fci failed: $e"), identity)
+
+    val hashes = Map(
+      setupData.clientLocalContractId -> hash(clientLocalContract),
+      setupData.clientGlobalContractId -> hash(clientGlobalContract),
+      setupData.globalContractId -> hash(globalContract),
+    )
+
     newEngine()
       .submit(
         packageMap = cases.packageMap,
@@ -163,6 +174,11 @@ abstract class UpgradesMatrixUnit(upgradesMatrixCases: UpgradesMatrixCases, n: I
           case UpgradesMatrixCases.CreationPackageUnvetted => cases.allNonCreationPackages
         },
         keys = lookupContractByKey,
+        idValidator = (cid, hash) =>
+          hashes.get(cid) match {
+            case Some(expectedHash) => hash == expectedHash
+            case None => false
+          },
       )
   }
 
