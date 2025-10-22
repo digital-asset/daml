@@ -19,7 +19,6 @@ import Control.Lens (Getting, view)
 import Control.Monad.Reader.Class
 
 import DA.Daml.LF.Ast.Version.VersionType
-import DA.Daml.LF.Ast.Version.GeneratedVersions ( defaultVersion )
 import DA.Daml.LF.Ast.Version.GeneratedFeatures
 
 -- | x `canDependOn` y if dars compiled to version x can depend on dars compiled
@@ -52,22 +51,30 @@ featureMap = MS.fromList
     , key <- [featureCppFlag feature]
     ]
 
+-- | Return the feature associated with a feature flag.
+nameToFeatureOpt :: T.Text -> Maybe Feature
+nameToFeatureOpt = flip MS.lookup featureMap
+
+-- | Same as 'nameToFeatureOpt' but errors out if the feature doesn't exist.
+nameToFeature :: T.Text -> Feature
+nameToFeature key =
+  case nameToFeatureOpt key of
+    Just version -> version
+    Nothing ->
+        error . T.unpack . T.concat $
+            [ "Unknown feature: "
+            , key
+            , ". Available features are: "
+            , T.intercalate ", " (MS.keys featureMap)
+            ]
+
 -- | Return the version requirements associated with a feature flag.
 versionReqForFeature :: T.Text -> Maybe VersionReq
-versionReqForFeature key = featureVersionReq <$> MS.lookup key featureMap
+versionReqForFeature key = featureVersionReq <$> nameToFeatureOpt key
 
 -- | Same as 'versionForFeature' but errors out if the feature doesn't exist.
 versionReqForFeaturePartial :: T.Text -> VersionReq
-versionReqForFeaturePartial key =
-    case versionReqForFeature key of
-        Just version -> version
-        Nothing ->
-            error . T.unpack . T.concat $
-                [ "Unknown feature: "
-                , key
-                , ". Available features are: "
-                , T.intercalate ", " (MS.keys featureMap)
-                ]
+versionReqForFeaturePartial = featureVersionReq . nameToFeature
 
 -- | All the language features that the given language version supports.
 allFeaturesForVersion :: Version -> [Feature]

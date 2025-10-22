@@ -2,15 +2,16 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Version(
-  module DA.Daml.LF.Ast.Version.VersionType
-, module DA.Daml.LF.Ast.Version.VersionUtil
-
-  --generated module
-, module DA.Daml.LF.Ast.Version.GeneratedVersions
+  module VER
 ) where
 
-import DA.Daml.LF.Ast.Version.VersionType
-import DA.Daml.LF.Ast.Version.VersionUtil
+import DA.Daml.LF.Ast.Version.VersionType as VER
+import DA.Daml.LF.Ast.Version.VersionUtil as VER
 
---generated module
-import DA.Daml.LF.Ast.Version.GeneratedVersions hiding (version2_1, version2_2, version2_dev)
+--generated modules
+
+-- build //compiler/daml-lf-ast:generated_haskell_versions_src to find file in bazel-out
+import DA.Daml.LF.Ast.Version.GeneratedVersions as VER hiding (version2_1, version2_2, version2_dev)
+
+-- build //compiler/daml-lf-ast:generated_haskell_features_src to find file in bazel-out
+import DA.Daml.LF.Ast.Version.GeneratedFeatures as VER
