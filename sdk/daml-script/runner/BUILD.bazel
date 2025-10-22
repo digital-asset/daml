@@ -42,7 +42,7 @@ da_scala_library(
             # ProtocolVersionAnnotation.scala violates this warning
             "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
         ]
-    ],
+    ] + ["-Wconf:cat=deprecation&msg=in\\ proto\\ file:s"],
     scala_deps = [
         "@maven//:com_github_scopt_scopt",
         "@maven//:org_apache_pekko_pekko_stream",
