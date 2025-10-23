@@ -3,9 +3,7 @@
 
 package com.daml
 
-import com.google.protobuf.Descriptors.FieldDescriptor
-import com.google.protobuf.{AbstractMessageLite, ByteString, CodedOutputStream, Message}
-import scala.jdk.CollectionConverters._
+import com.google.protobuf.{AbstractMessageLite, ByteString, CodedOutputStream}
 
 object SafeProto {
 
@@ -38,35 +36,4 @@ object SafeProto {
 
   def toByteArray(message: AbstractMessageLite[_, _]): Either[String, Array[Byte]] =
     safelySerialize(message, _.toByteArray)
-
-  def ensureNoUnknownFields(msg: Message): Either[String, Unit] = {
-    msg.getUnknownFields.asMap().keySet().asScala.headOption match {
-      case Some(n) =>
-        Left(
-          s"Message of type ${msg.getDescriptorForType.getFullName} contains unknown field numbered $n"
-        )
-      case None =>
-        msg.getAllFields.asScala.foldLeft[Either[String, Unit]](Right(())) {
-          case (acc @ Left(_), _) => acc
-          case (acc, (descriptor, field)) =>
-            descriptor.getType match {
-              case FieldDescriptor.Type.MESSAGE =>
-                if (descriptor.isRepeated)
-                  field
-                    .asInstanceOf[java.util.List[Message]]
-                    .asScala
-                    .foldLeft[Either[String, Unit]](Right(())) {
-                      case (acc @ Left(_), _) => acc
-                      case (_, msg) => ensureNoUnknownFields(msg)
-                    }
-                else
-                  ensureNoUnknownFields(field.asInstanceOf[Message])
-              case FieldDescriptor.Type.GROUP =>
-                Left("Groups are not supported")
-              case _ =>
-                acc
-            }
-        }
-    }
-  }
 }
