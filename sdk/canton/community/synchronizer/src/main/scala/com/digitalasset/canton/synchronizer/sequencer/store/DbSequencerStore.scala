@@ -45,7 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, MaxBytesToDecompress, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -88,6 +88,8 @@ class DbSequencerStore(
   import Member.DbStorageImplicits.*
   import storage.api.*
   import storage.converters.*
+
+  private val maxBytesToDecompress: MaxBytesToDecompress = MaxBytesToDecompress.Default
 
   override implicit val closeContext: CloseContext =
     overrideCloseContext
@@ -875,7 +877,7 @@ class DbSequencerStore(
   ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]] = {
 
     val preloadedPayloads = payloadIds.collect { case payload: BytesPayload =>
-      payload.id -> payload.decodeBatchAndTrim(protocolVersion, member)
+      payload.id -> payload.decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
     }.toMap
 
     val idsToLoad = payloadIds.collect { case id: PayloadId => id }
@@ -886,7 +888,7 @@ class DbSequencerStore(
 
     payloadCache.getAll(idsToLoad).map { accessedPayloads =>
       preloadedPayloads ++ accessedPayloads.view
-        .mapValues(_.decodeBatchAndTrim(protocolVersion, member))
+        .mapValues(_.decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member))
     }
   }
 

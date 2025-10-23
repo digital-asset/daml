@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.protocol
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegativeInt}
+import com.digitalasset.canton.config.RequireTypes.InvariantViolation
 import com.digitalasset.canton.crypto.{HashOps, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.v30
@@ -17,6 +17,7 @@ import com.digitalasset.canton.serialization.{
   ProtocolVersionedMemoizedEvidence,
 }
 import com.digitalasset.canton.topology.{Member, ParticipantId}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.{
   DefaultValueUntilExclusive,
   HasProtocolVersionedWrapper,
@@ -179,21 +180,11 @@ final case class SubmissionRequest private (
     AggregationId(hash)
   }
 }
-sealed trait MaxRequestSizeToDeserialize {
-  val toOption: Option[NonNegativeInt] = this match {
-    case MaxRequestSizeToDeserialize.Limit(value) => Some(value)
-    case MaxRequestSizeToDeserialize.NoLimit => None
-  }
-}
-object MaxRequestSizeToDeserialize {
-  final case class Limit(value: NonNegativeInt) extends MaxRequestSizeToDeserialize
-  case object NoLimit extends MaxRequestSizeToDeserialize
-}
 
 object SubmissionRequest
     extends VersioningCompanionContextMemoizationWithDependency[
       SubmissionRequest,
-      MaxRequestSizeToDeserialize,
+      MaxBytesToDecompress,
       // Recipients is a dependency because its versioning scheme needs to be aligned with this one
       // such that SubmissionRequest and Recipiients can be versioned independently
       Recipients,
@@ -270,7 +261,7 @@ object SubmissionRequest
     ).valueOr(err => throw new IllegalArgumentException(err.message))
 
   def fromProtoV30(
-      maxRequestSize: MaxRequestSizeToDeserialize,
+      maxRequestSize: MaxBytesToDecompress,
       requestP: v30.SubmissionRequest,
   )(bytes: ByteString): ParsingResult[SubmissionRequest] = {
     val v30.SubmissionRequest(
@@ -288,7 +279,7 @@ object SubmissionRequest
       messageId <- MessageId.fromProtoPrimitive(messageIdP)
       maxSequencingTime <- CantonTimestamp.fromProtoPrimitive(maxSequencingTimeP)
       batch <- ProtoConverter.parseRequired(
-        Batch.fromProtoV30(_, maxRequestSize),
+        Batch.fromProtoV30(maxRequestSize, _),
         "SubmissionRequest.batch",
         batchP,
       )

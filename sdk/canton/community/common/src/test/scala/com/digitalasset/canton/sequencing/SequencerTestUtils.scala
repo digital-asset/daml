@@ -20,6 +20,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.{DefaultTestIdentities, PhysicalSynchronizerId}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.google.protobuf.ByteString
 
 object SequencerTestUtils extends BaseTest {
@@ -57,7 +58,7 @@ object SequencerTestUtils extends BaseTest {
       case Some(bytes) =>
         // Somehow ugly way to tweak the `deserializedFrom` attribute of Deliver
         SequencedEvent
-          .fromProtoV30(deliver.toProtoV30)(bytes)
+          .fromProtoV30(MaxBytesToDecompress.Default, deliver.toProtoV30)(bytes)
           .value
           .asInstanceOf[Deliver[ClosedEnvelope]]
 

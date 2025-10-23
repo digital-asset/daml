@@ -10,6 +10,7 @@ import com.digitalasset.canton.serialization.{
   DeserializationError,
   MaxByteToDecompressExceeded,
 }
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.google.protobuf.ByteString
 import org.scalactic.Uniformity
 import org.scalatest.wordspec.AnyWordSpec
@@ -129,7 +130,7 @@ class ByteStringUtilTest extends AnyWordSpec with BaseTest with GzipCompressionT
   override def compressGzip(str: ByteString): ByteString = ByteStringUtil.compressGzip(str)
 
   override def decompressGzip(str: ByteString): Either[DeserializationError, ByteString] =
-    ByteStringUtil.decompressGzip(str, maxBytesLimit = None)
+    ByteStringUtil.decompressGzip(str, MaxBytesToDecompress(NonNegativeInt.maxValue))
 
   "ByteStringUtilTest" should {
 
@@ -160,14 +161,43 @@ class ByteStringUtilTest extends AnyWordSpec with BaseTest with GzipCompressionT
         assert(dual(result)(order.compare(bs2, bs1)), name + " dual")
       }
     }
+
+    "copyNBuffered" in {
+      def newInput10 = ByteString.copyFrom("." * 10, Charset.defaultCharset()).newInput()
+      val buf4 = new Array[Byte](4)
+
+      case class Example(n: Int, numBytesCopied: Int, wasCompleteInput: Boolean)
+
+      Seq(
+        Example(-1, 0, false),
+        Example(0, 1, false), // If n < input length, we actually copy (n+1) looking for the end.
+        Example(1, 2, false),
+        Example(9, 10, false),
+        Example(10, 10, true),
+        Example(11, 10, true),
+      ).foreach { eg =>
+        val out = ByteString.newOutput()
+        ByteStringUtil.copyNBuffered(eg.n, buf4, newInput10, out) shouldBe eg.wasCompleteInput
+        withClue(eg.toString) {
+          out.toByteString.size shouldBe eg.numBytesCopied
+        }
+      }
+    }
+
     "decompress with max bytes to read" in {
       val uncompressed = "a" * 1000000
       val uncompressedByteString = ByteString.copyFrom(uncompressed, Charset.defaultCharset())
       val compressed = compressGzip(uncompressedByteString)
 
-      val res1 = ByteStringUtil.decompressGzip(compressed, maxBytesLimit = Some(1000000))
+      val res1 = ByteStringUtil.decompressGzip(
+        compressed,
+        MaxBytesToDecompress(NonNegativeInt.tryCreate(1000000)),
+      )
       res1 shouldBe Right(uncompressedByteString)
-      val res2 = ByteStringUtil.decompressGzip(compressed, maxBytesLimit = Some(777))
+      val res2 = ByteStringUtil.decompressGzip(
+        compressed,
+        MaxBytesToDecompress(NonNegativeInt.tryCreate(777)),
+      )
       res2 shouldBe Left(
         MaxByteToDecompressExceeded("Max bytes to decompress is exceeded. The limit is 777 bytes.")
       )

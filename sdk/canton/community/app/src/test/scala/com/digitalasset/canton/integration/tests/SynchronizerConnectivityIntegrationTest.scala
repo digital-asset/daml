@@ -399,8 +399,10 @@ sealed trait SynchronizerConnectivityIntegrationTest
             daName,
             SequencerConnections.tryMany(
               Seq(
-                sequencer1.config.publicApi.clientConfig.asSequencerConnection(seq1Alias),
-                sequencer2.config.publicApi.clientConfig.asSequencerConnection(seq2Alias),
+                sequencer1.config.publicApi.clientConfig
+                  .asSequencerConnection(seq1Alias, sequencerId = None),
+                sequencer2.config.publicApi.clientConfig
+                  .asSequencerConnection(seq2Alias, sequencerId = None),
               ),
               sequencerTrustThreshold = PositiveInt.one,
               sequencerLivenessMargin = NonNegativeInt.zero,

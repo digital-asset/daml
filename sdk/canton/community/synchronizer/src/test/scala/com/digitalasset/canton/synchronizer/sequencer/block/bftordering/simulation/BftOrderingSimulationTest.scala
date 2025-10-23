@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionState
@@ -66,6 +65,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
@@ -399,7 +399,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           val requestInspector = new RequestInspector {
             override def isRequestToAllMembersOfSynchronizer(
                 request: OrderingRequest,
-                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+                maxBytesToDecompress: MaxBytesToDecompress,
                 logger: TracedLogger,
                 traceContext: TraceContext,
             )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true

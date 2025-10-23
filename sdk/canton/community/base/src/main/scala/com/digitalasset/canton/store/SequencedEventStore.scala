@@ -39,7 +39,7 @@ import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
 import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
-import com.digitalasset.canton.util.{ErrorUtil, Thereafter}
+import com.digitalasset.canton.util.{ErrorUtil, MaxBytesToDecompress, Thereafter}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.concurrent.Semaphore
@@ -560,7 +560,11 @@ object SequencedEventStore {
         case _: Deliver[_] => SequencedEventDbType.Deliver
       }
 
-    def fromProtoV30(protocolVersion: ProtocolVersion, hashOps: HashOps)(
+    def fromProtoV30(
+        maxBytesToDecompress: MaxBytesToDecompress,
+        protocolVersion: ProtocolVersion,
+        hashOps: HashOps,
+    )(
         possiblyIgnoredSequencedEventP: v30.PossiblyIgnoredSequencedEvent
     ): ParsingResult[PossiblyIgnoredProtocolEvent] = {
       val v30.PossiblyIgnoredSequencedEvent(
@@ -578,7 +582,9 @@ object SequencedEventStore {
           SignedContent
             .fromByteString(protocolVersion, _)
             .flatMap(
-              _.deserializeContent(SequencedEvent.fromByteStringOpen(hashOps, protocolVersion))
+              _.deserializeContent(
+                SequencedEvent.fromByteStringOpen(maxBytesToDecompress, hashOps, protocolVersion)
+              )
             )
         )
         timestamp <- CantonTimestamp.fromProtoPrimitive(timestampP)

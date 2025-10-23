@@ -47,6 +47,12 @@ trait InternalSequencerConnectionX extends FlagCloseable with NamedLogging {
   def tryAttributes: ConnectionAttributes =
     attributes.getOrElse(throw new IllegalStateException(s"Connection $name has no attributes"))
 
+  /** Return the last failure reason for this connection
+    * @return
+    *   `None` if no failure has yet occurred
+    */
+  def lastFailureReason: Option[String]
+
   /** Start the connection
     */
   def start()(implicit traceContext: TraceContext): Either[SequencerConnectionXError, Unit]

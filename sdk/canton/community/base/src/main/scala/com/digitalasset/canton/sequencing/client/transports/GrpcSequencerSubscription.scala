@@ -21,7 +21,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.tracing.TraceContext.withTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.{FutureUtil, MaxBytesToDecompress}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Context.CancellableContext
@@ -287,6 +287,8 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
 }
 
 object GrpcSequencerSubscription {
+  private val maxBytesToDecompress = MaxBytesToDecompress.Default
+
   def fromSubscriptionResponse[E](
       context: CancellableContext,
       handler: SequencedEventHandler[E],
@@ -302,7 +304,9 @@ object GrpcSequencerSubscription {
       deserializingSubscriptionHandler(
         handler,
         (value, traceContext) =>
-          SubscriptionResponse.fromVersionedProtoV30(protocolVersion)(value)(traceContext),
+          SubscriptionResponse.fromVersionedProtoV30(maxBytesToDecompress, protocolVersion)(value)(
+            traceContext
+          ),
       ),
       timeouts,
       loggerFactory,

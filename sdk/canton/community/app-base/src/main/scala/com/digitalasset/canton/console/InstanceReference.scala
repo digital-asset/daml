@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.console
 
+import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.FindPruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
@@ -1286,7 +1287,8 @@ class LocalSequencerReference(
     consoleEnvironment.environment.config.sequencersByString(name)
 
   override lazy val sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.clientConfig.asSequencerConnection()
+    config.publicApi.clientConfig
+      .asSequencerConnection(sequencerAlias = SequencerAlias.tryCreate(name), sequencerId = None)
 
   private[console] val nodes: SequencerNodes =
     consoleEnvironment.environment.sequencers
@@ -1317,7 +1319,10 @@ class RemoteSequencerReference(val environment: ConsoleEnvironment, val name: St
     environment.environment.config.remoteSequencersByString(name)
 
   override def sequencerConnection: GrpcSequencerConnection =
-    config.publicApi.asSequencerConnection()
+    config.publicApi.asSequencerConnection(
+      sequencerAlias = SequencerAlias.tryCreate(name),
+      sequencerId = None,
+    )
 
   protected lazy val publicApiClient: SequencerPublicApiClient = new SequencerPublicApiClient(
     name,

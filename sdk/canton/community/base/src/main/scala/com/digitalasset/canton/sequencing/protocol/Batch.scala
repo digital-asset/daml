@@ -6,7 +6,6 @@ package com.digitalasset.canton.sequencing.protocol
 import cats.Applicative
 import cats.implicits.*
 import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.ProtocolMessage
@@ -14,14 +13,14 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{MediatorId, Member}
-import com.digitalasset.canton.util.ByteStringUtil
+import com.digitalasset.canton.util.{ByteStringUtil, MaxBytesToDecompress}
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanion2,
+  VersioningCompanionContext2,
 }
 import com.digitalasset.canton.{ProtoDeserializationError, checkedToByteString}
 import com.google.common.annotations.VisibleForTesting
@@ -58,7 +57,9 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
 
   private[protocol] def toProtoV30: v30.CompressedBatch = {
     val batch = v30.Batch(envelopes = envelopes.map(_.closeEnvelope.toProtoV30))
-    val compressed = ByteStringUtil.compressGzip(checkedToByteString(batch))
+    val uncompressed = checkedToByteString(batch)
+    // TODO(i10428): if (uncompressed.size > maxBytesToDecompress) we should fail
+    val compressed = ByteStringUtil.compressGzip(uncompressed)
     v30.CompressedBatch(
       algorithm = v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_GZIP,
       compressedBatch = compressed,
@@ -83,17 +84,18 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
   )
 }
 
-object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
+object Batch
+    extends VersioningCompanionContext2[Batch[Envelope[?]], Batch[
+      ClosedEnvelope
+    ], MaxBytesToDecompress] {
+
   override def name: String = "Batch"
 
   override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(
       ProtocolVersion.v34
     )(v30.CompressedBatch)(
-      supportedProtoVersion(_)(
-        // TODO(i26169) Prevent zip bombing when decompressing the request
-        Batch.fromProtoV30(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
-      ),
+      supportedProtoVersion(_)(Batch.fromProtoV30),
       _.toProtoV30,
     )
   )
@@ -120,13 +122,12 @@ object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelo
     Batch(envelopes.toList)(protocolVersionRepresentativeFor(protocolVersion))
 
   private[protocol] def fromProtoV30(
+      maxBytesToDecompress: MaxBytesToDecompress,
       batchProto: v30.CompressedBatch,
-      maxRequestSize: MaxRequestSizeToDeserialize,
   ): ParsingResult[Batch[ClosedEnvelope]] = {
     val v30.CompressedBatch(algorithm, compressed) = batchProto
-
     for {
-      uncompressed <- decompress(algorithm, compressed, maxRequestSize.toOption)
+      uncompressed <- decompress(algorithm, compressed, maxBytesToDecompress)
       uncompressedBatchProto <- ProtoConverter.protoParser(v30.Batch.parseFrom)(uncompressed)
       v30.Batch(envelopesProto) = uncompressedBatchProto
       envelopes <- envelopesProto.toList.traverse(ClosedEnvelope.fromProtoV30)
@@ -137,14 +138,14 @@ object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelo
   private def decompress(
       algorithm: v30.CompressedBatch.CompressionAlgorithm,
       compressed: ByteString,
-      maxRequestSize: Option[NonNegativeInt],
+      maxRequestSize: MaxBytesToDecompress,
   ): ParsingResult[ByteString] =
     algorithm match {
       case v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED =>
         Right(compressed)
       case v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_GZIP =>
         ByteStringUtil
-          .decompressGzip(compressed, maxBytesLimit = maxRequestSize.map(_.unwrap))
+          .decompressGzip(compressed, maxBytesLimit = maxRequestSize)
           .leftMap(_.toProtoDeserializationError)
       case _ => Left(FieldNotSet("CompressedBatch.Algorithm"))
     }

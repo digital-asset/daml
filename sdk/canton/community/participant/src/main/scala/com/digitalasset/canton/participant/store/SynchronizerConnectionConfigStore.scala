@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.apply.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -34,10 +33,12 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
   PhysicalSynchronizerId,
+  SequencerId,
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -95,7 +96,21 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       config: SynchronizerConnectionConfig,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Unit]
+  ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit]
+
+  /** Sets the sequencer IDs for the given sequencers of the given synchronizer.
+    *
+    * Returns an error if the connection does not exist or if a different id already exists for a
+    * sequencer.
+    *
+    * This is better than [[replace]] because [[setSequencerIds]] works well even if there are
+    * concurrent calls. Failure can happen only if inconcistent ids are set.
+    */
+  def setSequencerIds(
+      synchronizerAlias: SynchronizerAlias,
+      configuredPSId: ConfiguredPhysicalSynchronizerId,
+      sequencerIds: Map[SequencerAlias, SequencerId],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit]
 
   def setPhysicalSynchronizerId(
       alias: SynchronizerAlias,
@@ -318,6 +333,16 @@ object SynchronizerConnectionConfigStore {
   ) extends Error {
     val message =
       s"Synchronizer with id $predecessorPSId cannot be the predecessor of $predecessorPSId because their logical IDs are incompatible"
+  }
+
+  final case class InconsistentSequencerIds(
+      synchronizerAlias: SynchronizerAlias,
+      configuredPSId: ConfiguredPhysicalSynchronizerId,
+      sequencerIds: Map[SequencerAlias, SequencerId],
+      details: String,
+  ) extends Error {
+    val message =
+      s"Connection for synchronizer with alias `$synchronizerAlias` and id `$configuredPSId` cannot be updated to set ids $sequencerIds: $details."
   }
 
   final case class MissingConfigForSynchronizer(

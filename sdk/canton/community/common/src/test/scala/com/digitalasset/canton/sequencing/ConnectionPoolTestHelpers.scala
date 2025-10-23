@@ -75,9 +75,6 @@ trait ConnectionPoolTestHelpers {
   protected lazy val authConfig: AuthenticationTokenManagerConfig =
     AuthenticationTokenManagerConfig()
 
-  protected lazy val sequencerConnectionPoolDelays: SequencerConnectionPoolDelays =
-    SequencerConnectionPoolDelays.default
-
   protected lazy val testCrypto: SynchronizerCrypto =
     SynchronizerCrypto(
       SymbolicCrypto
@@ -154,6 +151,7 @@ trait ConnectionPoolTestHelpers {
       nbConnections: PositiveInt,
       trustThreshold: PositiveInt,
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
+      poolDelays: SequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
   ): SequencerConnectionXPoolConfig = {
     val configs =
       NonEmpty.from((0 until nbConnections.unwrap).map(mkDummyConnectionConfig(_))).value
@@ -161,8 +159,9 @@ trait ConnectionPoolTestHelpers {
     SequencerConnectionXPoolConfig(
       connections = configs,
       trustThreshold = trustThreshold,
-      minRestartConnectionDelay = sequencerConnectionPoolDelays.minRestartDelay,
-      maxRestartConnectionDelay = sequencerConnectionPoolDelays.maxRestartDelay,
+      minRestartConnectionDelay = poolDelays.minRestartDelay,
+      maxRestartConnectionDelay = poolDelays.maxRestartDelay,
+      warnConnectionValidationDelay = poolDelays.warnValidationDelay,
       expectedPSIdO = expectedSynchronizerIdO,
     )
   }
@@ -174,9 +173,15 @@ trait ConnectionPoolTestHelpers {
       responsesForConnection: PartialFunction[Int, TestResponses] = Map(),
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
       testTimeouts: ProcessingTimeout = timeouts,
+      poolDelays: SequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
       blockValidation: Int => Boolean = _ => false,
   )(f: (SequencerConnectionXPool, CreatedConnections, TestHealthListener, Int => Unit) => V): V = {
-    val config = mkPoolConfig(nbConnections, trustThreshold, expectedSynchronizerIdO)
+    val config = mkPoolConfig(
+      nbConnections,
+      trustThreshold,
+      expectedSynchronizerIdO,
+      poolDelays,
+    )
 
     val validationBlocker = new TestValidationBlocker(blockValidation)
 
@@ -207,11 +212,12 @@ trait ConnectionPoolTestHelpers {
   }
 
   protected def mkSubscriptionPoolConfig(
-      livenessMargin: NonNegativeInt
+      livenessMargin: NonNegativeInt,
+      poolDelays: SequencerConnectionPoolDelays = SequencerConnectionPoolDelays.default,
   ): SequencerSubscriptionPoolConfig =
     SequencerSubscriptionPoolConfig(
       livenessMargin = livenessMargin,
-      subscriptionRequestDelay = sequencerConnectionPoolDelays.subscriptionRequestDelay,
+      subscriptionRequestDelay = poolDelays.subscriptionRequestDelay,
     )
 
   protected def withSubscriptionPool[V](

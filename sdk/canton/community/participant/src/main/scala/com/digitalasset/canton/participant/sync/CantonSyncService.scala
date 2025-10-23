@@ -7,6 +7,7 @@ import cats.Eval
 import cats.data.EitherT
 import cats.implicits.toBifunctorOps
 import cats.syntax.either.*
+import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
@@ -68,7 +69,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmitted,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.submission.TopologyPackageMapBuilder
+import com.digitalasset.canton.participant.protocol.submission.PartyVettingMapComputation
 import com.digitalasset.canton.participant.protocol.submission.routing.{
   AdmissibleSynchronizersComputation,
   RoutingSynchronizerStateFactory,
@@ -364,7 +365,7 @@ class CantonSyncService(
 
   private val admissibleSynchronizers =
     new AdmissibleSynchronizersComputation(participantId, loggerFactory)
-  private val topologyPackageMapBuilder = new TopologyPackageMapBuilder(
+  private val partyVettingMapComputation = new PartyVettingMapComputation(
     admissibleSynchronizersComputation = admissibleSynchronizers,
     loggerFactory = loggerFactory,
   )
@@ -1067,6 +1068,24 @@ class CantonSyncService(
           SyncServiceError.SyncServiceUnknownSynchronizer
             .Error(config.synchronizerAlias): SyncServiceError
         )
+
+      // Try to retrieve and store missing sequencer ids
+      _ <- connectionIdToUpdate.toOption
+        .traverse_(connectionsManager.retrieveAndStoreMissingSequencerIds)
+        .leftMap(err =>
+          SyncServiceError.SyncServiceInternalError
+            .Failure(
+              config.synchronizerAlias,
+              new RuntimeException(s"Unable to retrieve and store missing sequencer ids: $err"),
+            )
+        )
+
+      // If successor exists, will ensure that connections are updated (e.g., if sequencers are added or removed)
+      _ <- EitherT.liftF(
+        connectionIdToUpdate.toOption
+          .flatMap(connectedSynchronizersLookup.get)
+          .traverse_(_.sequencerConnectionListener.init())
+      )
     } yield ()
 
   /** Migrates contracts from a source synchronizer to target synchronizer by re-associating them in
@@ -1601,7 +1620,7 @@ class CantonSyncService(
         SyncServiceInjectionError.NotConnectedToAnySynchronizer.Error()
       )
 
-  override def packageMapFor(
+  override def computePartyVettingMap(
       submitters: Set[LfPartyId],
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
@@ -1610,7 +1629,7 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
-    topologyPackageMapBuilder.packageMapFor(
+    partyVettingMapComputation.computePartyVettingMap(
       submitters,
       informees,
       vettingValidityTimestamp,

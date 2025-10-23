@@ -16,14 +16,14 @@ import com.digitalasset.canton.sequencing.{EnvelopeBox, RawSignedContentEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
-import com.digitalasset.canton.util.NoCopy
+import com.digitalasset.canton.util.{MaxBytesToDecompress, NoCopy}
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
-  VersioningCompanionMemoization2,
+  VersioningCompanionContextMemoization2,
 }
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -71,9 +71,11 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
 }
 
 object SequencedEvent
-    extends VersioningCompanionMemoization2[
+    extends VersioningCompanionContextMemoization2[
       SequencedEvent[Envelope[?]],
+      MaxBytesToDecompress,
       SequencedEvent[ClosedEnvelope],
+      Unit,
     ] {
   override def name: String = "SequencedEvent"
 
@@ -84,7 +86,10 @@ object SequencedEvent
     )
   )
 
-  private[sequencing] def fromProtoV30(sequencedEventP: v30.SequencedEvent)(
+  private[sequencing] def fromProtoV30(
+      maxBytesToDecompress: MaxBytesToDecompress,
+      sequencedEventP: v30.SequencedEvent,
+  )(
       bytes: ByteString
   ): ParsingResult[SequencedEvent[ClosedEnvelope]] = {
     import cats.syntax.traverse.*
@@ -106,10 +111,7 @@ object SequencedEvent
         synchronizerIdP,
         "SequencedEvent.physical_synchronizer_id",
       )
-      mbBatch <- mbBatchP.traverse(
-        // TODO(i26169) Prevent zip bombing when decompressing the request
-        Batch.fromProtoV30(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
-      )
+      mbBatch <- mbBatchP.traverse(Batch.fromProtoV30(maxBytesToDecompress, _))
       trafficConsumed <- trafficConsumedP.traverse(TrafficReceipt.fromProtoV30)
       // errors have an error reason, delivers have a batch
       event <- ((mbDeliverErrorReasonP, mbBatch) match {
@@ -154,10 +156,14 @@ object SequencedEvent
     } yield event
   }
 
-  def fromByteStringOpen(hashOps: HashOps, protocolVersion: ProtocolVersion)(
+  def fromByteStringOpen(
+      maxBytesToDecompress: MaxBytesToDecompress,
+      hashOps: HashOps,
+      protocolVersion: ProtocolVersion,
+  )(
       bytes: ByteString
   ): ParsingResult[SequencedEvent[DefaultOpenEnvelope]] =
-    fromTrustedByteString(bytes).flatMap(
+    fromTrustedByteString(maxBytesToDecompress)(bytes).flatMap(
       _.traverse(_.openEnvelope(hashOps, protocolVersion))
     )
 

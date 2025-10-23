@@ -25,7 +25,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, retry}
+import com.digitalasset.canton.util.{BytesUnit, EitherTUtil, ErrorUtil, MaxBytesToDecompress, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -53,6 +53,8 @@ class InMemorySequencerStore(
 )(implicit
     protected val executionContext: ExecutionContext
 ) extends SequencerStore {
+
+  private val maxBytesToDecompress: MaxBytesToDecompress = MaxBytesToDecompress.Default
 
   override protected val batchingConfig: BatchingConfig = BatchingConfig()
 
@@ -252,11 +254,13 @@ class InMemorySequencerStore(
           Option(payloads.get(id.unwrap))
             .map(storedPayload =>
               id -> BytesPayload(id, storedPayload.content)
-                .decodeBatchAndTrim(protocolVersion, member)
+                .decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
             )
             .toList
         case payload: BytesPayload =>
-          List(payload.id -> payload.decodeBatchAndTrim(protocolVersion, member))
+          List(
+            payload.id -> payload.decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
+          )
       }.toMap
     )
 

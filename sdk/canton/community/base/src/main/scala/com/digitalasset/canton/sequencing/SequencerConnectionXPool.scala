@@ -160,6 +160,8 @@ object SequencerConnectionXPool {
     *   The minimum duration after which a failed connection is restarted.
     * @param maxRestartConnectionDelay
     *   The maximum duration after which a failed connection is restarted.
+    * @param warnConnectionValidationDelay
+    *   The duration after which a warning is issued if a started connection still fails validation.
     * @param expectedPSIdO
     *   If provided, defines the synchronizer to which the connections are expected to connect. If
     *   empty, the synchronizer will be determined as soon as [[trustThreshold]]-many connections
@@ -170,6 +172,7 @@ object SequencerConnectionXPool {
       trustThreshold: PositiveInt,
       minRestartConnectionDelay: config.NonNegativeFiniteDuration,
       maxRestartConnectionDelay: config.NonNegativeFiniteDuration,
+      warnConnectionValidationDelay: config.NonNegativeFiniteDuration,
       expectedPSIdO: Option[PhysicalSynchronizerId] = None,
   ) extends PrettyPrinting {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
@@ -180,6 +183,7 @@ object SequencerConnectionXPool {
       param("trustThreshold", _.trustThreshold),
       param("minRestartConnectionDelay", _.minRestartConnectionDelay),
       param("maxRestartConnectionDelay", _.maxRestartConnectionDelay),
+      param("warnConnectionValidationDelay", _.warnConnectionValidationDelay),
       paramIfDefined("expectedPSIdO", _.expectedPSIdO),
     )
 
@@ -286,6 +290,8 @@ object SequencerConnectionXPool {
           sequencerConnections.sequencerConnectionPoolDelays.minRestartDelay,
         maxRestartConnectionDelay =
           sequencerConnections.sequencerConnectionPoolDelays.maxRestartDelay,
+        warnConnectionValidationDelay =
+          sequencerConnections.sequencerConnectionPoolDelays.warnValidationDelay,
       )
     }
 

@@ -88,13 +88,13 @@ class SequencerInfoLoader(
     logger.debug(s"Querying bootstrap information for synchronizer $synchronizerAlias")
     for {
       bootstrapInfo <- client
-        .getSynchronizerClientBootstrapInfo(synchronizerAlias)
+        .getSynchronizerClientBootstrapInfo()
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(synchronizerAlias))
 
       _ <- performHandshake(client, synchronizerAlias, sequencerAlias)
 
       synchronizerParameters <- client
-        .getSynchronizerParameters(synchronizerAlias.unwrap)
+        .getSynchronizerParameters()
         .leftMap(SequencerInfoLoader.fromSequencerConnectClientError(synchronizerAlias))
 
       _ = logger.info(
@@ -183,7 +183,6 @@ class SequencerInfoLoader(
     for {
       success <- sequencerConnectClient
         .handshake(
-          alias,
           HandshakeRequest(
             clientProtocolVersions,
             minimumProtocolVersion,

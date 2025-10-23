@@ -16,7 +16,6 @@ import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConf
 import java.lang.management.{MemoryMXBean, MemoryPoolMXBean, MemoryType, MemoryUsage}
 import java.util.concurrent.atomic.AtomicLong
 import javax.management.ObjectName
-import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, DurationInt}
 
 object MemoryCheck {
@@ -104,9 +103,7 @@ object MemoryCheck {
     }
 
     // Delegated methods
-    @nowarn("cat=deprecation") // See https://openjdk.org/jeps/421
     override def getObjectPendingFinalizationCount: Int = delegate.getObjectPendingFinalizationCount
-
     override def getHeapMemoryUsage: MemoryUsage = delegate.getHeapMemoryUsage
     override def getNonHeapMemoryUsage: MemoryUsage = delegate.getNonHeapMemoryUsage
     override def isVerbose: Boolean = delegate.isVerbose

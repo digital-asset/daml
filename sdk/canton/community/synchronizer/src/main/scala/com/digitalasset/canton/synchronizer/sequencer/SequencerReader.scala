@@ -52,7 +52,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MaxBytesToDecompress}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -137,6 +137,8 @@ class SequencerReader(
 
   private val psid = syncCryptoApi.psid
   private val protocolVersion: ProtocolVersion = psid.protocolVersion
+
+  private val maxBytesToDecompress: MaxBytesToDecompress = MaxBytesToDecompress.Default
 
   private val ongoingSynchronizerUpgrade: AtomicReference[Option[OngoingSynchronizerUpgrade]] =
     new AtomicReference(None)
@@ -614,7 +616,8 @@ class SequencerReader(
                         s"Event ${snapshotWithEvent.value.unvalidatedEvent.event.messageId} specified payloadId $id but no corresponding payload was found."
                       ),
                     )
-                  case payload: BytesPayload => payload.decodeBatchAndTrim(protocolVersion, member)
+                  case payload: BytesPayload =>
+                    payload.decodeBatchAndTrim(maxBytesToDecompress, protocolVersion, member)
                 })
               )
             }

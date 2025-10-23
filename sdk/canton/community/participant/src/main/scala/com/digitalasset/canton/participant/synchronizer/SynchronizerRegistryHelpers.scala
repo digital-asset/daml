@@ -454,7 +454,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
     client
-      .isActive(participantId, synchronizerAlias, waitForActive = waitForActive)
+      .isActive(participantId, waitForActive = waitForActive)
       .leftMap(SynchronizerRegistryHelpers.toSynchronizerRegistryError(synchronizerAlias))
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {

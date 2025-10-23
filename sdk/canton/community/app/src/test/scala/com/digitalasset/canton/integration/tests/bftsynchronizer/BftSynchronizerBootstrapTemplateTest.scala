@@ -41,7 +41,8 @@ sealed trait BftSynchronizerBootstrapTemplateTest
       clue("participant2 connects to sequencer1, sequencer2 using connect_bft") {
         participant2.synchronizers.connect_bft(
           Seq(sequencer2, sequencer1).map(s =>
-            s.config.publicApi.clientConfig.asSequencerConnection(SequencerAlias.tryCreate(s.name))
+            s.config.publicApi.clientConfig
+              .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
           ),
           synchronizerAlias = daName,
           physicalSynchronizerId = Some(daId),

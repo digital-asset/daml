@@ -7,9 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -101,6 +99,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeModuleExpectingSilence,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext}
 import com.google.protobuf.ByteString
@@ -1118,9 +1117,7 @@ class OutputModuleTest
             ),
         ),
         SequencingParameters.Default,
-        MaxRequestSizeToDeserialize.Limit(
-          DynamicSynchronizerParameters.defaultMaxRequestSize.value
-        ), // irrelevant for this test
+        MaxBytesToDecompress.Default, // irrelevant for this test
         topologyActivationTime,
         areTherePendingCantonTopologyChanges = false,
       )
@@ -1406,7 +1403,7 @@ object OutputModuleTest {
 
     override def isRequestToAllMembersOfSynchronizer(
         _request: OrderingRequest,
-        _maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+        _maxBytesToDecompress: MaxBytesToDecompress,
         _logger: TracedLogger,
         _traceContext: TraceContext,
     )(implicit _synchronizerProtocolVersion: ProtocolVersion): Boolean = {

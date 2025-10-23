@@ -113,8 +113,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** A connected synchronizer from the synchronization service.
   *
-  * @param synchronizerId
-  *   The identifier of the connected synchronizer.
   * @param synchronizerHandle
   *   A synchronizer handle providing sequencer clients.
   * @param participantId
@@ -142,7 +140,7 @@ class ConnectedSynchronizer(
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
     missingKeysAlerter: MissingKeysAlerter,
-    sequencerConnectionListener: SequencerConnectionSuccessorListener,
+    val sequencerConnectionListener: SequencerConnectionSuccessorListener,
     reassignmentCoordination: ReassignmentCoordination,
     commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],

@@ -70,7 +70,7 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
       val txs = Seq(crypto.mkTrans(tx)(directExecutionContext))
       val now = clock.now
       val result = subscriber
-        .observed(now, now, counter, txs)
+        .observed(now, now, counter, txs, DefaultTestIdentities.synchronizerId)
         .onShutdown(
           logger.debug(
             "Tests are shutting down before the simulated transaction could be processed"

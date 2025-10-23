@@ -33,8 +33,8 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MonadUtil, retry}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MaxBytesToDecompress, MonadUtil, retry}
+import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.github.blemale.scaffeine.Scaffeine
 import com.google.common.annotations.VisibleForTesting
@@ -118,11 +118,12 @@ sealed trait Payload extends IdOrPayload
 /** Payload with a assigned id and content as bytes */
 final case class BytesPayload(id: PayloadId, content: ByteString) extends Payload {
   def decodeBatchAndTrim(
+      maxBytesToDecompress: MaxBytesToDecompress,
       protocolVersion: ProtocolVersion,
       member: Member,
   ): Batch[ClosedEnvelope] = {
     val fullBatch = Batch
-      .fromByteString(protocolVersion, content)
+      .fromByteString(ProtocolVersionValidation.PV(protocolVersion), maxBytesToDecompress, content)
       .valueOr(err => throw new DbDeserializationException(err.toString))
     Batch.trimForMember(fullBatch, member)
   }

@@ -27,6 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -84,6 +85,7 @@ class DriverBlockSequencerFactory[C](
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       initialBlockHeight: Option[Long],
+      maxBytesToDecompress: MaxBytesToDecompress,
       sequencerSnapshot: Option[SequencerSnapshot],
       authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
@@ -124,6 +126,7 @@ class DriverBlockSequencerFactory[C](
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,
+      maxBytesToDecompress,
       metrics,
       synchronizerLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,

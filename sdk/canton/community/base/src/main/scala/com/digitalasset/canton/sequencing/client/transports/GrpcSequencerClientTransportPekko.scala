@@ -22,6 +22,7 @@ import com.digitalasset.canton.sequencing.protocol.{SubscriptionRequest, Subscri
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
@@ -58,6 +59,8 @@ class GrpcSequencerClientTransportPekko(
   import GrpcSequencerClientTransportPekko.*
 
   override type SubscriptionError = GrpcSequencerSubscriptionError
+
+  private val maxBytesToDecompress = MaxBytesToDecompress.Default
 
   override def subscribe(subscriptionRequest: SubscriptionRequest)(implicit
       traceContext: TraceContext
@@ -121,7 +124,9 @@ class GrpcSequencerClientTransportPekko(
 
     val subscriber = sequencerServiceClient.service.subscribe _
 
-    mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV30(protocolVersion)(_)(_))
+    mkSubscription(subscriber)(
+      SubscriptionResponse.fromVersionedProtoV30(maxBytesToDecompress, protocolVersion)(_)(_)
+    )
   }
 
   private def stubWithFreshContext[Req, Resp](

@@ -221,8 +221,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       delegate.listVettedPackages(opts),
     )
 
-  // TODO(#25385): Time the operation
-  override def packageMapFor(
+  override def computePartyVettingMap(
       submitters: Set[LfPartyId],
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
@@ -231,15 +230,17 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]]] =
-    delegate.packageMapFor(
-      submitters,
-      informees,
-      vettingValidityTimestamp,
-      prescribedSynchronizer,
-      routingSynchronizerState,
+    Timed.future(
+      metrics.services.read.computePartyVettingMap,
+      delegate.computePartyVettingMap(
+        submitters,
+        informees,
+        vettingValidityTimestamp,
+        prescribedSynchronizer,
+        routingSynchronizerState,
+      ),
     )
 
-  // TODO(#25385): Time the operation
   override def computeHighestRankedSynchronizerFromAdmissible(
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,
@@ -250,16 +251,22 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, PhysicalSynchronizerId] =
-    delegate.computeHighestRankedSynchronizerFromAdmissible(
-      submitterInfo,
-      transaction,
-      transactionMeta,
-      admissibleSynchronizers,
-      disclosedContractIds,
-      routingSynchronizerState,
+    EitherT(
+      Timed.future(
+        metrics.services.read.computeHighestRankedSynchronizerFromAdmissible,
+        delegate
+          .computeHighestRankedSynchronizerFromAdmissible(
+            submitterInfo,
+            transaction,
+            transactionMeta,
+            admissibleSynchronizers,
+            disclosedContractIds,
+            routingSynchronizerState,
+          )
+          .value,
+      )
     )
 
-  // TODO(#25385): Time the operation
   override def selectRoutingSynchronizer(
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,
@@ -271,14 +278,21 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionError, SynchronizerRank] =
-    delegate.selectRoutingSynchronizer(
-      submitterInfo,
-      transaction,
-      transactionMeta,
-      disclosedContractIds,
-      optSynchronizerId,
-      transactionUsedForExternalSigning,
-      routingSynchronizerState,
+    EitherT(
+      Timed.future(
+        metrics.services.read.selectRoutingSynchronizer,
+        delegate
+          .selectRoutingSynchronizer(
+            submitterInfo,
+            transaction,
+            transactionMeta,
+            disclosedContractIds,
+            optSynchronizerId,
+            transactionUsedForExternalSigning,
+            routingSynchronizerState,
+          )
+          .value,
+      )
     )
 
   override def getRoutingSynchronizerState(implicit

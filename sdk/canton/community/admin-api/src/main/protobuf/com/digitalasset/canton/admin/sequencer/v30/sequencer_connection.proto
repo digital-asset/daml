@@ -90,4 +90,8 @@ message SequencerConnectionPoolDelays {
   // pool, when the current number of subscriptions is below `trustThreshold` + `livenessMargin`.
   // This value must be non-negative.
   google.protobuf.Duration subscription_request_delay = 3;
+
+  // Duration after which a warning is issued if a started connection still fails validation.
+  // This value must be non-negative.
+  google.protobuf.Duration warn_validation_delay = 4;
 }

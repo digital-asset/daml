@@ -12,6 +12,8 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.*
+import com.digitalasset.canton.common.sequencer.SequencerConnectClient
+import com.digitalasset.canton.common.sequencer.SequencerConnectClient.SynchronizerClientBootstrapInfo
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
@@ -55,6 +57,7 @@ import com.digitalasset.canton.participant.synchronizer.*
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
+import com.digitalasset.canton.sequencing.SequencerConnection
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
 import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
@@ -78,6 +81,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 import scala.jdk.CollectionConverters.*
+import scala.util.chaining.*
 import scala.util.{Failure, Right, Success, Try}
 
 /** The Canton-based synchronization service.
@@ -613,6 +617,7 @@ private[sync] class SynchronizerConnectionsManager(
         filteredConfigs.map(_.maxBy1(_.configuredPSId))
     }
 
+  // TODO(#28724) Use subsumeMerge instead of replace
   private def updateSynchronizerConnectionConfig(
       psid: PhysicalSynchronizerId,
       config: SynchronizerConnectionConfig,
@@ -711,6 +716,9 @@ private[sync] class SynchronizerConnectionsManager(
 
           _ <- updateSynchronizerConnectionConfig(psid, updatedConfig)
 
+          // Attempt to grab and store *all* the sequencer ids to increase chances to have them all
+          _ <- retrieveAndStoreMissingSequencerIds(psid)
+
           _ = syncCrypto.remove(psid)
           _ = synchronizerHandle.close()
         } yield psid
@@ -766,6 +774,79 @@ private[sync] class SynchronizerConnectionsManager(
       },
       s"handshake with physical synchronizer $psid",
     )
+
+  /** Try to retrieve and store the missing sequencer IDs for the synchronizer:
+    *   - IDs that can be retrieved will be stored.
+    *   - Failure for a sequencer does not interrupt the process.
+    *
+    * This method is "best effort" and network errors are converted to success. Therefore, failures
+    * can be logged and reported.
+    *
+    * @return
+    *   - Failed future for failed DB operations
+    *   - Left if (1) the config cannot be found or (2) if synchronizer config cannot be stored or
+    *     (3) if ids cannot be stored
+    *   - Right in case of success
+    */
+  def retrieveAndStoreMissingSequencerIds(
+      psid: PhysicalSynchronizerId
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
+    // Turn Left and failed future into a None
+    def recoverFromFailures(
+        conn: SequencerConnection,
+        res: EitherT[FutureUnlessShutdown, String, SynchronizerClientBootstrapInfo],
+    ): FutureUnlessShutdown[Option[(SequencerAlias, SequencerId)]] = res
+      .fold(
+        err => {
+          logger.info(s"Unable to get sequencer id for sequencer ${conn.sequencerAlias}: $err")
+          None
+        },
+        info => Some((conn.sequencerAlias, info.sequencerId)),
+      )
+      .recover { case ex =>
+        logger.info(s"Unable to get sequencer id for sequencer ${conn.sequencerAlias}", ex)
+        UnlessShutdown.Outcome(None)
+      }
+
+    for {
+      storedConfig <- EitherT
+        .fromEither[FutureUnlessShutdown](synchronizerConnectionConfigStore.get(psid))
+        .leftMap(err =>
+          SyncServiceError.SyncServiceInternalError
+            .SynchronizerIsMissingInternally(psid.toProtoPrimitive, err.message)
+        )
+
+      alias = storedConfig.config.synchronizerAlias
+      sequencerConnectionsWithoutId = storedConfig.config.sequencerConnections.connections
+        .filter(_.sequencerId.isEmpty)
+
+      retrievedSequencerIds <- EitherT.liftF(
+        sequencerConnectionsWithoutId
+          .map(conn =>
+            SequencerConnectClient(
+              alias,
+              conn,
+              timeouts,
+              parameters.tracing.propagation,
+              loggerFactory,
+            ).getSynchronizerClientBootstrapInfo()
+              .leftMap(_.message)
+              .pipe(recoverFromFailures(conn, _))
+          )
+          .parSequenceFilter
+      )
+
+      _ <- synchronizerConnectionConfigStore
+        .setSequencerIds(alias, KnownPhysicalSynchronizerId(psid), retrievedSequencerIds.toMap)
+        .leftMap[SyncServiceError](err =>
+          SyncServiceError.SyncServiceInternalError
+            .Failure(
+              alias,
+              new RuntimeException(s"Unable to store missing sequencer ids: $err"),
+            )
+        )
+    } yield ()
+  }
 
   /** Connect the sync service to the given synchronizer. */
   private def performSynchronizerConnection(
@@ -836,6 +917,9 @@ private[sync] class SynchronizerConnectionsManager(
                 .Error(synchronizerAlias, psid, err.message)
             )
           _ <- updateSynchronizerConnectionConfig(psid, updatedConfig)
+
+          // Attempt to grab and store *all* the sequencer ids to increase chances to have them all
+          _ <- retrieveAndStoreMissingSequencerIds(psid)
 
           synchronizerLoggerFactory = loggerFactory.append(
             "psid",
@@ -934,7 +1018,9 @@ private[sync] class SynchronizerConnectionsManager(
                   sequencerConnectionSuccessorListener,
                   synchronizerHandle.topologyClient,
                   ephemeral.recordOrderPublisher,
-                  lsuCallback,
+                  lsuCallback = lsuCallback,
+                  retrieveAndStoreMissingSequencerIds = traceContext =>
+                    retrieveAndStoreMissingSequencerIds(psid)(traceContext).leftMap(_.toString),
                   synchronizerHandle.syncPersistentState.sequencedEventStore,
                   synchronizerConnectionConfig.predecessor,
                   ledgerApiIndexer.asEval.value.ledgerApiStore.value,

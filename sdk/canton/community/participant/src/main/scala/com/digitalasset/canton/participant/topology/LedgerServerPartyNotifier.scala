@@ -117,6 +117,7 @@ class LedgerServerPartyNotifier(
           effectiveTimestamp: EffectiveTime,
           sequencerCounter: SequencerCounter,
           transactions: Seq[GenericSignedTopologyTransaction],
+          synchronizerId: SynchronizerId,
       )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
         observeTopologyTransactions(sequencerTimestamp, effectiveTimestamp, transactions)
     }

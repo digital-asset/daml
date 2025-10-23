@@ -45,7 +45,7 @@ private[routing] class SynchronizerSelectorFactory(
       )
     } yield new SynchronizerSelector(
       transactionData,
-      admissibleSynchronizers,
+      admissibleSynchronizers.keySet,
       priorityOfSynchronizer,
       synchronizerRankComputation,
       synchronizerState,
@@ -175,6 +175,7 @@ private[routing] class SynchronizerSelector(
           synchronizers = synchronizerStates,
           transaction = transactionData.transaction,
           ledgerTime = transactionData.ledgerTime,
+          hashingSchemeVersion = transactionData.externallySignedSubmissionO.map(_.version),
         )
       )
 

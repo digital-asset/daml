@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimit
 import com.digitalasset.canton.synchronizer.sequencer.{InFlightAggregations, SubmissionOutcome}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
@@ -97,6 +98,7 @@ class BlockUpdateGeneratorImpl(
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
+    maxBytesToDecompress: MaxBytesToDecompress,
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     memberValidator: SequencerMemberValidator,
@@ -132,8 +134,7 @@ class BlockUpdateGeneratorImpl(
     val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
       withSpan("BlockUpdateGenerator.extractBlockEvents") { implicit traceContext => _ =>
         logger.trace("Extracting event from raw block")
-        // TODO(i26169) Prevent zip bombing when decompressing the request
-        LedgerBlockEvent.fromRawBlockEvent(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)(
+        LedgerBlockEvent.fromRawBlockEvent(protocolVersion, maxBytesToDecompress)(
           tracedEvent.value
         ) match {
           case Left(error) =>

@@ -59,7 +59,7 @@ import com.digitalasset.canton.tracing.{
   Traced,
 }
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, RateLimiter}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, MaxBytesToDecompress, RateLimiter}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
@@ -231,7 +231,7 @@ class GrpcSequencerService(
           SubmissionRequest
             .fromByteString(
               protocolVersion,
-              MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
+              MaxBytesToDecompress(maxRequestSize.value),
             )
         )
         .leftMap(requestDeserializationError(_, maxRequestSize))

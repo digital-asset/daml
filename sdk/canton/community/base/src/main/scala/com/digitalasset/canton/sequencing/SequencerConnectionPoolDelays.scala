@@ -15,6 +15,8 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
   *   Minimum duration after which a failed sequencer connection is restarted.
   * @param maxRestartDelay
   *   Maximum duration after which a failed sequencer connection is restarted.
+  * @param warnValidationDelay
+  *   The duration after which a warning is issued if a started connection still fails validation.
   * @param subscriptionRequestDelay
   *   Delay between the attempts to obtain new sequencer connections for the sequencer subscription
   *   pool, when the current number of subscriptions is below `trustThreshold` + `livenessMargin`.
@@ -22,6 +24,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 final case class SequencerConnectionPoolDelays(
     minRestartDelay: config.NonNegativeFiniteDuration,
     maxRestartDelay: config.NonNegativeFiniteDuration,
+    warnValidationDelay: config.NonNegativeFiniteDuration,
     subscriptionRequestDelay: config.NonNegativeFiniteDuration,
 ) extends PrettyPrinting {
   private[sequencing] def toProtoV30: v30.SequencerConnectionPoolDelays =
@@ -29,11 +32,13 @@ final case class SequencerConnectionPoolDelays(
       minRestartDelay = Some(minRestartDelay.toProtoPrimitive),
       maxRestartDelay = Some(maxRestartDelay.toProtoPrimitive),
       subscriptionRequestDelay = Some(subscriptionRequestDelay.toProtoPrimitive),
+      warnValidationDelay = Some(warnValidationDelay.toProtoPrimitive),
     )
 
   override protected def pretty: Pretty[SequencerConnectionPoolDelays] = prettyOfClass(
     param("minRestartDelay", _.minRestartDelay),
     param("maxRestartDelay", _.maxRestartDelay),
+    param("warnValidationDelay", _.warnValidationDelay),
     param("subscriptionRequestDelay", _.subscriptionRequestDelay),
   )
 }
@@ -42,6 +47,7 @@ object SequencerConnectionPoolDelays {
   val default: SequencerConnectionPoolDelays = SequencerConnectionPoolDelays(
     minRestartDelay = config.NonNegativeFiniteDuration.ofMillis(10),
     maxRestartDelay = config.NonNegativeFiniteDuration.ofSeconds(10),
+    warnValidationDelay = config.NonNegativeFiniteDuration.ofSeconds(20),
     subscriptionRequestDelay = config.NonNegativeFiniteDuration.ofSeconds(1),
   )
 
@@ -52,6 +58,7 @@ object SequencerConnectionPoolDelays {
       minRestartDelayP,
       maxRestartDelayP,
       subscriptionRequestDelayP,
+      warnValidationDelayP,
     ) = proto
 
     for {
@@ -70,9 +77,15 @@ object SequencerConnectionPoolDelays {
         "subscription_request_delay",
         subscriptionRequestDelayP,
       )
+      warnValidationDelay <- ProtoConverter.parseRequired(
+        config.NonNegativeFiniteDuration.fromProtoPrimitive("warn_validation_delay"),
+        "warn_validation_delay",
+        warnValidationDelayP,
+      )
     } yield SequencerConnectionPoolDelays(
       minRestartDelay,
       maxRestartDelay,
+      warnValidationDelay,
       subscriptionRequestDelay,
     )
   }

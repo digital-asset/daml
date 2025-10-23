@@ -37,11 +37,15 @@ object UsableSynchronizers {
   /** Split the synchronizers in two categories:
     *   - Synchronizers that cannot be used
     *   - synchronizer that can be used
+    * @param hashingSchemeVersion:
+    *   For externally signed transactions, the version of the algorithm used to hash the
+    *   transaction
     */
   def check(
       synchronizers: List[(PhysicalSynchronizerId, TopologySnapshot)],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
+      hashingSchemeVersion: Option[HashingSchemeVersion],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -54,8 +58,7 @@ object UsableSynchronizers {
             snapshot,
             transaction,
             ledgerTime,
-            // TODO(i20688): use ISV to select synchronizer
-            Option.empty[HashingSchemeVersion],
+            hashingSchemeVersion,
           )
           .map(_ => synchronizerId)
           .value
