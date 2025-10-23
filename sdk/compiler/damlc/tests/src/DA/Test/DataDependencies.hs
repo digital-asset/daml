@@ -662,7 +662,7 @@ tests TestArgs{..} =
     ] <>
     [ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
         let genSimpleDalfExe
-              | isWindows = "generate-simple-daexe"
+              | isWindows = "generate-simple-dalf.exe"
               | otherwise = "generate-simple-dalf"
         genSimpleDalf <-
             locateRunfiles
