@@ -174,7 +174,7 @@ class GrpcLedgerClient(
         Seq(
           CumulativeFilter(
             IdentifierFilter.InterfaceFilter(
-              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true)
+              InterfaceFilter(Some(toApiIdentifier(interfaceId)), true, false)
             )
           )
         )
@@ -377,6 +377,7 @@ class GrpcLedgerClient(
           templateId = Some(toApiIdentifier(tmplId)),
           contractId = cid.coid,
           createdEventBlob = blob.toByteString,
+          synchronizerId = "",
         )
       }
     for {
@@ -390,16 +391,15 @@ class GrpcLedgerClient(
         prefetchContractKeys.traverse(toPrefetchContractKey)
       )
 
-      apiCommands = Commands(
-        actAs = actAs.toList,
-        readAs = readAs.toList,
-        commands = ledgerCommands,
-        userId = userId.getOrElse(""),
-        commandId = UUID.randomUUID.toString,
-        disclosedContracts = ledgerDisclosures,
-        prefetchContractKeys = ledgerPrefetchContractKeys,
-        packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
-      )
+      apiCommands = Commands.defaultInstance
+        .withActAs(actAs.toList)
+        .withReadAs(readAs.toList)
+        .withCommands(ledgerCommands)
+        .withUserId(userId.getOrElse(""))
+        .withCommandId(UUID.randomUUID.toString)
+        .withDisclosedContracts(ledgerDisclosures)
+        .withPrefetchContractKeys(ledgerPrefetchContractKeys)
+        .withPackageIdSelectionPreference(optPackagePreference.getOrElse(List.empty))
       eResp <- grpcClient.commandService
         .submitAndWaitForTransaction(apiCommands, TRANSACTION_SHAPE_LEDGER_EFFECTS)
 
