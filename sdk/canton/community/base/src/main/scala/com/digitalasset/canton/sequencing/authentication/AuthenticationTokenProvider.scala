@@ -307,8 +307,7 @@ object AuthenticationTokenProvider {
         exception match {
           case ex: StatusRuntimeException
               if ex.getStatus.getCode == Status.Code.UNAVAILABLE &&
-                (ex.getStatus.getDescription.contains("Channel shutdown invoked") ||
-                  ex.getStatus.getDescription.contains("Channel shutdownNow invoked")) =>
+                ex.getMessage.contains("Channel shutdown invoked") =>
             FatalErrorKind
 
           // Ideally we would like to retry only on retryable gRPC status codes (such as `UNAVAILABLE`),

@@ -9,8 +9,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
+import com.digitalasset.canton.ledger.api.Commands
 import com.digitalasset.canton.ledger.api.PackageReference.*
-import com.digitalasset.canton.ledger.api.{Commands, PackageReference}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SyncService}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -28,6 +28,7 @@ import com.digitalasset.canton.platform.PackagePreferenceBackend.{
   SortedPreferences,
 }
 import com.digitalasset.canton.platform.apiserver.execution.TopologyAwareCommandExecutor.{
+  OrderablePackageId,
   PackagesForName,
   Pass1ContinuationResult,
   Pass1InterpretationFailed,
@@ -89,9 +90,8 @@ private[execution] class TopologyAwareCommandExecutor(
 
     val userSpecifiedPreference: PackagesForName =
       toOrderedPackagePreferences(
-        pkgIds = commands.packagePreferenceSet,
-        packageVersionMap = packageMetadataSnapshot.packageIdVersionMap,
-        context = "user-specified package preferences in commands",
+        commands.packagePreferenceSet,
+        packageMetadataSnapshot.packageIdVersionMap,
       )
 
     logDebug(s"Attempting pass 1 of $pkgSelectionDesc - using the submitter party")
@@ -299,9 +299,8 @@ private[execution] class TopologyAwareCommandExecutor(
       allPossiblePackageIdsOfTheSubmitter = vettedPackagesForTheSubmitter.values.flatten.toSet
       topologyAwarePreferenceMap: PackagesForName =
         toOrderedPackagePreferences(
-          pkgIds = allPossiblePackageIdsOfTheSubmitter,
-          packageVersionMap = packageMetadataSnapshot.packageIdVersionMap,
-          context = show"vetted packages of the submitter party $submitterParty",
+          allPossiblePackageIdsOfTheSubmitter,
+          packageMetadataSnapshot.packageIdVersionMap,
         )
 
       packagePreferenceSet <- topologyAwarePreferenceMap.toList
@@ -320,10 +319,10 @@ private[execution] class TopologyAwareCommandExecutor(
   private def mergeWithUserBasedPreferenceAndPickHighest(
       userSpecifiedPreferenceMap: PackagesForName,
       pkgName: LfPackageName,
-      topologyBasedPreferenceSetForPkgName: SortedSet[PackageReference],
+      topologyBasedPreferenceSetForPkgName: SortedSet[OrderablePackageId],
   )(implicit traceContext: TraceContext): Either[StatusRuntimeException, LfPackageId] = {
     val preferredTopologyBasedPackage = checked(
-      topologyBasedPreferenceSetForPkgName.lastOption
+      topologyBasedPreferenceSetForPkgName.headOption
         .getOrElse(
           throw new RuntimeException(
             "Topology based preference set should not be empty for a package name"
@@ -335,7 +334,7 @@ private[execution] class TopologyAwareCommandExecutor(
       .map(userPreferenceForPkgName =>
         userPreferenceForPkgName
           .intersect(topologyBasedPreferenceSetForPkgName)
-          .lastOption
+          .headOption
           .toRight(
             CommandExecutionErrors.UserPackagePreferenceNotVetted
               .Reject(packageName = pkgName)
@@ -519,20 +518,19 @@ private[execution] class TopologyAwareCommandExecutor(
   private def toOrderedPackagePreferences(
       pkgIds: Set[LfPackageId],
       packageVersionMap: Map[LfPackageId, (LfPackageName, LfPackageVersion)],
-      context: String,
-  )(implicit traceContext: TraceContext): PackagesForName =
+  ): PackagesForName =
     pkgIds.view
       .flatMap(pkgId =>
+        // The package metadata view does not store utility packages
         // TODO(#25385): Reject submissions where the resolution does not yield a package name
         //                     for non-utility packages
-        pkgId.toPackageReference(packageVersionMap).map(pkgId -> _).orElse {
-          logger.debug(show"Package $pkgId is not known. Discarding from $context")
-          None
-        }
+        packageVersionMap.get(pkgId).map(pkgId -> _)
       )
-      .groupMap { case (_pkgId, PackageReference(_, _, pkgName)) => pkgName }(_._2)
+      .groupMap { case (_pkgId, (pkgName, _pkgVersion)) => pkgName } {
+        case (pkgId, (_pkgName, pkgVersion)) => pkgId -> pkgVersion
+      }
       .view
-      .mapValues(SortedSet.from[PackageReference])
+      .mapValues(s => SortedSet.from(s.map(e => OrderablePackageId(pkgId = e._1, version = e._2))))
       .toMap
 
   // TODO(#25385): Ideally the Engine already returns a specialized error instead
@@ -571,7 +569,7 @@ private[execution] class TopologyAwareCommandExecutor(
 
 private[execution] object TopologyAwareCommandExecutor {
   private type PackagesForName =
-    Map[LfPackageName, SortedSet[PackageReference] /* least preferred first */ ]
+    Map[LfPackageName, SortedSet[OrderablePackageId] /* most preferred first */ ]
   // Command execution failed at the interpretation stage
   // and the submission should be rejected
   final case class Pass1InterpretationFailed(cause: ErrorCause)
@@ -587,5 +585,18 @@ private[execution] object TopologyAwareCommandExecutor {
 
     final case class Pass1Succeeded(commandExecutionResult: CommandExecutionResult)
         extends Pass1ContinuationResult
+  }
+
+  // Wrapper used for ordering package ids by version
+  // Only relevant for sets of packages pertaining to the same package name
+  private final case class OrderablePackageId(
+      pkgId: LfPackageId,
+      version: LfPackageVersion,
+  )
+
+  private object OrderablePackageId {
+    implicit val ordering: Ordering[OrderablePackageId] =
+      // Highest version first
+      Ordering.by[OrderablePackageId, LfPackageVersion](_.version).reverse
   }
 }

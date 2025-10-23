@@ -170,16 +170,20 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         lfVersion = serializationVersion,
       )
 
-      selectorOldPV.forSingleSynchronizer.leftOrFailShutdown(
-        "aborted due to shutdown."
-      ) shouldBe InvalidPrescribedSynchronizerId.Generic(
+      selectorOldPV.forSingleSynchronizer
+        .leftOrFailShutdown(
+          "aborted due to shutdown."
+        )
+        .futureValue shouldBe InvalidPrescribedSynchronizerId.Generic(
         da,
         expectedError.toString,
       )
 
-      selectorOldPV.forMultiSynchronizer.leftOrFailShutdown(
-        "aborted due to shutdown."
-      ) shouldBe NoSynchronizerForSubmission.Error(
+      selectorOldPV.forMultiSynchronizer
+        .leftOrFailShutdown(
+          "aborted due to shutdown."
+        )
+        .futureValue shouldBe NoSynchronizerForSubmission.Error(
         Map(da -> expectedError.toString)
       )
 
@@ -190,8 +194,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         admissibleSynchronizers = NonEmpty.mk(Set, da.copy(protocolVersion = newPV)),
       )
 
-      selectorNewPV.forSingleSynchronizer.futureValueUS shouldBe defaultSynchronizerRank
-      selectorNewPV.forMultiSynchronizer.futureValueUS shouldBe defaultSynchronizerRank
+      selectorNewPV.forSingleSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
+      selectorNewPV.forMultiSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
     }
 
     "refuse to route to a synchronizer with missing package vetting" in {

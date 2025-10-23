@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import java.io.File
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -30,9 +30,10 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.language.implicitConversions
 
-class ReinterpretTestV2 extends ReinterpretTest(LanguageMajorVersion.V2)
+class ReinterpretTestV2
+    extends ReinterpretTest(LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2))
 
-class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
+abstract class ReinterpretTest(languageVersion: LanguageVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
@@ -41,19 +42,19 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   import ReinterpretTest._
 
-  private[this] val version = SerializationVersion.assign(majorLanguageVersion.maxStableVersion)
+  private[this] val version = SerializationVersion.assign(languageVersion)
 
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
   private val party = Party.assertFromString("Party")
 
   private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
-    val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))
+    val packages = DarDecoder.assertReadArchiveFromFile(new File(rlocation(resource)))
     (packages.main._1, packages.main._2, packages.all.toMap)
   }
 
   private val (miniTestsPkgId, miniTestsPkg, allPackages) = loadPackage(
-    s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/tests/ReinterpretTests-v${languageVersion.major.pretty}.dar"
   )
 
   private val defaultContracts: Map[ContractId, FatContractInstance] =
@@ -73,7 +74,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def freshEngine = new Engine(
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
+      allowedLanguageVersions = language.LanguageVersion.AllVersions(languageVersion.major),
       forbidLocalContractIds = true,
     )
   )
