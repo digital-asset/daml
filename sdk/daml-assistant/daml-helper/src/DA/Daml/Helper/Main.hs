@@ -158,7 +158,7 @@ commandParser = subparser $ fold
 
     startCmd = do
         sandboxPortM <- sandboxPortOpt "sandbox-port" "Port number for the sandbox"
-        jsonApiPortM <- jsonApiPortOpt "json-api-port" "Port that the HTTP JSON API should listen on or 'none' to disable it"
+        jsonApiPort <- jsonApiPortOpt "json-api-port" "Port that the HTTP JSON API should listen on"
         onStartM <- optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox is running."))
         shouldWaitForSignal <- flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm
         sandboxOptions <- many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox"))
@@ -201,16 +201,13 @@ commandParser = subparser $ fold
     jsonApiPortOpt name desc = option
         readJsonApiPort
         ( long name
-       <> value (Just $ JsonApiPort 7575)
+       <> value (JsonApiPort 7575)
        <> help desc
         )
 
-    readJsonApiPort = eitherReader $ \case
-        "none" -> Right Nothing
-        s -> maybe
-            (Left $ "Failed to parse port " <> show s)
-            (Right . Just . JsonApiPort)
-            (readMaybe s)
+    readJsonApiPort =
+      eitherReader $ \s ->
+        maybe (Left $ "Failed to parse port " <> show s) (Right . JsonApiPort) $ readMaybe s
 
     codegenCmd = asum
         [ subparser $ fold
@@ -416,8 +413,8 @@ commandParser = subparser $ fold
             cantonSequencerPublicApi <- option auto (long "sequencer-public-port" <> value (sequencerPublic defaultSandboxPorts))
             cantonSequencerAdminApi <- option auto (long "sequencer-admin-port" <> value (sequencerAdmin defaultSandboxPorts))
             cantonMediatorAdminApi <- option auto (long "mediator-admin-port" <> value (mediatorAdmin defaultSandboxPorts))
-            cantonJsonApi <- optional $ option auto (long "json-api-port"
-                <> help "Port that the HTTP JSON API should listen on, omit to disable it")
+            cantonJsonApi <- option auto (long "json-api-port"
+                <> help "Port that the HTTP JSON API should listen on" <> value (jsonApi defaultSandboxPorts))
             cantonJsonApiPortFileM <- optional $ option str (long "json-api-port-file" <> metavar "PATH"
                 <> help "File to write canton json-api port when ready")
             cantonPortFileM <- optional $ option str (long "canton-port-file" <> metavar "PATH"
