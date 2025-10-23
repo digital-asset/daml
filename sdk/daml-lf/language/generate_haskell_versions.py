@@ -5,7 +5,7 @@
 import json
 import sys
 
-# --- Helpers for RAW_ALL definitions (no changes) ---
+# --- Helpers for RAW_ALL definitions
 
 def to_haskell_var(v):
     """Converts a version dict to a Haskell variable definition name, e.g., version2_1."""
@@ -29,7 +29,7 @@ def to_haskell_minor(v):
         return "PointDev"
     raise ValueError(f"Unsupported Status: {status}")
 
-# --- Generic generators (no changes) ---
+# --- Generic generators
 
 def to_haskell_ref(version_string):
     """Converts a version string to a Haskell variable reference, e.g., "2.1" -> version2_1."""
@@ -52,8 +52,6 @@ def generate_haskell_singleton(name, docstring, version_string):
         f"{name} :: Version",
         f"{name} = {ref}\n",
     ]
-
-# --- REFACTORED: Main generation logic ---
 
 def main(input_json_path, output_hs_path):
     with open(input_json_path, 'r') as f:
