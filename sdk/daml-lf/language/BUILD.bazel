@@ -61,8 +61,6 @@ cat << EOF > $@
 {json}
 EOF
 """.format(
-        # We pass a dictionary to the JSON generator.
-        # This makes the input file self-documenting.
         json = json.encode({
             "RAW_ALL": RAW_ALL_LF_VERSIONS,
             "allLfVersions": ALL_LF_VERSIONS,
@@ -80,7 +78,4 @@ py_binary(
     name = "generate_haskell_versions",
     srcs = ["generate_haskell_versions.py"],
     visibility = _VERSION_GENERATING_PACKAGES,
-    # If you have dependencies like `six`, add them here.
-    # For this script, we only use standard libraries.
-    deps = [],
 )
