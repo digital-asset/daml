@@ -164,7 +164,8 @@ sealed trait BftSequencerConnectionsIntegrationTest
       }
 
       val connectionsConfig = sequencers.remote.map(s =>
-        s.config.publicApi.asSequencerConnection(SequencerAlias.tryCreate(s.name))
+        s.config.publicApi
+          .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
       )
 
       clue("connect participant1 to all sequencers") {

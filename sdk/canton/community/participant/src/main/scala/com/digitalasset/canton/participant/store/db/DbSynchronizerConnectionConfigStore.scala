@@ -8,7 +8,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -19,6 +18,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   ConfigAlreadyExists,
   Error,
   InconsistentLogicalSynchronizerIds,
+  InconsistentSequencerIds,
   MissingConfigForSynchronizer,
   SynchronizerIdAlreadyAdded,
   UnknownAlias,
@@ -38,11 +38,14 @@ import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
   KnownPhysicalSynchronizerId,
   PhysicalSynchronizerId,
+  SequencerId,
   UnknownPhysicalSynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
+import monocle.macros.syntax.lens.*
 import slick.dbio
 import slick.dbio.DBIOAction
 import slick.jdbc.{SetParameter, TransactionIsolation}
@@ -128,7 +131,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
       traceContext: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
-    Error,
+    MissingConfigForSynchronizer,
     StoredSynchronizerConnectionConfig,
   ] = {
 
@@ -399,7 +402,7 @@ class DbSynchronizerConnectionConfigStore private[store] (
       config: SynchronizerConnectionConfig,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit] = {
     val synchronizerAlias = config.synchronizerAlias
 
     logger.debug(s"Replacing configuration for ($synchronizerAlias, $configuredPSId)")
@@ -426,6 +429,63 @@ class DbSynchronizerConnectionConfigStore private[store] (
       synchronizerConfigCache
         .updateWith(synchronizerAlias)(
           _.map(_.updatedWith(configuredPSId)(_.map(_.copy(config = config))))
+        )
+        .discard
+    }
+  }
+
+  override def setSequencerIds(
+      synchronizerAlias: SynchronizerAlias,
+      configuredPSId: ConfiguredPhysicalSynchronizerId,
+      sequencerIds: Map[SequencerAlias, SequencerId],
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit] = {
+    val queries = for {
+      storedConfigE <- dbEitherT[Error](getInternalQuery((synchronizerAlias, configuredPSId))).map {
+        configs =>
+          configs.headOption
+            .toRight(MissingConfigForSynchronizer(synchronizerAlias, configuredPSId))
+            .map((StoredSynchronizerConnectionConfig.apply _).tupled)
+      }
+
+      storedConfig <- EitherT.fromEither[DBIO](storedConfigE).leftWiden[Error]
+
+      updatedConnectionConfig = sequencerIds.foldLeft(storedConfig.config) {
+        case (config, (alias, id)) =>
+          config
+            .focus(_.sequencerConnections)
+            .modify(_.modify(alias, _.withSequencerId(id)))
+      }
+
+      mergedConnectionConfig <- EitherT.fromEither[DBIO](
+        storedConfig.config
+          .subsumeMerge(updatedConnectionConfig)
+          .leftMap[Error](
+            InconsistentSequencerIds(synchronizerAlias, configuredPSId, sequencerIds, _)
+          )
+      )
+
+      _ <- dbEitherT[Error](configuredPSId.toOption match {
+        case Some(psid) =>
+          sqlu"""update par_synchronizer_connection_configs
+                set config=$mergedConnectionConfig, physical_synchronizer_id=$configuredPSId
+                where synchronizer_alias=$synchronizerAlias and physical_synchronizer_id=$psid"""
+        case None =>
+          sqlu"""update par_synchronizer_connection_configs
+                set config=$mergedConnectionConfig, physical_synchronizer_id=$configuredPSId
+                where synchronizer_alias=$synchronizerAlias and physical_synchronizer_id is null"""
+      })
+    } yield mergedConnectionConfig
+
+    val result: FutureUnlessShutdown[Either[Error, SynchronizerConnectionConfig]] =
+      storage.queryAndUpdate(
+        queries.value.transactionally.withTransactionIsolation(TransactionIsolation.Serializable),
+        functionFullName,
+      )
+
+    EitherT(result).map { newConfig =>
+      synchronizerConfigCache
+        .updateWith(synchronizerAlias)(
+          _.map(_.updatedWith(configuredPSId)(_.map(_.copy(config = newConfig))))
         )
         .discard
     }

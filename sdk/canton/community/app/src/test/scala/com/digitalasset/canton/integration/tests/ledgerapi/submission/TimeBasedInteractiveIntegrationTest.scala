@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
+import cats.Eval
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
@@ -51,6 +52,8 @@ final class TimeBasedInteractiveIntegrationTest
     with HasProgrammableSequencer {
 
   private val oneDay = Duration.ofHours(24)
+  private val ledgerTimeRecordTimeTolerance = Duration.ofSeconds(60)
+  private val preparationTimeRecordTimeTolerance = Duration.ofHours(24)
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
@@ -60,6 +63,22 @@ final class TimeBasedInteractiveIntegrationTest
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.dars.upload(CantonExamplesPath)
         participants.all.dars.upload(CantonTestsPath)
+
+        env.sequencer1.topology.synchronizer_parameters.propose_update(
+          env.daId,
+          _.update(
+            ledgerTimeRecordTimeTolerance =
+              config.NonNegativeFiniteDuration(ledgerTimeRecordTimeTolerance),
+            preparationTimeRecordTimeTolerance =
+              config.NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance),
+            mediatorDeduplicationTimeout =
+              config.NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance.multipliedBy(2)),
+          ),
+          force = ForceFlags.all,
+        )
+
+        aliceE = participant3.parties.external.enable("Alice")
+
       }
       .addConfigTransform(ConfigTransforms.enableInteractiveSubmissionTransforms)
 
@@ -75,30 +94,7 @@ final class TimeBasedInteractiveIntegrationTest
     Command.fromJavaProto(pass.create.commands.loneElement.toProtoCommand)
   }
 
-  private val ledgerTimeRecordTimeTolerance = Duration.ofSeconds(60)
-  private val preparationTimeRecordTimeTolerance = Duration.ofHours(24)
-
   "Interactive submission" should {
-
-    "onboard parties" in { implicit env =>
-      import env.*
-
-      env.sequencer1.topology.synchronizer_parameters.propose_update(
-        env.daId,
-        _.update(
-          ledgerTimeRecordTimeTolerance =
-            config.NonNegativeFiniteDuration(ledgerTimeRecordTimeTolerance),
-          preparationTimeRecordTimeTolerance =
-            config.NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance),
-          mediatorDeduplicationTimeout =
-            config.NonNegativeFiniteDuration(preparationTimeRecordTimeTolerance.multipliedBy(2)),
-        ),
-        force = ForceFlags.all,
-      )
-
-      aliceE = participant3.parties.external.enable("Alice")
-    }
-
     def createPassContract(implicit env: FixtureParam): (Pass.ContractId, DisclosedContract) = {
       val id = s"pass-${Random.nextLong()}"
 
@@ -186,20 +182,25 @@ final class TimeBasedInteractiveIntegrationTest
 
     "respect max record time" in { implicit env =>
       import env.*
+      // Use another party so there's no concurrent updates of its acs with previous tests
+      val johnE = participant3.parties.external.enable("John")
       val simClock = env.environment.simClock.value
+      def getJohnAcsSize = participant3.ledger_api.state.acs.of_party(johnE).size
 
       def test(sequenceAt: CantonTimestamp => CantonTimestamp, expectSuccess: Boolean): Unit = {
+        val johnAcsSize = getJohnAcsSize
+
         // Set max record time below ledgerTimeRecordTimeTolerance
         val maxRecordTime = simClock.now.add(ledgerTimeRecordTimeTolerance.dividedBy(2))
         val prepared =
           cpn.ledger_api.interactive_submission.prepare(
-            Seq(aliceE),
-            Seq(createCycleCommand(aliceE, "test")),
+            Seq(johnE),
+            Seq(createCycleCommand(johnE, "test")),
             maxRecordTime = Some(maxRecordTime),
           )
 
         val signatures = Map(
-          aliceE.partyId -> global_secret.sign(prepared.preparedTransactionHash, aliceE)
+          johnE.partyId -> global_secret.sign(prepared.preparedTransactionHash, johnE)
         )
 
         getProgrammableSequencer(sequencer1.name).withSendPolicy(
@@ -220,19 +221,34 @@ final class TimeBasedInteractiveIntegrationTest
           // = maxRecordTime
           if (expectSuccess) {
             execAndWait(prepared, signatures)
+            eventually() {
+              getJohnAcsSize shouldBe johnAcsSize + 1
+            }
           } else {
             loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
               {
                 val (submissionId, ledgerEnd) = exec(prepared, signatures, epn)
-                // Request a time proof to advance synchronizer time on the participant so it realizes
-                // that the request has timed out and emits a completion event
-                epn.underlying.value.sync
-                  .lookupSynchronizerTimeTracker(synchronizer1Id)
-                  .value
-                  .requestTick(maxRecordTime.immediateSuccessor, immediately = true)
-                val completion = findCompletion(submissionId, ledgerEnd, aliceE, epn)
+                val completion = findCompletion(
+                  submissionId,
+                  ledgerEnd,
+                  johnE,
+                  epn,
+                  runBetweenAttempts = Eval.always {
+                    // Request a time proof to advance synchronizer time on the participant so it realizes
+                    // that the request has timed out and emits a completion event
+                    // Need to run this between attempts because otherwise we might request the time proof too early
+                    // before the transaction has been registered in phase 1
+                    epn.underlying.value.sync
+                      .lookupSynchronizerTimeTracker(synchronizer1Id)
+                      .value
+                      .requestTick(maxRecordTime.immediateSuccessor, immediately = true)
+                      .discard
+                  },
+                )
                 completion.status.value.code shouldBe io.grpc.Status.Code.ABORTED.value()
                 completion.status.value.message should include(TimeoutError.code.id)
+                // Acs size should not have changed
+                getJohnAcsSize shouldBe johnAcsSize
                 ()
               },
               LogEntry.assertLogSeq(

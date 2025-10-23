@@ -20,7 +20,7 @@ object HashingSchemeVersion {
   implicit val hashingSchemeVersionOrdering: Ordering[HashingSchemeVersion] =
     Ordering.by(_.index)
 
-  private val ProtocolVersionToHashingVersion =
+  private[canton] val ProtocolVersionToHashingVersion =
     SortedMap[ProtocolVersion, NonEmpty[SortedSet[HashingSchemeVersion]]](
       ProtocolVersion.v34 -> NonEmpty.mk(SortedSet, V2),
       ProtocolVersion.dev -> NonEmpty.mk(SortedSet, V2),

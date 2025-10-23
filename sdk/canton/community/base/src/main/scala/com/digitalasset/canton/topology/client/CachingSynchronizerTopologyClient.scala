@@ -243,6 +243,7 @@ final class CachingSynchronizerTopologyClient(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
+      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     if (transactions.nonEmpty) {
       // if there is a transaction, we insert the effective timestamp as a snapshot
@@ -251,7 +252,13 @@ final class CachingSynchronizerTopologyClient(
       // if we haven't seen any snapshot yet, we use the sequencer time to seed the first snapshot
       appendSnapshotForInclusive(EffectiveTime(sequencedTimestamp.value))
     }
-    delegate.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
+    delegate.observed(
+      sequencedTimestamp,
+      effectiveTimestamp,
+      sequencerCounter,
+      transactions,
+      synchronizerId,
+    )
   }
 
   override def setSynchronizerTimeTracker(tracker: SynchronizerTimeTracker): Unit = {
@@ -364,7 +371,7 @@ private class ForwardingTopologySnapshotClient(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] = parent.loadVettedPackages(participant)
 
-  override def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+  override def loadVettedPackages(participants: Set[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
     parent.loadVettedPackages(participants)
@@ -518,7 +525,7 @@ class CachingTopologySnapshot(
       cache = cachingConfigs.packageVettingCache.buildScaffeine(),
       loader = implicit traceContext => x => parent.loadVettedPackages(x),
       allLoader =
-        Some(implicit traceContext => participants => parent.loadVettedPackages(participants.toSeq)),
+        Some(implicit traceContext => participants => parent.loadVettedPackages(participants.toSet)),
     )(logger, "packageVettingCache")
 
   private val mediatorsCache =
@@ -613,10 +620,10 @@ class CachingTopologySnapshot(
   ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
     packageVettingCache.get(participant)
 
-  override def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+  override def loadVettedPackages(participants: Set[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
-    getAllBatched(participants)(packageVettingCache.getAll(_)(traceContext))
+    getAllBatched(participants.toSeq)(packageVettingCache.getAll(_)(traceContext))
 
   private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,

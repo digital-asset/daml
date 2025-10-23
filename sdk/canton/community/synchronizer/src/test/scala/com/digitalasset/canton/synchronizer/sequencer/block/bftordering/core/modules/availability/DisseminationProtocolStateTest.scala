@@ -6,8 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.Signature.noSignature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -23,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SequencingParameters,
 }
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.MaxBytesToDecompress
 import org.scalatest.wordspec.AnyWordSpec
 
 class DisseminationProtocolStateTest
@@ -139,9 +138,7 @@ object DisseminationProtocolStateTest {
         )
       ),
       SequencingParameters.Default, // irrelevant for this test
-      MaxRequestSizeToDeserialize.Limit(
-        DynamicSynchronizerParameters.defaultMaxRequestSize.value
-      ), // irrelevant for this test
+      MaxBytesToDecompress.Default, // irrelevant for this test
       AnActivationTime, // irrelevant for this test
       areTherePendingCantonTopologyChanges = false, // irrelevant for this test
     )

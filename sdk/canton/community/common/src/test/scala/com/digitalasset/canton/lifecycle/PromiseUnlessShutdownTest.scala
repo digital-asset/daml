@@ -44,7 +44,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
         {
           val p = PromiseUnlessShutdown.supervised[Int](
             "supervised-promise-out-of-time",
-            new FutureSupervisor.Impl(config.NonNegativeDuration(5.second)),
+            new FutureSupervisor.Impl(config.NonNegativeDuration(5.second), loggerFactory),
             1.second,
             Level.WARN,
           )
@@ -84,7 +84,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
         {
           val p = PromiseUnlessShutdown.supervised[Int](
             "supervised-promise-only-on-access",
-            new FutureSupervisor.Impl(config.NonNegativeDuration(5.second)),
+            new FutureSupervisor.Impl(config.NonNegativeDuration(5.second), loggerFactory),
             1.second,
             Level.WARN,
           )

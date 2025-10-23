@@ -359,11 +359,11 @@ class AdminWorkflowServices(
 object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
 
   val PingDarResourceName: String = "canton-builtin-admin-workflow-ping"
-  val PingDarResourceFileName: String = s"$PingDarResourceName.dar"
+  val PingDarResourceFileName: String = s"dar/$PingDarResourceName.dar"
   val PartyReplicationDarResourceName: String =
     "canton-builtin-admin-workflow-party-replication-alpha"
   private val PartyReplicationDarResourceFileName: String =
-    s"$PartyReplicationDarResourceName.dar"
+    s"dar/$PartyReplicationDarResourceName.dar"
   val AdminWorkflowNames: Set[String] = Set(PingDarResourceName, PartyReplicationDarResourceName)
 
   private def getDarInputStream(resourceName: String): InputStream =

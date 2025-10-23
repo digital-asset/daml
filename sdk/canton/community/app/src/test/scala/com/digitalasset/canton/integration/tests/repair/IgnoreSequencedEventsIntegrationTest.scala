@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.repair
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.admin.api.client.data.TemplateId.templateIdsFromJava
+import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.InstanceReference
@@ -588,6 +589,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
   }
 }
 
+@UnstableTest
 class IgnoreSequencedEventsIntegrationTestH2 extends IgnoreSequencedEventsIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))

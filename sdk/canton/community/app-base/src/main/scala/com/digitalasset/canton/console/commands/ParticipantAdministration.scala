@@ -2326,8 +2326,26 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       config(synchronizerAlias).nonEmpty
 
     @Help.Summary("Returns the current configuration of a given synchronizer")
-    def config(synchronizerAlias: SynchronizerAlias): Option[SynchronizerConnectionConfig] =
-      list_registered().map(_._1).find(_.synchronizerAlias == synchronizerAlias)
+    def config(synchronizerAlias: SynchronizerAlias): Option[SynchronizerConnectionConfig] = {
+      val configs = list_registered().collect {
+        case (config, id, _) if config.synchronizerAlias == synchronizerAlias => (config, id)
+      }
+
+      if (configs.sizeIs > 1)
+        consoleEnvironment.raiseError(
+          s"Several synchronizer config found for alias `$synchronizerAlias`: ${configs.map(_._2)}. Specify the physical synchronizer id instead of the synchronizer alias."
+        )
+      else
+        configs.map(_._1).headOption
+    }
+
+    @Help.Summary("Returns the current configuration of a given synchronizer")
+    def config(
+        physicalSynchronizerId: PhysicalSynchronizerId
+    ): Option[SynchronizerConnectionConfig] =
+      list_registered().collectFirst {
+        case (config, id, _) if id.toOption.contains(physicalSynchronizerId) => config
+      }
 
     @Help.Summary("Modify existing synchronizer connection")
     @Help.Description("""

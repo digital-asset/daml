@@ -10,6 +10,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
@@ -17,7 +18,6 @@ import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPriv
 import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   CryptoParseAndValidationError,
@@ -934,12 +934,12 @@ object EncryptionError {
     """Reduce the size of the payloads or increase the max request size in the dynamic synchronizer parameters."""
   )
   final case class MaxViewSizeExceeded(
-      viewSize: Int,
-      maxRequestSize: MaxRequestSizeToDeserialize.Limit,
+      viewSizeBytes: Int,
+      maxRequestSizeBytes: NonNegativeInt,
   ) extends EncryptionError {
     override protected def pretty: Pretty[MaxViewSizeExceeded] = prettyOfClass(
-      param("view size", _.viewSize),
-      param("max request size configured", _.maxRequestSize.value),
+      param("view size (bytes)", _.viewSizeBytes),
+      param("max request size configured (bytes)", _.maxRequestSizeBytes),
     )
   }
 }

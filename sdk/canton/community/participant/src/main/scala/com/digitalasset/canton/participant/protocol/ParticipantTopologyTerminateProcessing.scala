@@ -24,8 +24,9 @@ import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.TopologyMapping
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.{SequencerCounter, topology}
+import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
 
@@ -46,6 +47,11 @@ class ParticipantTopologyTerminateProcessing(
     pauseSynchronizerIndexingDuringPartyReplication: Boolean,
     synchronizerPredecessor: Option[SynchronizerPredecessor],
     lsuCallback: LogicalSynchronizerUpgradeCallback,
+    retrieveAndStoreMissingSequencerIds: TraceContext => EitherT[
+      FutureUnlessShutdown,
+      String,
+      Unit,
+    ],
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends topology.processing.TerminateProcessing
     with NamedLogging {
@@ -99,13 +105,19 @@ class ParticipantTopologyTerminateProcessing(
 
   override def notifyUpgradeAnnouncement(
       successor: SynchronizerSuccessor
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Unit = {
     logger.info(
       s"Node is notified about the upgrade of $psid to ${successor.psid} scheduled at ${successor.upgradeTime}"
     )
 
     lsuCallback.registerCallback(successor)
     recordOrderPublisher.setSuccessor(Some(successor))
+
+    EitherTUtil.doNotAwaitUS(
+      retrieveAndStoreMissingSequencerIds(traceContext),
+      s"retrieve and store missing sequencer ids for $psid",
+      failLevel = Level.WARN,
+    )
   }
 
   override def notifyUpgradeCancellation()(implicit traceContext: TraceContext): Unit = {

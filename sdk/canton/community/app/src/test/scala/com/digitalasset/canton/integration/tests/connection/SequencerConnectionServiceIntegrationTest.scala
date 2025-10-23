@@ -66,7 +66,8 @@ sealed trait SequencerConnectionServiceIntegrationTest
       import env.*
 
       val connectionsConfig = Seq(sequencer1, sequencer2).map(s =>
-        s.config.publicApi.clientConfig.asSequencerConnection(SequencerAlias.tryCreate(s.name))
+        s.config.publicApi.clientConfig
+          .asSequencerConnection(SequencerAlias.tryCreate(s.name), sequencerId = None)
       )
 
       clue("connect participant1 to all sequencers") {

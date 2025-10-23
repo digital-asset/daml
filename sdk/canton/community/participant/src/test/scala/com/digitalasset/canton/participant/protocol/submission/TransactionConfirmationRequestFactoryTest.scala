@@ -35,7 +35,6 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.sequencing.protocol.{
-  MaxRequestSizeToDeserialize,
   MediatorGroupRecipient,
   MemberRecipient,
   OpenEnvelope,
@@ -51,7 +50,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.{MaxBytesToDecompress, ResourceUtil}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -331,9 +330,7 @@ class TransactionConfirmationRequestFactoryTest
             TransactionViewType,
           )(
             ltvt,
-            MaxRequestSizeToDeserialize.Limit(
-              DynamicSynchronizerParameters.defaultMaxRequestSize.value
-            ),
+            MaxBytesToDecompress.Default,
           )
           .valueOr(err => fail(s"fail to encrypt view tree: $err"))
 

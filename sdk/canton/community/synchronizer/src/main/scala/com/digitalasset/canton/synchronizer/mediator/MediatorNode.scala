@@ -151,7 +151,7 @@ final case class MediatorNodeConfig(
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
 ) extends LocalNodeConfig
-    with ConfigDefaults[DefaultPorts, MediatorNodeConfig]
+    with ConfigDefaults[Option[DefaultPorts], MediatorNodeConfig]
     with UniformCantonConfigValidation {
 
   override def nodeTypeName: String = "mediator"
@@ -163,14 +163,15 @@ final case class MediatorNodeConfig(
   def replicationEnabled: Boolean = replication.exists(_.isEnabled)
 
   override def withDefaults(
-      ports: DefaultPorts,
+      ports: Option[DefaultPorts],
       edition: CantonEdition,
-  ): MediatorNodeConfig =
+  ): MediatorNodeConfig = ports.fold(this)(ports =>
     this
       .focus(_.adminApi.internalPort)
       .modify(ports.mediatorAdminApiPort.setDefaultPort)
       .focus(_.replication)
       .modify(ReplicationConfig.withDefaultO(storage, _, edition))
+  )
 }
 
 object MediatorNodeConfig {

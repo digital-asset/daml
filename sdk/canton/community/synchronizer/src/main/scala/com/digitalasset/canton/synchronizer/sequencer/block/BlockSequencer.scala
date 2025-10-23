@@ -51,7 +51,12 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.retry.Pause
-import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{
+  EitherTUtil,
+  MaxBytesToDecompress,
+  PekkoUtil,
+  SimpleExecutionQueue,
+}
 import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -85,6 +90,7 @@ class BlockSequencer(
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
+    maxBytesToDecompress: MaxBytesToDecompress,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     exitOnFatalFailures: Boolean,
@@ -176,6 +182,7 @@ class BlockSequencer(
       blockRateLimitManager,
       orderingTimeFixMode,
       sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
+      maxBytesToDecompress,
       metrics,
       loggerFactory,
       memberValidator = memberValidator,

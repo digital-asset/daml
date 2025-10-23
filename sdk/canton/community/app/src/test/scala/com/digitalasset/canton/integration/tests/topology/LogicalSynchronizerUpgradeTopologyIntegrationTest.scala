@@ -4,8 +4,9 @@
 package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
@@ -20,7 +21,12 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
+import com.digitalasset.canton.sequencing.{
+  GrpcSequencerConnection,
+  SequencerConnectionPoolDelays,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizerSuccessor
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.{
@@ -65,7 +71,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
 
   private lazy val upgradeTime = CantonTimestamp.now().plusSeconds(3600)
 
-  "migration announcement does not permit further topology transactions" in { implicit env =>
+  "upgrade announcement does not permit further topology transactions" in { implicit env =>
     import env.*
 
     val successorPSId = allocateSuccessorPSId()
@@ -106,7 +112,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     }
   }
 
-  "sequencers announce their success endpoints" in { implicit env =>
+  "sequencers announce their successor endpoints" in { implicit env =>
     import env.*
 
     // participant1 has a single sequencer connection
@@ -119,7 +125,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       sequencerTrustThreshold = PositiveInt.two,
     )
 
-    // announce the migration to prepare for the sequencer connection announcements
+    // announce the upgrade to prepare for the sequencer connection announcements
     val successorPSId = allocateSuccessorPSId()
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.propose(
@@ -153,6 +159,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       endpoints = NonEmpty(Seq, new URI("http://localhost:6000"), new URI("http://localhost:7000")),
       daId,
     )
+
     // check that participant2 automatically created a synchronizer config for the successor synchronizer
     // with a connection to the same sequencer alias/id
     checkUpgradedSequencerConfig(
@@ -179,11 +186,35 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       daId,
       customTrustCertificates = Some(ByteString.copyFromUtf8("test")),
     )
+
     // check that the participants automatically modified their synchronizer configs for the successor synchronizer
     // according to the latest sequencer connection updates
     checkUpgradedSequencerConfig(participant1, sequencer1.id -> 5005)
     checkUpgradedSequencerConfig(participant2, sequencer1.id -> 5005, sequencer2.id -> 6000)
 
+    // check that modifying the synchronizer configs (adding sequencer2) yields to the config
+    // of the successor being updated
+    participant1.synchronizers.modify(
+      daName,
+      _.copy(sequencerConnections =
+        SequencerConnections.tryMany(
+          Seq(sequencer1, sequencer2).map { sequencer =>
+            /*
+             On purpose, we don't set the sequencer id. It should be grabbed automatically.
+             In case it is not, the assertion below will fail.
+             */
+            sequencer.sequencerConnection
+              .withAlias(SequencerAlias.tryCreate(sequencer.name))
+          },
+          PositiveInt.two,
+          NonNegativeInt.zero,
+          SubmissionRequestAmplification.NoAmplification,
+          SequencerConnectionPoolDelays.default,
+        )
+      ),
+    )
+
+    checkUpgradedSequencerConfig(participant1, sequencer1.id -> 5005, sequencer2.id -> 6000)
   }
 
   // this test simulates an automation that is part of a logical synchronizer upgrade

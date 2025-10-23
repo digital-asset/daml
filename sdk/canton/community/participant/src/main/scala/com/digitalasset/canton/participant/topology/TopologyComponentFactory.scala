@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.topology
 
+import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
   BatchingConfig,
@@ -57,6 +58,11 @@ class TopologyComponentFactory(
       topologyClient: SynchronizerTopologyClientWithInit,
       recordOrderPublisher: RecordOrderPublisher,
       lsuCallback: LogicalSynchronizerUpgradeCallback,
+      retrieveAndStoreMissingSequencerIds: TraceContext => EitherT[
+        FutureUnlessShutdown,
+        String,
+        Unit,
+      ],
       sequencedEventStore: SequencedEventStore,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       ledgerApiStore: LedgerApiStore,
@@ -75,7 +81,8 @@ class TopologyComponentFactory(
         participantId,
         pauseSynchronizerIndexingDuringPartyReplication = unsafeOnlinePartyReplication.nonEmpty,
         synchronizerPredecessor = synchronizerPredecessor,
-        lsuCallback,
+        lsuCallback = lsuCallback,
+        retrieveAndStoreMissingSequencerIds = retrieveAndStoreMissingSequencerIds,
         loggerFactory,
       )
       val terminateTopologyProcessingFUS =

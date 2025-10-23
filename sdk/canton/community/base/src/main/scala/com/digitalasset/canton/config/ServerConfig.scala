@@ -319,8 +319,8 @@ final case class SequencerApiClientConfig(
   override def tlsConfig: Option[TlsClientConfig] = tls.map(_.toTlsClientConfig)
 
   def asSequencerConnection(
-      sequencerAlias: SequencerAlias = SequencerAlias.Default,
-      sequencerId: Option[SequencerId] = None,
+      sequencerAlias: SequencerAlias,
+      sequencerId: Option[SequencerId],
   ): GrpcSequencerConnection = {
     val endpoint = Endpoint(address, port)
     GrpcSequencerConnection(

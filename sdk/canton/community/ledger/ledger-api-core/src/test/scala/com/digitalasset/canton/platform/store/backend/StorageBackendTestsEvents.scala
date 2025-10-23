@@ -12,6 +12,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawExercisedEvent,
   RawFatCreatedEvent,
   RawThinAcsDeltaEvent,
+  RawThinActiveContract,
   RawThinAssignEvent,
   RawThinCreatedEvent,
   RawThinLedgerEffectsEvent,
@@ -1793,7 +1794,7 @@ private[backend] trait StorageBackendTestsEvents
           publicationTime = startPublicationTime.addMicros(1000),
         )
       ),
-      // never return an synchronizer offset with an offset greater than the ledger end
+      // never return a synchronizer offset with an offset greater than the ledger end
       startRecordTimeSynchronizer2.addMicros(4000) -> Some(
         SynchronizerOffset(
           offset = offset(11),
@@ -2873,5 +2874,613 @@ private[backend] trait StorageBackendTestsEvents
       )
     )
     divulged shouldBe (None -> None)
+  }
+
+  it should "fetch correctly the stream contents for acs" in {
+    implicit val eq: Equality[RawThinActiveContract] = caseClassArrayEq
+
+    val dbDtos = Vector(
+      dtosCreate(event_sequential_id = 1L)(),
+      dtosAssign(event_sequential_id = 2L)(),
+      dtosConsumingExercise(event_sequential_id = 3L),
+      dtosUnassign(event_sequential_id = 4L),
+      dtosWitnessedCreate(event_sequential_id = 5L)(),
+      dtosWitnessedExercised(event_sequential_id = 6L),
+      dtosWitnessedExercised(
+        event_sequential_id = 7L,
+        consuming = false,
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(10000), 10000L)
+    )
+
+    val acs = executeSql(
+      backend.event.activeContractBatch(
+        eventSequentialIds = 0L to 100L,
+        allFilterParties =
+          Some(Set("witness1", "stakeholder1", "submitter1", "actor1").map(Party.assertFromString)),
+        endInclusive = 100L,
+      )
+    ).toList
+
+    acs should contain theSameElementsInOrderAs List(
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 1L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = Some("workflow-id"),
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = Some(Set("witness1", "stakeholder1", "submitter1", "actor1")),
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 2L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = Some("workflow-id"),
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = Some(Set("witness1", "stakeholder1", "submitter1", "actor1")),
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+    )
+
+    acs.size shouldBe
+      executeSql(
+        backend.event.fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Activate)(
+          eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).size
+  }
+
+  it should "fetch empty values for optional fields when not defined" in {
+    implicit val eq: Equality[RawThinAcsDeltaEvent] = caseClassArrayEq
+    implicit val eq2: Equality[RawThinLedgerEffectsEvent] = caseClassArrayEq
+
+    val dbDtos = Vector(
+      dtosCreate(
+        event_sequential_id = 1L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+        create_key_hash = None,
+      )(),
+      dtosAssign(
+        event_sequential_id = 2L,
+        workflow_id = None,
+        command_id = None,
+        submitter = None,
+      )(),
+      dtosConsumingExercise(
+        event_sequential_id = 3L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+        deactivated_event_sequential_id = None,
+        exercise_choice_interface_id = None,
+        exercise_result = None,
+        exercise_argument_compression = None,
+        exercise_result_compression = None,
+        internal_contract_id = Some(10), // internal contract id should NOT be empty
+      ),
+      dtosUnassign(
+        event_sequential_id = 4L,
+        workflow_id = None,
+        command_id = None,
+        submitter = None,
+        deactivated_event_sequential_id = None,
+        assignment_exclusivity = None,
+        internal_contract_id = Some(10), // internal contract id should NOT be empty
+      ),
+      dtosWitnessedCreate(
+        event_sequential_id = 5L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+      )(),
+      dtosWitnessedExercised(
+        event_sequential_id = 6L,
+        workflow_id = None,
+        command_id = None,
+        submitters = None,
+        external_transaction_hash = None,
+        exercise_choice_interface_id = None,
+        exercise_result = None,
+        exercise_argument_compression = None,
+        exercise_result_compression = None,
+        internal_contract_id = None,
+      ),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(10000), 10000L)
+    )
+
+    // acs delta with optional fields undefined
+    executeSql(
+      backend.event.fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Activate)(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinCreatedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 1L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinAssignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 2L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+        sourceSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+      ),
+    )
+
+    executeSql(
+      backend.event.fetchEventPayloadsAcsDelta(EventPayloadSourceForUpdatesAcsDelta.Deactivate)(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawArchivedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 3L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        ledgerEffectiveTime = Timestamp.assertFromLong(123456),
+        deactivatedEventSeqId = None,
+      ),
+      RawUnassignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 4L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        assignmentExclusivity = None,
+        targetSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+        deactivatedEventSeqId = None,
+      ),
+    )
+
+    // ledger effects events with optional fields undefined
+    executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.Activate
+      )(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinCreatedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 1L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinAssignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 2L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+        sourceSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+      ),
+    )
+
+    executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.Deactivate
+      )(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawExercisedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 3L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        exerciseConsuming = true,
+        exerciseChoice = ChoiceName.assertFromString("choice"),
+        exerciseChoiceInterface = None,
+        exerciseArgument = Array(1, 2, 3),
+        exerciseArgumentCompression = None,
+        exerciseResult = None,
+        exerciseResultCompression = None,
+        exerciseActors = Set("actor1", "actor2"),
+        exerciseLastDescendantNodeId = 3,
+        filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        ledgerEffectiveTime = Timestamp.assertFromLong(123456),
+        acsDeltaForParticipant = true,
+        deactivatedEventSeqId = None,
+      ),
+      RawUnassignEvent(
+        reassignmentProperties = ReassignmentProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 4L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          reassignmentId = "0012345678",
+          submitter = None,
+          reassignmentCounter = 345,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        filteredStakeholderParties = Set("stakeholder1", "stakeholder2"),
+        assignmentExclusivity = None,
+        targetSynchronizerId = someSynchronizerId2.toProtoPrimitive,
+        deactivatedEventSeqId = None,
+      ),
+    )
+
+    executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        EventPayloadSourceForUpdatesLedgerEffects.VariousWitnessed
+      )(
+        eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+        requestingPartiesForTx = None,
+        requestingPartiesForReassignment = None,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinCreatedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 5L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = false,
+        ),
+      ),
+      RawExercisedEvent(
+        transactionProperties = TransactionProperties(
+          commonEventProperties = CommonEventProperties(
+            eventSequentialId = 6L,
+            offset = 10L,
+            nodeId = 15,
+            workflowId = None,
+            synchronizerId = someSynchronizerId.toProtoPrimitive,
+          ),
+          commonUpdateProperties = CommonUpdateProperties(
+            updateId = TestUpdateId("update").toHexString,
+            commandId = None,
+            traceContext = serializableTraceContext,
+            recordTime = Timestamp.assertFromLong(100L),
+          ),
+          externalTransactionHash = None,
+        ),
+        contractId = hashCid("c1"),
+        templateId = Identifier
+          .assertFromString("package:pl:ate")
+          .toFullIdentifier(PackageName.assertFromString("tem")),
+        exerciseConsuming = true,
+        exerciseChoice = ChoiceName.assertFromString("choice"),
+        exerciseChoiceInterface = None,
+        exerciseArgument = Array(1, 2, 3),
+        exerciseArgumentCompression = None,
+        exerciseResult = None,
+        exerciseResultCompression = None,
+        exerciseActors = Set("actor1", "actor2"),
+        exerciseLastDescendantNodeId = 3,
+        filteredAdditionalWitnessParties = Set("witness1", "witness2"),
+        filteredStakeholderParties = Set.empty,
+        ledgerEffectiveTime = Timestamp.assertFromLong(123456),
+        acsDeltaForParticipant = false,
+        deactivatedEventSeqId = None,
+      ),
+    )
+
+    // active contracts with optional fields undefined
+    executeSql(
+      backend.event.activeContractBatch(
+        eventSequentialIds = 0L to 100L,
+        allFilterParties = None,
+        endInclusive = 100L,
+      )
+    ).toList should contain theSameElementsInOrderAs List(
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 1L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = None,
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 0L,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+      RawThinActiveContract(
+        commonEventProperties = CommonEventProperties(
+          eventSequentialId = 2L,
+          offset = 10L,
+          nodeId = 15,
+          workflowId = None,
+          synchronizerId = someSynchronizerId.toProtoPrimitive,
+        ),
+        thinCreatedEventProperties = ThinCreatedEventProperties(
+          representativePackageId = Ref.PackageId.assertFromString("representativepackage"),
+          filteredAdditionalWitnessParties = Set.empty,
+          internalContractId = 10L,
+          requestingParties = None,
+          reassignmentCounter = 345,
+          acsDeltaForParticipant = true,
+        ),
+      ),
+    )
+  }
+
+  it should "fetch the same events when queried by list of sequential ids" in {
+    implicit val eq: Equality[RawThinAcsDeltaEvent] = caseClassArrayEq
+    implicit val eq2: Equality[RawThinLedgerEffectsEvent] = caseClassArrayEq
+
+    val dbDtos = Vector(
+      dtosCreate(event_sequential_id = 1L)(),
+      dtosAssign(event_sequential_id = 2L)(),
+      dtosConsumingExercise(event_sequential_id = 3L),
+      dtosUnassign(event_sequential_id = 4L),
+      dtosWitnessedCreate(event_sequential_id = 5L)(),
+      dtosWitnessedExercised(event_sequential_id = 6L),
+    ).flatten
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(10000), 10000L)
+    )
+
+    for {
+      target <- Seq(
+        EventPayloadSourceForUpdatesAcsDelta.Activate,
+        EventPayloadSourceForUpdatesAcsDelta.Deactivate,
+      )
+    } yield withClue(s"Failed for target: $target") {
+
+      val range = executeSql(
+        backend.event.fetchEventPayloadsAcsDelta(target)(
+          eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      val list = executeSql(
+        backend.event.fetchEventPayloadsAcsDelta(target)(
+          eventSequentialIds = SequentialIdBatch.Ids((0L to 100L).toList),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      range should contain theSameElementsInOrderAs list
+      range.size shouldBe list.size
+    }
+
+    for {
+      target <- Seq(
+        EventPayloadSourceForUpdatesLedgerEffects.Activate,
+        EventPayloadSourceForUpdatesLedgerEffects.Deactivate,
+        EventPayloadSourceForUpdatesLedgerEffects.VariousWitnessed,
+      )
+    } yield withClue(s"Failed for target: $target") {
+
+      val range = executeSql(
+        backend.event.fetchEventPayloadsLedgerEffects(target)(
+          eventSequentialIds = SequentialIdBatch.IdRange(0, 100),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      val list = executeSql(
+        backend.event.fetchEventPayloadsLedgerEffects(target)(
+          eventSequentialIds = SequentialIdBatch.Ids((0L to 100L).toList),
+          requestingPartiesForTx = None,
+          requestingPartiesForReassignment = None,
+        )
+      ).toList
+
+      range should contain theSameElementsInOrderAs list
+      range.size shouldBe list.size
+    }
   }
 }

@@ -31,7 +31,7 @@ import com.digitalasset.canton.topology.processing.{
   TopologyTransactionProcessingSubscriber,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureUnlessShutdownUtil
 import com.google.common.annotations.VisibleForTesting
@@ -61,6 +61,7 @@ final class TimeAdvancingTopologySubscriber(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
+      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     if (effectiveTimestamp.value > sequencedTimestamp.value) {
       // Conservatively, use a snapshot with topology changes that are active "now".

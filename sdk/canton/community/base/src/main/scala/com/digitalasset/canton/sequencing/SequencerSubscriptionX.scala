@@ -116,7 +116,7 @@ class SequencerSubscriptionX[HandlerError] private[sequencing] (
   ): Unit =
     // Stop the connection non-fatally and let the subscription pool start a new subscription.
     connection.fail(reason)
-  // TODO(i27278): Warn after some delay or number of failures?
+  // TODO(i28761): Warn after some delay or number of failures
   // LostSequencerSubscription.Warn(connection.attributes.sequencerId).discard
 
   // stop the current subscription, do not retry, and propagate the failure upstream

@@ -101,7 +101,13 @@ trait StoreBasedTopologySnapshotTest
             additions = transactions.map(ValidatedTopologyTransaction(_)),
           )
           _ <- client
-            .observed(timestamp, timestamp, SequencerCounter(1), transactions)
+            .observed(
+              timestamp,
+              timestamp,
+              SequencerCounter(1),
+              transactions,
+              DefaultTestIdentities.synchronizerId,
+            )
         } yield ()
 
       def observed(ts: CantonTimestamp): Unit =
@@ -109,7 +115,7 @@ trait StoreBasedTopologySnapshotTest
 
       def observed(st: SequencedTime, et: EffectiveTime): Unit =
         client
-          .observed(st, et, SequencerCounter(0), List())
+          .observed(st, et, SequencerCounter(0), List(), DefaultTestIdentities.synchronizerId)
           .futureValueUS
 
       def updateHead(
@@ -265,6 +271,7 @@ trait StoreBasedTopologySnapshotTest
           ts.immediateSuccessor,
           SequencerCounter(0),
           Seq(),
+          DefaultTestIdentities.synchronizerId,
         )
         recent = fixture.client.currentSnapshotApproximation
         party1Mappings <- recent.activeParticipantsOf(party1.toLf)
@@ -292,6 +299,7 @@ trait StoreBasedTopologySnapshotTest
           ts.immediateSuccessor,
           SequencerCounter(0),
           Seq(),
+          DefaultTestIdentities.synchronizerId,
         )
         snapshot <- fixture.client.snapshot(ts.immediateSuccessor)
         party1Mappings <- snapshot.activeParticipantsOf(party1.toLf)
@@ -332,6 +340,7 @@ trait StoreBasedTopologySnapshotTest
           ts2.immediateSuccessor,
           SequencerCounter(0),
           Seq(),
+          DefaultTestIdentities.synchronizerId,
         )
         snapshotA <- fixture.client.snapshot(ts1)
         snapshotB <- fixture.client.snapshot(ts1.immediateSuccessor)
@@ -426,6 +435,7 @@ trait StoreBasedTopologySnapshotTest
               ts.immediateSuccessor,
               SequencerCounter(0),
               Seq(),
+              DefaultTestIdentities.synchronizerId,
             )
             snapshot <- fixture.client.snapshot(ts.immediateSuccessor)
             // PartyKeyTopologySnapshotClient

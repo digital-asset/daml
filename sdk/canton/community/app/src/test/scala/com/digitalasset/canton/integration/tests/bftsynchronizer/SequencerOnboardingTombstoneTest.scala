@@ -223,6 +223,15 @@ trait SequencerOnboardingTombstoneTest
             ))
           },
         ),
+        (
+          LogEntryOptionality.OptionalMany,
+          (entry: LogEntry) => {
+            entry.loggerName should include("TransactionProcessor")
+            entry.warningMessage should include(
+              "RequestFailed(No connection available)"
+            )
+          },
+        ),
       )
   }
 

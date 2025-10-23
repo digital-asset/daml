@@ -32,7 +32,6 @@ import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import sun.reflect.generics.reflectiveObjects.NotImplementedException
 
 import java.sql.Connection
 import scala.concurrent.blocking
@@ -388,26 +387,26 @@ object SequentialWriteDaoSpec {
   private val stringInterningViewFixture: StringInterning with InternizingStringInterningView =
     new StringInterning with InternizingStringInterningView {
       override def templateId: StringInterningDomain[NameTypeConRef] =
-        throw new NotImplementedException
+        ???
 
       override def packageId: StringInterningDomain[PackageId] =
-        throw new NotImplementedException
+        ???
 
-      override def party: StringInterningDomain[Party] = throw new NotImplementedException
+      override def party: StringInterningDomain[Party] = ???
 
       override def synchronizerId: StringInterningDomain[SynchronizerId] =
-        throw new NotImplementedException
+        ???
 
-      override def userId: StringInterningDomain[UserId] = throw new NotImplementedException
+      override def userId: StringInterningDomain[UserId] = ???
 
       override def participantId: StringInterningDomain[Ref.ParticipantId] =
-        throw new NotImplementedException
+        ???
 
       override def choiceName: StringInterningDomain[Ref.ChoiceName] =
-        throw new NotImplementedException
+        ???
 
       override def interfaceId: StringInterningDomain[Ref.Identifier] =
-        throw new NotImplementedException
+        ???
 
       override def internize(
           domainStringIterators: DomainStringIterators

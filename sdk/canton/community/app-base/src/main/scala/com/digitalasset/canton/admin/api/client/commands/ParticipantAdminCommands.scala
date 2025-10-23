@@ -81,6 +81,7 @@ import io.grpc.{Context, ManagedChannel}
 import java.io.{File, IOException}
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
@@ -731,6 +732,7 @@ object ParticipantAdminCommands {
   object ParticipantRepairManagement {
 
     // TODO(#24610) – Remove, replaced by ExportAcs
+    @nowarn("cat=deprecation")
     final case class ExportAcsOld(
         parties: Set[PartyId],
         partiesOffboarding: Boolean,
@@ -778,6 +780,7 @@ object ParticipantAdminCommands {
     }
 
     // TODO(#24610) - Remove, replaced by ImportAcs
+    @nowarn("cat=deprecation")
     final case class ImportAcsOld(
         acsChunk: ByteString,
         workflowIdPrefix: String,

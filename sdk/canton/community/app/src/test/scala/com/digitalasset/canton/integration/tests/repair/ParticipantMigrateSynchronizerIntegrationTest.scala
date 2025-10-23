@@ -329,11 +329,13 @@ final class ParticipantMigrateSynchronizerIntegrationTest
               (logAssertions)*
             )
 
-            val tsAfterMigreationAcme =
+            val tsAfterMigrationAcme =
               sequencer2.underlying.value.sequencer.timeTracker.fetchTime().futureValueUS
-            participant1.health.ping(participantId = participant2, synchronizerId = Some(acmeId))
 
             eventually() {
+              // tsAfterMigrationAcme is the timestamp we know for sure is after migration
+              // advance time on acme to be sure that commitments are created after migration
+              participant1.health.ping(participantId = participant2, synchronizerId = Some(acmeId))
               // check that commitments match on acme
               val cmtAfterMigrationAcmeP1 =
                 participant1.commitments.lookup_received_acs_commitments(
@@ -342,7 +344,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
                       acmeId,
                       Some(
                         TimeRange(
-                          tsAfterMigreationAcme,
+                          tsAfterMigrationAcme,
                           CantonTimestamp.MaxValue,
                         )
                       ),
@@ -361,7 +363,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
                       acmeId,
                       Some(
                         TimeRange(
-                          tsAfterMigreationAcme,
+                          tsAfterMigrationAcme,
                           CantonTimestamp.MaxValue,
                         )
                       ),

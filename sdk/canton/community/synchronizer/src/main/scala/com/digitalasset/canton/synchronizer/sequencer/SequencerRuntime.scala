@@ -312,6 +312,7 @@ class SequencerRuntime(
         effectiveTimestamp: EffectiveTime,
         sequencerCounter: SequencerCounter,
         transactions: Seq[GenericSignedTopologyTransaction],
+        synchronizerId: SynchronizerId,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
 
       val possibleNewMembers = transactions.map(_.mapping).flatMap {
@@ -340,6 +341,7 @@ class SequencerRuntime(
         effectiveTimestamp: EffectiveTime,
         sequencerCounter: SequencerCounter,
         transactions: Seq[GenericSignedTopologyTransaction],
+        synchronizerId: SynchronizerId,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
       val removeO = transactions
         .find(tx =>

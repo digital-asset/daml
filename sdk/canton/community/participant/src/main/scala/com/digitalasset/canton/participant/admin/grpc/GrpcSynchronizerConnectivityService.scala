@@ -86,7 +86,10 @@ class GrpcSynchronizerConnectivityService(
             sync.syncCrypto.ips
               .forSynchronizer(_)
               .toRight(
-                SynchronizerIsMissingInternally(synchronizerAlias, "ips")
+                SynchronizerIsMissingInternally(
+                  synchronizerAlias.unwrap,
+                  "physical synchronizer id not set",
+                )
               )
           )
       )

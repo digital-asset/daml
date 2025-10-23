@@ -1680,6 +1680,7 @@ final class SequencerClientTest
         trustThreshold = PositiveInt.one,
         minRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
         maxRestartConnectionDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
+        warnConnectionValidationDelay = cantonConfig.NonNegativeFiniteDuration.Zero,
       )
 
     override def updateConfig(newConfig: SequencerConnectionXPool.SequencerConnectionXPoolConfig)(
