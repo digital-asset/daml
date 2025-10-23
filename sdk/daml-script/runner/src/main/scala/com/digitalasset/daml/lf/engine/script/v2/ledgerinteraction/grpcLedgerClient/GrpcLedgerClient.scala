@@ -524,7 +524,7 @@ class GrpcLedgerClient(
       case command.CreateCommand(tmplRef, argument) =>
         for {
           arg <- lfValueToApiRecord(true, argument)
-        } yield Command().withCreate(
+        } yield Command.defaultInstance.withCreate(
           CreateCommand(
             Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId)),
             Some(arg),
@@ -533,7 +533,7 @@ class GrpcLedgerClient(
       case command.ExerciseCommand(typeRef, contractId, choice, argument) =>
         for {
           arg <- lfValueToApiValue(true, argument)
-        } yield Command().withExercise(
+        } yield Command.defaultInstance.withExercise(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
           ExerciseCommand(
@@ -547,7 +547,7 @@ class GrpcLedgerClient(
         for {
           key <- lfValueToApiValue(true, key)
           argument <- lfValueToApiValue(true, argument)
-        } yield Command().withExerciseByKey(
+        } yield Command.defaultInstance.withExerciseByKey(
           ExerciseByKeyCommand(
             Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId)),
             Some(key),
@@ -559,7 +559,7 @@ class GrpcLedgerClient(
         for {
           template <- lfValueToApiRecord(true, template)
           argument <- lfValueToApiValue(true, argument)
-        } yield Command().withCreateAndExercise(
+        } yield Command.defaultInstance.withCreateAndExercise(
           CreateAndExerciseCommand(
             Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId)),
             Some(template),
