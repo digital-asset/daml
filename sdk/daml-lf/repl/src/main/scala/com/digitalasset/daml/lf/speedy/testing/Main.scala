@@ -8,7 +8,7 @@ package testing
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.speedy.Pretty._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
@@ -295,7 +295,7 @@ class Repl(majorLanguageVersion: LanguageMajorVersion) {
     val state = initialState(compilerConfig)
     try {
       val (packagesMap, loadingTime) =
-        time(UniversalArchiveDecoder.assertReadFile(new File(darFile)).all.toMap)
+        time(DarDecoder.assertReadArchiveFromFile(new File(darFile)).all.toMap)
 
       val npkgs = packagesMap.size
       val ndefs =
