@@ -30,7 +30,26 @@ data MinorVersion =
     PointStable Int
   | PointStaging Int
   | PointDev
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
+  deriving (Eq, Data, Generic, NFData, Show)
+
+-- | Explicit versinon of Ord Minorversion, without any pattern wildcards, set
+-- up to break when we add a constructor. We use this instance for comparing
+-- versions, for example to see if some version supports some feature with
+-- associated version, or to return all stable packages that have an
+-- equal-or-lower version
+instance Ord MinorVersion where
+    compare (PointStable x) (PointStable y)   = compare x y
+    compare (PointStaging x) (PointStaging y) = compare x y
+    compare PointDev         PointDev         = EQ
+
+    compare (PointStable _) (PointStaging _)  = LT
+    compare (PointStaging _) (PointStable _)  = GT
+
+    compare (PointStable _) PointDev          = LT
+    compare PointDev (PointStable _)          = GT
+
+    compare (PointStaging _) PointDev         = LT
+    compare PointDev (PointStaging _)         = GT
 
 renderMajorVersion :: MajorVersion -> String
 renderMajorVersion = \case
