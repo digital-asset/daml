@@ -42,12 +42,12 @@ package object archive {
   // This constant is introduced and used
   // to make serialization of nested data
   // possible otherwise complex models failed to deserialize.
-  private val PROTOBUF_RECURSION_LIMIT: Int = 1000
+  private val EXTENDED_PROTOBUF_RECURSION_LIMIT: Int = 1000
 
   // just set the recursion limit
   private[this] val Base: GenReader[CodedInputStream] =
     new GenReader[CodedInputStream]({ cos =>
-      discard(cos.setRecursionLimit(PROTOBUF_RECURSION_LIMIT))
+      discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
       Right(cos)
     })
 
@@ -56,9 +56,13 @@ package object archive {
       attempt(getClass.getCanonicalName + ".ArchiveParser")(DamlLf.Archive.parseFrom(cos))
     )
   val ArchiveReader: GenReader[ArchivePayload] =
-    ArchiveParser.andThen(Reader.readArchive)
+    ArchiveParser.andThen(Reader.readArchive(_, schemaMode = false))
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
     ArchiveReader.andThen(Decode.decodeArchivePayload(_))
+  val ArchiveSchemaReader: GenReader[ArchivePayload] =
+    ArchiveParser.andThen(Reader.readArchive(_, schemaMode = true))
+  val ArchiveSchemaDecoder: GenReader[(PackageId, Ast.PackageSignature)] =
+    ArchiveSchemaReader.andThen(Decode.decodeArchivePayloadSchema)
 
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
     Base.andThen(cos =>
@@ -66,19 +70,14 @@ package object archive {
         DamlLf.ArchivePayload.parseFrom(cos)
       )
     )
-  val Lf1PackageParser: GenReader[DamlLf1.Package] =
-    Base.andThen(cos =>
-      attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
+  val lf1PackageParser: GenReader[DamlLf1.Package] =
+    GenReader(
+      getClass.getCanonicalName + ".Lf1PackageParser",
+      { cos =>
+        discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
         DamlLf1.Package.parseFrom(cos)
-      )
+      },
     )
-  def archivePayloadDecoder(
-      hash: PackageId,
-      onlySerializableDataDefs: Boolean = false,
-  ): GenReader[(PackageId, Ast.Package)] =
-    ArchivePayloadParser
-      .andThen(Reader.readArchivePayload(hash, _))
-      .andThen(Decode.decodeArchivePayload(_, onlySerializableDataDefs))
 
   private[lf] def moduleDecoder(ver: LanguageVersion, pkgId: PackageId): GenReader[Ast.Module] = {
     ver.major match {
@@ -96,6 +95,10 @@ package object archive {
   val DarParser: GenDarReader[DamlLf.Archive] = GenDarReader(ArchiveParser)
   val DarReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveReader)
   val DarDecoder: GenDarReader[(PackageId, Ast.Package)] = GenDarReader(ArchiveDecoder)
+  val DarSchemaReader: GenDarReader[ArchivePayload] = GenDarReader(ArchiveSchemaReader)
+  val DarSchemaDecoder: GenDarReader[(PackageId, Ast.PackageSignature)] = GenDarReader(
+    ArchiveSchemaDecoder
+  )
 
   val UniversalArchiveReader: GenUniversalArchiveReader[ArchivePayload] =
     new GenUniversalArchiveReader(ArchiveReader)

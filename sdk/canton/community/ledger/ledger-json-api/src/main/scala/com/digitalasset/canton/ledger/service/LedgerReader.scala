@@ -187,7 +187,7 @@ object LedgerReader {
       (if (!errors.empty) -\/("Errors reading LF archive:\n" + errors.toString)
        else
          \/-(out).flatMap(x =>
-           pck.map(p => Signatures(x, Util.toSignature(p._2)))
+           pck.map(p => Signatures(x, p._2))
          )): Error \/ Signatures
     }(_.getLocalizedMessage).join
   }

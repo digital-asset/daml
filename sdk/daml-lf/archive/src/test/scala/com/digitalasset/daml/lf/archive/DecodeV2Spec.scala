@@ -92,7 +92,7 @@ class DecodeV2Spec
       typeTable,
       None,
       Some(dummyModuleName),
-      onlySerializableDataDefs = false,
+      onlySchema = false,
     )
   }
 

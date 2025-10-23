@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package archive
 
-import com.google.protobuf.{ByteString, CodedInputStream}
+import com.google.protobuf.{ByteString, CodedInputStream, Message}
 
 import scala.util.Using
 
@@ -41,4 +41,16 @@ final class GenReader[X] private[archive] (
   private[archive] def andThen[Y](f: X => Either[Error, Y]): GenReader[Y] =
     new GenReader(fromCodedInputStream(_).flatMap(f))
 
+}
+object GenReader {
+
+  private[archive] def apply[M <: Message](
+      where: String,
+      parse: CodedInputStream => M,
+  ): GenReader[M] =
+    new GenReader[M](cos =>
+      for {
+        msg <- attempt(where)(parse(cos))
+      } yield msg
+    )
 }

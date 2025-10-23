@@ -175,7 +175,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     val name = Ref.PackageName.assertFromString("my-package")
     val version = Ref.PackageVersion.assertFromString("1.2.3")
     val pkg =
-      Ast.Package(
+      Ast.PackageSignature(
         modules = Map.empty,
         directDeps = Set.empty,
         languageVersion = LanguageVersion.default,
@@ -403,7 +403,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
   testDar(LanguageVersion.Major.V2)
 
   private def wrappInModule(dataName: DottedName, dfn: Ast.DDataType) =
-    Ast.Module(
+    Ast.ModuleSignature(
       name = moduleName,
       definitions = Map(dataName -> dfn),
       templates = Map.empty,

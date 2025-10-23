@@ -7,8 +7,12 @@ package archive
 import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.archive.{DamlLf, DamlLf1, DamlLf2}
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.LanguageMinorVersion
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion}
+import com.digitalasset.daml.lf.language.{
+  LanguageVersion,
+  LanguageMajorVersion,
+  LanguageMinorVersion,
+}
+import com.google.protobuf
 
 sealed abstract class ArchivePayload {
   def pkgId: PackageId
@@ -36,50 +40,66 @@ object ArchivePayload {
 
 object Reader {
 
-  // Validate hash and version of a DamlLf.Archive
-  @throws[Error.Parsing]
-  def readArchive(lf: DamlLf.Archive): Either[Error, ArchivePayload] = {
-    lf.getHashFunction match {
-      case DamlLf.HashFunction.SHA256 =>
-        for {
-          theirHash <- PackageId
-            .fromString(lf.getHash)
-            .left
-            .map(err => Error.Parsing("Invalid hash: " + err))
-          ourHash = MessageDigestPrototype.Sha256.newDigest
-            .digest(lf.getPayload.toByteArray)
-            .map("%02x" format _)
-            .mkString
-          _ <- Either.cond(
-            theirHash == ourHash,
-            (),
-            Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash"),
-          )
-          proto <- ArchivePayloadParser.fromByteString(lf.getPayload)
-          payload <- readArchivePayload(theirHash, proto)
+  private def validateUnknownFields(m: protobuf.Message, schemaMode: Boolean): Either[Error, Unit] =
+    if (schemaMode)
+      Right(())
+    else
+      com.daml.SafeProto.ensureNoUnknownFields(m).left.map(Error.Parsing)
 
-        } yield payload
+  /* Convert an Archive proto message into a scala ArchivePayload.
+   *
+   * Checks that the hash of the payload matches the hash field, that the version is
+   * supported, and if `schemaMode` is `false`, ensures the message has no unknown fields.
+   */
+  def readArchive(
+      lf: DamlLf.Archive,
+      schemaMode: Boolean = false,
+  ): Either[Error, ArchivePayload] = for {
+    _ <- validateUnknownFields(lf, schemaMode)
+    theirHash <- lf.getHashFunction match {
+      case DamlLf.HashFunction.SHA256 =>
+        PackageId
+          .fromString(lf.getHash)
+          .left
+          .map(err => Error.Parsing("Invalid hash: " + err))
       case DamlLf.HashFunction.UNRECOGNIZED =>
         Left(Error.Parsing("Unrecognized hash function"))
     }
-  }
+    ourHash = MessageDigestPrototype.Sha256.newDigest
+      .digest(lf.getPayload.toByteArray)
+      .map("%02x" format _)
+      .mkString
+    _ <- Either.cond(
+      theirHash == ourHash,
+      (),
+      Error.Parsing(s"Mismatching hashes! Expected $ourHash but got $theirHash"),
+    )
+    proto <- ArchivePayloadParser.fromByteString(lf.getPayload)
+    payload <- readArchivePayload(theirHash, proto, schemaMode)
 
-  // Validate hash and version of a DamlLf.ArchivePayload
-  @throws[Error.Parsing]
+  } yield payload
+
+  /* Converts a DamlLf.ArchivePayload Protocol Buffer message to a Scala ArchivePayload.
+   *
+   * Checks that the payload's version is supported and, if `schemaMode` is `false`,
+   * ensures the message has no unknown fields.
+   */
   def readArchivePayload(
       hash: PackageId,
       lf: DamlLf.ArchivePayload,
-  ): Either[Error, ArchivePayload] =
-    lf.getSumCase match {
-      case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
-        Lf1PackageParser
-          .fromByteString(lf.getDamlLf1)
-          .map(
-            ArchivePayload.Lf1(hash, _, LanguageMinorVersion(lf.getMinor))
-          )
-      case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
-        Right(ArchivePayload.Lf2(hash, lf.getDamlLf2, LanguageMinorVersion(lf.getMinor)))
-      case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
-        Left(Error.Parsing("Unrecognized or Unsupported LF version"))
-    }
+      schemaMode: Boolean,
+  ): Either[Error, ArchivePayload] = lf.getSumCase match {
+    case DamlLf.ArchivePayload.SumCase.DAML_LF_1 =>
+      for {
+        _ <- validateUnknownFields(lf, schemaMode)
+        pkg <- lf1PackageParser.fromByteString(lf.getDamlLf1)
+      } yield ArchivePayload.Lf1(hash, pkg, LanguageMinorVersion(lf.getMinor))
+    case DamlLf.ArchivePayload.SumCase.DAML_LF_2 =>
+      for {
+        _ <- validateUnknownFields(lf, schemaMode)
+        minor = LanguageMinorVersion(lf.getMinor)
+      } yield ArchivePayload.Lf2(hash, lf.getDamlLf2, minor)
+    case DamlLf.ArchivePayload.SumCase.SUM_NOT_SET =>
+      Left(Error.Parsing("Unrecognized or Unsupported LF version"))
+  }
 }

@@ -355,7 +355,11 @@ object Runner {
     val compiledPackages =
       PureCompiledPackages.assertBuild(darMap, Runner.compilerConfig(majorVersion))
     def convert(json: JsValue, typ: Type) = {
-      val ifaceDar = dar.map(pkg => SignatureReader.readPackageSignature(() => \/-(pkg))._2)
+      val ifaceDar = dar.map { case (pkgId, _) =>
+        SignatureReader
+          .readPackageSignature(() => \/-(pkgId -> compiledPackages.signatures(pkgId)))
+          ._2
+      }
       val envIface = EnvironmentSignature.fromPackageSignatures(ifaceDar)
       Converter(majorVersion).fromJsonValue(
         scriptId.qualifiedName,

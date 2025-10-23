@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.data.Ref.{DefinitionRef, Identifier, QualifiedName}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -73,7 +73,7 @@ object PlaySpeedy {
     val darFile = new File(rlocation(dar))
 
     println("Loading dar...")
-    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
+    val packages = DarDecoder.assertReadArchiveFromFile(darFile)
 
     println(s"Compiling packages... ${config.stacktracing}")
     val compilerConfig =
