@@ -153,6 +153,12 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val readGetLfArchive: Item = extend("get_lf_archive", readBaseInfo)
   private[metrics] val readValidateDar: Item = extend("validate_dar", readBaseInfo)
   private[metrics] val readListVettedPackages: Item = extend("list_vetted_packages", readBaseInfo)
+  private[metrics] val computePartyVettingMap: Item =
+    extend("compute_party_vetting_map", readBaseInfo)
+  private[metrics] val computeHighestRankedSynchronizerFromAdmissible: Item =
+    extend("compute_highest_ranked_synchronizer_from_admissible", readBaseInfo)
+  private[metrics] val selectRoutingSynchronizer: Item =
+    extend("select_routing_synchronizer", readBaseInfo)
 
   private[metrics] val writeBaseInfo = MetricInfo(
     indexPrefix :+ "write",
@@ -316,6 +322,15 @@ final class ServicesMetrics private[metrics] (
     val validateDar: Timer = openTelemetryMetricsFactory.timer(inventory.readValidateDar.info)
     val listVettedPackages: Timer =
       openTelemetryMetricsFactory.timer(inventory.readListVettedPackages.info)
+
+    val computePartyVettingMap: Timer =
+      openTelemetryMetricsFactory.timer(inventory.computePartyVettingMap.info)
+    val computeHighestRankedSynchronizerFromAdmissible: Timer =
+      openTelemetryMetricsFactory.timer(
+        inventory.computeHighestRankedSynchronizerFromAdmissible.info
+      )
+    val selectRoutingSynchronizer: Timer =
+      openTelemetryMetricsFactory.timer(inventory.selectRoutingSynchronizer.info)
   }
 
   val read: ReadMetrics = new ReadMetrics

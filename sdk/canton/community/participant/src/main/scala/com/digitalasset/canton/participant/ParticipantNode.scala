@@ -160,6 +160,7 @@ class ParticipantNodeBootstrap(
 
   override protected def customNodeStages(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -170,6 +171,7 @@ class ParticipantNodeBootstrap(
   ): BootstrapStageOrLeaf[ParticipantNode] =
     new StartupNode(
       storage,
+      indexedStringStore,
       crypto,
       adminServerRegistry,
       adminTokenDispenser,
@@ -317,6 +319,7 @@ class ParticipantNodeBootstrap(
 
   private class StartupNode(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -417,12 +420,6 @@ class ParticipantNodeBootstrap(
       // closed in SynchronizerAliasManager
       val registeredSynchronizersStore =
         RegisteredSynchronizersStore(storage, timeouts, loggerFactory)
-      val indexedStringStore = IndexedStringStore.create(
-        storage,
-        parameters.cachingConfigs.indexedStrings,
-        timeouts,
-        loggerFactory,
-      )
 
       for {
         synchronizerAliasManager <- EitherT

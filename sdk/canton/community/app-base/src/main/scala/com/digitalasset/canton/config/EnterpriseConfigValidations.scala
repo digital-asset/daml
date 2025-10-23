@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 object EnterpriseConfigValidations extends ConfigValidations {
   private val Valid: Validated[NonEmpty[Seq[String]], Unit] = Validated.valid(())
 
-  override protected val validations: List[Validation] =
+  override protected def validations(ensurePortsSet: Boolean): List[Validation] =
     List[CantonConfig => Validated[NonEmpty[Seq[String]], Unit]](
       dbLockFeaturesRequireUsingLockSupportingStorage,
       highlyAvailableSequencerTotalNodeCount,
@@ -27,7 +27,7 @@ object EnterpriseConfigValidations extends ConfigValidations {
       atLeastOneNode,
       sequencerClientRetryDelays,
       awsKmsDisableSSLVerificationRequiresNonStandard,
-    ) ++ CommunityConfigValidations.genericValidations
+    ) ++ CommunityConfigValidations.genericValidations(ensurePortsSet = ensurePortsSet)
 
   private def isUsingHaSequencer(config: SequencerConfig): Boolean =
     PartialFunction.cond(config) {
@@ -233,7 +233,7 @@ object EnterpriseConfigValidations extends ConfigValidations {
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
 
-    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
+    val errors = config.allLocalNodes.toSeq.mapFilter { case (name, nodeConfig) =>
       val nonStandardConfig = config.parameters.nonStandardConfig
 
       nodeConfig.crypto.kms.collect { case aws: KmsConfig.Aws =>

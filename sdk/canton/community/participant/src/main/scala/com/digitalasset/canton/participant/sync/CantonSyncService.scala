@@ -68,7 +68,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmitted,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.submission.TopologyPackageMapBuilder
+import com.digitalasset.canton.participant.protocol.submission.PartyVettingMapComputation
 import com.digitalasset.canton.participant.protocol.submission.routing.{
   AdmissibleSynchronizersComputation,
   RoutingSynchronizerStateFactory,
@@ -364,7 +364,7 @@ class CantonSyncService(
 
   private val admissibleSynchronizers =
     new AdmissibleSynchronizersComputation(participantId, loggerFactory)
-  private val topologyPackageMapBuilder = new TopologyPackageMapBuilder(
+  private val partyVettingMapComputation = new PartyVettingMapComputation(
     admissibleSynchronizersComputation = admissibleSynchronizers,
     loggerFactory = loggerFactory,
   )
@@ -1601,7 +1601,7 @@ class CantonSyncService(
         SyncServiceInjectionError.NotConnectedToAnySynchronizer.Error()
       )
 
-  override def packageMapFor(
+  override def computePartyVettingMap(
       submitters: Set[LfPartyId],
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,
@@ -1610,7 +1610,7 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
-    topologyPackageMapBuilder.packageMapFor(
+    partyVettingMapComputation.computePartyVettingMap(
       submitters,
       informees,
       vettingValidityTimestamp,

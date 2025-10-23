@@ -1,6 +1,6 @@
-sdk-version: 3.4.0-snapshot.20251016.14332.0.vff0c54f6
+sdk-version: 3.4.0-snapshot.20251022.14344.0.v4acf13f9
 build-options: 
-- --target=2.1
+- --target=2.2
 name: ai-analysis
 source: AIAnalysis.daml
 init-script: AIAnalysis:setup

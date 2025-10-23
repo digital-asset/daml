@@ -27,7 +27,6 @@ private[apiserver] class TimedCommandExecutor(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[FutureUnlessShutdown, ErrorCause, CommandExecutionResult] =
-    // TODO(#25385): introduce timedAndTrackedEitherTFUS and use it here
     EitherT(
       Timed.timedAndTrackedFutureUS(
         metrics.execution.total,

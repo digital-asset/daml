@@ -111,15 +111,6 @@ trait StoreBasedTopologySnapshotTest
         client
           .observed(st, et, SequencerCounter(0), List())
           .futureValueUS
-
-      def updateHead(
-          st: SequencedTime,
-          et: EffectiveTime,
-          at: ApproximateTime,
-          potentialTopologyChange: Boolean,
-      ): Unit =
-        client
-          .updateHead(st, et, at, potentialTopologyChange)
     }
 
     "waiting for snapshots" should {
@@ -190,27 +181,23 @@ trait StoreBasedTopologySnapshotTest
       }
 
       "correctly get notified on updateHead" in {
-        Table("potential topology change", true, false).forEvery { potentialTopologyChange =>
-          val fixture = new Fixture()
-          import fixture.*
-          val awaitSequencedTimestampF =
-            client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
+        val fixture = new Fixture()
+        import fixture.*
+        val awaitSequencedTimestampF =
+          client.awaitSequencedTimestamp(ts2).getOrElse(fail("expected future"))
 
-          updateHead(
-            SequencedTime(ts1),
-            EffectiveTime(ts1),
-            ApproximateTime(ts1),
-            potentialTopologyChange,
-          )
-          awaitSequencedTimestampF.isCompleted shouldBe false
-          updateHead(
-            SequencedTime(ts2),
-            EffectiveTime(ts1),
-            ApproximateTime(ts1),
-            potentialTopologyChange,
-          )
-          awaitSequencedTimestampF.isCompleted shouldBe true
-        }
+        client.updateHead(
+          SequencedTime(ts1),
+          EffectiveTime(ts1),
+          ApproximateTime(ts1),
+        )
+        awaitSequencedTimestampF.isCompleted shouldBe false
+        client.updateHead(
+          SequencedTime(ts2),
+          EffectiveTime(ts1),
+          ApproximateTime(ts1),
+        )
+        awaitSequencedTimestampF.isCompleted shouldBe true
       }
 
       "just return None if sequenced time already known" in {
@@ -618,7 +605,9 @@ trait DbStoreBasedTopologySnapshotTest
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 
   "DbStoreBasedTopologySnapshot" should {
-    behave like topologySnapshot(() => mkStore(DefaultTestIdentities.physicalSynchronizerId))
+    behave like topologySnapshot(() =>
+      mkStore(DefaultTestIdentities.physicalSynchronizerId, "topologySnapshot")
+    )
   }
 
 }

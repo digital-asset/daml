@@ -45,6 +45,7 @@ import org.scalatest.Assertion
 import org.slf4j.event.Level
 
 import java.util.UUID
+import scala.collection.immutable.Seq
 import scala.concurrent.{Await, Future, Promise}
 import scala.util.Failure
 
@@ -100,6 +101,16 @@ final class InteractiveSubmissionConfirmationIntegrationTest
         SigningKeyUsage.ProtocolOnly,
       )
 
+      val localVerdictWarning = Seq(2, 3).map[(LogEntry => Assertion, String)]({ p =>
+        (
+          e => {
+            e.warningMessage should (include regex "LOCAL_VERDICT_MALFORMED_REQUEST.*with a view that is not correctly authenticated")
+            e.mdc.get("participant") shouldBe Some(s"participant$p")
+          },
+          s"participant$p authentication",
+        )
+      })
+
       // To bypass the checks in phase 1 we play a trick by holding back the submission request in the sequencer
       // while we increase the key threshold, and release afterwards
       val releaseSubmission = Promise[Unit]()
@@ -130,7 +141,7 @@ final class InteractiveSubmissionConfirmationIntegrationTest
           completion.status.value.code shouldBe Status.Code.INVALID_ARGUMENT.value()
         },
         LogEntry.assertLogSeq(
-          Seq(2, 3).map({ p =>
+          localVerdictWarning ++ Seq(2, 3).map({ p =>
             (
               e => {
                 e.warningMessage should (include(

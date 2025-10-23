@@ -30,10 +30,17 @@ abstract class TopologyTransactionProcessorTest
 
   import Factory.*
 
+  protected def mkDefault(
+      testName: String = "processortest"
+  ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.SynchronizerStore]) = mk(
+    mkStore(
+      Factory.physicalSynchronizerId1a,
+      testName,
+    )
+  )
+
   protected def mk(
-      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(
-        Factory.physicalSynchronizerId1a
-      )
+      store: TopologyStore[TopologyStoreId.SynchronizerStore]
   ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val proc = new TopologyTransactionProcessor(
@@ -71,7 +78,7 @@ abstract class TopologyTransactionProcessorTest
   "topology transaction processor" when {
     "processing transactions from a synchronizer" should {
       "deal with additions" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
         // topology processor assumes to be able to find synchronizer parameters in the store for additional checks
         val block1 = List(ns1k1_k1, dmp1_k1)
         val block2Adds = List(ns1k2_k1, okm1bk5k1E_k1, dtcp1_k1)
@@ -97,7 +104,7 @@ abstract class TopologyTransactionProcessorTest
       }
 
       "deal with incremental additions" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
         val block1Adds = List(ns1k1_k1, ns1k2_k1)
         val block1Replaces = List(dmp1_k1)
         val block1 = block1Adds ++ block1Replaces
@@ -113,7 +120,7 @@ abstract class TopologyTransactionProcessorTest
       }
 
       "deal with removals" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
         val block1 = List(ns1k1_k1, ns1k2_k1)
         val block2 = block1.reverse.map(Factory.mkRemoveTx)
         process(proc, ts(0), 0, block1)
@@ -126,14 +133,14 @@ abstract class TopologyTransactionProcessorTest
       }
 
       "deal with add and remove in the same block" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
         process(proc, ts(0), 0, List(ns1k1_k1, okm1bk5k1E_k1, Factory.mkRemoveTx(okm1bk5k1E_k1)))
         val st1 = fetch(store, ts(0).immediateSuccessor)
         validate(st1, List(ns1k1_k1))
       }
 
       "idempotent / crash recovery" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault("idempotent")
         val block1 = List(ns1k1_k1, dmp1_k1, ns2k2_k2, ns3k3_k3)
         val block2 = List(ns1k2_k1, dtcp1_k1)
         val block3 = List(okm1bk5k1E_k1)
@@ -147,6 +154,7 @@ abstract class TopologyTransactionProcessorTest
         // to check that the unique index is not too general
         val block5 = List(dnd_proposal_k2, dnd_proposal_k2_alternative)
         val block6 = List(dnd_proposal_k3)
+
         process(proc, ts(0), 0, block1)
         process(proc, ts(1), 1, block2)
         process(proc, ts(2), 2, block3)
@@ -179,7 +187,7 @@ abstract class TopologyTransactionProcessorTest
       }
 
       "trigger topology subscribers with/without transactions" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
         var testTopoSubscriberCalledEmpty: Boolean = false
         var testTopoSubscriberCalledWithTxs: Boolean = false
         val testTopoSubscriber = new TopologyTransactionProcessingSubscriber {
@@ -252,7 +260,7 @@ abstract class TopologyTransactionProcessorTest
       }
 
       "cascading update and synchronizer parameters change" in {
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
         val block1 = List(ns1k1_k1, ns1k2_k1, dmp1_k2)
         process(proc, ts(0), 0, block1)
         val st1 = fetch(store, ts(0).immediateSuccessor)
@@ -273,7 +281,7 @@ abstract class TopologyTransactionProcessorTest
       "fetch previous authorizations" in {
         // after a restart, we need to fetch pre-existing authorizations from our store
         // simulate this one by one
-        val store = mkStore()
+        val store = mkStore(testName = "prevauth")
         val block1 = List(ns1k1_k1, ns1k2_k1, okm1bk5k1E_k2)
         block1.zipWithIndex.foreach { case (elem, idx) =>
           val proc = mk(store)._1
@@ -311,7 +319,7 @@ abstract class TopologyTransactionProcessorTest
           NonEmpty(Set, key1, key7, key8),
         )
 
-        val (proc, store) = mk(mkStore(synchronizerId))
+        val (proc, store) = mk(mkStore(synchronizerId, "dup"))
 
         def checkDop(
             ts: CantonTimestamp,
@@ -387,7 +395,7 @@ abstract class TopologyTransactionProcessorTest
         val dnd_add_ns2_k1 = createDnd(ns1, ns2)(key1, serial = PositiveInt.two, isProposal = true)
         val dnd_add_ns3_k3 = createDnd(ns1, ns3)(key3, serial = PositiveInt.two, isProposal = true)
         val dnd_add_ns3_k1 = createDnd(ns1, ns3)(key1, serial = PositiveInt.two, isProposal = true)
-        val (proc, store) = mk()
+        val (proc, store) = mkDefault()
 
         val rootCertificates = Seq[GenericSignedTopologyTransaction](ns1k1_k1, ns2k2_k2, ns3k3_k3)
         store
@@ -496,7 +504,7 @@ abstract class TopologyTransactionProcessorTest
         val dop2_k7_proposal =
           mkAdd(dopMapping2, signingKey = key7, serial = PositiveInt.two, isProposal = true)
 
-        val (proc, store) = mk(mkStore(synchronizerId))
+        val (proc, store) = mk(mkStore(synchronizerId, "sigs"))
 
         def checkDop(
             ts: CantonTimestamp,
@@ -603,12 +611,13 @@ abstract class TopologyTransactionProcessorTest
 
 class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProcessorTest {
   protected def mkStore(
-      psid: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a
+      psid: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a,
+      testName: String,
   ): TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
       TopologyStoreId.SynchronizerStore(psid),
       testedProtocolVersion,
-      loggerFactory,
+      loggerFactory.appendUnnamedKey("testName", testName),
       timeouts,
     )
 

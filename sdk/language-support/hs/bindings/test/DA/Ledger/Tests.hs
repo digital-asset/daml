@@ -16,11 +16,13 @@ import DA.Ledger as Ledger
 import DA.Test.Sandbox
 import Data.List (isInfixOf,(\\))
 import Data.IORef
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import Prelude hiding(Enum)
 import System.Environment.Blank (setEnv)
 import System.FilePath
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
+import Web.JWT (NumericDate, numericDate)
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.ByteString as BS (readFile)
@@ -212,12 +214,13 @@ runWithSandbox port mbSecret ls = runLedgerService ls' timeout (configOfPort por
           ls' = case mbSecret of
             Nothing -> ls
             Just secret -> do
-              let tok = Ledger.Token ("Bearer " <> makeSignedJwt' secret)
+              expiration <- liftIO $ numericDate . (+180) <$> getPOSIXTime
+              let tok = Ledger.Token ("Bearer " <> makeSignedJwt' secret expiration)
               setToken tok ls
 
-makeSignedJwt' :: Secret -> String
-makeSignedJwt' secret =
-    makeSignedAdminJwt (getSecret secret)
+makeSignedJwt' :: Secret -> Maybe NumericDate -> String
+makeSignedJwt' secret expiration =
+    makeSignedAdminJwt (getSecret secret) expiration
 
 ----------------------------------------------------------------------
 -- misc expectation combinators

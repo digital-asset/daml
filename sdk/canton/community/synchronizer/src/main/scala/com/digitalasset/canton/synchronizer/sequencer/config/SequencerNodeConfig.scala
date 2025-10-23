@@ -60,7 +60,7 @@ final case class SequencerNodeConfig(
       PositiveFiniteDuration.ofSeconds(45)
     ),
 ) extends LocalNodeConfig
-    with ConfigDefaults[DefaultPorts, SequencerNodeConfig]
+    with ConfigDefaults[Option[DefaultPorts], SequencerNodeConfig]
     with UniformCantonConfigValidation {
 
   override def clientAdminApi: ClientConfig = adminApi.clientConfig
@@ -75,14 +75,17 @@ final case class SequencerNodeConfig(
     )
 
   override def withDefaults(
-      ports: DefaultPorts,
+      ports: Option[DefaultPorts],
       edition: CantonEdition,
   ): SequencerNodeConfig = {
-    val withDefaults = this
-      .focus(_.publicApi.internalPort)
-      .modify(ports.sequencerPublicApiPort.setDefaultPort)
-      .focus(_.adminApi.internalPort)
-      .modify(ports.sequencerAdminApiPort.setDefaultPort)
+    val withDefaults = ports
+      .fold(this)(ports =>
+        this
+          .focus(_.publicApi.internalPort)
+          .modify(ports.sequencerPublicApiPort.setDefaultPort)
+          .focus(_.adminApi.internalPort)
+          .modify(ports.sequencerAdminApiPort.setDefaultPort)
+      )
       .focus(_.sequencer)
       .modify {
         case db: SequencerConfig.Database =>
@@ -98,6 +101,7 @@ final case class SequencerNodeConfig(
             )
         case other => other
       }
+
     withDefaults
       .focus(_.replication)
       .modify(replication =>

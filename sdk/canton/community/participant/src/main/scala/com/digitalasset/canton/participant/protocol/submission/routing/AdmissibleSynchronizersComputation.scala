@@ -26,14 +26,15 @@ import scala.math.Ordered.orderingToOrdered
 
 import TransactionRoutingError.{TopologyErrors, UnableToQueryTopologySnapshot}
 
-final class AdmissibleSynchronizersComputation(
+class AdmissibleSynchronizersComputation(
     localParticipantId: ParticipantId,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
-  /** Synchronizers that host both submitters and informees of the transaction:
+  /** Returns the hosting participants for the requested informees and submitters on the admissible
+    * synchronizers, where an admissible synchronizer satisfies the following:
     *   - submitters have to be hosted on the local participant
-    *   - informees have to be hosted on some participant It is assumed that the participant is
+    *   - informees have to be hosted on some participant. It is assumed that the participant is
     *     connected to all synchronizers in `connectedSynchronizers`
     */
   def forParties(
@@ -43,9 +44,10 @@ final class AdmissibleSynchronizersComputation(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-    Set[PhysicalSynchronizerId]
-  ]] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Map[
+    PhysicalSynchronizerId,
+    Map[LfPartyId, Set[ParticipantId]],
+  ]]] = {
 
     def queryPartyTopologySnapshotClient(
         synchronizerPartyTopologySnapshotClient: (
@@ -253,7 +255,13 @@ final class AdmissibleSynchronizersComputation(
         submittersSynchronizerIds,
         informeesSynchronizerIds,
       )
-    } yield commonSynchronizerIds
-
+    } yield NonEmpty
+      .from(
+        topology.view
+          .filterKeys(commonSynchronizerIds)
+          .mapValues(_.view.mapValues(_.participants.keySet).toMap)
+          .toMap
+      )
+      .getOrElse(sys.error("Unexpected empty result"))
   }
 }

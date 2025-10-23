@@ -15,6 +15,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import java.time.{Duration, Instant}
 
 class AuthITV2 extends AuthIT(LanguageMajorVersion.V2)
 
@@ -46,7 +47,10 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
             case Success(_) => Failure(new Exception("unexpected success"))
           }
           _ = info(s"client creation with wrong token fails with $err")
-          goodToken = config.getToken(userId)
+          goodToken = config.getToken(
+            userId,
+            exp = Some(Instant.now().plusNanos(Duration.ofMinutes(3).toNanos)),
+          )
           clients <- scriptClients(token = goodToken)
           _ = info(s"client creation with valid token succeeds")
           _ <- run(

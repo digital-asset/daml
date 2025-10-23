@@ -39,7 +39,6 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
 }
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Util
-import com.digitalasset.daml.lf.value.Value.ContractId
 
 sealed trait TopologyManagerError extends ContextualizedCantonError
 
@@ -60,6 +59,13 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause = s"Unhandled error: $description",
           throwableO = Some(throwable),
+        )
+        with TopologyManagerError
+
+    final case class Unexpected(description: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Unhandled error: $description"
         )
         with TopologyManagerError
 
@@ -304,10 +310,33 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   )
   object UnauthorizedTransaction extends AlarmErrorCode(id = "TOPOLOGY_UNAUTHORIZED_TRANSACTION") {
 
-    final case class Failure(reason: String)(implicit
+    final case class NoSignaturesProvided()(implicit
         override val loggingContext: ErrorLoggingContext
-    ) extends Alarm(cause = s"Topology transaction is not properly authorized: $reason")
+    ) extends Alarm(cause = s"Topology transaction is not properly authorized by any namespace key")
         with TopologyManagerError
+
+    final case class NoNamespaceAuth()(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends Alarm(cause = s"Topology transaction is not properly authorized by any namespace key")
+        with TopologyManagerError
+
+    final case class Missing(referenced: ReferencedAuthorizations)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends Alarm(
+          cause =
+            s"Topology transaction is missing authorizations by namespaces=${referenced.namespaces} and keys=${referenced.extraKeys}"
+        )
+        with TopologyManagerError
+
+    final case class NoDelegation(keys: Set[Fingerprint])(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends Alarm(
+          cause =
+            s"Topology transaction authorization cannot be verified due to missing namespace delegations for keys ${keys
+                .mkString(", ")}"
+        )
+        with TopologyManagerError
+
   }
 
   @Explanation(
@@ -326,25 +355,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     ) extends CantonError.Impl(
           cause =
             "There is no active topology transaction matching the mapping of the revocation request"
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
-    """This error indicates that the attempted key removal would remove the last valid key of the given entity, making the node unusable."""
-  )
-  @Resolution(
-    """Add the `force = true` flag to your command if you are really sure what you are doing."""
-  )
-  object RemovingLastKeyMustBeForced
-      extends ErrorCode(
-        id = "TOPOLOGY_REMOVING_LAST_KEY_MUST_BE_FORCED",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Failure(key: Fingerprint, purpose: KeyPurpose)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = "Topology transaction would remove the last key of the given entity"
         )
         with TopologyManagerError
   }
@@ -963,28 +973,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
           val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause = "Package vetting failed due to packages not existing on the local node"
-          )
-          with TopologyManagerError
-    }
-
-    @Resolution(
-      s"""To unvet the package id, you must archive all contracts using this package id."""
-    )
-    object PackageIdInUse
-        extends ErrorCode(
-          id = "TOPOLOGY_PACKAGE_ID_IN_USE",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Reject(
-          used: Ref.PackageId,
-          contract: ContractId,
-          synchronizerId: SynchronizerId,
-      )(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends CantonError.Impl(
-            cause =
-              s"Cannot unvet package $used as it is still in use by $contract on synchronizer $synchronizerId. " +
-                s"It may also be used by contracts on other synchronizers."
           )
           with TopologyManagerError
     }

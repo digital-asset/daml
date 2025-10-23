@@ -24,7 +24,8 @@ trait DownloadTopologyStateForInitializationServiceTest
     with HasActorSystem {
 
   protected def mkStore(
-      synchronizerId: PhysicalSynchronizerId
+      synchronizerId: PhysicalSynchronizerId,
+      testName: String,
   ): TopologyStore[SynchronizerStore]
 
   val testData = new TopologyStoreTestData(testedProtocolVersion, loggerFactory, executionContext)
@@ -75,7 +76,7 @@ trait DownloadTopologyStateForInitializationServiceTest
   private def initializeStore(
       storedTransactions: GenericStoredTopologyTransactions
   ): FutureUnlessShutdown[TopologyStore[SynchronizerStore]] = {
-    val store = mkStore(synchronizer1_p1p2_physicalSynchronizerId)
+    val store = mkStore(synchronizer1_p1p2_physicalSynchronizerId, "download")
     val groupedBySequencedTime =
       storedTransactions.result.groupBy(tx => (tx.sequenced, tx.validFrom)).toSeq.sortBy {
         case (sequenced, _) => sequenced

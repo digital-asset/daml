@@ -68,6 +68,7 @@ import org.apache.pekko.actor.ActorSystem
 import java.io.{ByteArrayOutputStream, OutputStream}
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.GZIPOutputStream
+import scala.annotation.nowarn
 import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -117,6 +118,7 @@ final class GrpcParticipantRepairService(
   }
 
   // TODO(#24610) – Remove, replaced by exportAcs
+  @nowarn("cat=deprecation")
   override def exportAcsOld(
       request: ExportAcsOldRequest,
       responseObserver: StreamObserver[ExportAcsOldResponse],
@@ -133,6 +135,7 @@ final class GrpcParticipantRepairService(
   }
 
   // TODO(#24610) – Remove, replaced by exportAcs
+  @nowarn("cat=deprecation")
   private def createAcsSnapshotTemporaryFile(
       request: ExportAcsOldRequest,
       out: OutputStream,
@@ -873,6 +876,7 @@ final class GrpcParticipantRepairService(
 object GrpcParticipantRepairService {
 
   // TODO(#24610) - remove, used by ExportAcsOldRequest only
+  @nowarn("cat=deprecation")
   private object ValidExportAcsOldRequest {
     private def validateRequestOld(
         request: ExportAcsOldRequest

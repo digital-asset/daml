@@ -39,6 +39,7 @@ import io.grpc.Context
 
 import java.time.Instant
 import java.util.UUID
+import scala.annotation.nowarn
 
 class ParticipantRepairAdministration(
     val consoleEnvironment: ConsoleEnvironment,
@@ -186,6 +187,7 @@ class ParticipantRepairAdministration(
         |         request.
         """
   )
+  @nowarn("cat=deprecation")
   def export_acs_old(
       parties: Set[PartyId],
       partiesOffboarding: Boolean,

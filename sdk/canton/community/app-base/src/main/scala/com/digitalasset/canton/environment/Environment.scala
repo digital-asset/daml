@@ -211,7 +211,7 @@ class Environment(
 
   protected val futureSupervisor =
     if (config.monitoring.logging.logSlowFutures)
-      new FutureSupervisor.Impl(timeouts.slowFutureWarn)
+      new FutureSupervisor.Impl(timeouts.slowFutureWarn, loggerFactory)
     else FutureSupervisor.Noop
 
   private val monitorO = if (deadlockConfig.enabled) {

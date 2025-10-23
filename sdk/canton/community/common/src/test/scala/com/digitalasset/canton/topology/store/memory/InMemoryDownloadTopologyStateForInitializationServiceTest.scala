@@ -14,13 +14,14 @@ import com.digitalasset.canton.topology.store.{
 class InMemoryDownloadTopologyStateForInitializationServiceTest
     extends DownloadTopologyStateForInitializationServiceTest {
   override protected def mkStore(
-      synchronizerId: PhysicalSynchronizerId
+      synchronizerId: PhysicalSynchronizerId,
+      testName: String,
   ): TopologyStore[TopologyStoreId.SynchronizerStore] = {
     val storeId = SynchronizerStore(synchronizerId)
     new InMemoryTopologyStore[TopologyStoreId.SynchronizerStore](
       storeId,
       testedProtocolVersion,
-      loggerFactory,
+      loggerFactory.appendUnnamedKey("testName", testName),
       timeouts,
     )
   }

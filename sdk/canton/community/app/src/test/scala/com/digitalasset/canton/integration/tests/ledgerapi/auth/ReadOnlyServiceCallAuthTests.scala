@@ -49,7 +49,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       import env.*
       assume(testCanReadAsMainActor)
       successfulBehavior(
-        serviceCall(canReadAsMainActorExpiresTomorrow)
+        serviceCall(canReadAsMainActorExpiresInAnHour)
       )
     }
 
@@ -87,7 +87,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
       import env.*
       assume(testCanReadAsMainActor)
       successfulBehavior(
-        serviceCall(canReadAsAnyPartyExpiresTomorrow)
+        serviceCall(canReadAsAnyPartyExpiresInAnHour)
       )
     }
 
@@ -164,7 +164,7 @@ trait ReadOnlyServiceCallAuthTests extends ServiceCallWithMainActorAuthTests {
         serviceCallWithMainActorUser(
           "u6",
           Vector(proto.Right.Kind.CanActAs(proto.Right.CanActAs(getMainActorId))),
-          expiringIn(Duration.ofDays(1), _),
+          expiringIn(Duration.ofHours(1), _),
         )
       )
     }

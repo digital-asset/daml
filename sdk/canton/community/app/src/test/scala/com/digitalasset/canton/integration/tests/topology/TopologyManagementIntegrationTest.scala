@@ -901,7 +901,9 @@ trait TopologyManagementIntegrationTest
           ),
           _.shouldBeCantonError(
             UnauthorizedTransaction,
-            _ should include(s"No delegation found for keys ${key1.fingerprint}"),
+            _ should include(
+              s"Topology transaction authorization cannot be verified due to missing namespace delegations for keys ${key1.fingerprint}"
+            ),
           ),
           _.errorMessage should (include regex "INVALID_ARGUMENT.*Please contact the operator"),
         )
@@ -1362,6 +1364,81 @@ trait TopologyManagementIntegrationTest
       }
     }
   }
+
+  "correctly absorb additional signatures" in { implicit env =>
+    import env.*
+    // this test was used to reproduce and fix https://github.com/DACH-NY/canton-network-internal/issues/2116
+    val storeId = daId
+    val party = PartyId.tryCreate("AdditionalSiggy", participant1.id.namespace)
+
+    participant1.topology.party_to_participant_mappings.propose(
+      party,
+      newParticipants = Seq(
+        (participant1.id, ParticipantPermission.Submission),
+        (participant2.id, ParticipantPermission.Confirmation),
+      ),
+      store = storeId,
+    )
+
+    val proposal = eventually() {
+      participant2.topology.party_to_participant_mappings
+        .list_hosting_proposals(sequencer1.synchronizer_id, participant2.id)
+        .loneElement
+    }
+    val tx =
+      participant2.topology.transactions.authorize(sequencer1.synchronizer_id, proposal.txHash)
+
+    // now send the same tx but as a proposal with only one signature
+    val tx2 = tx.copy(isProposal = true, signatures = NonEmpty.from(tx.signatures.drop(1)).value)
+
+    logger.debug("Load transaction again")
+    participant2.topology.transactions.load(Seq(tx2), storeId)
+
+    eventually() {
+      participant1.ledger_api.parties.list().map(_.party) should contain(party)
+    }
+
+    eventually() {
+      val actualTx = participant2.topology.party_to_participant_mappings
+        .list(
+          TopologyStoreId.Synchronizer(sequencer1.synchronizer_id),
+          timeQuery = TimeQuery.Range(None, None),
+          filterParty = party.filterString,
+        )
+
+      val proposal = participant2.topology.party_to_participant_mappings
+        .list(
+          TopologyStoreId.Synchronizer(sequencer1.synchronizer_id),
+          proposals = true,
+          timeQuery = TimeQuery.Range(None, None),
+          filterParty = party.filterString,
+        )
+      logger.debug(
+        "Stored authorized\n  " + actualTx
+          .map { c =>
+            s"serial=${c.context.serial}, from=${c.context.validFrom}, until=${c.context.validUntil}, signedBy=${c.context.signedBy}, "
+          }
+          .mkString("\n  ")
+      )
+
+      logger.debug(
+        "Stored proposal\n  " + proposal
+          .map { c =>
+            s"serial=${c.context.serial}, from=${c.context.validFrom}, until=${c.context.validUntil}, signedBy=${c.context.signedBy}, "
+          }
+          .mkString("\n  ")
+      )
+
+      actualTx should have length (2)
+      forAll(actualTx.map(_.context.signedBy.forgetNE)) { sigs =>
+        sigs should have length (2)
+      }
+      proposal.loneElement.context.signedBy.forgetNE should have length (1)
+
+    }
+
+  }
+
 }
 
 class TopologyManagementReferenceIntegrationTestPostgres extends TopologyManagementIntegrationTest {

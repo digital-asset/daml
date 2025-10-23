@@ -39,6 +39,7 @@ import com.digitalasset.canton.metrics.{
 import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.resource.{Storage, StorageSingleFactory}
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
@@ -69,7 +70,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
   trait TestNode extends CantonNode
   case class TestNodeConfig()
       extends LocalNodeConfig
-      with ConfigDefaults[DefaultPorts, TestNodeConfig] {
+      with ConfigDefaults[Option[DefaultPorts], TestNodeConfig] {
     override val init: InitConfig = InitConfig()
     override val adminApi: AdminServerConfig =
       AdminServerConfig(internalPort = Some(UniquePortGenerator.next))
@@ -78,7 +79,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig()
     override def nodeTypeName: String = "test-node"
     override def clientAdminApi = adminApi.clientConfig
-    override def withDefaults(ports: DefaultPorts, edition: CantonEdition): TestNodeConfig = this
+    override def withDefaults(ports: Option[DefaultPorts], edition: CantonEdition): TestNodeConfig =
+      this
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig()
     override val topology: TopologyConfig = TopologyConfig.NotUsed
     override def parameters: LocalNodeParametersConfig = new LocalNodeParametersConfig {
@@ -174,6 +176,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
     override protected def customNodeStages(
         storage: Storage,
+        indexedStringStore: IndexedStringStore,
         crypto: Crypto,
         adminServerRegistry: CantonMutableHandlerRegistry,
         adminTokenDispenser: CantonAdminTokenDispenser,

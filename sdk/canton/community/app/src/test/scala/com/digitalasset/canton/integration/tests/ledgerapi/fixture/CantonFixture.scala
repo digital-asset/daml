@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.ledgerapi.fixture
 
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.AuthServiceConfig
 import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.integration.tests.ledgerapi.auth.SandboxRequiringAuthorizationFuns
@@ -24,6 +25,7 @@ import org.scalatest.BeforeAndAfterEach
 import java.io.File
 import java.net.InetAddress
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.duration.DurationInt
 
 trait CantonFixture extends CantonFixtureAbstract with SharedEnvironment {
   override def afterAll(): Unit =
@@ -73,6 +75,12 @@ trait CantonFixtureAbstract
         ),
         ConfigTransforms.updateParticipantConfig("participant1")(
           ConfigTransforms.useTestingTimeService
+        ),
+        // Setting the token lifetime to 2 hours makes the tests less flaky even under duress,
+        // as we have tests that use tokens on both sides of the lifetime boundary.
+        ConfigTransforms.updateParticipantConfig("participant1")(
+          _.focus(_.ledgerApi.maxTokenLifetime)
+            .replace(config.NonNegativeDuration(2.hours))
         ),
         ConfigTransforms.useStaticTime,
         // to enable tests related to pruning

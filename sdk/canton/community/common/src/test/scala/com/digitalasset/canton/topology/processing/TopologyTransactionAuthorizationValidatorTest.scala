@@ -19,7 +19,6 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.Authorization.{
   MultiTransactionHashMismatch,
   NoDelegationFoundForKeys,
-  NotAuthorized,
 }
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -31,7 +30,11 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
-import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, MappingHash}
+import com.digitalasset.canton.topology.transaction.TopologyMapping.{
+  Code,
+  MappingHash,
+  ReferencedAuthorizations,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
@@ -73,7 +76,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         Factory.syncCryptoClient.crypto.pureCrypto,
         store,
         validationIsFinal = validationIsFinal,
-        loggerFactory,
+        store.loggerFactory,
       )
     validator
   }
@@ -228,8 +231,16 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             validatedTopologyTransactions,
             Seq(
               None,
-              Some(_ == NotAuthorized),
-              Some(_ == NotAuthorized),
+              Some(
+                _ == TopologyTransactionRejection.Authorization.NotFullyAuthorized(
+                  ReferencedAuthorizations(extraKeys = Set(SigningKeys.key7.fingerprint))
+                )
+              ),
+              Some(
+                _ == TopologyTransactionRejection.Authorization.NotFullyAuthorized(
+                  ReferencedAuthorizations(extraKeys = Set(SigningKeys.key7.fingerprint))
+                )
+              ),
             ),
           )
         }
@@ -269,7 +280,11 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               None,
               None,
               // PTKs with missign signing keys are not permitted
-              Some(_ == NotAuthorized),
+              Some(
+                _ == TopologyTransactionRejection.Authorization.NotFullyAuthorized(
+                  ReferencedAuthorizations(extraKeys = Set(SigningKeys.key7.fingerprint))
+                )
+              ),
             ),
           )
         }
@@ -331,10 +346,14 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               None, // ownerToKeyWithMissingKeySignature, missing key signatures on proposals are allowed
               // even though the transactions are proposals, meaning partial authorization would be allowed,
               // at least 1 namespace must sign. just signing with the extra keys is not enough.
-              Some(_ == NotAuthorized), // ownerToKeyWithMissingNamespaceSignature
+              Some(
+                _ == TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey
+              ), // ownerToKeyWithMissingNamespaceSignature
               None, // ptk
               None, // partyToKeyWithMissingKeySignature, missing key signatures on proposals are allowed
-              Some(_ == NotAuthorized), // partyToKeyWithMissingNamespaceSignature
+              Some(
+                _ == TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey
+              ), // partyToKeyWithMissingNamespaceSignature
             ),
           )
         }
@@ -383,7 +402,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           new InMemoryTopologyStore(
             TopologyStoreId.AuthorizedStore,
             testedProtocolVersion,
-            loggerFactory,
+            loggerFactory.appendUnnamedKey("TestName", "multidnd"),
             timeouts,
           )
         val validator = mk(store)
@@ -825,7 +844,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             resultExpectFullAuthorization,
             Seq(
               None,
-              Some(_ == NotAuthorized),
+              Some(_ == TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey),
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
@@ -834,7 +853,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             resultDontExpectFullAuthorization,
             Seq(
               None,
-              Some(_ == NotAuthorized),
+              Some(_ == TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey),
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
@@ -880,7 +899,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               None,
               None,
               None,
-              Some(_ == NotAuthorized),
+              Some(_ == TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey),
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
             ),
           )
@@ -1421,7 +1440,9 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               s"key1: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
               validateTx(isProposal, expectFullAuthorization, key1).map(
-                _.rejectionReason shouldBe Some(NotAuthorized)
+                _.rejectionReason.value shouldBe a[
+                  TopologyTransactionRejection.Authorization.NotFullyAuthorized
+                ]
               )
             )
         }
@@ -1441,7 +1462,9 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               s"key1, key8: isProposal=$isProposal, expectFullAuthorization=$expectFullAuthorization"
             )(
               validateTx(isProposal, expectFullAuthorization, key1, key8).map({ s =>
-                s.rejectionReason shouldBe Some(NotAuthorized)
+                s.rejectionReason.value shouldBe a[
+                  TopologyTransactionRejection.Authorization.NotFullyAuthorized
+                ]
                 ()
               })
             )

@@ -53,7 +53,7 @@ class ScopeBasedTokenAuthIT extends ServiceCallAuthTests with ErrorsAssertions {
     issuer = None,
     participantId = None,
     userId = participantAdmin,
-    exp = None,
+    exp = Some(Instant.now().plusNanos(Duration.ofMinutes(5).toNanos)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(defaultScope),

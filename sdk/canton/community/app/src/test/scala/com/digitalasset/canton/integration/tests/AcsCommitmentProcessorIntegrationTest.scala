@@ -820,7 +820,7 @@ class AcsCommitmentProcessorReferenceIntegrationTestPostgres
 //    extends AcsCommitmentProcessorIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(
-//    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+//    new UseReferenceBlockSequencer[DbConfig.H2](
 //      loggerFactory,
 //      sequencerGroups = MultiSynchronizer(
 //        Seq(

@@ -86,7 +86,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       toProcess: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val requiredKeys = requiredAuhtorizationKeys(toProcess, inStore)
+    val requiredKeys = permissibleAuthorizationKeysToPreload(toProcess, inStore)
     loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces)
   }
 
@@ -119,7 +119,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       ErrorUtil.invalidState(s"Cache miss for direct namespace $namespace"),
     )
 
-  protected def loadNamespaceCaches(
+  private def loadNamespaceCaches(
       asOfExclusive: CantonTimestamp,
       namespaces: Set[Namespace],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -255,11 +255,18 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
     }
   }
 
-  def requiredAuhtorizationKeys(
+  private def permissibleAuthorizationKeysToPreload(
       toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping],
       inStore: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ): AuthorizationKeys = {
-    val referencedAuthorizations = requiredAuthFor(toValidate, inStore).referenced
+    val againstInStore = requiredAuthFor(toValidate, inStore).referenced
+    val referencedAuthorizations = {
+      val plainReferencedAuth = requiredAuthFor(toValidate, None).referenced
+      ReferencedAuthorizations(
+        namespaces = againstInStore.namespaces ++ plainReferencedAuth.namespaces,
+        extraKeys = againstInStore.extraKeys ++ plainReferencedAuth.extraKeys,
+      )
+    }
     requiredAuthorizationKeysForProcessing(toValidate) ++
       requiredForCheckingAuthorization(referencedAuthorizations)
   }

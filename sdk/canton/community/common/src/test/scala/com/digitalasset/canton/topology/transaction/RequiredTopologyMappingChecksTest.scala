@@ -157,9 +157,16 @@ private[transaction] abstract class BaseTopologyMappingChecksTest[T <: TopologyM
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction] = None,
       pendingChanges: PendingChangesLookup = Map.empty,
+      relaxChecksForBackwardsCompatibility: Boolean = false,
   ): Either[TopologyTransactionRejection, Unit] =
     checks
-      .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore, pendingChanges)
+      .checkTransaction(
+        EffectiveTime.MaxValue,
+        toValidate,
+        inStore,
+        pendingChanges,
+        relaxChecksForBackwardsCompatibility,
+      )
       .value
       .futureValueUS
 
@@ -192,9 +199,16 @@ class RequiredTopologyMappingChecksTest
         toValidate: GenericSignedTopologyTransaction,
         inStore: Option[GenericSignedTopologyTransaction] = None,
         pendingChanges: PendingChangesLookup = Map.empty,
+        relaxChecksForBackwardsCompatibility: Boolean = false,
     ): Either[TopologyTransactionRejection, Unit] =
       checks
-        .checkTransaction(EffectiveTime.MaxValue, toValidate, inStore, pendingChanges)
+        .checkTransaction(
+          EffectiveTime.MaxValue,
+          toValidate,
+          inStore,
+          pendingChanges,
+          relaxChecksForBackwardsCompatibility,
+        )
         .value
         .futureValueUS
 

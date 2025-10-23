@@ -264,6 +264,7 @@ object TopologyMapping {
       * authorization keys need to be evaluated in order to check if this RequiredAuth is met.
       */
     def referenced: ReferencedAuthorizations
+
   }
 
   object RequiredAuth {
@@ -284,7 +285,7 @@ object TopologyMapping {
         )
       }
 
-      override def referenced: ReferencedAuthorizations =
+      override lazy val referenced: ReferencedAuthorizations =
         ReferencedAuthorizations(namespaces = namespaces, extraKeys = extraKeys)
 
       override protected def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
@@ -304,7 +305,7 @@ object TopologyMapping {
           .satisfiedByActualAuthorizers(provided)
           .orElse(second.satisfiedByActualAuthorizers(provided))
 
-      override def referenced: ReferencedAuthorizations =
+      override lazy val referenced: ReferencedAuthorizations =
         ReferencedAuthorizations.monoid.combine(first.referenced, second.referenced)
 
       override protected def pretty: Pretty[Or.this.type] =

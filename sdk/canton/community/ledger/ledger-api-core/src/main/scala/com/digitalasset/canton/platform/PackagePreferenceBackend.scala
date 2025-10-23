@@ -91,7 +91,7 @@ class PackagePreferenceBackend(
 
     for {
       _ <- ensurePackageNamesKnown(packageVettingRequirements, packageMetadataSnapshot)
-      packageMapForRequest <- syncService.packageMapFor(
+      packageMapForRequest <- syncService.computePartyVettingMap(
         submitters = Set.empty,
         informees = packageVettingRequirements.allParties,
         vettingValidityTimestamp = vettingValidAt.getOrElse(clock.now),

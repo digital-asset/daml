@@ -32,12 +32,19 @@ import scala.concurrent.ExecutionContext
   *   for quite a while)
   * @param controlFactors
   *   The adjustment parameters for the prune batch size computation (threshold, factor)
+  * @param maxItemsExpectedToPrunePerBatch
+  *   The maximum on the number of items expected to prune per batch. Implemented by select stores
+  *   (e.g. ActiveContractStore) to help motivate database filtered index selection. Should be at
+  *   least an order of magnitude larger than targetBatchSize to not interfere with dynamic
+  *   bucketing after a participant node has been inactive for a while, but not excessively large to
+  *   discourage scanning the entire table.
   */
 final case class PrunableByTimeParameters(
     targetBatchSize: PositiveInt,
     initialInterval: NonNegativeFiniteDuration,
     maxBuckets: PositiveInt,
     controlFactors: Seq[ControlFactors] = PrunableByTimeParameters.DefaultControlFactors,
+    maxItemsExpectedToPrunePerBatch: PositiveInt,
 )
 
 object PrunableByTimeParameters {
@@ -61,6 +68,7 @@ object PrunableByTimeParameters {
     targetBatchSize = PositiveInt.tryCreate(10),
     initialInterval = NonNegativeFiniteDuration.tryOfSeconds(5),
     maxBuckets = PositiveInt.tryCreate(10),
+    maxItemsExpectedToPrunePerBatch = PositiveInt.tryCreate(1000),
   )
 
   private lazy val DefaultControlFactors = Seq(

@@ -92,7 +92,7 @@ trait SyncService
     *     of the informees provided
     *   - if the prescribed synchronizer is provided, only that one is considered
     */
-  def packageMapFor(
+  def computePartyVettingMap(
       submitters: Set[LfPartyId],
       informees: Set[LfPartyId],
       vettingValidityTimestamp: CantonTimestamp,

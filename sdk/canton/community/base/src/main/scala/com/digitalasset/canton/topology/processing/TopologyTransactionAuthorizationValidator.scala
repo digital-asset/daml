@@ -56,6 +56,12 @@ private object AuthorizationKeys {
   *         cascading update that activates or deactivates states that depend on this delegation.
   *   1. finally, what we compute as the "authorized graph" is then used to compute the derived
   *      table of "namespace delegations"
+  *
+  * @param validationIsFinal
+  *   if false, then a new topology transaction will be marked as a proposal in the case where the
+  *   provided signatures are valid, but not sufficient.
+  * @param relaxSynchronizerStateChecks
+  *   if true, then certain checks are relaxed for backwards compatibilitiy
   */
 class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val pureCrypto: PureCrypto,
@@ -90,7 +96,11 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
     verifySynchronizer(toValidate) match {
       case ValidatedTopologyTransaction(tx, None, _) =>
-        populateCaches(effectiveTime, toValidate.transaction, inStore.map(_.transaction)).map(_ =>
+        populateCaches(
+          effectiveTime,
+          toValidate.transaction,
+          inStore.map(_.transaction),
+        ).map(_ =>
           processTransaction(
             tx,
             inStore,
@@ -164,11 +174,20 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     TopologyTransactionRejection,
     (GenericSignedTopologyTransaction, ReferencedAuthorizations),
   ] = {
+    // TODO(#28792) bail if toValidate.serial == inStore.serial && toValidate.transaction != inStore.transaction
+    // check if this is a transaction that just appends a new signature to the existing, already approved one
+    val mergingNewSignatureIntoActiveStateTx =
+      inStore.exists(tx => !tx.isProposal && tx.transaction == toValidate.transaction)
     // first determine all possible namespaces that need to sign the transaction
     val requiredAuth = requiredAuthFor(toValidate.transaction, inStore.map(_.transaction))
-    logger.debug(s"Required authorizations: $requiredAuth")
-
-    val referencedAuth = requiredAuth.referenced
+    // the following signatures are allowed
+    val permissibleSig = {
+      val tmp = requiredAuthFor(toValidate.transaction, None).referenced
+      TopologyMapping.ReferencedAuthorizations(
+        namespaces = tmp.namespaces ++ requiredAuth.referenced.namespaces,
+        extraKeys = tmp.extraKeys ++ requiredAuth.referenced.extraKeys,
+      )
+    }
 
     val (wronglyCoveredHashes, unvalidatedSigningKeysCoveringHash) =
       toValidate.signatures.toSet.partitionMap(sig =>
@@ -176,7 +195,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       )
     val wronglyCoveredHashesNE = NonEmpty.from(wronglyCoveredHashes.flatten)
     // let's determine which namespaces actually delegated to any of the keys
-    val namespaceAuthorizations = referencedAuth.namespaces.map { ns =>
+    val namespaceAuthorizations = permissibleSig.namespaces.map { ns =>
       // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
       val check = tryGetAuthorizationCheckForNamespace(ns)
       val keysUsed = check.keysSupportingAuthorization(
@@ -190,7 +209,9 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
 
     val extraKeyAuthorizations =
       // assume extra keys are not found
-      referencedAuth.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
+      permissibleSig.extraKeys
+        .map(k => k -> (false, Set.empty[SigningPublicKey]))
+        .toMap ++
         // and replace with those that were actually found
         // we have to dive into owner to key mappings and paryt to key mappings directly here, because we don't
         // need to keep them around (like we do for namespace delegations) and OTK / PTK are the
@@ -209,7 +230,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
                 // only consider the public key as "found" if:
                 // * it's required and
                 // * actually used to sign the transaction
-                if referencedAuth
+                if permissibleSig
                   .extraKeys(k.fingerprint) && unvalidatedSigningKeysCoveringHash(k.fingerprint) =>
               k.fingerprint -> (true, Set(k))
           }.toMap
@@ -223,14 +244,23 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     }.toMap
 
     val allKeysUsedForAuthorization = namespaceAuthorizationKeys ++ extraKeyAuthorizationKeys
-
-    logAuthorizations("Authorizations for namespaces", namespaceAuthorizations)
-    logAuthorizations("Authorizations for extraKeys", extraKeyAuthorizations)
-
-    logger.debug(s"All keys used for authorization: ${allKeysUsedForAuthorization.keySet}")
-
     val superfluousKeys =
       toValidate.signatures.map(_.authorizingLongTermKey) -- allKeysUsedForAuthorization.keys
+
+    if (logger.underlying.isDebugEnabled()) {
+      // TODO(#28792) extended "provided" information to distinguish between optional and required signatures
+      logger.debug(
+        s"Authorization details for ${toValidate.mapping.code}=${toValidate.transaction.hash}\n" +
+          s"  Required: $requiredAuth\n" +
+          s"  Provided for namespaces:" + renderAuthorizations(namespaceAuthorizations) + "\n" +
+          s"  Provided for extraKeys: " + renderAuthorizations(extraKeyAuthorizations) + "\n" +
+          s"  All keys used for authorization: ${allKeysUsedForAuthorization.keySet}" + (
+            if (superfluousKeys.nonEmpty) s"\n  Superfluous keys: ${superfluousKeys.mkString(", ")}"
+            else ""
+          )
+      )
+    }
+
     for {
       // check that all signatures cover the transaction hash
       _ <- wronglyCoveredHashesNE
@@ -256,16 +286,24 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           AuthorizationRejections.NoDelegationFoundForKeys(superfluousKeys)
         })
 
-      namespaceAuthorizationKeysNE <- NonEmpty
-        .from(namespaceAuthorizationKeys)
-        .toRight(AuthorizationRejections.NotAuthorized)
+      _ <- Either.cond(
+        namespaceAuthorizationKeys.nonEmpty,
+        (),
+        AuthorizationRejections.NotAuthorizedByNamespaceKey,
+      )
 
       _ <- validateSignatures(
         txWithSignaturesToVerify,
-        namespaceAuthorizationKeys = namespaceAuthorizationKeysNE,
+        namespaceAuthorizationKeys = namespaceAuthorizationKeys,
         extraKeyAuthorizationKeys = extraKeyAuthorizationKeys,
       )
-    } yield {
+    } yield
+    // At this point, only new signatures where added to an existing fully authorized transactions. All signatures
+    // where also validated.
+    // This cannot have invalidated the authorization and therefore we can state that there are no missing authorizations.
+    if (mergingNewSignatureIntoActiveStateTx)
+      (txWithSignaturesToVerify, ReferencedAuthorizations.empty)
+    else {
       // Only returns the keys of the map, for which the first tuple element is true.
       def onlyFullyAuthorized[A](map: Map[A, (Boolean, ?)]): Set[A] = map.collect {
         case (a, (true, _)) => a
@@ -287,12 +325,16 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
             // 2. the transaction is an OwnerToKeyMapping
             // Then:
             //   such missing signatures should be ignored and not reported as authorization failure.
-            missing =>
-              if (
-                transactionMayHaveMissingSigningKeySignatures && toValidate.mapping.code == OwnerToKeyMapping.code
-              )
-                missing.copy(extraKeys = Set.empty)
-              else missing,
+            missing => {
+              val ret =
+                if (
+                  transactionMayHaveMissingSigningKeySignatures && toValidate.mapping.code == OwnerToKeyMapping.code
+                )
+                  missing.copy(extraKeys = Set.empty)
+                else missing
+              logger.debug(s"Missing authorizations ${ret.namespaces} / ${ret.extraKeys}")
+              ret
+            },
             _ => ReferencedAuthorizations.empty,
           ),
       )
@@ -306,76 +348,82 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     */
   private def validateSignatures(
       txWithSignaturesToVerify: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],
-      namespaceAuthorizationKeys: NonEmpty[Map[Fingerprint, SigningPublicKey]],
+      namespaceAuthorizationKeys: Map[Fingerprint, SigningPublicKey],
       extraKeyAuthorizationKeys: Map[Fingerprint, SigningPublicKey],
-  )(implicit traceContext: TraceContext): Either[TopologyTransactionRejection, Unit] = {
-    val validSignaturesToVerify = txWithSignaturesToVerify.signaturesWithHash(pureCrypto)
-    val keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
-      txWithSignaturesToVerify.mapping,
-      namespaceAuthorizationKeys.keySet ++ extraKeyAuthorizationKeys.keySet,
-      forSigning = false,
-    )
-    // partition the signatures into two groups:
-    // 1. namespace signatures
-    // 2. extraKey signatures.
-    // This allows us to first validate the signatures namespace authorizations, and
-    // only validate extra key signatures, if there is at least 1 valid namespace signature.
-    val (namespaceKeysWithSignature, extraKeysWithSignature) =
-      validSignaturesToVerify.toSeq.partitionEither { case (hash, signature) =>
-        val namespaceKeyWithSignature = namespaceAuthorizationKeys
-          .get(signature.authorizingLongTermKey)
-          .map(pubKey => Left((hash, signature, pubKey)))
+  )(implicit traceContext: TraceContext): Either[TopologyTransactionRejection, Unit] =
+    NonEmpty // a transaction must have at least one signature, so this should pass
+      .from(namespaceAuthorizationKeys.keySet ++ extraKeyAuthorizationKeys.keySet)
+      .toRight(
+        TopologyTransactionRejection.Authorization.NoSignatureProvided
+      )
+      .flatMap { signingKeysNE =>
+        val validSignaturesToVerify = txWithSignaturesToVerify.signaturesWithHash(pureCrypto)
 
-        lazy val extraKeyWithSignature = extraKeyAuthorizationKeys
-          .get(signature.authorizingLongTermKey)
-          .map(pubKey => Right((hash, signature, pubKey)))
+        val keyIdsWithUsage = TopologyManager.assignExpectedUsageToKeys(
+          txWithSignaturesToVerify.mapping,
+          signingKeysNE,
+          forSigning = false,
+        )
+        // partition the signatures into two groups:
+        // 1. namespace signatures
+        // 2. extraKey signatures.
+        // This allows us to first validate the signatures namespace authorizations, and
+        // only validate extra key signatures, if there is at least 1 valid namespace signature.
+        val (namespaceKeysWithSignature, extraKeysWithSignature) =
+          validSignaturesToVerify.toSeq.partitionEither { case (hash, signature) =>
+            val namespaceKeyWithSignature = namespaceAuthorizationKeys
+              .get(signature.authorizingLongTermKey)
+              .map(pubKey => Left((hash, signature, pubKey)))
 
-        namespaceKeyWithSignature
-          .orElse(extraKeyWithSignature)
-          .getOrElse(
-            ErrorUtil.invalidState(
-              s"Key ${signature.authorizingLongTermKey} was delegated to, but no actual key was identified. This should not happen."
-            )
+            lazy val extraKeyWithSignature = extraKeyAuthorizationKeys
+              .get(signature.authorizingLongTermKey)
+              .map(pubKey => Right((hash, signature, pubKey)))
+
+            namespaceKeyWithSignature
+              .orElse(extraKeyWithSignature)
+              .getOrElse(
+                ErrorUtil.invalidState(
+                  s"Key ${signature.authorizingLongTermKey} was delegated to, but no actual key was identified. This should not happen."
+                )
+              )
+          }
+
+        // validate the hash of an individual signature
+        def validateSignature(
+            hash: Hash,
+            signature: TopologyTransactionSignature,
+            publicKey: SigningPublicKey,
+        ): Either[TopologyTransactionRejection, Unit] = for {
+          _ <- Either.cond(
+            signature.coversHash(txWithSignaturesToVerify.hash),
+            (),
+            AuthorizationRejections
+              .MultiTransactionHashMismatch(
+                txWithSignaturesToVerify.hash,
+                signature.hashesCovered,
+              ),
           )
+          _ <- pureCrypto
+            .verifySignature(
+              hash,
+              publicKey,
+              signature.signature,
+              keyIdsWithUsage.forgetNE(publicKey.id),
+            )
+            .leftMap(AuthorizationRejections.SignatureCheckFailed.apply)
+
+        } yield ()
+
+        for {
+          _ <- namespaceKeysWithSignature.traverse_((validateSignature _).tupled)
+          _ <- extraKeysWithSignature.traverse_((validateSignature _).tupled)
+        } yield ()
+
       }
 
-    // validate the hash of an individual signature
-    def validateSignature(
-        hash: Hash,
-        signature: TopologyTransactionSignature,
-        publicKey: SigningPublicKey,
-    ): Either[TopologyTransactionRejection, Unit] = for {
-      _ <- Either.cond(
-        signature.coversHash(txWithSignaturesToVerify.hash),
-        (),
-        AuthorizationRejections
-          .MultiTransactionHashMismatch(
-            txWithSignaturesToVerify.hash,
-            signature.hashesCovered,
-          ),
-      )
-      _ <- pureCrypto
-        .verifySignature(
-          hash,
-          publicKey,
-          signature.signature,
-          keyIdsWithUsage.forgetNE(publicKey.id),
-        )
-        .leftMap(AuthorizationRejections.SignatureCheckFailed.apply)
-
-    } yield ()
-
-    for {
-      _ <- namespaceKeysWithSignature.traverse_((validateSignature _).tupled)
-      _ <- extraKeysWithSignature.traverse_((validateSignature _).tupled)
-    } yield ()
-
-  }
-
-  private def logAuthorizations[A](
-      msg: String,
-      auths: Map[A, (Boolean, Set[SigningPublicKey])],
-  )(implicit traceContext: TraceContext): Unit = if (logger.underlying.isDebugEnabled) {
+  private def renderAuthorizations[A](
+      auths: Map[A, (Boolean, Set[SigningPublicKey])]
+  ): String = {
     val authorizingKeys = auths
       .collect {
         case (auth, (fullyAuthorized, keys)) if keys.nonEmpty => (auth, fullyAuthorized, keys)
@@ -386,9 +434,9 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
           val status = if (fullyAuthorized) "fully" else "partially"
           s"$auth $status authorized by keys ${keys.map(_.id)}"
         }
-        .mkString(", ")
-      logger.debug(s"$msg: $report")
-    }
+        .mkString("\n    ")
+      "\n    " + report
+    } else " No authorizing keys"
   }
 
   private def handleSuccessfulSignatureChecks(
@@ -429,7 +477,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       }
       ValidatedTopologyTransaction(
         toValidate,
-        Some(AuthorizationRejections.NotAuthorized),
+        Some(AuthorizationRejections.NotFullyAuthorized(missingAuthorizers)),
       )
     }
   }
@@ -452,7 +500,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
         val result = {
           validateSignatures(
             rootCert,
-            NonEmpty(Map, rootCert.mapping.target.fingerprint -> rootCert.mapping.target),
+            Map(rootCert.mapping.target.fingerprint -> rootCert.mapping.target),
             Map.empty,
           )
 

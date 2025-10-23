@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.RefinedDuration
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
+import slick.jdbc.GetResult
 
 final case class EffectiveTime(value: CantonTimestamp) {
   def toApproximate: ApproximateTime = ApproximateTime(value)
@@ -26,6 +27,11 @@ object EffectiveTime {
     Ordering.by[EffectiveTime, CantonTimestamp](_.value)
   def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[EffectiveTime] =
     CantonTimestamp.fromProtoTimestamp(ts).map(EffectiveTime(_))
+
+  implicit val getResultEffectiveTime: GetResult[EffectiveTime] =
+    GetResult(r => EffectiveTime(CantonTimestamp.assertFromLong(r.nextLong())))
+  implicit val getResultOptionEffectiveTime: GetResult[Option[EffectiveTime]] =
+    GetResult(r => r.nextLongOption().map(ts => EffectiveTime(CantonTimestamp.assertFromLong(ts))))
 }
 
 final case class ApproximateTime(value: CantonTimestamp)
@@ -49,4 +55,9 @@ object SequencedTime {
     Ordering.by[SequencedTime, CantonTimestamp](_.value)
   def fromProtoPrimitive(ts: ProtoTimestamp): ParsingResult[SequencedTime] =
     CantonTimestamp.fromProtoTimestamp(ts).map(SequencedTime(_))
+
+  implicit val getResultSequencedTime: GetResult[SequencedTime] =
+    GetResult(r => SequencedTime(CantonTimestamp.assertFromLong(r.nextLong())))
+  implicit val getResultOptionSequencedTime: GetResult[Option[SequencedTime]] =
+    GetResult(r => r.nextLongOption().map(ts => SequencedTime(CantonTimestamp.assertFromLong(ts))))
 }

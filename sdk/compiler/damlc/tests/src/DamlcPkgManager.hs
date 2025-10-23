@@ -17,6 +17,7 @@ import Data.List
 import qualified Data.Map as M
 import Data.Maybe
 import qualified Data.Text.Extended as T
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import System.Directory
 import System.Environment.Blank
@@ -26,6 +27,7 @@ import System.IO.Extra
 import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
+import Web.JWT (numericDate)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -174,7 +176,8 @@ testsForRemoteDataDependencies damlc dar =
                     InspectInfo {mainPackageId} <- getDarInfo dar
                     let mainPkgId = T.unpack $ LF.unPackageId mainPackageId
                     let tokenFp = projDir </> "token"
-                    writeFileUTF8 tokenFp $ makeSignedAdminJwt "secret"
+                    expiration <- numericDate . (+180) <$> getPOSIXTime
+                    writeFileUTF8 tokenFp $ makeSignedAdminJwt "secret" expiration
                     sandboxPort <- getSandboxPort
                     writeFileUTF8 (projDir </> "daml.yaml") $
                         unlines

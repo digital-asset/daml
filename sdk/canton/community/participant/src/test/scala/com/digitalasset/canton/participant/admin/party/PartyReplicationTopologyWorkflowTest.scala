@@ -228,8 +228,8 @@ class PartyReplicationTopologyWorkflowTest
         )
 
         for {
-          _ <- add(topologyStore)(tsSerialMinusOne, serialBefore, ptpBefore)
-          _ <- add(topologyStore)(tsSerial, serial, ptpProposal, proposal = true)
+          _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore, ptpBefore)
+          _ <- add(topologyStore)(tsSerialMinusOne, serial, ptpProposal, proposal = true)
           effectiveTsBeforeO <- tw
             .authorizeOnboardingTopology(params, topologyManager, topologyStore)
             .valueOrFail("expect authorization to succeed")
@@ -335,7 +335,7 @@ class PartyReplicationTopologyWorkflowTest
             SequencerCounter.Genesis,
             Seq.empty,
           )
-          _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore2, ptpBefore)
+          _ <- add(topologyStore)(tsSerialMinusTwo.minusSeconds(1), serialBefore2, ptpBefore)
           _ <- add(topologyStore)(
             tsSerialMinusTwo,
             serialBefore2,

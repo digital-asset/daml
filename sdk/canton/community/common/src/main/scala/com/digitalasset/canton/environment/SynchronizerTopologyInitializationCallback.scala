@@ -117,14 +117,12 @@ class StoreBasedSynchronizerTopologyInitializationCallback(
       st,
       et,
       st.toApproximate,
-      potentialTopologyChange = true,
     )
     if (et.value != st.value) {
       topologyClient.updateHead(
         st,
         et,
         et.toApproximate,
-        potentialTopologyChange = true,
       )
     }
   }

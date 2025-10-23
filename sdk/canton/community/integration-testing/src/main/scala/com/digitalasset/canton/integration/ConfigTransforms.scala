@@ -608,6 +608,14 @@ object ConfigTransforms {
       _.focus(_.mediator.pruning.maxPruningBatchSize).replace(batchSize)
     )
 
+  def updateCommitmentCheckpointInterval(
+      interval: PositiveDurationSeconds
+  ): ConfigTransform =
+    updateAllParticipantConfigs_(
+      _.focus(_.parameters.commitmentCheckpointInterval)
+        .replace(interval)
+    )
+
   def updateAllDatabaseSequencerConfigs(
       updateDbSequencerConfig: SequencerConfig.Database => SequencerConfig.Database
   ): ConfigTransform = {

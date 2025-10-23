@@ -78,7 +78,7 @@ class StoreBasedTopologySnapshot(
       ).toList.flatMap(_.packages.map(vp => (vp.packageId, vp))).toMap
     }
 
-  override def loadVettedPackages(participants: Seq[ParticipantId])(implicit
+  override def loadVettedPackages(participants: Set[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
     NonEmpty
@@ -86,7 +86,7 @@ class StoreBasedTopologySnapshot(
       .map { participantsNE =>
         findTransactions(
           types = Seq(TopologyMapping.Code.VettedPackages),
-          filterUid = Some(participantsNE),
+          filterUid = Some(participantsNE.toSeq),
           filterNamespace = None,
         ).map { transactions =>
           transactions

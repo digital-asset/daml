@@ -14,6 +14,7 @@ import com.digitalasset.canton.protocol.OnboardingRestriction
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.transaction.TopologyMapping
+import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   PositiveTopologyTransaction,
   TxHash,
@@ -46,11 +47,29 @@ object TopologyTransactionRejection {
   /** list of rejections which are created due to authorization checks */
   object Authorization {
 
-    case object NotAuthorized extends TopologyTransactionRejection {
-      override def asString: String = "Not authorized"
+    /** Internal error, indicating a violation of the invariant that a signed transaction needs at
+      * least one signature
+      */
+    case object NoSignatureProvided extends TopologyTransactionRejection {
+      override def asString: String = "No signature provided to authentication check"
 
       override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-        TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+        TopologyManagerError.InternalError.Unexpected(asString)
+    }
+
+    case object NotAuthorizedByNamespaceKey extends TopologyTransactionRejection {
+      override def asString: String = "Not authorized by any namespace key"
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.UnauthorizedTransaction.NoNamespaceAuth()
+    }
+
+    final case class NotFullyAuthorized(missing: ReferencedAuthorizations)
+        extends TopologyTransactionRejection {
+      override def asString: String = "Not fully authorized"
+
+      override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+        TopologyManagerError.UnauthorizedTransaction.Missing(missing)
     }
 
     final case class NoDelegationFoundForKeys(keys: Set[Fingerprint])
@@ -58,7 +77,7 @@ object TopologyTransactionRejection {
       override def asString: String = s"No delegation found for keys ${keys.mkString(", ")}"
 
       override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-        TopologyManagerError.UnauthorizedTransaction.Failure(asString)
+        TopologyManagerError.UnauthorizedTransaction.NoDelegation(keys)
 
     }
     final case class MultiTransactionHashMismatch(

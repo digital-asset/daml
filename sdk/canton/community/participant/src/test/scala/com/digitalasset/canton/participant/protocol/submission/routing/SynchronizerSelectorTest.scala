@@ -114,7 +114,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       ) shouldBe InvalidPrescribedSynchronizerId
         .NotAllInformeeAreOnSynchronizer(
           da,
-          synchronizersOfAllInformee = NonEmpty.mk(Set, acme),
+          synchronizersOfAllInformees = NonEmpty.mk(Set, acme),
         )
 
       // Multi synchronizer: reassignment proposal (da -> acme)
@@ -328,7 +328,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         ) shouldBe InvalidPrescribedSynchronizerId
           .NotAllInformeeAreOnSynchronizer(
             acme,
-            synchronizersOfAllInformee = NonEmpty.mk(Set, da),
+            synchronizersOfAllInformees = NonEmpty.mk(Set, da),
           )
       }
 

@@ -98,6 +98,10 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       synchronizerIdx <- EitherT
         .right(syncPersistentStateManager.getSynchronizerIdx(psid.logical))
 
+      synchronizerTopologyStoreId <- EitherT.right(
+        syncPersistentStateManager.getSynchronizerTopologyStoreId(psid)
+      )
+
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, psid))
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -107,6 +111,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         .lookupOrCreatePersistentState(
           config.synchronizerAlias,
           physicalSynchronizerIdx,
+          synchronizerTopologyStoreId,
           synchronizerIdx,
           sequencerAggregatedInfo.staticSynchronizerParameters,
         )

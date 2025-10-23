@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests.ledgerapi.submission
 
+import cats.Eval
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionAndWaitResponse,
@@ -172,8 +173,10 @@ trait BaseInteractiveSubmissionTest extends BaseTest {
       ledgerEnd: Long,
       observingPartyE: ExternalParty,
       execParticipant: ParticipantReference,
+      runBetweenAttempts: Eval[Unit] = Eval.Unit,
   ): Completion =
     eventually() {
+      runBetweenAttempts.value
       execParticipant.ledger_api.completions
         .list(
           observingPartyE.partyId,

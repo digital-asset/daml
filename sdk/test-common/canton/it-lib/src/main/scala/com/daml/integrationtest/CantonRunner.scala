@@ -24,6 +24,7 @@ import scala.concurrent.Future
 import scala.sys.process.{Process, ProcessLogger}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.time.Instant
 
 import scala.concurrent.ExecutionContext
 
@@ -293,12 +294,13 @@ object CantonRunner {
       userId: String,
       authSecret: Option[String] = None,
       targetScope: Option[String] = None,
+      exp: Option[Instant] = None,
   ): Option[String] = authSecret.map { secret =>
     val payload = StandardJWTPayload(
       issuer = None,
       userId = userId,
       participantId = None,
-      exp = None,
+      exp = exp,
       format = StandardJWTTokenFormat.Scope,
       audiences = List.empty,
       scope = Some(targetScope.getOrElse("daml_ledger_api")),

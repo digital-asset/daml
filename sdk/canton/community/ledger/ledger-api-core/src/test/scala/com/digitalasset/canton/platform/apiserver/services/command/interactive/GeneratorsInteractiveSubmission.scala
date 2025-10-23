@@ -85,7 +85,7 @@ final class GeneratorsInteractiveSubmission(
     case leaf: Value.ValueCidlessLeaf => leaf
   }
 
-  // Updated nodes that filter out fields not supported in LF 2.1
+  // Updated nodes that filter out fields not supported in LF 2.2
   def normalizeNodeForV1[N <: Node](node: N): N = node match {
     case node: Node.Create =>
       node

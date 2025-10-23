@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   CantonConfig,
   CantonFeatures,
+  DefaultPorts,
   EnterpriseCantonEdition,
   LoggingConfig,
   MonitoringConfig,
@@ -945,7 +946,7 @@ object EnvironmentDefinition extends LazyLogging {
   private def loadConfigFromResource(path: String): CantonConfig = {
     val rawConfig = ConfigFactory.parseString(Resource.getAsString(path))
     CantonConfig
-      .loadAndValidate(rawConfig, EnterpriseCantonEdition)
+      .loadAndValidate(rawConfig, EnterpriseCantonEdition, Some(DefaultPorts.create()))
       .valueOr { err =>
         // print a useful error message such that the developer can figure out which file failed
         logger.error(s"Failed to load file $path: $err", new Exception("location"))
@@ -954,7 +955,11 @@ object EnvironmentDefinition extends LazyLogging {
   }
 
   def fromFiles(files: File*): EnvironmentDefinition = {
-    val config = CantonConfig.parseAndLoadOrExit(files.map(_.toJava), EnterpriseCantonEdition)
+    val config = CantonConfig.parseAndLoadOrExit(
+      files.map(_.toJava),
+      EnterpriseCantonEdition,
+      Some(DefaultPorts.create()),
+    )
     EnvironmentDefinition(baseConfig = config)
   }
 

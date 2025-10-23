@@ -74,7 +74,6 @@ trait SynchronizerOwnerIntegrationTest
         }
         .headOption
         .value
-
       synchronizerOwners1.foreach { owner =>
         owner.topology.party_to_participant_mappings.propose(
           party = aliceReplace.item.partyId,
