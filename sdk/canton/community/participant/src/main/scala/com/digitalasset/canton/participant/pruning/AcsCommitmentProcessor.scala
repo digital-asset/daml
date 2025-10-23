@@ -888,10 +888,9 @@ class AcsCommitmentProcessor private (
             // round down to nearest multiple of commitmentCheckpointInterval
             val checkpointTs = CantonTimestamp.ofEpochSecond(
               Math.multiplyExact(
-                Math.divideExact(
-                  toc.timestamp.getEpochSecond,
-                  commitmentCheckpointInterval.duration.toSeconds,
-                ),
+                // division can't overflow because the divisor is positive by construction of PositiveDurationSeconds
+                // also the divisor is guaranteed to be > 0 by construction of PositiveDurationSeconds
+                toc.timestamp.getEpochSecond / commitmentCheckpointInterval.duration.toSeconds,
                 commitmentCheckpointInterval.duration.toSeconds,
               )
             )
