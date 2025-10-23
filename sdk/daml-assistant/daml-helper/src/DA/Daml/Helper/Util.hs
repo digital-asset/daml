@@ -260,10 +260,11 @@ data SandboxPorts = SandboxPorts
   , sequencerPublic :: Int
   , sequencerAdmin :: Int
   , mediatorAdmin :: Int
+  , jsonApi :: Int
   }
 
 defaultSandboxPorts :: SandboxPorts
-defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868 6869
+defaultSandboxPorts = SandboxPorts 6865 6866 6867 6868 6869 6870
 
 runCantonSandbox :: CantonOptions -> [String] -> IO ()
 runCantonSandbox options args = withCantonSandbox options args (const $ pure ())
@@ -337,7 +338,7 @@ data CantonOptions = CantonOptions
   , cantonStaticTime :: StaticTime
   , cantonHelp :: Bool
   , cantonConfigFiles :: [FilePath]
-  , cantonJsonApi :: Maybe Int
+  , cantonJsonApi :: Int
   , cantonJsonApiPortFileM :: Maybe FilePath
   }
 
@@ -368,7 +369,7 @@ cantonConfig CantonOptions{..} =
                      ] <>
                      [ "http-ledger-api" Aeson..= Aeson.object
                         [ "server" Aeson..= Aeson.object ( concat
-                            [ [ "port" Aeson..= port | Just port <- [cantonJsonApi] ]
+                            [ [ "port" Aeson..= cantonJsonApi ]
                             , [ "port-file" Aeson..= portFile | Just portFile <- [cantonJsonApiPortFileM] ]
                             ])
                         ]
