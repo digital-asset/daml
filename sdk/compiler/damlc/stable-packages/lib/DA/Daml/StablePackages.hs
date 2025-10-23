@@ -6,7 +6,7 @@ module DA.Daml.StablePackages
     , allStablePackagesForVersion
     , numStablePackagesForVersion
     , stablePackageByModuleName
-    , stableIds
+    , allV2StablePackagesTuples
     ) where
 
 import Data.Bifunctor
@@ -19,10 +19,8 @@ import DA.Daml.LF.Ast.Version.GeneratedVersions
 import DA.Daml.LF.Proto3.Archive.Encode
 import DA.Daml.UtilLF
 
-allV2StablePackages :: MS.Map PackageId Package
-allV2StablePackages =
-    MS.fromList $
-    map (\pkg  -> (encodePackageHash pkg, pkg))
+allV2StablePackagesList :: [Package]
+allV2StablePackagesList =
       [ ghcTypes version2_1
       , ghcPrim version2_1
       , ghcTuple version2_1
@@ -51,6 +49,13 @@ allV2StablePackages =
       , daStackTypes version2_1
       , daInternalFailTypes version2_1
       ]
+
+allV2StablePackagesTuples :: [(PackageId, Package)]
+allV2StablePackagesTuples =
+  map (\pkg -> (encodePackageHash pkg, pkg)) allV2StablePackagesList
+
+allV2StablePackages :: MS.Map PackageId Package
+allV2StablePackages = MS.fromList allV2StablePackagesTuples
 
 allStablePackages :: MS.Map PackageId Package
 allStablePackages = allV2StablePackages

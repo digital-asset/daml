@@ -1,0 +1,47 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+
+da_haskell_binary(
+    name = "writer",
+    srcs = ["src/DA/Daml/JsonWriter.hs"],
+    data = ["stable-packages.json"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/stable-packages:stable-packages-lib",
+    ],
+)
+
+da_haskell_library(
+    name = "reader",
+    srcs = [
+        "src/DA/Daml/HardcodedStablePackages.hs",
+        "src/DA/Daml/JsonReader.hs",
+    ],
+    # 3. Pass the file's location to GHC via a macro
+    compiler_flags = [
+        "-XCPP",  # Enable the C Preprocessor
+        '-DJSON_FILE_PATH="$(location stable-packages.json)"',  # pass path of json
+    ],
+    extra_srcs = ["stable-packages.json"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "file-embed",
+        "text",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+    ],
+)
