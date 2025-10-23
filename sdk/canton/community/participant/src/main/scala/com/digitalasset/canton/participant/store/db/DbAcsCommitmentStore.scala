@@ -16,7 +16,10 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordTime
-import com.digitalasset.canton.participant.store.AcsCommitmentStore.ParticipantCommitmentData
+import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
+  ParticipantCommitmentData,
+  ReinitializationStatus,
+}
 import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
@@ -548,6 +551,7 @@ class DbIncrementalCommitmentStore(
           HashAlgorithm.Sha256,
         )
         .toLengthLimitedHexString
+
     def deleteCommitments(stakeholders: List[SortedSet[LfPartyId]]): DbAction.All[Unit] = {
       val deleteStatement =
         "delete from par_commitment_snapshot where synchronizer_idx = ? and stakeholders_hash = ?"
@@ -604,6 +608,62 @@ class DbIncrementalCommitmentStore(
       DBIO.seq(operations*).transactionally.withTransactionIsolation(Serializable),
       operationName = "commitments: incremental commitments snapshot update",
     )
+  }
+
+  override def readReinitilizationStatus()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[ReinitializationStatus] = {
+    val query =
+      sql"""select ts_reinit_ongoing, ts_reinit_completed from par_commitment_reinitialization where synchronizer_idx=$indexedSynchronizer"""
+        .as[(Option[CantonTimestamp], Option[CantonTimestamp])]
+        .headOption
+    storage
+      .query(query, operationName = "commitments: read reinitilization status")
+      .map(_.getOrElse((None, None)))
+      .map { case (lastStarted, lastCompleted) =>
+        ReinitializationStatus(lastStarted, lastCompleted)
+      }
+  }
+
+  override def markReinitializationStarted(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val query = storage.profile match {
+      case _: DbStorage.Profile.Postgres =>
+        sqlu"""insert into par_commitment_reinitialization (synchronizer_idx, ts_reinit_ongoing)
+                    VALUES ($indexedSynchronizer, $timestamp)
+                 on conflict (synchronizer_idx) do update
+                  set
+                    ts_reinit_ongoing = $timestamp
+                 """
+      case _: DbStorage.Profile.H2 =>
+        sqlu"""merge into par_commitment_reinitialization
+                  using dual
+                  on (synchronizer_idx = $indexedSynchronizer)
+                  when matched then
+                    update set
+                       ts_reinit_ongoing = $timestamp
+                  when not matched then
+                    insert (synchronizer_idx, ts_reinit_ongoing)
+                    values ($indexedSynchronizer, $timestamp)
+                 """
+    }
+    storage.update_(query, functionFullName)
+  }
+
+  override def markReinitializationCompleted(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] = {
+    val query = storage.profile match {
+      case _ =>
+        sqlu"""
+          UPDATE par_commitment_reinitialization
+          SET ts_reinit_completed = $timestamp
+          WHERE synchronizer_idx = $indexedSynchronizer
+            AND ts_reinit_ongoing = $timestamp
+        """
+    }
+    storage.update(query, functionFullName).map(nrRows => if (nrRows > 0) true else false)
   }
 }
 

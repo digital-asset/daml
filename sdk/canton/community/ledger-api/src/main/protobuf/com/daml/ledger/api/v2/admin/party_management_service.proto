@@ -6,6 +6,8 @@ syntax = "proto3";
 package com.daml.ledger.api.v2.admin;
 
 import "com/daml/ledger/api/v2/admin/object_meta.proto";
+import "com/daml/ledger/api/v2/crypto.proto";
+import "com/daml/ledger/api/v2/interactive/interactive_submission_service.proto";
 import "google/protobuf/field_mask.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2.Admin";
@@ -68,12 +70,39 @@ service PartyManagementService {
   // colon, minus and underscore limited to 255 chars
   rpc AllocateParty(AllocatePartyRequest) returns (AllocatePartyResponse);
 
+  // Alpha 3.3: Endpoint to allocate a new external party on a synchronizer
+  //
+  // Expected to be stable in 3.5
+  //
+  // The external party must be hosted (at least) on this node with either confirmation or observation permissions
+  // It can optionally be hosted on other nodes (then called a multi-hosted party).
+  // If hosted on additional nodes, explicit authorization of the hosting relationship must be performed on those nodes
+  // before the party can be used.
+  // Decentralized namespaces are supported but must be provided fully authorized by their owners.
+  // The individual owner namespace transactions can be submitted in the same call (fully authorized as well).
+  // In the simple case of a non-multi hosted, non-decentralized party, the RPC will return once the party is
+  // effectively allocated and ready to use, similarly to the AllocateParty behavior.
+  // For more complex scenarios applications may need to query the party status explicitly (only through the admin API as of now).
+  rpc AllocateExternalParty(AllocateExternalPartyRequest) returns (AllocateExternalPartyResponse);
+
   // Update selected modifiable participant-local attributes of a party details resource.
   // Can update the participant's local information for local parties.
   rpc UpdatePartyDetails(UpdatePartyDetailsRequest) returns (UpdatePartyDetailsResponse);
 
   // Update the assignment of a party from one IDP to another.
   rpc UpdatePartyIdentityProviderId(UpdatePartyIdentityProviderIdRequest) returns (UpdatePartyIdentityProviderIdResponse);
+
+  // Alpha 3.3: Convenience endpoint to generate topology transactions for external signing
+  //
+  // Expected to be stable in 3.5
+  //
+  // You may use this endpoint to generate the common external topology transactions
+  // which can be signed externally and uploaded as part of the allocate party process
+  //
+  // Note that this request will create a normal namespace using the same key for the
+  // identity as for signing. More elaborate schemes such as multi-signature
+  // or decentralized parties require you to construct the topology transactions yourself.
+  rpc GenerateExternalPartyTopology(GenerateExternalPartyTopologyRequest) returns (GenerateExternalPartyTopologyResponse);
 }
 
 // Required authorization: ``HasRight(ParticipantAdmin)``
@@ -159,6 +188,48 @@ message AllocatePartyResponse {
   PartyDetails party_details = 1;
 }
 
+// Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``
+message AllocateExternalPartyRequest {
+  message SignedTransaction {
+    // The serialized TopologyTransaction
+    bytes transaction = 1;
+    // Additional signatures for this transaction specifically
+    // Use for transactions that require additional signatures beyond the namespace key signatures
+    // e.g: PartyToKeyMapping must be signed by all registered keys
+    repeated interactive.Signature signatures = 2;
+  }
+
+  // TODO(#27670) support synchronizer aliases
+  // Synchronizer ID on which to onboard the party
+  // Required
+  string synchronizer = 1;
+  // TopologyTransactions to onboard the external party
+  // Can contain:
+  // - A namespace for the party.
+  // This can be either a single NamespaceDelegation,
+  // or DecentralizedNamespaceDefinition along with its authorized namespace owners in the form of NamespaceDelegations.
+  // May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+  // - A PartyToKeyMapping to register the party's signing keys.
+  // May be provided, if so it must be fully authorized by the signatures in this request combined with the existing topology state.
+  // - A PartyToParticipant to register the hosting relationship of the party.
+  // Must be provided.
+  // Required
+  repeated SignedTransaction onboarding_transactions = 2;
+
+  // Optional signatures of the combined hash of all onboarding_transactions
+  // This may be used instead of providing signatures on each individual transaction
+  repeated interactive.Signature multi_hash_signatures = 3;
+
+  // The id of the ``Identity Provider``
+  // If not set, assume the party is managed by the default identity provider.
+  // Optional
+  string identity_provider_id = 4;
+}
+
+message AllocateExternalPartyResponse {
+  string party_id = 1;
+}
+
 // Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(party_details.identity_provider_id)``
 message UpdatePartyDetailsRequest {
   // Party to be updated
@@ -230,3 +301,36 @@ message UpdatePartyIdentityProviderIdRequest {
 }
 
 message UpdatePartyIdentityProviderIdResponse {}
+
+message GenerateExternalPartyTopologyRequest {
+  // TODO(#27670) support synchronizer aliases
+  // Required: synchronizer-id for which we are building this request.
+  string synchronizer = 1;
+  // Required: the actual party id will be constructed from this hint and a fingerprint of the public key
+  string party_hint = 2;
+  // Required: public key
+  com.daml.ledger.api.v2.SigningPublicKey public_key = 3;
+  // Optional: if true, then the local participant will only be observing, not confirming. Default false.
+  bool local_participant_observation_only = 4;
+  // Optional: other participant ids which should be confirming for this party
+  repeated string other_confirming_participant_uids = 5;
+  // Optional: Confirmation threshold >= 1 for the party. Defaults to all available confirmers (or if set to 0).
+  uint32 confirmation_threshold = 6;
+  // Optional: other observing participant ids for this party
+  repeated string observing_participant_uids = 7;
+}
+
+// Response message with topology transactions and the multi-hash to be signed.
+message GenerateExternalPartyTopologyResponse {
+  // the generated party id
+  string party_id = 1;
+  // the fingerprint of the supplied public key
+  string public_key_fingerprint = 2;
+  // The serialized topology transactions which need to be signed and submitted as part of the allocate party process
+  // Note that the serialization includes the versioning information. Therefore, the transaction here is serialized
+  // as an `UntypedVersionedMessage` which in turn contains the serialized `TopologyTransaction` in the version
+  // supported by the synchronizer.
+  repeated bytes topology_transactions = 3;
+  // the multi-hash which may be signed instead of each individual transaction
+  bytes multi_hash = 4;
+}

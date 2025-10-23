@@ -175,8 +175,10 @@ object UserBasedAuthInterceptor {
   private[this] def userRightToClaim(r: UserRight): Claim = r match {
     case UserRight.CanActAs(p) => ClaimActAsParty(Ref.Party.assertFromString(p))
     case UserRight.CanReadAs(p) => ClaimReadAsParty(Ref.Party.assertFromString(p))
+    case UserRight.CanExecuteAs(p) => ClaimExecuteAsParty(Ref.Party.assertFromString(p))
     case UserRight.IdentityProviderAdmin => ClaimIdentityProviderAdmin
     case UserRight.ParticipantAdmin => ClaimAdmin
     case UserRight.CanReadAsAnyParty => ClaimReadAsAnyParty
+    case UserRight.CanExecuteAsAnyParty => ClaimExecuteAsAnyParty
   }
 }

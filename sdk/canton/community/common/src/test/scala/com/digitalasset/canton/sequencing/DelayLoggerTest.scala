@@ -9,6 +9,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressionRule.FullSuppression
+import com.digitalasset.canton.metrics.SequencingTimeMetrics
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
@@ -17,9 +18,17 @@ class DelayLoggerTest extends AnyWordSpec with BaseTest {
 
   "checkForDelay" should {
     val clock = new SimClock(start = CantonTimestamp.now(), loggerFactory = loggerFactory)
-    val gauge = NoOpGauge[Long](MetricInfo(MetricName("test"), "", MetricQualification.Debug), 0L)
+    val delayGauge =
+      NoOpGauge[Long](MetricInfo(MetricName("test"), "", MetricQualification.Debug), 0L)
+    val lastSequencingTime =
+      NoOpGauge[Long](MetricInfo(MetricName("test"), "", MetricQualification.Debug), 0L)
     val delayLogger =
-      new DelayLogger(clock, logger, NonNegativeFiniteDuration.tryOfSeconds(1), gauge)
+      new DelayLogger(
+        clock,
+        logger,
+        NonNegativeFiniteDuration.tryOfSeconds(1),
+        SequencingTimeMetrics(delayGauge, lastSequencingTime),
+      )
 
     def probe(delayMs: Long, assertion: Seq[LogEntry] => Assertion): Unit = {
       val event = mock[PossiblyIgnoredProtocolEvent]

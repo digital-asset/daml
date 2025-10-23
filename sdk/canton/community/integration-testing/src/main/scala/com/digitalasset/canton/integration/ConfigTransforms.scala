@@ -28,9 +28,15 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.{
   BftSequencer,
   SequencerHighAvailabilityConfig,
 }
+import com.digitalasset.canton.synchronizer.sequencer.SequencerWriterConfig.HighThroughput
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.{BlockSequencerConfig, SequencerConfig}
+import com.digitalasset.canton.synchronizer.sequencer.{
+  BlockSequencerConfig,
+  ProgressSupervisorConfig,
+  SequencerConfig,
+}
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveFiniteDuration}
+import com.digitalasset.canton.util.BytesUnit
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator, config}
 import com.typesafe.config.ConfigValueFactory
@@ -802,7 +808,7 @@ object ConfigTransforms {
       ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v33)
 
   def setTopologyTransactionRegistrationTimeout(
-      timeout: config.NonNegativeDuration
+      timeout: config.NonNegativeFiniteDuration
   ): Seq[ConfigTransform] = Seq(
     updateAllParticipantConfigs_(
       _.focus(_.topology.topologyTransactionRegistrationTimeout).replace(timeout)
@@ -824,4 +830,52 @@ object ConfigTransforms {
       _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
     ),
   )
+
+  def enableSequencerProgressSupervisor: ConfigTransform =
+    updateAllSequencerConfigs_(
+      _.focus(_.parameters.progressSupervisor).replace(Some(ProgressSupervisorConfig()))
+    )
+
+  def useRecipientsTableForSequencerReads: ConfigTransform =
+    updateAllSequencerConfigs_(
+      _.focus(_.sequencer).modify {
+        case db: SequencerConfig.External =>
+          db.focus(_.block.reader.useRecipientsTableForReads)
+            .replace(true)
+            .focus(_.block.writer)
+            .modify {
+              case highThroughput: HighThroughput =>
+                highThroughput.copy(bufferedEventsMaxMemory = BytesUnit.zero)
+              case other => other
+            }
+        case other => other
+      }
+    )
+
+  def sequencerBufferEventsWithoutPayloads: ConfigTransform = {
+    def setWriterParameters(
+        sequencerConfig: SequencerConfig
+    ): SequencerConfig = sequencerConfig match {
+      case external: SequencerConfig.External =>
+        external
+          .focus(_.block.writer)
+          .modify(_.modify(bufferEventsWithPayloads = false, bufferPayloads = true))
+      case bft: SequencerConfig.BftSequencer =>
+        bft
+          .focus(_.block.writer)
+          .modify(_.modify(bufferEventsWithPayloads = false, bufferPayloads = true))
+      case other => other
+    }
+
+    updateAllSequencerConfigs_(
+      _.focus(_.sequencer).modify(setWriterParameters)
+    )
+  }
+
+  def zeroReassignmentTimeProofFreshnessProportion: ConfigTransform =
+    ConfigTransforms.updateAllParticipantConfigs_(
+      // Always send time proofs for reassignments to avoid using outdated topology snapshots.
+      // We don't want to change the default to avoid potential time proof flooding in production.
+      _.focus(_.parameters.reassignmentTimeProofFreshnessProportion).replace(NonNegativeInt.zero)
+    )
 }

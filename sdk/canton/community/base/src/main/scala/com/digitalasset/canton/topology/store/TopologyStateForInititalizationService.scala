@@ -6,11 +6,14 @@ package com.digitalasset.canton.topology.store
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
-import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.PekkoUtil
 import io.grpc.Status
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.ExecutionContext
 
@@ -18,7 +21,7 @@ trait TopologyStateForInitializationService {
   def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[GenericStoredTopologyTransactions]
+  ): Source[GenericStoredTopologyTransaction, NotUsed]
 }
 
 final class StoreBasedTopologyStateForInitializationService(
@@ -56,7 +59,7 @@ final class StoreBasedTopologyStateForInitializationService(
   override def initialSnapshot(member: Member)(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
+  ): Source[GenericStoredTopologyTransaction, NotUsed] = {
     val effectiveFromF = member match {
       case participant @ ParticipantId(_) =>
         synchronizerTopologyStore
@@ -76,7 +79,7 @@ final class StoreBasedTopologyStateForInitializationService(
         )
     }
 
-    effectiveFromF.flatMap { effectiveFromO =>
+    val sourceF = effectiveFromF.map { effectiveFromO =>
       effectiveFromO
         .map { effectiveFrom =>
           logger.debug(s"Fetching initial topology state for $member at $effectiveFrom")
@@ -90,18 +93,22 @@ final class StoreBasedTopologyStateForInitializationService(
           )
         }
         .getOrElse(
-          synchronizerTopologyStore
-            .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
-            .flatMap { maxTimestamp =>
-              FutureUnlessShutdown.failed(
-                Status.FAILED_PRECONDITION
-                  .withDescription(
-                    s"No onboarding transaction found for $member as of $maxTimestamp"
+          PekkoUtil
+            .futureSourceUS(
+              synchronizerTopologyStore
+                .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
+                .flatMap { maxTimestamp =>
+                  FutureUnlessShutdown.failed(
+                    Status.FAILED_PRECONDITION
+                      .withDescription(
+                        s"No onboarding transaction found for $member as of $maxTimestamp"
+                      )
+                      .asException()
                   )
-                  .asException()
-              )
-            }
+                }
+            )
         )
     }
+    PekkoUtil.futureSourceUS(sourceF)
   }
 }

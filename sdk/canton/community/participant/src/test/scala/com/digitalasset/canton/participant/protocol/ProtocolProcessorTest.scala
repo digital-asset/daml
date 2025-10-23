@@ -148,7 +148,7 @@ class ProtocolProcessorTest
       .forOwnerAndSynchronizer(participant, synchronizer)
   private val mockSequencerClient = mock[SequencerClientSend]
   when(
-    mockSequencerClient.sendAsync(
+    mockSequencerClient.send(
       any[Batch[DefaultOpenEnvelope]],
       any[Option[CantonTimestamp]],
       any[CantonTimestamp],
@@ -301,6 +301,8 @@ class ProtocolProcessorTest
     when(ledgerApiIndexer.onlyForTestingTransactionInMemoryStore).thenAnswer(None)
 
     val timeTracker = mock[SynchronizerTimeTracker]
+    when(timeTracker.requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext]))
+      .thenReturn(SynchronizerTimeTracker.DummyTickRequest)
     val recordOrderPublisher = new RecordOrderPublisher(
       synchronizerId = synchronizer,
       initSc = SequencerCounter.Genesis,
@@ -476,7 +478,7 @@ class ProtocolProcessorTest
       val failingSequencerClient = mock[SequencerClientSend]
       val sendError = SendAsyncClientError.RequestFailed("no thank you")
       when(
-        failingSequencerClient.sendAsync(
+        failingSequencerClient.send(
           any[Batch[DefaultOpenEnvelope]],
           any[Option[CantonTimestamp]],
           any[CantonTimestamp],

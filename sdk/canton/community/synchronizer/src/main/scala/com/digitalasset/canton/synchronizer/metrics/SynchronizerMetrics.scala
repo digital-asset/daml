@@ -25,14 +25,8 @@ import com.digitalasset.canton.metrics.{
   SequencerClientMetrics,
   TrafficConsumptionMetrics,
 }
-import com.digitalasset.canton.sequencing.protocol.{
-  AllMembersOfSynchronizer,
-  MediatorGroupRecipient,
-  MemberRecipient,
-  Recipient,
-  SequencersOfSynchronizer,
-}
-import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
+import com.digitalasset.canton.sequencing.protocol.SubmissionRequestType
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -75,6 +69,12 @@ class SequencerMetrics(
       prefix,
       openTelemetryMetricsFactory,
     )
+
+  val eventBuffer: CacheMetrics =
+    new CacheMetrics("events-fan-out-buffer", openTelemetryMetricsFactory)
+
+  val payloadCache: CacheMetrics =
+    new CacheMetrics("payload-cache", openTelemetryMetricsFactory)
 
   override def storageMetrics: DbStorageMetrics = dbStorage
 
@@ -243,72 +243,31 @@ object SequencerMetrics {
     NoOpMetricsFactory,
   )
 
-  private[synchronizer] final case class RecipientStats(
-      participants: Boolean = false,
-      mediators: Boolean = false,
-      sequencers: Boolean = false,
-      broadcast: Boolean = false,
-  ) {
-
-    private[synchronizer] def metricsContext(
-        sender: Member,
-        logger: TracedLogger,
-        warnOnUnexpected: Boolean = true,
-    )(implicit traceContext: TraceContext): MetricsContext = {
-      val messageType =
-        // by looking at the recipient lists and the sender, we'll figure out what type of message we've been getting
-        (sender, participants, mediators, sequencers, broadcast) match {
-          case (ParticipantId(_), false, true, false, false) =>
-            "send-confirmation-response"
-          case (ParticipantId(_), true, true, false, false) =>
-            "send-confirmation-request"
-          case (MediatorId(_), true, false, false, false) =>
-            "send-verdict"
-          case (ParticipantId(_), true, false, false, false) =>
-            "send-commitment"
-          case (SequencerId(_), true, false, true, false) =>
-            "send-topup"
-          case (SequencerId(_), false, true, true, false) =>
-            "send-topup-med"
-          case (_, false, false, false, true) =>
-            "send-topology"
-          case (_, false, false, false, false) =>
-            "send-time-proof"
-          case _ =>
-            def r(boolean: Boolean, s: String) = if (boolean) Seq(s) else Seq.empty
-
-            val recipients = r(participants, "participants") ++
-              r(mediators, "mediators") ++
-              r(sequencers, "sequencers") ++
-              r(broadcast, "broadcast")
-            if (warnOnUnexpected)
-              logger.warn(s"Unexpected message from $sender to " + recipients.mkString(","))
-            "send-unexpected"
-        }
-      MetricsContext(
-        "member" -> sender.toString,
-        "type" -> messageType,
-      )
-    }
-  }
-
   def submissionTypeMetricsContext(
-      allRecipients: Set[Recipient],
       member: Member,
+      requestType: SubmissionRequestType,
       logger: TracedLogger,
       warnOnUnexpected: Boolean = true,
-  )(implicit traceContext: TraceContext): MetricsContext =
-    allRecipients
-      .foldLeft(RecipientStats()) {
-        case (acc, MemberRecipient(ParticipantId(_))) =>
-          acc.copy(participants = true)
-        case (acc, MemberRecipient(MediatorId(_)) | MediatorGroupRecipient(_)) =>
-          acc.copy(mediators = true)
-        case (acc, MemberRecipient(SequencerId(_)) | SequencersOfSynchronizer) =>
-          acc.copy(sequencers = true)
-        case (acc, AllMembersOfSynchronizer) => acc.copy(broadcast = true)
-      }
-      .metricsContext(member, logger, warnOnUnexpected)
+  )(implicit traceContext: TraceContext): MetricsContext = {
+    val messageType = requestType match {
+      case SubmissionRequestType.ConfirmationResponse => "send-confirmation-response"
+      case SubmissionRequestType.ConfirmationRequest => "send-confirmation-request"
+      case SubmissionRequestType.Verdict => "send-verdict"
+      case SubmissionRequestType.Commitment => "send-commitment"
+      case SubmissionRequestType.TopUp => "send-topup"
+      case SubmissionRequestType.TopUpMed => "send-topup-med"
+      case SubmissionRequestType.TopologyTransaction => "send-topology"
+      case SubmissionRequestType.TimeProof => "send-time-proof"
+      case SubmissionRequestType.Unexpected(desc) =>
+        if (warnOnUnexpected)
+          logger.warn(desc)
+        "send-unexpected"
+    }
+    MetricsContext(
+      "member" -> member.toString,
+      "type" -> messageType,
+    )
+  }
 }
 
 class MediatorHistograms(val parent: MetricName)(implicit

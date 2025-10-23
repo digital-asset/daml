@@ -11,6 +11,14 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest
 import com.daml.ledger.api.v2.command_service.SubmitAndWaitForTransactionRequest
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.Metadata.SubmitterInfo
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionRequest,
+  Metadata,
+  PrepareSubmissionRequest,
+  PreparedTransaction,
+}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsRequest
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
 import com.daml.ledger.api.v2.transaction_filter.{
@@ -26,11 +34,17 @@ import com.daml.ledger.api.v2.update_service.GetUpdatesRequest
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.auth.RequiredClaim
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
-import com.digitalasset.canton.ledger.api.auth.services.ApiServicesRequiredClaimSpec.submitAndWaitForTransactionRequest
+import com.digitalasset.canton.ledger.api.auth.services.ApiServicesRequiredClaimSpec.{
+  executeSubmissionRequest,
+  prepareSubmissionRequest,
+  submitAndWaitForTransactionRequest,
+}
+import com.digitalasset.canton.serialization.ProtoConverter
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
+import java.util.UUID
 import scala.annotation.nowarn
 
 @nowarn("cat=deprecation")
@@ -319,6 +333,38 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
         ),
       )
     ) shouldBe Nil
+  }
+
+  behavior of "InteractiveSubmissionServiceAuthorization.prepareSubmission"
+
+  it should "compute the correct claims in the happy path" in {
+    InteractiveSubmissionServiceAuthorization.getPreparedSubmissionClaims(
+      prepareSubmissionRequest
+    ) should contain theSameElementsAs RequiredClaims[PrepareSubmissionRequest](
+      RequiredClaim.ReadAs("1"),
+      RequiredClaim.ReadAs("2"),
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.MatchUserId(
+        InteractiveSubmissionServiceAuthorization.userIdForPrepareSubmissionL
+      ),
+    )
+  }
+
+  behavior of "InteractiveSubmissionServiceAuthorization.executeSubmission"
+
+  it should "compute the correct claims in the happy path" in {
+    InteractiveSubmissionServiceAuthorization.getExecuteSubmissionClaims(
+      executeSubmissionRequest,
+      InteractiveSubmissionServiceAuthorization.preparedTransactionForExecuteSubmissionL,
+      InteractiveSubmissionServiceAuthorization.userIdForExecuteSubmissionL,
+    ) should contain theSameElementsAs RequiredClaims[ExecuteSubmissionRequest](
+      RequiredClaim.ExecuteAs("1"),
+      RequiredClaim.ExecuteAs("2"),
+      RequiredClaim.MatchUserId(
+        InteractiveSubmissionServiceAuthorization.userIdForExecuteSubmissionL
+      ),
+    )
   }
 
   behavior of "CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims"
@@ -846,6 +892,19 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
   }
 }
 object ApiServicesRequiredClaimSpec {
+  val transactionFormat = TransactionFormat(
+    eventFormat = Some(
+      EventFormat(
+        filtersByParty = Map(
+          "i" -> Filters(Nil),
+          "ii" -> Filters(Nil),
+        ),
+        filtersForAnyParty = Some(Filters(Nil)),
+        verbose = true,
+      )
+    ),
+    transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+  )
   val submitAndWaitForTransactionRequest =
     SubmitAndWaitForTransactionRequest(
       commands = Some(
@@ -855,21 +914,58 @@ object ApiServicesRequiredClaimSpec {
           userId = "userId",
         )
       ),
-      transactionFormat = Some(
-        TransactionFormat(
-          eventFormat = Some(
-            EventFormat(
-              filtersByParty = Map(
-                "i" -> Filters(Nil),
-                "ii" -> Filters(Nil),
-              ),
-              filtersForAnyParty = Some(Filters(Nil)),
-              verbose = true,
-            )
-          ),
-          transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
-        )
-      ),
+      transactionFormat = Some(transactionFormat),
     )
 
+  val prepareSubmissionRequest =
+    PrepareSubmissionRequest(
+      userId = "userId",
+      commandId = "commandId",
+      commands = List.empty,
+      minLedgerTime = None,
+      actAs = Seq("1", "2"),
+      readAs = Seq("a", "b"),
+      disclosedContracts = Seq.empty,
+      synchronizerId = "",
+      packageIdSelectionPreference = Seq.empty,
+      verboseHashing = true,
+      prefetchContractKeys = Seq.empty,
+      maxRecordTime = None,
+    )
+
+  val preparedTransaction = PreparedTransaction(
+    transaction = None,
+    metadata = Some(
+      Metadata(
+        submitterInfo = Some(
+          SubmitterInfo(
+            actAs = Seq("1", "2"),
+            commandId = "commandId",
+          )
+        ),
+        synchronizerId = "synchronizerId",
+        mediatorGroup = 0,
+        transactionUuid = UUID.randomUUID().toString,
+        preparationTime = 0,
+        inputContracts = Seq.empty,
+        minLedgerEffectiveTime = None,
+        maxLedgerEffectiveTime = None,
+        globalKeyMapping = Seq.empty,
+        maxRecordTime = None,
+      )
+    ),
+  )
+
+  val executeSubmissionRequest =
+    ExecuteSubmissionRequest(
+      preparedTransaction = Some(preparedTransaction),
+      partySignatures = None,
+      deduplicationPeriod = ExecuteSubmissionRequest.DeduplicationPeriod.DeduplicationDuration(
+        ProtoConverter.DurationConverter.toProtoPrimitive(java.time.Duration.ofSeconds(1))
+      ),
+      submissionId = "submissionId",
+      userId = "userId",
+      hashingSchemeVersion = HASHING_SCHEME_VERSION_V2,
+      minLedgerTime = None,
+    )
 }

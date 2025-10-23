@@ -7,27 +7,29 @@ import cats.syntax.bifunctor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 
 object TopologyTransactionSignature {
-  sealed trait TopologyTransactionSignatureError
-  final case class MultiHashSignatureDoesNotCoverTransaction(
-      requiredHash: TxHash,
-      providedHashes: NonEmpty[Set[TxHash]],
-      signature: Signature,
-  ) extends TopologyTransactionSignatureError
-      with PrettyPrinting {
-    override protected def pretty: Pretty[MultiHashSignatureDoesNotCoverTransaction.this.type] =
-      prettyOfClass(
-        param("requiredHash", _.requiredHash.hash),
-        param("providedHashes", _.providedHashes.map(_.hash)),
-        param("signedBy", _.signature.signedBy),
-      )
-  }
+
+  /** Returns a set of signatures, such that only one signature per signing key is retained. In case
+    * there are multiple signatures by the same signing key, the signature with the lowest index in
+    * the sequence is picked for the result.
+    */
+  def distinctSignatures(
+      signatures: NonEmpty[Seq[TopologyTransactionSignature]]
+  ): NonEmpty[Set[TopologyTransactionSignature]] =
+    signatures.zipWithIndex
+      .groupBy1 { case (tx, _) => tx.signedBy }
+      .map { case (_, signatures) =>
+        signatures.minBy1 { case (_, index) => index }
+      }
+      .toSeq
+      .sortBy { case (_, index) => index }
+      .map { case (tx, _) => tx }
+      .toSet
 }
 
 /** Trait for different types of topology transaction signatures

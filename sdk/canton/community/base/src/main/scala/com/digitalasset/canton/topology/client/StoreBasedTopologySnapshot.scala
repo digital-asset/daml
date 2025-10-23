@@ -6,7 +6,6 @@ package com.digitalasset.canton.topology.client
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
@@ -460,19 +459,17 @@ class StoreBasedTopologySnapshot(
 
   private def getParticipantsWithCertificates(
       storedTxs: StoredTopologyTransactions[Replace, TopologyMapping]
-  )(implicit traceContext: TraceContext): Set[ParticipantId] = storedTxs
-    .collectOfMapping[SynchronizerTrustCertificate]
-    .result
-    .groupBy(_.mapping.participantId)
-    .collect { case (pid, seq) =>
-      // invoke collectLatestMapping only to warn in case a participantId's synchronizer trust certificate is not unique
-      collectLatestMapping(
-        TopologyMapping.Code.SynchronizerTrustCertificate,
-        seq.sortBy(_.validFrom),
-      ).discard
-      pid
-    }
-    .toSet
+  )(implicit traceContext: TraceContext): Map[ParticipantId, SynchronizerTrustCertificate] =
+    storedTxs
+      .collectOfMapping[SynchronizerTrustCertificate]
+      .result
+      .groupBy(_.mapping.participantId)
+      .flatMap { case (pid, seq) =>
+        collectLatestMapping(
+          TopologyMapping.Code.SynchronizerTrustCertificate,
+          seq.sortBy(_.validFrom),
+        ).map(pid -> _)
+      }
 
   private def getParticipantsWithCertAndKeys(
       storedTxs: StoredTopologyTransactions[Replace, TopologyMapping],
@@ -519,7 +516,7 @@ class StoreBasedTopologySnapshot(
       participantsFilter: Seq[ParticipantId]
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[ParticipantId, ParticipantSynchronizerPermission]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]] =
     for {
       // Looks up synchronizer parameters for default rate limits.
       synchronizerParametersState <- findTransactions(
@@ -549,11 +546,12 @@ class StoreBasedTopologySnapshot(
     } yield {
       // 1. Participant needs to have requested access to synchronizer by issuing a synchronizer trust certificate
       val participantsWithCertificates = getParticipantsWithCertificates(storedTxs)
+      val participantsIdsWithCertificates = participantsWithCertificates.keySet
       // 2. Participant needs to have keys registered on the synchronizer
       val participantsWithCertAndKeys =
-        getParticipantsWithCertAndKeys(storedTxs, participantsWithCertificates)
+        getParticipantsWithCertAndKeys(storedTxs, participantsIdsWithCertificates)
       // Warn about participants with cert but no keys
-      (participantsWithCertificates -- participantsWithCertAndKeys).foreach { pid =>
+      (participantsIdsWithCertificates -- participantsWithCertAndKeys).foreach { pid =>
         logger.warn(
           s"Participant $pid has a synchronizer trust certificate, but no keys on synchronizer ${synchronizerParametersState.synchronizerId}"
         )
@@ -562,8 +560,8 @@ class StoreBasedTopologySnapshot(
       val participantSynchronizerPermissions =
         getParticipantSynchronizerPermissions(storedTxs, participantsWithCertAndKeys)
 
-      val participantIdSynchronizerPermissionsMap = participantsWithCertAndKeys.toSeq.mapFilter {
-        pid =>
+      participantsWithCertAndKeys.toSeq
+        .mapFilter { pid =>
           if (
             synchronizerParametersState.parameters.onboardingRestriction.isRestricted && !participantSynchronizerPermissions
               .contains(pid)
@@ -590,8 +588,17 @@ class StoreBasedTopologySnapshot(
                 )
             )
           }
-      }.toMap
-      participantIdSynchronizerPermissionsMap
+        }
+        .toMap
+        .map { case (pid, permissions) =>
+          val supportedFeatures =
+            participantsWithCertificates.get(pid).toList.flatMap(_.featureFlags)
+          pid -> ParticipantAttributes(
+            permissions.permission,
+            permissions.loginAfter,
+            supportedFeatures,
+          )
+        }
     }
 
   override def loadParticipantStates(
@@ -602,9 +609,7 @@ class StoreBasedTopologySnapshot(
     if (participants.isEmpty)
       FutureUnlessShutdown.pure(Map())
     else
-      loadParticipantStatesHelper(participants).map(_.map { case (pid, pdp) =>
-        pid -> pdp.toParticipantAttributes
-      })
+      loadParticipantStatesHelper(participants)
 
   /** abstract loading function used to obtain the full key collection for a key owner */
   override def allKeys(owner: Member)(implicit

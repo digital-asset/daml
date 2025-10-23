@@ -12,7 +12,7 @@ import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.synchronizer.block.SequencerDriver
+import com.digitalasset.canton.synchronizer.block.{AsyncWriterParameters, SequencerDriver}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
@@ -60,6 +60,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         driverClock,
         crypto,
         FutureSupervisor.Noop,
+        progressSupervisorO = None,
         SequencerTrafficConfig(),
         runtimeReady = FutureUnlessShutdown.unit,
       )
@@ -85,6 +86,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         dontWarnOnDeprecatedPV = false,
       ),
       maxConfirmationRequestsBurstFactor = PositiveDouble.tryCreate(1.0),
+      asyncWriter = AsyncWriterParameters(enabled = true),
     )
 
   "Reference sequencer" when runSequencerApiTests()

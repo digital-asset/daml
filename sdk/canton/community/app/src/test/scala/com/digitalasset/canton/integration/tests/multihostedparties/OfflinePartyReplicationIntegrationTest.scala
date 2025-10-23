@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java as M
+import com.digitalasset.canton.integration.ConfigTransforms.zeroReassignmentTimeProofFreshnessProportion
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -65,22 +66,24 @@ private sealed trait OfflinePartyReplicationIntegrationTest
   protected var bob: PartyId = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1.withSetup { implicit env =>
-      import env.*
-      participants.local.synchronizers.connect_local(sequencer1, daName)
-      participants.local.dars.upload(CantonExamplesPath)
-      sequencer1.topology.synchronizer_parameters
-        .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
+    EnvironmentDefinition.P3_S1M1
+      .addConfigTransform(zeroReassignmentTimeProofFreshnessProportion)
+      .withSetup { implicit env =>
+        import env.*
+        participants.local.synchronizers.connect_local(sequencer1, daName)
+        participants.local.dars.upload(CantonExamplesPath)
+        sequencer1.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
 
-      alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
-      bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
+        alice = participant1.parties.enable("Alice", synchronizeParticipants = Seq(participant2))
+        bob = participant2.parties.enable("Bob", synchronizeParticipants = Seq(participant1))
 
-      IouSyntax.createIou(participant1)(alice, bob, 1.95).discard
-      IouSyntax.createIou(participant1)(alice, bob, 2.95).discard
-      IouSyntax.createIou(participant1)(alice, bob, 3.95).discard
-      IouSyntax.createIou(participant1)(alice, bob, 4.95).discard
-      IouSyntax.createIou(participant1)(alice, bob, 5.95).discard
-    }
+        IouSyntax.createIou(participant1)(alice, bob, 1.95).discard
+        IouSyntax.createIou(participant1)(alice, bob, 2.95).discard
+        IouSyntax.createIou(participant1)(alice, bob, 3.95).discard
+        IouSyntax.createIou(participant1)(alice, bob, 4.95).discard
+        IouSyntax.createIou(participant1)(alice, bob, 5.95).discard
+      }
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(

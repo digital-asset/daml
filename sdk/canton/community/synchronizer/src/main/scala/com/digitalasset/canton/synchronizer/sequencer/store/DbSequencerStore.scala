@@ -28,12 +28,13 @@ import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
-import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage}
+import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, MessageId}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.db.RequiredTypesCodec.*
 import com.digitalasset.canton.synchronizer.block.UninitializedBlockHeight
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.{
   CommitMode,
   SequencerMemberStatus,
@@ -62,7 +63,7 @@ import scala.util.{Failure, Success}
   * same backing database.
   */
 class DbSequencerStore(
-    @VisibleForTesting private[canton] val storage: DbStorage,
+    @VisibleForTesting override protected val storage: DbStorage,
     protocolVersion: ProtocolVersion,
     override val bufferedEventsMaxMemory: BytesUnit,
     bufferedEventsPreloadBatchSize: PositiveInt,
@@ -70,11 +71,15 @@ class DbSequencerStore(
     override protected val loggerFactory: NamedLoggerFactory,
     override val sequencerMember: Member,
     override val blockSequencerMode: Boolean,
+    useRecipientsTableForReads: Boolean,
     cachingConfigs: CachingConfigs,
     override val batchingConfig: BatchingConfig,
+    override protected val sequencerMetrics: SequencerMetrics,
     overrideCloseContext: Option[CloseContext] = None,
 )(protected implicit val executionContext: ExecutionContext)
     extends SequencerStore
+    with DbSequencerStorePruning
+    with DbStore
     with NamedLogging
     with FlagCloseable {
 
@@ -83,7 +88,7 @@ class DbSequencerStore(
   import storage.api.*
   import storage.converters.*
 
-  implicit val closeContext: CloseContext =
+  override implicit val closeContext: CloseContext =
     overrideCloseContext
       .map(CloseContext.combineUnsafe(_, CloseContext(this), timeouts, logger)(TraceContext.empty))
       .getOrElse(CloseContext(this))
@@ -392,6 +397,7 @@ class DbSequencerStore(
         payloadId => readPayloadsFromStore(Seq(payloadId)).map(_(payloadId)),
       allLoader =
         Some(implicit traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)),
+      metrics = Some(sequencerMetrics.payloadCache),
     )(logger, "payloadCache")
 
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
@@ -456,6 +462,9 @@ class DbSequencerStore(
         .map(_ => ())
     )
   }
+
+  override def bufferPayload(payload: BytesPayload)(implicit tc: TraceContext): Unit =
+    payloadCache.put(payload.id, payload)
 
   /** Save the provided payloads to the store.
     *
@@ -882,10 +891,8 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]] = {
 
-    val preloadedPayloads = payloadIds.collect {
-      case payload: BytesPayload =>
-        payload.id -> payload.decodeBatchAndTrim(protocolVersion, member)
-      case batch: FilteredBatch => batch.id -> Batch.trimForMember(batch.batch, member)
+    val preloadedPayloads = payloadIds.collect { case payload: BytesPayload =>
+      payload.id -> payload.decodeBatchAndTrim(protocolVersion, member)
     }.toMap
 
     val idsToLoad = payloadIds.collect { case id: PayloadId => id }
@@ -926,6 +933,70 @@ class DbSequencerStore(
     // this comparison can then be used for the absolute lower bound if unset
     val fromTimestampInclusive =
       fromTimestampExclusiveO.map(_.immediateSuccessor).getOrElse(CantonTimestamp.MinValue)
+
+    def queryEventsViaRecipientsTable(safeWatermarkO: Option[CantonTimestamp]) = {
+      val safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
+
+      profile match {
+        case _: Postgres =>
+          sql"""
+            with
+              watermarks as (select * from sequencer_watermarks)
+            select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
+              events.recipients, events.payload_id, events.topology_timestamp,
+              events.trace_context, events.error,
+              events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder
+            from
+              watermarks inner join lateral (
+              -- Watermarks contain 1 record for block sequencer, up to hardcoded max of 32 records
+              -- for DB sequencer - both are fine as long as the query is better than the alternative
+              -- (scanning a wrong index or the table itself).
+                select * from sequencer_events
+                where ts in (
+                  select ts
+                  from sequencer_event_recipients recipients
+                  where
+                    recipients.node_index = watermarks.node_index
+                    -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+                    and (watermarks.sequencer_online = true or recipients.ts <= watermarks.watermark_ts)
+                    and recipients.recipient_id = $memberId
+                    -- inclusive timestamp bound that defaults to MinValue if unset
+                    and recipients.ts >= $fromTimestampInclusive
+                    -- only consider events within the safe watermark
+                    and recipients.ts <= $safeWatermark
+                  order by recipients.ts asc
+                  -- We only have limit on the inner query. We can add an extra limit outside (for DB sequencer case),
+                  -- but it doesn't make sense to drop already read events and it seems reasonable to just return them.
+                  limit $limit
+                )
+              ) events
+              on (true)
+            order by events.ts asc""".as[Sequenced[PayloadId]]
+        case _: H2 =>
+          // This is the previous version of the query as H2 doesn't support lateral joins
+          sql"""
+            select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
+              events.recipients, events.payload_id, events.topology_timestamp,
+              events.trace_context, events.error,
+              events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder
+            from sequencer_event_recipients recipients
+            inner join sequencer_events events
+              on events.node_index = recipients.node_index and events.ts = recipients.ts
+            inner join sequencer_watermarks watermarks
+              on recipients.node_index = watermarks.node_index
+            where recipients.recipient_id = $memberId
+              and (
+                -- inclusive timestamp bound that defaults to MinValue if unset
+                recipients.ts >= $fromTimestampInclusive
+                  -- only consider events within the safe watermark
+                  and recipients.ts <= $safeWatermark
+                  -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+                  and (watermarks.sequencer_online = true or recipients.ts <= watermarks.watermark_ts)
+              )
+            order by recipients.ts asc
+            limit $limit""".as[Sequenced[PayloadId]]
+      }
+    }
 
     def h2PostgresQueryEvents(
         memberContainsBefore: String,
@@ -968,7 +1039,12 @@ class DbSequencerStore(
 
     val query = for {
       safeWatermark <- safeWaterMarkDBIO
-      events <- queryEvents(safeWatermark)
+      events <-
+        if (useRecipientsTableForReads) {
+          queryEventsViaRecipientsTable(safeWatermark)
+        } else {
+          queryEvents(safeWatermark)
+        }
     } yield {
       (events, safeWatermark)
     }
@@ -1365,25 +1441,40 @@ class DbSequencerStore(
   override protected[store] def pruneEvents(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.update(
-      DBIO
-        .sequence(
-          Seq(
-            sqlu"delete from sequencer_events where ts < $beforeExclusive",
-            sqlu"delete from sequencer_event_recipients where ts < $beforeExclusive",
-          )
-        )
-        .map(_.sum),
-      functionFullName,
-    )
+    for {
+      eventPruningIntervals <- storage.query(
+        pruningIntervalsDBIO("sequencer_events", "ts", beforeExclusive),
+        "eventPruningIntervals",
+      )
+      recipientsPruningIntervals <- storage.query(
+        pruningIntervalsDBIO("sequencer_event_recipients", "ts", beforeExclusive),
+        "recipientsPruningIntervals",
+      )
+      prunedEvents <- pruneIntervalsInBatches(
+        eventPruningIntervals,
+        "sequencer_events",
+        "ts",
+      )
+      prunedRecipients <- pruneIntervalsInBatches(
+        recipientsPruningIntervals,
+        "sequencer_event_recipients",
+        "ts",
+      )
+    } yield prunedEvents.sum + prunedRecipients.sum
 
   override protected[store] def prunePayloads(
       beforeExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.update(
-      sqlu"delete from sequencer_payloads where id < $beforeExclusive",
-      functionFullName,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = for {
+    payloadsPruningIntervals <- storage.query(
+      pruningIntervalsDBIO("sequencer_payloads", "id", beforeExclusive),
+      "payloadsPruningIntervals",
     )
+    prunedPayloads <- pruneIntervalsInBatches(
+      payloadsPruningIntervals,
+      "sequencer_payloads",
+      "id",
+    )
+  } yield prunedPayloads.sum
 
   override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext

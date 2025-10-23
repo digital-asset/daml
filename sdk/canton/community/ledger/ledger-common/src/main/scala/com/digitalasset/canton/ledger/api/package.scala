@@ -166,6 +166,10 @@ package api {
     final case class CanReadAs(party: Ref.Party) extends UserRight
 
     final case object CanReadAsAnyParty extends UserRight
+
+    final case class CanExecuteAs(party: Ref.Party) extends UserRight
+
+    final case object CanExecuteAsAnyParty extends UserRight
   }
 
   sealed abstract class Feature extends Product with Serializable

@@ -36,7 +36,7 @@ trait SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
         // Third sequencer's console:
         // * write file with identity topology transactions
         {
-          sequencer3.topology.transactions.export_identity_transactions(identityFile)
+          sequencer3.topology.transactions.export_identity_transactionsV2(identityFile)
         }
 
         // Fist and second sequencers' (i.e., owners) console:
@@ -46,9 +46,9 @@ trait SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
         {
           // Store the third sequencer's identity topology transactions on the synchronizer
           sequencer1.topology.transactions
-            .import_topology_snapshot_from(identityFile, store = synchronizerId)
+            .import_topology_snapshot_fromV2(identityFile, store = synchronizerId)
           sequencer2.topology.transactions
-            .import_topology_snapshot_from(identityFile, store = synchronizerId)
+            .import_topology_snapshot_fromV2(identityFile, store = synchronizerId)
 
           // wait for the identity transactions to become effective
           sequencer1.topology.synchronisation.await_idle()

@@ -9,7 +9,10 @@ import cats.syntax.traverse.*
 import com.daml.jwt.{AuthServiceJWTCodec, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
-import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
+import com.daml.ledger.api.v2.admin.party_management_service.{
+  AllocateExternalPartyResponse,
+  PartyDetails as ProtoPartyDetails,
+}
 import com.daml.ledger.api.v2.commands.{Command, DisclosedContract, PrefetchContractKey}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
@@ -64,8 +67,13 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   WrappedIncompleteUnassigned,
 }
 import com.digitalasset.canton.admin.api.client.data.*
+import com.digitalasset.canton.admin.api.client.data.parties.{
+  GenerateExternalPartyTopology,
+  ModifyingNonModifiablePartyDetailsPropertiesError,
+  PartyDetails,
+}
 import com.digitalasset.canton.config.ConsoleCommandTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   ConsoleEnvironment,
@@ -79,7 +87,7 @@ import com.digitalasset.canton.console.{
   ParticipantReference,
   RemoteParticipantReference,
 }
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.{Signature, SigningPublicKey}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
 import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
@@ -89,6 +97,7 @@ import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserv
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId, config}
@@ -686,6 +695,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           verboseHashing: Boolean = false,
           prefetchContractKeys: Seq[PrefetchContractKey] = Seq.empty,
+          maxRecordTime: Option[CantonTimestamp] = None,
       ): PrepareResponseProto =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -701,6 +711,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               userPackageSelectionPreference,
               verboseHashing,
               prefetchContractKeys,
+              maxRecordTime,
             )
           )
         }
@@ -1229,10 +1240,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         })
 
       @Help.Summary("Read the current connected synchronizers for a party", FeatureFlag.Testing)
-      def connected_synchronizers(partyId: PartyId): GetConnectedSynchronizersResponse =
+      def connected_synchronizers(
+          partyId: Option[PartyId] = None
+      ): GetConnectedSynchronizersResponse =
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
-            LedgerApiCommands.StateService.GetConnectedSynchronizers(partyId.toLf)
+            LedgerApiCommands.StateService.GetConnectedSynchronizers(partyId.map(_.toLf))
           )
         })
 
@@ -1579,6 +1592,64 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         PartyDetails.fromProtoPartyDetails(proto)
       }
 
+      @Help.Summary("Generate topology transactions for an external party", FeatureFlag.Preview)
+      @Help.Description(
+        """Convenience function to generate the necessary topology transactions.
+           For more complex setups, please generate your topology transactions manually.
+          synchronizerId: SynchronizerId for which the transactions should be generated.
+          partyHint: the prefix for the party
+          publicKey: the signing public key of the external party
+          localParticipantObservationOnly: if true, then the allocating participant will only be an observer
+          otherConfirmingParticipantUids: list of other participants that will be confirming daml transactions on behalf of the party
+          confirmationThreshold: number of confirming participants which need to approve a daml transaction
+          observingParticipantUids: list of other participants that should observe the transactions of the external party
+          """
+      )
+      def generate_topology(
+          synchronizerId: SynchronizerId,
+          partyHint: String,
+          publicKey: SigningPublicKey,
+          localParticipantObservationOnly: Boolean = false,
+          otherConfirmingParticipantIds: Seq[ParticipantId] = Seq.empty,
+          confirmationThreshold: NonNegativeInt = NonNegativeInt.zero,
+          observingParticipantIds: Seq[ParticipantId] = Seq.empty,
+      ): GenerateExternalPartyTopology =
+        check(FeatureFlag.Preview)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.PartyManagementService.GenerateExternalPartyTopology(
+              synchronizerId = synchronizerId,
+              partyHint = partyHint,
+              publicKey = publicKey,
+              localParticipantObservationOnly = localParticipantObservationOnly,
+              otherConfirmingParticipantIds = otherConfirmingParticipantIds,
+              confirmationThreshold = confirmationThreshold,
+              observingParticipantIds = observingParticipantIds,
+            )
+          )
+        })
+
+      @Help.Summary("Allocate a new external party", FeatureFlag.Preview)
+      @Help.Description(
+        """Allocates a new external party on the ledger.
+          synchronizerId: SynchronizerId on which to allocate the party
+          transactions: onboarding transactions and their individual signatures
+          multiSignatures: Signatures over the combined hash of all onboarding transactions"""
+      )
+      def allocate_external(
+          synchronizerId: SynchronizerId,
+          transactions: Seq[(GenericTopologyTransaction, Seq[Signature])],
+          multiSignatures: Seq[Signature],
+      ): AllocateExternalPartyResponse =
+        check(FeatureFlag.Preview)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.PartyManagementService.AllocateExternalParty(
+              synchronizerId = synchronizerId,
+              transactions = transactions,
+              multiHashSignatures = multiSignatures,
+            )
+          )
+        })
+
       @Help.Summary("List parties known by the Ledger API server", FeatureFlag.Testing)
       @Help.Description(
         """Lists parties known by the Ledger API server.
@@ -1879,6 +1950,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           annotations: the set of key-value pairs linked to this user
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
+          executeAs: the set of parties for whom this user is allowed to operate interactive submissions
+          executeAsAnyParty: flag (default false) indicating if the user is allowed to operate interactive submissions as any party
           """
       )
       def create(
@@ -1892,6 +1965,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
           readAsAnyParty: Boolean = false,
+          executeAs: Set[PartyId] = Set(),
+          executeAsAnyParty: Boolean = false,
       ): User = {
         val lapiUser = check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
@@ -1906,6 +1981,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               annotations = annotations,
               identityProviderId = identityProviderId,
               readAsAnyParty = readAsAnyParty,
+              executeAs = executeAs.map(_.toLf),
+              executeAsAnyParty = executeAsAnyParty,
             )
           )
         })
@@ -2068,6 +2145,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           identityProviderAdmin: flag (default false) indicating if the user is allowed to manage users and parties assigned to the same identity provider
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
+          executeAs: the set of parties for whom this user is allowed to operate interactive submissions
+          executeAsAnyParty: flag (default false) indicating if the user is allowed to operate interactive submissions as any party
           """)
         def grant(
             id: String,
@@ -2077,6 +2156,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             identityProviderAdmin: Boolean = false,
             identityProviderId: String = "",
             readAsAnyParty: Boolean = false,
+            executeAs: Set[PartyId] = Set(),
+            executeAsAnyParty: Boolean = false,
         ): UserRights =
           check(FeatureFlag.Testing)(consoleEnvironment.run {
             ledgerApiCommand(
@@ -2084,10 +2165,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 id = id,
                 actAs = actAs.map(_.toLf),
                 readAs = readAs.map(_.toLf),
+                executeAs = executeAs.map(_.toLf),
                 participantAdmin = participantAdmin,
                 identityProviderAdmin = identityProviderAdmin,
                 identityProviderId = identityProviderId,
                 readAsAnyParty = readAsAnyParty,
+                executeAsAnyParty = executeAsAnyParty,
               )
             )
           })
@@ -2101,6 +2184,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           identityProviderAdmin: if set to true, the identity provider admin rights will be removed
           identityProviderId: identity provider id
           readAsAnyParty: flag (default false) indicating if the user is allowed to read as any party
+          executeAs: the set of parties for whom this user is allowed to operate interactive submissions
+          executeAsAnyParty: flag (default false) indicating if the user is allowed to operate interactive submissions as any party
           """)
         def revoke(
             id: String,
@@ -2110,6 +2195,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             identityProviderAdmin: Boolean = false,
             identityProviderId: String = "",
             readAsAnyParty: Boolean = false,
+            executeAs: Set[PartyId] = Set(),
+            executeAsAnyParty: Boolean = false,
         ): UserRights =
           check(FeatureFlag.Testing)(consoleEnvironment.run {
             ledgerApiCommand(
@@ -2117,10 +2204,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 id = id,
                 actAs = actAs.map(_.toLf),
                 readAs = readAs.map(_.toLf),
+                executeAs = executeAs.map(_.toLf),
                 participantAdmin = participantAdmin,
                 identityProviderAdmin = identityProviderAdmin,
                 identityProviderId = identityProviderId,
                 readAsAnyParty = readAsAnyParty,
+                executeAsAnyParty = executeAsAnyParty,
               )
             )
           })
@@ -2211,6 +2300,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             verboseHashing: Boolean = false,
             prefetchContractKeys: Seq[javab.data.PrefetchContractKey] = Seq.empty,
+            maxRecordTime: Option[CantonTimestamp] = None,
         ): PrepareResponseProto =
           consoleEnvironment.run {
             ledgerApiCommand(
@@ -2226,6 +2316,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 userPackageSelectionPreference,
                 verboseHashing,
                 prefetchContractKeys.map(k => PrefetchContractKey.fromJavaProto(k.toProto)),
+                maxRecordTime,
               )
             )
           }

@@ -30,8 +30,11 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
@@ -41,7 +44,7 @@ import scala.math.Ordering.Implicits.*
 
 class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     val storeId: StoreId,
-    protocolVersion: ProtocolVersion,
+    override val protocolVersion: ProtocolVersion,
     val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(implicit ec: ExecutionContext)
@@ -80,15 +83,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   ]
   private val watermark = new AtomicReference[Option[CantonTimestamp]](None)
 
-  def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
-      implicit traceContext: TraceContext
+  def findLatestTransactionsAndProposalsByTxHash(hashes: Set[TxHash])(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     if (hashes.isEmpty) FutureUnlessShutdown.pure(Seq.empty)
     else
-      findFilter(
-        asOfExclusive,
-        entry => hashes.contains(entry.hash),
-      )
+      filteredState(
+        blocking(synchronized(topologyTransactionStore.toSeq)),
+        filter = entry => hashes.contains(entry.hash),
+      ).map(_.collectLatestByTxHash.result.map(_.transaction))
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,
@@ -183,6 +186,34 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
             )
           }
         }
+      }
+    }
+    FutureUnlessShutdown.unit
+  }
+
+  override def bulkInsert(
+      initialSnapshot: GenericStoredTopologyTransactions
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    initialSnapshot.result.foreach { tx =>
+      val uniqueKey = (
+        tx.mapping.uniqueKey,
+        tx.serial,
+        tx.validFrom,
+        tx.operation,
+        tx.transaction.representativeProtocolVersion,
+        tx.transaction.hashOfSignatures(protocolVersion),
+        tx.hash,
+      )
+      if (topologyTransactionsStoreUniqueIndex.add(uniqueKey)) {
+        topologyTransactionStore.append(
+          TopologyStoreEntry(
+            tx.transaction,
+            tx.sequenced,
+            from = tx.validFrom,
+            until = tx.validUntil,
+            rejected = tx.rejectionReason,
+          )
+        )
       }
     }
     FutureUnlessShutdown.unit
@@ -449,10 +480,10 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       includeRejected: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[GenericStoredTopologyTransactions] =
+  ): Source[GenericStoredTopologyTransaction, NotUsed] = {
     // asOfInclusive is the effective time of the transaction that onboarded the member.
     // 1. load all transactions with a sequenced time <= asOfInclusive, including proposals
-    filteredState(
+    val dataF = filteredState(
       blocking(synchronized {
         topologyTransactionStore.toSeq
       }),
@@ -461,7 +492,9 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
     ).map(
       // 2. transform the result such that the validUntil fields are set as they were at maxEffective time of the snapshot
       _.asSnapshotAtMaxEffectiveTime
-    )
+    ).map(stored => Source(stored.result))
+    PekkoUtil.futureSourceUS(dataF)
+  }
 
   override def findUpcomingEffectiveChanges(asOfInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext

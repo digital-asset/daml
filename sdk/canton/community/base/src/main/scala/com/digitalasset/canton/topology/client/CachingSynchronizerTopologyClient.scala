@@ -439,6 +439,7 @@ class CachingTopologySnapshot(
             }
         ),
       )(logger, "participantCache")
+
   private val keyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, KeyCollection] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, KeyCollection](
       cache = cachingConfigs.keyCache.buildScaffeine(),

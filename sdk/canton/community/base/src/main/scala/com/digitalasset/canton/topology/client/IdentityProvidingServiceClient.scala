@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
   DynamicSynchronizerParameters,
@@ -100,8 +100,9 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * As we future date topology transactions, the head snapshot is our latest knowledge of the
     * topology state, but as it can be still future dated, we need to be careful when actually using
     * it: the state might not yet be active, as the topology transactions are future dated.
-    * Therefore, do not act towards the sequencer using this snapshot, but use the
-    * currentSnapshotApproximation instead.
+    * Therefore, do not prepare regular transactions using this snapshot, but use the
+    * currentSnapshotApproximation instead. A head snapshot can be useful, however, for producing
+    * new topology changes, e.g., for picking the correct serial.
     */
   def headSnapshot(implicit traceContext: TraceContext): T = checked(
     trySnapshot(topologyKnownUntilTimestamp)
@@ -155,8 +156,9 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   def awaitSnapshotUSSupervised(description: => String, warnAfter: Duration = 30.seconds)(
       timestamp: CantonTimestamp
   )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[T] = supervisedUS(description, warnAfter)(awaitSnapshot(timestamp))
+      loggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[T] =
+    supervisedUS(description, warnAfter)(awaitSnapshot(timestamp)(loggingContext.traceContext))
 
   /** Returns the topology information at a certain point in time
     *
@@ -434,6 +436,13 @@ trait ParticipantTopologySnapshotClient {
   def isParticipantActive(participantId: ParticipantId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean]
+
+  def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]]
 
   /** Checks whether the provided participant exists, is active and can login at the given point in
     * time
@@ -787,6 +796,19 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   ): FutureUnlessShutdown[Boolean] =
     findParticipantState(participantId).map(_.isDefined)
 
+  override def participantsWithSupportedFeature(
+      participants: Set[ParticipantId],
+      feature: SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[ParticipantId]] = for {
+    participantAttributesMap <- loadParticipantStates(participants.toSeq)
+  } yield {
+    participantAttributesMap.collect {
+      case (pid, attributes) if attributes.features.contains(feature) => pid
+    }.toSet
+  }
+
   override def isParticipantActiveAndCanLoginAt(
       participantId: ParticipantId,
       timestamp: CantonTimestamp,
@@ -810,7 +832,6 @@ private[client] trait ParticipantTopologySnapshotLoader extends ParticipantTopol
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]]
-
 }
 
 private[client] trait PartyTopologySnapshotBaseClient {

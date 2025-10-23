@@ -44,6 +44,15 @@ trait RequestJournalStore { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[TimeOfRequest]]
 
+  /** Finds the highest timestamp before or equal to the given timestamp
+    *
+    * Use over lastRequestTimeWithRequestTimestampBeforeOrAt for performance reasons if request
+    * counter is not needed.
+    */
+  def lastRequestTimestampBeforeOrAt(requestTimestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
+
   /** Replaces the state of the request. The operation will only succeed if the current state is
     * equal to the given `oldState` and the provided `requestTimestamp` matches the stored
     * timestamp, or if the current state is already the new state. If so, the state gets replaced

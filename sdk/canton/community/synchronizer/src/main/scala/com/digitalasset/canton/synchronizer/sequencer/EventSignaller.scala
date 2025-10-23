@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.synchronizer.sequencer.store.{Sequenced, SequencerMemberId}
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -56,5 +56,5 @@ trait EventSignaller extends AutoCloseable {
   ): Future[Unit]
   def readSignalsForMember(member: Member, memberId: SequencerMemberId)(implicit
       traceContext: TraceContext
-  ): Source[ReadSignal, NotUsed]
+  ): Source[Traced[ReadSignal], NotUsed]
 }

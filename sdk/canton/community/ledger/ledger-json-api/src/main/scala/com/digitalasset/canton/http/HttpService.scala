@@ -88,7 +88,10 @@ class HttpService(
       import startSettings.*
       val DummyUserId: UserId = UserId("HTTP-JSON-API-Gateway")
 
-      implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
+      val settings: ServerSettings = ServerSettings(asys)
+        .withTransparentHeadRequests(true)
+        .mapTimeouts(_.withRequestTimeout(startSettings.server.requestTimeout))
+
       implicit val wsConfig = startSettings.websocketConfig.getOrElse(WebsocketConfig())
 
       val clientConfig = LedgerClientConfiguration(

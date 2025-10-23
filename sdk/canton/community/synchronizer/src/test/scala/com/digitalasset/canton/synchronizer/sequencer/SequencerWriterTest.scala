@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
   SubmissionRequest,
 }
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerWriter.RunningSequencerWriterFlow
 import com.digitalasset.canton.synchronizer.sequencer.store.{
   InMemorySequencerStore,
@@ -73,6 +74,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       sequencerMember = sequencerMember,
       blockSequencerMode = true,
       loggerFactory = loggerFactory,
+      sequencerMetrics = SequencerMetrics.noop("sequencer-writer-test"),
     )
     val instanceIndex = 0
     val storageFactory = new MockWriterStoreFactory()

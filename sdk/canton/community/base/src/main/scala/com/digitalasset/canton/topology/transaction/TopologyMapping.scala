@@ -18,6 +18,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30.Enums
+import com.digitalasset.canton.protocol.v30.Enums.ParticipantFeatureFlag
 import com.digitalasset.canton.protocol.v30.NamespaceDelegation.Restriction
 import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.protocol.{
@@ -34,6 +35,7 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllMappings,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag
 import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuth.*
 import com.digitalasset.canton.topology.transaction.TopologyMapping.{
   Code,
@@ -855,10 +857,15 @@ object PartyToKeyMapping extends TopologyMappingCompanion {
 }
 
 /** Participant synchronizer trust certificate
+  * @param featureFlags
+  *   Protocol features supported by [[participantId]] on [[synchronizerId]]. Feature flags are used
+  *   to add targeted support for a protocol feature or bugfix without requiring a new protocol
+  *   version. Care must be taken to not create ledger forks when using such flags.
   */
 final case class SynchronizerTrustCertificate(
     participantId: ParticipantId,
     synchronizerId: SynchronizerId,
+    featureFlags: Seq[ParticipantTopologyFeatureFlag] = Seq.empty,
 ) extends TopologyMapping {
 
   override def companion: SynchronizerTrustCertificate.type = SynchronizerTrustCertificate
@@ -867,6 +874,7 @@ final case class SynchronizerTrustCertificate(
     v30.SynchronizerTrustCertificate(
       participantUid = participantId.uid.toProtoPrimitive,
       synchronizerId = synchronizerId.toProtoPrimitive,
+      featureFlags = featureFlags.map(_.toProtoV30),
     )
 
   override def toProtoV30: v30.TopologyMapping =
@@ -892,6 +900,32 @@ final case class SynchronizerTrustCertificate(
 
 object SynchronizerTrustCertificate extends TopologyMappingCompanion {
 
+  sealed trait ParticipantTopologyFeatureFlag {
+    def toProtoV30: v30.Enums.ParticipantFeatureFlag
+  }
+  object ParticipantTopologyFeatureFlag {
+
+    /** Feature flag enabled when the participant supports the fix for a bug that incorrectly
+      * rejects externally signed transactions with a locally created contract used in a subview.
+      * See https://github.com/DACH-NY/canton/issues/27883
+      */
+    final case object ExternalSigningLocalContractsInSubview
+        extends ParticipantTopologyFeatureFlag {
+      override def toProtoV30: ParticipantFeatureFlag =
+        v30.Enums.ParticipantFeatureFlag.PARTICIPANT_FEATURE_FLAG_PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW
+    }
+
+    def fromProtoV30(
+        valueP: v30.Enums.ParticipantFeatureFlag
+    ): Option[ParticipantTopologyFeatureFlag] = valueP match {
+      case ParticipantFeatureFlag.PARTICIPANT_FEATURE_FLAG_PV33_EXTERNAL_SIGNING_LOCAL_CONTRACT_IN_SUBVIEW =>
+        Some(ExternalSigningLocalContractsInSubview)
+      // Don't fail on unrecognized flags to not fail when parsing new flags this node does not know about
+      case ParticipantFeatureFlag.PARTICIPANT_FEATURE_FLAG_UNSPECIFIED => None
+      case ParticipantFeatureFlag.Unrecognized(_) => None
+    }
+  }
+
   def uniqueKey(participantId: ParticipantId, synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(
       _.add(participantId.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
@@ -908,9 +942,11 @@ object SynchronizerTrustCertificate extends TopologyMappingCompanion {
         "participant_uid",
       )
       synchronizerId <- SynchronizerId.fromProtoPrimitive(valueP.synchronizerId, "synchronizer_id")
+      featureFlags = valueP.featureFlags.flatMap(ParticipantTopologyFeatureFlag.fromProtoV30)
     } yield SynchronizerTrustCertificate(
       participantId,
       synchronizerId,
+      featureFlags,
     )
 }
 

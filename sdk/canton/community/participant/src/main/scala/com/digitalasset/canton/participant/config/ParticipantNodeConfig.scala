@@ -333,6 +333,9 @@ object TestingTimeServiceConfig {
   *   Disable the package upgrade verification on DAR upload
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
+  * @param protocolFeatureFlags
+  *   Enable usage of protocol feature flags. See
+  *   [[com.digitalasset.canton.version.ParticipantProtocolFeatureFlags]]
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -363,6 +366,7 @@ final case class ParticipantNodeParameterConfig(
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
+    protocolFeatureFlags: Boolean = true,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

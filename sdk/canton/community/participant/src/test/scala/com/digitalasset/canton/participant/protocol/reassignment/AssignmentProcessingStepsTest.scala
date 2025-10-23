@@ -73,6 +73,7 @@ import com.digitalasset.canton.store.{
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
+import com.digitalasset.canton.time.SynchronizerTimeTracker.DummyTickRequest
 import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -152,7 +153,7 @@ class AssignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private lazy val identityFactory = TestingTopology()
-    .withSynchronizers(sourceSynchronizer.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap, targetSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         participant -> Map(
@@ -164,10 +165,9 @@ class AssignmentProcessingStepsTest
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(crypto, loggerFactory)
 
-  private lazy val cryptoSnapshot =
-    identityFactory
-      .forOwnerAndSynchronizer(participant, sourceSynchronizer.unwrap)
-      .currentSnapshotApproximation
+  private lazy val cryptoSnapshot = identityFactory
+    .forOwnerAndSynchronizer(participant, targetSynchronizer.unwrap)
+    .currentSnapshotApproximation
 
   private lazy val assignmentProcessingSteps =
     testInstance(targetSynchronizer, cryptoSnapshot, None)
@@ -573,6 +573,7 @@ class AssignmentProcessingStepsTest
               FutureUnlessShutdown.pure(mkActivenessResult()),
               engineController =
                 EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+              DummyTickRequest,
             )
         )("construction of pending data and response failed").failOnShutdown
       } yield {
@@ -617,6 +618,7 @@ class AssignmentProcessingStepsTest
                 FutureUnlessShutdown.pure(mkActivenessResult()),
                 engineController =
                   EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+                DummyTickRequest,
               )
               .failOnShutdown
           confirmationResponse <- result.confirmationResponsesF.failOnShutdown
@@ -760,6 +762,7 @@ class AssignmentProcessingStepsTest
                   FutureUnlessShutdown.pure(mkActivenessResult()),
                   engineController =
                     EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+                  DummyTickRequest,
                 )
             )("construction of pending data and response failed").failOnShutdown
 
@@ -816,7 +819,11 @@ class AssignmentProcessingStepsTest
         locallyRejectedF = FutureUnlessShutdown.pure(false),
         abortEngine = _ => (),
         engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+        DummyTickRequest,
       )
+
+      val mockDeliver = mock[Deliver[DefaultOpenEnvelope]]
+      when(mockDeliver.timestamp).thenReturn(CantonTimestamp.Epoch)
 
       for {
         deps <- statefulDependencies
@@ -826,12 +833,7 @@ class AssignmentProcessingStepsTest
           assignmentProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(
-                SignedContent(
-                  mock[Deliver[DefaultOpenEnvelope]],
-                  Signature.noSignature,
-                  None,
-                  testedProtocolVersion,
-                )
+                SignedContent(mockDeliver, Signature.noSignature, None, testedProtocolVersion)
               ),
               assignmentResult.verdict,
               pendingRequestData,

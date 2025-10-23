@@ -68,12 +68,12 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
 
       for {
         _ <- new InitialTopologySnapshotValidator(
-          testedProtocolVersion,
           new SynchronizerCryptoPureApi(
             defaultStaticSynchronizerParameters,
             testData.factory.cryptoApi.crypto.pureCrypto,
           ),
           store,
+          validateInitialSnapshot = true,
           timeouts,
           loggerFactory,
         ).validateAndApplyInitialTopologySnapshot(topologySnapshot)

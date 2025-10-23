@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.store
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.util.BytesUnit
 import com.google.common.annotations.VisibleForTesting
 
@@ -43,6 +45,7 @@ import scala.math.Ordering.Implicits.*
 class EventsBuffer(
     maxEventsBufferMemory: BytesUnit,
     override val loggerFactory: NamedLoggerFactory,
+    cacheMetrics: CacheMetrics,
 ) extends NamedLogging {
 
   // This implementation was tested against an implementation with mutable.ArrayDeque and was considered significantly faster
@@ -50,15 +53,20 @@ class EventsBuffer(
   // testing just the overhead).
   // It becomes even more significant when increasing the order of magnitude by number of elements
   @volatile
-  private var eventsBuffer: Vector[Sequenced[BytesPayload]] = Vector.empty
+  private var eventsBuffer: Vector[Sequenced[IdOrPayload]] = Vector.empty
   @volatile
   private var memoryUsed = BytesUnit(0)
+
+  implicit private val metricsContext: MetricsContext = MetricsContext.Empty
+
+  cacheMetrics.registerSizeGauge(() => eventsBuffer.size.toLong)
+  cacheMetrics.registerWeightGauge(() => memoryUsed.bytes)
 
   /** Appends events up to the memory limit to the buffer. May drop already buffered events and may
     * not buffer all provided events to stay within the memory limit.
     */
   final def bufferEvents(
-      events: NonEmpty[Seq[Sequenced[BytesPayload]]]
+      events: NonEmpty[Seq[Sequenced[IdOrPayload]]]
   ): Unit = addElementsInternal(events, append = true).discard
 
   /** Prepends events to the buffer up to the memory limit. May not buffer all provided events to
@@ -67,10 +75,10 @@ class EventsBuffer(
     *   true if the buffer is at the memory limit or some events had to be dropped again to stay
     *   within the memory limit.
     */
-  final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[BytesPayload]]]): Boolean =
+  final def prependEventsForPreloading(events: NonEmpty[Seq[Sequenced[IdOrPayload]]]): Boolean =
     addElementsInternal(events, append = false)
 
-  private def addElementsInternal(events: NonEmpty[Seq[Sequenced[BytesPayload]]], append: Boolean) =
+  private def addElementsInternal(events: NonEmpty[Seq[Sequenced[IdOrPayload]]], append: Boolean) =
     blocking(synchronized { // synchronized to enforce that there is only 1 writer
 
       // prepare the buffer so that the backing array is prepared for the right size
@@ -99,13 +107,18 @@ class EventsBuffer(
           // or we would split at the index after the last element,
           // we explicitly retain the last element only so that there's always something to serve
           case None | Some((_, `targetSize`)) =>
+            val memoryUsedBefore = memoryUsed
             eventsBuffer = bufferWithAddedElements.takeRight(1)
             memoryUsed = EventsBuffer.approximateSize(eventsBuffer)
+            cacheMetrics.evictionWeight.inc((memoryUsedBefore - memoryUsed).bytes)
+            cacheMetrics.evictionCount.inc(targetSize.toLong - 1)
           case Some((memoryFreedUp, indexToSplitAt)) =>
             val (_, bufferBelowMemoryLimit) =
               bufferWithAddedElements.splitAt(indexToSplitAt)
             eventsBuffer = bufferBelowMemoryLimit
             memoryUsed -= memoryFreedUp
+            cacheMetrics.evictionWeight.inc(memoryFreedUp.bytes)
+            cacheMetrics.evictionCount.inc(indexToSplitAt.toLong)
         }
       } else {
         eventsBuffer = bufferWithAddedElements
@@ -122,7 +135,7 @@ class EventsBuffer(
     memoryUsed = BytesUnit.zero
   })
 
-  final def snapshot(): Vector[Sequenced[BytesPayload]] = eventsBuffer
+  final def snapshot(): Vector[Sequenced[IdOrPayload]] = eventsBuffer
 }
 
 object EventsBuffer {
@@ -133,13 +146,18 @@ object EventsBuffer {
   private val otherFieldsOverheadEstimate = 600L
 
   @VisibleForTesting
-  def approximateEventSize(event: Sequenced[BytesPayload]): BytesUnit = {
-    val payloadSize = event.event.payloadO.map(_.content.size.toLong).getOrElse(0L)
+  def approximateEventSize(event: Sequenced[IdOrPayload]): BytesUnit = {
+    val payloadSize = event.event.payloadO
+      .map {
+        case BytesPayload(_, bytes) => bytes.size.toLong
+        case PayloadId(_) => 8L // 64-bit Long / CantonTimestamp
+      }
+      .getOrElse(0L)
     val membersSizeEstimate = event.event.members.size * perMemberOverhead
     BytesUnit(payloadSize + membersSizeEstimate + otherFieldsOverheadEstimate)
   }
 
   @VisibleForTesting
-  def approximateSize(events: Seq[Sequenced[BytesPayload]]): BytesUnit =
+  def approximateSize(events: Seq[Sequenced[IdOrPayload]]): BytesUnit =
     events.map(approximateEventSize).sum
 }

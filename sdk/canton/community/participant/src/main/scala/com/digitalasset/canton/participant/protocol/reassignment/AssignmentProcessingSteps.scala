@@ -43,6 +43,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
@@ -342,6 +343,7 @@ private[reassignment] class AssignmentProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -409,6 +411,7 @@ private[reassignment] class AssignmentProcessingSteps(
         locallyRejectedF,
         engineController.abort,
         engineAbortStatusF,
+        decisionTimeTickRequest,
       )
 
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -446,6 +449,7 @@ private[reassignment] class AssignmentProcessingSteps(
       _locallyRejectedF,
       _engineController,
       _abortedF,
+      _decisionTimeTickRequest,
     ) = pendingRequestData
 
     def rejected(
@@ -563,12 +567,15 @@ object AssignmentProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   ) extends PendingReassignment {
 
     override def rootHashO: Option[RootHash] = Some(assignmentValidationResult.rootHash)
 
     override def submitterMetadata: ReassignmentSubmitterMetadata =
       assignmentValidationResult.submitterMetadata
+
+    override def cancelDecisionTimeTickRequest(): Unit = decisionTimeTickRequest.cancel()
   }
 
   private[reassignment] def makeFullAssignmentTree(

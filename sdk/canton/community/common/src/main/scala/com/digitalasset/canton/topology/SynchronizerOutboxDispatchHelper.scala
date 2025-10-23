@@ -7,6 +7,7 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.parallel.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
+import com.digitalasset.canton.config.TopologyConfig
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
@@ -37,6 +38,8 @@ trait SynchronizerOutboxDispatchHelper extends NamedLogging {
   protected def protocolVersion: ProtocolVersion
 
   protected def crypto: Crypto
+
+  protected def topologyConfig: TopologyConfig
 
   protected def convertTransactions(transactions: Seq[GenericSignedTopologyTransaction])(implicit
       ec: ExecutionContext,
@@ -169,7 +172,7 @@ trait SynchronizerOutboxDispatch extends NamedLogging with FlagCloseable {
         .Backoff(
           logger,
           this,
-          timeouts.unbounded.retries(1.second),
+          topologyConfig.topologyTransactionObservationTimeout.retries(1.second),
           1.second,
           10.seconds,
           "push topology transaction",

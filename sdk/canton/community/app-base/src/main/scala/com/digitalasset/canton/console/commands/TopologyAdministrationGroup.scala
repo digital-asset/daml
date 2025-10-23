@@ -8,7 +8,6 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
@@ -41,13 +40,14 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.admin.v30.{
   ExportTopologySnapshotResponse,
+  ExportTopologySnapshotV2Response,
   GenesisStateResponse,
+  GenesisStateV2Response,
 }
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -82,8 +82,6 @@ class TopologyAdministrationGroup(
 ) extends ConsoleCommandGroup
     with Helpful
     with FeatureFlagFilter {
-
-  import TopologyAdministrationGroup.*
 
   protected val runner: AdminCommandRunner = instance
   import runner.*
@@ -278,6 +276,19 @@ class TopologyAdministrationGroup(
       writeToFile(file, bytes)
     }
 
+    @Help.Summary("Serializes node's topology identity transactions to a file")
+    @Help.Description(
+      "Transactions serialized this way should be loaded into another node with load_from_file"
+    )
+    def export_identity_transactionsV2(file: String): Unit = {
+      val bytes = instance.topology.transactions
+        .export_topology_snapshotV2(
+          filterMappings = Seq(NamespaceDelegation.code, OwnerToKeyMapping.code),
+          filterNamespace = instance.namespace.filterString,
+        )
+      writeToFile(file, bytes)
+    }
+
     @Help.Summary("Loads topology transactions from a file into the specified topology store")
     @Help.Description("The file must contain data serialized by TopologyTransactions.")
     def import_topology_snapshot_from(file: String, store: TopologyStoreId): Unit =
@@ -296,6 +307,34 @@ class TopologyAdministrationGroup(
         adminCommand(
           TopologyAdminCommands.Write
             .ImportTopologySnapshot(
+              topologyTransactions,
+              store,
+              synchronize,
+            )
+        )
+      }
+
+    @Help.Summary("Loads topology transactions from a file into the specified topology store")
+    @Help.Description("The file must contain data serialized by TopologyTransactions.")
+    def import_topology_snapshot_fromV2(file: String, store: TopologyStoreId): Unit =
+      BinaryFileUtil
+        .readByteStringFromFile(file)
+        .map(import_topology_snapshotV2(_, store))
+        .valueOr { err =>
+          throw new IllegalArgumentException(s"import_topology_snapshot failed: $err")
+        }
+
+    def import_topology_snapshotV2(
+        topologyTransactions: ByteString,
+        store: TopologyStoreId,
+        synchronize: Option[NonNegativeDuration] = Some(
+          consoleEnvironment.commandTimeouts.unbounded
+        ),
+    ): Unit =
+      consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Write
+            .ImportTopologySnapshotV2(
               topologyTransactions,
               store,
               synchronize,
@@ -422,6 +461,18 @@ class TopologyAdministrationGroup(
         )
       }
 
+    @Help.Summary("Authorize a transaction by its hash")
+    def authorize(
+        synchronizerId: SynchronizerId,
+        txHash: TxHash,
+    ): SignedTopologyTransaction[TopologyChangeOp, TopologyMapping] =
+      authorize[TopologyMapping](
+        txHash,
+        mustBeFullyAuthorized = false,
+        TopologyStoreId.Synchronizer(synchronizerId),
+      )
+
+    @Help.Summary("Authorize a transaction by its hash")
     def authorize[M <: TopologyMapping: ClassTag](
         txHash: TxHash,
         mustBeFullyAuthorized: Boolean,
@@ -542,6 +593,68 @@ class TopologyAdministrationGroup(
         }
     }
 
+    @Help.Summary("export topology snapshot")
+    @Help.Description(
+      """This command export the node's topology transactions as byte string.
+        |
+        |The arguments are:
+        |excludeMappings: a list of topology mapping codes to exclude from the export. If not provided, all mappings are included.
+        |filterNamespace: the namespace to filter the transactions by.
+        |protocolVersion: the protocol version used to serialize the topology transactions. If not provided, the latest protocol version is used.
+        """
+    )
+    def export_topology_snapshotV2(
+        store: TopologyStoreId = TopologyStoreId.Authorized,
+        proposals: Boolean = false,
+        timeQuery: TimeQuery = TimeQuery.HeadState,
+        operation: Option[TopologyChangeOp] = None,
+        filterMappings: Seq[TopologyMapping.Code] = Nil,
+        excludeMappings: Seq[TopologyMapping.Code] = Nil,
+        filterAuthorizedKey: Option[Fingerprint] = None,
+        protocolVersion: Option[String] = None,
+        filterNamespace: String = "",
+        timeout: NonNegativeDuration = timeouts.unbounded,
+    ): ByteString = {
+      if (filterMappings.nonEmpty && excludeMappings.nonEmpty) {
+        consoleEnvironment.run(
+          CommandErrors
+            .GenericCommandError("Cannot specify both filterMappings and excludeMappings")
+        )
+      }
+      val excludeMappingsCodes = if (filterMappings.nonEmpty) {
+        TopologyMapping.Code.all.diff(filterMappings).map(_.code)
+      } else excludeMappings.map(_.code)
+
+      consoleEnvironment
+        .run {
+          val responseObserver =
+            new ByteStringStreamObserver[ExportTopologySnapshotV2Response](_.chunk)
+
+          def call: ConsoleCommandResult[Context.CancellableContext] =
+            adminCommand(
+              TopologyAdminCommands.Read.ExportTopologySnapshotV2(
+                responseObserver,
+                BaseQuery(
+                  store,
+                  proposals,
+                  timeQuery,
+                  operation,
+                  filterSigningKey = filterAuthorizedKey.map(_.toProtoPrimitive).getOrElse(""),
+                  protocolVersion.map(ProtocolVersion.tryCreate),
+                ),
+                excludeMappings = excludeMappingsCodes,
+                filterNamespace = filterNamespace,
+              )
+            )
+          processResult(
+            call,
+            responseObserver.resultBytes,
+            timeout,
+            s"Exporting the topology state from store $store",
+          )
+        }
+    }
+
     @Help.Summary(
       "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
     )
@@ -562,6 +675,35 @@ class TopologyAdministrationGroup(
         def call: ConsoleCommandResult[Context.CancellableContext] =
           adminCommand(
             TopologyAdminCommands.Read.GenesisState(
+              responseObserver,
+              synchronizerStore = filterSynchronizerStore,
+              timestamp = timestamp,
+            )
+          )
+
+        processResult(call, responseObserver.resultBytes, timeout, "Downloading the genesis state")
+      }
+
+    @Help.Summary(
+      "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
+    )
+    @Help.Description(
+      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
+        |filterSynchronizerStore: Must be specified if the genesis state is requested from a participant node.
+        |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
+        """
+    )
+    def genesis_stateV2(
+        filterSynchronizerStore: Option[TopologyStoreId.Synchronizer] = None,
+        timestamp: Option[CantonTimestamp] = None,
+        timeout: NonNegativeDuration = timeouts.unbounded,
+    ): ByteString =
+      consoleEnvironment.run {
+        val responseObserver = new ByteStringStreamObserver[GenesisStateV2Response](_.chunk)
+
+        def call: ConsoleCommandResult[Context.CancellableContext] =
+          adminCommand(
+            TopologyAdminCommands.Read.GenesisStateV2(
               responseObserver,
               synchronizerStore = filterSynchronizerStore,
               timestamp = timestamp,
@@ -735,18 +877,16 @@ class TopologyAdministrationGroup(
           )
 
       val genesisTopology =
-        NonEmpty.from(
-          Seq(
-            maybeExistingSynchronizerParameterState,
-            maybeProposedSynchronizerParameterState,
-            maybeExistingMediatorState,
-            maybeProposedMediatorState,
-            maybeExistingSequencerState,
-            maybeProposedSequencerState,
-          ).flatten
-        )
+        Seq(
+          maybeExistingSynchronizerParameterState,
+          maybeProposedSynchronizerParameterState,
+          maybeExistingMediatorState,
+          maybeProposedMediatorState,
+          maybeExistingSequencerState,
+          maybeProposedSequencerState,
+        ).flatten
 
-      genesisTopology.map(merge(_)).getOrElse(Seq.empty)
+      SignedTopologyTransactions.compact(genesisTopology)
     }
 
     @Help.Summary(
@@ -1679,6 +1819,24 @@ class TopologyAdministrationGroup(
       )
     }
 
+    @Help.Summary("List multi-hosted party proposals")
+    @Help.Description("""Multi-hosted parties require all involved actors to sign the topology transaction.
+         Topology transactions without sufficient signatures are called proposals. They are
+         distributed the same way as fully authorized topology transactions, and signatures
+         are aggregated until the transaction is fully authorized.
+         This method here allows to inspect the pending queue of open hosting proposals.
+         The proposals are returned as seen on the specified synchronizer. They can be approved
+         by the individual participants by invoking node.topology.transactions.authorize(<synchronizer-id>, <tx-hash>).
+        """)
+    def list_hosting_proposals(
+        synchronizerId: SynchronizerId,
+        participantId: ParticipantId,
+    ): Seq[ListMultiHostingProposal] = list(
+      synchronizerId,
+      proposals = true,
+      filterParticipant = participantId.filterString,
+    ).mapFilter(ListMultiHostingProposal.mapFilter(participantId))
+
     /** Check whether the node knows about `party` being hosted on `hostingParticipants` and
       * synchronizer `synchronizerId`, optionally the specified expected permission and threshold.
       * @param synchronizerId
@@ -1927,11 +2085,13 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
         change: TopologyChangeOp = TopologyChangeOp.Replace,
+        featureFlags: Seq[SynchronizerTrustCertificate.ParticipantTopologyFeatureFlag] = Seq.empty,
     ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerTrustCertificate] = {
       val cmd = TopologyAdminCommands.Write.Propose(
         mapping = SynchronizerTrustCertificate(
           participantId,
           synchronizerId,
+          featureFlags,
         ),
         signedBy = Seq.empty,
         store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
@@ -2693,7 +2853,7 @@ class TopologyAdministrationGroup(
         filterSynchronizer: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): DynamicSynchronizerParameters = consoleEnvironment.run {
+    ): ConsoleDynamicSynchronizerParameters = consoleEnvironment.run {
       val commandResult = adminCommand(
         TopologyAdminCommands.Read.SynchronizerParametersState(
           BaseQuery(
@@ -2707,13 +2867,15 @@ class TopologyAdministrationGroup(
           filterSynchronizer,
         )
       )
-      commandResult.map(
-        _.headOption
-          .getOrElse(
-            consoleEnvironment.raiseError("No latest dynamic synchronizer parameters found.")
-          )
-          .item
-      )
+      commandResult
+        .map(
+          _.headOption
+            .getOrElse(
+              consoleEnvironment.raiseError("No latest dynamic synchronizer parameters found.")
+            )
+            .item
+        )
+        .map(ConsoleDynamicSynchronizerParameters(_))
     }
 
     @Help.Summary("Get the configured dynamic synchronizer parameters")
@@ -2771,7 +2933,9 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
 
       val parametersInternal =
-        parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
+        parameters.toInternal.valueOr(err =>
+          consoleEnvironment.raiseError(s"Cannot convert parameters to internal format: $err")
+        )
 
       runAdminCommand(
         TopologyAdminCommands.Write.Propose(
@@ -3085,32 +3249,4 @@ class TopologyAdministrationGroup(
   private def expectExactlyOneResult[R](seq: Seq[R]): R = expectAtMostOneResult(seq).getOrElse(
     throw new IllegalStateException(s"Expected exactly one result, but found none")
   )
-}
-
-object TopologyAdministrationGroup {
-
-  private[console] def merge(
-      txs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-      updateIsProposal: Option[Boolean] = None,
-  ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
-    // remember order of transactions in the initial topology state
-    // so we don't mess up certificate chains
-    val orderingMap =
-      txs.zipWithIndex.map { case (tx, idx) =>
-        (tx.mapping.uniqueKey, idx)
-      }.toMap
-
-    txs
-      .groupBy1(_.hash)
-      .values
-      .map { txs =>
-        // combine signatures of transactions with the same hash
-        val result = txs.reduceLeft { (a, b) =>
-          a.addSignaturesFromTransaction(b)
-        }
-        updateIsProposal.fold(result)(result.updateIsProposal)
-      }
-      .toSeq
-      .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
-  }
 }

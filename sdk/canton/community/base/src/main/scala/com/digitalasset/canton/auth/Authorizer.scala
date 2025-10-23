@@ -224,6 +224,8 @@ final class Authorizer(
 
       case RequiredClaim.ActAs(party) => claims.canActAs(party).map(_ => req)
 
+      case RequiredClaim.ExecuteAs(party) => claims.canExecuteAs(party).map(_ => req)
+
       case RequiredClaim.MatchIdentityProviderId(_) =>
         val identityProviderIdL = requiredClaim.requestStringL
         val modifiedRequest = implyIdentityProviderIdFromClaims(identityProviderIdL, claims, req)
@@ -332,6 +334,7 @@ object RequiredClaim {
   final case class ReadAs[Req](party: String) extends RequiredClaim[Req]
   final case class ReadAsAnyParty[Req]() extends RequiredClaim[Req]
   final case class ActAs[Req](party: String) extends RequiredClaim[Req]
+  final case class ExecuteAs[Req](party: String) extends RequiredClaim[Req]
   final case class MatchIdentityProviderId[Req](override val requestStringL: Lens[Req, String])
       extends RequiredClaim[Req]
   final case class MatchUserId[Req](

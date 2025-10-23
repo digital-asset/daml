@@ -73,14 +73,14 @@ class JsStateService(
 
   private def getConnectedSynchronizers(
       callerContext: CallerContext
-  ): TracedInput[(String, Option[String])] => Future[
+  ): TracedInput[(Option[String], Option[String])] => Future[
     Either[JsCantonError, state_service.GetConnectedSynchronizersResponse]
   ] = req =>
     stateServiceClient(callerContext.token())(req.traceContext)
       .getConnectedSynchronizers(
         state_service
           .GetConnectedSynchronizersRequest(
-            party = req.in._1,
+            party = req.in._1.getOrElse(""),
             participantId = req.in._2.getOrElse(""),
           )
       )
@@ -145,12 +145,19 @@ object JsStateService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("active-contracts"))
     .in(jsonBody[state_service.GetActiveContractsRequest])
     .out(jsonBody[Seq[JsGetActiveContractsResponse]])
-    .inStreamListParams()
-    .description("Query active contracts list (blocking call)")
+    .description(
+      """Query active contracts list (blocking call).
+        |Querying active contracts is an expensive operation and if possible should not be repeated often.
+        |Consider querying active contracts initially (for a given offset)
+        |and then repeatedly call one of `/v2/updates/...`endpoints  to get subsequent modifications.
+        |You can also use websockets to get updates with better performance.
+        |""".stripMargin
+    )
+    .inStreamListParamsAndDescription()
 
   val getConnectedSynchronizersEndpoint = state.get
     .in(sttp.tapir.stringToPath("connected-synchronizers"))
-    .in(query[String]("party"))
+    .in(query[Option[String]]("party"))
     .in(query[Option[String]]("participantId"))
     .out(jsonBody[state_service.GetConnectedSynchronizersResponse])
     .description("Get connected synchronizers")
@@ -230,6 +237,7 @@ object JsStateServiceCodecs {
   implicit val getConnectedSynchronizersResponseRW
       : Codec[state_service.GetConnectedSynchronizersResponse] =
     deriveRelaxedCodec
+
   implicit val connectedSynchronizerRW
       : Codec[state_service.GetConnectedSynchronizersResponse.ConnectedSynchronizer] =
     deriveRelaxedCodec

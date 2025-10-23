@@ -106,7 +106,7 @@ class JsCommandService(
     asList(
       JsCommandService.completionListEndpoint,
       commandCompletionStream,
-      timeoutOpenEndedStream = true,
+      timeoutOpenEndedStream = (_: command_completion_service.CompletionStreamRequest) => true,
     ),
   )
 
@@ -336,8 +336,8 @@ object JsCommandService extends DocumentationEndpoints {
       .in(sttp.tapir.stringToPath("completions"))
       .in(jsonBody[command_completion_service.CompletionStreamRequest])
       .out(jsonBody[Seq[command_completion_service.CompletionStreamResponse]])
-      .inStreamListParams()
       .description("Query completions list (blocking call)")
+      .inStreamListParamsAndDescription()
 
   override def documentation: Seq[AnyEndpoint] = Seq(
     submitAndWait,

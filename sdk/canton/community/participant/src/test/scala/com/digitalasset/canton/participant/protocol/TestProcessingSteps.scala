@@ -46,6 +46,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
@@ -158,6 +159,12 @@ class TestProcessingSteps(
   ): Unit =
     ()
 
+  override def setDecisionTimeTickRequest(
+      pendingSubmissions: concurrent.Map[Int, Unit],
+      pendingSubmissionId: Int,
+      requestedTick: SynchronizerTimeTracker.TickRequest,
+  ): Unit = requestedTick.cancel()
+
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
       snapshot: SynchronizerSnapshotSyncCryptoApi,
@@ -233,6 +240,7 @@ class TestProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -300,7 +308,7 @@ class TestProcessingSteps(
       pendingSubmission: Unit,
   )(implicit traceContext: TraceContext): Unit = ()
 
-  override def postProcessResult(verdict: Verdict, pendingSubmissionO: Unit)(implicit
+  override def postProcessResult(verdict: Verdict, pendingSubmission: Unit)(implicit
       traceContext: TraceContext
   ): Unit = ()
 
@@ -371,6 +379,8 @@ object TestProcessingSteps {
     override def rootHashO: Option[RootHash] = None
 
     override def isCleanReplay: Boolean = false
+
+    override def cancelDecisionTimeTickRequest(): Unit = ()
   }
 
   case object TestPendingRequestDataType extends RequestType {

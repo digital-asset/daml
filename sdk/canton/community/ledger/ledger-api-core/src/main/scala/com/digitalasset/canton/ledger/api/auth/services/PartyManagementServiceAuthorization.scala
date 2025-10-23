@@ -63,10 +63,24 @@ final class PartyManagementServiceAuthorization(
   ): Future[UpdatePartyIdentityProviderIdResponse] =
     authorizer.rpc(service.updatePartyIdentityProviderId)(RequiredClaim.Admin())(request)
 
+  override def generateExternalPartyTopology(
+      request: GenerateExternalPartyTopologyRequest
+  ): Future[GenerateExternalPartyTopologyResponse] =
+    authorizer.rpc(service.generateExternalPartyTopology)(RequiredClaim.Public())(request)
+
   override def bindService(): ServerServiceDefinition =
     PartyManagementServiceGrpc.bindService(this, executionContext)
 
   override def close(): Unit = service.close()
+
+  override def allocateExternalParty(
+      request: AllocateExternalPartyRequest
+  ): Future[AllocateExternalPartyResponse] =
+    authorizer.rpc(service.allocateExternalParty)(
+      RequiredClaims.idpAdminClaimsAndMatchingRequestIdpId(
+        Lens.unit[AllocateExternalPartyRequest].identityProviderId
+      )*
+    )(request)
 }
 
 object PartyManagementServiceAuthorization {

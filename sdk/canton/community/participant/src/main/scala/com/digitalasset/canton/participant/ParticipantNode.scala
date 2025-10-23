@@ -593,6 +593,7 @@ class ParticipantNodeBootstrap(
           topologyDispatcher,
           syncCryptoSignerWithSessionKeys,
           config.crypto,
+          config.topology,
           clock,
           parameters,
           synchronizerAliasManager,

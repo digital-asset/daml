@@ -68,6 +68,50 @@ class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
     )
   }
 
+  behavior of "executionClaims"
+
+  it should "compute the correct ExecuteAs claims in the happy path" in {
+    val userIdL: Lens[String, String] = Lens.unit
+    RequiredClaims.executionClaims(
+      executeAs = Set("1", "2", "3"),
+      readAs = Set("a", "b", "c"),
+      userIdL = userIdL,
+    ) should contain theSameElementsAs RequiredClaims[String](
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("c"),
+      RequiredClaim.ExecuteAs("1"),
+      RequiredClaim.ExecuteAs("2"),
+      RequiredClaim.ExecuteAs("3"),
+      RequiredClaim.MatchUserId(userIdL),
+    )
+  }
+
+  it should "compute the correct claims if no ExecuteAs" in {
+    val userIdL: Lens[String, String] = Lens.unit
+    RequiredClaims.executionClaims(
+      executeAs = Set.empty,
+      readAs = Set("a", "b", "c"),
+      userIdL = userIdL,
+    ) should contain theSameElementsAs RequiredClaims[String](
+      RequiredClaim.ReadAs("a"),
+      RequiredClaim.ReadAs("b"),
+      RequiredClaim.ReadAs("c"),
+      RequiredClaim.MatchUserId(userIdL),
+    )
+  }
+
+  it should "compute the correct claims if no ExecuteAs and no ReadAs" in {
+    val userIdL: Lens[String, String] = Lens.unit
+    RequiredClaims.executionClaims(
+      executeAs = Set.empty,
+      readAs = Set.empty,
+      userIdL = userIdL,
+    ) should contain theSameElementsAs RequiredClaims[String](
+      RequiredClaim.MatchUserId(userIdL)
+    )
+  }
+
   behavior of "transactionFilterClaims"
 
   it should "compute the correct claims in the happy path" in {

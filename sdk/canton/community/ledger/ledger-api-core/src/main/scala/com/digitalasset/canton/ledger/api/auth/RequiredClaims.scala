@@ -27,6 +27,15 @@ object RequiredClaims {
       :: actAs.view.map(RequiredClaim.ActAs[Req]).toList
       ::: readAs.view.map(RequiredClaim.ReadAs[Req]).toList
 
+  def executionClaims[Req](
+      executeAs: Set[String],
+      readAs: Set[String],
+      userIdL: Lens[Req, String],
+  ): List[RequiredClaim[Req]] =
+    RequiredClaim.MatchUserId(userIdL)
+      :: executeAs.view.map(RequiredClaim.ExecuteAs[Req]).toList
+      ::: readAs.view.map(RequiredClaim.ReadAs[Req]).toList
+
   def readAsForAllParties[Req](parties: Iterable[String]): List[RequiredClaim[Req]] =
     parties.view.map(RequiredClaim.ReadAs[Req]).toList
 

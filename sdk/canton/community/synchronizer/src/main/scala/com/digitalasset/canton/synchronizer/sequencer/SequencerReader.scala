@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.order.*
 import cats.syntax.traverse.*
+import com.daml.metrics.api.MetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
@@ -27,6 +28,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.metrics.InstrumentedGraph.BufferedFlow
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator.TopologyTimestampVerificationError
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.client.{
@@ -38,12 +40,13 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, SequencedSerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.SequencerReader.ReadState
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.store.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -83,6 +86,7 @@ final case class SequencerReaderConfig(
       SequencerReaderConfig.defaultPayloadBatchWindow,
     payloadFetchParallelism: Int = SequencerReaderConfig.defaultPayloadFetchParallelism,
     eventGenerationParallelism: Int = SequencerReaderConfig.defaultEventGenerationParallelism,
+    useRecipientsTableForReads: Boolean = SequencerReaderConfig.defaultUseRecipientsTableForReads,
 ) extends CustomCantonConfigValidation {
   override protected def doValidate(edition: CantonEdition): Seq[CantonConfigValidationError] =
     Option
@@ -107,6 +111,7 @@ object SequencerReaderConfig {
     config.NonNegativeFiniteDuration.ofMillis(5)
   val defaultPayloadFetchParallelism: Int = 2
   val defaultEventGenerationParallelism: Int = 4
+  val defaultUseRecipientsTableForReads: Boolean = false
 
   /** The default polling interval if [[SequencerReaderConfig.pollingInterval]] is unset despite
     * high availability being configured.
@@ -124,6 +129,8 @@ class SequencerReader(
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    streamInstrumentationConfig: BlockSequencerStreamInstrumentationConfig,
+    metrics: SequencerMetrics,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
@@ -150,19 +157,6 @@ class SequencerReader(
         registeredMember.enabled,
         CreateSubscriptionError.MemberDisabled(member): CreateSubscriptionError,
       )
-      // We use the sequencing time of the topology transaction that registered the member on the synchronizer
-      // as the latestTopologyClientRecipientTimestamp
-      memberOnboardingTxSequencingTime <- EitherT.right(
-        syncCryptoApi.headSnapshot.ipsSnapshot
-          .memberFirstKnownAt(member)
-          .map {
-            case Some((sequencedTime, _)) => sequencedTime.value
-            case None =>
-              ErrorUtil.invalidState(
-                s"Member $member unexpectedly not known to the topology client"
-              )
-          }
-      )
 
       _ = logger.debug(
         s"Topology processor at: ${syncCryptoApi.approximateTimestamp}"
@@ -186,19 +180,22 @@ class SequencerReader(
         } else {
           requestedTimestampInclusive
         }
-
-      latestTopologyClientRecipientTimestamp <- EitherT.right(
-        readFromTimestampInclusive
-          .flatTraverse { timestamp =>
-            store.latestTopologyClientRecipientTimestamp(
-              member = member,
-              timestampExclusive =
-                timestamp, // this is correct as we query for latest timestamp before `timestampInclusive`
-            )
-          }
+      lowerBoundExclusiveO <- EitherT.right(store.fetchLowerBound())
+      latestTopologyClientRecipientTimestampO <- EitherT.right(
+        store
+          .latestTopologyClientRecipientTimestamp(
+            member = topologyClientMember,
+            timestampExclusive =
+              readFromTimestampInclusive // this is correct as we query for latest timestamp before `timestampInclusive`
+                .filter(_ >= registeredMember.registeredFrom)
+                .getOrElse(registeredMember.registeredFrom),
+          )
           .map(
-            _.getOrElse(
-              memberOnboardingTxSequencingTime
+            _.orElse(
+              // Fall back to the lower bound's topology client addressed timestamp
+              lowerBoundExclusiveO.flatMap { case (_, lowerBoundTopologyClientAddressedTimestamp) =>
+                lowerBoundTopologyClientAddressedTimestamp
+              }
             )
           )
       )
@@ -214,11 +211,10 @@ class SequencerReader(
       )
       _ = logger.debug(
         s"New subscription for $member will start with previous event timestamp = $previousEventTimestamp " +
-          s"and latest topology client timestamp = $latestTopologyClientRecipientTimestamp"
+          s"and latest topology client timestamp = $latestTopologyClientRecipientTimestampO"
       )
 
       // validate we are in the bounds of the data that this sequencer can serve
-      lowerBoundExclusiveO <- EitherT.right(store.fetchLowerBound())
       _ <- EitherT
         .cond[FutureUnlessShutdown](
           (requestedTimestampInclusive, lowerBoundExclusiveO) match {
@@ -266,23 +262,41 @@ class SequencerReader(
         registeredTopologyClientMember.memberId,
         loggerFactoryForMember,
       )
+      val initialReadState = ReadState(
+        member,
+        registeredMember.memberId,
+        // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
+        // so if we want to grab the event exactly at timestampInclusive, we do -1 here
+        nextReadTimestamp = readFromTimestampInclusive
+          .getOrElse(
+            registeredMember.registeredFrom
+          )
+          .immediatePredecessor,
+        nextPreviousEventTimestamp = previousEventTimestamp,
+        latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestampO,
+      )
       reader.from(
         event => requestedTimestampInclusive.exists(event.unvalidatedEvent.timestamp < _),
-        ReadState(
-          member,
-          registeredMember.memberId,
-          // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
-          // so if we want to grab the event exactly at timestampInclusive, we do -1 here
-          nextReadTimestamp = readFromTimestampInclusive
-            .map(_.immediatePredecessor)
-            .getOrElse(
-              memberOnboardingTxSequencingTime
-            ),
-          nextPreviousEventTimestamp = previousEventTimestamp,
-          latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestamp.some,
-        ),
+        initialReadState,
       )
     })
+
+  private def instrumentFlow[In, Out, Mat](
+      original: Flow[In, Out, Mat],
+      flowName: String,
+  )(implicit metricsContext: MetricsContext): Flow[In, Out, Mat] =
+    if (streamInstrumentationConfig.isEnabled) {
+      val metricsContextWithFlowName = metricsContext.withExtraLabels("flow" -> flowName)
+      original
+        .map { elem =>
+          metrics.block.streamElementCount.inc()(metricsContextWithFlowName)
+          elem
+        }
+        .buffered(
+          metrics.block.streamBufferSize,
+          streamInstrumentationConfig.bufferSize.value,
+        )(metricsContextWithFlowName)
+    } else original
 
   private[SequencerReader] class EventsReader(
       member: Member,
@@ -290,6 +304,10 @@ class SequencerReader(
       topologyClientMemberId: SequencerMemberId,
       override protected val loggerFactory: NamedLoggerFactory,
   ) extends NamedLogging {
+
+    private implicit val metricsContext: MetricsContext = MetricsContext(
+      "subscriber" -> member.toProtoPrimitive
+    )
 
     import SequencerReader.*
 
@@ -299,13 +317,23 @@ class SequencerReader(
       eventSignaller
         .readSignalsForMember(member, registeredMember.memberId)
         .via(
-          FetchLatestEventsFlow[
-            (PreviousEventTimestamp, Sequenced[IdOrPayload]),
-            ReadState,
-          ](
-            initialReadState,
-            state => fetchUnvalidatedEventsBatchFromReadState(state)(traceContext),
-            (state, _) => !state.lastBatchWasFull,
+          instrumentFlow(
+            Flow[Traced[ReadSignal]],
+            "read-signals-for-member",
+          )
+        )
+        .via(
+          instrumentFlow(
+            FetchLatestEventsFlow[
+              (PreviousEventTimestamp, Sequenced[IdOrPayload]),
+              ReadState,
+            ](
+              initialReadState,
+              state => fetchUnvalidatedEventsBatchFromReadState(state)(traceContext),
+              (state, _) => !state.lastBatchWasFull,
+              loggerFactory,
+            ),
+            "fetch-latest-events",
           )
         )
 
@@ -589,7 +617,6 @@ class SequencerReader(
                       ),
                     )
                   case payload: BytesPayload => payload.decodeBatchAndTrim(protocolVersion, member)
-                  case batch: FilteredBatch => Batch.trimForMember(batch.batch, member)
                 })
               )
             }
@@ -622,7 +649,12 @@ class SequencerReader(
           .dropWhile(dropWhile)
           .viaMat(KillSwitches.single)(Keep.right)
           .injectKillSwitch(identity)
-          .via(fetchPayloadsForEventsBatch())
+          .via(
+            instrumentFlow(
+              fetchPayloadsForEventsBatch(),
+              "fetch-payloads-for-events-batch",
+            )
+          )
 
       // TODO(#23857): With validated events here we will persist their validation status for re-use by other subscriptions.
       eventsSource
@@ -636,6 +668,12 @@ class SequencerReader(
           parallelism = 1
         )(
           signValidatedEvent(_).value
+        )
+        .via(
+          instrumentFlow(
+            Flow[Either[SequencedEventError, SequencedSerializedEvent]],
+            "signed-events",
+          )
         )
     }
 
@@ -874,7 +912,8 @@ object SequencerReader {
         nextReadTimestamp = readEvents.nextTimestamp
           .getOrElse(nextReadTimestamp),
         // did we receive a full batch of events on this update
-        lastBatchWasFull = readEvents.events.sizeCompare(batchSize) == 0,
+        // the case > is there as events query can return more events than requested in multi-instance setups
+        lastBatchWasFull = readEvents.events.sizeCompare(batchSize) >= 0,
       )
 
     override protected def pretty: Pretty[ReadState] = prettyOfClass(

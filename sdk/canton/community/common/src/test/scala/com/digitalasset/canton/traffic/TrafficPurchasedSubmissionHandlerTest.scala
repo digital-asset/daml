@@ -55,6 +55,9 @@ class TrafficPurchasedSubmissionHandlerTest
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
   private val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
+  when(
+    synchronizerTimeTracker.requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext])
+  ).thenReturn(SynchronizerTimeTracker.DummyTickRequest)
   private val synchronizerId = SynchronizerId.tryFromString("da::default")
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
@@ -86,7 +89,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val callbackCapture: ArgumentCaptor[SendCallback] =
       ArgumentCaptor.forClass(classOf[SendCallback])
     when(
-      sequencerClient.sendAsync(
+      sequencerClient.send(
         batchCapture.capture(),
         any[Option[CantonTimestamp]],
         maxSequencingTimeCapture.capture(),
@@ -168,7 +171,7 @@ class TrafficPurchasedSubmissionHandlerTest
     clock.advanceTo(newTime)
 
     when(
-      sequencerClient.sendAsync(
+      sequencerClient.send(
         any[Batch[DefaultOpenEnvelope]],
         any[Option[CantonTimestamp]],
         maxSequencingTimeCapture.capture(),
@@ -223,7 +226,7 @@ class TrafficPurchasedSubmissionHandlerTest
 
   "catch sequencer client failures" in {
     when(
-      sequencerClient.sendAsync(
+      sequencerClient.send(
         any[Batch[DefaultOpenEnvelope]],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
@@ -259,7 +262,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val callbackCapture: ArgumentCaptor[SendCallback] =
       ArgumentCaptor.forClass(classOf[SendCallback])
     when(
-      sequencerClient.sendAsync(
+      sequencerClient.send(
         any[Batch[DefaultOpenEnvelope]],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],
@@ -322,7 +325,7 @@ class TrafficPurchasedSubmissionHandlerTest
     val callbackCapture: ArgumentCaptor[SendCallback] =
       ArgumentCaptor.forClass(classOf[SendCallback])
     when(
-      sequencerClient.sendAsync(
+      sequencerClient.send(
         any[Batch[DefaultOpenEnvelope]],
         any[Option[CantonTimestamp]],
         any[CantonTimestamp],

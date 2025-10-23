@@ -8,8 +8,7 @@ import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -24,6 +23,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUnlessShutdownUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
@@ -41,7 +41,7 @@ class QueueBasedSynchronizerOutbox(
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     val crypto: Crypto,
-    broadcastBatchSize: PositiveInt,
+    override protected val topologyConfig: TopologyConfig,
     maybeObserverCloseable: Option[AutoCloseable] = None,
 )(implicit executionContext: ExecutionContext)
     extends SynchronizerOutbox
@@ -59,7 +59,7 @@ class QueueBasedSynchronizerOutbox(
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     FutureUnlessShutdown.pure(
       synchronizerOutboxQueue
-        .dequeue(broadcastBatchSize)
+        .dequeue(topologyConfig.broadcastBatchSize)
     )
 
   override protected def onClosed(): Unit = {
@@ -151,7 +151,11 @@ class QueueBasedSynchronizerOutbox(
     // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
       TraceContext.withNewTraceContext(implicit tc =>
-        EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "synchronizer outbox flusher")
+        EitherTUtil.doNotAwait(
+          flush().onShutdown(Either.unit),
+          "synchronizer outbox flusher",
+          level = Level.WARN,
+        )
       )
     }
 
@@ -169,17 +173,18 @@ class QueueBasedSynchronizerOutbox(
       )
       if (hasUnsentTransactions && !isClosing) {
         if (delayRetry) {
-          val delay = 10.seconds
-          logger.debug(s"Kick off a new delayed flush in $delay")
+          logger.debug(s"Kick off a new delayed flush in ${topologyConfig.broadcastRetryDelay}")
           DelayUtil
-            .delay(functionFullName, delay, this)
+            .delay(functionFullName, topologyConfig.broadcastRetryDelay.toInternal.toScala, this)
             .map { _ =>
               if (!isClosing) {
-                logger.debug(s"About to kick off a delayed flush scheduled $delay ago")
+                logger.debug(
+                  s"About to kick off a delayed flush scheduled ${topologyConfig.broadcastRetryDelay} ago"
+                )
                 kickOffFlush()
               } else {
                 logger.debug(
-                  s"Queue-based outbox is now closing. Ignoring delayed flushed schedule $delay ago"
+                  s"Queue-based outbox is now closing. Ignoring delayed flushed schedule ${topologyConfig.broadcastRetryDelay} ago"
                 )
               }
             }
@@ -236,22 +241,29 @@ class QueueBasedSynchronizerOutbox(
           // dispatch to synchronizer
           _ <- dispatch(synchronizerAlias, transactions = convertedTxs)
           observed <- EitherT.right[String](
-            // for x-nodes, we either receive
+            // for all transactions in a submission batch, we either receive
             // * TopologyTransactionsBroadcast.State.Accepted: SendTracker returned Success
             // * TopologyTransactionsBroadcast.State.Failed: SendTracker returned Timeout or Error
-            // for all transactions in a submission batch.
-            // Failed submissions are turned into a Left in dispatch. Therefore it's safe to await without additional checks.
+            // Failed submissions are turned into a Left in dispatch. Therefore, it's safe to await
+            // without additional checks on the state.
             convertedTxs.headOption
-              .map(awaitTransactionObserved(_, timeouts.unbounded.duration))
+              .map(
+                awaitTransactionObserved(
+                  _,
+                  topologyConfig.topologyTransactionObservationTimeout.toInternal.toScala,
+                )
+              )
               // there were no transactions to wait for
               .getOrElse(FutureUnlessShutdown.pure(true))
           )
+          // If the topology transactions weren't observed within the topologyTransactionObservationTimeout timeout,
+          // fail the cycle. The topology transactions will be requeued and resubmitted after a retry delay.
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+            observed,
+            "Did not observe transactions in target synchronizer store.",
+          )
         } yield {
-          if (!observed) {
-            logger.warn("Did not observe transactions in target synchronizer store.")
-          }
-
-          synchronizerOutboxQueue.completeCycle(observed)
+          synchronizerOutboxQueue.completeCycle()
           markDone()
         }
 
@@ -293,7 +305,7 @@ class QueueBasedSynchronizerOutbox(
         .Backoff(
           logger,
           this,
-          timeouts.unbounded.retries(1.second),
+          topologyConfig.topologyTransactionObservationTimeout.retries(1.second),
           1.second,
           10.seconds,
           "push topology transaction",

@@ -310,13 +310,11 @@ object ApiServices {
           metrics,
           loggerFactory,
         )
-
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         partyManagementService,
         new IdentityProviderExists(identityProviderConfigStore),
         partyManagementServiceConfig.maxPartiesPageSize,
         partyRecordStore,
-        updateService,
         syncService,
         managementServiceTimeout,
         telemetry = telemetry,

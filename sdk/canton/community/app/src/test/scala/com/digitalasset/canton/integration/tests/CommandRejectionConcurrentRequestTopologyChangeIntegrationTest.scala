@@ -305,7 +305,15 @@ sealed trait CommandRejectionConcurrentRequestTopologyChangeIntegrationTest
       implicit env =>
         import env.*
 
-        PartiesAllocator(Set(participant2, participant4))(
+        PartiesAllocator(
+          Set(
+            participant2,
+            participant4,
+            // Include P1 to wait until charlie is known on P1 to be hosted on P2 before creating the
+            // IOU owned by charlie below to avoid a flaky UNKNOWN_INFORMEES submission error.
+            participant1,
+          )
+        )(
           Seq(
             "charlie" -> participant2,
             "donald" -> participant4,

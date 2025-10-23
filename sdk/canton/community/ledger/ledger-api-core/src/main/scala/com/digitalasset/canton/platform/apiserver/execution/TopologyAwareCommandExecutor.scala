@@ -34,6 +34,7 @@ import com.digitalasset.canton.platform.apiserver.execution.TopologyAwareCommand
   Pass1InterpretationFailed,
 }
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
+import com.digitalasset.canton.platform.apiserver.services.ErrorCause.RoutingFailed
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -110,9 +111,10 @@ private[execution] class TopologyAwareCommandExecutor(
         FutureUnlessShutdown.unit
       }
       .flatMap[ErrorCause, CommandExecutionResult] {
-        case Pass1ContinuationResult.Pass1RoutingFailed(interpretationResult, cause) =>
-          // TODO(#25385): Do not attempt pass 2 on every error
-          logDebug(s"Pass 1 of $pkgSelectionDesc failed synchronizer routing: $cause")
+        case Pass1ContinuationResult.Pass1RoutingFailed(interpretationResult, RoutingFailed(err)) =>
+          // TODO(#25385): (Optimization) Do not attempt pass 2 on every error
+          logDebug(s"Pass 1 of $pkgSelectionDesc failed synchronizer routing: ${err.code
+              .toMsg(cause = err.cause, correlationId = loggingContext.traceContext.traceId, limit = None)}")
           logDebug(s"Attempting pass 2 of $pkgSelectionDesc - using the draft transaction")
           pass2(
             commands = commands,

@@ -13,7 +13,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.c
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PrepareTransactionData
 import com.digitalasset.canton.topology.GeneratorsTopology.*
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.{LedgerUserId, LfPackageId, LfPartyId}
+import com.digitalasset.canton.{LedgerUserId, LfPackageId, LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
@@ -202,6 +202,7 @@ object InteractiveSubmissionGenerators {
     inputContracts <- Gen.listOfN(1, inputContractsGen).map(ImmArray.from)
     mediatorGroup <- Arbitrary.arbitrary[PositiveInt]
     transactionUUID <- Gen.uuid
+    maxRecordTime <- Arbitrary.arbitrary[Option[LfTimestamp]]
   } yield PrepareTransactionData(
     submitterInfo,
     transactionMeta,
@@ -211,6 +212,7 @@ object InteractiveSubmissionGenerators {
     synchronizerId,
     mediatorGroup.value,
     transactionUUID,
+    maxRecordTime,
   )
 
   implicit val preparedTransactionDataArb: Arbitrary[PrepareTransactionData] = Arbitrary(

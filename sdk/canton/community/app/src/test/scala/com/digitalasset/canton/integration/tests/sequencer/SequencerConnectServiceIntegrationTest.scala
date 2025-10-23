@@ -236,7 +236,7 @@ trait GrpcSequencerConnectServiceIntegrationTest extends SequencerConnectService
 
         val publicApi = sequencerNodeConfig.publicApi
         val badSequencerNodeEndpoint =
-          Endpoint(publicApi.address, RequireTypes.Port.tryCreate(publicApi.port.unwrap + 10000))
+          Endpoint(publicApi.address, RequireTypes.Port.tryCreate(0))
         val grpcSequencerConnectClient = getSequencerConnectClientInternal(
           badSequencerNodeEndpoint,
           // Lower the timeout to avoid lengthy retries of 60 seconds by default
@@ -246,9 +246,8 @@ trait GrpcSequencerConnectServiceIntegrationTest extends SequencerConnectService
         val errorFromLeft = grpcSequencerConnectClient
           .isActive(participant1.id, alias, waitForActive = false)
           .leftMap(_.message)
-          .leftOrFail("expected a left")
           .futureValueUS
-        errorFromLeft should include regex "Request failed for .*. Is the server running?"
+        errorFromLeft.left.value should include regex "Request failed for .*. Is the server running?"
     }
   }
 }

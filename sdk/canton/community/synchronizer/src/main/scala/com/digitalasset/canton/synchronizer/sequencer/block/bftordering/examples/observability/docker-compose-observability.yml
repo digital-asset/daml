@@ -18,7 +18,7 @@ services:
   prometheus:
     # Prometheus LTS version
     # https://prometheus.io/docs/introduction/release-cycle/
-    image: prom/prometheus:v2.45.1
+    image: prom/prometheus:v3.5.0
     container_name: daml_observability_prometheus
     command:
       # Prometheus configuration
@@ -74,13 +74,31 @@ services:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.14.0
     container_name: daml_observability_postgres_exporter
     environment:
+      # Change the config depending on the postgres instance
       DATA_SOURCE_USER: "postgres"
       DATA_SOURCE_PASS: "postgres"
       DATA_SOURCE_URI: "postgres:5432/postgres?sslmode=disable"
+      # Use this URI if you are running Postgres on the host system
+      # DATA_SOURCE_URI: "host.docker.internal:5432/postgres?sslmode=disable"
       PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
     volumes:
       # PostgreSQL Server Exporter configuration
       - ./postgres/postgres_exporter.yml:/postgres_exporter.yml
+
+  # For a non-docker Postgres instance (you may need to change username or pass):
+#  postgres-exporter:
+#    # PostgreSQL Server Exporter
+#    # https://github.com/prometheus-community/postgres_exporter/blob/master/CHANGELOG.md
+#    image: quay.io/prometheuscommunity/postgres-exporter:v0.14.0
+#    container_name: daml_observability_postgres_exporter
+#    environment:
+#      DATA_SOURCE_USER: "postgres"
+#      DATA_SOURCE_PASS: ""
+#      DATA_SOURCE_URI: "host.docker.internal:5432/postgres?sslmode=disable"
+#      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
+#    volumes:
+#      # PostgreSQL Server Exporter configuration
+#      - ./postgres/postgres_exporter.yml:/postgres_exporter.yml
 
   loki:
     # Loki version

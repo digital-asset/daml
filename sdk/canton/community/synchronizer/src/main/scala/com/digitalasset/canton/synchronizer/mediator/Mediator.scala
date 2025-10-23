@@ -88,7 +88,7 @@ private[mediator] class Mediator(
       clock,
       logger,
       parameters.delayLoggingThreshold,
-      metrics.sequencerClient.handler.delay,
+      metrics.sequencerClient.handler.sequencingTimeMetrics,
     )
 
   private val verdictSender =

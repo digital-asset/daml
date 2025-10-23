@@ -116,5 +116,4 @@ private[canton] object ActiveContractOld extends VersioningCompanion[ActiveContr
         source,
         ActiveContractOld,
       )
-      .map(_.toList)
 }

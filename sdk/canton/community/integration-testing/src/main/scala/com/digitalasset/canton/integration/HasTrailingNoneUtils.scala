@@ -11,6 +11,8 @@ import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.trailingnone.TrailingNone
 import com.digitalasset.canton.topology.PartyId
 
+import scala.jdk.CollectionConverters.MapHasAsScala
+
 /** Adds the ability to create TrailingNone instances to integration tests.
   */
 trait HasTrailingNoneUtils {
@@ -23,14 +25,23 @@ trait HasTrailingNoneUtils {
       optTimeout: Option[config.NonNegativeDuration] = Some(
         ConsoleCommandTimeout.defaultLedgerCommandsTimeout
       ),
-  ): Unit = {
+  ): LedgerApiTypeWrappers.WrappedContractEntry = {
     if (participant.packages.find_by_module("TrailingNone").isEmpty) {
       participant.dars.upload(CantonExamplesPath)
     }
     val cmd =
       TrailingNone.create(partyId.toProtoPrimitive, java.util.Optional.empty()).commands.loneElement
-    participant.ledger_api.javaapi.commands
+    val contractId = participant.ledger_api.javaapi.commands
       .submit(Seq(partyId), Seq(cmd), commandId = commandId, optTimeout = optTimeout)
+      .getEventsById
+      .asScala
+      .headOption
+      .value
+      ._2
+      .getContractId
+    trailingNoneAcsWithBlobs(participant, partyId)
+      .find(_.contractId == contractId)
+      .value
   }
 
   def trailingNoneAcsWithBlobs(

@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive.
 import cats.data.EitherT
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PreparedTransaction
 import com.digitalasset.base.error.RpcError
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
@@ -180,6 +181,7 @@ class ExternalTransactionProcessor(
       commandExecutionResult: CommandExecutionResult,
       commands: ApiCommands,
       contractLookupParallelism: PositiveInt,
+      maxRecordTime: Option[LfTimestamp],
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace,
       executionContext: ExecutionContext,
@@ -215,6 +217,7 @@ class ExternalTransactionProcessor(
         synchronizerId = synchronizerId,
         mediatorGroup = 0,
         transactionUUID = UUID.randomUUID(),
+        maxRecordTime = maxRecordTime,
       )
     } yield transactionData
 
@@ -225,6 +228,7 @@ class ExternalTransactionProcessor(
       commands: ApiCommands,
       contractLookupParallelism: PositiveInt,
       hashTracer: HashTracer,
+      maxRecordTime: Option[LfTimestamp],
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace,
       executionContext: ExecutionContext,
@@ -235,7 +239,7 @@ class ExternalTransactionProcessor(
   ] =
     for {
       // Enrich first
-      enriched <- enrich(commandExecutionResult, commands, contractLookupParallelism)
+      enriched <- enrich(commandExecutionResult, commands, contractLookupParallelism, maxRecordTime)
       // Then encode
       encoded <- EitherT
         .liftF[

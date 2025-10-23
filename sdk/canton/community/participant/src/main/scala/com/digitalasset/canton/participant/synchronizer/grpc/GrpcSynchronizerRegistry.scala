@@ -8,7 +8,12 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
+import com.digitalasset.canton.config.{
+  CryptoConfig,
+  ProcessingTimeout,
+  TestingConfigInternal,
+  TopologyConfig,
+}
 import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiParticipantProvider}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -56,6 +61,7 @@ class GrpcSynchronizerRegistry(
     topologyDispatcher: ParticipantTopologyDispatcher,
     cryptoApiProvider: SyncCryptoApiParticipantProvider,
     cryptoConfig: CryptoConfig,
+    topologyConfig: TopologyConfig,
     clock: Clock,
     val participantNodeParameters: ParticipantNodeParameters,
     aliasManager: SynchronizerAliasManager,
@@ -126,7 +132,7 @@ class GrpcSynchronizerRegistry(
           config.synchronizerAlias,
           config.synchronizerId,
           sequencerConnections,
-          SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
+          SequencerConnectionValidation.ThresholdActive,
         )(traceContext, CloseContext(this))
         .leftMap(SynchronizerRegistryError.fromSequencerInfoLoaderError)
 
@@ -149,6 +155,7 @@ class GrpcSynchronizerRegistry(
         cryptoApiProvider,
         clock,
         testingConfig,
+        topologyConfig,
         recordSequencerInteractions,
         replaySequencerConfig,
         topologyDispatcher,

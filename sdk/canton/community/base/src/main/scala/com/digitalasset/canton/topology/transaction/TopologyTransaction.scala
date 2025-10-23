@@ -188,6 +188,7 @@ object TopologyTransaction
   override val name: String = "TopologyTransaction"
 
   type GenericTopologyTransaction = TopologyTransaction[TopologyChangeOp, TopologyMapping]
+  type PositiveTopologyTransaction = TopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
   val versioningTable: VersioningTable =
     VersioningTable(

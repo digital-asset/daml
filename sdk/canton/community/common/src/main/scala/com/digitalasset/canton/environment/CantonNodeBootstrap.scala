@@ -715,9 +715,9 @@ abstract class CantonNodeBootstrapImpl[
         )
 
       val snapshotValidator = new InitialTopologySnapshotValidator(
-        ProtocolVersion.latest,
         crypto.pureCrypto,
         temporaryTopologyStore,
+        validateInitialSnapshot = config.topology.validateInitialTopologySnapshot,
         this.timeouts,
         this.loggerFactory,
       )

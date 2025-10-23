@@ -186,7 +186,8 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
 /** @param signingAlgorithmSpec
   *   The signing algorithm scheme used to generate this signature. It is optional to ensure
-  *   backwards compatibility.
+  *   backwards compatibility with previous version where the spec is not set, but the general code
+  *   path expects you to provide it.
   * @param signatureDelegation
   *   An additional "optional" signature that includes a session key and a delegation/authorization
   *   through a signature created by a long-term key. This allows the session key to be used for
@@ -278,7 +279,7 @@ final case class Signature private (
 object Signature
     extends HasVersionedMessageCompanion[Signature]
     with HasVersionedMessageCompanionDbHelpers[Signature] {
-  val noSignature =
+  val noSignature: Signature =
     Signature.create(
       SignatureFormat.Symbolic,
       ByteString.EMPTY,
@@ -827,37 +828,45 @@ object SigningKeySpec {
 
   /** Elliptic Curve Key from the Curve25519 curve as defined in http://ed25519.cr.yp.to/
     */
-  case object EcCurve25519 extends SigningKeySpec {
+  case object EcCurve25519 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-Curve25519"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_CURVE25519
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "Ed25519"
   }
 
   /** Elliptic Curve Key from the P-256 curve (aka secp256r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
     */
-  case object EcP256 extends SigningKeySpec {
+  case object EcP256 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-P256"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P256
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp256r1"
   }
 
   /** Elliptic Curve Key from the P-384 curve (aka secp384r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
     */
-  case object EcP384 extends SigningKeySpec {
+  case object EcP384 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-P384"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P384
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp384r1"
   }
 
   /** Elliptic Curve Key from SECG P256k1 curve (aka secp256k1) commonly used in bitcoin and
     * ethereum as defined in https://www.secg.org/sec2-v2.pdf
     */
-  case object EcSecp256k1 extends SigningKeySpec {
+  case object EcSecp256k1 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-Secp256k1"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_SECP256K1
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp256k1"
   }
 
   def fromProtoEnum(
@@ -884,11 +893,17 @@ object SigningKeySpec {
       keySpecP: v30.SigningKeySpec,
       keySchemeP: v30.SigningKeyScheme,
   ): ParsingResult[SigningKeySpec] =
-    SigningKeySpec.fromProtoEnum("key_spec", keySpecP).leftFlatMap {
-      case ProtoDeserializationError.FieldNotSet(_) =>
-        SigningKeySpec.fromProtoEnumSigningKeyScheme("scheme", keySchemeP)
-      case err => Left(err)
-    }
+    // return better error if neither field is set
+    if (
+      keySpecP == v30.SigningKeySpec.SIGNING_KEY_SPEC_UNSPECIFIED && keySchemeP.isSigningKeySchemeUnspecified
+    )
+      Left(ProtoDeserializationError.FieldNotSet("key_spec and scheme"))
+    else
+      SigningKeySpec.fromProtoEnum("key_spec", keySpecP).leftFlatMap {
+        case ProtoDeserializationError.FieldNotSet(_) =>
+          SigningKeySpec.fromProtoEnumSigningKeyScheme("scheme", keySchemeP)
+        case err => Left(err)
+      }
 
   /** Converts an old SigningKeyScheme enum to the new key scheme, ensuring backward compatibility
     * with existing data.
@@ -1278,7 +1293,11 @@ object SigningPublicKey
       case _ => Right(None)
     }
 
-  private[crypto] def create(
+  /** Creates a [[SigningPublicKey]] from the given parameters. Performs validations on usage and
+    * format. If the [[SigningKeySpec]] is EC-based, it also validates that the public key lies on
+    * the expected curve.
+    */
+  def create(
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: SigningKeySpec,

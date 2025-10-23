@@ -34,10 +34,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
-import com.digitalasset.canton.console.commands.{
-  PruningSchedulerAdministration,
-  TopologyAdministrationGroup,
-}
+import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -60,10 +57,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.{
-  StoredTopologyTransaction,
-  StoredTopologyTransactions,
-}
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -666,7 +660,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         proposedOrExisting.reduceLeft[SignedTopologyTransaction[
           TopologyChangeOp,
           DecentralizedNamespaceDefinition,
-        ]]((txA, txB) => txA.addSignaturesFromTransaction(txB))
+        ]]((txA, txB) => txA.addSignatures(txB.signatures))
 
       val ownerNSDs = owners.flatMap(_.topology.transactions.identity_transactions())
       val foundingTransactions = ownerNSDs :+ decentralizedNamespaceDefinition
@@ -818,25 +812,31 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .distinct
 
       val merged =
-        TopologyAdministrationGroup.merge(initialTopologyState, updateIsProposal = Some(false))
+        SignedTopologyTransactions.compact(initialTopologyState).map(_.updateIsProposal(false))
 
-      val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
-        merged.map(stored =>
-          StoredTopologyTransaction(
-            sequenced = SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-            validFrom = EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
-            validUntil = None,
-            transaction = stored,
-            rejectionReason = None,
-          )
+      val out = ByteString.newOutput()
+      merged.foreach { stored =>
+        val tx = StoredTopologyTransaction(
+          sequenced = SequencedTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+          validFrom = EffectiveTime(SignedTopologyTransaction.InitialTopologySequencingTime),
+          validUntil = None,
+          transaction = stored,
+          rejectionReason = None,
         )
-      ).toByteString(staticSynchronizerParameters.protocolVersion)
+        tx.writeDelimitedTo(staticSynchronizerParameters.protocolVersion, out)
+          .left
+          .foreach(error =>
+            consoleEnvironment.raiseError(s"The synchronizer cannot be bootstrapped: $error")
+          )
+      }
+
+      val storedTopologySnapshot = out.toByteString
 
       sequencers
         .filterNot(_.health.initialized())
         .foreach(x =>
           x.setup
-            .assign_from_genesis_state(storedTopologySnapshot, staticSynchronizerParameters)
+            .assign_from_genesis_stateV2(storedTopologySnapshot, staticSynchronizerParameters)
             .discard
         )
 
@@ -1044,10 +1044,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       // now we can establish the sequencer snapshot
       val onboardingState =
-        existingSequencer.setup.onboarding_state_for_sequencer(newSequencer.id)
+        existingSequencer.setup.onboarding_state_for_sequencerV2(newSequencer.id)
 
       // finally, initialize "newSequencer"
-      newSequencer.setup.assign_from_onboarding_state(onboardingState).discard
+      newSequencer.setup.assign_from_onboarding_stateV2(onboardingState).discard
     }
   }
 

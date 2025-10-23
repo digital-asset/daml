@@ -28,6 +28,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.MapsUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion, LfPartyId}
+import com.digitalasset.daml.lf.language.Ast
 
 import scala.collection.immutable.SortedSet
 import scala.collection.{MapView, mutable}
@@ -277,17 +278,28 @@ object PackagePreferenceBackend {
       mutable.Map.empty
 
     // Note: Keeping it simple without tailrec since the dependency graph depth should be limited
-    def allDepsVettedFor(pkgId: LfPackageId): Either[LfPackageId, Unit] = {
-      val dependencies = dependencyGraph(pkgId)
+    def isDeeplyVetted(pkgId: LfPackageId): Either[LfPackageId, Unit] = {
+      val pkg = packageMetadataSnapshot.packages.getOrElse(
+        pkgId,
+        throw new NoSuchElementException(
+          s"Package with id $pkgId not found in the package metadata snapshot"
+        ),
+      )
+      if (
+        // If a package is vetted or it is not a schema package, we continue with checking its dependencies.
+        // We ignore unvetted non-schema packages to support
+        // disjoint versions across informees (e.g. Daml stdlib packages)
+        allVettedPackages(pkgId) || !isSchemaPackage(pkg)
+      ) {
+        val dependencies = dependencyGraph(pkgId)
 
-      dependencies.find(!allVettedPackages(_)) match {
-        case Some(notVetted) => Left(notVetted)
-        case None =>
-          dependencies.foldLeft(Right(()): Either[LfPackageId, Unit]) {
-            case (Right(()), dep) =>
-              allDepsVettedForCached.getOrElseUpdate(dep, allDepsVettedFor(dep))
-            case (left, _) => left
-          }
+        dependencies.foldLeft(Right(()): Either[LfPackageId, Unit]) {
+          case (Right(()), dep) => allDepsVettedForCached.getOrElseUpdate(dep, isDeeplyVetted(dep))
+          case (left, _) => left
+        }
+      } else {
+        // If the schema package is not vetted, return it as an error
+        Left(pkgId)
       }
     }
 
@@ -296,7 +308,7 @@ object PackagePreferenceBackend {
         _.flatMap { candidates =>
           val (packagesWithUnvettedDeps, candidatesWithVettedDeps) = candidates.view
             .map(pkgRef =>
-              allDepsVettedFor(pkgRef.pkgId).left.map(pkgRef.pkgId -> _).map(_ => pkgRef)
+              isDeeplyVetted(pkgRef.pkgId).left.map(pkgRef.pkgId -> _).map(_ => pkgRef)
             )
             .toList
             .separate
@@ -412,7 +424,10 @@ object PackagePreferenceBackend {
                   acc.updated(
                     missingRequiredPackageName,
                     Left(
-                      show"Party $party has no vetted packages for '$missingRequiredPackageName'"
+                      if (other.isEmpty)
+                        show"Party $party is either not known on the synchronizer or it has no uniformly-vetted packages"
+                      else
+                        show"Party $party has no vetted packages for '$missingRequiredPackageName'"
                     ),
                   )
               }
@@ -439,4 +454,9 @@ object PackagePreferenceBackend {
           preferencesForName <- preferencesForNameE
         } yield acc + preferencesForName.last1
       }
+
+  private def isSchemaPackage(pkg: Ast.PackageSignature): Boolean =
+    pkg.modules.exists { case (_, module) =>
+      module.interfaces.nonEmpty || module.templates.nonEmpty
+    }
 }

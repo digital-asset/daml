@@ -162,7 +162,7 @@ object Hash {
       s"Size of given hash ${hash.size()} does not match expected size ${algorithm.length} for ${algorithm.name}",
     )
 
-  private def tryFromByteString(bytes: ByteString): Hash =
+  def tryFromByteString(bytes: ByteString): Hash =
     fromByteString(bytes).valueOr(err =>
       throw new IllegalArgumentException(s"Failed to deserialize hash from $bytes: $err")
     )

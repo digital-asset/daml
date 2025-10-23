@@ -54,6 +54,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, SubmissionTopologyHelper, SynchronizerId}
@@ -276,10 +277,11 @@ abstract class ProtocolProcessor[
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SubmissionError, FutureUnlessShutdown[SubmissionResult]] = {
     val maxSequencingTimeF =
-      tracked.maxSequencingTimeO
-        .getOrElse(sequencerClient.generateMaxSequencingTime)
+      tracked.maxSequencingTimeO.getOrElse(sequencerClient.generateMaxSequencingTime)
 
-    EitherT.right(maxSequencingTimeF).flatMap(submitWithTracking(submissionParam, tracked, _))
+    EitherT
+      .right(maxSequencingTimeF)
+      .flatMap(submitWithTracking(submissionParam, tracked, _))
   }
 
   private def submitWithTracking(
@@ -469,7 +471,7 @@ abstract class ProtocolProcessor[
         futureSupervisor,
       )
       _ <- sequencerClient
-        .sendAsync(
+        .send(
           batch,
           callback = res => sendResultP.trySuccess(res).discard,
           maxSequencingTime = maxSequencingTime,
@@ -482,7 +484,7 @@ abstract class ProtocolProcessor[
         }
 
       // Ensure that we will observe a timeout if there is no other activity
-      _ = ephemeral.timeTracker.requestTick(maxSequencingTime)
+      maxSequencingTimeTick = ephemeral.timeTracker.requestTick(maxSequencingTime)
 
       // If we're shutting down, the sendResult below won't complete successfully (because it's wrapped in a `FutureUnlessShutdown`)
       // We still want to clean up pending submissions in that case though so make sure we do that by adding a callback on
@@ -495,18 +497,23 @@ abstract class ProtocolProcessor[
       }
 
       sendResult <- EitherT.right(FutureUnlessShutdown(sendResultP.future))
-    } yield {
-      SendResult.log("Submission", logger)(UnlessShutdown.Outcome(sendResult))
-
-      sendResult match {
-        case SendResult.Success(deliver) =>
-          schedulePendingSubmissionRemoval(deliver.timestamp, submissionId)
-        case SendResult.Error(_) | SendResult.Timeout(_) =>
-          removePendingSubmission()
+      _ = {
+        SendResult.log("Submission", logger)(UnlessShutdown.Outcome(sendResult))
+        maxSequencingTimeTick.cancel()
       }
-
-      sendResult -> resultArgs
-    }
+      _ <- EitherT.right(sendResult match {
+        case SendResult.Success(deliver) =>
+          schedulePendingSubmissionRemoval(deliver.timestamp, submissionId).map(decisionTimeTick =>
+            steps.setDecisionTimeTickRequest(
+              steps.pendingSubmissions(ephemeral),
+              submissionId,
+              decisionTimeTick,
+            )
+          )
+        case SendResult.Error(_) | SendResult.Timeout(_) =>
+          FutureUnlessShutdown.unit
+      })
+    } yield sendResult -> resultArgs
   }
 
   /** Schedules removal of the pending submission once the request tracker has advanced to the
@@ -516,44 +523,54 @@ abstract class ProtocolProcessor[
   private def schedulePendingSubmissionRemoval(
       submissionTimestamp: CantonTimestamp,
       submissionId: steps.PendingSubmissionId,
-  )(implicit traceContext: TraceContext): Unit = {
-
-    val removeF = for {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[SynchronizerTimeTracker.TickRequest] =
+    for {
       synchronizerParameters <- crypto.ips
         .awaitSnapshot(submissionTimestamp)
         .flatMap(snapshot => snapshot.findDynamicSynchronizerParameters())
         .flatMap(_.toFutureUS(new RuntimeException(_)))
-
       decisionTime <- synchronizerParameters.decisionTimeForF(submissionTimestamp)
-      _ = ephemeral.timeTracker.requestTick(decisionTime)
-      _ <- ephemeral.requestTracker
-        .awaitTimestampUS(decisionTime)
-        .getOrElse(FutureUnlessShutdown.unit)
     } yield {
-      steps.removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId).foreach {
-        submissionData =>
-          logger.debug(s"Removing sent submission $submissionId without a result.")
-          steps.postProcessResult(
-            Verdict.ParticipantReject(
-              NonEmpty(
-                List,
-                Set.empty[LfPartyId] ->
-                  LocalRejectError.TimeRejects.LocalTimeout
-                    .Reject()
-                    .toLocalReject(protocolVersion),
+      // This submission has been observed as sequenced, so the request processing part
+      // should scheduled a tick at the decision time. Yet, this is not foolproof, as request processing
+      // might consider the request as malformed, say because the submitting participant has rolled its
+      // public encryption keys between submission and sequencing and therefore cannot decrypt the view
+      // payload and find out that it is the submitting node. Therefore, we separately schedule a tick here.
+      val decisionTimeTick = ephemeral.timeTracker.requestTick(decisionTime)
+      val removeF = for {
+        _ <- ephemeral.requestTracker
+          .awaitTimestampUS(decisionTime)
+          .getOrElse(FutureUnlessShutdown.unit)
+      } yield {
+        steps.removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId).foreach {
+          submissionData =>
+            logger.debug(s"Removing sent submission $submissionId without a result.")
+            steps.postProcessResult(
+              Verdict.ParticipantReject(
+                NonEmpty(
+                  List,
+                  (
+                    Set.empty[LfPartyId],
+                    LocalRejectError.TimeRejects.LocalTimeout
+                      .Reject()
+                      .toLocalReject(protocolVersion),
+                  ),
+                ),
+                protocolVersion,
               ),
-              protocolVersion,
-            ),
-            submissionData,
-          )
+              submissionData,
+            )
+        }
       }
-    }
 
-    FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      removeF,
-      s"Failed to remove the pending submission $submissionId",
-    )
-  }
+      FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+        removeF,
+        s"Failed to remove the pending submission $submissionId",
+      )
+      decisionTimeTick
+    }
 
   private def handlerResultForRequest(
       ts: CantonTimestamp,
@@ -754,7 +771,6 @@ abstract class ProtocolProcessor[
             ts,
             submissionTopologyTimestamp,
             crypto,
-            logger,
           )
         )
 
@@ -1070,6 +1086,8 @@ abstract class ProtocolProcessor[
             (pendingData, responses, () => timeoutEvent)
           )
         } else {
+          // Request to observe a timestamp >= the decision time, so that the timeout can be triggered
+          val decisionTimeTick = ephemeral.timeTracker.requestTick(decisionTime)
           for {
             _ <- EitherT.right(
               ephemeral.requestJournal.insert(rc, ts)
@@ -1080,6 +1098,7 @@ abstract class ProtocolProcessor[
               ephemeral.reassignmentCache,
               requestFuturesF.flatMap(_.activenessResult),
               engineController,
+              decisionTimeTick,
             )
 
             steps.StorePendingDataAndSendResponseAndCreateTimeout(
@@ -1115,8 +1134,6 @@ abstract class ProtocolProcessor[
       _activenessResult <- EitherT.right[steps.RequestError](requestFutures.activenessResult)
 
       _ = requestDataHandle.complete(Some(pendingData))
-      // Request to observe a timestamp >= the decision time, so that the timeout can be triggered
-      _ = ephemeral.timeTracker.requestTick(decisionTime)
       timeoutET = EitherT
         .right(requestFutures.timeoutResult)
         .flatMap(
@@ -1193,6 +1210,7 @@ abstract class ProtocolProcessor[
 
     if (isCleanReplay(rc)) {
       ephemeral.requestTracker.tick(sc, ts)
+      requestDataHandle.complete(None)
       EitherTUtil.unitUS
     } else {
       for {
@@ -1489,6 +1507,9 @@ abstract class ProtocolProcessor[
         steps.requestType.PendingRequestData
       ],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] = {
+    // We have received a verdict. So no need to observe the decision time any more.
+    pendingRequestDataOrReplayData.cancelDecisionTimeTickRequest()
+
     // If we have received a negative verdict, we will not need the result of the engine computation, and
     // we can therefore abort. If the computation has already completed, this will have no effect.
     if (!verdict.isApprove)
