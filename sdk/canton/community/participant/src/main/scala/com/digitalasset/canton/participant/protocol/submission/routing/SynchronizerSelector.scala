@@ -45,7 +45,7 @@ private[routing] class SynchronizerSelectorFactory(
       )
     } yield new SynchronizerSelector(
       transactionData,
-      admissibleSynchronizers,
+      admissibleSynchronizers.keySet,
       priorityOfSynchronizer,
       synchronizerRankComputation,
       synchronizerState,

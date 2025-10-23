@@ -285,19 +285,6 @@ class SynchronizerCryptoClient private (
   ): FutureUnlessShutdown[SynchronizerSnapshotSyncCryptoApi] =
     ips.hypotheticalSnapshot(timestamp, desiredTimestamp).map(create)
 
-  override def trySnapshot(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): SynchronizerSnapshotSyncCryptoApi =
-    create(ips.trySnapshot(timestamp))
-
-  override def tryHypotheticalSnapshot(
-      timestamp: CantonTimestamp,
-      desiredTimestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): SynchronizerSnapshotSyncCryptoApi =
-    create(ips.tryHypotheticalSnapshot(timestamp, desiredTimestamp))
-
   override def headSnapshot(implicit
       traceContext: TraceContext
   ): SynchronizerSnapshotSyncCryptoApi =

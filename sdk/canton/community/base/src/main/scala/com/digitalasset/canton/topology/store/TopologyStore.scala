@@ -10,12 +10,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.config.CantonRequireTypes.{
-  LengthLimitedString,
-  String185,
-  String255,
-  String300,
-}
+import com.digitalasset.canton.config.CantonRequireTypes.{String185, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -27,6 +22,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.store.{IndexedStringStore, IndexedTopologyStoreId}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.v30 as adminTopoV30
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
@@ -66,7 +62,6 @@ import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
 
 sealed trait TopologyStoreId extends PrettyPrinting with Product with Serializable {
-  def dbString: LengthLimitedString
   def isAuthorizedStore: Boolean = false
   def isSynchronizerStore: Boolean = false
   def isTemporaryStore: Boolean = false
@@ -81,7 +76,6 @@ object TopologyStoreId {
     *   the synchronizer id of the store
     */
   final case class SynchronizerStore(psid: PhysicalSynchronizerId) extends TopologyStoreId {
-    override val dbString = psid.toLengthLimitedString
 
     override protected def pretty: Pretty[this.type] =
       prettyOfParam(_.psid)
@@ -94,31 +88,22 @@ object TopologyStoreId {
   // authorized transactions (the topology managers store)
   type AuthorizedStore = AuthorizedStore.type
   case object AuthorizedStore extends TopologyStoreId {
-    val dbString: String255 = String255.tryCreate("Authorized")
 
-    override protected def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
-      _.dbString.unwrap
-    )
+    override protected def pretty: Pretty[AuthorizedStore.this.type] =
+      prettyOfString(_ => "Authorized")
 
     override def isAuthorizedStore: Boolean = true
   }
 
   final case class TemporaryStore(name: String185) extends TopologyStoreId {
-    override def dbString: LengthLimitedString = TemporaryStore.withTempMarker(name)
 
     override def isTemporaryStore: Boolean = true
 
     override protected def pretty: Pretty[TemporaryStore.this.type] =
-      prettyOfString(_.dbString.unwrap)
+      prettyOfString(_.name.unwrap)
   }
 
   object TemporaryStore {
-    // add a prefix and suffix to not accidentally interpret a synchronizer store with the name 'temp' as temporary store
-    val marker = "temp"
-    val prefix = s"$marker${UniqueIdentifier.delimiter}"
-    val suffix = s"${UniqueIdentifier.delimiter}$marker"
-    private[TemporaryStore] def withTempMarker(name: String185): String185 =
-      String185.tryCreate(s"$prefix$name$suffix")
 
     def create(name: String): Either[String, TemporaryStore] =
       String185.create(name).map(TemporaryStore(_))
@@ -250,10 +235,6 @@ final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: Top
       : Option[ValidatedTopologyTransaction[Op, TargetM]] =
     transaction.selectMapping[TargetM].map(tx => copy[Op, TargetM](transaction = tx))
 
-  def collectOf[TargetO <: TopologyChangeOp: ClassTag, TargetM <: TopologyMapping: ClassTag]
-      : Option[ValidatedTopologyTransaction[TargetO, TargetM]] =
-    transaction.select[TargetO, TargetM].map(tx => copy[TargetO, TargetM](transaction = tx))
-
   override protected def pretty: Pretty[ValidatedTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
@@ -290,10 +271,24 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     *
     * @param includeRejected
     *   whether to include rejected transactions
+    * @param isProposal
+    *   whether to additionally filter for proposals
     */
-  def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
+  def maxTimestamp(
+      sequencedTime: SequencedTime,
+      includeRejected: Boolean,
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
+
+  /** Returns the closest effective time before exclusive and after inclusive the provided
+    * timestamp.
+    */
+  def findTopologyIntervalForTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]]
 
   /** returns the current dispatching watermark
     *
@@ -548,31 +543,35 @@ object TopologyStore {
       Change.Other(tx.sequenced, tx.validFrom)
   }
 
-  def apply[StoreID <: TopologyStoreId](
+  def create[StoreID <: TopologyStoreId](
       storeId: StoreID,
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       batchingConfig: BatchingConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      ec: ExecutionContext
-  ): TopologyStore[StoreID] = {
-    val storeLoggerFactory = loggerFactory.append("store", storeId.toString)
-    storage match {
-      case _: MemoryStorage =>
-        new InMemoryTopologyStore(storeId, protocolVersion, storeLoggerFactory, timeouts)
-      case dbStorage: DbStorage =>
-        new DbTopologyStore(
-          dbStorage,
-          storeId,
-          protocolVersion,
-          timeouts,
-          batchingConfig,
-          storeLoggerFactory,
-        )
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[TopologyStore[StoreID]] =
+    IndexedTopologyStoreId.indexed(indexedStringStore)(storeId).map { storeIndex =>
+      val storeLoggerFactory = loggerFactory.append("store", storeId.toString)
+      storage match {
+        case _: MemoryStorage =>
+          new InMemoryTopologyStore(storeId, protocolVersion, storeLoggerFactory, timeouts)
+        case dbStorage: DbStorage =>
+          new DbTopologyStore(
+            dbStorage,
+            storeId,
+            storeIndex,
+            protocolVersion,
+            timeouts,
+            batchingConfig,
+            storeLoggerFactory,
+          )
+      }
     }
-  }
 
   lazy val initialParticipantDispatchingSet: Set[TopologyMapping.Code] = Set(
     TopologyMapping.Code.SynchronizerTrustCertificate,
@@ -621,7 +620,7 @@ object TopologyStore {
       after: PositiveStoredTopologyTransactions,
   )
 
-  /** determine valid parties within the given mappings (requires p2p, otk and stc) */
+  /** determine valid parties within the given mappings (requires ptp and stc) */
   private[store] def determineValidParties(
       mappings: Seq[TopologyMapping],
       filterParty: String,
@@ -634,7 +633,9 @@ object TopologyStore {
       filterParticipantNamespaceO,
     ) =
       UniqueIdentifier.splitFilter(filterParticipant)
-    val validParticipants = determineValidParticipants(mappings)
+    val validParticipants = mappings.collect { case SynchronizerTrustCertificate(pid, _, _) =>
+      pid
+    }.toSet
     val validParties = mutable.HashSet[PartyId]()
     mappings.foreach {
       case ptp: PartyToParticipant
@@ -659,35 +660,6 @@ object TopologyStore {
       case _ => ()
     }
     validParties.toSet
-  }
-
-  /** Given a series of topology transactions, determine the participant ids that have OTK and STC
-    */
-  private def determineValidParticipants(
-      txs: Iterable[TopologyMapping]
-  ): Set[ParticipantId] = {
-    val validParticipants = mutable.Map[ParticipantId, (Boolean, Boolean)]()
-    txs.foreach {
-      case OwnerToKeyMapping(
-            pid: ParticipantId,
-            _,
-          ) => // assumption: keys is checked as a state variant
-        validParticipants
-          .updateWith(pid) {
-            case None => Some((true, false))
-            case Some((_, stc)) => Some((true, stc))
-          }
-          .discard
-      case SynchronizerTrustCertificate(pid, _, _) =>
-        validParticipants
-          .updateWith(pid) {
-            case None => Some((false, true))
-            case Some((otk, _)) => Some((otk, true))
-          }
-          .discard
-      case _ => ()
-    }
-    validParticipants.filter { case (_, (otk, stc)) => otk && stc }.keySet.toSet
   }
 
 }

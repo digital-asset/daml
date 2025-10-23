@@ -87,6 +87,7 @@ class OptionalTopologyMappingChecks(
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
       pendingChangesLookup: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {

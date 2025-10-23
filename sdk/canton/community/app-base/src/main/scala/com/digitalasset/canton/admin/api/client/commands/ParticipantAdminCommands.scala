@@ -81,6 +81,7 @@ import io.grpc.{Context, ManagedChannel}
 import java.io.{File, IOException}
 import java.nio.file.{Files, Path, Paths}
 import java.time.Instant
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, MILLISECONDS}
 
@@ -686,7 +687,6 @@ object ParticipantAdminCommands {
     final case class ClearPartyOnboardingFlag(
         party: PartyId,
         synchronizerId: SynchronizerId,
-        targetParticipantId: ParticipantId,
         beginOffsetExclusive: NonNegativeLong,
         waitForActivationTimeout: Option[config.NonNegativeFiniteDuration],
     ) extends GrpcAdminCommand[
@@ -705,7 +705,6 @@ object ParticipantAdminCommands {
           v30.ClearPartyOnboardingFlagRequest(
             party.toProtoPrimitive,
             synchronizerId.toProtoPrimitive,
-            targetParticipantId.uid.toProtoPrimitive,
             beginOffsetExclusive.unwrap,
             waitForActivationTimeout.map(_.toProtoPrimitive),
           )
@@ -733,6 +732,7 @@ object ParticipantAdminCommands {
   object ParticipantRepairManagement {
 
     // TODO(#24610) – Remove, replaced by ExportAcs
+    @nowarn("cat=deprecation")
     final case class ExportAcsOld(
         parties: Set[PartyId],
         partiesOffboarding: Boolean,

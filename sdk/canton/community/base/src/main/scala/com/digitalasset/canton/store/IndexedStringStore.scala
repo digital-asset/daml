@@ -7,14 +7,15 @@ import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.checked
-import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.CantonRequireTypes.{String185, String300}
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.store.TopologyStoreId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
@@ -163,6 +164,68 @@ object IndexedPhysicalSynchronizer
     PhysicalSynchronizerId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
 }
 
+final case class IndexedTopologyStoreId private (
+    topologyStoreId: TopologyStoreId,
+    index: Int,
+) extends IndexedString.Impl[TopologyStoreId](topologyStoreId)
+
+object IndexedTopologyStoreId extends IndexedStringFromDb[IndexedTopologyStoreId, TopologyStoreId] {
+
+  private val tempStoreMarker = "temp"
+  private val tempPrefix = tempStoreMarker + UniqueIdentifier.delimiter
+  private val tempSuffix = UniqueIdentifier.delimiter + tempStoreMarker
+
+  @VisibleForTesting
+  def tryCreate(
+      topologyStoreId: TopologyStoreId,
+      index: Int,
+  ): IndexedTopologyStoreId =
+    IndexedTopologyStoreId(topologyStoreId, index)
+
+  override protected def buildIndexed(item: TopologyStoreId, index: Int): IndexedTopologyStoreId =
+    IndexedTopologyStoreId(item, index)
+
+  override protected def asString(item: TopologyStoreId): String300 = item match {
+    case TopologyStoreId.SynchronizerStore(psid) => psid.toLengthLimitedString
+    case TopologyStoreId.AuthorizedStore => checked(String300.tryCreate("Authorized"))
+    case TopologyStoreId.TemporaryStore(name) =>
+      checked(
+        String300.tryCreate(
+          tempPrefix + name.str + tempSuffix
+        )
+      )
+  }
+
+  override protected def dbTyp: IndexedStringType = IndexedStringType.topologyStoreId
+
+  override protected def fromString(
+      str: String300,
+      index: Int,
+  ): Either[String, IndexedTopologyStoreId] = if (str.str == "Authorized")
+    Right(IndexedTopologyStoreId(TopologyStoreId.AuthorizedStore, index))
+  else if (str.str.startsWith(tempPrefix) && str.str.endsWith(tempSuffix)) {
+    Right(
+      IndexedTopologyStoreId(
+        TopologyStoreId.TemporaryStore(
+          checked(
+            String185.tryCreate(
+              str.str.substring(tempPrefix.length, str.str.length - tempSuffix.length)
+            )
+          )
+        ),
+        index,
+      )
+    )
+  } else {
+    PhysicalSynchronizerId.fromString(str.str).map { psid =>
+      IndexedTopologyStoreId(
+        TopologyStoreId.SynchronizerStore(psid),
+        index,
+      )
+    }
+  }
+}
+
 final case class IndexedStringType private (source: Int, description: String)
 object IndexedStringType {
 
@@ -182,6 +245,7 @@ object IndexedStringType {
 
   val synchronizerId: IndexedStringType = IndexedStringType(1, "synchronizerId")
   val physicalSynchronizerId: IndexedStringType = IndexedStringType(2, "physicalSynchronizerId")
+  val topologyStoreId: IndexedStringType = IndexedStringType(3, "topologyStoreId")
 }
 
 /** uid index such that we can store integers instead of long strings in our database */

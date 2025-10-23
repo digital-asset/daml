@@ -335,20 +335,16 @@ message ClearPartyOnboardingFlagRequest {
   // Required
   string synchronizer_id = 2;
 
-  // The unique identifier of the target participant where the party is being onboarded.
-  // Required
-  string target_participant_uid = 3;
-
   // The exclusive ledger offset used as a starting point to find the party's most
   // recent activation on the target participant.
   // Required
-  int64 begin_offset_exclusive = 4;
+  int64 begin_offset_exclusive = 3;
 
   // The maximum duration the service will wait to find the topology transaction
   // that activates the party.
   // If not set, the service use will use a default timeout.
   // Optional
-  google.protobuf.Duration wait_for_activation_timeout = 5;
+  google.protobuf.Duration wait_for_activation_timeout = 4;
 }
 
 //  Responds with the current status:

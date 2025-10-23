@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.CryptoSchemes
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
 import com.digitalasset.canton.version.ProtocolVersion
@@ -22,18 +23,27 @@ import com.digitalasset.canton.version.ProtocolVersion
 import java.net.URI
 
 private[config] trait ConfigValidations {
-  final def validate[T >: CantonConfig](config: CantonConfig, edition: CantonEdition)(implicit
+  final def validate[T >: CantonConfig](
+      config: CantonConfig,
+      edition: CantonEdition,
+      ensurePortsSet: Boolean,
+  )(implicit
       validator: CantonConfigValidator[T]
   ): Validated[NonEmpty[Seq[String]], Unit] =
     config
       .validate[T](edition)
       .toValidated
       .leftMap(_.map(_.toString))
-      .combine(validations.traverse_(_(config)))
+      .combine(validations(ensurePortsSet = ensurePortsSet).traverse_(_(config)))
 
   type Validation = CantonConfig => Validated[NonEmpty[Seq[String]], Unit]
 
-  protected val validations: List[Validation]
+  /** Return the list of validations
+    * @param ensurePortsSet
+    *   If set to true, will validate that ports are set. Should be true in `main`.
+    * @return
+    */
+  protected def validations(ensurePortsSet: Boolean): List[Validation]
 
   protected def toValidated(errors: Seq[String]): Validated[NonEmpty[Seq[String]], Unit] = NonEmpty
     .from(errors)
@@ -65,13 +75,14 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       s"DbAccess($urlNoPassword, $user)"
   }
 
-  override protected val validations: List[Validation] =
+  override protected def validations(ensurePortsSet: Boolean): List[Validation] =
     List[Validation](noDuplicateStorage, atLeastOneNode) ++
-      genericValidations[CantonConfig]
+      genericValidations[CantonConfig](ensurePortsSet = ensurePortsSet)
 
   /** Validations applied to all community and enterprise Canton configurations. */
-  private[config] def genericValidations[C <: CantonConfig]
-      : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
+  private[config] def genericValidations[C <: CantonConfig](
+      ensurePortsSet: Boolean
+  ): List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
       alphaProtocolVersionRequiresNonStandard,
       dbSequencerRequiresNonStandard,
@@ -84,7 +95,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       sessionSigningKeysOnlyWithKms,
       distinctScopesAndAudiencesOnAuthServices,
       engineAdditionalConsistencyChecksParticipants,
-    )
+    ) ++ (if (ensurePortsSet) List(portsArtSet) else Nil)
 
   /** Group node configs by db access to find matching db storage configs. Overcomplicated types
     * used are to work around that at this point nodes could have conflicting names so we can't just
@@ -196,11 +207,73 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
     )
   }
 
+  private def portsArtSet(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    def toList(predicate: Boolean, value: => String): List[String] =
+      if (predicate) List(value) else Nil
+
+    val errors = config.allLocalNodes.toSeq.flatMap { case (name, nodeConfig) =>
+      val adminPortNotSetError = toList(
+        nodeConfig.adminApi.internalPort.isEmpty,
+        portNotSetError(
+          nodeType = nodeConfig.nodeTypeName,
+          nodeName = name.unwrap,
+          service = "admin-api",
+        ),
+      )
+
+      val nodeSpecificErrors = nodeConfig match {
+        case participant: ParticipantNodeConfig =>
+          toList(
+            participant.httpLedgerApi.enabled && participant.httpLedgerApi.server.internalPort.isEmpty,
+            portNotSetError(
+              nodeType = nodeConfig.nodeTypeName,
+              nodeName = name.unwrap,
+              service = "http-ledger-api",
+              intermediate = "server.",
+            ),
+          ) ++ toList(
+            participant.ledgerApi.internalPort.isEmpty,
+            portNotSetError(
+              nodeType = nodeConfig.nodeTypeName,
+              nodeName = name.unwrap,
+              service = "ledger-api",
+            ),
+          )
+
+        case sequencer: SequencerNodeConfig =>
+          toList(
+            sequencer.publicApi.internalPort.isEmpty,
+            portNotSetError(
+              nodeType = nodeConfig.nodeTypeName,
+              nodeName = name.unwrap,
+              service = "public-api",
+            ),
+          )
+
+        case _ => Nil
+      }
+
+      adminPortNotSetError ++ nodeSpecificErrors
+    }
+
+    toValidated(errors)
+  }
+
+  def portNotSetError(
+      nodeType: String,
+      nodeName: String,
+      service: String,
+      intermediate: String = "",
+  ): String =
+    s"canton.${nodeType}s.$nodeName.$service.${intermediate}port not set"
+
   private def alphaProtocolVersionRequiresNonStandard(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
 
-    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
+    val errors = config.allLocalNodes.toSeq.mapFilter { case (name, nodeConfig) =>
       val nonStandardConfig = config.parameters.nonStandardConfig
       val alphaVersionSupport = nodeConfig.parameters.alphaVersionSupport
       Option.when(!nonStandardConfig && alphaVersionSupport)(
@@ -221,7 +294,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
 
-    val errors = config.allNodes.toSeq.mapFilter {
+    val errors = config.allLocalNodes.toSeq.mapFilter {
       case (name, nodeConfig: ParticipantNodeConfig) =>
         val nonStandardConfig = config.parameters.nonStandardConfig
         val snapshotSupportEnabled = nodeConfig.features.snapshotDir.nonEmpty
@@ -314,7 +387,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
   private def validateSelectedSchemes(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    val errors: Seq[String] = config.allNodes.toSeq.flatMap { case (nodeName, nodeConfig) =>
+    val errors: Seq[String] = config.allLocalNodes.toSeq.flatMap { case (nodeName, nodeConfig) =>
       val cryptoConfig = nodeConfig.crypto
 
       val supportedSigningAlgoSpecs = cryptoConfig.signing.algorithms.allowed
@@ -436,7 +509,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val nonStandardConfig = config.parameters.nonStandardConfig
-    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
+    val errors = config.allLocalNodes.toSeq.mapFilter { case (name, nodeConfig) =>
       val cryptoConfig = nodeConfig.crypto
       cryptoConfig.kms match {
         case Some(kmsConfig) if kmsConfig.sessionSigningKeys.enabled && nonStandardConfig =>

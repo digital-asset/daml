@@ -104,7 +104,7 @@ sealed trait EnvironmentSetup extends BeforeAndAfterAll {
 
     // Once all the plugins and config transformation is done apply the defaults
     val finalConfig =
-      configTransform(pluginConfig).withDefaults(new DefaultPorts(), edition)
+      configTransform(pluginConfig).withDefaults(Some(DefaultPorts.create()), edition)
 
     val scopedMetricsFactory = new ScopedInMemoryMetricsFactory
     val environmentFixture =

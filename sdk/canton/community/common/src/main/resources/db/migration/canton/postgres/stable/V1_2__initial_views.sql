@@ -349,7 +349,7 @@ create or replace view debug.par_last_computed_acs_commitments as
 create or replace view debug.par_commitment_snapshot as
   select
     debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
-    stakeholders_hash,
+    lower(encode(stakeholders_hash, 'hex')) as stakeholders_hash,
     stakeholders,
     commitment
   from par_commitment_snapshot;
@@ -360,6 +360,21 @@ create or replace view debug.par_commitment_snapshot_time as
     debug.canton_timestamp(ts) as ts,
     tie_breaker
   from par_commitment_snapshot_time;
+
+  create or replace view debug.par_commitment_checkpoint_snapshot as
+    select
+      debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+      lower(encode(stakeholders_hash, 'hex')) as stakeholders_hash,
+      stakeholders,
+      commitment
+    from par_commitment_checkpoint_snapshot;
+
+  create or replace view debug.par_commitment_checkpoint_snapshot_time as
+    select
+      debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+      debug.canton_timestamp(ts) as ts,
+      tie_breaker
+    from par_commitment_checkpoint_snapshot_time;
 
 
 create or replace view debug.par_commitment_reinitialization as
@@ -599,17 +614,18 @@ create or replace view debug.common_topology_transactions as
     debug.topology_mapping(transaction_type) as transaction_type,
     namespace,
     identifier,
-    mapping_key_hash,
+    lower(encode(mapping_key_hash, 'hex')) as mapping_key_hash,
     serial_counter,
     debug.canton_timestamp(valid_from) as valid_from,
+    batch_idx,
     debug.canton_timestamp(valid_until) as valid_until,
     debug.topology_change_op(operation) as operation,
     instance,
-    tx_hash,
+    lower(encode(tx_hash, 'hex')) as tx_hash,
     rejection_reason,
     is_proposal,
     representative_protocol_version,
-    hash_of_signatures
+    lower(encode(hash_of_signatures, 'hex')) as hash_of_signatures
   from common_topology_transactions;
 
 create or replace view debug.seq_traffic_control_balance_updates as

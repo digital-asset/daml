@@ -34,6 +34,7 @@ final case class ParticipantNodeParameters(
     reassignmentsConfig: ReassignmentsConfig,
     doNotAwaitOnCheckingIncomingCommitments: Boolean,
     disableOptionalTopologyChecks: Boolean,
+    commitmentCheckpointInterval: PositiveDurationSeconds,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -79,7 +80,7 @@ object ParticipantNodeParameters {
     engine = CantonEngineConfig(),
     journalGarbageCollectionDelay = time.NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = false,
-    enableStrictDarValidation = false,
+    enableStrictDarValidation = true,
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication = None,
     automaticallyPerformLogicalSynchronizerUpgrade = true,
@@ -88,5 +89,6 @@ object ParticipantNodeParameters {
     ),
     doNotAwaitOnCheckingIncomingCommitments = false,
     disableOptionalTopologyChecks = false,
+    commitmentCheckpointInterval = PositiveDurationSeconds.ofMinutes(1),
   )
 }

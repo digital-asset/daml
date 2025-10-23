@@ -22,6 +22,7 @@ import com.digitalasset.canton.participant.store.AcsCommitmentStore.{
   ParticipantCommitmentData,
   ReinitializationStatus,
 }
+import com.digitalasset.canton.participant.store.UpdateMode.Checkpoint
 import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -978,75 +979,82 @@ trait IncrementalCommitmentStoreTest extends CommitmentStoreBaseTest {
 
     def rt(timestamp: Int, tieBreaker: Int) = RecordTime(ts(timestamp), tieBreaker.toLong)
 
-    "give correct snapshots on a small example" in {
-      val snapshot = mk()
+    // TODO(i28386) add Efficiency as a mode below when it's fully supported for get() and watermark()
+    forAll(Table("mode", Checkpoint)) { mode =>
+      s"give correct snapshots on a small example in mode $mode" in {
+        val snapshot = mk()
 
-      val snapAB10 = ByteString.copyFromUtf8("AB10")
-      val snapBC10 = ByteString.copyFromUtf8("BC10")
-      val snapBC11 = ByteString.copyFromUtf8("BC11")
-      val snapAB2 = ByteString.copyFromUtf8("AB21")
-      val snapAC2 = ByteString.copyFromUtf8("AC21")
+        val snapAB10 = ByteString.copyFromUtf8("AB10")
+        val snapBC10 = ByteString.copyFromUtf8("BC10")
+        val snapBC11 = ByteString.copyFromUtf8("BC11")
+        val snapAB2 = ByteString.copyFromUtf8("AB21")
+        val snapAC2 = ByteString.copyFromUtf8("AC21")
 
-      for {
-        res0 <- snapshot.get()
-        wm0 <- snapshot.watermark
+        for {
+          res0 <- snapshot.get()
+          wm0 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(1, 0),
-          updates = Map(SortedSet(alice, bob) -> snapAB10, SortedSet(bob, charlie) -> snapBC10),
-          deletes = Set.empty,
-        )
-        res1 <- snapshot.get()
-        wm1 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(1, 0),
+            updates = Map(SortedSet(alice, bob) -> snapAB10, SortedSet(bob, charlie) -> snapBC10),
+            deletes = Set.empty,
+            mode,
+          )
+          res1 <- snapshot.get()
+          wm1 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(1, 1),
-          updates = Map(SortedSet(bob, charlie) -> snapBC11),
-          deletes = Set.empty,
-        )
-        res11 <- snapshot.get()
-        wm11 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(1, 1),
+            updates = Map(SortedSet(bob, charlie) -> snapBC11),
+            deletes = Set.empty,
+            mode,
+          )
+          res11 <- snapshot.get()
+          wm11 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(2, 0),
-          updates = Map(SortedSet(alice, bob) -> snapAB2, SortedSet(alice, charlie) -> snapAC2),
-          deletes = Set(SortedSet(bob, charlie)),
-        )
-        res2 <- snapshot.get()
-        ts2 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(2, 0),
+            updates = Map(SortedSet(alice, bob) -> snapAB2, SortedSet(alice, charlie) -> snapAC2),
+            deletes = Set(SortedSet(bob, charlie)),
+            mode,
+          )
+          res2 <- snapshot.get()
+          ts2 <- snapshot.watermark
 
-        _ <- snapshot.update(
-          rt(3, 0),
-          updates = Map.empty,
-          deletes = Set(SortedSet(alice, bob), SortedSet(alice, charlie)),
-        )
-        res3 <- snapshot.get()
-        ts3 <- snapshot.watermark
+          _ <- snapshot.update(
+            rt(3, 0),
+            updates = Map.empty,
+            deletes = Set(SortedSet(alice, bob), SortedSet(alice, charlie)),
+            mode,
+          )
+          res3 <- snapshot.get()
+          ts3 <- snapshot.watermark
 
-      } yield {
-        wm0 shouldBe RecordTime.MinValue
-        res0 shouldBe (RecordTime.MinValue -> Map.empty)
+        } yield {
+          wm0 shouldBe RecordTime.MinValue
+          res0 shouldBe (RecordTime.MinValue -> Map.empty)
 
-        wm1 shouldBe rt(1, 0)
-        res1 shouldBe (rt(1, 0) -> Map(
-          SortedSet(alice, bob) -> snapAB10,
-          SortedSet(bob, charlie) -> snapBC10,
-        ))
+          wm1 shouldBe rt(1, 0)
+          res1 shouldBe (rt(1, 0) -> Map(
+            SortedSet(alice, bob) -> snapAB10,
+            SortedSet(bob, charlie) -> snapBC10,
+          ))
 
-        wm11 shouldBe rt(1, 1)
-        res11 shouldBe (rt(1, 1) -> Map(
-          SortedSet(alice, bob) -> snapAB10,
-          SortedSet(bob, charlie) -> snapBC11,
-        ))
+          wm11 shouldBe rt(1, 1)
+          res11 shouldBe (rt(1, 1) -> Map(
+            SortedSet(alice, bob) -> snapAB10,
+            SortedSet(bob, charlie) -> snapBC11,
+          ))
 
-        ts2 shouldBe rt(2, 0)
-        res2 shouldBe (rt(2, 0) -> Map(
-          SortedSet(alice, bob) -> snapAB2,
-          SortedSet(alice, charlie) -> snapAC2,
-        ))
+          ts2 shouldBe rt(2, 0)
+          res2 shouldBe (rt(2, 0) -> Map(
+            SortedSet(alice, bob) -> snapAB2,
+            SortedSet(alice, charlie) -> snapAC2,
+          ))
 
-        ts3 shouldBe rt(3, 0)
-        res3 shouldBe (rt(3, 0) -> Map.empty)
+          ts3 shouldBe rt(3, 0)
+          res3 shouldBe (rt(3, 0) -> Map.empty)
+        }
       }
     }
 
