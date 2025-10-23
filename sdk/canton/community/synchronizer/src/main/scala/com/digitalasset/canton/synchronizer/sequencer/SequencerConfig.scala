@@ -272,7 +272,7 @@ object BlockSequencerConfig {
   final case class ThroughputCapConfig(
       enabled: Boolean = false,
       observationPeriodSeconds: Int = 60,
-      clockTickInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(500),
+      clockTickInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMillis(100),
       messages: ThroughputCapByMessageTypeConfig = ThroughputCapByMessageTypeConfig(),
   ) extends UniformCantonConfigValidation
   object ThroughputCapConfig {

@@ -12,13 +12,13 @@ class InMemoryTopologyStoreTest extends TopologyStoreTest {
   }
 
   "InMemoryTopologyStore" should {
-    behave like topologyStore(synchronizerId =>
+    behave like topologyStore { case (synchronizerId, testName) =>
       new InMemoryTopologyStore(
         TopologyStoreId.SynchronizerStore(synchronizerId),
         testedProtocolVersion,
-        loggerFactory,
+        loggerFactory.appendUnnamedKey("testName", testName),
         timeouts,
       )
-    )
+    }
   }
 }

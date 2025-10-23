@@ -27,7 +27,7 @@ import io.grpc.ServerInterceptor
 import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Configuration to limit the number of open streams per service
@@ -166,7 +166,7 @@ final case class AdminServerConfig(
     override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     override val authServices: Seq[AuthServiceConfig] = Seq.empty,
     override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
-    override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf),
+    override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(5.minutes),
     override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
     override val stream: Option[StreamLimitConfig] = None,
 ) extends ServerConfig
@@ -655,7 +655,7 @@ object JwksCacheConfig {
     CantonConfigValidatorDerivation[JwksCacheConfig]
   private val DefaultCacheMaxSize: Long = 1000
   private val DefaultCacheExpiration: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofMinutes(10)
+    NonNegativeFiniteDuration.ofMinutes(5)
   private val DefaultConnectionTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)
   private val DefaultReadTimeout: NonNegativeFiniteDuration =
@@ -675,16 +675,16 @@ object JwksCacheConfig {
 final case class AdminTokenConfig(
     fixedAdminToken: Option[String] = None,
     adminTokenDuration: PositiveFiniteDuration = AdminTokenConfig.DefaultAdminTokenDuration,
-    actAsAnyPartyClaim: Boolean = true,
-    adminClaim: Boolean = true,
+    actAsAnyPartyClaim: Boolean = false,
+    adminClaim: Boolean = false,
 ) extends UniformCantonConfigValidation {
 
   def merge(other: AdminTokenConfig): AdminTokenConfig =
     AdminTokenConfig(
       fixedAdminToken = fixedAdminToken.orElse(other.fixedAdminToken),
       adminTokenDuration = adminTokenDuration.min(other.adminTokenDuration),
-      actAsAnyPartyClaim = actAsAnyPartyClaim && other.actAsAnyPartyClaim,
-      adminClaim = adminClaim && other.adminClaim,
+      actAsAnyPartyClaim = actAsAnyPartyClaim || other.actAsAnyPartyClaim,
+      adminClaim = adminClaim || other.adminClaim,
     )
 }
 

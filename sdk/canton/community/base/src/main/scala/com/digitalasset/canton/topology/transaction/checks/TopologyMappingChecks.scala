@@ -45,11 +45,18 @@ object TopologyMappingChecks {
         toValidate: GenericSignedTopologyTransaction,
         inStore: Option[GenericSignedTopologyTransaction],
         pendingChanges: PendingChangesLookup,
+        relaxChecksForBackwardsCompatibility: Boolean,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
       MonadUtil.sequentialTraverse_(all)(
-        _.checkTransaction(effective, toValidate, inStore, pendingChanges)
+        _.checkTransaction(
+          effective,
+          toValidate,
+          inStore,
+          pendingChanges,
+          relaxChecksForBackwardsCompatibility,
+        )
       )
   }
 
@@ -61,6 +68,7 @@ trait TopologyMappingChecks {
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
       pendingChanges: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit]
@@ -72,6 +80,7 @@ object NoopTopologyMappingChecks extends TopologyMappingChecks {
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
       pendingChanges: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
@@ -142,15 +151,11 @@ abstract class TopologyMappingChecksWithStore(
   * @param parameters
   *   verify state against static domain parameters (if they are known). we use this to ensure that
   *   the signing key specs are correct on a synchronizer.
-  * @param relaxSynchronizerStateChecks
-  *   if true (during initial snapshot validation), we assume that the invariant holds that SSS and
-  *   MSS only reference members with valid keys.
   */
 class RequiredTopologyMappingChecks(
     store: TopologyStore[TopologyStoreId],
     parameters: Option[StaticSynchronizerParameters],
     loggerFactory: NamedLoggerFactory,
-    relaxSynchronizerStateChecks: Boolean = false,
 )(implicit
     executionContext: ExecutionContext
 ) extends TopologyMappingChecksWithStore(store, loggerFactory) {
@@ -160,6 +165,7 @@ class RequiredTopologyMappingChecks(
       toValidate: GenericSignedTopologyTransaction,
       inStore: Option[GenericSignedTopologyTransaction],
       pendingChangesLookup: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
@@ -252,6 +258,7 @@ class RequiredTopologyMappingChecks(
               _,
               inStore.flatMap(_.select[TopologyChangeOp.Replace, MediatorSynchronizerState]),
               pendingChangesLookup,
+              relaxChecksForBackwardsCompatibility,
             )
           )
       case (Code.SequencerSynchronizerState, None | Some(Code.SequencerSynchronizerState)) =>
@@ -263,6 +270,7 @@ class RequiredTopologyMappingChecks(
               _,
               inStore.flatMap(_.select[TopologyChangeOp.Replace, SequencerSynchronizerState]),
               pendingChangesLookup,
+              relaxChecksForBackwardsCompatibility,
             )
           )
 
@@ -784,6 +792,7 @@ class RequiredTopologyMappingChecks(
         SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorSynchronizerState]
       ],
       pendingChangesLookup: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
@@ -824,7 +833,7 @@ class RequiredTopologyMappingChecks(
       effectiveTime,
       pendingChangesLookup,
       newMembers = newMediators,
-      relaxSynchronizerStateChecks,
+      relaxChecksForBackwardsCompatibility,
     )
 
     for {
@@ -840,6 +849,7 @@ class RequiredTopologyMappingChecks(
         SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerSynchronizerState]
       ],
       pendingChangesLookup: PendingChangesLookup,
+      relaxChecksForBackwardsCompatibility: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = {
@@ -851,7 +861,7 @@ class RequiredTopologyMappingChecks(
       effectiveTime,
       pendingChangesLookup,
       newMembers = newSequencers,
-      relaxSynchronizerStateChecks,
+      relaxChecksForBackwardsCompatibility: Boolean,
     )
 
   }

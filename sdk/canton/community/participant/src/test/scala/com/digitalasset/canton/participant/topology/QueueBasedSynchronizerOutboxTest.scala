@@ -446,8 +446,9 @@ class QueueBasedSynchronizerOutboxTest
         (target, manager, handle, client) <-
           mk(
             transactions.size,
-            rejections =
-              Iterator.continually(Some(TopologyTransactionRejection.Authorization.NotAuthorized)),
+            rejections = Iterator.continually(
+              Some(TopologyTransactionRejection.Authorization.NotAuthorizedByNamespaceKey)
+            ),
           )
         _ <- outboxConnected(manager, handle, client, target)
         res <- push(manager, transactions)

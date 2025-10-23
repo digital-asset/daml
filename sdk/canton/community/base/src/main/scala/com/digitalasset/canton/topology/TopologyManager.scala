@@ -157,9 +157,9 @@ class SynchronizerTopologyManager(
         EffectiveTime(ts),
         transactions,
         expectFullAuthorization = expectFullAuthorization,
-        // the synchronizer topology manager does not permit missing signing key signatures,
+        // the synchronizer topology manager does not permit weaker validation checks,
         // because these transactions would be rejected during the validating after sequencing.
-        transactionMayHaveMissingSigningKeySignatures = false,
+        relaxChecksForBackwardsCompatibility = false,
       )
   } yield {
     val (txs, asyncResult) = validationResult
@@ -268,9 +268,9 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
               EffectiveTime(ts),
               Seq(transaction),
               expectFullAuthorization = expectFullAuthorization,
-              // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
+              // we allow importing older topology state such as OTK with missing signing key signatures into a temporary topology store,
               // so that we can import legacy OTKs for debugging/investigation purposes
-              transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
+              relaxChecksForBackwardsCompatibility = store.storeId.isTemporaryStore,
             )
 
         } yield {

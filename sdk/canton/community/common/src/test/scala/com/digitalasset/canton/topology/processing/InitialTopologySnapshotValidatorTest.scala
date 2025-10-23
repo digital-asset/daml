@@ -33,10 +33,15 @@ abstract class InitialTopologySnapshotValidatorTest
 
   import Factory.*
 
+  protected def mkDefault() = mk(
+    mkStore(
+      Factory.physicalSynchronizerId1a,
+      "initial-validation",
+    )
+  )
+
   protected def mk(
-      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(
-        Factory.physicalSynchronizerId1a
-      )
+      store: TopologyStore[TopologyStoreId.SynchronizerStore]
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val validator = new InitialTopologySnapshotValidator(
@@ -45,6 +50,7 @@ abstract class InitialTopologySnapshotValidatorTest
       staticSynchronizerParameters = Some(defaultStaticSynchronizerParameters),
       validateInitialSnapshot = true,
       loggerFactory,
+      cleanupTopologySnapshot = true,
     )
     (validator, store)
   }
@@ -81,7 +87,7 @@ abstract class InitialTopologySnapshotValidatorTest
           )
         }
       )
-      val (validator, store) = mk()
+      val (validator, store) = mkDefault()
 
       val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
       result shouldBe Right(())
@@ -113,7 +119,7 @@ abstract class InitialTopologySnapshotValidatorTest
         )
       )
 
-      val (validator, store) = mk()
+      val (validator, store) = mkDefault()
 
       val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
       result shouldBe Right(())
@@ -193,7 +199,7 @@ abstract class InitialTopologySnapshotValidatorTest
         )
 
       val genesisState = toStored(inputTransactions)
-      val (validator, store) = mk()
+      val (validator, store) = mkDefault()
 
       val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
       result shouldBe Right(())
@@ -238,10 +244,10 @@ abstract class InitialTopologySnapshotValidatorTest
         )
       )
 
-      val (validator, store) = mk()
+      val (validator, store) = mkDefault()
 
       val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
-      result.left.value should include regex ("(?s)Store:.*rejectionReason = 'Not authorized'".r)
+      result.left.value should include regex ("(?s)Store:.*rejectionReason = 'Not fully authorized'".r)
 
       val stateAfterInitialization = fetch(store, ts(2))
       // the OTK is rejected and therefore is not returned when looking up valid transactions
@@ -254,7 +260,7 @@ abstract class InitialTopologySnapshotValidatorTest
         .value
         .rejectionReason
         .value
-        .str shouldBe "Not authorized"
+        .str shouldBe "Not fully authorized"
     }
 
     "detect inconsistencies between the snapshot and the result of processing the transactions" in {
@@ -279,7 +285,7 @@ abstract class InitialTopologySnapshotValidatorTest
             ns2k2_k2,
             rejectionReason = Some(String300.tryCreate("some rejection reason")),
           )
-        val (validator, _) = mk()
+        val (validator, _) = mkDefault()
         val result = validator
           .validateAndApplyInitialTopologySnapshot(
             // include a valid transaction as well
@@ -305,7 +311,7 @@ abstract class InitialTopologySnapshotValidatorTest
           ns1k3_k2,
           rejectionReason = None,
         )
-        val (validator, _) = mk()
+        val (validator, _) = mkDefault()
         val result = validator
           .validateAndApplyInitialTopologySnapshot(
             // include a valid transaction as well
@@ -325,12 +331,13 @@ abstract class InitialTopologySnapshotValidatorTest
 
 class InitialTopologySnapshotValidatorTestInMemory extends InitialTopologySnapshotValidatorTest {
   protected def mkStore(
-      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1
+      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1,
+      testName: String,
   ): TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
       TopologyStoreId.SynchronizerStore(synchronizerId),
       testedProtocolVersion,
-      loggerFactory,
+      loggerFactory.appendUnnamedKey("testName", testName),
       timeouts,
     )
 

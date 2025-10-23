@@ -282,7 +282,7 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
       resourcePaths: Seq[String]
   ): Either[CantonConfigError, CantonConfig] = {
     val files = resourcePaths.map(r => (baseDir.toString / r).toJava)
-    CantonConfig.parseAndLoad(files, CommunityCantonEdition)
+    CantonConfig.parseAndLoad(files, CommunityCantonEdition, Some(DefaultPorts.create()))
   }
 
   private lazy val baseDir: File = "community" / "app" / "src" / "test" / "resources"

@@ -32,8 +32,10 @@ import com.digitalasset.canton.store.{
   IndexedPhysicalSynchronizer,
   IndexedStringStore,
   IndexedSynchronizer,
+  IndexedTopologyStoreId,
 }
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.store.TopologyStoreId
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{MonadUtil, StampedLockWithHandle}
@@ -166,9 +168,15 @@ class SyncPersistentStateManager(
         psidIndexed <- EitherT.right(
           IndexedPhysicalSynchronizer.indexed(indexedStringStore)(psid)
         )
+        indexedTopologyStoreId <- EitherT.right(
+          IndexedTopologyStoreId.indexed(indexedStringStore)(
+            TopologyStoreId.SynchronizerStore(psid)
+          )
+        )
         staticSynchronizerParameters <- getStaticSynchronizerParameters(psid)
         persistentState = createPhysicalPersistentState(
           psidIndexed,
+          indexedTopologyStoreId,
           staticSynchronizerParameters,
           logical,
         )
@@ -208,6 +216,13 @@ class SyncPersistentStateManager(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[IndexedPhysicalSynchronizer] =
     IndexedPhysicalSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
 
+  def getSynchronizerTopologyStoreId(synchronizerId: PhysicalSynchronizerId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[IndexedTopologyStoreId] =
+    IndexedTopologyStoreId.indexed(indexedStringStore)(
+      TopologyStoreId.SynchronizerStore(synchronizerId)
+    )
+
   /** Retrieves the [[com.digitalasset.canton.participant.store.SyncPersistentState]] from the
     * [[com.digitalasset.canton.participant.sync.SyncPersistentStateManager]] for the given
     * synchronizer if there is one. Otherwise creates a new
@@ -222,6 +237,7 @@ class SyncPersistentStateManager(
   def lookupOrCreatePersistentState(
       synchronizerAlias: SynchronizerAlias,
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       synchronizerIdx: IndexedSynchronizer,
       synchronizerParameters: StaticSynchronizerParameters,
   )(implicit
@@ -238,6 +254,7 @@ class SyncPersistentStateManager(
           physicalSynchronizerIdx.synchronizerId,
           createPhysicalPersistentState(
             physicalSynchronizerIdx,
+            indexedTopologyStoreId,
             synchronizerParameters,
             logical,
           ),
@@ -273,11 +290,13 @@ class SyncPersistentStateManager(
 
   private def createPhysicalPersistentState(
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       logicalSyncPersistentState: LogicalSyncPersistentState,
   )(implicit writeLockHandle: lock.WriteLockHandle): PhysicalSyncPersistentState =
     mkPhysicalPersistentState(
       physicalSynchronizerIdx,
+      indexedTopologyStoreId,
       staticSynchronizerParameters,
       logicalSyncPersistentState,
     )
@@ -406,6 +425,7 @@ class SyncPersistentStateManager(
 
   private def mkPhysicalPersistentState(
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+      indexedTopologyStoreId: IndexedTopologyStoreId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       logicalSyncPersistentState: LogicalSyncPersistentState,
   )(implicit @unused writeLockHandle: lock.WriteLockHandle): PhysicalSyncPersistentState =
@@ -414,6 +434,7 @@ class SyncPersistentStateManager(
         participantId,
         storage,
         physicalSynchronizerIdx,
+        indexedTopologyStoreId,
         staticSynchronizerParameters,
         clock,
         synchronizerCryptoFactory(staticSynchronizerParameters),

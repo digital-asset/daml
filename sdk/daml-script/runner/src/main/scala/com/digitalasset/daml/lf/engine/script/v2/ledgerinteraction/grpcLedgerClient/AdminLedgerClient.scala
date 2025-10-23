@@ -139,7 +139,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
         )
       ),
       mustFullyAuthorize = true,
-      forceChanges = Seq(ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES),
+      forceChanges = Seq(
+        ForceFlag.FORCE_FLAG_ALLOW_UNVETTED_DEPENDENCIES
+      ),
       signedBy = Seq.empty,
       store = Some(
         admin_topology.StoreId(

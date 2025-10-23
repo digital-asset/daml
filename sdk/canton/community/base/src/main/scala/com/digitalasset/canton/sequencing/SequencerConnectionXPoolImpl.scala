@@ -631,7 +631,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
             .updateWith(sequencerId) {
               // Match on config
               case Some(current) if current.exists(_.config == connection.config) =>
-                logger.debug(s"Removing $connection from the pool")
+                logger.debug(s"Removing ${connection.name} from the pool")
                 actionIfPresent
                 val newList = current.filter(_.config != connection.config)
                 NonEmpty.from(newList)
@@ -670,7 +670,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     blocking {
       lock.synchronized {
         logger.debug(
-          s"[$requester] requesting $requestedNumber connections excluding ${exclusions.map(_.uid.identifier)}"
+          s"[$requester] requesting $requestedNumber connection(s) excluding ${exclusions.map(_.uid.identifier)}"
         )
 
         // Pick up to `requestedNumber` non-excluded sequencer IDs from the pool
