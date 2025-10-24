@@ -72,21 +72,17 @@ da_scala_benchmark_jmh(
 
 [
     daml_compile(
-        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
         name = "ReplayBenchmark-v2",
         srcs = glob(["src/test/daml/**/*.daml"]),
         dependencies = ["//daml-script/daml:daml-script.dar"],
         target = DEFAULT_VERSION,
     ),
     dar_to_java(
-        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
         name = "ReplayBenchmark-v{}-codegen".format("2"),
-        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
         src = ":ReplayBenchmark-v2.dar",
         package_prefix = "com.daml.lf.testing.snapshot.java",
     ),
     da_scala_test_suite(
-        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
         name = "replay-benchmark-tests-v2",
         srcs = glob(
             ["src/test/scala/**/*.scala"],
@@ -95,7 +91,6 @@ da_scala_benchmark_jmh(
                 "src/test/scala/**/ExtractSnapshotChoices.scala",
             ],
         ),
-        # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
         data = [":ReplayBenchmark-v2.dar"],
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
@@ -109,7 +104,6 @@ da_scala_benchmark_jmh(
         deps = [
             ":replay-benchmark_compiled_benchmark_lib",
             ":replay-benchmark_generator",
-            # TODO BEFORE MERGING: Why do we have to hardcode v2 here?
             ":ReplayBenchmark-v{}-codegen".format("2"),
             ":snapshot",
             "//bazel_tools/runfiles:scala_runfiles",
