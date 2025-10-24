@@ -16,7 +16,7 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "DEFAULT_VERSION",
+    "DEFAULT_LF_VERSION",
 )
 load(
     "//language-support/java/codegen:codegen.bzl",
@@ -75,7 +75,7 @@ da_scala_benchmark_jmh(
         name = "ReplayBenchmark-v2",
         srcs = glob(["src/test/daml/**/*.daml"]),
         dependencies = ["//daml-script/daml:daml-script.dar"],
-        target = DEFAULT_VERSION,
+        target = DEFAULT_LF_VERSION,
     ),
     dar_to_java(
         name = "ReplayBenchmark-v{}-codegen".format("2"),
