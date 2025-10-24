@@ -171,4 +171,3 @@ SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
 
 # All LF major versions supported by the compiler
 COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in ALL_LF_VERSIONS]).to_list()
-
