@@ -12,8 +12,8 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "DEFAULT_VERSION",
-    "DEV_VERSION",
+    "DEFAULT_LF_VERSION",
+    "DEV_LF_VERSION",
     "mangle_for_damlc",
 )
 load(
@@ -63,7 +63,7 @@ ENGINE_TEST_FILES = \
             major = major,
         ),
         srcs = ["src/test/daml/%s.daml" % name],
-        target = DEFAULT_VERSION,
+        target = DEFAULT_LF_VERSION,
     )
     for name in ENGINE_TEST_FILES
     for major in COMPILER_LF_MAJOR_VERSIONS
@@ -79,7 +79,7 @@ ENGINE_TEST_FILES = \
         target = version,
     )
     for name in ENGINE_TEST_FILES
-    for version in [DEV_VERSION]
+    for version in [DEV_LF_VERSION]
 ]
 
 da_scala_test_suite(
@@ -130,7 +130,7 @@ da_scala_test_suite(
             "//daml-lf/tests:MultiKeys",
             "//daml-lf/tests:Exceptions",
         ]
-        for version in [DEV_VERSION]
+        for version in [DEV_LF_VERSION]
     ],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
@@ -167,7 +167,7 @@ da_scala_test_suite(
     daml_compile(
         name = "LargeTransaction-v{}".format(major),
         srcs = ["src/test/daml/LargeTransaction.daml"],
-        target = DEFAULT_VERSION,
+        target = DEFAULT_LF_VERSION,
     )
     for major in COMPILER_LF_MAJOR_VERSIONS
 ]
