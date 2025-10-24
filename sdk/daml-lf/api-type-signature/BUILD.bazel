@@ -8,7 +8,7 @@ load(
     "lf_scalacopts",
 )
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//daml-lf/language:daml-lf.bzl", "DEFAULT_VERSION")
+load("//daml-lf/language:daml-lf.bzl", "DEFAULT_LF_VERSION")
 load("//bazel_tools:scala.bzl", "lf_scalacopts")
 load("@os_info//:os_info.bzl", "is_intel")
 
@@ -55,7 +55,7 @@ daml_compile(
         exclude = ["src/test/daml/**/*Retro*.daml"],
     ),
     enable_interfaces = True,
-    target = DEFAULT_VERSION,
+    target = DEFAULT_LF_VERSION,
 )
 
 daml_compile(
