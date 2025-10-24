@@ -21,9 +21,11 @@ import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf
+import com.google.protobuf.ByteString
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
+import com.google.rpc.error_details.{ErrorInfo, RetryInfo}
 import io.circe
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
@@ -439,8 +441,6 @@ object JsSchema {
     implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveConfiguredCodec
     implicit val jsExercisedEvent: Codec[JsEvent.ExercisedEvent] = deriveConfiguredCodec
 
-    implicit val any: Codec[com.google.protobuf.any.Any] = deriveConfiguredCodec
-
     implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveConfiguredCodec
 
     implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveConfiguredCodec
@@ -457,40 +457,11 @@ object JsSchema {
 
     implicit val grpcStatusEncoder: Encoder[com.google.rpc.status.Status] = Encoder.instance {
       status =>
-        import com.google.rpc.error_details.{ErrorInfo, RetryInfo}
         import io.circe.syntax.*
-
-        def decodeValue(detail: com.google.protobuf.any.Any): String =
-          try {
-            detail.typeUrl match {
-              case "type.googleapis.com/google.rpc.ErrorInfo" =>
-                ErrorInfo.parseFrom(detail.value.toByteArray).toString
-              case "type.googleapis.com/google.rpc.RetryInfo" =>
-                RetryInfo.parseFrom(detail.value.toByteArray).toString
-              case _ =>
-                "Unknown type for decoding"
-            }
-          } catch {
-            case e: Exception => "Failed to decode: " + e.getMessage
-          }
-
-        def encodeDetail(detail: com.google.protobuf.any.Any): Json = {
-          val typeUrl = detail.typeUrl
-          val unknownFields = detail.unknownFields
-          val valueBase64 = Base64.getEncoder.encodeToString(detail.value.toByteArray)
-          val valueDecoded = decodeValue(detail)
-          Json.obj(
-            "typeUrl" -> typeUrl.asJson,
-            "value" -> valueBase64.asJson,
-            "unknownFields" -> unknownFields.asJson,
-            "valueDecoded" -> valueDecoded.asJson,
-          )
-        }
-
         Json.obj(
           "code" -> status.code.asJson,
           "message" -> status.message.asJson,
-          "details" -> status.details.map(encodeDetail).asJson,
+          "details" -> status.details.asJson,
         )
     }
 
@@ -501,6 +472,37 @@ object JsSchema {
           message <- cursor.downField("message").as[String]
           details <- cursor.downField("details").as[Seq[com.google.protobuf.any.Any]]
         } yield com.google.rpc.status.Status(code, message, details)
+    }
+
+    implicit val grpcAnyEncoder: Encoder[com.google.protobuf.any.Any] = Encoder.instance { any =>
+      import io.circe.syntax.*
+      def decodeAny(source: com.google.protobuf.any.Any): String =
+        try {
+          source.typeUrl match {
+            case "type.googleapis.com/google.rpc.ErrorInfo" =>
+              ErrorInfo.parseFrom(source.value.toByteArray).toString
+            case "type.googleapis.com/google.rpc.RetryInfo" =>
+              RetryInfo.parseFrom(source.value.toByteArray).toString
+            case _ =>
+              "Unknown type for decoding"
+          }
+        } catch {
+          case e: Exception => "Failed to decode: " + e.getMessage
+        }
+      Json.obj(
+        "typeUrl" -> any.typeUrl.asJson,
+        "value" -> Base64.getEncoder.encodeToString(any.value.toByteArray).asJson,
+        "unknownFields" -> any.unknownFields.asJson,
+        "valueDecoded" -> decodeAny(any).asJson,
+      )
+    }
+
+    implicit val grpcAnyDecoder: Decoder[com.google.protobuf.any.Any] = Decoder.instance { cursor =>
+      for {
+        typeUrl <- cursor.downField("typeUrl").as[String]
+        value <- cursor.downField("value").as[ByteString]
+        unknownFields <- cursor.downField("unknownFields").as[scalapb.UnknownFieldSet]
+      } yield com.google.protobuf.any.Any(typeUrl, value, unknownFields)
     }
 
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs

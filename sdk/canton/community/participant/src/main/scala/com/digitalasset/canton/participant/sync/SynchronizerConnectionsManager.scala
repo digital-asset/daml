@@ -837,11 +837,11 @@ private[sync] class SynchronizerConnectionsManager(
       )
 
       _ <- synchronizerConnectionConfigStore
-        .setSequencerIds(alias, KnownPhysicalSynchronizerId(psid), retrievedSequencerIds.toMap)
+        .setSequencerIds(psid, retrievedSequencerIds.toMap)
         .leftMap[SyncServiceError](err =>
           SyncServiceError.SyncServiceInternalError
             .Failure(
-              alias,
+              psid.toString,
               new RuntimeException(s"Unable to store missing sequencer ids: $err"),
             )
         )

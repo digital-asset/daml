@@ -1075,7 +1075,7 @@ class CantonSyncService(
         .leftMap(err =>
           SyncServiceError.SyncServiceInternalError
             .Failure(
-              config.synchronizerAlias,
+              config.synchronizerAlias.toString,
               new RuntimeException(s"Unable to retrieve and store missing sequencer ids: $err"),
             )
         )

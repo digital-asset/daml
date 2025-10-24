@@ -293,7 +293,7 @@ class GrpcSequencerInitializationService(
     * on the first transaction because the first transaction has not yet been fully authorized at
     * this point. Instead, we drop all expired proposals from the genesis state.
     *
-    * Note: THe same problem of varying authorization requirements can also appear within a single
+    * Note: The same problem of varying authorization requirements can also appear within a single
     * sequenced topology transaction. However, compaction
     * [[com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.compact]] prevents
     * the uniqueness violation as it removes the fully authorized topology transaction from the

@@ -16,6 +16,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   Active,
   AtMostOnePhysicalActive,
   ConfigAlreadyExists,
+  ConfigIdentifier,
   Error,
   InconsistentLogicalSynchronizerIds,
   InconsistentSequencerIds,
@@ -58,6 +59,23 @@ class InMemorySynchronizerConnectionConfigStore(
     (SynchronizerAlias, ConfiguredPhysicalSynchronizerId),
     StoredSynchronizerConnectionConfig,
   ]()
+
+  private def getInternal(
+      id: ConfigIdentifier
+  ): Either[MissingConfigForSynchronizer, StoredSynchronizerConnectionConfig] = {
+    def predicate(key: (SynchronizerAlias, ConfiguredPhysicalSynchronizerId)): Boolean = {
+      val (entryAlias, entryConfiguredPSId) = key
+      id match {
+        case ConfigIdentifier.WithPSId(psid) => entryConfiguredPSId.toOption.contains(psid)
+        case ConfigIdentifier.WithAlias(alias, configuredPSID) =>
+          (alias, configuredPSID) == (entryAlias, entryConfiguredPSId)
+      }
+    }
+
+    configuredSynchronizerMap
+      .collectFirst { case (key, value) if predicate(key) => value }
+      .toRight(MissingConfigForSynchronizer(id))
+  }
 
   override def put(
       config: SynchronizerConnectionConfig,
@@ -190,7 +208,7 @@ class InMemorySynchronizerConnectionConfigStore(
         .updateWith((alias, configuredPSId))(_.map(modifier))
         .isDefined,
       (),
-      MissingConfigForSynchronizer(alias, configuredPSId),
+      MissingConfigForSynchronizer(ConfigIdentifier.WithAlias(alias, configuredPSId)),
     )
 
   override def get(
@@ -199,7 +217,7 @@ class InMemorySynchronizerConnectionConfigStore(
   ): Either[MissingConfigForSynchronizer, StoredSynchronizerConnectionConfig] =
     configuredSynchronizerMap
       .get((alias, configuredPSId))
-      .toRight(MissingConfigForSynchronizer(alias, configuredPSId))
+      .toRight(MissingConfigForSynchronizer(ConfigIdentifier.WithAlias(alias, configuredPSId)))
 
   override def get(
       psid: PhysicalSynchronizerId
@@ -259,14 +277,15 @@ class InMemorySynchronizerConnectionConfigStore(
   }
 
   override def setSequencerIds(
-      synchronizerAlias: SynchronizerAlias,
-      configuredPSId: ConfiguredPhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       sequencerIds: Map[SequencerAlias, SequencerId],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, Unit] = {
+    val id = ConfigIdentifier.WithPSId(psid)
+
     val res = blocking {
       synchronized {
         for {
-          storedConfig <- get(synchronizerAlias, configuredPSId)
+          storedConfig <- getInternal(id)
 
           updatedConnectionConfig = sequencerIds.foldLeft(storedConfig.config) {
             case (config, (alias, id)) =>
@@ -279,13 +298,13 @@ class InMemorySynchronizerConnectionConfigStore(
             storedConfig.config
               .subsumeMerge(updatedConnectionConfig)
               .leftMap[Error](
-                InconsistentSequencerIds(synchronizerAlias, configuredPSId, sequencerIds, _)
+                InconsistentSequencerIds(id, sequencerIds, _)
               )
 
           updatedStoredConfig = storedConfig.copy(config = mergedConnectionConfig)
         } yield configuredSynchronizerMap
           .put(
-            (synchronizerAlias, configuredPSId),
+            (storedConfig.config.synchronizerAlias, KnownPhysicalSynchronizerId(psid)),
             updatedStoredConfig,
           )
           .discard
@@ -319,7 +338,11 @@ class InMemorySynchronizerConnectionConfigStore(
             ) =>
           Right(false)
         case (Left(_: MissingConfigForSynchronizer), _) =>
-          Left(MissingConfigForSynchronizer(alias, UnknownPhysicalSynchronizerId))
+          Left(
+            MissingConfigForSynchronizer(
+              ConfigIdentifier.WithAlias(alias, UnknownPhysicalSynchronizerId)
+            )
+          )
       }
     }
 

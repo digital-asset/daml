@@ -399,6 +399,13 @@ final case class CantonConfig(
 ) extends UniformCantonConfigValidation
     with ConfigDefaults[Option[DefaultPorts], CantonConfig] {
 
+  /** Names of local nodes in order: sequencers, mediators, participants. Order within each group
+    * may be different between runs, but the list may serve as a single reference order in case we
+    * need to to do some actions in the same order.
+    */
+  def nodeNamesInStartupOrder: Seq[InstanceName] =
+    sequencers.keys.view ++ mediators.keys ++ participants.keys to List
+
   def allLocalNodes: Map[InstanceName, LocalNodeConfig] =
     (participants: Map[InstanceName, LocalNodeConfig]) ++ sequencers ++ mediators
 

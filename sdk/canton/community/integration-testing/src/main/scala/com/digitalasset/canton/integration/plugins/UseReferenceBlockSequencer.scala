@@ -238,43 +238,78 @@ class UseReferenceBlockSequencer[StorageConfigT <: StorageConfig](
             .failOnShutdownToAbortException("recreateDatabases")
         )
       case _ =>
-        logger.underlying.warn(
-          s"`$functionFullName` was called on a test without UsePostgres plugin, which is not supported!"
-        )
-        Future.unit
+        warnNoPlugin(functionFullName)
     }
 
   def dumpDatabases(tempDirectory: TempDirectory, forceLocal: Boolean = false): Future[Unit] =
+    dumpDatabases(dbNames, tempDirectory, forceLocal)
+
+  private def dumpDatabases(
+      names: Seq[String],
+      tempDirectory: TempDirectory,
+      forceLocal: Boolean,
+  ): Future[Unit] =
     pgPlugin match {
       case Some(postgresPlugin) =>
         val pgDumpRestore = PostgresDumpRestore(postgresPlugin, forceLocal)
-        dbNames.forgetNE.parTraverse_(db =>
-          pgDumpRestore.saveDump(db, dumpTempFile(tempDirectory, db))
-        )
+        names.parTraverse_(db => pgDumpRestore.saveDump(db, dumpTempFile(tempDirectory, db)))
       case _ =>
-        logger.underlying.warn(
-          s"`$functionFullName` was called on a test without UsePostgres plugin, which is not supported!"
-        )
-        Future.unit
+        warnNoPlugin(functionFullName)
     }
 
+  def dumpAllDatabases(
+      config: CantonConfig,
+      tempDirectory: TempDirectory,
+      forceLocal: Boolean = false,
+  ): Future[Unit] =
+    forAllDatabaseDumps(functionFullName, config)(dumpDatabases(_, tempDirectory, forceLocal))
+
   def restoreDatabases(tempDirectory: TempDirectory, forceLocal: Boolean = false): Future[Unit] =
+    restoreDatabases(dbNames, tempDirectory, forceLocal)
+
+  private def restoreDatabases(
+      names: Seq[String],
+      tempDirectory: TempDirectory,
+      forceLocal: Boolean,
+  ): Future[Unit] =
     pgPlugin match {
       case Some(postgresPlugin) =>
         val pgDumpRestore = PostgresDumpRestore(postgresPlugin, forceLocal)
-        dbNames.forgetNE.parTraverse_(db =>
+        names.parTraverse_(db =>
           pgDumpRestore.restoreDump(db, dumpTempFile(tempDirectory, db).path)
         )
       case _ =>
-        logger.underlying.warn(
-          s"`$functionFullName` was called on a test without UsePostgres plugin, which is not supported!"
-        )
-        Future.unit
+        warnNoPlugin(functionFullName)
+    }
+
+  def restoreAllDatabases(
+      config: CantonConfig,
+      tempDirectory: TempDirectory,
+      forceLocal: Boolean = false,
+  ): Future[Unit] =
+    forAllDatabaseDumps(functionFullName, config)(restoreDatabases(_, tempDirectory, forceLocal))
+
+  private def forAllDatabaseDumps(functionName: String, config: CantonConfig)(
+      op: Seq[String] => Future[Unit]
+  ): Future[Unit] =
+    pgPlugin match {
+      case Some(postgresPlugin) =>
+        val nodeDatabases =
+          config.nodeNamesInStartupOrder.map(name => name.unwrap)
+        op(dbNames.forgetNE ++ nodeDatabases)
+      case _ =>
+        warnNoPlugin(functionName)
     }
 
   private def dumpTempFile(tempDirectory: TempDirectory, dbName: String): TempFile =
     tempDirectory.toTempFile(s"pg-dump-$dbName.tar")
 
+  private def warnNoPlugin(functionName: String): Future[Unit] = {
+    logger.underlying.warn(
+      s"`$functionName` was called on a test without UsePostgres plugin, which is not supported!"
+    )
+    Future.unit
+  }
 }
 
 object UseReferenceBlockSequencer {

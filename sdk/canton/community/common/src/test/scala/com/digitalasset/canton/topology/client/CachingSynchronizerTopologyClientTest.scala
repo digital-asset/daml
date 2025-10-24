@@ -88,10 +88,12 @@ class CachingSynchronizerTopologyClientTest
     when(mockParent.approximateTimestamp).thenReturn(ts3)
     when(mockParent.awaitTimestamp(any[CantonTimestamp])(any[TraceContext]))
       .thenReturn(None)
-    when(mockParent.trySnapshot(ts0)).thenReturn(mockSnapshot0)
-    when(mockParent.trySnapshot(ts1)).thenReturn(mockSnapshot0)
-    when(mockParent.trySnapshot(ts1.immediateSuccessor)).thenReturn(mockSnapshot1)
-    when(mockParent.trySnapshot(ts2.immediateSuccessor)).thenReturn(mockSnapshot2)
+    when(mockParent.trySnapshot(eqTo(ts0))(any[TraceContext])).thenReturn(mockSnapshot0)
+    when(mockParent.trySnapshot(eqTo(ts1))(any[TraceContext])).thenReturn(mockSnapshot0)
+    when(mockParent.trySnapshot(eqTo(ts1.immediateSuccessor))(any[TraceContext]))
+      .thenReturn(mockSnapshot1)
+    when(mockParent.trySnapshot(eqTo(ts2.immediateSuccessor))(any[TraceContext]))
+      .thenReturn(mockSnapshot2)
     when(
       mockParent.observed(
         any[CantonTimestamp],
@@ -108,7 +110,9 @@ class CachingSynchronizerTopologyClientTest
     import Fixture.*
 
     "return correct snapshot" in {
-
+      when(mockParent.topologyKnownUntilTimestamp).thenReturn(
+        CantonTimestamp.MinValue.immediateSuccessor
+      )
       for {
         _ <- cc
           .observed(
@@ -118,7 +122,15 @@ class CachingSynchronizerTopologyClientTest
             Seq(mockTransaction),
             DefaultTestIdentities.synchronizerId,
           )
+        _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts1.immediateSuccessor)
+        // ts0 is not covered by the open interval [ts1.successor, None], therefore it will trigger a lookup of
+        // the topology interval for t0, but there is none to be found
+        _ = when(mockParent.findTopologyIntervalForTimestamp(ts0))
+          .thenReturn(FutureUnlessShutdown.pure(None))
         sp0a <- cc.snapshot(ts0)
+        // also the timestamp ts1 doesn't have a topology interval
+        _ = when(mockParent.findTopologyIntervalForTimestamp(ts1))
+          .thenReturn(FutureUnlessShutdown.pure(None))
         sp0b <- cc.snapshot(ts1)
         _ = cc.observed(
           ts1.plusSeconds(10),
@@ -126,6 +138,9 @@ class CachingSynchronizerTopologyClientTest
           SequencerCounter(1),
           Seq(),
           DefaultTestIdentities.synchronizerId,
+        )
+        _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(
+          ts1.plusSeconds(10).immediateSuccessor
         )
         keys0a <- sp0a.allKeys(owner)
         keys0b <- sp0b.allKeys(owner)
@@ -137,8 +152,10 @@ class CachingSynchronizerTopologyClientTest
           Seq(mockTransaction),
           DefaultTestIdentities.synchronizerId,
         )
+        _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts2.immediateSuccessor)
         keys1b <- cc.snapshot(ts2).flatMap(_.allKeys(owner))
         _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq(), DefaultTestIdentities.synchronizerId)
+        _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.immediateSuccessor)
         keys2a <- cc.snapshot(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
         keys2b <- cc.snapshot(ts3).flatMap(_.allKeys(owner))
       } yield {

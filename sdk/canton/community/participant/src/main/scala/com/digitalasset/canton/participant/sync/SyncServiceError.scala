@@ -416,7 +416,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
 
-    final case class Failure(synchronizerAlias: SynchronizerAlias, throwable: Throwable)(implicit
+    final case class Failure(synchronizer: String, throwable: Throwable)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = "The synchronizer failed to startup due to an internal error",
