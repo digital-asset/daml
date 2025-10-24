@@ -10,6 +10,7 @@ da_haskell_binary(
         "bytestring",
         "containers",
         "cryptonite",
+        "filepath",
         "extra",
         "http-client",
         "http-conduit",

@@ -159,14 +159,8 @@ jobs:
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
           if [ "$(need_to_build)" == "true" ]; then
-              branch="notices-update-$(Build.BuildId)"
-              az extension add --name azure-devops
-              trap "az devops logout" EXIT
-              echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-              az pipelines build queue --branch "$branch" \
-                                       --definition-name "PRs" \
-                                       --org "https://dev.azure.com/digitalasset" \
-                                       --project daml
+              BRANCH="notices-update-$(Build.BuildId)"
+              trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
           fi
         env:
           AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

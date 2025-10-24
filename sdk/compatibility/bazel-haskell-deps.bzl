@@ -63,6 +63,7 @@ def daml_haskell_deps():
             "tasty",
             "tasty-hunit",
             "text",
+            "time",
             "typed-process",
             "unix-compat",
             "unordered-containers",
