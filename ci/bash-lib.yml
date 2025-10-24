@@ -38,7 +38,7 @@ steps:
       title="$2"
       body="${3:-}"
       pr_number="${4:-}"
-      base="${5:-main}"
+      base="main"
       header=$(mktemp)
       output=$(mktemp)
 
