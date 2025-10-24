@@ -1549,6 +1549,7 @@ java_library(
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_compilerplugin_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty_shaded",
@@ -1595,6 +1596,7 @@ da_java_library(
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_thesamet_scalapb_compilerplugin_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty_shaded",
@@ -1694,10 +1696,13 @@ ledger_api_proto_source_root = "canton/community/ledger-api/src/main/protobuf"
 
 proto_jars(
     name = "ledger_api_proto",
-    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
+    srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/**/*.proto"]),
     grpc = True,
     java_conversions = True,
-    java_deps = ["@maven//:com_google_api_grpc_proto_google_common_protos"],
+    java_deps = [
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_thesamet_scalapb_compilerplugin_2_13",
+    ],
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",
@@ -1715,5 +1720,6 @@ proto_jars(
         "@com_google_protobuf//:wrappers_proto",
         "@go_googleapis//google/rpc:error_details_proto",
         "@go_googleapis//google/rpc:status_proto",
+        "@scalapb//:scalapb_proto",
     ],
 )
