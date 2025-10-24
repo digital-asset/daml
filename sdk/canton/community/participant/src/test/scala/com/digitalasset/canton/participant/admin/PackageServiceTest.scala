@@ -159,30 +159,39 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
   private lazy val expectedPackageIds: Set[LfPackageId] =
     examplePackages.map(DamlPackageStore.readPackageId).toSet
 
-  protected lazy val mainPkg: Archive = createLfArchive { implicit parserParameters =>
-    p"""
-      metadata ( 'main-package' : '1.0.0' )
-      module Mod {
-        val string: Text = "main-package";
-     }"""
-  }
-
-  protected lazy val extraPkg: Archive = createLfArchive { implicit parserParameters =>
-    p"""
-      metadata ( 'extra-package' : '1.0.0' )
-      module Mod {
-        val string: Text = "extra-package";
-     }"""
-  }
-
-  protected lazy val missingPkg: Archive = createLfArchive { implicit parserParameters =>
-    p"""
-        metadata ( 'missing-package' : '1.0.0' )
+  protected def mainPkg(
+      lfVersion: LanguageVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+  ): Archive =
+    createLfArchiveForLf(lfVersion) { implicit parserParameters =>
+      p"""
+        metadata ( 'main-package' : '1.0.0' )
         module Mod {
-          val string: Text = '-missing-':Mod:Text;
-        }
-      """
-  }
+          val string: Text = "main-package";
+      }"""
+    }
+
+  protected def extraPkg(
+      lfVersion: LanguageVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+  ): Archive =
+    createLfArchiveForLf(lfVersion) { implicit parserParameters =>
+      p"""
+        metadata ( 'extra-package' : '1.0.0' )
+        module Mod {
+          val string: Text = "extra-package";
+      }"""
+    }
+
+  protected def missingPkg(
+      lfVersion: LanguageVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+  ): Archive =
+    createLfArchiveForLf(lfVersion) { implicit parserParameters =>
+      p"""
+          metadata ( 'missing-package' : '1.0.0' )
+          module Mod {
+            val string: Text = '-missing-':Mod:Text;
+          }
+        """
+    }
 
   "PackageService" should {
 
@@ -534,6 +543,12 @@ abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
 
   private def createLfArchive(defn: ParserParameters[?] => Ast.Package): Archive = {
     val lfVersion = LanguageVersion.defaultOrLatestStable(LanguageMajorVersion.V2)
+    createLfArchiveForLf(lfVersion)(defn)
+  }
+
+  private def createLfArchiveForLf(
+      lfVersion: LanguageVersion
+  )(defn: ParserParameters[?] => Ast.Package): Archive = {
     val selfPkgId = LfPackageId.assertFromString("-self-")
     implicit val parseParameters: ParserParameters[Nothing] = ParserParameters(
       defaultPackageId = selfPkgId,
@@ -574,7 +589,7 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
     "fail uploads with missing package dependencies" in withEnv { env =>
       import env.*
 
-      val payload = encodeDarArchive("main.dalf" -> missingPkg)
+      val payload = encodeDarArchive("main.dalf" -> missingPkg())
 
       for {
         error <- leftOrFail(
@@ -596,7 +611,7 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
     "allow uploads with extra package dependencies" in withEnv { env =>
       import env.*
 
-      val payload = encodeDarArchive("main.dalf" -> mainPkg, "extra.dalf" -> extraPkg)
+      val payload = encodeDarArchive("main.dalf" -> mainPkg(), "extra.dalf" -> extraPkg())
 
       loggerFactory.assertLogs(
         SuppressionRule.LoggerNameContains("PackageServiceTestWithoutStrictDarValidation") &&
@@ -628,10 +643,10 @@ class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTes
 class PackageServiceTestWithStrictDarValidation extends BasePackageServiceTest(true) {
 
   "strict Dar validation enabled" should {
-    "fail uploads with missing package dependencies" in withEnv { env =>
+    "fail uploads with missing package dependencies for lf < 2.2" in withEnv { env =>
       import env.*
 
-      val payload = encodeDarArchive("main.dalf" -> missingPkg)
+      val payload = encodeDarArchive("main.dalf" -> missingPkg(LanguageVersion.v2_1))
 
       for {
         error <- leftOrFail(
@@ -650,10 +665,65 @@ class PackageServiceTestWithStrictDarValidation extends BasePackageServiceTest(t
       }
     }
 
-    "fail uploads with extra package dependencies" in withEnv { env =>
+    "allow uploads with extra package dependencies for lf < 2.2" in withEnv { env =>
       import env.*
 
-      val payload = encodeDarArchive("main.dalf" -> mainPkg, "extra.dalf" -> extraPkg)
+      val payload = encodeDarArchive(
+        "main.dalf" -> mainPkg(LanguageVersion.v2_1),
+        "extra.dalf" -> extraPkg(LanguageVersion.v2_1),
+      )
+
+      loggerFactory.assertLogs(
+        SuppressionRule.LoggerNameContains("PackageServiceTestWithStrictDarValidation") &&
+          SuppressionRule.Level(org.slf4j.event.Level.WARN)
+      )(
+        (for {
+          _ <- sut
+            .upload(
+              darBytes = payload,
+              description = Some("extra-package.dar"),
+              submissionIdO = None,
+              vettingInfo = None,
+              expectedMainPackageId = None,
+            )
+            .valueOrFail("uploading dar with extra package")
+        } yield {
+          succeed
+        }).unwrap.map(_.failOnShutdown),
+        err => {
+          err.message should include(
+            "the set of package dependencies is not self consistent, the extra dependencies are"
+          )
+        },
+      )
+    }
+
+    "fail uploads with missing package dependencies for lf >= 2.2" in withEnv { env =>
+      import env.*
+
+      val payload = encodeDarArchive("main.dalf" -> missingPkg())
+
+      for {
+        error <- leftOrFail(
+          sut.upload(
+            darBytes = payload,
+            description = Some("missing-package.dar"),
+            submissionIdO = None,
+            vettingInfo = None,
+            expectedMainPackageId = None,
+          )
+        )("uploading dar with missing packages").failOnShutdown
+      } yield {
+        inside(error) { case _: PackageServiceErrors.Validation.DarSelfConsistency.Error =>
+          succeed
+        }
+      }
+    }
+
+    "fail uploads with extra package dependencies lf >= 2.2" in withEnv { env =>
+      import env.*
+
+      val payload = encodeDarArchive("main.dalf" -> mainPkg(), "extra.dalf" -> extraPkg())
 
       for {
         error <- leftOrFail(

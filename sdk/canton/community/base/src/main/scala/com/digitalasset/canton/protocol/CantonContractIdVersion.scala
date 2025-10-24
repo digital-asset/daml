@@ -97,7 +97,6 @@ object CantonContractIdVersion {
       AuthenticatedContractIdVersionV12,
     )
 
-  // TODO(#27612) where possible convert tests using this to iterate over allV1
   lazy val maxV1: CantonContractIdV1Version = AuthenticatedContractIdVersionV12
 
   lazy val all: Seq[CantonContractIdVersion] = allV1 :+ CantonContractIdV2Version0

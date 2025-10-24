@@ -348,6 +348,11 @@ object TestingTimeServiceConfig {
   *   How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation
   *   Disable the package upgrade verification on DAR upload
+  * @param enableStrictDarValidation
+  *   Enables the throwing of an error if lf>2.2 and the dar is not self-sufficient (i.e. throw an
+  *   error if the set of included packages does not equal the set of imported packages). Normally,
+  *   packages produced by damlc targeting 2.2 or above are self-sufficient. If set to false, errors
+  *   are logged as warning instead.
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
   * @param automaticallyPerformLogicalSynchronizerUpgrade
@@ -390,7 +395,7 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     disableUpgradeValidation: Boolean = false,
-    enableStrictDarValidation: Boolean = false,
+    enableStrictDarValidation: Boolean = true,
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),

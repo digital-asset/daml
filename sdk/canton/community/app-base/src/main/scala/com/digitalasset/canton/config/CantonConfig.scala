@@ -140,8 +140,8 @@ import scala.util.Try
   */
 final case class DeadlockDetectionConfig(
     enabled: Boolean = true,
-    interval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(3),
-    warnInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
+    interval: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration.ofSeconds(3),
+    warnInterval: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration.ofSeconds(10),
 ) extends UniformCantonConfigValidation
 
 object DeadlockDetectionConfig {
@@ -195,11 +195,11 @@ object MonitoringConfig {
   *   default bong timeout
   */
 final case class ConsoleCommandTimeout(
-    bounded: NonNegativeDuration = ConsoleCommandTimeout.defaultBoundedTimeout,
-    unbounded: NonNegativeDuration = ConsoleCommandTimeout.defaultUnboundedTimeout,
-    ledgerCommand: NonNegativeDuration = ConsoleCommandTimeout.defaultLedgerCommandsTimeout,
-    ping: NonNegativeDuration = ConsoleCommandTimeout.defaultPingTimeout,
-    testingBong: NonNegativeDuration = ConsoleCommandTimeout.defaultTestingBongTimeout,
+    bounded: config.NonNegativeDuration = ConsoleCommandTimeout.defaultBoundedTimeout,
+    unbounded: config.NonNegativeDuration = ConsoleCommandTimeout.defaultUnboundedTimeout,
+    ledgerCommand: config.NonNegativeDuration = ConsoleCommandTimeout.defaultLedgerCommandsTimeout,
+    ping: config.NonNegativeDuration = ConsoleCommandTimeout.defaultPingTimeout,
+    testingBong: config.NonNegativeDuration = ConsoleCommandTimeout.defaultTestingBongTimeout,
 ) extends UniformCantonConfigValidation
 
 object ConsoleCommandTimeout {
@@ -207,13 +207,16 @@ object ConsoleCommandTimeout {
       : CantonConfigValidator[ConsoleCommandTimeout] =
     CantonConfigValidatorDerivation[ConsoleCommandTimeout]
 
-  val defaultBoundedTimeout: NonNegativeDuration = NonNegativeDuration.tryFromDuration(1.minute)
-  val defaultUnboundedTimeout: NonNegativeDuration =
-    NonNegativeDuration.tryFromDuration(Duration.Inf)
-  val defaultLedgerCommandsTimeout: NonNegativeDuration =
-    NonNegativeDuration.tryFromDuration(1.minute)
-  val defaultPingTimeout: NonNegativeDuration = NonNegativeDuration.tryFromDuration(20.seconds)
-  val defaultTestingBongTimeout: NonNegativeDuration = NonNegativeDuration.tryFromDuration(1.minute)
+  val defaultBoundedTimeout: config.NonNegativeDuration =
+    config.NonNegativeDuration.tryFromDuration(1.minute)
+  val defaultUnboundedTimeout: config.NonNegativeDuration =
+    config.NonNegativeDuration.tryFromDuration(Duration.Inf)
+  val defaultLedgerCommandsTimeout: config.NonNegativeDuration =
+    config.NonNegativeDuration.tryFromDuration(1.minute)
+  val defaultPingTimeout: config.NonNegativeDuration =
+    config.NonNegativeDuration.tryFromDuration(30.seconds)
+  val defaultTestingBongTimeout: config.NonNegativeDuration =
+    config.NonNegativeDuration.tryFromDuration(1.minute)
 }
 
 /** Timeout settings configuration */
@@ -272,8 +275,8 @@ object ClockConfig {
   * or retain evidence of completed transactions.
   */
 final case class RetentionPeriodDefaults(
-    sequencer: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7),
-    mediator: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(7),
+    sequencer: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration.ofDays(7),
+    mediator: config.NonNegativeFiniteDuration = config.NonNegativeFiniteDuration.ofDays(7),
 ) extends UniformCantonConfigValidation
 
 object RetentionPeriodDefaults {
@@ -715,26 +718,26 @@ object CantonConfig {
     import CantonConfigUtil.*
     import BaseCantonConfig.Readers.*
 
-    implicit val nonNegativeDurationReader: ConfigReader[NonNegativeDuration] =
-      ConfigReader.fromString[NonNegativeDuration] { str =>
+    implicit val nonNegativeDurationReader: ConfigReader[config.NonNegativeDuration] =
+      ConfigReader.fromString[config.NonNegativeDuration] { str =>
         def err(message: String) =
-          CannotConvert(str, NonNegativeDuration.getClass.getName, message)
+          CannotConvert(str, config.NonNegativeDuration.getClass.getName, message)
 
         Either
           .catchOnly[NumberFormatException](Duration.apply(str))
           .leftMap(error => err(error.getMessage))
-          .flatMap(duration => NonNegativeDuration.fromDuration(duration).leftMap(err))
+          .flatMap(duration => config.NonNegativeDuration.fromDuration(duration).leftMap(err))
       }
 
-    implicit val positiveDurationSecondsReader: ConfigReader[PositiveDurationSeconds] =
-      ConfigReader.fromString[PositiveDurationSeconds] { str =>
+    implicit val positiveDurationSecondsReader: ConfigReader[config.PositiveDurationSeconds] =
+      ConfigReader.fromString[config.PositiveDurationSeconds] { str =>
         def err(message: String) =
-          CannotConvert(str, PositiveDurationSeconds.getClass.getName, message)
+          CannotConvert(str, config.PositiveDurationSeconds.getClass.getName, message)
 
         Either
           .catchOnly[NumberFormatException](Duration.apply(str))
           .leftMap(error => err(error.getMessage))
-          .flatMap(duration => PositiveDurationSeconds.fromDuration(duration).leftMap(err))
+          .flatMap(duration => config.PositiveDurationSeconds.fromDuration(duration).leftMap(err))
       }
 
     object Crypto {
@@ -1120,7 +1123,8 @@ object CantonConfig {
 
     lazy implicit final val sequencerNodeParametersConfigReader
         : ConfigReader[SequencerNodeParameterConfig] = {
-      implicit val asyncWriterConfigReader = deriveReader[AsyncWriterConfig]
+      implicit val asyncWriterConfigReader: ConfigReader[AsyncWriterConfig] =
+        deriveReader[AsyncWriterConfig]
       deriveReader[SequencerNodeParameterConfig]
     }
     lazy implicit final val SequencerHealthConfigReader: ConfigReader[SequencerHealthConfig] =
@@ -1386,14 +1390,14 @@ object CantonConfig {
     import BaseCantonConfig.Writers.*
     val confidentialWriter = new ConfidentialConfigWriter(confidential)
 
-    implicit val nonNegativeDurationWriter: ConfigWriter[NonNegativeDuration] =
+    implicit val nonNegativeDurationWriter: ConfigWriter[config.NonNegativeDuration] =
       ConfigWriter.toString { x =>
         x.unwrap match {
           case Duration.Inf => "Inf"
           case y => y.toString
         }
       }
-    implicit val positiveDurationSecondsWriter: ConfigWriter[PositiveDurationSeconds] =
+    implicit val positiveDurationSecondsWriter: ConfigWriter[config.PositiveDurationSeconds] =
       ConfigWriter.toString(_.underlying.toString)
 
     implicit val lengthLimitedStringWriter: ConfigWriter[LengthLimitedString] =

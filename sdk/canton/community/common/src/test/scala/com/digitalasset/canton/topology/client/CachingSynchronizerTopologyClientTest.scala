@@ -64,7 +64,7 @@ class CachingSynchronizerTopologyClientTest
     when(mockSnapshot2.allKeys(owner))
       .thenReturn(FutureUnlessShutdown.pure(KeyCollection(signingKeys = Seq(key2), Seq())))
 
-    val cc =
+    def freshCachingClient(): CachingSynchronizerTopologyClient =
       new CachingSynchronizerTopologyClient(
         mockParent,
         CachingConfigs(
@@ -83,6 +83,7 @@ class CachingSynchronizerTopologyClientTest
     val ts0 = ts1.minusSeconds(60)
     val ts2 = ts1.plusSeconds(60)
     val ts3 = ts2.plusSeconds(60)
+    val ts3minus250ms = ts3.minusMillis(250)
 
     when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.plusSeconds(3))
     when(mockParent.approximateTimestamp).thenReturn(ts3)
@@ -110,6 +111,9 @@ class CachingSynchronizerTopologyClientTest
     import Fixture.*
 
     "return correct snapshot" in {
+
+      val cc = freshCachingClient()
+
       when(mockParent.topologyKnownUntilTimestamp).thenReturn(
         CantonTimestamp.MinValue.immediateSuccessor
       )
@@ -178,5 +182,34 @@ class CachingSynchronizerTopologyClientTest
       }
     }
 
+    "work correctly with initialization" in {
+      forAll(
+        Table(
+          ("approximateTimestamp", "topologyKnownUntilTimestamp"),
+          // Invariant: approximateTimestamp <= topologyKnownUntilTimestamp,
+          // so we test only possible input combinations
+          (ts3, ts3),
+          (ts3minus250ms, ts3),
+        )
+      ) { case (sampleApproximateTimestamp, sampleTopologyKnownUntilTimestamp) =>
+        val client = freshCachingClient()
+        // In this scenario:
+        // ts3 is the latest topology change effective time
+        // ts2 - the previous topology change effective time
+        // therefore there are 2 intervals:
+        // [ts2, ts3)
+        // [ts3, None)
+        when(mockParent.topologyKnownUntilTimestamp).thenReturn(sampleTopologyKnownUntilTimestamp)
+        when(mockParent.approximateTimestamp).thenReturn(sampleApproximateTimestamp)
+        when(mockParent.findTopologyIntervalForTimestamp(ts3))
+          .thenReturn(FutureUnlessShutdown.pure(Some((ts3, None))))
+        when(mockParent.findTopologyIntervalForTimestamp(ts3minus250ms))
+          .thenReturn(FutureUnlessShutdown.pure(Some((ts2, Some(ts3)))))
+
+        for {
+          _ <- client.initialize().failOnShutdown
+        } yield succeed
+      }
+    }
   }
 }
