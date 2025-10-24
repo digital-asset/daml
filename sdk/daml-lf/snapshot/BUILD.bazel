@@ -72,18 +72,18 @@ da_scala_benchmark_jmh(
 
 [
     daml_compile(
-        name = "ReplayBenchmark-v2",
+        name = "ReplayBenchmark",
         srcs = glob(["src/test/daml/**/*.daml"]),
         dependencies = ["//daml-script/daml:daml-script.dar"],
         target = DEFAULT_LF_VERSION,
     ),
     dar_to_java(
-        name = "ReplayBenchmark-v{}-codegen".format("2"),
-        src = ":ReplayBenchmark-v2.dar",
+        name = "ReplayBenchmark-codegen",
+        src = ":ReplayBenchmark.dar",
         package_prefix = "com.daml.lf.testing.snapshot.java",
     ),
     da_scala_test_suite(
-        name = "replay-benchmark-tests-v2",
+        name = "replay-benchmark-tests",
         srcs = glob(
             ["src/test/scala/**/*.scala"],
             exclude = [
@@ -91,7 +91,7 @@ da_scala_benchmark_jmh(
                 "src/test/scala/**/ExtractSnapshotChoices.scala",
             ],
         ),
-        data = [":ReplayBenchmark-v2.dar"],
+        data = [":ReplayBenchmark.dar"],
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",
@@ -104,7 +104,7 @@ da_scala_benchmark_jmh(
         deps = [
             ":replay-benchmark_compiled_benchmark_lib",
             ":replay-benchmark_generator",
-            ":ReplayBenchmark-v{}-codegen".format("2"),
+            ":ReplayBenchmark-codegen",
             ":snapshot",
             "//bazel_tools/runfiles:scala_runfiles",
             "//canton:community_ledger_ledger-common",
