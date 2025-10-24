@@ -751,7 +751,6 @@ class SequencerNodeBootstrap(
               sequencerFactory.create(
                 sequencerId,
                 clock,
-                clock,
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,

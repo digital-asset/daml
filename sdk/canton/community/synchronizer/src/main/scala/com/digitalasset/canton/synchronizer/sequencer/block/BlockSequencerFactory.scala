@@ -98,7 +98,21 @@ abstract class BlockSequencerFactory(
 
   protected val orderingTimeFixMode: OrderingTimeFixMode
 
+  protected def createBlockOrderer(
+      cryptoApi: SynchronizerCryptoClient,
+      clock: Clock,
+      initialBlockHeight: Option[Long],
+      sequencerSnapshot: Option[SequencerSnapshot],
+      authenticationServices: Option[AuthenticationServices],
+      synchronizerLoggerFactory: NamedLoggerFactory,
+  )(implicit
+      ec: ExecutionContext,
+      materializer: Materializer,
+      tracer: Tracer,
+  ): BlockOrderer
+
   protected def createBlockSequencer(
+      blockOrderer: BlockOrderer,
       name: String,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
@@ -108,14 +122,10 @@ abstract class BlockSequencerFactory(
       futureSupervisor: FutureSupervisor,
       health: Option[SequencerHealthConfig],
       clock: Clock,
-      driverClock: Clock,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
-      initialBlockHeight: Option[Long],
       maxBytesToDecompress: MaxBytesToDecompress,
-      sequencerSnapshot: Option[SequencerSnapshot],
-      authenticationServices: Option[AuthenticationServices],
       synchronizerLoggerFactory: NamedLoggerFactory,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
@@ -180,7 +190,6 @@ abstract class BlockSequencerFactory(
   override final def create(
       sequencerId: SequencerId,
       clock: Clock,
-      driverClock: Clock,
       synchronizerSyncCryptoApi: SynchronizerCryptoClient,
       futureSupervisor: FutureSupervisor,
       trafficConfig: SequencerTrafficConfig,
@@ -252,7 +261,16 @@ abstract class BlockSequencerFactory(
         )
       )
     } yield {
+      val blockOrderer = createBlockOrderer(
+        synchronizerSyncCryptoApi,
+        clock,
+        initialBlockHeight,
+        sequencerSnapshot,
+        authenticationServices,
+        synchronizerLoggerFactory,
+      )
       val sequencer = createBlockSequencer(
+        blockOrderer,
         name,
         synchronizerSyncCryptoApi,
         stateManager,
@@ -262,14 +280,10 @@ abstract class BlockSequencerFactory(
         futureSupervisor,
         health,
         clock,
-        driverClock,
         rateLimitManager,
         orderingTimeFixMode,
         sequencingTimeLowerBoundExclusive,
-        initialBlockHeight,
         maxBytesToDecompress,
-        sequencerSnapshot,
-        authenticationServices,
         synchronizerLoggerFactory,
         runtimeReady,
       )

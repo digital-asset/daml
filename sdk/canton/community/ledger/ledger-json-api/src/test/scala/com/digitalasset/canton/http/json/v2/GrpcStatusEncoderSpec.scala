@@ -14,16 +14,15 @@ import org.scalatest.matchers.should.Matchers
 class GrpcStatusEncoderSpec extends AnyFlatSpec with Matchers with OptionValues {
   import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 
-  "grpcStatusEncoder" should "encode Status with ErrorInfo detail" in {
+  it should "encode Status with ErrorInfo detail" in {
     val errorInfo = ErrorInfo("reason", "domain", Map("key" -> "value"))
     val errorInfoProto = Any.pack(errorInfo)
     val status = Status(3, "error", Seq(errorInfoProto))
 
     val json = status.asJson
-    val detailsOpt = json.hcursor.downField("details").values
-    detailsOpt should not be empty
-    val details = detailsOpt.value
-    details.head.hcursor.get[String]("valueDecoded").isRight shouldBe true
+    val detailsList = json.hcursor.downField("details").values.toList
+    detailsList.size shouldBe 1
+    val details = detailsList.head
     details.head.hcursor
       .get[String]("valueDecoded")
       .toOption
@@ -37,7 +36,7 @@ class GrpcStatusEncoderSpec extends AnyFlatSpec with Matchers with OptionValues 
     val retryInfoProto = Any.pack(retryInfo)
     val status = Status(1, "retry", Seq(retryInfoProto))
 
-    val json = grpcStatusEncoder(status)
+    val json = status.asJson
     val detailsOpt = json.hcursor.downField("details").values
     detailsOpt should not be empty
     val details = detailsOpt.value

@@ -35,6 +35,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.External
 import com.digitalasset.canton.synchronizer.sequencer.admin.data.SequencerAdminStatus
+import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.errors.{
   CreateSubscriptionError,
   SequencerAdministrationError,
@@ -450,6 +451,8 @@ class ProgrammableSequencer(
       announcementEffectiveTime: EffectiveTime,
   )(implicit traceContext: TraceContext): Unit =
     baseSequencer.updateSynchronizerSuccessor(successorO, announcementEffectiveTime)
+
+  override private[canton] def orderer: Option[BlockOrderer] = baseSequencer.orderer
 }
 
 /** Utilities for using the [[ProgrammableSequencer]] from tests */

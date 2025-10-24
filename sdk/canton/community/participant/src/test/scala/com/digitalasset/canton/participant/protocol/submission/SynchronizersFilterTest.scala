@@ -52,8 +52,8 @@ class SynchronizersFilterTest
 
     "reject synchronizers when the hashing scheme version is not supported" in {
       val allHashingSchemes =
-        HashingSchemeVersion.ProtocolVersionToHashingVersion.values.flatten.toList
-      HashingSchemeVersion.ProtocolVersionToHashingVersion.foreach {
+        HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.values.flatten.toList
+      HashingSchemeVersion.MinimumProtocolVersionToHashingVersion.foreach {
         case (pv, supportedHashingSchemes) =>
           allHashingSchemes.filterNot(supportedHashingSchemes.contains).foreach {
             unsupportedHashingScheme =>
