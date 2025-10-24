@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load("@os_info//:os_info.bzl", "is_intel")
 
 def _to_dotted_version(v):
@@ -168,3 +171,4 @@ SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
 
 # All LF major versions supported by the compiler
 COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in ALL_LF_VERSIONS]).to_list()
+
