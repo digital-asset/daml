@@ -155,9 +155,13 @@ jobs:
     variables:
       need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
     steps:
+      - template: ../bash-lib.yml
+        parameters:
+          var_name: bash_lib
       - bash: |
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
+          source "$(bash_lib)"
           if [ "$(need_to_build)" == "true" ]; then
               BRANCH="notices-update-$(Build.BuildId)"
               trigger_azure $AZURE_DEVOPS_EXT_PAT PRs --branch $BRANCH
