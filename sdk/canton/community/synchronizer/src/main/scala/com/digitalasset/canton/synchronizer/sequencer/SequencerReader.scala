@@ -190,8 +190,9 @@ class SequencerReader(
       _ = logger.debug(
         s"Current safe watermark is $safeWatermarkTimestampO"
       )
+      memberRegisteredFrom = registeredMember.registeredFrom
       _ = logger.debug(
-        s"Member $member was registered at ${registeredMember.registeredFrom}"
+        s"Member $member was registered at $memberRegisteredFrom"
       )
 
       // It can happen that a member switching between sequencers runs into a sequencer that is catching up.
@@ -214,8 +215,8 @@ class SequencerReader(
             member = topologyClientMember,
             timestampExclusive =
               readFromTimestampInclusive // this is correct as we query for latest timestamp before `timestampInclusive`
-                .filter(_ >= registeredMember.registeredFrom)
-                .getOrElse(registeredMember.registeredFrom),
+                .filter(_ >= memberRegisteredFrom)
+                .getOrElse(memberRegisteredFrom),
           )
           .map(
             _.orElse(
@@ -249,17 +250,17 @@ class SequencerReader(
             case (None, Some((lowerBoundExclusive, _))) =>
               // require that the member is registered above the lower bound
               // unless it's this sequencer's own self-subscription from the beginning
-              registeredMember.registeredFrom > lowerBoundExclusive || topologyClientMember == member
+              memberRegisteredFrom > lowerBoundExclusive || topologyClientMember == member
             // Reading from a specified timestamp, with no lower bound
             case (Some(requestedTimestampInclusive), None) =>
               // require that the requested timestamp is above or at the member registration time
-              requestedTimestampInclusive >= registeredMember.registeredFrom
+              requestedTimestampInclusive >= memberRegisteredFrom
             // Reading from a specified timestamp, with a lower bound present
             case (Some(requestedTimestampInclusive), Some((lowerBoundExclusive, _))) =>
               // require that the requested timestamp is above the lower bound
               // and above or at the member registration time
               requestedTimestampInclusive > lowerBoundExclusive &&
-              requestedTimestampInclusive >= registeredMember.registeredFrom
+              requestedTimestampInclusive >= memberRegisteredFrom
           },
           (), {
             val lowerBoundText = lowerBoundExclusiveO
@@ -271,7 +272,7 @@ class SequencerReader(
             val errorMessage =
               show"Subscription for $member would require reading data from $timestampText, " +
                 show"but this sequencer cannot serve timestamps at or before ${lowerBoundText.unquoted} " +
-                show"or below the member's registration timestamp ${registeredMember.registeredFrom}."
+                show"or below the member's registration timestamp $memberRegisteredFrom."
 
             // Logging at INFO level because this can happen during normal operations for a decentralized synchronizer
             // where a participant updates its sequencer connection config before it has caught up to the point
@@ -294,12 +295,15 @@ class SequencerReader(
       val initialReadState = ReadState(
         member,
         registeredMember.memberId,
+        memberRegisteredFrom,
         // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
         // so if we want to grab the event exactly at timestampInclusive, we do -1 here
         nextReadTimestamp = readFromTimestampInclusive
           .map(_.immediatePredecessor)
           .getOrElse(
-            registeredMember.registeredFrom
+            safeWatermarkTimestampO
+              .map(_ min memberRegisteredFrom)
+              .getOrElse(memberRegisteredFrom)
           ),
         nextPreviousEventTimestamp = previousEventTimestamp,
         latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestampO,
@@ -678,6 +682,7 @@ class SequencerReader(
         readEvents <- store.readEvents(
           readState.memberId,
           readState.member,
+          readState.memberRegisteredFrom,
           readState.nextReadTimestamp.some,
           config.readBatchSize,
         )
@@ -688,11 +693,6 @@ class SequencerReader(
         val eventsWithPreviousTimestamps = previousTimestamps.zip(readEvents.events).toSeq
 
         val newReadState = readState.update(readEvents, config.readBatchSize)
-        if (newReadState.nextReadTimestamp < readState.nextReadTimestamp) {
-          ErrorUtil.invalidState(
-            s"Read state is going backwards in time: ${newReadState.changeString(readState)}"
-          )
-        }
         if (logger.underlying.isDebugEnabled) {
           newReadState.changeString(readState).foreach(logger.debug(_))
         }
@@ -887,6 +887,7 @@ object SequencerReader {
   private[SequencerReader] final case class ReadState(
       member: Member,
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       nextReadTimestamp: CantonTimestamp,
       latestTopologyClientRecipientTimestamp: Option[CantonTimestamp],
       lastBatchWasFull: Boolean = false,
@@ -914,8 +915,8 @@ object SequencerReader {
     def update(
         readEvents: ReadEvents,
         batchSize: Int,
-    ): ReadState =
-      copy(
+    )(implicit errorLoggingContext: ErrorLoggingContext): ReadState = {
+      val result = copy(
         // set the previous event timestamp to the last event we've read or keep the current one if we got no results
         nextPreviousEventTimestamp = readEvents.events.lastOption match {
           case Some(event) => Some(event.timestamp)
@@ -927,6 +928,13 @@ object SequencerReader {
         // the case > is there as events query can return more events than requested in multi-instance setups
         lastBatchWasFull = readEvents.events.sizeCompare(batchSize) >= 0,
       )
+      if (result.nextReadTimestamp < nextReadTimestamp) {
+        ErrorUtil.invalidState(
+          s"Read state is going backwards in time: ${result.changeString(previous = this)}"
+        )
+      }
+      result
+    }
 
     override protected def pretty: Pretty[ReadState] = prettyOfClass(
       param("member", _.member),
