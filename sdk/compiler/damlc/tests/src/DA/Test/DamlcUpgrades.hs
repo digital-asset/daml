@@ -402,28 +402,28 @@ tests damlc =
                   )
                   "my-package"
                   "0.0.1"
-                  LF.version2_dev
+                  LF.defaultVersion
                   "my-package2"
                   "0.0.2"
-                  LF.version2_dev
+                  LF.defaultVersion
             , testMetadata
                   "FailsWhenUpgradesPackageHasEqualVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.1\\) cannot have the same package version as Upgraded package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.1"
-                  LF.version2_dev
+                  LF.defaultVersion
                   "my-package"
                   "0.0.1"
-                  LF.version2_dev
+                  LF.defaultVersion
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherVersion"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.2\\) cannot have a higher package version than Main package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.2"
-                  LF.version2_dev
+                  LF.defaultVersion
                   "my-package"
                   "0.0.1"
-                  LF.version2_dev
+                  LF.defaultVersion
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherLFVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(2.1\\) cannot be lower than the Upgraded package \\(v0.0.1\\) LF Version \\(2.dev\\)")

@@ -1,6 +1,3 @@
-# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-# SPDX-License-Identifier: Apache-2.0
-
 load("@os_info//:os_info.bzl", "is_intel")
 
 def _to_dotted_version(v):
@@ -19,71 +16,73 @@ def _init_data():
     """
 
     # Definition of versions
-    # Encapsulated in _init_data, NOT TO BE USED OUTSIDE (use variables instead)
+
+    # Encapsulated in _init_data, NOT TO BE USED OUTSIDE (use VARIABLES like
+    # DEFAULT_VERSION instead)
     V2_1 = struct(major = "2", minor = "1", status = "stable")
     V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
 
-    # V2_3 = struct(major = "2", minor = "3", status = "staging")
     V2_DEV = struct(major = "2", minor = "dev", status = "dev")
 
-    all_versions_structs = [
+    all_versions = [
         V2_1,
         V2_2,
-        # V2_3,
         V2_DEV,
     ]
 
-    # Data for (list of) version variables
     def _get_by_status(status):
         """Filters the master list by status."""
-        return [v for v in all_versions_structs if v.status == status]
+        return [v for v in all_versions if v.status == status]
 
     stable_versions = _get_by_status("stable")
-    dev_definitions = _get_by_status("dev")
-    staging_versions_list = _get_by_status("staging")
-
-    # The 'default' check is a unique filter, so a list comprehension is still
-    # clearest here.
-    default_definitions = [v for v in all_versions_structs if hasattr(v, "default") and v.default]
 
     if not stable_versions:
         fail("No stable versions were found. Cannot determine the latest stable version.")
-    latest_stable = stable_versions[-1]
+    latest_stable_version = stable_versions[-1]
 
-    if len(default_definitions) != 1:
-        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(default_definitions)))
-    default_version = default_definitions[0]
+    _default_versions = [v for v in all_versions if hasattr(v, "default") and v.default]
+    if len(_default_versions) != 1:
+        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(_default_versions)))
+    default_version = _default_versions[0]
 
-    if len(dev_definitions) != 1:
-        fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(dev_definitions)))
-    dev_version = dev_definitions[0]
+    _dev_versions = _get_by_status("dev")
+    if len(_dev_versions) != 1:
+        fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(_dev_versions)))
+    dev_version = _dev_versions[0]
 
-    staging_version = staging_versions_list[-1] if staging_versions_list else latest_stable
+    _staging_versions = _get_by_status("staging")
+    staging_version = _staging_versions[-1] if _staging_versions else latest_stable_version
 
     return struct(
-        all = all_versions_structs,
-        stable = stable_versions,
-        latest_stable = latest_stable,
-        default = default_version,
-        dev = dev_version,
-        staging = staging_version,
+        all_versions = all_versions,
+        stable_versions = stable_versions,
+        latest_stable_version = latest_stable_version,
+        default_version = default_version,
+        dev_version = dev_version,
+        staging_version = staging_version,
     )
 
 # --- Public interface of this .bzl file ---
 
-# Call the private function once to compute all version variables.
 _data = _init_data()
 
-# Export the public API from the returned struct.
-RAW_ALL_LF_VERSIONS = _data.all
-ALL_LF_VERSIONS = _to_dotted_versions(_data.all)
-STABLE_LF_VERSIONS = _to_dotted_versions(_data.stable)
+# public API from the internal struct.
+RAW_ALL_LF_VERSIONS = _data.all_versions
+ALL_LF_VERSIONS = _to_dotted_versions(RAW_ALL_LF_VERSIONS)
+STABLE_LF_VERSIONS = _to_dotted_versions(_data.stable_versions)
 
-LATEST_STABLE_VERSION = _to_dotted_version(_data.latest_stable)
-RAW_DEFAULT_VERSION = _data.default
-DEFAULT_VERSION = _to_dotted_version(RAW_DEFAULT_VERSION)
-DEV_VERSION = _to_dotted_version(_data.dev)
-STAGING_VERSION = _to_dotted_version(_data.staging)
+LATEST_STABLE_VERSION = _to_dotted_version(_data.latest_stable_version)
+DEFAULT_VERSION = _to_dotted_version(_data.default_version)
+DEV_VERSION = _to_dotted_version(_data.dev_version)
+STAGING_VERSION = _to_dotted_version(_data.staging_version)
+
+# Haskell files make the distinction between input and output files, whereas in
+# bazel, we have always just maintained "the" list of lfversions
+COMPILER_VERSIONS = ALL_LF_VERSIONS
+COMPILER_INPUT_VERSIONS = ALL_LF_VERSIONS
+COMPILER_OUTPUT_VERSIONS = ALL_LF_VERSIONS
+
+ENGINE_VERSIONS = ALL_LF_VERSIONS
 
 # configuration to maintain old-style names
 lf_version_configuration = {

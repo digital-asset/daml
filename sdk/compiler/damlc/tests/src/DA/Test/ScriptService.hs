@@ -58,9 +58,8 @@ main = withSdkVersions $ do
             [ testGroup
                 "Without Contract keys"
                 [ withResourceCps
-                    (withScriptService lfVersion)
-                    (testScriptService lfVersion)
-                | lfVersion <- [LF.defaultVersion]
+                    (withScriptService LF.defaultVersion)
+                    (testScriptService LF.defaultVersion)
                 ]
             , testGroup
                 "With Contract Keys"

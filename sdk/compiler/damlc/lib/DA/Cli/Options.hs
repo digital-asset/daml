@@ -103,14 +103,15 @@ lfVersionOpt = optionOnce (str >>= select) $
     renderVersion v =
       let def = if v == LF.defaultVersion then " (default)" else ""
       in Pretty.renderPretty v ++ def
-    versionsStr = intercalate ", " (map renderVersion LF.allLfVersions)
+    versionsStr = intercalate ", " (map renderVersion LF.compilerOutputVersions)
     select = \case
       versionStr
         | Just version <- LF.parseVersion versionStr
-        , version `elem` LF.allLfVersions
+        , version `elem` versions
         -> return version
         | otherwise
         -> readerError $ "Unknown Daml-LF version: " ++ versionStr
+    versions = LF.compilerOutputVersions
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = optionOnce (Just <$> str) $

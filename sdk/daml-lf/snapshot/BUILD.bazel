@@ -17,7 +17,6 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "DEFAULT_VERSION",
-    "RAW_DEFAULT_VERSION",
 )
 load(
     "//language-support/java/codegen:codegen.bzl",

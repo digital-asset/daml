@@ -23,7 +23,7 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "ALL_LF_VERSIONS",
+    "COMPILER_VERSIONS",
     "DEFAULT_VERSION",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
@@ -230,7 +230,7 @@ scala_source_jar(
             ],
         ),
     ]
-    for target in ALL_LF_VERSIONS
+    for target in COMPILER_VERSIONS
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.
@@ -256,7 +256,7 @@ scala_source_jar(
         target = ver,
         version = "1.2.3",
     )
-    for ver in ALL_LF_VERSIONS
+    for ver in COMPILER_VERSIONS
 ]
 
 daml_compile(
@@ -378,7 +378,7 @@ java_test(
             ],
         ),
     ]
-    for target in ALL_LF_VERSIONS
+    for target in COMPILER_VERSIONS
     # we skip 1.13 as their serializable types are the same as 1.12.
     # We include 1.14 since while it has no new serializable types
     # it is the earliest version supported by HEAD damlc.

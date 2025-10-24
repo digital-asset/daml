@@ -17,6 +17,9 @@ load(
     "RAW_ALL_LF_VERSIONS",
     "STABLE_LF_VERSIONS",
     "STAGING_VERSION",
+    "COMPILER_VERSIONS",
+    "COMPILER_INPUT_VERSIONS",
+    "COMPILER_OUTPUT_VERSIONS",
 )
 
 da_scala_library(
@@ -69,6 +72,9 @@ EOF
             "defaultVersion": DEFAULT_VERSION,
             "devVersion": DEV_VERSION,
             "stagingVersion": STAGING_VERSION,
+            "compilerVersions": COMPILER_VERSIONS,
+            "compilerInputVersions": COMPILER_INPUT_VERSIONS,
+            "compilerOutputVersions": COMPILER_OUTPUT_VERSIONS,
         }),
     ),
     visibility = _VERSION_GENERATING_PACKAGES,

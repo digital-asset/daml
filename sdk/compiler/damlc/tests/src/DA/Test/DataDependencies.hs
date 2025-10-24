@@ -77,7 +77,7 @@ darPackageIds fp = do
 -- | We test each version against the next one + extra (2.dev, 2.dev)
 lfVersionTestPairsV2 :: [(LF.Version, LF.Version)]
 lfVersionTestPairsV2 =
-    let supportedVersions = sortOn LF.versionMinor LF.allLfVersions
+    let supportedVersions = sortOn LF.versionMinor LF.compilerOutputVersions
         nPlusOnePairs = zip supportedVersions (tail supportedVersions)
         selfPair = (LF.devVersion, LF.devVersion)
      in selfPair : nPlusOnePairs
@@ -2816,6 +2816,6 @@ tests TestArgs{..} =
 
     damlcForTarget :: LF.Version -> FilePath
     damlcForTarget target
-      | target `elem` LF.allLfVersions = damlc
+      | target `elem` LF.compilerOutputVersions = damlc
       | otherwise = damlcLegacy
 

@@ -70,7 +70,10 @@ import DA.Daml.LF.Ast.Version.VersionType
 """
     ]
 
-    # 1. Handle the special case for raw definitions.
+    # 1. Handle the special case for raw definitions. Raw definitions are the
+    # full struct with subfields, e.i. the result of json-encoding the bazel
+    # Starlark definitions such as V2_2 = struct(major = "2", minor = "2",
+    # status = "stable", default = True)
     if "RAW_ALL" in data:
         for v in data["RAW_ALL"]:
             var_name = to_haskell_var(v)
@@ -80,7 +83,8 @@ import DA.Daml.LF.Ast.Version.VersionType
             output.append(f"{var_name} :: Version")
             output.append(f"{var_name} = Version {major} ({minor})\n")
 
-    # 2. Loop over all other items. The key is now used directly as the variable name.
+    # 2. Loop over all other items, which are (lists of) string variables (of
+    # shape "2.2"). The key is now used directly as the variable name.
     for key, value in data.items():
         if key == "RAW_ALL":
             continue
