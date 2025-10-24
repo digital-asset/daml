@@ -206,7 +206,9 @@ object Error {
           extends RuntimeException
           with scala.util.control.NoStackTrace
           with Serializable
-          with Product
+          with Product {
+        override def toString: String = s"$productPrefix(${productIterator.mkString(",")})"
+      }
 
       final case class LookupError(lookupError: com.digitalasset.daml.lf.language.LookupError)
           extends Error
