@@ -57,7 +57,7 @@ steps:
         | curl -H "Content-Type: application/json" \
                -H "$(get_gh_auth_header)" \
                --fail \
-               --silent \
+               --verbose \
                --location \
                --dump-header "$header" \
                --output "$output" \
