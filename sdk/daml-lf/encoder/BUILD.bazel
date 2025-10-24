@@ -12,7 +12,7 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "ALL_LF_VERSIONS",
-    "ENGINE_VERSIONS",
+    "ENGINE_LF_VERSIONS",
     "lf_version_is_dev",
     "mangle_for_java",
     "version_in",
@@ -45,7 +45,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    data = [":testing-dar-%s" % target for target in ENGINE_VERSIONS],
+    data = [":testing-dar-%s" % target for target in ENGINE_LF_VERSIONS],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -140,6 +140,6 @@ da_scala_binary(
 
 filegroup(
     name = "testing-dars",
-    srcs = ["testing-dar-%s" % version for version in ENGINE_VERSIONS],
+    srcs = ["testing-dar-%s" % version for version in ENGINE_LF_VERSIONS],
     visibility = ["//visibility:public"],
 )

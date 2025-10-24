@@ -14,7 +14,7 @@ load(
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "DEFAULT_VERSION",
+    "DEFAULT_LF_VERSION",
 )
 load("@os_info//:os_info.bzl", "is_linux")
 
@@ -182,7 +182,7 @@ da_scala_benchmark_jmh(
     name = "speedy-compilation-benchmark",
     srcs = glob(["src/bench/**/SpeedyCompilationBench.scala"]),
     data = [
-        "//test-common:model-tests-{}.dar".format(DEFAULT_VERSION),
+        "//test-common:model-tests-{}.dar".format(DEFAULT_LF_VERSION),
     ],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
@@ -199,7 +199,7 @@ da_scala_benchmark_jmh(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/validation",
-        "//test-common:dar-files-{}-lib".format(DEFAULT_VERSION),
+        "//test-common:dar-files-{}-lib".format(DEFAULT_LF_VERSION),
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
