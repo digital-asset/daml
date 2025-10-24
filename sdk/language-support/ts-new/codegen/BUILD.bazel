@@ -1,0 +1,182 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_benchmark_jmh",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+    "scala_source_jar",
+    "scaladoc_jar",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_build_test",
+    "daml_compile",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "COMPILER_LF_VERSIONS",
+    "lf_version_configuration",
+    "lf_version_default_or_latest",
+    "lf_version_is_dev",
+)
+load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@os_info//:os_info.bzl", "is_windows")
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+
+da_scala_binary(
+    name = "codegen",
+    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
+    visibility = ["//visibility:public"],
+    deps = [":lib"],
+)
+
+da_scala_library(
+    name = "lib",
+    srcs = glob(["src/main/**/*.scala"]),
+    resources = [
+        "src/main/resources/logback.xml",
+    ],
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//canton:bindings-java",
+        "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//language-support/codegen-common",
+        "//libs-scala/nonempty",
+        "@maven//:ch_qos_logback_logback_classic",
+        "@maven//:ch_qos_logback_logback_core",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_squareup_javapoet",
+        "@maven//:org_slf4j_slf4j_api",
+    ],
+)
+
+########################################################
+####  Unit Tests
+########################################################
+da_scala_test(
+    name = "test",
+    srcs = glob(["src/test/**/*.scala"]),
+    data = [
+        ":test-baz.dar",
+        ":test-daml.dar",
+        ":test-daml-with-same-dependencies.dar",
+        ":test-daml-with-same-dependencies-but-different-target-version.dar",
+        ":test-daml-with-same-source-project-name.dar",
+        ":test-depending-on-bar-template.dar",
+        ":test-template.dar",
+    ],
+    resource_strip_prefix = "language-support/ts-new/codegen/src/test/resources/",
+    resources = glob(["src/test/resources/**/*"]),
+    scala_deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging",
+        "@maven//:org_scalatest_scalatest_core",
+        "@maven//:org_scalatest_scalatest_flatspec",
+        "@maven//:org_scalatest_scalatest_matchers_core",
+        "@maven//:org_scalatest_scalatest_shouldmatchers",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:com_chuusai_shapeless",
+    ],
+    deps = [
+        ":lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+    ],
+)
+
+daml_compile(
+    name = "test-daml",
+    srcs = ["src/test/daml/Foo.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies",
+    srcs = ["src/test/daml/Foo2.daml"],
+)
+
+daml_compile(
+    name = "test-daml-with-same-source-project-name",
+    srcs = ["src/test/daml/Foo.daml"],
+    project_name = "test-daml",
+)
+
+daml_compile(
+    name = "test-daml-with-same-dependencies-but-different-target-version",
+    srcs = ["src/test/daml/Foo2.daml"],
+    target = "2.dev",
+)
+
+daml_compile(
+    name = "test-template",
+    srcs = ["src/test/daml/Bar.daml"],
+)
+
+daml_compile(
+    name = "test-another-bar",
+    srcs = ["src/test/daml/AnotherBar.daml"],
+)
+
+daml_compile(
+    name = "test-baz",
+    srcs = ["src/test/daml/Baz.daml"],
+)
+
+daml_compile(
+    name = "test-depending-on-bar-template",
+    srcs = ["src/test/daml/UsingBar.daml"],
+    data_dependencies = [
+        "test-template.dar",
+        "test-another-bar.dar",
+    ],
+)
+
+daml_compile(
+    name = "test-contract-id-daml",
+    srcs = [
+        "src/test/daml/Bar.daml",
+    ],
+    target = lf_version_configuration.get("default"),
+)
+
+########################################################
+####  Distribution
+########################################################
+copy_file(
+    name = "binary",
+    src = "codegen_distribute.jar",
+    out = "binary.jar",
+    allow_symlink = True,
+    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
+    visibility = ["//visibility:public"],
+)
+
+pom_file(
+    name = "binary_pom",
+    target = ":binary",
+    visibility = ["//visibility:public"],
+)
+
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "binary_scaladoc",
+    srcs = [],
+    tags = ["scaladoc"],
+    deps = [],
+) if is_windows == False else None
+
+# Create empty Sources JAR for uploading to Maven Central
+scala_source_jar(
+    name = "binary_src",
+    srcs = [],
+)
