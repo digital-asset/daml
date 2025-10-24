@@ -57,12 +57,11 @@ steps:
         | curl -H "Content-Type: application/json" \
                -H "$(get_gh_auth_header)" \
                --fail \
-               --silent \
                --location \
                --dump-header "$header" \
                --output "$output" \
                -d @- \
-               https://api.github.com/repos/digital-asset/daml/pulls
+               https://api.github.com/repos/digital-asset/daml/pulls || (echo "OUTPUT:" && cat "$output" && exit 1)
       cat "$header" "$output"
       if [ -n "$pr_number" ]; then
           jq '.number' "$output" > "$pr_number"
