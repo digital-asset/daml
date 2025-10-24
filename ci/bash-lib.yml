@@ -38,7 +38,7 @@ steps:
       title="$2"
       body="${3:-}"
       pr_number="${4:-}"
-      base="${5:-main}"
+      base="main"
       header=$(mktemp)
       output=$(mktemp)
 
@@ -49,20 +49,32 @@ steps:
           commit \
           -m "$(printf "$title\n\n$body\n")"
       git push origin $branch:$branch
-      jq -n --arg title "$title" \
+      
+      # Capture the curl output and http status code
+      http_code=$(jq -n --arg title "$title" \
             --arg branch "$branch" \
             --arg base "$base" \
             --arg body "$(printf "$body")" \
             '{"title": $title, "head": $branch, "base": $base, "body": $body}' \
         | curl -H "Content-Type: application/json" \
                -H "$(get_gh_auth_header)" \
-               --fail \
-               --silent \
+               --http1.1 \
                --location \
                --dump-header "$header" \
                --output "$output" \
+               -w '%{http_code}' \
+               -s \
                -d @- \
-               https://api.github.com/repos/digital-asset/daml/pulls
+               https://api.github.com/repos/digital-asset/daml/pulls)
+      
+      # Check if the http status code is a success code (2xx)
+      if ! [[ "$http_code" =~ ^2 ]]; then
+        echo "Error: GitHub API returned HTTP status $http_code" >&2
+        echo "OUTPUT:" >&2
+        cat "$output" >&2
+        exit 1
+      fi
+
       cat "$header" "$output"
       if [ -n "$pr_number" ]; then
           jq '.number' "$output" > "$pr_number"
