@@ -3,6 +3,199 @@
 
 load("@os_info//:os_info.bzl", "is_intel")
 
+def _to_dotted_version(v):
+    """Converts a single version struct to a string like "2.2"."""
+    return "{}.{}".format(v.major, v.minor)
+
+def _to_dotted_versions(versions):
+    """Converts a list of version structs to a list of strings."""
+    return [_to_dotted_version(v) for v in versions]
+
+# --- Main Processing Function ---
+
+def _init_data():
+    """
+    Initializes all version data, fully encapsulating the definitions and logic.
+    """
+
+    ### Versions
+
+    # Version variables encapsulated in _init_data, NOT TO BE USED OUTSIDE (use
+    # variables instead)
+    V2_1 = struct(major = "2", minor = "1", status = "stable")
+    V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
+
+    # V2_3 = struct(major = "2", minor = "3", status = "staging")
+    V2_DEV = struct(major = "2", minor = "dev", status = "dev")
+
+    all_versions_structs = [
+        V2_1,
+        V2_2,
+        # V2_3,
+        V2_DEV,
+    ]
+
+    def _get_by_status(status):
+        """Filters the master list by status."""
+        return [v for v in all_versions_structs if v.status == status]
+
+    stable_versions = _get_by_status("stable")
+    dev_definitions = _get_by_status("dev")
+    staging_versions_list = _get_by_status("staging")
+
+    # The 'default' check is a unique filter, so a list comprehension is
+    # clearest here.
+    default_definitions = [v for v in all_versions_structs if hasattr(v, "default") and v.default]
+
+    if not stable_versions:
+        fail("No stable versions were found. Cannot determine the latest stable version.")
+    else:
+        latest_stable = stable_versions[-1]
+
+    if len(default_definitions) != 1:
+        fail("Expected exactly one version to be marked with 'default: True', but found {}.".format(len(default_definitions)))
+    else:
+        default_version = default_definitions[0]
+
+    if len(dev_definitions) != 1:
+        fail("Expected exactly one version to be marked with 'status: dev', but found {}.".format(len(dev_definitions)))
+    else:
+        dev_version = dev_definitions[0]
+
+    staging_version = staging_versions_list[-1] if staging_versions_list else latest_stable
+
+    ### Features
+
+    # Helpers
+    dev_only = {
+        "low": V2_DEV,
+        "high": V2_DEV,
+    }
+
+    # version_req: just leave off a bound if its not needed, low=x high=y ->
+    # [x..y], only low = x -> [x..], only high y = [..y], none = []
+    features_definitions = [
+        {
+            # Unstable, experimental features. This should stay in x.dev
+            # forever. Features implemented with this flag should be moved to a
+            # separate feature flag once the decision to add them permanently
+            # has been made.
+            "name": "featureUnstable",
+            "name_pretty": "Unstable, experimental features",
+            "cpp_flag": "DAML_UNSTABLE",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureTextMap",
+            "name_pretty": "TextMap type",
+            "cpp_flag": "DAML_TEXTMAP",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureBigNumeric",
+            "name_pretty": "BigNumeric type",
+            "cpp_flag": "DAML_BIGNUMERIC",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExceptions",
+            "name_pretty": "Daml Exceptions",
+            "cpp_flag": "DAML_EXCEPTIONS",
+            "version_req": {"low": V2_1},
+        },
+        {
+            "name": "featureExtendedInterfaces",
+            "name_pretty": "Guards in interfaces",
+            "cpp_flag": "DAML_INTERFACE_EXTENDED",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureChoiceFuncs",
+            "name_pretty": "choiceController and choiceObserver functions",
+            "cpp_flag": "DAML_CHOICE_FUNCS",
+            # TODO: https://github.com/digital-asset/daml/issues/20786: complete implementing this feature
+            "version_req": {},
+        },
+        {
+            "name": "featureTemplateTypeRepToText",
+            "name_pretty": "templateTypeRepToText function",
+            "cpp_flag": "DAML_TEMPLATE_TYPEREP_TO_TEXT",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureContractKeys",
+            "name_pretty": "Contract Keys",
+            "cpp_flag": "DAML_CONTRACT_KEYS",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureFlatArchive",
+            "name_pretty": "Flat Archive",
+            "cpp_flag": "DAML_FLATARCHIVE",
+            "version_req": {"low": V2_2},
+        },
+        {
+            "name": "featurePackageImports",
+            "name_pretty": "Explicit package imports",
+            "cpp_flag": "DAML_PackageImports",
+            "version_req": {"low": V2_2},
+        },
+        {
+            "name": "featureComplexAnyType",
+            "name_pretty": "Complex Any type",
+            "cpp_flag": "DAML_COMPLEX_ANY_TYPE",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureCryptoUtility",
+            "name_pretty": "Crypto Utility Function",
+            "cpp_flag": "DAML_CRYPTO_UTILITY",
+            "version_req": dev_only,
+        },
+        {
+            "name": "featureExperimental",
+            "name_pretty": "Daml Experimental",
+            "cpp_flag": "DAML_EXPERIMENTAL",
+            "version_req": dev_only,
+        },
+    ]
+
+    return struct(
+        all = all_versions_structs,
+        stable = stable_versions,
+        latest_stable = latest_stable,
+        default = default_version,
+        dev = dev_version,
+        staging = staging_version,
+        features = features_definitions,
+    )
+
+# --- Public interface of this .bzl file ---
+
+# Call the private function once to compute all version variables.
+_data = _init_data()
+
+# Export the public API from the returned struct.
+RAW_ALL_LF_VERSIONS = _data.all
+ALL_LF_VERSIONS = _to_dotted_versions(_data.all)
+STABLE_LF_VERSIONS = _to_dotted_versions(_data.stable)
+
+LATEST_STABLE_VERSION = _to_dotted_version(_data.latest_stable)
+RAW_DEFAULT_VERSION = _data.default
+DEFAULT_VERSION = _to_dotted_version(RAW_DEFAULT_VERSION)
+DEV_VERSION = _to_dotted_version(_data.dev)
+STAGING_VERSION = _to_dotted_version(_data.staging)
+
+FEATURES = _data.features
+
+# configuration to maintain old-style names
+lf_version_configuration = {
+    "default": DEFAULT_VERSION,
+    "latest": LATEST_STABLE_VERSION,
+    "dev": DEV_VERSION,
+}
+### End of definitions that rest of file points to
+
 def mangle_for_java(name):
     return name.replace(".", "_")
 
@@ -60,82 +253,22 @@ def version_in(
     else:
         return False
 
-# The lastest stable version for each major LF version.
-lf_version_latest = {
-    "2": "2.1",
-}
-
-# The following dictionary aliases LF versions to keywords:
-# - "default" is the keyword for the default compiler output,
-# - "latest" is the keyword for the latest stable LF version,
-# - "preview" is the keyword fort the next LF version, *not stable*,
-#    usable for beta testing,
-# The following dictionary is always defined for "default" and "latest". It
-# contains "preview" iff a preview version is available. If it exists,
-# "preview"'s value is guaranteed to be different from all other values. If we
-# make a new LF release, we bump latest and once we make it the compiler default
-# we bump default.
-lf_version_configuration = {
-    "default": "2.2",
-    # latest = latest MAJOR version?
-    "latest": lf_version_latest.get("2"),
-    "preview": "2.2",
-    "dev": "2.dev",
-}
-
-# The Daml-LF version used by default by the compiler if it matches the
-# provided major version, the latest non-dev version with that major version
-# otherwise. Can be used as a future-proof approximation of "default" version
-# across major versions.
-def lf_version_default_or_latest(major):
-    default_version = lf_version_configuration.get("default")
-    (default_major, _) = _to_major_minor_str(default_version)
-    return default_version if default_major == major else lf_version_latest.get(major)
-
-# aggregates a list of version keywords and versions:
-# 1. converts keyword in version
-# 2. removes "preview" if no preview version is available.
-# 3. removes duplicates
-def lf_versions_aggregate(versions):
-    lf_versions = [lf_version_configuration.get(version, version) for version in versions]
-    return depset([lf_version for lf_version in lf_versions if lf_version != "preview"]).to_list()
-
 # We generate docs for the latest preview version since releasing
 # preview versions without docs for them is a bit annoying.
 # Once we start removing modules in newer LF versions, we might
 # have to come up with something more clever here to make
 # sure that we don’t remove docs for a module that is still supported
 # in a stable LF version.
-lf_docs_version = lf_version_configuration.get("preview", lf_version_configuration.get("latest"))
-
-# LF dev versions supported by archive reader
-ENGINE_LF_DEV_VERSIONS = ["2.dev"]
-
-# All LF versions supported by the engine
-ENGINE_LF_VERSIONS = ["2.1", "2.2"] + ENGINE_LF_DEV_VERSIONS
-
-# The subset of LF versions accepted by the compiler's --target option.
-# Must be kept in sync with supportedOutputVersions in Version.hs.
-COMPILER_LF_VERSIONS = ["2.1", "2.2"] + ENGINE_LF_DEV_VERSIONS
+lf_docs_version = LATEST_STABLE_VERSION
 
 # LF Versions supported by the dar reader
-READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ENGINE_LF_VERSIONS
+READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ALL_LF_VERSIONS
 
 def lf_version_is_dev(versionStr):
-    return _minor_str(versionStr) == "dev"
+    return versionStr == DEV_VERSION
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
 
 # All LF major versions supported by the compiler
-COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in COMPILER_LF_VERSIONS]).to_list()
-
-# The major version of the default LF version
-LF_DEFAULT_MAJOR_VERSION = _major_str(lf_version_configuration.get("default"))
-
-# The dev LF version with the same major version number as the default LF version.
-LF_DEFAULT_DEV_VERSION = [
-    v
-    for v in ENGINE_LF_DEV_VERSIONS
-    if _major_str(v) == LF_DEFAULT_MAJOR_VERSION
-][0]
+COMPILER_LF_MAJOR_VERSIONS = depset([_major_str(v) for v in ALL_LF_VERSIONS]).to_list()

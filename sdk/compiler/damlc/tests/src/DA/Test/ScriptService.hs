@@ -12,7 +12,7 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Cli.Damlc.Test.TestResults as TR
 import DA.Daml.Compiler.Dar (getDamlRootFiles)
-import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Ast.Range as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
@@ -47,6 +47,7 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
+import qualified DA.Daml.LF.Ast as LF
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -59,20 +60,14 @@ main = withSdkVersions $ do
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptService lfVersion)
-                | lfVersion <-
-                    map
-                        LF.defaultOrLatestStable
-                        [minBound @LF.MajorVersion .. maxBound]
+                | lfVersion <- [LF.defaultVersion]
                 ]
             , testGroup
                 "With Contract Keys"
                 [ withResourceCps
                     (withScriptService lfVersion)
                     (testScriptServiceWithKeys lfVersion)
-                | Just lfVersion <-
-                    map
-                        (LF.featureMinVersion LF.featureContractKeys)
-                        [minBound @LF.MajorVersion .. maxBound]
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 
@@ -797,11 +792,11 @@ testScriptService lfVersion getScriptService =
             inLocalOrExternal rs "v2/Main.daml" $ \modRes -> do
               expectScriptSuccess modRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
               expectScriptSuccess modRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            
+
             inLocalOrExternal rs "main-1.0.0" $ \pkgRes -> do
               expectScriptSuccess pkgRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
               expectScriptSuccess pkgRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            
+
         ]
     ]
 
@@ -1204,7 +1199,7 @@ inLocalOrExternal :: HasCallStack =>
   -- | The list of script results in all local or external packages
   [(TR.LocalOrExternal, a)] ->
   -- | a local or external name
-  T.Text -> 
+  T.Text ->
   -- | assertions on the list of script results.
   (a -> Assertion) ->
   -- | Succeeds if the LocalOrExternal is found and the assertions are successful
@@ -1255,7 +1250,7 @@ expectScriptFailure xs scriptName pred = case find ((ScriptName scriptName ==) .
       assertFailure $ "Predicate for " <> show scriptName <> " failed on " <> show err
 
 runScriptsInModule :: IO IdeState -> [T.Text] -> IO [(ScriptName, Either T.Text T.Text)]
-runScriptsInModule getIdeState fileContent = do 
+runScriptsInModule getIdeState fileContent = do
   ideState <- getIdeState
   let file = toNormalizedFilePath' "Test.daml"
   setBufferModified ideState file $ Just $ T.unlines fileContent
@@ -1282,7 +1277,7 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   withCurrentTempDir $ do
     for_ packages $ writeAndBuildPackage lfVersion damlc
     opts <- withPackageConfig mainPackage $ \ PackageConfigFields{..} -> do
-      pure $ (defaultOptions (Just lfVersion)) 
+      pure $ (defaultOptions (Just lfVersion))
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }

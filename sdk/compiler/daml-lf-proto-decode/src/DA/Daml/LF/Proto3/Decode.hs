@@ -37,7 +37,7 @@ decodeLfVersion major pkgId minorText patchInt = do
     | otherwise -> unsupportedMinor
   _ <- if patchInt == 0 then pure () else unsupportedPatch minor patchInt
   let version = LF.Version major minor
-  if pkgId `elem` stablePackages || version `elem` LF.supportedInputVersions
+  if pkgId `elem` stablePackages || version `elem` LF.allLfVersions
       then pure version
       else unsupportedMinor
 

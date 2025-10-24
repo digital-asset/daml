@@ -46,7 +46,7 @@ main = withSdkVersions $ do
         Tasty.testGroup
             "IDE Shake API tests"
             [ test lfVersion scriptLogger
-            | lfVersion <- map LF.defaultOrLatestStable [minBound @LF.MajorVersion .. maxBound]
+            | lfVersion <- [LF.defaultVersion]
             ]
 
 test :: SdkVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
