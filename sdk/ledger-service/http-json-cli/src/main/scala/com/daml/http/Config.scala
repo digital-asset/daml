@@ -45,7 +45,10 @@ private[http] final case class Config(
     metricsReporter: Option[MetricsReporter] = None,
     metricsReportingInterval: FiniteDuration = StartSettings.DefaultMetricsReportingInterval,
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
-) extends StartSettings
+) extends StartSettings {
+  val lockAcquisitionTimeout: FiniteDuration =
+    jdbcConfig.map(_.lockAcquisitionTimeout) getOrElse StartSettings.DefaultLockAcquisitionTimeout
+}
 
 private[http] object Config {
   val Empty = Config(ledgerHost = "", ledgerPort = -1, httpPort = -1)
