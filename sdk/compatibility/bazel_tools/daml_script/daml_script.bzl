@@ -106,12 +106,20 @@ fi
 
 JQ=$$(canonicalize_rlocation $(rootpath {jq}))
 GRPCURL=$$(canonicalize_rlocation $(rootpath {grpcurl}))
-ADMIN_PORT=$$($$JQ .sandbox.adminApi _port_file)
+
+# Validate that the Admin API port is a valid number
+ADMIN_PORT=$$($$JQ '.sandbox.adminApi' _port_file)
+if echo "$$ADMIN_PORT" | $$JQ -e 'type != "number"' >/dev/null; then
+  echo "Could not retrieve Admin API port at .sandbox.adminApi in _port_file:" >&2
+  cat _port_file >&2
+  echo
+  exit 1
+fi
 
 if [ {wait_for_synchronizer} -eq 1 ]; then
-    echo "Waiting for synchronizer to connect by listing connected synchronizers on Admin API port $$ADMIN_PORT..."
+    echo "Waiting for synchronizer to connect by listing connected synchronizers on Admin API port '$$ADMIN_PORT'..."
     timeout=60
-    while ! $$GRPCURL -plaintext -d '{{}}' 0.0.0.0:6866 com.digitalasset.canton.admin.participant.v30.SynchronizerConnectivityService/ListConnectedSynchronizers | $$JQ -e '.connectedSynchronizers | length > 0' >/dev/null; do
+    while ! $$GRPCURL -plaintext -d '{{}}' 0.0.0.0:$$ADMIN_PORT com.digitalasset.canton.admin.participant.v30.SynchronizerConnectivityService/ListConnectedSynchronizers | $$JQ -e '.connectedSynchronizers | length > 0' >/dev/null; do
         if [ "$$timeout" = 0 ]; then
             echo "Timed out waiting for synchronizer to connect." >&2
             exit 1
