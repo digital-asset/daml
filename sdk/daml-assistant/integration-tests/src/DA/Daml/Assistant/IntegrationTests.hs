@@ -478,7 +478,8 @@ damlStartTests getDamlStart =
                                 "identifierFilter" Aeson..= Aeson.object [
                                   "TemplateFilter" Aeson..= Aeson.object [
                                     "value" Aeson..= Aeson.object [
-                                      "templateId" Aeson..= (packageRef ++ ":Main:T")
+                                      "templateId" Aeson..= (packageRef ++ ":Main:T"),
+                                      "includeCreatedEventBlob" Aeson..= True
                                     ]
                                   ]
                                 ]
