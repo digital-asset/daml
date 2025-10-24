@@ -41,6 +41,8 @@ private[http] final case class JsonApiCli(
     surrogateTpIdCacheMaxEntries: Option[Long] = None,
 ) extends StartSettings
     with StrictLogging {
+  val lockAcquisitionTimeout: FiniteDuration =
+    jdbcConfig.map(_.lockAcquisitionTimeout) getOrElse StartSettings.DefaultLockAcquisitionTimeout
 
   def loadFromConfigFile: Option[Either[ConfigReaderFailures, FileBasedConfig]] =
     configFile.map(cf => ConfigSource.file(cf).load[FileBasedConfig])

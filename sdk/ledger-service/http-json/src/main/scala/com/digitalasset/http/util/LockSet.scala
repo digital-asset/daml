@@ -8,7 +8,7 @@ import java.util.concurrent.{Executors, Semaphore, TimeoutException, TimeUnit}
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future, blocking}
-import scala.concurrent.duration.{Deadline, FiniteDuration, MINUTES}
+import scala.concurrent.duration.{Deadline, FiniteDuration, NANOSECONDS}
 
 /** Utility for sharing a set of locks across threads. Each lock is identified by a key.
   *
@@ -22,15 +22,17 @@ class LockSet[K](logger: ContextualizedLogger)(implicit ord: Ordering[K]) {
 
   def withLocksOn[A](
       keysItr: Iterable[K],
-      acquireTimeout: FiniteDuration = FiniteDuration(1, MINUTES),
+      acquireTimeout: FiniteDuration,
       opName: String = "",
   )(block: => Future[A])(implicit callerEc: ExecutionContext, lc: LoggingContext): Future[A] = {
+    import LockSet.{formatDeadline, fromNow}
+
     val keys = keysItr.toSet.toSeq.sorted
     val acquired = new ListBuffer[K]()
 
     // Use our own EC for this, to avoid thread starvation on the callers EC.
     val acquireAllLocks = Future {
-      val deadline = acquireTimeout.fromNow // Timeout starts ticking when the future is scheduled.
+      val deadline = fromNow(acquireTimeout) // Timeout starts ticking when the future is scheduled.
       logger.debug(
         s"$opName: Attempting to acquire locks for keys: $keys, by ${formatDeadline(deadline)}"
       )
@@ -70,6 +72,14 @@ class LockSet[K](logger: ContextualizedLogger)(implicit ord: Ordering[K]) {
     locks(key).release() // Lock for this key was added by acquireLock
     logger.debug(s"$opName: Released lock for $key")
   }
+}
+
+object LockSet {
+  private val MaxDeadline = Deadline(Long.MaxValue, NANOSECONDS)
+
+  // Safe from Inf/max values
+  private def fromNow(timeout: FiniteDuration): Deadline =
+    if (timeout >= MaxDeadline.timeLeft) MaxDeadline else timeout.fromNow
 
   private def formatDeadline(deadline: Deadline): String = {
     import java.time.{Instant, Duration => JavaDuration}

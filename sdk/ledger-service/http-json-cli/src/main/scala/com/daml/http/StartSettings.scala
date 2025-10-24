@@ -35,6 +35,7 @@ trait StartSettings {
   val logEncoder: LogEncoder
   val metricsReporter: Option[MetricsReporter]
   val metricsReportingInterval: FiniteDuration
+  val lockAcquisitionTimeout: FiniteDuration
 }
 
 object StartSettings {
@@ -43,6 +44,7 @@ object StartSettings {
   val DefaultMaxInboundMessageSize: Int = 4194304
   val DefaultHealthTimeoutSeconds: Int = 5
   val DefaultMetricsReportingInterval: FiniteDuration = 10.seconds
+  val DefaultLockAcquisitionTimeout: FiniteDuration = 30.seconds
 
   trait Default extends StartSettings {
     override val staticContentConfig: Option[StaticContentConfig] = None
@@ -50,5 +52,6 @@ object StartSettings {
     override val packageMaxInboundMessageSize: Option[Int] = None
     override val maxInboundMessageSize: Int = DefaultMaxInboundMessageSize
     override val healthTimeoutSeconds: Int = DefaultHealthTimeoutSeconds
+    override val lockAcquisitionTimeout: FiniteDuration = DefaultLockAcquisitionTimeout
   }
 }

@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.concurrent.{ExecutionContext, Future, Await, Promise, TimeoutException}
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.DurationLong
 import scala.util.Random
 import scala.jdk.CollectionConverters._
 
@@ -34,13 +34,15 @@ class LockSetTest extends AnyWordSpec with Matchers {
       val repetitions = 10 // How many times the step is repeated
       val numKeysToIncr = 5 // How many counters we attempt to increment each step
 
+      val maxTimeout = Long.MaxValue.nanos
+
       val futures = (1 to numThreads).map { t =>
         Future {
           (1 to repetitions).foreach { rep =>
             val keysToIncr = Random.shuffle(keys.toVector).take(numKeysToIncr)
 
             val task = lockSet
-              .withLocksOn(keysToIncr, 1.minute, s"$t:$rep") {
+              .withLocksOn(keysToIncr, maxTimeout, s"$t:$rep") {
                 Future {
                   keysToIncr.foreach { k =>
                     // Intentially racy.

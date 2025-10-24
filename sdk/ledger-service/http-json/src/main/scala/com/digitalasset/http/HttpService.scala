@@ -141,6 +141,7 @@ object HttpService {
         LedgerClientJwt.getTermination(client),
         LedgerReader.damlLfTypeLookup(() => packageService.packageStore),
         contractDao,
+        startSettings.lockAcquisitionTimeout,
       )
 
       partiesService = new PartiesService(

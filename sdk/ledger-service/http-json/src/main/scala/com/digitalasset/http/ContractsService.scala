@@ -42,6 +42,7 @@ import scalaz.std.scalaFuture._
 import com.codahale.metrics.Timer
 import doobie.free.{connection => fconn}
 import fconn.ConnectionIO
+import scala.concurrent.duration.FiniteDuration
 
 class ContractsService(
     resolveContractTypeId: PackageService.ResolveContractTypeId,
@@ -52,6 +53,7 @@ class ContractsService(
     getTermination: LedgerClientJwt.GetTermination,
     lookupType: query.ValuePredicate.TypeLookup,
     contractDao: Option[dbbackend.ContractDao],
+    lockAcquisitionTimeout: FiniteDuration,
 )(implicit ec: ExecutionContext, mat: Materializer) {
   private[this] val logger = ContextualizedLogger.get(getClass)
 
@@ -406,7 +408,7 @@ class ContractsService(
             templateIds: Set[TemplateId.RequiredPkg]
         )(cio: doobie.ConnectionIO[A])(implicit
             lc: LoggingContextOf[InstanceUUID with RequestID]
-        ): Future[A] = lockSet.withLocksOn(templateIds) {
+        ): Future[A] = lockSet.withLocksOn(templateIds, lockAcquisitionTimeout) {
           dao.transact(cio).unsafeToFuture()
         }
 
