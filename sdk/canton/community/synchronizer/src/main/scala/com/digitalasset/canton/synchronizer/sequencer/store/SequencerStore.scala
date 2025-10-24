@@ -650,6 +650,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     */
   protected def readEventsInternal(
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -698,6 +699,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   def readEvents(
       memberId: SequencerMemberId,
       member: Member,
+      memberRegisteredFrom: CantonTimestamp,
       fromExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -754,7 +756,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
             sequencerMetrics.eventBuffer.missCount.inc()
             // If the buffer does not start earlier than the `fromExclusive` timestamp,
             // we cannot serve the request with the buffer only, we need to fallback to read from the database
-            readEventsInternal(memberId, fromExclusiveO, limit)
+            readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
         }
       case None =>
         logger.debug(
@@ -762,7 +764,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         )
         sequencerMetrics.eventBuffer.missCount.inc()
         // In case we start from the beginning of events, we cannot determine if we can rely on the buffer
-        readEventsInternal(memberId, fromExclusiveO, limit)
+        readEventsInternal(memberId, memberRegisteredFrom, fromExclusiveO, limit)
     }
   }
 

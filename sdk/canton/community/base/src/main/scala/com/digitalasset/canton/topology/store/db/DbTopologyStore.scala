@@ -34,14 +34,13 @@ import com.digitalasset.canton.topology.transaction.TopologyTransaction.{
   TxHash,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{LoggerUtil, MonadUtil, PekkoUtil}
+import com.digitalasset.canton.util.{DBIOUtil, LoggerUtil, MonadUtil, PekkoUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{GetResult, TransactionIsolation}
-import slick.sql.SqlStreamingAction
 
 import scala.concurrent.ExecutionContext
 import scala.math.Ordering.Implicits.*
@@ -204,25 +203,38 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   override def bulkInsert(
       initialSnapshot: GenericStoredTopologyTransactions
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    type TxWithIdx = (GenericStoredTopologyTransaction, Int)
+    val (_, _, txWithIdx) =
+      initialSnapshot.result.foldLeft((CantonTimestamp.MinValue, -1, Seq.empty[TxWithIdx])) {
+        case ((lastValidFrom, batchIdx, acc), next) =>
+          val newBatchIdx =
+            if (next.validFrom.value > lastValidFrom || batchIdx == -1) 0
+            else if (next.validFrom.value == lastValidFrom) batchIdx + 1
+            else
+              throw new IllegalStateException(
+                s"Topology snapshot is unordered. Previous valid from is $lastValidFrom but next tx is $next"
+              )
+          (next.validFrom.value, newBatchIdx, (next, newBatchIdx) +: acc)
+      }
+    val prepared = txWithIdx.reverse
 
-    val inserts = initialSnapshot.result
-      .grouped(1000)
-      .map(
-        insertSignedTransaction[GenericStoredTopologyTransaction](tx =>
-          TransactionEntry(
-            sequenced = tx.sequenced,
-            validFrom = tx.validFrom,
-            validUntil = tx.validUntil,
-            signedTx = tx.transaction,
-            rejectionReason = tx.rejectionReason,
-          )
-        )
-      )
-      .toSeq
+    val updates =
+      DBIOUtil.batchedSequentialTraverse(PositiveInt.tryCreate(1000))(prepared) {
+        case (bidx, elems) =>
+          logger.debug(s"Bulk inserting batch $bidx")
+          insertSignedTransaction[TxWithIdx] { case (tx, idx) =>
+            TransactionEntry(
+              sequenced = tx.sequenced,
+              validFrom = tx.validFrom,
+              validUntil = tx.validUntil,
+              signedTx = tx.transaction,
+              rejectionReason = tx.rejectionReason,
+            )
+          }(elems)
+      }
+
     storage.update_(
-      DBIO
-        .seq(inserts*)
-        .transactionally
+      updates.transactionally
         .withTransactionIsolation(TransactionIsolation.Serializable),
       operationName = "bulk-insert",
     )
@@ -568,19 +580,59 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       .map(res => res.result.map(TopologyStore.Change.selectChange).distinct)
   }
 
-  override def maxTimestamp(sequencedTime: SequencedTime, includeRejected: Boolean)(implicit
+  override def maxTimestamp(
+      sequencedTime: SequencedTime,
+      includeRejected: Boolean,
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] = {
-    logger.debug(s"Querying max timestamp")
+    logger.debug(s"Querying max timestamp as of ${sequencedTime.value}")
 
-    val query = buildQueryForTransactions(
+    // Note: this query uses the index idx_common_topology_transactions_max_timestamp
+    val query = buildQueryForMetadata[(SequencedTime, EffectiveTime)](
+      "sequenced, valid_from",
       sql" AND sequenced <= ${sequencedTime.value} ",
       includeRejected = includeRejected,
-      limit = storage.limit(1),
-      orderBy = " ORDER BY valid_from DESC",
+      orderBy = " ORDER BY sequenced DESC",
     )
-    toStoredTopologyTransactions(storage.query(query, operationName = functionFullName))
-      .map(_.result.headOption.map(tx => (tx.sequenced, tx.validFrom)))
+    storage
+      .query(query, operationName = functionFullName)
+      .map(_.headOption.map { case (sequenced @ SequencedTime(_), validFrom @ EffectiveTime(_)) =>
+        (sequenced, validFrom)
+      })
+  }
+
+  override def findTopologyIntervalForTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(EffectiveTime, Option[EffectiveTime])]] = {
+    logger.debug(s"Querying for topology interval for $timestamp")
+
+    // Note: these queries use the index idx_common_topology_transactions_effective_changes
+    val lowerBoundQuery = buildQueryForMetadata[EffectiveTime](
+      "valid_from",
+      sql" AND valid_from < $timestamp and not is_proposal",
+      includeRejected = false,
+      orderBy = " ORDER BY valid_from desc",
+    )
+    val upperBoundQuery = buildQueryForMetadata[EffectiveTime](
+      "valid_from",
+      sql" AND valid_from >= $timestamp and not is_proposal",
+      includeRejected = false,
+      orderBy = " ORDER BY valid_from asc",
+    )
+    val lowerBoundF = storage
+      .query(lowerBoundQuery, operationName = functionFullName)
+      .map(_.headOption)
+    val upperBoundF = storage
+      .query(upperBoundQuery, operationName = functionFullName)
+      .map(_.headOption)
+
+    for {
+      lower <- lowerBoundF
+      upper <- upperBoundF
+    } yield lower.map(_ -> upper)
   }
 
   override def findDispatchingTransactionsAfter(
@@ -660,7 +712,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
   // Insert helper shared by bootstrap and update.
   private def insertSignedTransaction[T](toTxEntry: T => TransactionEntry)(
       transactions: Seq[T]
-  ): SqlStreamingAction[Vector[Int], Int, slick.dbio.Effect.Write]#ResultAction[
+  ): storage.api.DBIOAction[
     Int,
     NoStream,
     Effect.Write,
@@ -908,6 +960,19 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
           .when(!includeRejected)(sql" AND rejection_reason IS NULL")
           .toList ++ sql" #$orderBy #$limit"
     query.as[QueryResultWithId]
+  }
+
+  private def buildQueryForMetadata[T: GetResult](
+      selectColumns: String,
+      subQuery: SQLActionBuilder,
+      orderBy: String,
+      includeRejected: Boolean,
+  ): DbAction.ReadTransactional[Vector[T]] = {
+    val query =
+      sql"SELECT #$selectColumns FROM common_topology_transactions WHERE store_id = $transactionStoreIdName" ++
+        subQuery ++ (if (!includeRejected) sql" AND rejection_reason IS NULL"
+                     else sql"") ++ sql" #$orderBy #${storage.limit(1)}"
+    query.as[T]
   }
 
   private def toStoredTopologyTransactions(

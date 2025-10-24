@@ -30,7 +30,7 @@ object ComponentStatus {
   ): ParsingResult[ComponentStatus] =
     dependency.status match {
       case protoV30.ComponentStatus.Status.Empty =>
-        ProtoDeserializationError.FieldNotSet("ComponentStatus.staus").asLeft
+        ProtoDeserializationError.FieldNotSet("ComponentStatus.status").asLeft
       case protoV30.ComponentStatus.Status.Ok(value) =>
         ComponentStatus(
           dependency.name,

@@ -908,6 +908,7 @@ class DbSequencerStore(
 
   override protected def readEventsInternal(
       memberId: SequencerMemberId,
+      memberRegisteredFrom: CantonTimestamp,
       fromTimestampExclusiveO: Option[CantonTimestamp],
       limit: Int,
   )(implicit
@@ -917,7 +918,9 @@ class DbSequencerStore(
     // to make inclusive we add a microsecond (the smallest unit)
     // this comparison can then be used for the absolute lower bound if unset
     val fromTimestampInclusive =
-      fromTimestampExclusiveO.map(_.immediateSuccessor).getOrElse(CantonTimestamp.MinValue)
+      fromTimestampExclusiveO
+        .map(_.immediateSuccessor)
+        .getOrElse(CantonTimestamp.MinValue) max memberRegisteredFrom.immediateSuccessor
 
     def getResultFixedRecipients(
         topologyClientMemberId: SequencerMemberId

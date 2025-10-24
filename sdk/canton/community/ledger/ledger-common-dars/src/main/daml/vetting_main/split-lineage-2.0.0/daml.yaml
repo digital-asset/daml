@@ -1,4 +1,8 @@
-sdk-version: 3.5.0-snapshot.20251021.14349.0.vd85751df
+override-components:
+  damlc:
+    version: $DAML_VERSION
+  daml-script:
+    version: $DAML_VERSION
 canton-daml-plugin-name-suffix: split-lineage
 name: vetting-main
 data-dependencies: 

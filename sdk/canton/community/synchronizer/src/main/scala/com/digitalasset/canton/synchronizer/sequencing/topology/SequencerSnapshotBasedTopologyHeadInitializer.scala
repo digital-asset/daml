@@ -35,28 +35,25 @@ final class SequencerSnapshotBasedTopologyHeadInitializer(
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
-    topologyStore
+  ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] = for {
+    maxTopologyStoreTimestamp <- topologyStore
       .maxTimestamp(SequencedTime.MaxValue, includeRejected = true)
-      .map { maxTopologyStoreTimestamp =>
-        val snapshotLastTsEffective = EffectiveTime(snapshot.lastTs)
-        // Use the highest possible effective time.
-        val maxEffectiveTime = SynchronizerTopologyClientHeadStateInitializer
-          .computeInitialHeadUpdate(
-            maxTopologyStoreTimestamp,
-            synchronizerPredecessor,
-            staticSynchronizerParameters.topologyChangeDelay,
-          )
-          .fold(snapshotLastTsEffective) { case (_, maxStoreEffectiveTime) =>
-            maxStoreEffectiveTime.max(snapshotLastTsEffective)
-          }
-
-        client.updateHead(
-          SequencedTime(snapshot.lastTs),
-          maxEffectiveTime,
-          ApproximateTime(snapshot.lastTs),
-          potentialTopologyChange = true,
-        )
-        client
+    snapshotLastTsEffective = EffectiveTime(snapshot.lastTs)
+    // Use the highest possible effective time.
+    maxEffectiveTime = SynchronizerTopologyClientHeadStateInitializer
+      .computeInitialHeadUpdate(
+        maxTopologyStoreTimestamp,
+        synchronizerPredecessor,
+        staticSynchronizerParameters.topologyChangeDelay,
+      )
+      .fold(snapshotLastTsEffective) { case (_, maxStoreEffectiveTime) =>
+        maxStoreEffectiveTime.max(snapshotLastTsEffective)
       }
+    _ = client.updateHead(
+      SequencedTime(snapshot.lastTs),
+      maxEffectiveTime,
+      ApproximateTime(snapshot.lastTs),
+    )
+    _ <- client.initialize()
+  } yield client
 }

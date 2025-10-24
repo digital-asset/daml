@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   ConsistencyErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -44,6 +45,12 @@ object ErrorCause {
 }
 
 object RejectionGenerators {
+  def commandExecutorErrorFUS[R](
+      error: ErrorCause
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[R] =
+    FutureUnlessShutdown.failed(commandExecutorError(error).asGrpcError)
 
   def commandExecutorError(cause: ErrorCause)(implicit
       errorLoggingContext: ErrorLoggingContext

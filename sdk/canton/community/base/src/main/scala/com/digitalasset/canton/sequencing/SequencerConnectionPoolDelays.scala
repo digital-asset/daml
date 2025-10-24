@@ -77,16 +77,16 @@ object SequencerConnectionPoolDelays {
         "subscription_request_delay",
         subscriptionRequestDelayP,
       )
-      warnValidationDelay <- ProtoConverter.parseRequired(
-        config.NonNegativeFiniteDuration.fromProtoPrimitive("warn_validation_delay"),
-        "warn_validation_delay",
-        warnValidationDelayP,
-      )
+      // data continuity:
+      // `warn_validation_delay` was added to the proto afterward, so it does not exist in the DB for older nodes
+      warnValidationDelay <- warnValidationDelayP
+        .map(config.NonNegativeFiniteDuration.fromProtoPrimitive("warn_validation_delay"))
+        .getOrElse(Right(default.warnValidationDelay))
     } yield SequencerConnectionPoolDelays(
-      minRestartDelay,
-      maxRestartDelay,
-      warnValidationDelay,
-      subscriptionRequestDelay,
+      minRestartDelay = minRestartDelay,
+      maxRestartDelay = maxRestartDelay,
+      warnValidationDelay = warnValidationDelay,
+      subscriptionRequestDelay = subscriptionRequestDelay,
     )
   }
 }

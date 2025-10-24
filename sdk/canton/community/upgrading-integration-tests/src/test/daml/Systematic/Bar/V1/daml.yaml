@@ -1,4 +1,8 @@
-sdk-version: 3.5.0-snapshot.20251021.14349.0.vd85751df
+override-components:
+  damlc:
+    version: $DAML_VERSION
+  daml-script:
+    version: $DAML_VERSION
 build-options: 
 - --target=2.1
 name: bar

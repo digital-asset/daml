@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.{Chain, EitherT}
+import cats.implicits.catsSyntaxAlternativeSeparate
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -44,30 +45,28 @@ private[routing] class SynchronizerRankComputation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
-    EitherT {
-      for {
-        rankedSynchronizers <- synchronizerIds.forgetNE.toList
-          .parTraverseFilter(targetSynchronizer =>
-            compute(
-              contracts,
-              Target(targetSynchronizer),
-              readers,
-              synchronizerState,
-            )
-              // TODO(#25385): The resulting error is discarded in toOption. Consider forwarding it instead
-              .toOption.value
-          )
-        // Priority of synchronizer
-        // Number of reassignments if we use this synchronizer
-        // pick according to the least amount of reassignments
-      } yield rankedSynchronizers.minOption
-        .toRight(
-          // TODO(#25385): Revisit this reported error as it can be misleading
-          TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
-            s"None of the following $synchronizerIds is suitable for automatic reassignment."
-          )
+    EitherT(
+      synchronizerIds.forgetNE.toList
+        .parTraverse(targetSynchronizer =>
+          compute(contracts, Target(targetSynchronizer), readers, synchronizerState)
+            .leftMap(targetSynchronizer -> _)
+            .value
         )
-    }
+        .map(_.separate)
+        .map { case (failedRankings, successfulRankings) =>
+          // Priority of synchronizer
+          // Number of reassignments if we use this synchronizer
+          // pick according to the least amount of reassignments
+          successfulRankings.minOption.toRight(
+            TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
+              .SynchronizerRankingFailed(
+                failedRankings.map { case (synchronizerId, err) =>
+                  synchronizerId -> err.cause
+                }.toMap
+              )
+          )
+        }
+    )
 
   // Includes check that submitting party has a participant with submission rights on source and target synchronizer
   def compute(

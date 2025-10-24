@@ -45,7 +45,6 @@ class SortedReconciliationIntervalsProviderFactory(
       SequencedTime(subscriptionTs),
       EffectiveTime(subscriptionTs),
       ApproximateTime(subscriptionTs),
-      potentialTopologyChange = true,
     )
 
     new SortedReconciliationIntervalsProvider(

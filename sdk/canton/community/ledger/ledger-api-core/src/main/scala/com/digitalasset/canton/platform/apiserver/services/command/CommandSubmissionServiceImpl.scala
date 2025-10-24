@@ -12,7 +12,6 @@ import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -32,7 +31,6 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutor,
 }
 import com.digitalasset.canton.platform.apiserver.services.{
-  ErrorCause,
   RejectionGenerators,
   TimeProviderType,
   logging,
@@ -172,7 +170,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
           .semiflatMap(submitTransactionWithDelay)
           .valueOrF { error =>
             metrics.commands.failedCommandInterpretations.mark()
-            failedOnCommandProcessing(error)
+            RejectionGenerators.commandExecutorErrorFUS(error)
           }
       )
 
@@ -224,18 +222,6 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       )
       .toScalaUnwrapped
   }
-
-  // TODO(#25385): Deduplicate with same logic from InteractiveSubmissionService
-  private def failedOnCommandProcessing(
-      error: ErrorCause
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): FutureUnlessShutdown[SubmissionResult] =
-    FutureUnlessShutdown.failed(
-      RejectionGenerators
-        .commandExecutorError(error)
-        .asGrpcError
-    )
 
   override def close(): Unit = ()
 }

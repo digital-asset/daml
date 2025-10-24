@@ -62,11 +62,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.{
   CompletionResponse,
   SubmissionTracker,
 }
-import com.digitalasset.canton.platform.apiserver.services.{
-  ErrorCause,
-  RejectionGenerators,
-  logging,
-}
+import com.digitalasset.canton.platform.apiserver.services.{RejectionGenerators, logging}
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
@@ -212,7 +208,9 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           )
           .leftFlatMap { errCause =>
             metrics.commands.failedCommandInterpretations.mark()
-            EitherT.right[RpcError](failedOnCommandProcessing(errCause))
+            EitherT.right[RpcError](
+              RejectionGenerators.commandExecutorErrorFUS[CommandExecutionResult](errCause)
+            )
           }
       }
       hashTracer: HashTracer =
@@ -276,17 +274,6 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
 
     result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(FutureUnlessShutdown.fromTry)
   }
-
-  private def failedOnCommandProcessing(
-      error: ErrorCause
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): FutureUnlessShutdown[CommandExecutionResult] =
-    FutureUnlessShutdown.failed(
-      RejectionGenerators
-        .commandExecutorError(error)
-        .asGrpcError
-    )
 
   override def close(): Unit = ()
 
