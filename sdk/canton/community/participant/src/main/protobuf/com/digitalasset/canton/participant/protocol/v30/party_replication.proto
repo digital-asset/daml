@@ -51,9 +51,8 @@ message PartyReplicationSourceParticipantMessage {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
     // The portion of the ACS in the batch expressed as nonempty list
-    // TODO(#24326) - Use a Ledger API representation instead.
     // Required
-    repeated com.digitalasset.canton.admin.participant.v30.ActiveContractOld contracts = 1;
+    repeated com.digitalasset.canton.admin.participant.v30.ActiveContract contracts = 1;
   }
 
   message EndOfACS {

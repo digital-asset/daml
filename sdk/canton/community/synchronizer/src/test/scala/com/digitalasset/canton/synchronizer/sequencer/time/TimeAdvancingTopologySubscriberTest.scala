@@ -37,7 +37,6 @@ import com.digitalasset.canton.topology.client.{
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
   Namespace,
   PhysicalSynchronizerId,
   SequencerGroup,
@@ -81,7 +80,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           EffectiveTime(ts),
           SequencerCounter(0),
           transactions = Seq.empty,
-          DefaultTestIdentities.synchronizerId,
         )
         .discard
 
@@ -155,7 +153,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           EffectiveTime(ts2),
           SequencerCounter(0),
           transactions = Seq.empty,
-          DefaultTestIdentities.synchronizerId,
         )
         .discard
       clock.advance(staticSynchronizerParameters.topologyChangeDelay.duration)
@@ -215,7 +212,6 @@ class TimeAdvancingTopologySubscriberTest extends AnyWordSpec with BaseTest {
           EffectiveTime(ts2),
           SequencerCounter(0),
           transactions = Seq.empty,
-          DefaultTestIdentities.synchronizerId,
         )
         .discard
 

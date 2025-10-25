@@ -15,6 +15,10 @@ import scala.concurrent.ExecutionContext
 
 object TestContractHasher {
 
+  trait SyncContractHasher {
+    def hash(create: LfNodeCreate, hashingMethod: HashingMethod): LfHash
+  }
+
   object Async extends ContractHasher {
     override def hash(create: LfNodeCreate, hashingMethod: HashingMethod)(implicit
         ec: ExecutionContext,
@@ -23,7 +27,7 @@ object TestContractHasher {
       EitherT.pure[FutureUnlessShutdown, String](hashInternal(create, hashingMethod))
   }
 
-  object Sync {
+  object Sync extends SyncContractHasher {
     def hash(create: LfNodeCreate, hashingMethod: HashingMethod): LfHash =
       hashInternal(create, hashingMethod)
   }

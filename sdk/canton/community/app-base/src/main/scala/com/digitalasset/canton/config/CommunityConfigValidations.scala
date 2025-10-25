@@ -226,12 +226,11 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       val nodeSpecificErrors = nodeConfig match {
         case participant: ParticipantNodeConfig =>
           toList(
-            participant.httpLedgerApi.enabled && participant.httpLedgerApi.server.internalPort.isEmpty,
+            participant.httpLedgerApi.enabled && participant.httpLedgerApi.internalPort.isEmpty,
             portNotSetError(
               nodeType = nodeConfig.nodeTypeName,
               nodeName = name.unwrap,
               service = "http-ledger-api",
-              intermediate = "server.",
             ),
           ) ++ toList(
             participant.ledgerApi.internalPort.isEmpty,
@@ -349,7 +348,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       Option.when(
         !config.parameters.nonStandardConfig && (participantConfig.ledgerApi.adminTokenConfig != AdminTokenConfig())
       )(
-        s"Setting ledger-api.admin-token-config.fixed-admin-token or ledger-api.admin-token-config.admin-token-duration " +
+        s"Modifying ledger-api.admin-token-config.* " +
           s"for participant ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
       )
     }

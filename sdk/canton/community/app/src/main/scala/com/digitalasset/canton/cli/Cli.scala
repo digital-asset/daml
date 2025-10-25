@@ -389,7 +389,7 @@ object Cli {
           opt[Int]("json-api-port")
             .text("Port for the sandbox Json API")
             .action((port, cli) =>
-              cli ++ ("canton.participants.sandbox.http-ledger-api.server.port" -> port.toString)
+              cli ++ ("canton.participants.sandbox.http-ledger-api.port" -> port.toString)
             ),
           opt[Int]("sequencer-public-port")
             .text("Port for the sequencer Public API")

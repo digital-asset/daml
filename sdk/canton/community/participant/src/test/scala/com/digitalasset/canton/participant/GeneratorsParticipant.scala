@@ -7,7 +7,7 @@ import com.digitalasset.canton.config.GeneratorsConfig
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
-import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.admin.data.{ActiveContract, ActiveContractOld}
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantMessage,
   PartyReplicationTargetParticipantMessage,
@@ -90,12 +90,28 @@ final class GeneratorsParticipant(
       )
     )
 
+  implicit val reassignmentCounterArb: Arbitrary[ReassignmentCounter] =
+    Arbitrary(Gen.chooseNum(0L, Long.MaxValue).map(ReassignmentCounter(_)))
+
+  import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
+  implicit val activeContractArb: Arbitrary[ActiveContract] =
+    Arbitrary(
+      for {
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+        reassignmentCounter <- Arbitrary.arbitrary[ReassignmentCounter]
+        // TODO(#26599): Add generator for LapiActiveContract
+        lapiActiveContract <- Gen.const(
+          LapiActiveContract(None, synchronizerId.toProtoPrimitive, reassignmentCounter.unwrap)
+        )
+      } yield ActiveContract.create(lapiActiveContract)(version)
+    )
+
   implicit val activeContractOldArb: Arbitrary[ActiveContractOld] =
     Arbitrary(
       for {
         synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
         serializableContract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-        reassignmentCounter <- Gen.chooseNum(0L, Long.MaxValue).map(ReassignmentCounter(_))
+        reassignmentCounter <- Arbitrary.arbitrary[ReassignmentCounter]
       } yield ActiveContractOld.create(
         synchronizerId,
         serializableContract,
@@ -115,7 +131,7 @@ final class GeneratorsParticipant(
       : Arbitrary[PartyReplicationSourceParticipantMessage] =
     Arbitrary(
       for {
-        acsBatch <- nonEmptyListGen[ActiveContractOld]
+        acsBatch <- nonEmptyListGen[ActiveContract]
         message <- Gen
           .oneOf[PartyReplicationSourceParticipantMessage.DataOrStatus](
             PartyReplicationSourceParticipantMessage.AcsBatch(

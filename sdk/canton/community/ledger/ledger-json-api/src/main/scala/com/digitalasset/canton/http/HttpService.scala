@@ -104,11 +104,9 @@ class HttpService(
       ledgerClient: DamlLedgerClient,
       healthService: HealthService,
   )(implicit context: ResourceContext): Future[ServerBinding] = {
-    import startSettings.*
-
     val settings: ServerSettings = ServerSettings(asys)
       .withTransparentHeadRequests(true)
-      .mapTimeouts(_.withRequestTimeout(startSettings.server.requestTimeout))
+      .mapTimeouts(_.withRequestTimeout(startSettings.requestTimeout))
 
     implicit val wsConfig = startSettings.websocketConfig.getOrElse(WebsocketConfig())
 
@@ -128,7 +126,7 @@ class HttpService(
         jsonEndpoints = new Endpoints(
           healthService,
           v2Routes,
-          debugLoggingOfHttpBodies,
+          startSettings.debugLoggingOfHttpBodies,
           loggerFactory,
         )
 
@@ -141,7 +139,7 @@ class HttpService(
           defaultEndpoints,
           EndpointsCompanion.notFound(logger),
         )
-        prefixedEndpoints = server.pathPrefix
+        prefixedEndpoints = startSettings.pathPrefix
           .map(_.split("/").toList.dropWhile(_.isEmpty))
           .collect { case head :: tl =>
             val joinedPrefix = tl.foldLeft(PathMatcher(Uri.Path(head), ()))(_ slash _)
@@ -151,7 +149,7 @@ class HttpService(
 
         binding <- liftET[HttpService.Error] {
           val serverBuilder = Http()
-            .newServerAt(server.address, server.port.unwrap)
+            .newServerAt(startSettings.address, startSettings.port.unwrap)
             .withSettings(settings)
 
           httpsConfiguration
@@ -163,7 +161,7 @@ class HttpService(
         }
 
         _ <- either(
-          server.portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))
+          startSettings.portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))
         ): ET[Unit]
 
       } yield binding

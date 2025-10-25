@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -39,26 +40,83 @@ final case class Probability(prob: Double) {
     rng.nextDouble() <= prob
 }
 
+final case class BrokenLink(from: BftNodeId, to: BftNodeId)
+
+object BrokenLink {
+
+  def create(
+      partitionSymmetry: PartitionSymmetry,
+      node1: BftNodeId,
+      node2: BftNodeId,
+  ): Set[BrokenLink] =
+    partitionSymmetry match {
+      case PartitionSymmetry.Symmetric => Set(BrokenLink(node1, node2), BrokenLink(node2, node1))
+      case PartitionSymmetry.ASymmetric => Set(BrokenLink(node1, node2))
+    }
+}
+
 sealed trait PartitionMode {
-  def selectSet[A](nodes: Set[A], random: Random): Set[A]
+  def makePartition(
+      nodes: Set[BftNodeId],
+      partitionSymmetry: PartitionSymmetry,
+      random: Random,
+  ): Set[BrokenLink]
 }
 
 object PartitionMode {
-  final case object None extends PartitionMode {
+  sealed trait BipartitePartitionMode extends PartitionMode {
+    def selectSet[A](nodes: Set[A], random: Random): Set[A]
+
+    override def makePartition(
+        nodes: Set[BftNodeId],
+        partitionSymmetry: PartitionSymmetry,
+        random: Random,
+    ): Set[BrokenLink] = {
+      val selectedSet: Set[BftNodeId] = selectSet(nodes, random)
+      val otherSet = nodes.removedAll(selectedSet)
+      selectedSet.flatMap { node1 =>
+        otherSet.flatMap { node2 =>
+          BrokenLink.create(partitionSymmetry, node1, node2)
+        }
+      }
+    }
+  }
+
+  final case object NoPartition extends BipartitePartitionMode {
     override def selectSet[A](nodes: Set[A], random: Random): Set[A] = Set.empty
   }
-  final case object UniformSize extends PartitionMode {
+
+  final case object UniformSize extends BipartitePartitionMode {
     override def selectSet[A](nodes: Set[A], random: Random): Set[A] = {
       val toTake = random.between(1, nodes.size + 1)
       random.shuffle(nodes).take(toTake)
     }
   }
-  final case object IsolateSingle extends PartitionMode {
+
+  final case object IsolateSingle extends BipartitePartitionMode {
     override def selectSet[A](nodes: Set[A], random: Random): Set[A] = {
       val ix = random.between(0, nodes.size)
       val node = nodes.toSeq(ix)
       Set(node)
     }
+  }
+
+  final case class RandomlyDropConnections(dropConnectionChance: Probability)
+      extends PartitionMode {
+    override def makePartition(
+        nodes: Set[BftNodeId],
+        partitionSymmetry: PartitionSymmetry,
+        random: Random,
+    ): Set[BrokenLink] =
+      nodes.flatMap { node1 =>
+        nodes.flatMap { node2 =>
+          if (node1 != node2 && dropConnectionChance.flipCoin(random)) {
+            BrokenLink.create(partitionSymmetry, node1, node2)
+          } else {
+            Set.empty
+          }
+        }
+      }
   }
 }
 
@@ -76,7 +134,7 @@ final case class NetworkSettings(
       NetworkSettings.defaultRemoteMessageTimeDistribution,
     packetLoss: Probability = Probability(0),
     packetReplay: Probability = Probability(0),
-    partitionMode: PartitionMode = PartitionMode.None,
+    partitionMode: PartitionMode = PartitionMode.NoPartition,
     partitionSymmetry: PartitionSymmetry = PartitionSymmetry.Symmetric,
     partitionProbability: Probability = Probability(0),
     unPartitionProbability: Probability = Probability(0),

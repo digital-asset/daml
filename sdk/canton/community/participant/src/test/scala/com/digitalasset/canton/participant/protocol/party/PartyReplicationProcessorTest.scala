@@ -421,7 +421,7 @@ final class PartyReplicationProcessorTest
       PartyReplicationSourceParticipantMessage.AcsBatch(
         NonEmpty
           .from(
-            (0 until n.unwrap).map(_ => createActiveContractOld())
+            (0 until n.unwrap).map(_ => createActiveContract())
           )
           .getOrElse(fail("should not be empty"))
       ),

@@ -39,6 +39,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, Sy
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.actor.ActorSystem
 
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
@@ -57,7 +58,8 @@ class PartyReplicationAdminWorkflow(
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit
-    executionContext: ExecutionContext
+    executionContext: ExecutionContext,
+    actorSystem: ActorSystem,
 ) extends AdminWorkflowService
     with FlagCloseable
     with NamedLogging {

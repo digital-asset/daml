@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.party
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationSourceParticipantMessage.DataOrStatus
 import com.digitalasset.canton.participant.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -48,7 +48,7 @@ object PartyReplicationSourceParticipantMessage
         Left(ProtoDeserializationError.FieldNotSet("data_or_status"))
       case v30.PartyReplicationSourceParticipantMessage.DataOrStatus.AcsBatch(batchP) =>
         for {
-          contracts <- batchP.contracts.toList.traverse(ActiveContractOld.fromProtoV30)
+          contracts <- batchP.contracts.toList.traverse(ActiveContract.fromProtoV30)
           nonEmptyContracts <- NonEmpty
             .from(contracts)
             .toRight(
@@ -66,7 +66,7 @@ object PartyReplicationSourceParticipantMessage
     def toProtoV30: v30.PartyReplicationSourceParticipantMessage.DataOrStatus
   }
 
-  final case class AcsBatch(contracts: NonEmpty[Seq[ActiveContractOld]]) extends DataOrStatus {
+  final case class AcsBatch(contracts: NonEmpty[Seq[ActiveContract]]) extends DataOrStatus {
     override def toProtoV30: v30.PartyReplicationSourceParticipantMessage.DataOrStatus =
       v30.PartyReplicationSourceParticipantMessage.DataOrStatus.AcsBatch(
         v30.PartyReplicationSourceParticipantMessage

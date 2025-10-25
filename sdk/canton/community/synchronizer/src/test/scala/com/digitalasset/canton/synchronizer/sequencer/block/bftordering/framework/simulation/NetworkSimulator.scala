@@ -27,7 +27,20 @@ private sealed trait NetworkSimulatorState {
 
 private object NetworkSimulatorState {
 
+  final case object NoMorePartitions extends NetworkSimulatorState {
+
+    override def tick(
+        nodes: Set[BftNodeId],
+        settings: NetworkSettings,
+        clock: Clock,
+        random: Random,
+    ): NetworkSimulatorState = this
+
+    override def partitionExists(node1: BftNodeId, node2: BftNodeId): Boolean = false
+  }
+
   final case class NoCurrentPartition(started: CantonTimestamp) extends NetworkSimulatorState {
+
     private def shouldCreatePartition(
         settings: NetworkSettings,
         clock: Clock,
@@ -41,15 +54,8 @@ private object NetworkSimulatorState {
         nodes: Set[BftNodeId],
         settings: NetworkSettings,
         random: Random,
-    ): Set[BrokenLink] = {
-      val selectedSet: Set[BftNodeId] = settings.partitionMode.selectSet(nodes, random)
-      val otherSet = nodes.removedAll(selectedSet)
-      selectedSet.flatMap { node1 =>
-        otherSet.flatMap { node2 =>
-          BrokenLink(settings, node1, node2)
-        }
-      }
-    }
+    ): Set[BrokenLink] =
+      settings.partitionMode.makePartition(nodes, settings.partitionSymmetry, random)
 
     override def tick(
         nodes: Set[BftNodeId],
@@ -94,24 +100,12 @@ private object NetworkSimulatorState {
   }
 }
 
-private final case class BrokenLink(from: BftNodeId, to: BftNodeId)
-
-private object BrokenLink {
-
-  def apply(settings: NetworkSettings, node1: BftNodeId, node2: BftNodeId): Set[BrokenLink] =
-    settings.partitionSymmetry match {
-      case PartitionSymmetry.Symmetric => Set(BrokenLink(node1, node2), BrokenLink(node2, node1))
-      case PartitionSymmetry.ASymmetric => Set(BrokenLink(node1, node2))
-    }
-}
-
 class NetworkSimulator(
     settings: NetworkSettings,
     topology: Topology[?, ?, ?, ?],
     agenda: Agenda,
     clock: Clock,
 ) {
-
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private val random = new Random(settings.randomSeed)
 
@@ -177,6 +171,6 @@ class NetworkSimulator(
 
   def makeHealthy(): Unit = {
     canUseFaults = false
-    partitionState = NetworkSimulatorState.NoCurrentPartition(clock.now)
+    partitionState = NetworkSimulatorState.NoMorePartitions
   }
 }

@@ -13,11 +13,11 @@ import com.digitalasset.canton.ledger.participant.state.InternalIndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.participant.admin.data.{
-  ActiveContract as ActiveContractValueClass,
   ContractImportMode,
   RepairContract,
   RepresentativePackageIdOverride,
 }
+import com.digitalasset.canton.participant.admin.party.LapiAcsHelper
 import com.digitalasset.canton.participant.admin.repair.RepairServiceError.ImportAcsError
 import com.digitalasset.canton.participant.admin.repair.{
   ContractAuthenticationImportProcessor,
@@ -34,7 +34,7 @@ import java.io.OutputStream
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-private[admin] object ParticipantCommon {
+private[participant] object ParticipantCommon {
 
   private[grpc] def findLedgerEnd(sync: CantonSyncService): Either[String, Offset] =
     sync.participantNodePersistentState.value.ledgerApiStore.ledgerEndCache
@@ -80,36 +80,20 @@ private[admin] object ParticipantCommon {
       _ <- EitherT
         .apply[Future, String, Unit](
           ResourceUtil.withResourceM(destination)(out =>
-            indexService
-              .activeContracts(parties.map(_.toLf), Some(atOffset))
-              .map(response => response.getActiveContract)
-              .filter(contract =>
-                synchronizerId
-                  .forall(filterId => contract.synchronizerId == filterId.toProtoPrimitive)
+            LapiAcsHelper
+              .ledgerApiAcsSource(
+                indexService,
+                parties,
+                atOffset,
+                excludedStakeholders,
+                synchronizerId,
+                contractSynchronizerRenames,
               )
-              .filter { contract =>
-                val event = contract.getCreatedEvent
-                val stakeholders = (event.signatories ++ event.observers).toSet
-                val excludeStakeholdersS = excludedStakeholders.map(_.toProtoPrimitive)
-                excludeStakeholdersS.intersect(stakeholders).isEmpty
-              }
-              .map { contract =>
-                if (contractSynchronizerRenames.contains(contract.synchronizerId)) {
-                  val synchronizerId = contractSynchronizerRenames
-                    .getOrElse(contract.synchronizerId, contract.synchronizerId)
-                  contract.copy(synchronizerId = synchronizerId)
-                } else {
-                  contract
-                }
-              }
-              .map(ActiveContractValueClass.tryCreate)
-              .map {
-                _.writeDelimitedTo(out) match {
-                  // throwing intentionally to immediately interrupt any further Pekko source stream processing
-                  case Left(errorMessage) => throw new RuntimeException(errorMessage)
-                  case Right(_) => out.flush()
-                }
-              }
+              .map(_.writeDelimitedTo(out) match {
+                // throwing intentionally to immediately interrupt any further Pekko source stream processing
+                case Left(errorMessage) => throw new RuntimeException(errorMessage)
+                case Right(_) => out.flush()
+              })
               .run()
               .transform {
                 case Failure(e) => Success(Left(e.getMessage)) // a Pekko stream error

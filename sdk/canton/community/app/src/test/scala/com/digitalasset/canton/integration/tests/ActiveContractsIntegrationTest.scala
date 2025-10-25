@@ -25,6 +25,8 @@ import com.digitalasset.canton.console.LocalParticipantReference
 import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.examples.java.iou.{Amount, GetCash, Iou}
+import com.digitalasset.canton.http.LfValue
+import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{UsePostgres, UseReferenceBlockSequencer}
 import com.digitalasset.canton.integration.tests.ActiveContractsIntegrationTest.*
@@ -36,13 +38,6 @@ import com.digitalasset.canton.integration.util.{
   HasCommandRunnersHelpers,
   HasReassignmentCommandsHelpers,
 }
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  ConfigTransforms,
-  EnvironmentDefinition,
-  SharedEnvironment,
-  TestConsoleEnvironment,
-}
 import com.digitalasset.canton.ledger.api.validation.{StricterValueValidator, ValueValidator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
@@ -51,11 +46,12 @@ import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsoluti
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.util.TestContractHasher
+import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config}
+import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
+import com.digitalasset.daml.lf.transaction.{CreationTime, SerializationVersion}
 import org.scalatest.Assertion
 
 import java.util.UUID
@@ -170,8 +166,7 @@ class ActiveContractsIntegrationTest
   ): ContractData = {
     import env.*
 
-    // TODO(#27612) Test should also pass with V12 contract IDs
-    val cantonContractIdVersion = AuthenticatedContractIdVersionV11
+    val cantonContractIdVersion = CantonContractIdVersion.maxV1
 
     val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
     val contractIdSuffixer = new ContractIdSuffixer(pureCrypto, cantonContractIdVersion)
@@ -186,9 +181,11 @@ class ActiveContractsIntegrationTest
       new Amount(new java.math.BigDecimal(new java.math.BigInteger("1000000000000"), 10), "USD"),
       List.empty.asJava,
     )
-    val lfArguments = StricterValueValidator
-      .validateRecord(Record.fromJavaProto(createIou.toValue.toProtoRecord))
-      .getOrElse(throw new IllegalStateException)
+    val lfArguments = normalize(
+      StricterValueValidator
+        .validateRecord(Record.fromJavaProto(createIou.toValue.toProtoRecord))
+        .getOrElse(throw new IllegalStateException)
+    )
     val lfTemplate = ValueValidator
       .validateIdentifier(Identifier.fromJavaProto(Iou.TEMPLATE_ID_WITH_PACKAGE_ID.toProto))
       .getOrElse(throw new IllegalStateException)
@@ -212,8 +209,11 @@ class ActiveContractsIntegrationTest
       createIndex = 0,
       viewPosition = ViewPosition(List.empty),
     )
+
+    val contractHasher = TestEngine.syncContractHasher(BaseTest.CantonExamplesPath)
     val contractHash =
-      TestContractHasher.Sync.hash(unsuffixedCreateNode, contractIdSuffixer.contractHashingMethod)
+      contractHasher.hash(unsuffixedCreateNode, contractIdSuffixer.contractHashingMethod)
+
     val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
       contractIdSuffixer
         .relativeSuffixForLocalContract(
@@ -848,6 +848,14 @@ class ActiveContractsIntegrationTest
 
     unassignedUniqueId shouldBe (out.source, out.reassignmentId)
   }
+
+  private def normalize(value: LfValue): LfValue =
+    lf.transaction.Util
+      .normalizeValue(
+        value,
+        SerializationVersion.V1,
+      )
+      .value
 }
 
 private object ActiveContractsIntegrationTest {

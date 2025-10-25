@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.config
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.DeprecatedConfigUtils.DeprecatedFieldsFor
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{ReplicationConfig, *}
@@ -117,7 +118,7 @@ final case class ParticipantNodeConfig(
         .modify(ports.participantAdminApiPort.setDefaultPort)
         .focus(_.replication)
         .modify(ReplicationConfig.withDefaultO(storage, _, edition))
-        .focus(_.httpLedgerApi.server.internalPort)
+        .focus(_.httpLedgerApi.internalPort)
         .modify(ports.jsonLedgerApiPort.setDefaultPort)
     )
 
@@ -127,6 +128,22 @@ object ParticipantNodeConfig {
   implicit val localParticipantConfigCantonConfigValidator
       : CantonConfigValidator[ParticipantNodeConfig] =
     CantonConfigValidatorDerivation[ParticipantNodeConfig]
+
+  trait ParticipantNodeConfigDeprecationsImplicits {
+    implicit def deprecatedParticipantNodeConfig[X <: ParticipantNodeConfig]
+        : DeprecatedFieldsFor[X] = new DeprecatedFieldsFor[ParticipantNodeConfig] {
+      override def movedFields: List[DeprecatedConfigUtils.MovedConfigPath] = List(
+        DeprecatedConfigUtils.MovedConfigPath("http-ledger-api.server", "http-ledger-api")
+      )
+
+      override def deprecatePath: List[DeprecatedConfigUtils.DeprecatedConfigPath[_]] = List(
+        DeprecatedConfigUtils
+          .DeprecatedConfigPath[Boolean]("http-ledger-api.server", "3.4.0")
+      )
+    }
+  }
+
+  object DeprecatedImplicits extends ParticipantNodeConfigDeprecationsImplicits
 }
 
 /** Participant features configuration
@@ -348,6 +365,11 @@ object TestingTimeServiceConfig {
   *   How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation
   *   Disable the package upgrade verification on DAR upload
+  * @param enableStrictDarValidation
+  *   Enables the throwing of an error if lf>2.2 and the dar is not self-sufficient (i.e. throw an
+  *   error if the set of included packages does not equal the set of imported packages). Normally,
+  *   packages produced by damlc targeting 2.2 or above are self-sufficient. If set to false, errors
+  *   are logged as warning instead.
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
   * @param automaticallyPerformLogicalSynchronizerUpgrade
@@ -390,7 +412,7 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     disableUpgradeValidation: Boolean = false,
-    enableStrictDarValidation: Boolean = false,
+    enableStrictDarValidation: Boolean = true,
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),

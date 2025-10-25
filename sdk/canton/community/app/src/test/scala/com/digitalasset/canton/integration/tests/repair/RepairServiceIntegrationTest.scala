@@ -31,7 +31,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.util.TestContractHasher
+import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfVersioned,
@@ -811,7 +811,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             import env.*
 
             val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
-            val authenticatedContractIdVersion = AuthenticatedContractIdVersionV11
+            val authenticatedContractIdVersion = CantonContractIdVersion.maxV1
             val creationTime = CreationTime.CreatedAt(environment.clock.now.toLf)
             val contractIdSuffixer =
               new ContractIdSuffixer(pureCrypto, authenticatedContractIdVersion)
@@ -860,10 +860,14 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               stakeholders = Set(alice.toLf),
               key = Some(keyWithMaintainers.unversioned),
             )
-            val contractHash = TestContractHasher.Sync.hash(
-              unsuffixedCreateNode,
-              contractIdSuffixer.contractHashingMethod,
-            )
+
+            val contractHash = TestEngine
+              .syncContractHasher(cantonTestsPath)
+              .hash(
+                unsuffixedCreateNode,
+                contractIdSuffixer.contractHashingMethod,
+              )
+
             val ContractIdSuffixer.RelativeSuffixResult(
               suffixedCreateNode,
               _,

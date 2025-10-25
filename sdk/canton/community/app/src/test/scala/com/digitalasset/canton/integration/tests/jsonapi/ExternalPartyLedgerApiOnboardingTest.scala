@@ -84,7 +84,7 @@ class ExternalPartyLedgerApiOnboardingTest extends CommunityIntegrationTest with
     // Send a JSON API request via HttpClient to verify that the JSON API works
     import env.*
     val port =
-      participant1.config.httpLedgerApi.server.internalPort.valueOrFail("JSON API must be enabled")
+      participant1.config.httpLedgerApi.internalPort.valueOrFail("JSON API must be enabled")
 
     val jsonBody =
       """{

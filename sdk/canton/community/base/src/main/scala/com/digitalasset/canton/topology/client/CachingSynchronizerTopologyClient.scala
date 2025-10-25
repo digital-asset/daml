@@ -376,7 +376,6 @@ final class CachingSynchronizerTopologyClient(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
-      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     if (transactions.nonEmpty) {
       // if there is a transaction, we insert a new cached snapshot interval starting at the effective timestamp
@@ -389,13 +388,7 @@ final class CachingSynchronizerTopologyClient(
         ).discard
       }
     }
-    delegate.observed(
-      sequencedTimestamp,
-      effectiveTimestamp,
-      sequencerCounter,
-      transactions,
-      synchronizerId,
-    )
+    delegate.observed(sequencedTimestamp, effectiveTimestamp, sequencerCounter, transactions)
   }
 
   override def setSynchronizerTimeTracker(tracker: SynchronizerTimeTracker): Unit = {

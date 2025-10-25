@@ -17,10 +17,8 @@ canton {
       admin-api {
         port = 14012
       }
-      http-ledger-api-experimental {
-         server {
-            port = 8080
-         }
+      http-ledger-api {
+        port = 8080
      }
    }
   }

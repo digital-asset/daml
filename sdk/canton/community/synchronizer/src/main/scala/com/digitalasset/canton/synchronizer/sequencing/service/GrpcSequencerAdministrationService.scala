@@ -297,6 +297,12 @@ class GrpcSequencerAdministrationService(
         c) the sequencer snapshot will contain the correct counter for the onboarding sequencer
         d) the onboarding sequencer will properly subscribe from its own minimum counter that it gets initialized with from the sequencer snapshot
        */
+
+      // Ensure there is a block containing the reference effective time
+      _ <- synchronizerTimeTracker
+        .awaitTick(referenceEffective.value)
+        .traverse_(EitherTUtil.rightUS[RpcError, Unit](_))
+
       sequencerSnapshotTimestamp <- sequencer
         .awaitContainingBlockLastTimestamp(referenceEffective.value)
         .leftMap(_.toCantonRpcError)

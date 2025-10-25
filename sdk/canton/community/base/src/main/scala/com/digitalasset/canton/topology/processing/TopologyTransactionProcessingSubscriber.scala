@@ -5,7 +5,6 @@ package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -45,7 +44,6 @@ trait TopologyTransactionProcessingSubscriber {
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
-      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** The order in which the subscriber should be executed among all the subscriptions. Lower values
