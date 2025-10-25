@@ -366,8 +366,12 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
             // Necessary synchronization because some of the errors are reported asynchronously.
             // Feel free to adjust if the number of errors has changed.
+            // Currently there is:
+            // * `SequencedEventValidatorImpl` logging an ERROR
+            // * `SequencerSubscriptionX` / `ResilientSequencerSubscription` logging a WARN
+            // * `SynchronizerConnectionsManager` logging an ERROR
             eventually() {
-              loggerFactory.numberOfRecordedEntries should be >= 2
+              loggerFactory.numberOfRecordedEntries should be >= 3
             }
           },
           // The problem happens to be "ForkHappened" due to the order of checks carried out by the sequencer client.

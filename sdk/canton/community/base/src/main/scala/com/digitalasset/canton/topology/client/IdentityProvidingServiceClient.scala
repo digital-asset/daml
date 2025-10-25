@@ -724,9 +724,10 @@ trait SynchronizerTopologyClientWithInit
   ): FutureUnlessShutdown[Unit] =
     for {
       // Here we initialize `snapshots` intervals in the `CachingSynchronizerTopologyClient`
-      // for the `currentSnapshotApproximation` and `headSnapshot`
-      _ <- snapshot(approximateTimestamp)
+      // for the `headSnapshot` and `currentSnapshotApproximation`
+      // NB: first inserted interval must be the head interval, so the order here matters!
       _ <- snapshot(topologyKnownUntilTimestamp)
+      _ <- snapshot(approximateTimestamp)
     } yield ()
 
   implicit override protected def executionContext: ExecutionContext

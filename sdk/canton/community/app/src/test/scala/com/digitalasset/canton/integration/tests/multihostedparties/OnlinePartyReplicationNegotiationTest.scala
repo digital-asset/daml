@@ -120,14 +120,6 @@ sealed trait OnlinePartyReplicationNegotiationTest
             .replace(Some(UnsafeOnlinePartyReplicationConfig()))
         ),
         ConfigTransforms.updateAllSequencerConfigs(selectivelyEnablePartyReplicationOnSequencers),
-        // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
-        //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
-        //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
-        //  in this test.
-        ConfigTransforms.updateParticipantConfig("participant1")(
-          _.focus(_.parameters.journalGarbageCollectionDelay)
-            .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-        ),
       )
       .withNetworkBootstrap { implicit env =>
         import env.*

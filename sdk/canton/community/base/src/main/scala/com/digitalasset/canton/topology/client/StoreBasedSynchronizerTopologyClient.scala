@@ -200,7 +200,6 @@ class StoreBasedSynchronizerTopologyClient(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
-      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(
       s"Observed: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp, numTransactions=${transactions.size}"

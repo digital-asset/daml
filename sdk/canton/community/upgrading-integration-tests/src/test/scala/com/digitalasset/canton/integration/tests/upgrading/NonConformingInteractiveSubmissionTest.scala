@@ -56,11 +56,11 @@ class NonConformingInteractiveSubmissionTest
 
   "Interactive submission" should {
 
-    "Detect a submission with inconsistent use of V12 contract" in { implicit env =>
+    "Detect a submission with inconsistent enrichment of latest contract" in { implicit env =>
       import env.*
 
       val mainContract = buildMain(participant1)
-      val transferContract = buildV12Transfer(participant1)
+      val transferContract = createBankTransfer(participant1)
 
       assertThrowsAndLogsCommandFailures(
         prepareMainGet(participant1, transferContract, mainContract),
@@ -68,11 +68,11 @@ class NonConformingInteractiveSubmissionTest
       )
     }
 
-    "Detect a submission with inconsistent use of V11 contract" in { implicit env =>
+    "Detect a submission with inconsistent enrichment of V11 contract" in { implicit env =>
       import env.*
 
       val mainContract = buildMain(participant1)
-      val transferContract: DisclosedContract = buildV11Transfer(participant1)
+      val transferContract: DisclosedContract = createV11BankTransfer(participant1)
 
       assertThrowsAndLogsCommandFailures(
         prepareMainGet(participant1, transferContract, mainContract),
@@ -102,7 +102,7 @@ class NonConformingInteractiveSubmissionTest
     mainContract
   }
 
-  private def buildV12Transfer(participant: LocalParticipantReference) = {
+  private def createBankTransfer(participant: LocalParticipantReference) = {
     val packageId =
       LfPackageId.assertFromString(nonconforming.v1.java.nonconforming.BankTransfer.PACKAGE_ID)
     val bankTransferTx = participant.ledger_api.javaapi.commands.submit(
@@ -121,10 +121,10 @@ class NonConformingInteractiveSubmissionTest
     JavaDecodeUtil.decodeDisclosedContracts(bankTransferTx).loneElement
   }
 
-  private def buildV11Transfer(participant: LocalParticipantReference) = {
-    val v12 = buildV12Transfer(participant)
+  private def createV11BankTransfer(participant: LocalParticipantReference) = {
+    val latest = createBankTransfer(participant)
 
-    val inst = ContractInstance.decode(v12.createdEventBlob).value
+    val inst = ContractInstance.decode(latest.createdEventBlob).value
 
     val v11inst = ExampleContractFactory.fromCreate(
       inst.inst.toCreateNode,
@@ -134,8 +134,8 @@ class NonConformingInteractiveSubmissionTest
 
     new DisclosedContract(
       v11inst.encoded,
-      v12.synchronizerId.get(),
-      v12.templateId,
+      latest.synchronizerId.get(),
+      latest.templateId,
       Optional.of(v11inst.contractId.coid),
     )
   }

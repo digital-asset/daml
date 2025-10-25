@@ -352,7 +352,7 @@ object ExampleTransactionFactory {
   def suffixedId(
       discriminator: Int,
       suffix: Int,
-      contractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+      contractIdVersion: CantonContractIdVersion = CantonContractIdVersion.maxV1,
   ): LfContractId =
     contractIdVersion match {
       case v1: CantonContractIdV1Version =>
@@ -504,7 +504,7 @@ class ExampleTransactionFactory(
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val preparationTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
     val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
-    val cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+    val cantonContractIdVersion: CantonContractIdVersion = CantonContractIdVersion.maxV1,
 )(implicit ec: ExecutionContext, tc: TraceContext)
     extends EitherValues {
 

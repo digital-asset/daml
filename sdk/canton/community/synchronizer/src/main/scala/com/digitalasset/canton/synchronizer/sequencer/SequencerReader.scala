@@ -939,6 +939,7 @@ object SequencerReader {
     override protected def pretty: Pretty[ReadState] = prettyOfClass(
       param("member", _.member),
       param("memberId", _.memberId),
+      param("memberRegisteredFrom", _.memberRegisteredFrom),
       param("nextReadTimestamp", _.nextReadTimestamp),
       param("latestTopologyClientRecipientTimestamp", _.latestTopologyClientRecipientTimestamp),
       param("lastBatchWasFull", _.lastBatchWasFull),

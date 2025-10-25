@@ -4,11 +4,13 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import cats.syntax.parallel.*
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, DbConfig}
 import com.digitalasset.canton.crypto.TestHash
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencer.MultiSynchronizer
@@ -32,9 +34,9 @@ import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
-import monocle.macros.syntax.lens.*
 
 import scala.annotation.nowarn
+import scala.concurrent.Future
 
 /** Objectives:
   *   - Test the behavior of the [[PartyReplicationSourceParticipantProcessor]] and
@@ -51,6 +53,7 @@ import scala.annotation.nowarn
   *     contract during party replication.
   */
 @nowarn("msg=match may not be exhaustive")
+@SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
 sealed trait OnlinePartyReplicationParticipantProtocolTest
     extends CommunityIntegrationTest
     with SharedEnvironment
@@ -72,15 +75,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
-        (ConfigTransforms.unsafeEnableOnlinePartyReplication() :+
-          // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
-          //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
-          //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
-          //  in this test.
-          ConfigTransforms.updateParticipantConfig("participant1")(
-            _.focus(_.parameters.journalGarbageCollectionDelay)
-              .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-          ))*
+        ConfigTransforms.unsafeEnableOnlinePartyReplication()*
       )
       .withSetup { implicit env =>
         import env.*
@@ -161,6 +156,26 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         CantonTimestamp.assertFromInstant(p2p.context.validFrom)
       }
 
+      // Wait for partyToParticipant mapping to become effective on the source participant via ledger api
+      val partyToSourceParticipantEffectiveAtOffset = eventually() {
+        val offsetPartyAddedToTPO = (for {
+          ptp <- sourceParticipant.ledger_api.updates.topology_transactions(
+            completeAfter = PositiveInt.two,
+            partyIds = Seq(alice),
+            synchronizerFilter = Some(daId),
+          )
+          topologyEvent <- ptp.topologyTransaction.events
+          offset = ptp.topologyTransaction.offset
+          partyAdded <- topologyEvent.event.participantAuthorizationAdded.toList
+        } yield (partyAdded, offset)).collect {
+          case (partyAdded, offset)
+              if partyAdded.participantId == targetParticipant.id.uid.toProtoPrimitive =>
+            Offset.tryFromLong(offset)
+        }.lastOption
+        offsetPartyAddedToTPO.nonEmpty shouldBe true
+        offsetPartyAddedToTPO.value
+      }
+
       // Run a ping to make sure the AcsInspection does not get upset about the timestamp at the end
       // of the event log.
       sourceParticipant.health.ping(sourceParticipant)
@@ -182,9 +197,9 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         daId,
         alice,
         requestId,
-        partyToTargetParticipantEffectiveAt,
+        partyToSourceParticipantEffectiveAtOffset,
         Set.empty,
-        sourceParticipant.testing.state_inspection.getAcsInspection(daId).value,
+        sourceParticipant.underlying.value.sync.internalIndexService.value,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback2,
@@ -245,6 +260,19 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         sourceProcessor.isChannelConnected shouldBe true
         targetProcessor.isChannelConnected shouldBe true
       }
+
+      Future {
+        // Have the test play the role of the PartyReplicator and drive the source processor.
+        // This is necessary since reading the ACS via pekko is asynchronous and thus the SP
+        // processor needs to regularly check if a partially available ACS batch is not fully
+        // available for responding to the TP.
+        clue("Regularly ensure the SP does not get stuck")(
+          while (!sourceProcessor.hasChannelCompleted) {
+            sourceProcessor.progressPartyReplication()
+            Threading.sleep(1000)
+          }
+        )
+      }.discard
 
       // Check that archiving a contract that is still unknown on the TP
       // does not cause problem with the conflict detection activeness check

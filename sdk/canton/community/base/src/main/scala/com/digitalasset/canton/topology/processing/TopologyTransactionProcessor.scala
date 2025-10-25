@@ -496,7 +496,6 @@ class TopologyTransactionProcessor(
               effectiveTimestamp,
               sc,
               validTransactions,
-              psid.logical,
             )
           )
         }

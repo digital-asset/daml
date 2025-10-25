@@ -333,7 +333,6 @@ class MemberAuthenticationServiceImpl(
       effectiveTimestamp: EffectiveTime,
       sc: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
-      synchronizerId: SynchronizerId,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     synchronizeWithClosing(functionFullName) {
       FutureUnlessShutdown.sequence(transactions.map(_.transaction).map {

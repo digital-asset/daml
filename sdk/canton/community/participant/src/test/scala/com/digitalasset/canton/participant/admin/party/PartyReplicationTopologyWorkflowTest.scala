@@ -37,7 +37,6 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyMapping,
 }
 import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
   ForceFlags,
   ParticipantId,
   PartyId,
@@ -402,7 +401,6 @@ class PartyReplicationTopologyWorkflowTest
             EffectiveTime(tsSerial),
             SequencerCounter.Genesis,
             Seq.empty,
-            DefaultTestIdentities.synchronizerId,
           )
           _ <- add(topologyStore)(tsSerialMinusTwo, serialBefore2, ptpBefore)
           _ <- add(topologyStore)(
