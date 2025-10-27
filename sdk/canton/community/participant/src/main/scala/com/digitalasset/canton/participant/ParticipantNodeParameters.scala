@@ -80,7 +80,7 @@ object ParticipantNodeParameters {
     engine = CantonEngineConfig(),
     journalGarbageCollectionDelay = time.NonNegativeFiniteDuration.Zero,
     disableUpgradeValidation = false,
-    enableStrictDarValidation = false,
+    enableStrictDarValidation = true,
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication = None,
     automaticallyPerformLogicalSynchronizerUpgrade = true,

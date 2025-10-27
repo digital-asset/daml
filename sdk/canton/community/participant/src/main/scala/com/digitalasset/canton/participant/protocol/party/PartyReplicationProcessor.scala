@@ -95,7 +95,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
   ): Boolean = {
     // Clear the initial contract ordinal so the TP remembers to reinitialize the SP
     // in case we reconnect.
-    processorStore.clearInitialContractOrdinalInclusive()
+    processorStore.resetConnection()
 
     super
       .onDisconnected(status)

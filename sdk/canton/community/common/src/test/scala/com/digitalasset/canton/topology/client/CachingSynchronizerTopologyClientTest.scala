@@ -15,12 +15,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{
-  DefaultTestIdentities,
-  KeyCollection,
-  SynchronizerId,
-  TestingOwnerWithKeys,
-}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, KeyCollection, TestingOwnerWithKeys}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter, config}
 import org.scalatest.wordspec.AsyncWordSpecLike
@@ -64,7 +59,7 @@ class CachingSynchronizerTopologyClientTest
     when(mockSnapshot2.allKeys(owner))
       .thenReturn(FutureUnlessShutdown.pure(KeyCollection(signingKeys = Seq(key2), Seq())))
 
-    val cc =
+    def freshCachingClient(): CachingSynchronizerTopologyClient =
       new CachingSynchronizerTopologyClient(
         mockParent,
         CachingConfigs(
@@ -83,6 +78,7 @@ class CachingSynchronizerTopologyClientTest
     val ts0 = ts1.minusSeconds(60)
     val ts2 = ts1.plusSeconds(60)
     val ts3 = ts2.plusSeconds(60)
+    val ts3minus250ms = ts3.minusMillis(250)
 
     when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.plusSeconds(3))
     when(mockParent.approximateTimestamp).thenReturn(ts3)
@@ -100,7 +96,6 @@ class CachingSynchronizerTopologyClientTest
         any[CantonTimestamp],
         any[SequencerCounter],
         anySeq[GenericSignedTopologyTransaction],
-        any[SynchronizerId],
       )(any[TraceContext])
     ).thenReturn(FutureUnlessShutdown.unit)
 
@@ -110,6 +105,9 @@ class CachingSynchronizerTopologyClientTest
     import Fixture.*
 
     "return correct snapshot" in {
+
+      val cc = freshCachingClient()
+
       when(mockParent.topologyKnownUntilTimestamp).thenReturn(
         CantonTimestamp.MinValue.immediateSuccessor
       )
@@ -120,7 +118,6 @@ class CachingSynchronizerTopologyClientTest
             ts1,
             SequencerCounter(1),
             Seq(mockTransaction),
-            DefaultTestIdentities.synchronizerId,
           )
         _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts1.immediateSuccessor)
         // ts0 is not covered by the open interval [ts1.successor, None], therefore it will trigger a lookup of
@@ -137,7 +134,6 @@ class CachingSynchronizerTopologyClientTest
           ts1.plusSeconds(10),
           SequencerCounter(1),
           Seq(),
-          DefaultTestIdentities.synchronizerId,
         )
         _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(
           ts1.plusSeconds(10).immediateSuccessor
@@ -150,11 +146,10 @@ class CachingSynchronizerTopologyClientTest
           ts2,
           SequencerCounter(1),
           Seq(mockTransaction),
-          DefaultTestIdentities.synchronizerId,
         )
         _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts2.immediateSuccessor)
         keys1b <- cc.snapshot(ts2).flatMap(_.allKeys(owner))
-        _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq(), DefaultTestIdentities.synchronizerId)
+        _ = cc.observed(ts3, ts3, SequencerCounter(1), Seq())
         _ = when(mockParent.topologyKnownUntilTimestamp).thenReturn(ts3.immediateSuccessor)
         keys2a <- cc.snapshot(ts2.plusSeconds(5)).flatMap(_.allKeys(owner))
         keys2b <- cc.snapshot(ts3).flatMap(_.allKeys(owner))
@@ -178,5 +173,34 @@ class CachingSynchronizerTopologyClientTest
       }
     }
 
+    "work correctly with initialization" in {
+      forAll(
+        Table(
+          ("approximateTimestamp", "topologyKnownUntilTimestamp"),
+          // Invariant: approximateTimestamp <= topologyKnownUntilTimestamp,
+          // so we test only possible input combinations
+          (ts3, ts3),
+          (ts3minus250ms, ts3),
+        )
+      ) { case (sampleApproximateTimestamp, sampleTopologyKnownUntilTimestamp) =>
+        val client = freshCachingClient()
+        // In this scenario:
+        // ts3 is the latest topology change effective time
+        // ts2 - the previous topology change effective time
+        // therefore there are 2 intervals:
+        // [ts2, ts3)
+        // [ts3, None)
+        when(mockParent.topologyKnownUntilTimestamp).thenReturn(sampleTopologyKnownUntilTimestamp)
+        when(mockParent.approximateTimestamp).thenReturn(sampleApproximateTimestamp)
+        when(mockParent.findTopologyIntervalForTimestamp(ts3))
+          .thenReturn(FutureUnlessShutdown.pure(Some((ts3, None))))
+        when(mockParent.findTopologyIntervalForTimestamp(ts3minus250ms))
+          .thenReturn(FutureUnlessShutdown.pure(Some((ts2, Some(ts3)))))
+
+        for {
+          _ <- client.initialize().failOnShutdown
+        } yield succeed
+      }
+    }
   }
 }

@@ -201,7 +201,6 @@ class StoreBasedSynchronizerOutboxTest
                     EffectiveTime(ts),
                     SequencerCounter(3),
                     if (rejections.isEmpty) Seq(x) else Seq.empty,
-                    DefaultTestIdentities.synchronizerId,
                   )
               )
           else FutureUnlessShutdown.unit

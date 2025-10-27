@@ -320,6 +320,9 @@ final class BlockChunkProcessor(
       // With this logic, we assign to the initial non-Send events the same timestamp as for the last
       // block. This means that we will include these events in the ephemeral state of the previous block
       // when we re-read it from the database. But this doesn't matter given that all those events are idempotent.
+      // This is purely data sanitization (which is checked by a validation), i.e., so that acknowledgements are
+      // assigned a sequencing time that corresponds to an actual (i.e. `Send`) event and that is also surely
+      // at or after the acknowledged timestamp. This has no effect whatsoever on transaction processing.
       chunk.forgetNE.foldLeft[
         (CantonTimestamp, Seq[(CantonTimestamp, Traced[LedgerBlockEvent])]),
       ]((state.lastChunkTs, Seq.empty)) { case ((lastTs, events), event) =>
