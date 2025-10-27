@@ -342,7 +342,8 @@ export class DamlLanguageClient {
     const damlPath = DamlLanguageClient.findDamlCommand();
     if (damlPath) {
       vscode.window.showWarningMessage(
-        "Daml IDE is starting using the legacy Daml Assistant, consider switching to DPM.\n" +
+        "Daml IDE is starting using the legacy Daml Assistant, which is deprecated and has been replaced with DPM.\n" +
+          "Daml Assistant will be removed in 3.5, see DPM installation instructions:\n" +
           "[Open DPM documentation](https://docs.digitalasset.com/build/3.4/dpm/dpm.html)",
       );
       return [damlPath, false];
