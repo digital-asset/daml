@@ -64,12 +64,9 @@ main = withSdkVersions $ do
             , testGroup
                 "With Contract Keys"
                 [ withResourceCps
-                -- crappy version implementation, to be overhauled by next PR
-                -- that overhauls features
-                -- https://github.com/digital-asset/daml/pull/22205
-                    (withScriptService $ LF.Version LF.V2 lfVersion)
-                    (testScriptServiceWithKeys $ LF.Version LF.V2 lfVersion)
-                | Just lfVersion <- [LF.minBound $ LF.unVersionReq (LF.featureVersionReq LF.featureContractKeys) LF.V2]
+                    (withScriptService lfVersion)
+                    (testScriptServiceWithKeys lfVersion)
+                | Just lfVersion <- [LF.minBound $ LF.featureVersionReq LF.featureContractKeys]
                 ]
             ]
 
