@@ -7,6 +7,7 @@ module DA.Test.DataDependencies (main) where
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Ast.Range as R
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
@@ -36,7 +37,7 @@ main = withSdkVersions $ do
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
         let targetDevVersion = LF.devLfVersion
-        let exceptionsVersion = minExceptionVersion LF.V2
+        let exceptionsVersion = minExceptionVersion
         let simpleDalfLfVersion = LF.defaultLfVersion
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-2.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
@@ -45,10 +46,10 @@ main = withSdkVersions $ do
     let testTrees = [tests v2TestArgs]
     defaultMain (testGroup "Data Dependencies" testTrees)
   where
-    minExceptionVersion major =
+    minExceptionVersion =
         fromJustNote
-            "exceptions should have a minor version for every existing major version"
-            (LF.featureMinVersion LF.featureExceptions major)
+            "exceptions should have minimum minor"
+            (R.minBound $ LF.featureVersionReq LF.featureExceptions)
 
 data TestArgs = TestArgs
   { targetDevVersion :: LF.Version
@@ -2818,4 +2819,3 @@ tests TestArgs{..} =
     damlcForTarget target
       | target `elem` LF.compilerOutputLfVersions = damlc
       | otherwise = damlcLegacy
-

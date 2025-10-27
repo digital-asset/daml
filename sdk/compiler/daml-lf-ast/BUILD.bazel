@@ -5,7 +5,10 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "gene
 
 da_haskell_library(
     name = "daml-lf-ast",
-    srcs = glob(["src/**/*.hs"]) + [":generated_haskell_versions_src"],
+    srcs = glob(["src/**/*.hs"]) + [
+        ":generated_haskell_features_src",
+        ":generated_haskell_versions_src",
+    ],
     hackage_deps = [
         "aeson",
         "base",
@@ -33,6 +36,8 @@ da_haskell_library(
         "//libs-haskell/da-hs-base",
     ],
 )
+
+generate_and_track_cabal("daml-lf-ast")
 
 da_haskell_test(
     name = "tests",
@@ -66,4 +71,10 @@ genrule(
     tools = ["//daml-lf/language:generate_haskell_versions"],
 )
 
-generate_and_track_cabal("daml-lf-ast")
+genrule(
+    name = "generated_haskell_features_src",
+    srcs = ["//daml-lf/language:feature_data_json"],
+    outs = ["src/DA/Daml/LF/Ast/Version/GeneratedFeatures.hs"],
+    cmd = "$(location //daml-lf/language:generate_haskell_features) $(location //daml-lf/language:feature_data_json) $@",
+    tools = ["//daml-lf/language:generate_haskell_features"],
+)

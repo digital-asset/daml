@@ -509,5 +509,5 @@ featureErrorMessage (Feature name versionReq _) =
     mconcat
         [ name
         , " only supported when compiling to Daml-LF versions "
-        , T.pack (renderFeatureVersionReq versionReq)
+        , renderPretty versionReq
         ]
