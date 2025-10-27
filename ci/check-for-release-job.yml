@@ -17,29 +17,39 @@ jobs:
       parameters:
         var_name: bash-lib
     - bash: |
-        set -euo pipefail
-                
+        set -euxo pipefail
+
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        ./release.sh check
+        # ./release.sh check
 
         changes_release_files() {
-            changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha) $(branch_sha) | sort)"
-            [ "sdk/LATEST" = "$changed" ]
+          changed="$(git diff-tree --no-commit-id --name-only -r $(fork_sha)..$(branch_sha) | sort)"
+          [ "sdk/LATEST" = "$changed" ]
+        }
+
+        added_lines() {
+          git diff $(fork_sha)..$(branch_sha) LATEST \
+            | awk '/^-[^-]/ {print substr($0, 2)}'
+        }
+
+        deleted_lines() {
+          # ignore adhoc and rc snapshots
+          git diff $(fork_sha)..$(branch_sha) LATEST
+            | awk '/^-[^-]/ && !/[0-9]+\.[0-9]+\.[0-9]-(adhoc|rc[0-9]+)\./' {print substr($0, 2)}
         }
 
         changes_one_line_in_latest() {
-            changed="$(git diff-tree --no-commit-id --numstat -r $(fork_sha) $(branch_sha) -- LATEST | awk '{print $1 "_" $2}')"
-            add_one="1_0"
-            change_one="1_1"
-            [[ "$add_one" == "$changed" || "$change_one" == "$changed" ]]
+          [[ "$(added_lines | wc -l)" -eq 1 ] && [ "$(deleted_lines | wc -l)" -le 1 ]]
         }
 
-        added_line() {
-            echo "$(git diff $(fork_sha) $(branch_sha) -- LATEST | tail -n+6 | grep '^\+' | cut -c2-)"
-        }
+        echo "  *** added_lines ***"
+|       $(added_lines)
+
+        echo "  *** deleted_lines ***"
+        $(deleted_lines)
 
         if changes_release_files; then
             if changes_one_line_in_latest; then
@@ -62,6 +72,7 @@ jobs:
             RELEASE_TAG="0.0.0"
             setvar is_release false
         fi
+        echo RELEASE_TAG="$RELEASE_TAG"
         setvar release_tag "$RELEASE_TAG"
 
         # This is the last snapshot that does not support Scala 2.13.
@@ -74,4 +85,3 @@ jobs:
         fi
       name: out
       displayName: "Check for Release"
-
