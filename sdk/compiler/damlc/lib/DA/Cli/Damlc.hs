@@ -1093,27 +1093,29 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
     darPath <- darPathFromDamlYaml path
     pure (darPath, path)
 
-  getDamlcPath <-
+  getDamlcPathAndArgs <-
     case optResolutionData opts of
       Just resolutionData -> pure $ \location ->
         case findPackageResolutionData location resolutionData of
           Right validPkgResolution ->
             case Map.lookup "damlc-binary" $ imports validPkgResolution of
-              Just [damlcLocation] -> pure damlcLocation
+              Just [damlcLocation] -> pure (damlcLocation, [])
               _ -> throwIO $ ResolutionError $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
           Left err -> throwIO err
       Nothing -> do
         mbAssistantPath <- lookupEnv "DAML_ASSISTANT"
         case mbAssistantPath of
-          Just assistantPath -> pure $ const $ pure assistantPath
+          -- Add no legacy flag to disable assistant warning for each single package build
+          -- top level assistant will have already reported the warning.
+          Just assistantPath -> pure $ const $ pure (assistantPath, ["--no-legacy-assistant-warning"])
           Nothing -> error "Couldn't find DPM or Daml Assistant. Please run damlc via one of these package managers."
 
   -- Must drop DAML_PACKAGE + DAML_PROJECT from env var so it can be repopulated based on `cwd`
   damlcEnv <- filter (flip notElem [projectPathEnvVar, packagePathEnvVar, "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
 
   let damlcRunner = DamlcRunner $ \location args -> do
-        damlcPath <- getDamlcPath location
-        withCreateProcess ((proc damlcPath args) {cwd = Just location, env = Just damlcEnv}) $ \_ _ _ p -> do
+        (damlcPath, extraArgs) <- getDamlcPathAndArgs location
+        withCreateProcess ((proc damlcPath $ extraArgs ++ args) {cwd = Just location, env = Just damlcEnv}) $ \_ _ _ p -> do
           exitCode <- waitForProcess p
           when (exitCode /= ExitSuccess) $ error $ "Failed to build package at " <> location <> "."
 
