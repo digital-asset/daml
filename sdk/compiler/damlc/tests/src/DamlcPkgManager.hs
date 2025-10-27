@@ -43,7 +43,7 @@ tests damlc dar =
     testGroup "damlc package manager" [testsForRemoteDataDependencies damlc dar]
 
 lfVersion :: LF.Version
-lfVersion = LF.defaultOrLatestStable LF.V2
+lfVersion = LF.defaultVersion
 
 testsForRemoteDataDependencies :: SdkVersioned => FilePath -> FilePath -> TestTree
 testsForRemoteDataDependencies damlc dar =

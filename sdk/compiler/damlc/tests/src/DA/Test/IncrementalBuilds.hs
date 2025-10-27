@@ -29,7 +29,7 @@ main = withSdkVersions $ do
     damlScript <- locateRunfiles (mainWorkspace </> "daml-script" </> "runner" </> exe "daml-script-binary")
     v2TestArgs <- do
       scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
-      let lfVersion = LF.defaultOrLatestStable LF.V2
+      let lfVersion = LF.defaultVersion
       pure TestArgs{..}
     let testTrees = [tests v2TestArgs]
     defaultMain (testGroup "Incremental builds" testTrees)
