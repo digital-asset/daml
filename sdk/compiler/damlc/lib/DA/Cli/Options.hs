@@ -97,11 +97,11 @@ lfVersionOpt = optionOnce (str >>= select) $
        metavar "DAML-LF-VERSION"
     <> help ("Daml-LF version to output: " ++ versionsStr)
     <> long "target"
-    <> value LF.defaultVersion
+    <> value LF.defaultLfVersion
     <> internal
   where
     renderVersion v =
-      let def = if v == LF.defaultVersion then " (default)" else ""
+      let def = if v == LF.defaultLfVersion then " (default)" else ""
       in Pretty.renderPretty v ++ def
     versionsStr = intercalate ", " (map renderVersion versions)
     select = \case
@@ -111,7 +111,7 @@ lfVersionOpt = optionOnce (str >>= select) $
         -> return version
         | otherwise
         -> readerError $ "Unknown Daml-LF version: " ++ versionStr
-    versions = LF.compilerOutputVersions
+    versions = LF.compilerOutputLfVersions
 
 dotFileOpt :: Parser (Maybe FilePath)
 dotFileOpt = optionOnce (Just <$> str) $
@@ -637,7 +637,7 @@ incrementalBuildOpt :: Parser IncrementalBuild
 incrementalBuildOpt = IncrementalBuild <$> flagYesNoAuto "incremental" False "Enable incremental builds" idm
 
 studioReplaceOpt :: Parser ReplaceExtension
-studioReplaceOpt = 
+studioReplaceOpt =
     Options.Applicative.option readReplacement $
       long "replace"
         <> help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')"

@@ -45,7 +45,7 @@ main = withSdkVersions $ do
     Tasty.deterministicMain $
         Tasty.testGroup
             "IDE Shake API tests"
-            [ test LF.defaultVersion scriptLogger ]
+            [ test LF.defaultLfVersion scriptLogger ]
 
 test :: SdkVersioned => LF.Version -> Logger.Handle IO -> Tasty.TestTree
 test lfVersion scriptLogger = do

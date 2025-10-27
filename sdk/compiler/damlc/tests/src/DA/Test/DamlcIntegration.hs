@@ -105,7 +105,7 @@ newtype LfVersionOpt = LfVersionOpt Version
   deriving (Eq)
 
 instance IsOption LfVersionOpt where
-  defaultValue = LfVersionOpt defaultVersion
+  defaultValue = LfVersionOpt defaultLfVersion
   -- Tasty seems to force the value somewhere so we cannot just set this
   -- to `error`. However, this will always be set.
   parseValue = fmap LfVersionOpt . parseVersion

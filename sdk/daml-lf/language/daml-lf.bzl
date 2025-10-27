@@ -21,7 +21,7 @@ def _init_data():
     # Definition of versions
 
     # Encapsulated in _init_data, NOT TO BE USED OUTSIDE (use VARIABLES like
-    # DEFAULT_VERSION instead)
+    # DEFAULT_LF_VERSION instead)
     V2_1 = struct(major = "2", minor = "1", status = "stable")
     V2_2 = struct(major = "2", minor = "2", status = "stable", default = True)
 
@@ -74,30 +74,30 @@ RAW_ALL_LF_VERSIONS = _data.all_versions
 ALL_LF_VERSIONS = _to_dotted_versions(RAW_ALL_LF_VERSIONS)
 STABLE_LF_VERSIONS = _to_dotted_versions(_data.stable_versions)
 
-LATEST_STABLE_VERSION = _to_dotted_version(_data.latest_stable_version)
-DEFAULT_VERSION = _to_dotted_version(_data.default_version)
-DEV_VERSION = _to_dotted_version(_data.dev_version)
-STAGING_VERSION = _to_dotted_version(_data.staging_version)
+LATEST_STABLE_LF_VERSION = _to_dotted_version(_data.latest_stable_version)
+DEFAULT_LF_VERSION = _to_dotted_version(_data.default_version)
+DEV_LF_VERSION = _to_dotted_version(_data.dev_version)
+STAGING_LF_VERSION = _to_dotted_version(_data.staging_version)
 
 # Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
 # ALL_LF_VERSIONS. Haskell source files point to input/output versions, but
 # bazel files point to the nonspecific COMPILER_VERSIONS. As they are equal now,
 # there is no difference. As soon as COMPILER_INPUT_VERSIONS <>
 # COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
-COMPILER_VERSIONS = ALL_LF_VERSIONS
+COMPILER_LF_VERSIONS = ALL_LF_VERSIONS
 
 # TODO: When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
 # COMPILER_VERSIONS
-COMPILER_INPUT_VERSIONS = ALL_LF_VERSIONS
-COMPILER_OUTPUT_VERSIONS = ALL_LF_VERSIONS
+COMPILER_INPUT_LF_VERSIONS = ALL_LF_VERSIONS
+COMPILER_OUTPUT_LF_VERSIONS = ALL_LF_VERSIONS
 
-ENGINE_VERSIONS = ALL_LF_VERSIONS
+ENGINE_LF_VERSIONS = ALL_LF_VERSIONS
 
 # configuration to maintain old-style names
 lf_version_configuration = {
-    "default": DEFAULT_VERSION,
-    "latest": LATEST_STABLE_VERSION,
-    "dev": DEV_VERSION,
+    "default": DEFAULT_LF_VERSION,
+    "latest": LATEST_STABLE_LF_VERSION,
+    "dev": DEV_LF_VERSION,
 }
 ### End of definitions that rest of file points to
 
@@ -164,13 +164,13 @@ def version_in(
 # have to come up with something more clever here to make
 # sure that we don’t remove docs for a module that is still supported
 # in a stable LF version.
-LF_DOCS_VERSION = LATEST_STABLE_VERSION
+LF_DOCS_VERSION = LATEST_STABLE_LF_VERSION
 
 # LF Versions supported by the dar reader
 READABLE_LF_VERSIONS = (["1.14", "1.15", "1.dev"] if is_intel else []) + ALL_LF_VERSIONS
 
 def lf_version_is_dev(versionStr):
-    return versionStr == DEV_VERSION
+    return versionStr == DEV_LF_VERSION
 
 # The stable versions for which we have an LF proto definition under daml-lf/archive/src/stable
 SUPPORTED_PROTO_STABLE_LF_VERSIONS = ["2.1"]
