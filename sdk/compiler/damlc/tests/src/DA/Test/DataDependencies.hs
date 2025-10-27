@@ -35,9 +35,9 @@ main = withSdkVersions $ do
     damlcLegacy <- locateRunfiles ("damlc_legacy" </> exe "damlc_legacy")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     v2TestArgs <- do
-        let targetDevVersion = LF.devVersion
+        let targetDevVersion = LF.devLfVersion
         let exceptionsVersion = minExceptionVersion LF.V2
-        let simpleDalfLfVersion = LF.defaultVersion
+        let simpleDalfLfVersion = LF.defaultLfVersion
         scriptDevDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-2.dev.dar")
         oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "old-proj-2.1.dar")
         let lfVersionTestPairs = lfVersionTestPairsV2
@@ -77,9 +77,9 @@ darPackageIds fp = do
 -- | We test each version against the next one + extra (2.dev, 2.dev)
 lfVersionTestPairsV2 :: [(LF.Version, LF.Version)]
 lfVersionTestPairsV2 =
-    let supportedVersions = sortOn LF.versionMinor LF.compilerOutputVersions
+    let supportedVersions = sortOn LF.versionMinor LF.compilerOutputLfVersions
         nPlusOnePairs = zip supportedVersions (tail supportedVersions)
-        selfPair = (LF.devVersion, LF.devVersion)
+        selfPair = (LF.devLfVersion, LF.devLfVersion)
      in selfPair : nPlusOnePairs
 
 tests :: SdkVersioned => TestArgs -> TestTree
@@ -2816,6 +2816,6 @@ tests TestArgs{..} =
 
     damlcForTarget :: LF.Version -> FilePath
     damlcForTarget target
-      | target `elem` LF.compilerOutputVersions = damlc
+      | target `elem` LF.compilerOutputLfVersions = damlc
       | otherwise = damlcLegacy
 
