@@ -7,7 +7,7 @@
 
 module DA.Daml.JsonReader (
   --   allStableIds
-  -- , stablePackagesUntilVersion
+  -- , stablePackagesForVersion
   module DA.Daml.JsonReader  --note to reviewer: if we still export entire module I simply forgot to delete after debug
   ) where
 
@@ -34,8 +34,8 @@ entries = case decoded of
     -> error $ "Failed to decode: " ++ errMsg
   Right parsedEntries -> map (bimap R.From PackageId) parsedEntries
 
-allStableIds :: [PackageId]
-allStableIds = map snd entries
+allStablePackageIds :: [PackageId]
+allStablePackageIds = map snd entries
 
-stablePackagesUntilVersion :: Version -> [PackageId]
-stablePackagesUntilVersion v = map snd $ filter (R.elem v . fst) entries
+stablePackagesForVersion :: Version -> [PackageId]
+stablePackagesForVersion v = map snd $ filter (R.elem v . fst) entries

@@ -11,7 +11,7 @@ import           DA.Daml.LF.Ast
 import           DA.Daml.StablePackages
 
 entries :: [(Version, T.Text)]
-entries = map toEntry allV2StablePackagesTuples
+entries = map toEntry allStablePackagesTuples
   where
     toEntry (id, pkg) = (packageLfVersion pkg, unPackageId id)
 
