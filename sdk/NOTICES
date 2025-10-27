@@ -33,9 +33,9 @@ anorm-tokenizer 2.7.0 : Apache License 2.0
 ansi-colors 4.1.3: https://github.com/doowb/ansi-colors : MIT License
 ansi-regex 2.1.1: https://github.com/sindresorhus/ansi-regex : MIT License
 ansi-regex 5.0.1: https://github.com/sindresorhus/ansi-regex : MIT License
-ansi-styles 2.2.1: https://github.com/sindresorhus/ansi-styles : MIT License
-ansi-styles 3.2.1: https://github.com/sindresorhus/ansi-styles : MIT License
-ansi-styles v4.3.0: https://github.com/sindresorhus/ansi-styles : MIT License
+ansi-styles 2.2.1: https://github.com/chalk/ansi-styles : MIT License
+ansi-styles 3.2.1: https://github.com/chalk/ansi-styles : MIT License
+ansi-styles v4.3.0: https://github.com/chalk/ansi-styles : MIT License
 ansi-terminal 0.11.3: https://github.com/feuerbach/ansi-terminal : BSD 3-clause "New" or "Revised" License
 ansi-wl-pprint 0.6.9: http://github.com/ekmett/ansi-wl-pprint : BSD 3-clause "New" or "Revised" License
 anymatch 3.1.3: https://github.com/es128/anymatch : ISC License
@@ -309,7 +309,6 @@ evp_bytestokey 1.0.3: https://github.com/crypto-browserify/EVP_BytesToKey : MIT 
 expand-tilde 2.0.2: https://github.com/jonschlinkert/expand-tilde : MIT License
 expressjs/accepts 1.3.8: https://github.com/expressjs/accepts : MIT License
 expressjs/express 4.21.2: https://expressjs.com : MIT License
-expressjs/mime-types 2.1.35: https://github.com/expressjs/mime-types : MIT License
 expressjs/morgan 1.10.0: https://github.com/expressjs/morgan : MIT License
 express-session 1.18.1: https://github.com/expressjs/session : MIT License
 extend 3.0.2: https://github.com/justmoon/node-extend : MIT License
@@ -593,6 +592,7 @@ js-dgtable 0.5.2: https://github.com/ndmitchell/js-dgtable#readme : MIT License
 js-flot 0.8.3: https://github.com/ndmitchell/js-flot#readme : MIT License
 jshttp/content-type 1.0.5: https://github.com/jshttp/content-type : MIT License
 jshttp/fresh 0.5.2: https://github.com/jshttp/fresh : MIT License
+jshttp/mime-types 2.1.35: https://github.com/jshttp/mime-types : MIT License
 JSHTTP's negotiator 0.6.3: https://www.npmjs.com/package/negotiator : MIT License
 js-jquery 3.3.1: https://github.com/ndmitchell/js-jquery#readme : MIT License
 js-levenshtein 1.1.6: https://github.com/gustf/js-levenshtein#readme : MIT License
@@ -988,10 +988,10 @@ silently 1.2.5.3: https://github.com/hspec/silently : BSD 3-clause "New" or "Rev
 simonmar/async 2.2.4: https://github.com/simonmar/async : BSD 3-clause "New" or "Revised" License
 simple-concat 1.0.1: https://github.com/feross/simple-concat : MIT License
 sindresorhus/onetime v5.1.2: https://github.com/sindresorhus/onetime : MIT License
-sindresorhus/supports-color 10.2.2: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color 2.0.0: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color 5.5.0: https://github.com/sindresorhus/supports-color : MIT License
-sindresorhus/supports-color v7.2.0: https://github.com/sindresorhus/supports-color : MIT License
+sindresorhus/supports-color 10.2.2: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color 2.0.0: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color 5.5.0: https://github.com/chalk/supports-color : MIT License
+sindresorhus/supports-color v7.2.0: https://github.com/chalk/supports-color : MIT License
 SLF4J API Module 1.7.36: http://www.slf4j.org : MIT License
 SLF4J API Module 2.0.6: http://www.slf4j.org : MIT License
 Slick 3.5.2 : BSD 2-clause "Simplified" License
@@ -13435,7 +13435,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(expressjs/accepts 1.3.8, expressjs/mime-types 2.1.35)
+(expressjs/accepts 1.3.8, jshttp/mime-types 2.1.35)
 
 (The MIT License)
 
