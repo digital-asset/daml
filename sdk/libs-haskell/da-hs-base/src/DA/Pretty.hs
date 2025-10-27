@@ -328,20 +328,21 @@ highlightClass = "da-code"
 
 -- | Highlighting stylesheet for Visual Studio Code.
 highlightStylesheet :: T.Text
-highlightStylesheet = "\
-\." <> highlightClass <> " { \
-\  font-family: monospace; line-height: 1.1em; white-space: pre; padding: 10px; \
-\  position: absolute; width: 100%; height: 100%; \
-\} \
-\.da-hl-error { color: var(--vscode-terminal-ansiBrightRed); } \
-\.da-hl-warning { color: var(--vscode-terminal-ansiYellow); } \
-\.da-hl-operator { color: var(--vscode-terminal-ansiRed); } \
-\.da-hl-keyword { color: var(--vscode-terminal-ansiGreen); } \
-\.da-hl-type { color: var(--vscode-terminal-ansiBrightYellow); } \
-\.da-hl-comment { color: var(--vscode-terminal-ansiWhite); } \
-\.da-hl-parens { color: var(--vscode-terminal-ansiYellow); } \
-\.da-hl-predicate { color: var(--vscode-terminal-ansiMagenta); } \
-\.da-hl-constructor { color: var(--vscode-terminal-ansiBrightBlue); } \
-\.da-hl-proof-step { color: var(--vscode-terminal-ansiBlue); } \
-\.da-hl-link { color: var(--link-color); text-decoration: underline; cursor: pointer; } \
-\.da-hl-nobr { white-space: pre; }"
+highlightStylesheet = T.unlines
+  [ "." <> highlightClass <> " { "
+  , "  font-family: monospace; line-height: 1.1em; white-space: pre; padding: 10px; "
+  , "  position: absolute; width: 100%; height: 100%; "
+  , "} "
+  , ".da-hl-error { color: var(--vscode-terminal-ansiBrightRed); } "
+  , ".da-hl-warning { color: var(--vscode-terminal-ansiYellow); } "
+  , ".da-hl-operator { color: var(--vscode-terminal-ansiRed); } "
+  , ".da-hl-keyword { color: var(--vscode-terminal-ansiGreen); } "
+  , ".da-hl-type { color: var(--vscode-terminal-ansiBrightYellow); } "
+  , ".da-hl-comment { color: var(--vscode-terminal-ansiWhite); } "
+  , ".da-hl-parens { color: var(--vscode-terminal-ansiYellow); } "
+  , ".da-hl-predicate { color: var(--vscode-terminal-ansiMagenta); } "
+  , ".da-hl-constructor { color: var(--vscode-terminal-ansiBrightBlue); } "
+  , ".da-hl-proof-step { color: var(--vscode-terminal-ansiBlue); } "
+  , ".da-hl-link { color: var(--link-color); text-decoration: underline; cursor: pointer; } "
+  , ".da-hl-nobr { white-space: pre; }"
+  ]
