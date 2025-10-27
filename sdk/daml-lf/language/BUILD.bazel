@@ -21,7 +21,6 @@ load(
     "RAW_ALL_LF_VERSIONS",
     "STABLE_LF_VERSIONS",
     "STAGING_LF_VERSION",
-    "FEATURES",
 )
 
 da_scala_library(
