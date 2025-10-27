@@ -12,14 +12,14 @@ import qualified Data.Text as T
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Util
-import DA.Daml.LF.Ast.Version (devVersion, Version, renderVersion)
+import DA.Daml.LF.Ast.Version (devLfVersion, Version, renderVersion)
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.Simplifier (simplifyModule)
 
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Simplifier"
-    [ constantLiftingTests devVersion ]
+    [ constantLiftingTests devLfVersion ]
 
 -- The Simplifier calls the typechecker whose behavior is affected by feature
 -- flags. The simplifier may thus behave differently based on the version of LF
