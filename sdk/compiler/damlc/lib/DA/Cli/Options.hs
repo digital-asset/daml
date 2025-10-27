@@ -103,7 +103,7 @@ lfVersionOpt = optionOnce (str >>= select) $
     renderVersion v =
       let def = if v == LF.defaultVersion then " (default)" else ""
       in Pretty.renderPretty v ++ def
-    versionsStr = intercalate ", " (map renderVersion LF.compilerOutputVersions)
+    versionsStr = intercalate ", " (map renderVersion versions)
     select = \case
       versionStr
         | Just version <- LF.parseVersion versionStr

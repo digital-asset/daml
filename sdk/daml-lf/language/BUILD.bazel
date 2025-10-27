@@ -72,7 +72,6 @@ EOF
             "defaultVersion": DEFAULT_VERSION,
             "devVersion": DEV_VERSION,
             "stagingVersion": STAGING_VERSION,
-            "compilerVersions": COMPILER_VERSIONS,
             "compilerInputVersions": COMPILER_INPUT_VERSIONS,
             "compilerOutputVersions": COMPILER_OUTPUT_VERSIONS,
         }),

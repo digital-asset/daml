@@ -79,9 +79,15 @@ DEFAULT_VERSION = _to_dotted_version(_data.default_version)
 DEV_VERSION = _to_dotted_version(_data.dev_version)
 STAGING_VERSION = _to_dotted_version(_data.staging_version)
 
-# Haskell files make the distinction between input and output files, whereas in
-# bazel, we have always just maintained "the" list of lfversions
+# Ideally, COMPILER_VERSIONS does not exist. Currently, all of these piont to
+# ALL_LF_VERSIONS. Haskell source files point to input/output versions, but
+# bazel files point to the nonspecific COMPILER_VERSIONS. As they are equal now,
+# there is no difference. As soon as COMPILER_INPUT_VERSIONS <>
+# COMPILER_OUTPUT_VERSIONS we must eliminate COMPILER_VERSIONS
 COMPILER_VERSIONS = ALL_LF_VERSIONS
+
+# TODO: When COMPILER_INPUT_VERSIONS <> COMPILER_OUTPUT_VERSIONS, eliminate
+# COMPILER_VERSIONS
 COMPILER_INPUT_VERSIONS = ALL_LF_VERSIONS
 COMPILER_OUTPUT_VERSIONS = ALL_LF_VERSIONS
 
