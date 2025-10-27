@@ -26,6 +26,7 @@ import           System.FilePath
 import           DA.Bazel.Runfiles
 import           DA.Daml.Compiler.ExtractDar
 import           DA.Daml.LF.Ast
+import           DA.Daml.StablePackages
 
 
 entry :: IO ()
@@ -92,11 +93,10 @@ verifyImports darname = testCase darname $ do
       pkgIdDepGraph' = map (fmap $ fromRight (error "decoding error") . importedPackages) pkgIdDepGraph
 
   let mentioned = transitiveClosure (M.fromList pkgIdDepGraph') (fst p')
-  let included = (fromList $ map fst pkgIdDepGraph') `difference` stablePkgs
+  let included = (fromList $ map fst pkgIdDepGraph') `difference` fromList allStablePackageIds
 
   assertBool (printf "Included but not mentioned: %s" $ show $ included `difference` mentioned) $ included `difference` mentioned == empty
   assertBool (printf "Mentioned but not included: %s" $ show $ mentioned `difference` included) $ mentioned `difference` included == empty
 
   where
     darPath = "daml-script" </> "test" </> darname
-    stablePkgs = fromList allV2StablePackagesList
