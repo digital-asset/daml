@@ -12,15 +12,15 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "ALL_LF_VERSIONS",
     "COMPILER_INPUT_LF_VERSIONS",
-    "COMPILER_OUTPUT_LF_VERSIONS",
     "COMPILER_LF_VERSIONS",
+    "COMPILER_OUTPUT_LF_VERSIONS",
     "DEFAULT_LF_VERSION",
     "DEV_LF_VERSION",
+    "FEATURES",
     "LATEST_STABLE_LF_VERSION",
     "RAW_ALL_LF_VERSIONS",
     "STABLE_LF_VERSIONS",
     "STAGING_LF_VERSION",
-    "FEATURES",
 )
 
 da_scala_library(
