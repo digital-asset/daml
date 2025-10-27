@@ -328,7 +328,7 @@ highlightClass = "da-code"
 
 -- | Highlighting stylesheet for Visual Studio Code.
 highlightStylesheet :: T.Text
-highlightStylesheet = T.concat
+highlightStylesheet = T.unlines
   [ "." <> highlightClass <> " { "
   , "  font-family: monospace; line-height: 1.1em; white-space: pre; padding: 10px; "
   , "  position: absolute; width: 100%; height: 100%; "
