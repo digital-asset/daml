@@ -42,8 +42,8 @@ private final class CodeGenRunner(
     for {
       _ <- generateDecoder()
       auxSigs = generateAuxiliarySignatures
-      interfaceTrees = scope.signatures.map(InterfaceTree.fromInterface(_, auxSigs))
-      _ <- Future.traverse(interfaceTrees)(processInterfaceTree(_))
+      signatureTrees = scope.signatures.map(SignatureTree(_, auxSigs))
+      _ <- Future.traverse(signatureTrees)(processSignatureTree(_))
     } yield logger.info(s"Finished processing packageIds '$packageIds'")
   }
 
@@ -57,12 +57,12 @@ private final class CodeGenRunner(
   private[this] def generateAuxiliarySignatures: NodeWithContext.AuxiliarySignatures =
     scope.signatures.view.map(ps => ps.packageId -> ps).toMap
 
-  private def processInterfaceTree(
-      interfaceTree: InterfaceTree
+  private def processSignatureTree(
+      signatureTree: SignatureTree
   )(implicit ec: ExecutionContext): Future[Unit] = {
-    logger.info(s"Start processing packageId '${interfaceTree.interface.packageId}'")
-    for (_ <- interfaceTree.process(process))
-      yield logger.info(s"Finished processing packageId '${interfaceTree.interface.packageId}'")
+    logger.info(s"Start processing packageId '${signatureTree.signature.packageId}'")
+    for (_ <- signatureTree.process(process))
+      yield logger.info(s"Finished processing packageId '${signatureTree.signature.packageId}'")
   }
 
   private def process(
@@ -151,11 +151,11 @@ object CodeGenRunner extends StrictLogging {
   ): CodeGenRunner.Scope = {
     val (signatureMap, packagePrefixes) = signatureMapAndPackagePrefixes(darFiles)
     val signatures = signatureMap.values.toSeq
-    val environmentInterface = EnvironmentSignature.fromPackageSignatures(signatures)
+    val environmentSignature = EnvironmentSignature.fromPackageSignatures(signatures)
 
     val transitiveClosure = DependencyGraph.transitiveClosure(
-      environmentInterface.typeDecls,
-      environmentInterface.interfaces,
+      environmentSignature.typeDecls,
+      environmentSignature.interfaces,
     )
     for (error <- transitiveClosure.errors) {
       logger.error(error.msg)
@@ -260,13 +260,13 @@ object CodeGenRunner extends StrictLogging {
 
   private[codegen] def decodeDarAt(path: Path): Seq[PackageSignature] =
     for (archive <- DarParser.assertReadArchiveFromFile(path.toFile).all) yield {
-      val (errors, interface) = PackageSignature.read(archive)
+      val (errors, signature) = PackageSignature.read(archive)
       if (!errors.equals(Errors.zeroErrors)) {
         val message = SignatureReader.Error.treeReport(errors).toString
         throw new RuntimeException(message)
       }
-      logger.trace(s"Daml-LF Archive decoded, packageId '${interface.packageId}'")
-      interface
+      logger.trace(s"Daml-LF Archive decoded, packageId '${signature.packageId}'")
+      signature
     }
 
   /** Given the package prefixes specified per DAR and the module-prefixes specified in
@@ -318,18 +318,18 @@ object CodeGenRunner extends StrictLogging {
     */
   private[codegen] def detectModuleCollisions(
       pkgPrefixes: Map[PackageId, String],
-      interfaces: Seq[PackageSignature],
+      signatures: Seq[PackageSignature],
       generatedModules: Set[Reference.Module],
   ): Unit = {
     val allModules: Seq[(String, PackageId)] =
       for {
-        interface <- interfaces
-        modules = interface.typeDecls.keySet.map(_.module)
+        signature <- signatures
+        modules = signature.typeDecls.keySet.map(_.module)
         module <- modules
-        maybePrefix = pkgPrefixes.get(interface.packageId)
+        maybePrefix = pkgPrefixes.get(signature.packageId)
         prefixedName = maybePrefix.fold(module.toString)(prefix => s"$prefix.$module")
-        if generatedModules.contains(Reference.Module(interface.packageId, module))
-      } yield prefixedName -> interface.packageId
+        if generatedModules.contains(Reference.Module(signature.packageId, module))
+      } yield prefixedName -> signature.packageId
     allModules.groupBy(_._1).foreach { case (m, grouped) =>
       if (grouped.length > 1) {
         val pkgIds = grouped.view.map(_._2).mkString(", ")

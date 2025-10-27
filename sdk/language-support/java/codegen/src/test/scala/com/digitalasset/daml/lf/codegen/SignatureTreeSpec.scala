@@ -21,7 +21,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
 
-  behavior of "InterfaceTree.bfs"
+  behavior of "SignatureTree.bfs"
 
   it should "traverse an empty tree" in {
     val pkgSig =
@@ -34,13 +34,13 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
         Map.empty,
         Map.empty,
       )
-    val interfaceTree =
-      InterfaceTree(
+    val signatureTree =
+      SignatureTree(
         Map.empty,
         pkgSig,
         Map(pkgSig.packageId -> pkgSig),
       )
-    interfaceTree.bfs(0)((x, _) => x + 1) shouldEqual 0
+    signatureTree.bfs(0)((x, _) => x + 1) shouldEqual 0
   }
 
   it should "traverse a tree with n elements in bfs order" in {
@@ -72,7 +72,7 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
         typeDecls,
         Map.empty,
       )
-    val tree = InterfaceTree.fromInterface(interface, Map(interface.packageId -> interface))
+    val tree = SignatureTree(interface, Map(interface.packageId -> interface))
     val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((ab, n) =>
       n match {
         case ModuleWithContext(
@@ -97,7 +97,7 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
     result should contain theSameElementsInOrderAs Seq(record1, record2, variant1)
   }
 
-  behavior of "InterfaceTree.fromInterface"
+  behavior of "SignatureTree.apply"
 
   it should "permit standalone types with multi-component names" in {
     val bazQuux =
@@ -118,7 +118,7 @@ class InterfaceTreeSpec extends AnyFlatSpec with Matchers {
         typeDecls,
         Map.empty,
       )
-    val tree = InterfaceTree.fromInterface(interface, Map(interface.packageId -> interface))
+    val tree = SignatureTree(interface, Map(interface.packageId -> interface))
     val result = tree.bfs(ArrayBuffer.empty[TypeDecl])((types, n) =>
       n match {
         case _: ModuleWithContext => types

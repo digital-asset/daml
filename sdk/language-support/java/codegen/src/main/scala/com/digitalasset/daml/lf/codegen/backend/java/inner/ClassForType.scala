@@ -42,9 +42,9 @@ object ClassForType extends StrictLogging {
       typeWithContext: TypeWithContext
   )(implicit packagePrefixes: PackagePrefixes): List[JavaFile] =
     for {
-      (interfaceName, interface) <- typeWithContext.interface.interfaces.toList
+      (interfaceName, interface) <- typeWithContext.signature.interfaces.toList
       classNameString = fullyQualifiedName(
-        Identifier(typeWithContext.interface.packageId, interfaceName)
+        Identifier(typeWithContext.signature.packageId, interfaceName)
       )
       className = ClassName.bestGuess(classNameString)
       interfaceViewTypeName = ClassName.bestGuess(
@@ -64,9 +64,9 @@ object ClassForType extends StrictLogging {
             interfaceViewTypeName,
             interface,
             typeWithContext.auxiliarySignatures,
-            typeWithContext.interface.packageId,
+            typeWithContext.signature.packageId,
             interfaceName,
-            typeWithContext.interface.metadata,
+            typeWithContext.signature.metadata,
           )
     } yield javaFile(packageName, interfaceClass)
 
@@ -80,7 +80,7 @@ object ClassForType extends StrictLogging {
       case Normal(DefDataType(typeVars, record: Record.FWT)) =>
         val (recordClass, staticImports) =
           RecordClass.generate(
-            typeWithContext.interface.packageId,
+            typeWithContext.signature.packageId,
             className,
             typeVars.map(JavaEscaper.escapeString),
             record,

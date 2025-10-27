@@ -507,16 +507,16 @@ private[inner] object TemplateClass extends StrictLogging {
   private def generateTemplateIdFields(typeWithContext: TypeWithContext): Seq[FieldSpec] =
     ClassGenUtils.generateTemplateIdFields(
       typeWithContext.packageId,
-      typeWithContext.interface.metadata.name,
+      typeWithContext.signature.metadata.name,
       typeWithContext.modulesLineage.map(_._1).toImmArray.iterator.mkString("."),
       typeWithContext.name,
     )
 
   private def generatePackageVersionField(typeWithContext: TypeWithContext) =
-    ClassGenUtils.generatePackageVersionField(typeWithContext.interface.metadata.version)
+    ClassGenUtils.generatePackageVersionField(typeWithContext.signature.metadata.version)
 
   private def generatePackageNameField(typeWithContext: TypeWithContext) =
-    ClassGenUtils.generatePackageNameField(typeWithContext.interface.metadata.name)
+    ClassGenUtils.generatePackageNameField(typeWithContext.signature.metadata.name)
 
   def generateChoicesMetadata(
       templateClassName: ClassName,

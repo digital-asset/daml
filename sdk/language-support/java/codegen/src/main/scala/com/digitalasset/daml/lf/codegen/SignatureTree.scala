@@ -19,9 +19,9 @@ private[codegen] final case class Module(modules: Map[String, Module], types: Ma
 
 private[codegen] final case class Type(typ: Option[TypeDecl], types: Map[String, Type]) extends Node
 
-private[codegen] final case class InterfaceTree(
+private[codegen] final case class SignatureTree(
     modules: Map[String, Module],
-    interface: PackageSignature,
+    signature: PackageSignature,
     auxiliarySignatures: NodeWithContext.AuxiliarySignatures,
 ) {
 
@@ -35,7 +35,7 @@ private[codegen] final case class InterfaceTree(
     val nodeWithLineages = mutable.Queue.empty[NodeWithContext]
     for ((name, module) <- modules) {
       nodeWithLineages += ModuleWithContext(
-        interface,
+        signature,
         auxiliarySignatures,
         BackStack.empty,
         name,
@@ -57,14 +57,14 @@ private[codegen] final case class InterfaceTree(
 }
 
 private[codegen] sealed trait NodeWithContext extends Product with Serializable {
-  def interface: PackageSignature
+  def signature: PackageSignature
   def lineage: ImmArray[(String, Node)]
   def modulesLineage: BackStack[(String, Module)]
   def name: String
   def childrenLineages: Iterable[NodeWithContext]
   def typesLineages: Iterable[TypeWithContext]
 
-  final def packageId: Ref.PackageId = interface.packageId
+  final def packageId: Ref.PackageId = signature.packageId
 }
 
 private[codegen] object NodeWithContext {
@@ -74,7 +74,7 @@ private[codegen] object NodeWithContext {
 }
 
 private[codegen] final case class ModuleWithContext(
-    interface: PackageSignature,
+    signature: PackageSignature,
     auxiliarySignatures: NodeWithContext.AuxiliarySignatures,
     modulesLineage: BackStack[(String, Module)],
     name: String,
@@ -84,7 +84,7 @@ private[codegen] final case class ModuleWithContext(
     val newModulesLineage = modulesLineage :+ (name -> module)
     module.modules.map { case (childName, childModule) =>
       ModuleWithContext(
-        interface,
+        signature,
         auxiliarySignatures,
         newModulesLineage,
         childName,
@@ -96,7 +96,7 @@ private[codegen] final case class ModuleWithContext(
   override def typesLineages: Iterable[TypeWithContext] = module.types.map {
     case (childName, childType) =>
       TypeWithContext(
-        interface,
+        signature,
         auxiliarySignatures,
         modulesLineage :+ (name -> module),
         BackStack.empty,
@@ -108,7 +108,7 @@ private[codegen] final case class ModuleWithContext(
 }
 
 private[codegen] final case class TypeWithContext(
-    interface: PackageSignature,
+    signature: PackageSignature,
     auxiliarySignatures: NodeWithContext.AuxiliarySignatures,
     modulesLineage: BackStack[(String, Module)],
     typesLineage: BackStack[(String, Type)],
@@ -119,7 +119,7 @@ private[codegen] final case class TypeWithContext(
   override def typesLineages: Iterable[TypeWithContext] = `type`.types.map {
     case (childName, childType) =>
       TypeWithContext(
-        interface,
+        signature,
         auxiliarySignatures,
         modulesLineage,
         typesLineage :+ (name -> `type`),
@@ -142,17 +142,17 @@ private[codegen] final case class TypeWithContext(
   def identifier: Ref.Identifier = Ref.Identifier(packageId, qualifiedName)
 }
 
-private[codegen] object InterfaceTree extends StrictLogging {
+private[codegen] object SignatureTree extends StrictLogging {
 
-  def fromInterface(
-      interface: PackageSignature,
+  def apply(
+      signature: PackageSignature,
       auxSigs: NodeWithContext.AuxiliarySignatures,
-  ): InterfaceTree = {
-    val builder = new InterfaceTreeBuilder(new mutable.HashMap())
-    interface.typeDecls.foreach { case (identifier, typ) =>
+  ): SignatureTree = {
+    val builder = new SignatureTreeBuilder(new mutable.HashMap())
+    signature.typeDecls.foreach { case (identifier, typ) =>
       builder.insert(identifier, typ)
     }
-    builder.build(interface, auxSigs)
+    builder.build(signature, auxSigs)
   }
 
   private sealed trait NodeBuilder
@@ -226,15 +226,15 @@ private[codegen] object InterfaceTree extends StrictLogging {
     def fromType(`type`: TypeDecl) = new TypeBuilder(Some(`type`), mutable.HashMap.empty)
   }
 
-  private final class InterfaceTreeBuilder(
+  private final class SignatureTreeBuilder(
       children: mutable.HashMap[String, ModuleBuilder]
   ) {
 
     def build(
-        interface: PackageSignature,
+        signature: PackageSignature,
         auxSigs: NodeWithContext.AuxiliarySignatures,
-    ): InterfaceTree =
-      InterfaceTree(children.view.mapValues(_.build()).toMap, interface, auxSigs)
+    ): SignatureTree =
+      SignatureTree(children.view.mapValues(_.build()).toMap, signature, auxSigs)
 
     def insert(qualifiedName: Ref.QualifiedName, `type`: TypeDecl): Unit = {
       children
