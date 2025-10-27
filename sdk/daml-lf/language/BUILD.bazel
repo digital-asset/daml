@@ -95,7 +95,7 @@ EOF
 """.format(
         json = json.encode(FEATURES),
     ),
-    visibility = _VERSION_GENERATING_PACKAGES,  # Or your preferred visibility
+    visibility = _VERSION_GENERATING_PACKAGES,
 )
 
 py_binary(

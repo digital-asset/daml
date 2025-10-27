@@ -20,11 +20,11 @@ data Range a = Inclusive_ a a | From a | Until a | Empty
 instance (Pretty a, Ord a) => Pretty (Range a) where
   pPrint = \case
     Empty -> string "empty"
-    From low -> string "from " <> pPrint low
-    Until high -> string "until" <> pPrint high
+    From low -> string "from" <> space <> pPrint low
+    Until high -> string "until" <> space <> pPrint high
     Inclusive low high
         | low == high -> pPrint low
-        | otherwise -> pPrint low <> string " to " <> pPrint high
+        | otherwise -> pPrint low <> space <> string "to" <> space <> pPrint high
 
 pattern Inclusive :: Ord a => a -> a -> Range a
 pattern Inclusive low high <- Inclusive_ low high where

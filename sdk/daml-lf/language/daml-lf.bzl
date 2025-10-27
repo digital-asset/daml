@@ -64,8 +64,8 @@ def _init_data():
         "high": V2_DEV,
     }
 
-    # version_req: just leave off a bound if its not needed, low=x high=y ->
-    # [x..y], only low = x -> [x..], only high y = [..y], none = []
+    # version_req: just leave off a bound if its not needed, {"low"=x, "high"=y}
+    # -> [x..y], {"low"=x} -> [x..], only {"high"=y} = [..y], {} = []
     features_definitions = [
         {
             # Unstable, experimental features. This should stay in x.dev

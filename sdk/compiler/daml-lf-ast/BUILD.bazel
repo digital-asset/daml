@@ -5,7 +5,10 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "gene
 
 da_haskell_library(
     name = "daml-lf-ast",
-    srcs = glob(["src/**/*.hs"]) + [":generated_haskell_versions_src"] + [":generated_haskell_features_src"],
+    srcs = glob(["src/**/*.hs"]) + [
+        ":generated_haskell_features_src",
+        ":generated_haskell_versions_src",
+    ],
     hackage_deps = [
         "aeson",
         "base",
