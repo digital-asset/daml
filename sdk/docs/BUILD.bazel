@@ -11,7 +11,7 @@ load("//bazel_tools:scala.bzl", "da_scala_test")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
-    "DEV_VERSION",
+    "DEV_LF_VERSION",
 )
 
 genrule(
@@ -427,9 +427,9 @@ daml_test(
             "-Wupgrade-exceptions",
         ],
         enable_interfaces = True,
-        target = DEV_VERSION,
+        target = DEV_LF_VERSION,
     )
-    for version in [DEV_VERSION]
+    for version in [DEV_LF_VERSION]
 ]
 
 daml_test(
@@ -475,7 +475,7 @@ daml_test(
         target = version,
         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
     )
-    for version in [DEV_VERSION]
+    for version in [DEV_LF_VERSION]
 ]
 
 daml_test(

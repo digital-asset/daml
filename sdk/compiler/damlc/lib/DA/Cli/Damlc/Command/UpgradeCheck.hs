@@ -166,7 +166,7 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
                   (upwnavPkg main) deps
-                  LFV.devVersion
+                  LFV.devLfVersion
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
                   (mkWarningFlags TypeCheckerError.warningFlagParser [])
                   (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
@@ -178,7 +178,7 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
                   (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
-                  LFV.devVersion
+                  LFV.devLfVersion
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
                   (mkWarningFlags TypeCheckerError.warningFlagParser [])
                   (Just (main, deps))
