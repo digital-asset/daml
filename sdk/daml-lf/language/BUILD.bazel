@@ -93,7 +93,6 @@ cat << EOF > $@
 {json}
 EOF
 """.format(
-        # The FEATURES variable comes from your _init_data() function.
         json = json.encode(FEATURES),
     ),
     visibility = _VERSION_GENERATING_PACKAGES,  # Or your preferred visibility
