@@ -143,6 +143,20 @@ subIdeMessageHandler miState unblock ide bs = do
           Left err -> reply $ Left err
           Right loc -> reply $ Right $ LSP.InR $ LSP.InL $ LSP.List [loc]
 
+      LSP.FromServerRsp LSP.STextDocumentDocumentSymbol rsp -> do
+        logDebug miState $ "Backwarding patched TextDocumentDocumentSymbol response:\n" <> show msg
+        -- STextDocumentDocumentSymbol on language servers older than 3.4 gave invalid responses for interface symbols
+        -- VSCode started reporting this invalid responses as errors around 09/25, now we patch older responses from 3.3 servers
+        let patchResult :: LSP.ResponseMessage 'LSP.TextDocumentDocumentSymbol -> LSP.ResponseMessage 'LSP.TextDocumentDocumentSymbol
+            patchResult = LSP.result . traverse . LSP._InL . traverse %~ transformOf (LSP.children . traverse . traverse) patchSymbol
+            patchSymbol :: LSP.DocumentSymbol -> LSP.DocumentSymbol
+            patchSymbol sym@LSP.DocumentSymbol {_kind = LSP.SkConstructor, _range} | _range == LSP.mkRange 0 0 1 0 =
+              -- For symbols missing a range, patch it to the selection range, which will be close enough and avoid the error
+              sym & LSP.range .~ view LSP.selectionRange sym
+            patchSymbol sym = sym
+
+        sendClient miState $ LSP.FromServerRsp LSP.STextDocumentDocumentSymbol $ patchResult rsp
+
       LSP.FromServerMess method _ -> do
         logDebug miState $ "Backwarding request " <> show method <> ":\n" <> show msg
         sendClient miState msg
