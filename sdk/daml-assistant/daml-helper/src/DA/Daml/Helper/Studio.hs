@@ -124,7 +124,7 @@ data ReplaceExtension
 runVsCodeCommand :: [String] -> [(String, String)] -> IO (ExitCode, String, String)
 runVsCodeCommand args extraEnv = do
     originalEnv <- getEnvironment
-    let envVarsToRemove = resolutionFileEnvVar : damlEnvVars
+    let envVarsToRemove = resolutionFileEnvVar : sdkVersionDpmEnvVar : damlEnvVars
         strippedEnv = filter ((`notElem` envVarsToRemove) . fst) originalEnv
             -- ^ Strip Daml environment variables before calling VSCode, to
             -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
