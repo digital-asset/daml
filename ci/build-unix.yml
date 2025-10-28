@@ -166,7 +166,7 @@ steps:
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)
       MAVEN_URL: "https://central.sonatype.com"
-      GOOGLE_ARTIFACT_REGISTRY_URL: "https://europe-maven.pkg.dev/da-artifacts-dev/playground-maven"
+      GOOGLE_ARTIFACT_REGISTRY_URL: "https://europe-maven.pkg.dev/da-images-dev/playground-maven"
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       NPM_TOKEN: $(NPM_TOKEN)
     name: publish_npm_mvn
