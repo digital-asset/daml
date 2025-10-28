@@ -5,13 +5,14 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
 da_haskell_binary(
     name = "writer",
     srcs = ["src/DA/Daml/JsonWriter.hs"],
-    data = ["stable-packages.json"],
+    data = ["stable-packages.json", "stable-packages.yaml"],
     hackage_deps = [
         "aeson-pretty",
         "base",
         "bytestring",
         "containers",
         "text",
+        "yaml",
     ],
     src_strip_prefix = "src",
     deps = [
@@ -29,14 +30,16 @@ da_haskell_library(
     compiler_flags = [
         "-XCPP",  # Enable the C Preprocessor to pass path
         '-DJSON_FILE_PATH="$(location stable-packages.json)"',
+        '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
     ],
-    extra_srcs = ["stable-packages.json"],
+    extra_srcs = ["stable-packages.json", "stable-packages.yaml"],
     hackage_deps = [
         "aeson",
         "base",
         "bytestring",
         "file-embed",
         "text",
+        "yaml",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
