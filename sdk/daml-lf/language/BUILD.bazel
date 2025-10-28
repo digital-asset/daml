@@ -10,17 +10,16 @@ load(
 )
 load(
     "//daml-lf/language:daml-lf.bzl",
-    "ALL_LF_VERSIONS",
-    "COMPILER_INPUT_LF_VERSIONS",
-    "COMPILER_LF_VERSIONS",
-    "COMPILER_OUTPUT_LF_VERSIONS",
-    "DEFAULT_LF_VERSION",
-    "DEV_LF_VERSION",
     "FEATURES",
-    "LATEST_STABLE_LF_VERSION",
     "RAW_ALL_LF_VERSIONS",
-    "STABLE_LF_VERSIONS",
-    "STAGING_LF_VERSION",
+    "RAW_COMPILER_INPUT_LF_VERSIONS",
+    "RAW_COMPILER_LF_VERSIONS",
+    "RAW_COMPILER_OUTPUT_LF_VERSIONS",
+    "RAW_DEFAULT_LF_VERSION",
+    "RAW_DEV_LF_VERSION",
+    "RAW_LATEST_STABLE_LF_VERSION",
+    "RAW_STABLE_LF_VERSIONS",
+    "RAW_STAGING_LF_VERSION",
 )
 
 da_scala_library(
@@ -64,16 +63,15 @@ cat << EOF > $@
 EOF
 """.format(
         json = json.encode({
-            "RAW_ALL": RAW_ALL_LF_VERSIONS,
-            "allLfVersions": ALL_LF_VERSIONS,
-            "stableLfVersions": STABLE_LF_VERSIONS,
-            "latestStableLfVersion": LATEST_STABLE_LF_VERSION,
-            "defaultLfVersion": DEFAULT_LF_VERSION,
-            "devLfVersion": DEV_LF_VERSION,
-            "stagingLfVersion": STAGING_LF_VERSION,
-            "compilerLfVersions": COMPILER_LF_VERSIONS,
-            "compilerInputLfVersions": COMPILER_INPUT_LF_VERSIONS,
-            "compilerOutputLfVersions": COMPILER_OUTPUT_LF_VERSIONS,
+            "allLfVersions": RAW_ALL_LF_VERSIONS,
+            "stableLfVersions": RAW_STABLE_LF_VERSIONS,
+            "latestStableLfVersion": RAW_LATEST_STABLE_LF_VERSION,
+            "defaultLfVersion": RAW_DEFAULT_LF_VERSION,
+            "devLfVersion": RAW_DEV_LF_VERSION,
+            "stagingLfVersion": RAW_STAGING_LF_VERSION,
+            "compilerLfVersions": RAW_COMPILER_LF_VERSIONS,
+            "compilerInputLfVersions": RAW_COMPILER_INPUT_LF_VERSIONS,
+            "compilerOutputLfVersions": RAW_COMPILER_OUTPUT_LF_VERSIONS,
         }),
     ),
     visibility = _VERSION_GENERATING_PACKAGES,
