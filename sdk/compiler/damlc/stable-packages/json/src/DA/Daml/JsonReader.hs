@@ -6,9 +6,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module DA.Daml.JsonReader (
-  --   allStableIds
-  -- , stablePackagesForVersion
-  module DA.Daml.JsonReader  --note to reviewer: if we still export entire module I simply forgot to delete after debug
+    allStablePackageIds
+  , stablePackagesForVersion
   ) where
 
 import qualified Data.Aeson           as Aeson
@@ -26,8 +25,6 @@ jsonData = $(embedFile JSON_FILE_PATH)
 decoded :: Either String [(Version, T.Text)]
 decoded = Aeson.eitherDecodeStrict jsonData
 
--- | Use VersionReq instead of Version here, to anticipate stable packges with a
--- max version
 entries :: [(VersionReq, PackageId)]
 entries = case decoded of
   Left errMsg

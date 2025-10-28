@@ -26,10 +26,9 @@ da_haskell_library(
         "src/DA/Daml/HardcodedStablePackages.hs",
         "src/DA/Daml/JsonReader.hs",
     ],
-    # 3. Pass the file's location to GHC via a macro
     compiler_flags = [
-        "-XCPP",  # Enable the C Preprocessor
-        '-DJSON_FILE_PATH="$(location stable-packages.json)"',  # pass path of json
+        "-XCPP",  # Enable the C Preprocessor to pass path
+        '-DJSON_FILE_PATH="$(location stable-packages.json)"',
     ],
     extra_srcs = ["stable-packages.json"],
     hackage_deps = [
