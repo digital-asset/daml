@@ -102,9 +102,9 @@ da_scala_benchmark_jmh(
             "@maven//:org_scalaz_scalaz_core",
         ],
         deps = [
+            ":ReplayBenchmark-codegen",
             ":replay-benchmark_compiled_benchmark_lib",
             ":replay-benchmark_generator",
-            ":ReplayBenchmark-codegen",
             ":snapshot",
             "//bazel_tools/runfiles:scala_runfiles",
             "//canton:community_ledger_ledger-common",
