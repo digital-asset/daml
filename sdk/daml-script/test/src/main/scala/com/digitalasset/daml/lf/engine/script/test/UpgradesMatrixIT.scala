@@ -12,9 +12,17 @@ import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.ReadablePackageId
-import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{AdminLedgerClient, GrpcLedgerClient}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
+  AdminLedgerClient,
+  GrpcLedgerClient,
+}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
-import com.digitalasset.daml.lf.engine.{UpgradesMatrix, UpgradesMatrixCases, UpgradesMatrixCasesV2Dev, UpgradesMatrixCasesV2MaxStable}
+import com.digitalasset.daml.lf.engine.{
+  UpgradesMatrix,
+  UpgradesMatrixCases,
+  UpgradesMatrixCasesV2Dev,
+  UpgradesMatrixCasesV2MaxStable,
+}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
@@ -32,17 +40,34 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 // We don't want to afford running all tests for both contract ID versions,
 // so we arbitrarily pick one for each of the suites.
 class UpgradesMatrixIntegration0
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1), 3, 0)
+    extends UpgradesMatrixIntegration(
+      new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1),
+      3,
+      0,
+    )
 class UpgradesMatrixIntegration1
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V2), 3, 1)
+    extends UpgradesMatrixIntegration(
+      new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V2),
+      3,
+      1,
+    )
 class UpgradesMatrixIntegration2
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1), 3, 2)
+    extends UpgradesMatrixIntegration(
+      new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1),
+      3,
+      2,
+    )
 
-class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 0)
-class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 5, 1)
-class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 2)
-class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 5, 3)
-class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 4)
+class UpgradesMatrixIntegration3
+    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 0)
+class UpgradesMatrixIntegration4
+    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 5, 1)
+class UpgradesMatrixIntegration5
+    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 2)
+class UpgradesMatrixIntegration6
+    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 5, 3)
+class UpgradesMatrixIntegration7
+    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 4)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *

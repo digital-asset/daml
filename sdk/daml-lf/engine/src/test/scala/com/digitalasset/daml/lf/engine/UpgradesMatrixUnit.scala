@@ -26,10 +26,14 @@ import scala.concurrent.Future
 // spot (~95s instead of ~185s runtime)
 // We don't want to afford running all tests for both contract ID versions,
 // so we arbitrarily pick one for each of the suites.
-class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V2), 2, 0)
-class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1), 2, 1)
-class UpgradesMatrixUnit2 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 2, 0)
-class UpgradesMatrixUnit3 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 2, 1)
+class UpgradesMatrixUnit0
+    extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V2), 2, 0)
+class UpgradesMatrixUnit1
+    extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1), 2, 1)
+class UpgradesMatrixUnit2
+    extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 2, 0)
+class UpgradesMatrixUnit3
+    extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 2, 1)
 
 /** A test suite to run the UpgradesMatrix matrix directly in the engine
   *
