@@ -3,9 +3,9 @@
 
 module Main(main) where
 
-import qualified Data.Aeson           as Aeson
-import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text            as T
+import qualified Data.Aeson.Encode.Pretty as Aeson
+import qualified Data.ByteString.Lazy     as LBS
+import qualified Data.Text                as T
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.StablePackages
@@ -21,5 +21,5 @@ outputPath = "compiler/damlc/stable-packages/json/stable-packages.json"
 main :: IO ()
 main = do
   putStrLn $ "Generating fresh json data for: " ++ outputPath
-  LBS.writeFile outputPath (Aeson.encode entries)
+  LBS.writeFile outputPath (Aeson.encodePretty entries)
   putStrLn "Successfully wrote dummy stable-packages.json."
