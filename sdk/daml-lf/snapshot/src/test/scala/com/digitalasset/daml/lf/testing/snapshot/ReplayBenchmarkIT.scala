@@ -41,7 +41,7 @@ class ReplayBenchmarkIT(
     super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
 
   override lazy val darPath: Path =
-    Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
+    Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark.dar"))
   override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   override def afterEach(): Unit = {

@@ -20,14 +20,10 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import java.nio.file.{Files, Path}
 
-class ReplayBenchmarkTestV2_V1
-    extends ReplayBenchmarkTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
+class ReplayBenchmarkTestV1
+    extends ReplayBenchmarkTest(ContractIdVersion.V1)
 
-class ReplayBenchmarkTest(
-    majorLanguageVersion: LanguageMajorVersion,
-    contractIdVersion: ContractIdVersion,
-) extends AnyWordSpec
-    with Matchers {
+class ReplayBenchmarkTest(contractIdVersion: ContractIdVersion) extends AnyWordSpec with Matchers {
 
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -45,7 +41,7 @@ class ReplayBenchmarkTest(
   val alice = Ref.Party.assertFromString("Alice")
   val submissionSeed = crypto.Hash.hashPrivateKey("replay snapshot test")
   val (pkgId, darFile) = getMainPkgIdAndDarPath(
-    s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/snapshot/ReplayBenchmark.dar"
   )
 
   "Generating a snapshot" should {
