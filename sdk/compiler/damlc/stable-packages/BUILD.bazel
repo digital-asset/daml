@@ -133,7 +133,6 @@ da_haskell_library(
         '-DYAML_FILE_PATH="$(location stable-packages.yaml)"',
     ],
     extra_srcs = [
-        "stable-packages.json",
         "stable-packages.yaml",
     ],
     hackage_deps = [
