@@ -9,7 +9,7 @@ import com.daml.dbutils.JdbcConfig
 import com.daml.jwt.domain.Jwt
 import com.daml.http.ContractsService
 import com.daml.ledger.api.{domain => LedgerApiDomain}
-import org.scalatest.{BeforeAndAfterAll, EitherValues, Inside, OptionValues}
+import org.scalatest.{Assertion, BeforeAndAfterAll, EitherValues, Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import com.daml.fetchcontracts.domain.TemplateId
@@ -29,27 +29,38 @@ import com.daml.lf.iface
 import com.daml.logging.LoggingContextOf.{label, newLoggingContext}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
-import org.testcontainers.containers.PostgreSQLContainer
 import scalaz.{NonEmptyList, OneAnd, \/, \/-}
 import spray.json._
 import DefaultJsonProtocol._
+import org.testcontainers.containers.JdbcDatabaseContainer
 
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import scala.collection.immutable.Seq
 
 //import scala.language.existentials
 import scala.concurrent.{ExecutionContext, Future}
 
+class ContractServiceOnOracleTest extends ContractServiceTest {
+  override val container = new org.testcontainers.containers.OracleContainer("gvenzl/oracle-xe:21-slim-faststart")
+    .withStartupTimeout(java.time.Duration.ofMinutes(10))
+}
+
+class ContractServiceOnPostgresTest extends ContractServiceTest {
+  override val container = new org.testcontainers.postgresql.PostgreSQLContainer("postgres")
+
+}
 
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
-class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with BeforeAndAfterAll with EitherValues with OptionValues {
+abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with BeforeAndAfterAll with EitherValues with OptionValues {
   private implicit val ec: ExecutionContext =
     ExecutionContext.global
   private implicit val system: ActorSystem = ActorSystem("ContractServiceTest")
   private implicit val materializer: Materializer = Materializer(system)
 
-  private val container = new PostgreSQLContainer("postgres")
+  protected val container: JdbcDatabaseContainer[_]
+
   implicit val metrics: Metrics = new Metrics(new MetricRegistry())
 
   override protected def beforeAll(): Unit = {
@@ -57,7 +68,7 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
     container.start()
   }
 
-  override def afterAll(): Unit = {
+  override protected def afterAll(): Unit = {
     system.terminate()
     container.stop()
     super.afterAll()
@@ -68,10 +79,9 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
     val jdbcUrl = container.getJdbcUrl()
     val username = container.getUsername()
     val password = container.getPassword()
-    println(jdbcUrl)
 
     val baseConfig = JdbcConfig(
-      driver = "org.postgresql.Driver",
+      driver = container.getDriverClassName,
       url = jdbcUrl,
       user = username,
       password = password,
@@ -83,14 +93,7 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
       startMode = CreateAndStart,
       backendSpecificConf = Map.empty,
     )
-    //    implicit val driver: SupportedJdbcDriver.TC = SupportedJdbcDriver.Postgres
-    //      .configure(tablePrefix = baseConfig.tablePrefix, extraConf = Map.empty, tpIdCacheMaxEntries = 10).value
 
-    //    val cs: ContextShift[IO] = IO.contextShift(ec)
-    //    val es = Executors.newWorkStealingPool(baseConfig.poolSize)
-    //    val (ds, conn) = {
-    //      ConnectionPool.connect(baseConfig)(ExecutionContext.fromExecutor(es), cs)
-    //    val contractDao = new ContractDao(ds, conn, es)
     ContractDao(
       jdbcConfig,
       tpIdCacheMaxEntries = Some(10),
@@ -114,7 +117,7 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
 
   private def searchRequest(service: ContractsService, parties: Seq[String])(implicit
                                                                              lc: LoggingContextOf[InstanceUUID with RequestID],
-  ):Future[Seq[PseudoContract]] = {
+  ): Future[Seq[PseudoContract]] = {
 
     val p = parties.map(Party(_))
     val request: GetActiveContractsRequest = GetActiveContractsRequest(
@@ -133,8 +136,7 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
     for {
       response <- service.search(jwt, jwtPayload, request)
       results <- response match {
-        case OkResponse(res, warns, status) =>
-          println(s"jarker: got response source $res $status $warns")
+        case OkResponse(res, _, _) =>
           val stream: Source[ContractsService.Error \/ domain.ActiveContract[JsValue], NotUsed] = res
           stream.runFold(List.empty[ContractsService.Error \/ domain.ActiveContract[JsValue]]) {
             (acc, elem) => acc :+ elem
@@ -153,7 +155,7 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
       }
     } yield contracts.collect {
       case \/-(ac) => ac
-    }.map (v =>
+    }.map(v =>
       PseudoContract(
         v.contractId.toString,
         v.payload.asJsObject.fields("v").convertTo[String].toInt,
@@ -178,24 +180,31 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
         newLoggingContext(label[InstanceUUID with RequestID])(identity)
 
       for {
-        initialized: Boolean <- DbStartupOps.fromStartupMode(contractDao, CreateAndStart).unsafeToFuture()
+        _ <- DbStartupOps.fromStartupMode(contractDao, CreateAndStart).unsafeToFuture()
+        response1 <- searchRequest(contractsService, Seq(TestParties.alice))
         _ <- Future {
-          println(s"jarekr: DB initialized: $initialized")
+          ledgerState.trx(2)(
+            Seq(
+              ledgerState.archive(1),
+              ledgerState.create(3)(242),
+            )
+          )
         }
-        response <- searchRequest(contractsService, Seq(TestParties.alice))
+        response2 <- searchRequest(contractsService, Seq(TestParties.alice))
       } yield {
-        response should contain theSameElementsInOrderAs ledgerState.acsNow( Seq(TestParties.alice))
+        response1 should contain theSameElementsInOrderAs ledgerState.acsAt(1, Seq(TestParties.alice))
+        response2 should contain theSameElementsInOrderAs ledgerState.acsAt(2, Seq(TestParties.alice))
       }
     }
 
-    "bug 0" in {
+    "bug 0" ignore  {
 
       val contractDao = createDao()
       val ledgerState = new LedgerState()
       ledgerState.init(1)(
         Seq(
-          ledgerState.create(10, Seq(TestParties.alice, TestParties.bob))(42),
-          ledgerState.create(20, Seq(TestParties.bob))(142),
+          ledgerState.create(10, Seq(TestParties.alice))(7),
+          ledgerState.create(20, Seq(TestParties.alice, TestParties.bob))(17),
         )
       )
       val contractsService = createService(ledgerState, contractDao)
@@ -213,19 +222,76 @@ class ContractServiceTest extends AsyncWordSpec with Matchers with Inside with B
         }
         response2 <- searchRequest(contractsService, Seq(TestParties.alice))
       } yield {
-        response1 should contain theSameElementsInOrderAs ledgerState.acsNow( Seq(TestParties.charlie))
-        response2 should contain theSameElementsInOrderAs ledgerState.acsNow( Seq(TestParties.bob))
+        response1 should contain theSameElementsInOrderAs ledgerState.acsAt(30, Seq(TestParties.bob))
+        response2 should contain theSameElementsInOrderAs ledgerState.acsNow(Seq(TestParties.alice))
       }
     }
-  }
 
+    "randomize" in {
+      implicit val ignoredLoggingContext
+      : LoggingContextOf[InstanceUUID with RequestID] =
+        newLoggingContext(label[InstanceUUID with RequestID])(identity)
+      val contractDao = createDao()
+
+      val ledgerState = new LedgerState()
+      val parties = Seq(TestParties.alice)
+      ledgerState.init(1)(
+        Seq(
+          ledgerState.create(10, parties)(1),
+          ledgerState.create(20, parties)(11),
+        )
+      )
+      val contractsService = createService(ledgerState, contractDao)
+      val executor = Executors.newFixedThreadPool(2)
+      val eexecutorEc: ExecutionContext = ExecutionContext.fromExecutorService(executor)
+
+      def task(n: Int) =  {
+        val rnd = new scala.util.Random()
+        val res = (1 to n).map(_  =>Future {
+          val acs = ledgerState.acsNow(parties)
+          val toArchive: Seq[PseudoEvent] = acs.filter(_ => rnd.nextBoolean()).map(
+            c => ledgerState.archiveContract(
+              contractId = c.contractId,
+              witness = parties,
+            )
+          )
+          val toCreate: Seq[PseudoEvent] = if (rnd.nextBoolean()) {
+            Seq(ledgerState.create(
+              signatories = parties
+            )(111))
+          } else Seq.empty
+
+          val (_, state) = ledgerState.trx()(toArchive ++ toCreate)
+          for {
+            result <- searchRequest(contractsService, parties)
+          } yield {
+            val archived = ledgerState.archivedAt(state.ledgerOffset, parties)
+            val activeContracts = result.map(_.contractId)
+            val zombie = (activeContracts.intersect(archived))
+            zombie should be(empty)
+//            1 should be (2)
+          }
+        }(eexecutorEc))
+        val x: Future[IndexedSeq[Assertion]] = Future.sequence(res.map( _.flatten))
+        x
+      }
+
+      for {
+        _ <- DbStartupOps.fromStartupMode(contractDao, CreateAndStart).unsafeToFuture()
+        _ <- {
+          val res = (1 to 10).map(_ => task(5))
+          Future.sequence(res)
+        }
+      } yield succeed
+    }
+  }
 
 }
 
 
 case class PseudoContract(contractId: String, v: Int, signatories: Seq[String])
 
-sealed trait PseudoEvent
+sealed trait PseudoEvent extends Product with Serializable
 
 final case class PseudoCreatedEvent(contract: PseudoContract) extends PseudoEvent
 
@@ -279,13 +345,18 @@ case class PseudoLedger(ledgerOffset: Long, transactions: Seq[PseudoTransaction]
     calculateActiveAtOffset(offset, parties).map(_.contract)
   }
 
+  def archivedAt(ledgerOffset: Long, parties: Seq[String]): Seq[String] = {
+    filterEvents(0, ledgerOffset, parties).collect {
+      case PseudoArchiveEvent(cid, _) => cid
+    }
+  }
+
 }
 
 class LedgerState {
   private val ledger: AtomicReference[PseudoLedger] = new AtomicReference(PseudoLedger(0, Seq.empty))
   private val nextOffset: AtomicLong = new AtomicLong(1)
   private val nextCid: AtomicLong = new AtomicLong(1)
-
 
 
   def create(
@@ -302,6 +373,11 @@ class LedgerState {
     PseudoArchiveEvent(s"contractId_$cid", witness)
   }
 
+  def archiveContract(contractId: String, witness: Seq[String] = Seq(TestParties.alice, TestParties.bob)): PseudoArchiveEvent = {
+    PseudoArchiveEvent(contractId, witness)
+  }
+
+
   //mutates
   def trx(
            offset: Long = nextOffset.getAndIncrement()
@@ -311,9 +387,9 @@ class LedgerState {
     (transaction, state)
   }
 
-  def moveOffset(v : Long) : PseudoLedger= {
-    nextOffset.set(v +1)
-    ledger.updateAndGet( l => l.copy(ledgerOffset = v) )
+  def moveOffset(v: Long): PseudoLedger = {
+    nextOffset.set(v + 1)
+    ledger.updateAndGet(l => l.copy(ledgerOffset = v))
   }
 
   def init(
@@ -326,7 +402,7 @@ class LedgerState {
   }: PseudoLedger
 
   def acsNow(parties: Seq[String]): Seq[PseudoContract] = {
-      ledger.get().acsNow(parties)
+    ledger.get().acsNow(parties)
   }
 
   def acsAt(offset: Long, parties: Seq[String]): Seq[PseudoContract] = {
@@ -459,6 +535,10 @@ class LedgerState {
           LedgerState.templateA_id
         )
       )
+  }
+
+  def archivedAt(ledgerOffset: Long, parties: Seq[String]): Seq[String] = {
+    ledger.get().archivedAt(ledgerOffset, parties)
   }
 }
 

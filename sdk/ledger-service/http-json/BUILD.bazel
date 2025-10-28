@@ -264,8 +264,9 @@ daml_compile(
             "@maven//:io_dropwizard_metrics_metrics_core",
             "@maven//:org_scalatest_scalatest_compatible",
             "@maven//:org_testcontainers_testcontainers",
-            "@maven//:org_testcontainers_postgresql",
-            "@maven//:org_testcontainers_jdbc",
+            "@maven//:org_testcontainers_testcontainers_postgresql",
+            "@maven//:org_testcontainers_testcontainers_oracle_xe",
+            "@maven//:org_testcontainers_testcontainers_jdbc",
             "@maven//:junit_junit",
         ],
     )
