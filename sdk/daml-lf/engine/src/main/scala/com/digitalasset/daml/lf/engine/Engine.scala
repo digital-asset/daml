@@ -4,13 +4,8 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.daml.logging.LoggingContext
-import com.daml.nameof.NameOf
-import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
-import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party, TypeConId}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
@@ -21,11 +16,8 @@ import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SEMakeClo, SEValue, SExpr}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
-import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy._
-import com.digitalasset.daml.lf.stablepackages.StablePackages
-import com.digitalasset.daml.lf.testing.snapshot.Snapshot
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
@@ -36,9 +28,6 @@ import com.digitalasset.daml.lf.transaction.{
   VersionedTransaction,
   Transaction => Tx,
 }
-import com.digitalasset.daml.lf.validation.Validation
-import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 
 import java.nio.file.{Files, StandardOpenOption}
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value, ValueCoder}
@@ -60,7 +49,6 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.{Hash, SValueHash}
 import com.digitalasset.daml.lf.data
 
-import scala.annotation.tailrec
 import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
 

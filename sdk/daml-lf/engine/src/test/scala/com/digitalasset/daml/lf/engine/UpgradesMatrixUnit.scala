@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.engine.{Error => EE}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside.inside
 import org.scalatest.{Assertion, ParallelTestExecution}
@@ -24,10 +24,12 @@ import scala.concurrent.Future
 
 // Split the Upgrade unit tests over four suites, which seems to be the sweet
 // spot (~95s instead of ~185s runtime)
-class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 2, 0)
-class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2MaxStable, 2, 1)
-class UpgradesMatrixUnit2 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 2, 0)
-class UpgradesMatrixUnit3 extends UpgradesMatrixUnit(UpgradesMatrixCasesV2Dev, 2, 1)
+// We don't want to afford running all tests for both contract ID versions,
+// so we arbitrarily pick one for each of the suites.
+class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V2), 2, 0)
+class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1), 2, 1)
+class UpgradesMatrixUnit2 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 2, 0)
+class UpgradesMatrixUnit3 extends UpgradesMatrixUnit(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 2, 1)
 
 /** A test suite to run the UpgradesMatrix matrix directly in the engine
   *

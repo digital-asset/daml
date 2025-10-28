@@ -33,7 +33,7 @@ class ReplayBenchmark {
   // path of the ledger entries - i.e. path to file of saved transaction trees
   var entriesFile: String = _
 
-  @Param(Array("V1", "V2"))
+  @Param(Array("V1"))
   // the contract ID version to use for locally created contracts
   var contractIdVersion: String = _
 

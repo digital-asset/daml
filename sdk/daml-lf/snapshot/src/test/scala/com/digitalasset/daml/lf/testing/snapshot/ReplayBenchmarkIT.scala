@@ -17,6 +17,8 @@ import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, FileSystems, Path}
 
+// TODO(#23971) This will likely break when Canton starts to produce V2 contract IDs.
+// Ping Andreas Lochbihler on the #team-daml-language slack channel when this happens.
 class ReplayBenchmarkITV2_V1
     extends ReplayBenchmarkIT(LanguageMajorVersion.V2, ContractIdVersion.V1)
 

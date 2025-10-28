@@ -2742,6 +2742,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
           participantId = participant,
           submissionSeed = hash("contract with trailing nones"),
+          contractIdVersion = contractIdVersion,
           prefetchKeys = Seq.empty,
         )
         .consume(
