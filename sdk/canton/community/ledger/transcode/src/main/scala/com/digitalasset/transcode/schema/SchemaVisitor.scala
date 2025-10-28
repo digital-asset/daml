@@ -103,14 +103,11 @@ trait SchemaVisitor {
   def party: Type
 
   /** Contract Id, parametrized with the processor for corresponding template */
-  def contractId(template: Type): Type
+  def contractId: Type
 
   ///////////
   // other //
   ///////////
-
-  /** Interface. Used in code-gens. There is no representation of interface in Dynamic Value */
-  def interface(name: Identifier): Type
 
   /** Type Variable.
     *
@@ -183,10 +180,7 @@ object SchemaVisitor {
 
     override def party: Type = (left.party, right.party)
 
-    override def contractId(template: Type): Type =
-      (left.contractId(template._1), right.contractId(template._2))
-
-    override def interface(id: Identifier): Type = (left.interface(id), right.interface(id))
+    override def contractId: Type = (left.contractId, right.contractId)
 
     override def variable(name: TypeVarName, value: Type): Type =
       (left.variable(name, value._1), right.variable(name, value._2))
@@ -235,9 +229,7 @@ object SchemaVisitor {
 
     override def party: Type = {}
 
-    override def contractId(template: Type): Type = {}
-
-    override def interface(id: Identifier): Type = {}
+    override def contractId: Type = {}
 
     override def variable(name: TypeVarName, value: Type): Type = {}
   }

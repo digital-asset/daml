@@ -1671,7 +1671,7 @@ class TopologyAdministrationGroup(
         psid.protocolVersion,
       )
 
-      val newKeys = updatedTransaction.mapping.signingKeys.diff(current.item.signingKeys)
+      val newKeys = updatedTransaction.mapping.signingKeysNE.diff(current.item.signingKeysNE)
       // New keys should sign the transaction
       val newSignatures = newKeys.map { newKey =>
         consoleEnvironment.global_secret.sign(
@@ -1853,6 +1853,8 @@ class TopologyAdministrationGroup(
       threshold: The threshold is `1` for regular parties and larger than `1` for "consortium parties". The threshold
                  indicates how many participant confirmations are needed in order to confirm a Daml transaction on
                  behalf the party.
+      partySigningKeys: Party signing keys with threshold. If specified, the keys will be taken from this field.
+                        Otherwise, they have to be specified earlier in PartyToKey mappings.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
       serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
               This transaction will be rejected if another fully authorized transaction with the same serial already
@@ -1876,6 +1878,7 @@ class TopologyAdministrationGroup(
         party: PartyId,
         newParticipants: Seq[(ParticipantId, ParticipantPermission)],
         threshold: PositiveInt = PositiveInt.one,
+        partySigningKeys: Option[SigningKeysWithThreshold] = None,
         serial: Option[PositiveInt] = None,
         signedBy: Seq[Fingerprint] = Seq.empty,
         operation: TopologyChangeOp = TopologyChangeOp.Replace,
@@ -1898,6 +1901,7 @@ class TopologyAdministrationGroup(
               onboarding = participantsRequiringPartyToBeOnboarded.contains(pid),
             )
           },
+          partySigningKeys,
         ),
         signedBy = signedBy,
         serial = serial,

@@ -36,13 +36,13 @@ trait RoutingSynchronizerState {
     *   error if the requested synchronizer is not connected
     */
   def getTopologySnapshotFor(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshotLoader]
 
   def getTopologySnapshotFor(
-      synchronizerId: Target[PhysicalSynchronizerId]
+      targetPSId: Target[PhysicalSynchronizerId]
   ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshotLoader]] =
-    getTopologySnapshotFor(synchronizerId.unwrap).map(Target(_))
+    getTopologySnapshotFor(targetPSId.unwrap).map(Target(_))
 
   def getSynchronizersOfContracts(
       coids: Seq[LfContractId]

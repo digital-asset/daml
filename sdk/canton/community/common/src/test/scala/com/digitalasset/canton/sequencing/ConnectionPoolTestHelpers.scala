@@ -14,7 +14,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceS
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, SynchronizerCrypto}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasUnlessClosing, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.{CommonMockMetrics, SequencerConnectionPoolMetrics}
 import com.digitalasset.canton.networking.Endpoint
@@ -362,17 +362,19 @@ protected object ConnectionPoolTestHelpers {
         member: Member,
         preSubscriptionEventO: Option[ProcessingSerializedEvent],
         subscriptionHandlerFactory: SubscriptionHandlerXFactory,
+        parent: HasUnlessClosing,
     )(implicit
         traceContext: TraceContext,
         ec: ExecutionContext,
     ): SequencerSubscriptionX[SequencerClientSubscriptionError] =
       new SequencerSubscriptionX(
-        connection,
-        member,
-        None,
-        _ => FutureUnlessShutdown.pure(Right(())),
-        timeouts,
-        loggerFactory,
+        connection = connection,
+        member = member,
+        startingTimestampO = None,
+        handler = _ => FutureUnlessShutdown.pure(Right(())),
+        parent = parent,
+        timeouts = timeouts,
+        loggerFactory = loggerFactory,
       )
   }
 

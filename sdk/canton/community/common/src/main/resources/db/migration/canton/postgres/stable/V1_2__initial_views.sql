@@ -614,17 +614,18 @@ create or replace view debug.common_topology_transactions as
     debug.topology_mapping(transaction_type) as transaction_type,
     namespace,
     identifier,
-    mapping_key_hash,
+    lower(encode(mapping_key_hash, 'hex')) as mapping_key_hash,
     serial_counter,
     debug.canton_timestamp(valid_from) as valid_from,
+    batch_idx,
     debug.canton_timestamp(valid_until) as valid_until,
     debug.topology_change_op(operation) as operation,
     instance,
-    tx_hash,
+    lower(encode(tx_hash, 'hex')) as tx_hash,
     rejection_reason,
     is_proposal,
     representative_protocol_version,
-    hash_of_signatures
+    lower(encode(hash_of_signatures, 'hex')) as hash_of_signatures
   from common_topology_transactions;
 
 create or replace view debug.seq_traffic_control_balance_updates as

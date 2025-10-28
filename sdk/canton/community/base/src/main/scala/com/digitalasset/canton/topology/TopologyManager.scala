@@ -157,9 +157,9 @@ class SynchronizerTopologyManager(
         EffectiveTime(ts),
         transactions,
         expectFullAuthorization = expectFullAuthorization,
-        // the synchronizer topology manager does not permit missing signing key signatures,
+        // the synchronizer topology manager does not permit weaker validation checks,
         // because these transactions would be rejected during the validating after sequencing.
-        transactionMayHaveMissingSigningKeySignatures = false,
+        relaxChecksForBackwardsCompatibility = false,
       )
   } yield {
     val (txs, asyncResult) = validationResult
@@ -268,9 +268,9 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
               EffectiveTime(ts),
               Seq(transaction),
               expectFullAuthorization = expectFullAuthorization,
-              // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
+              // we allow importing older topology state such as OTK with missing signing key signatures into a temporary topology store,
               // so that we can import legacy OTKs for debugging/investigation purposes
-              transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
+              relaxChecksForBackwardsCompatibility = store.storeId.isTemporaryStore,
             )
 
         } yield {
@@ -856,7 +856,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         transaction.mapping.code,
       )
 
-    case PartyToParticipant(partyId, threshold, participants) =>
+    case PartyToParticipant(partyId, threshold, participants, _) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
         threshold,
@@ -1046,7 +1046,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         .map {
           _.collectOfMapping[PartyToParticipant].collectLatestByUniqueKey.toTopologyState
             .collectFirst {
-              case PartyToParticipant(_, currentThreshold, currentHostingParticipants) =>
+              case PartyToParticipant(_, currentThreshold, currentHostingParticipants, _) =>
                 Some(currentThreshold) -> currentHostingParticipants
             }
             .getOrElse(None -> Nil)
@@ -1161,19 +1161,21 @@ object TopologyManager {
       forSigning: Boolean,
   ): NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]] = {
 
-    def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth match {
-      case RequiredAuth.RequiredNamespaces(_, extraKeys) => extraKeys.isEmpty
-      case RequiredAuth.Or(first, second) => onlyNamespaceAuth(first) && onlyNamespaceAuth(second)
-    }
+    def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth.referenced.isEmpty
 
     // True if the mapping must be signed only by a namespace key but not extra keys
     val strictNamespaceAuth = onlyNamespaceAuth(mapping.requiredAuth(None))
 
     mapping match {
-      // The following topology mapping requires to prove the ownership of the mapped keys, used by OwnerToKeyMapping and PartyToKeyMapping
+      // Keys defined in Keymappings must prove the ownership of the mapped keys
       case keyMapping: KeyMapping if !strictNamespaceAuth =>
-        val mappedKeyIds = keyMapping.mappedKeys.toSet.map(_.id)
+        val mappedKeyIds = keyMapping.mappedKeys.toSet.map[Fingerprint](_.id)
+        val namespaceKeyForSelfAuthorization =
+          keyMapping.namespaceKeyForSelfAuthorization.map(_.fingerprint)
         signingKeys.map {
+          case keyId if namespaceKeyForSelfAuthorization.contains(keyId) =>
+            // the key specified for self-authorization must be a namespace key
+            keyId -> SigningKeyUsage.NamespaceOnly
           case keyId if mappedKeyIds.contains(keyId) =>
             if (forSigning)
               // the mapped keys need to prove ownership

@@ -12,19 +12,13 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractAndKeyLookup
-import com.digitalasset.canton.participant.util.DAMLe.{
-  ContractEnricher,
-  EnrichmentError,
-  HasReinterpret,
-  PackageResolver,
-  ReInterpretationResult,
-  TransactionEnricher,
-}
+import com.digitalasset.canton.participant.util.DAMLe.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
-import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
@@ -32,7 +26,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.engine.{Enricher as _, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
 import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, FatContractInstance}
@@ -88,7 +81,6 @@ object DAMLe {
     * must have been validated so that [[com.digitalasset.daml.lf.engine.Engine]] can skip
     * validation.
     */
-  type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
   private type Enricher[I, O] = I => TraceContext => EitherT[
     FutureUnlessShutdown,
     ReinterpretationError,

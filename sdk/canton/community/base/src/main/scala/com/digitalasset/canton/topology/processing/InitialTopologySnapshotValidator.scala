@@ -4,13 +4,14 @@
 package com.digitalasset.canton.topology.processing
 
 import cats.data.EitherT
-import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.crypto.CryptoPureApi
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.topology.TopologyStateProcessor
+import com.digitalasset.canton.topology.processing.InitialTopologySnapshotValidator.MergeTx
+import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -18,6 +19,7 @@ import com.digitalasset.canton.topology.store.{
   TopologyStore,
   TopologyStoreId,
 }
+import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.transaction.checks.RequiredTopologyMappingChecks
 import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
@@ -29,6 +31,8 @@ import com.digitalasset.canton.util.MonadUtil.syntax.*
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
+import java.util.concurrent.atomic.AtomicReference
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 /** Validates an initial topology snapshot by:
@@ -45,6 +49,14 @@ import scala.concurrent.ExecutionContext
   * Also compares the computed effective time with the effective provided in the snapshot.
   *
   * Any inconsistency between the topology snapshot and the outcome of the validation is reported.
+  *
+  * @param validateInitialSnapshot
+  *   if false, the validation is skipped and the snapshot is directly imported. this is risky as it
+  *   might create a fork if the validation was changed. therefore, we only use this with great
+  *   care. the proper solution is to make validation so fast that it doesn't impact performance.
+  * @param cleanupTopologySnapshot
+  *   if true, then we will clean up the topology snapshot (used for hard migration to clean up the
+  *   genesis state)
   */
 class InitialTopologySnapshotValidator(
     pureCrypto: CryptoPureApi,
@@ -52,6 +64,7 @@ class InitialTopologySnapshotValidator(
     staticSynchronizerParameters: Option[StaticSynchronizerParameters],
     validateInitialSnapshot: Boolean,
     override val loggerFactory: NamedLoggerFactory,
+    cleanupTopologySnapshot: Boolean = false,
 )(implicit ec: ExecutionContext, materializer: Materializer)
     extends NamedLogging {
 
@@ -62,7 +75,6 @@ class InitialTopologySnapshotValidator(
         store,
         staticSynchronizerParameters,
         loggerFactory,
-        relaxSynchronizerStateChecks = true,
       ),
       pureCrypto,
       loggerFactory,
@@ -80,14 +92,12 @@ class InitialTopologySnapshotValidator(
   final def validateAndApplyInitialTopologySnapshot(
       initialSnapshot: GenericStoredTopologyTransactions
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val finalSnapshot = preprocessInitialSnapshot(initialSnapshot)
+    val finalSnapshot =
+      if (cleanupTopologySnapshot) preprocessInitialSnapshot(initialSnapshot) else initialSnapshot
     if (!validateInitialSnapshot) {
       logger.info("Skipping initial topology snapshot validation")
       EitherT.right(store.bulkInsert(finalSnapshot))
     } else {
-      logger.info(
-        s"Validating ${finalSnapshot.result.size}/${initialSnapshot.result.size} transactions to initialize the topology store ${store.storeId}"
-      )
       val groupedBySequencedTime: Seq[
         (
             (SequencedTime, EffectiveTime),
@@ -99,7 +109,9 @@ class InitialTopologySnapshotValidator(
         .toSeq
         // ensure that the groups of transactions come in the correct order
         .sortBy { case (timestamps, _) => timestamps }
-
+      logger.info(
+        s"Validating ${finalSnapshot.result.size}/${initialSnapshot.result.size} transactions to initialize the topology store ${store.storeId} with ${groupedBySequencedTime.size} sequencer times"
+      )
       for {
         _ <- EitherT.right(store.deleteAllData())
         _ <-
@@ -132,8 +144,8 @@ class InitialTopologySnapshotValidator(
           mismatch
             .map { case ((fromInitial, fromStore), idx) =>
               s"""Mismatch between transactions at index $idx from the initial snapshot and the topology store:
-           |Initial: $fromInitial
-           |Store:   $fromStore""".stripMargin
+           |Initial: $fromInitial (hash=${fromInitial.hash})
+           |Store:   $fromStore (hash=${fromStore.hash})""".stripMargin
             }
             .toLeft(())
         )
@@ -145,107 +157,80 @@ class InitialTopologySnapshotValidator(
     }
   }
 
-  /** The following preprocessing is necessary because the topology transactions have been assigned
-    * the same timestamp upon export and it's possible that the following situation happened:
-    * {{{
-    * original store:
-    * ts1: tx hashOfSignatures = h1, validFrom = ts1, validUntil = ts2
-    * ts2: tx hashOfSignatures = h1, validFrom = ts2
-    * }}}
-    * since the topology transaction was stored at two different timestamps, they were inserted into
-    * the table just as expected. but upon export the transactions have the same timestamp:
-    * {{{
-    * initial snapshot:
-    * ts1: tx hashOfSignatures = h1, validFrom = ts1, validUntil = ts1
-    * ts1: tx hashOfSignatures = h1, validFrom = ts1
-    * }}}
-    * --------------- Therefore the second insert would be ignored because of the deduplication via
-    * the unique index and "on conflict do nothing". To work around this, we combine the two
-    * transaction entries (they are literally the same) by doing the following:
-    *   - take the validFrom value from the first occurrence
-    *   - take the validUntil value from the last occurrence
-    *   - only retain the first occurrence of the transaction with the updated validFrom/validUntil.
-    *     We need to do this because there could be another transaction between the duplicates, that
-    *     depends on the first duplicate to have been valid.
+  /** Fix the initial snapshot from mainnet
+    *
+    * In the older times, we had to deduplicate and merge transactions here as they were merged in
+    * the state processor. This is no longer the case. We just process and store the transactions as
+    * we receive them. However, the topology state on mainnet as of 3.3 became dirty due to a bug
+    * which threw away the signatures added after the transaction became active. The state was
+    * correct, but just the signatures were dropped.
+    * https://github.com/DACH-NY/canton-network-internal/issues/2116
+    *
+    * These transactions are fixed here now by just aggregating all signatures for the same
+    * transaction hash for the non-proposals.
     */
   private def preprocessInitialSnapshot(
       initialSnapshot: GenericStoredTopologyTransactions
-  )(implicit traceContext: TraceContext): GenericStoredTopologyTransactions =
-    StoredTopologyTransactions(
-      initialSnapshot.result
-        // first retain the global order of the topology transactions within the snapshot
-        .zipWithIndex
-        // Find the transaction entries with the same set of signing keys at the same sequenced timestamp.
-        // The problematic scenario above is only relevant for the genesis snapshot, in which all topology
-        // transactions have the same sequenced/effective time.
-        // However, for onboarding snapshots (no matter which node), we MUST not merge transactions from
-        // different timestamps, because each transaction may affect the epsilon tracker and therefore
-        // must be preserved.
-        // The grouping is done with the set of signatures and specifically not hashOfSignatures,
-        // because legacy transactions allowed multiple signatures with the same key, but due to signature deduplication,
-        // this could lead to transactions ending up being (silently) deduplicated due to the unique key in the database table.
-        // This causes a mismatch between the transactions-to-be-validated and the transactions-actually-persisted.
-        // For more details, see canton#27390
-        .groupBy1 { case (tx, _idx) =>
-          (tx.sequenced, tx.hash, tx.transaction.signatures.map(_.authorizingLongTermKey))
-        }
-        .toSeq
-        .flatMap { case ((sequenced, _, _), transactions) =>
-          // onboarding snapshots should only have a single transaction per bucket, because topology
-          // transactions are compacted (see `TopologyStateProcessor`) and the effective times are preserved.
-
-          // genesis snapshots produced by canton (and not assembled manually by a user) do not contain
-          // rejected transactions.
-
-          // NOTICE: given the above assumptions, there should not be a need for the partitioning of the
-          // topology transactions, but we keep it in to potentially handle a snapshot correctly that we wouldn't otherwise.
-
-          // for all non-rejected transactions with the same hash of signatures,
-          // only retain a single entry
-          // * at the lowest index (ie earliest occurrence),
-          // * with validFrom of the lowest index (i.e. earliest occurrence),
-          // * with validUntil of the highest index (i.e. latest occurrence)
-          //
-          // All rejected transactions can stay in the snapshot as they are.
-          //
-          // Proposals do not need special treatment, because they should have
-          // different sets of signatures and not enough signatures to be fully authorized.
-          // Therefore, proposals should end up in separate groups of transactions, or
-          // they can be merged regardless.
-          val (nonRejected, rejected) = transactions.partition { case (tx, _idx) =>
-            tx.rejectionReason.isEmpty
+  )(implicit traceContext: TraceContext): GenericStoredTopologyTransactions = {
+    val cleaned = mutable.ArrayBuffer.newBuilder[MergeTx]
+    val previous = mutable.Map.empty[TxHash, MergeTx]
+    initialSnapshot.result.zipWithIndex
+      .filter { case (tx, idx) =>
+        if (tx.transaction.isProposal && tx.validUntil.nonEmpty) {
+          logger.info(s"Dropping completed proposal at idx=$idx $tx")
+          false
+        } else true
+      }
+      .foreach { case (stored, idx) =>
+        // do not modify rejected transactions or proposals
+        if (stored.rejectionReason.nonEmpty || stored.transaction.isProposal) {
+          if (stored.transaction.isProposal) {
+            require(
+              !previous.contains(stored.hash),
+              s"At $idx, found proposal after another transaction with the same hash: " + stored + s" vs pending=${previous
+                  .get(stored.hash)}",
+            )
           }
-          // only merge non-rejected transactions
-          val mergedNonRejected = NonEmpty
-            .from(nonRejected)
-            .map { nonRejectedNE =>
-              val (txWithMinIndex, minIndex) = nonRejectedNE.minBy1 { case (tx_, idx) => idx }
-              val (txWithMaxIndex, _) = nonRejectedNE.maxBy1 { case (tx_, idx) => idx }
-              val retainedTransaction =
-                txWithMinIndex.copy(validUntil = txWithMaxIndex.validUntil)
-              if (nonRejectedNE.sizeIs > 1) {
-                logger.info(s"""Combining duplicate valid transactions at $sequenced
-                     |originals: $nonRejected
-                     |result  : $retainedTransaction""".stripMargin)
-              }
-              (
-                (
-                  retainedTransaction,
-                  minIndex,
-                ),
+          cleaned.addOne(MergeTx(idx, stored))
+        } else {
+          // merge signatures from previous occurrences of the same transaction
+          previous.get(stored.hash) match {
+            case Some(existing) if existing.tx != stored =>
+              require(
+                existing.newValidUntil.get().contains(stored.validFrom),
+                s"At $idx, replace tx does not overlap: $existing vs $stored",
               )
-
-            }
-            .toList
-          // return the merged and the rejected transactions.
-          // sorting by index to retain the original order will happen afterwards
-          (mergedNonRejected ++ rejected)
+              val txWithMergedSignatures = stored.copy(transaction =
+                stored.transaction.addSignatures(existing.tx.transaction.signatures)
+              )
+              if (
+                txWithMergedSignatures.transaction.signatures != existing.tx.transaction.signatures
+              ) {
+                logger.debug(
+                  s"At $idx, merging at ${stored.validFrom} from ${existing.tx.validFrom}(idx=${existing.idx}) existing signatures by ${(existing.tx.transaction.signatures -- stored.transaction.signatures)
+                      .map(_.authorizingLongTermKey)} into\n  $txWithMergedSignatures"
+                )
+                val mergeTxWithNewSignatures = MergeTx(idx, txWithMergedSignatures)
+                previous.put(txWithMergedSignatures.hash, mergeTxWithNewSignatures).discard
+                cleaned.addOne(mergeTxWithNewSignatures)
+              } else {
+                logger.debug(
+                  s"At $idx, no new signatures to merge at ${stored.validFrom} from ${existing.tx.validFrom}, therefore dropping new and overriding valid until of existing: $stored"
+                )
+                existing.newValidUntil.set(stored.validUntil).discard
+              }
+            case Some(duplicate) =>
+              logger.info(s"At $idx, ignoring observed duplicate transaction: $duplicate")
+            case None =>
+              val mergeTx = MergeTx(idx, stored)
+              previous.put(stored.hash, mergeTx).discard
+              cleaned.addOne(mergeTx)
+          }
         }
-        // re-establish the original order by index
-        .sortBy { case (_tx, idx) => idx }
-        // throw away the index
-        .map { case (tx, _idx) => tx }
-    )
+      }
+    StoredTopologyTransactions(cleaned.result().map(_.adjusted).toSeq)
+
+  }
 
   private def processTransactionsAtSequencedTime(
       sequenced: SequencedTime,
@@ -262,16 +247,21 @@ class InitialTopologySnapshotValidator(
             expectFullAuthorization = false,
             // when validating the initial snapshot, missing signing key signatures are only
             // acceptable, if the transaction was part of the genesis topology snapshot
-            transactionMayHaveMissingSigningKeySignatures =
+            relaxChecksForBackwardsCompatibility =
               sequenced.value == SignedTopologyTransaction.InitialTopologySequencingTime,
-            // The snapshot might contain transactions that only add additional
-            // signatures. Since the genesis snapshot usually has all transactions at the same timestamp
-            // and we compare the provided snapshot with what is stored one-by-one,
-            // we don't want to compact during the validation of the initial snapshot, as this
-            // would combine multiple transactions into one.
-            compactTransactions = false,
           )
       )
       .map(_ => ())
 
+}
+
+object InitialTopologySnapshotValidator {
+  private final case class MergeTx(idx: Int, tx: GenericStoredTopologyTransaction) {
+    val newValidUntil: AtomicReference[Option[EffectiveTime]] = new AtomicReference(tx.validUntil)
+    def adjusted: GenericStoredTopologyTransaction = if (tx.validUntil == newValidUntil.get()) tx
+    else
+      tx.copy(
+        validUntil = newValidUntil.get()
+      )
+  }
 }

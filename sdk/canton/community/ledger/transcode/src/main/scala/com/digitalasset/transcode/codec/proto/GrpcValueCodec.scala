@@ -153,10 +153,8 @@ object GrpcValueCodec extends SchemaVisitor {
   override def date: Type =
     primitive(v => Sum.Date(v.date), v => DynamicValue.Date(v.getDate))
 
-  override def contractId(template: Type): Type =
+  override def contractId: Type =
     primitive(v => Sum.ContractId(v.contractId), v => DynamicValue.ContractId(v.getContractId))
-
-  override def interface(id: Identifier): Type = unit
 
   override def variable(name: TypeVarName, value: Type): Type = value
 

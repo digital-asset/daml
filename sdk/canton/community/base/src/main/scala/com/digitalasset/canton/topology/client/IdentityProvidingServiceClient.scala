@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{
   EncryptionPublicKey,
   PublicKey,
   SigningKeyUsage,
+  SigningKeysWithThreshold,
   SigningPublicKey,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
@@ -33,7 +34,6 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.client.PartyKeyTopologySnapshotClient.PartyAuthorizationInfo
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -371,33 +371,6 @@ object PartyTopologySnapshotClient {
   }
 }
 
-/** The subset of the topology client, providing the party related key information */
-trait PartyKeyTopologySnapshotClient {
-
-  this: BaseTopologySnapshotClient =>
-
-  /** returns authorization information for the party, including signing keys and threshold */
-  def partyAuthorization(party: PartyId)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PartyAuthorizationInfo]]
-
-}
-
-object PartyKeyTopologySnapshotClient {
-
-  /** party key information
-    *
-    * @param threshold
-    *   how many signatures we require to have for the given party to authorize a transaction
-    * @param signingKeys
-    *   the valid signing keys for the given party
-    */
-  final case class PartyAuthorizationInfo(
-      threshold: PositiveInt,
-      signingKeys: NonEmpty[Seq[SigningPublicKey]],
-  )
-}
-
 /** The subset of the topology client, providing signing and encryption key information */
 trait KeyTopologySnapshotClient {
 
@@ -449,6 +422,12 @@ trait KeyTopologySnapshotClient {
       limit: Int,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Member, KeyCollection]]
 
+  /** Returns party authorization info for a party. Keys defined in the PartyToParticipant mapping
+    * take precedence over keys defined in PartyToKeyMapping.
+    */
+  def signingKeysWithThreshold(party: PartyId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[SigningKeysWithThreshold]]
 }
 
 /** The subset of the topology client, providing participant state information */
@@ -705,7 +684,6 @@ trait TopologySnapshot
     with SequencerSynchronizerStateClient
     with SynchronizerGovernanceSnapshotClient
     with MembersTopologySnapshotClient
-    with PartyKeyTopologySnapshotClient
     with SynchronizerUpgradeClient { this: BaseTopologySnapshotClient & NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient

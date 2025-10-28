@@ -39,6 +39,7 @@ import com.digitalasset.canton.networking.grpc.CantonMutableHandlerRegistry
 import com.digitalasset.canton.replica.ReplicaManager
 import com.digitalasset.canton.resource.{Storage, StorageSingleFactory}
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
+import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
@@ -175,6 +176,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
     override protected def customNodeStages(
         storage: Storage,
+        indexedStringStore: IndexedStringStore,
         crypto: Crypto,
         adminServerRegistry: CantonMutableHandlerRegistry,
         adminTokenDispenser: CantonAdminTokenDispenser,

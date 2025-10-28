@@ -126,7 +126,7 @@ create index idx_common_party_metadata_notified on common_party_metadata(notifie
 -- Stores the dispatching watermarks
 create table common_topology_dispatching (
   -- the target store we are dispatching to (from is always authorized)
-  store_id varchar collate "C" not null primary key,
+  store_id integer not null primary key,
   -- the dispatching watermark
   watermark_ts bigint not null
 );
@@ -715,7 +715,7 @@ create table common_topology_transactions (
   -- identifier used to preserve insertion order
   id bigint generated always as identity primary key,
   -- the id of the store
-  store_id varchar collate "C" not null,
+  store_id integer not null,
   -- the timestamp at which the transaction is sequenced by the sequencer
   -- UTC timestamp in microseconds relative to EPOCH
   sequenced bigint not null,
@@ -729,7 +729,7 @@ create table common_topology_transactions (
   identifier varchar collate "C" not null,
   -- The topology mapping key hash, to uniquify and aid efficient lookups.
   -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-  mapping_key_hash varchar collate "C" not null,
+  mapping_key_hash bytea not null,
   -- the serial_counter describes the change order within transactions of the same mapping_key_hash
   -- (redundant also embedded in instance)
   serial_counter integer not null,
@@ -737,6 +737,9 @@ create table common_topology_transactions (
   -- so `TopologyChangeOp.Replace` transactions have an effect for valid_from < t <= valid_until
   -- a `TopologyChangeOp.Remove` will have valid_from = valid_until
   valid_from bigint not null,
+  -- batch index used to deduplicate proposals within a single batch
+  -- this means that valid_from, batch_idx must be unique
+  batch_idx integer not null,
   valid_until bigint null,
   -- operation
   -- 1: Remove
@@ -746,7 +749,7 @@ create table common_topology_transactions (
   instance bytea not null,
   -- The transaction hash, to uniquify and aid efficient lookups.
   -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
-  tx_hash varchar collate "C" not null,
+  tx_hash bytea  not null,
   -- flag / reason why this transaction is being rejected
   -- therefore: if this field is NULL, then the transaction is included. if it is non-null shows the reason why it is invalid
   rejection_reason varchar collate "C" null,
@@ -757,9 +760,9 @@ create table common_topology_transactions (
   representative_protocol_version integer not null,
   -- the hash of the transaction's signatures. this disambiguates multiple transactions/proposals with the same
   -- tx_hash but different signatures
-  hash_of_signatures varchar collate "C" not null,
+  hash_of_signatures bytea not null,
   -- index used for idempotency during crash recovery
-  unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures, tx_hash)
+  unique (store_id, valid_from, batch_idx)
 );
 create index idx_common_topology_transactions on common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
 
@@ -782,6 +785,8 @@ create index idx_common_topology_transactions_for_valid_until_update
   on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from)
   where valid_until is null;
 
+create index idx_common_topology_transactions_for_old_unique_idx
+    on common_topology_transactions (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, tx_hash);
 
 -- Stores the traffic purchased entry updates
 create table seq_traffic_control_balance_updates (

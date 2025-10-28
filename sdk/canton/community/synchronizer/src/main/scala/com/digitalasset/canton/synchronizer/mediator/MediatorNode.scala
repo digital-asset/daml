@@ -259,6 +259,7 @@ class MediatorNodeBootstrap(
 
   private class WaitForMediatorToSynchronizerInit(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -317,32 +318,40 @@ class MediatorNodeBootstrap(
             PhysicalSynchronizerId,
         )
     ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
-      val (staticSynchronizerParameters, psid) = result
-      val synchronizerTopologyStore =
-        TopologyStore(
-          SynchronizerStore(psid),
-          storage,
-          staticSynchronizerParameters.protocolVersion,
-          timeouts,
-          parameters.batchingConfig,
-          loggerFactory,
-        )
-      addCloseable(synchronizerTopologyStore)
 
-      EitherT.rightT(
-        new StartupNode(
-          storage,
-          SynchronizerCrypto(crypto, staticSynchronizerParameters),
-          adminServerRegistry,
-          adminTokenDispenser,
-          mediatorId,
-          staticSynchronizerParameters,
-          authorizedTopologyManager,
-          synchronizerConfigurationStore,
-          synchronizerTopologyStore,
-          healthService,
+      val (staticSynchronizerParameters, psid) = result
+
+      EitherT
+        .right(
+          TopologyStore
+            .create(
+              SynchronizerStore(psid),
+              storage,
+              indexedStringStore,
+              staticSynchronizerParameters.protocolVersion,
+              timeouts,
+              parameters.batchingConfig,
+              loggerFactory,
+            )
         )
-      )
+        .map { synchronizerTopologyStore =>
+          addCloseable(synchronizerTopologyStore)
+
+          new StartupNode(
+            storage,
+            indexedStringStore,
+            SynchronizerCrypto(crypto, staticSynchronizerParameters),
+            adminServerRegistry,
+            adminTokenDispenser,
+            mediatorId,
+            staticSynchronizerParameters,
+            authorizedTopologyManager,
+            synchronizerConfigurationStore,
+            synchronizerTopologyStore,
+            healthService,
+          )
+        }
+
     }
 
     override def waitingFor: Option[WaitingForExternalInput] = Some(
@@ -400,6 +409,7 @@ class MediatorNodeBootstrap(
 
   private class StartupNode(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: SynchronizerCrypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -470,14 +480,6 @@ class MediatorNodeBootstrap(
             createSynchronizerTopologyManager()
           )
           synchronizerOutboxFactory = createSynchronizerOutboxFactory(synchronizerTopologyManager)
-
-          indexedStringStore = IndexedStringStore.create(
-            storage,
-            parameters.cachingConfigs.indexedStrings,
-            timeouts,
-            synchronizerLoggerFactory,
-          )
-          _ = addCloseable(indexedStringStore)
 
           _ <- EitherT.right[String](
             replicaManager.setup(
@@ -791,6 +793,7 @@ class MediatorNodeBootstrap(
 
   override protected def customNodeStages(
       storage: Storage,
+      indexedStringStore: IndexedStringStore,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
       adminTokenDispenser: CantonAdminTokenDispenser,
@@ -801,6 +804,7 @@ class MediatorNodeBootstrap(
   ): BootstrapStageOrLeaf[MediatorNode] =
     new WaitForMediatorToSynchronizerInit(
       storage,
+      indexedStringStore,
       crypto,
       adminServerRegistry,
       adminTokenDispenser,

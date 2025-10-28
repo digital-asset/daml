@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.javaapi.data
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.config
@@ -79,10 +80,13 @@ trait HasCycleUtils {
       participant: ParticipantReference,
       commandId: String = "",
   ): Unit = {
-    val coids = participant.ledger_api.javaapi.state.acs.filter(M.Cycle.COMPANION)(partyId)
-    clue("submitting responses for cleanup") {
-      archiveCycleContracts(participant, partyId, coids, commandId)
-    }
+    NonEmpty
+      .from(participant.ledger_api.javaapi.state.acs.filter(M.Cycle.COMPANION)(partyId))
+      .foreach(coidsNE =>
+        clue(s"submitting ${coidsNE.size} response(s) for cleanup") {
+          archiveCycleContracts(participant, partyId, coidsNE, commandId)
+        }
+      )
 
     eventually() {
       participantAcs(participant, partyId) shouldBe empty
@@ -180,7 +184,7 @@ trait HasCycleUtils {
   def archiveCycleContracts(
       participant: ParticipantReference,
       partyId: PartyId,
-      coids: Seq[Cycle.Contract],
+      coids: NonEmpty[Seq[Cycle.Contract]],
       commandId: String = "",
   ): Unit = {
     val cycleExs = coids.map(_.id.exerciseArchive().commands.loneElement)

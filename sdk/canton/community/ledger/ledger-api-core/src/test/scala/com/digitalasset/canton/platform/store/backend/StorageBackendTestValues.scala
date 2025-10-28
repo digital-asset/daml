@@ -82,8 +82,9 @@ private[store] object StorageBackendTestValues extends OptionValues {
   val someSynchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::sourcesynchronizer")
   val someSynchronizerId2: SynchronizerId = SynchronizerId.tryFromString("x::targetsynchronizer")
 
+  val testTraceContext = TraceContext.withNewTraceContext("test trace context")(identity)
   val serializableTraceContext: Array[Byte] =
-    SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
+    SerializableTraceContext(testTraceContext).toDamlProto.toByteArray
   val someExternalTransactionHash: CantonHash =
     CantonHash
       .digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)

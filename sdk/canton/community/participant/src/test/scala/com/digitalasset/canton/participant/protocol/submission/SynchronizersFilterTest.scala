@@ -18,7 +18,13 @@ import com.digitalasset.canton.version.{
   LfSerializationVersionToProtocolVersions,
   ProtocolVersion,
 }
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPartyId}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  LfPartyId,
+  ProtocolVersionChecksAnyWordSpec,
+}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -28,7 +34,8 @@ class SynchronizersFilterTest
     extends AnyWordSpec
     with BaseTest
     with HasExecutionContext
-    with FailOnShutdown {
+    with FailOnShutdown
+    with ProtocolVersionChecksAnyWordSpec {
   "SynchronizersFilter (simple create)" should {
     import SimpleTopology.*
 
@@ -152,8 +159,11 @@ class SynchronizersFilterTest
       )
     }
 
-    // TODO(#28592) Fix test
-    "reject synchronizers when the minimum protocol version is not satisfied " ignore {
+    /*
+    Running with pv=dev does not make any sense since we want oldPV < newPV=dev
+    Running with 35 <= pv < dev would make sense but makes the test setup more complicated and does change the scenario.
+     */
+    "reject synchronizers when the minimum protocol version is not satisfied " onlyRunWith ProtocolVersion.v34 in {
       import SimpleTopology.*
 
       // LanguageVersion.VDev needs pv=dev so we use pv=6

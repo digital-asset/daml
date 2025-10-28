@@ -29,6 +29,7 @@ import com.digitalasset.canton.participant.admin.party.PartyManagementServiceErr
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
 import com.digitalasset.canton.topology.transaction.{
+  HostingParticipant,
   ParticipantPermission,
   ParticipantPermission as PP,
 }
@@ -335,6 +336,16 @@ final class OfflinePartyReplicationAtOffsetIntegrationTest
       target.parties.import_party_acs(acsSnapshotPath)
 
       target.synchronizers.reconnect(daName)
+
+      eventually() {
+        target.topology.party_to_participant_mappings
+          .list(daId, filterParty = alice.filterString)
+          .loneElement
+          .item
+          .participants should contain(
+          HostingParticipant(target.id, ParticipantPermission.Submission, onboarding = true)
+        )
+      }
 
       // To prevent flakes when trying to archive contracts on the target in the next step
       PartyActivationFlow.removeOnboardingFlag(alice, daId, target)

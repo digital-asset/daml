@@ -459,8 +459,8 @@ class TopologyTransactionProcessor(
             effectiveTimestamp,
             txs,
             expectFullAuthorization = false,
-            // during regular transaction processing, missing signing key signatures are never permitted
-            transactionMayHaveMissingSigningKeySignatures = false,
+            // during regular transaction processing, checks will not be relaxed
+            relaxChecksForBackwardsCompatibility = false,
           )
       )
       (validated, _) = validationResult
