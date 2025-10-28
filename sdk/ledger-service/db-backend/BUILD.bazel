@@ -45,6 +45,7 @@ da_scala_library(
         "//libs-scala/nonempty-cats",
         "//libs-scala/scala-utils",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 

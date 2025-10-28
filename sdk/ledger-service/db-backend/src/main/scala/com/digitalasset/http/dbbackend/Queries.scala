@@ -5,14 +5,14 @@ package com.daml.http.dbbackend
 
 import com.daml.lf.data.Ref
 import com.daml.nonempty
-import nonempty.{NonEmpty, +-:}
+import nonempty.{+-:, NonEmpty}
 import nonempty.NonEmptyReturningOps._
-
 import doobie._
 import doobie.implicits._
+
 import scala.annotation.nowarn
-import scala.collection.immutable.{Seq => ISeq, SortedMap, SortedSet}
-import scalaz.{@@, Cord, Functor, OneAnd, Tag, \/, -\/, \/-}
+import scala.collection.immutable.{SortedMap, SortedSet, Seq => ISeq}
+import scalaz.{-\/, @@, Cord, Functor, OneAnd, Tag, \/, \/-}
 import scalaz.Digit._0
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
@@ -29,6 +29,7 @@ import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Metrics
 import doobie.free.connection
+import org.slf4j.LoggerFactory
 
 sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(implicit
     metrics: Metrics
@@ -36,6 +37,7 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
   import Queries.{Implicits => _, _}, InitDdl._
   import Queries.Implicits._
 
+  private val logger = LoggerFactory.getLogger(classOf[Queries])
   val schemaVersion = 3
 
   private[http] val surrogateTpIdCache = new SurrogateTemplateIdCache(metrics, tpIdCacheMaxEntries)
@@ -333,6 +335,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
     import nonempty.catsinstances._
     cids to SortedSet match {
       case NonEmpty(cids) =>
+        logger.debug(
+          s"Deleting ${cids.size} contracts UU $cids"
+        )
         if (allowDamlTransactionBatching) {
           val del = fr"DELETE FROM $contractTableName WHERE " ++ {
             val chunks =
@@ -348,6 +353,9 @@ sealed abstract class Queries(tablePrefix: String, tpIdCacheMaxEntries: Long)(im
           }
           del.update.run
         } else {
+          logger.debug(
+            s"Deleting ${cids.size} contracts one-by-one; enableDamlTransactionBatching is false"
+          )
           Update[String](s"DELETE FROM $contractTableNameRaw WHERE contract_id = ?")
             .updateMany(cids.toNEF)
         }
@@ -707,7 +715,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
 ) extends Queries(tablePrefix, tpIdCacheMaxEntries) {
   import Queries._, Queries.InitDdl.{Droppable, CreateIndex}
   import Implicits._
-
+  private val logger = LoggerFactory.getLogger(classOf[PostgresQueries])
   type Conf = Unit
 
   protected[this] override def dropIfExists(d: Droppable) =
@@ -768,6 +776,7 @@ private final class PostgresQueries(tablePrefix: String, tpIdCacheMaxEntries: Lo
       dbcs: F[DBContract[SurrogateTpId, DBContractKey, JsValue, Array[String]]]
   )(implicit log: LogHandler): ConnectionIO[Int] = {
     import ipol.pas
+    logger.debug(s"jarekr: inserting contracts: $dbcs")
     Update[DBContract[SurrogateTpId, JsValue, JsValue, Array[String]]](
       s"""
         INSERT INTO $contractTableNameRaw
