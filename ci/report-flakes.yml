@@ -7,18 +7,27 @@ parameters:
 steps:
   - bash: |
       set -euo pipefail
-      eval "$(cd sdk; dev-env/bin/dade-assist)"
-
+      if [ -d sdk ]; then
+        cd sdk
+      fi
+      if [[ $(Agent.OS) = Windows* ]]; then
+        export PATH="$PATH:$(cygpath "$(powershell "./dev-env/windows/bin/dadew.ps1 enable >\$2; dadew where")/scoop/shims")"
+      else
+        eval "$(dev-env/bin/dade assist)"
+      fi
+      cd ..
+      
       report="sdk/test-events.json"
+      mapping="sdk/scala-test-suite-name-map.json" # present only on windows builds
       if [ -f $report ]; then
-        python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report
+        python ci/report_flakes.py $(System.AccessToken) $(Build.SourceBranchName) $report $mapping
       else
         echo "$report not found, skipping"
       fi
     condition: and(
       succeededOrFailed(),
-      eq(${{parameters.is_release}}, 'false'),
-      eq(variables['Build.SourceBranchName'], 'main'))
+      eq(${{parameters.is_release}}, 'false')) #,
+      #eq(variables['Build.SourceBranchName'], 'main'))
     displayName: 'Report flaky tests'
     env:
       GH_TOKEN: $(GH_DAML_READWRITE)
