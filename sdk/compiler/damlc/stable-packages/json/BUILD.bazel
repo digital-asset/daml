@@ -7,7 +7,7 @@ da_haskell_binary(
     srcs = ["src/DA/Daml/JsonWriter.hs"],
     data = ["stable-packages.json"],
     hackage_deps = [
-        "aeson",
+        "aeson-pretty",
         "base",
         "bytestring",
         "containers",
