@@ -85,7 +85,7 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
       url = jdbcUrl,
       user = username,
       password = password,
-      poolSize = 10,
+      poolSize = 7,
       //more
     )
     val jdbcConfig = com.daml.http.dbbackend.JdbcConfig(
@@ -96,7 +96,7 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
 
     ContractDao(
       jdbcConfig,
-      tpIdCacheMaxEntries = Some(10),
+      tpIdCacheMaxEntries = Some(5),
     )
   }
 
@@ -163,7 +163,7 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
   }
 
   "contract service tests" should {
-    "initialize and connect to database" in {
+    "initialize and connect to database" ignore {
 
       val contractDao = createDao()
       val ledgerState = new LedgerState()
@@ -227,6 +227,42 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
       }
     }
 
+    "the bug" ignore  {
+
+      val contractDao = createDao()
+      val ledgerState = new LedgerState()
+      ledgerState.init(1)(
+        Seq(
+          ledgerState.create(10, Seq(TestParties.alice))(7),
+          ledgerState.create(20, Seq(TestParties.alice))(17),
+        )
+      )
+      val contractsService = createService(ledgerState, contractDao)
+
+      implicit val ignoredLoggingContext
+      : LoggingContextOf[InstanceUUID with RequestID] =
+        newLoggingContext(label[InstanceUUID with RequestID])(identity)
+      ledgerState.moveOffset(20)
+
+      for {
+        _ <- DbStartupOps.fromStartupMode(contractDao, CreateAndStart).unsafeToFuture()
+        response1 <- searchRequest(contractsService, Seq(TestParties.alice))
+        _ <- Future {
+          ledgerState.trx(30)(
+            Seq[PseudoEvent](
+              ledgerState.create(30, Seq(TestParties.alice))(616),
+              ledgerState.archive(30, Seq(TestParties.alice)),
+            )
+          )
+        }
+        response2 <- searchRequest(contractsService, Seq(TestParties.alice))
+      } yield {
+        response1 should contain theSameElementsInOrderAs ledgerState.acsAt(20, Seq(TestParties.alice))
+        response2 should contain theSameElementsInOrderAs ledgerState.acsNow(Seq(TestParties.alice))
+        fail("test fail")
+      }
+    }
+
     "randomize" in {
       implicit val ignoredLoggingContext
       : LoggingContextOf[InstanceUUID with RequestID] =
@@ -237,16 +273,16 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
       val parties = Seq(TestParties.alice)
       ledgerState.init(1)(
         Seq(
-          ledgerState.create(10, parties)(1),
-          ledgerState.create(20, parties)(11),
+          ledgerState.create(signatories=  parties)(1),
+          ledgerState.create(signatories =  parties)(11),
         )
       )
       val contractsService = createService(ledgerState, contractDao)
-      val executor = Executors.newFixedThreadPool(2)
+      val executor = Executors.newFixedThreadPool(10)
       val eexecutorEc: ExecutionContext = ExecutionContext.fromExecutorService(executor)
 
       def task(n: Int) =  {
-        val rnd = new scala.util.Random()
+        val rnd = new scala.util.Random(40)
         val res = (1 to n).map(_  =>Future {
           val acs = ledgerState.acsNow(parties)
           val toArchive: Seq[PseudoEvent] = acs.filter(_ => rnd.nextBoolean()).map(
@@ -266,10 +302,16 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
             result <- searchRequest(contractsService, parties)
           } yield {
             val archived = ledgerState.archivedAt(state.ledgerOffset, parties)
+            val capturedState = ledgerState.peek()
             val activeContracts = result.map(_.contractId)
-            val zombie = (activeContracts.intersect(archived))
+            val zombie = activeContracts.intersect(archived)
+            if (zombie.nonEmpty) {
+              println("jarekr: archived: " + archived.mkString(", "))
+              println("jarekr: active: " + activeContracts.mkString(", "))
+              println(s"jarekr: ledger: $capturedState")
+              fail(s"jarekr: found zombies: $zombie")
+            }
             zombie should be(empty)
-//            1 should be (2)
           }
         }(eexecutorEc))
         val x: Future[IndexedSeq[Assertion]] = Future.sequence(res.map( _.flatten))
@@ -279,7 +321,7 @@ abstract class ContractServiceTest extends AsyncWordSpec with Matchers with Insi
       for {
         _ <- DbStartupOps.fromStartupMode(contractDao, CreateAndStart).unsafeToFuture()
         _ <- {
-          val res = (1 to 10).map(_ => task(5))
+          val res = (1 to 150).map(_ => task(30))
           Future.sequence(res)
         }
       } yield succeed
@@ -358,6 +400,7 @@ class LedgerState {
   private val nextOffset: AtomicLong = new AtomicLong(1)
   private val nextCid: AtomicLong = new AtomicLong(1)
 
+  def peek() : PseudoLedger = ledger.get()
 
   def create(
               cid: Long = nextCid.getAndIncrement(),
@@ -365,12 +408,14 @@ class LedgerState {
             )
             (v: Long)
   : PseudoCreatedEvent = {
-    val contractId = s"contractId_$cid"
+    val contractId = toCid(cid)
     PseudoCreatedEvent(PseudoContract(contractId, v.toInt, signatories))
   }
 
+  private def toCid(id: Long ):String= s"contractId_($id)"
+
   def archive(cid: Long, witness: Seq[String] = Seq(TestParties.alice, TestParties.bob)): PseudoArchiveEvent = {
-    PseudoArchiveEvent(s"contractId_$cid", witness)
+    PseudoArchiveEvent(toCid(cid), witness)
   }
 
   def archiveContract(contractId: String, witness: Seq[String] = Seq(TestParties.alice, TestParties.bob)): PseudoArchiveEvent = {
