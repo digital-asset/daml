@@ -16,38 +16,3 @@ azure-pipelines.yml    @digital-asset/daml-language
 azure-cron.yml         @digital-asset/daml-language
 sdk/release/           @digital-asset/daml-language
 sdk/release.sh         @digital-asset/daml-language
-
-# Blackduck
-/sdk/NOTICES
-
-# Compatibility test
-/sdk/compatibility/     @digital-asset/daml-language @digital-asset/kv-participant
-
-# Language
-/sdk/daml-assistant/    @digital-asset/daml-language
-/sdk/daml-script/       
-/sdk/compiler/          @digital-asset/daml-language
-/sdk/libs-haskell/      @digital-asset/daml-language
-/sdk/ghc-lib/           @digital-asset/daml-language
-/sdk/test-common/canton/ 
-
-# Runtime
-/sdk/daml-lf/ 
-
-
-# Ecosystems
-/sdk/language-support/hs/       @digital-asset/daml-language
-/sdk/language-support/java/     
-/sdk/language-support/scala/    
-/sdk/language-support/ts/       
-
-# Application Runtime
-/sdk/ledger-service/
-/sdk/runtime-components/ 
-
-# Misc
-/sdk/docs/ 
-/sdk/libs-scala/
-
-# Observability related libraries
-/sdk/observability 
