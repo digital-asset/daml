@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.value.ContractIdVersion
 import com.digitalasset.daml.lf.value.Value._
 
@@ -20,8 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import java.nio.file.{Files, Path}
 
-class ReplayBenchmarkTestV1
-    extends ReplayBenchmarkTest(ContractIdVersion.V1)
+class ReplayBenchmarkTestV1 extends ReplayBenchmarkTest(ContractIdVersion.V1)
 
 class ReplayBenchmarkTest(contractIdVersion: ContractIdVersion) extends AnyWordSpec with Matchers {
 
