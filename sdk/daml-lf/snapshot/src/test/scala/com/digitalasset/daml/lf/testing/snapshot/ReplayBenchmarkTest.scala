@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.archive.DarDecoder
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.matchers.should.Matchers
@@ -19,11 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import java.nio.file.{Files, Path}
 
-class ReplayBenchmarkTestV2 extends ReplayBenchmarkTest(LanguageMajorVersion.V2)
-
-class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyWordSpec
-    with Matchers {
+class ReplayBenchmarkTest extends AnyWordSpec with Matchers {
 
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -41,7 +36,7 @@ class ReplayBenchmarkTest(majorLanguageVersion: LanguageMajorVersion)
   val alice = Ref.Party.assertFromString("Alice")
   val submissionSeed = crypto.Hash.hashPrivateKey("replay snapshot test")
   val (pkgId, darFile) = getMainPkgIdAndDarPath(
-    s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"
+    s"daml-lf/snapshot/ReplayBenchmark.dar"
   )
 
   "Generating a snapshot" should {
