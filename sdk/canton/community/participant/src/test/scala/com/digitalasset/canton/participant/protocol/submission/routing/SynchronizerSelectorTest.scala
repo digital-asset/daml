@@ -32,7 +32,12 @@ import com.digitalasset.canton.topology.client.TopologySnapshotLoader
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{LfSerializationVersionToProtocolVersions, ProtocolVersion}
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  LfPartyId,
+  ProtocolVersionChecksAnyWordSpec,
+}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -43,7 +48,11 @@ import TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentSyn
 import TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
 import TransactionRoutingError.{UnableToGetStaticParameters, UnableToQueryTopologySnapshot}
 
-class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+class SynchronizerSelectorTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with ProtocolVersionChecksAnyWordSpec {
   implicit class RichEitherT[A](val e: EitherT[Future, TransactionRoutingError, A]) {
     def leftValue: TransactionRoutingError = e.value.futureValue.left.value
   }
@@ -147,8 +156,11 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       pickSynchronizer(repair) shouldBe repair
     }
 
-    // TODO(#28592) Fix test
-    "take minimum protocol version into account" ignore {
+    /*
+    Running with pv=dev does not make any sense since we want oldPV < newPV=dev
+    Running with 35 <= pv < dev would make sense but makes the test setup more complicated and does change the scenario.
+     */
+    "take minimum protocol version into account" onlyRunWith ProtocolVersion.v34 in {
       val oldPV = ProtocolVersion.v34
 
       val serializationVersion = LfSerializationVersion.VDev
@@ -171,31 +183,32 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       )
 
       selectorOldPV.forSingleSynchronizer
-        .leftOrFailShutdown(
-          "aborted due to shutdown."
-        )
+        .leftOrFailShutdown("aborted due to shutdown.")
         .futureValue shouldBe InvalidPrescribedSynchronizerId.Generic(
         da,
         expectedError.toString,
       )
 
       selectorOldPV.forMultiSynchronizer
-        .leftOrFailShutdown(
-          "aborted due to shutdown."
-        )
+        .leftOrFailShutdown("aborted due to shutdown.")
         .futureValue shouldBe NoSynchronizerForSubmission.Error(
         Map(da -> expectedError.toString)
       )
 
       // Happy path
+      val daDev = da.copy(protocolVersion = newPV)
       val selectorNewPV = selectorForExerciseByInterface(
         serializationVersion = LfSerializationVersion.VDev, // requires protocol version dev
-        connectedSynchronizers = Set(da.copy(protocolVersion = newPV)),
-        admissibleSynchronizers = NonEmpty.mk(Set, da.copy(protocolVersion = newPV)),
+        connectedSynchronizers = Set(daDev),
+        admissibleSynchronizers = NonEmpty.mk(Set, daDev),
+        synchronizerOfContracts =
+          contracts => contracts.map(_ -> (daDev, ContractStateStatus.Active)).toMap,
       )
 
-      selectorNewPV.forSingleSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
-      selectorNewPV.forMultiSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
+      val daDevRank = SynchronizerRank(Map.empty, 0, daDev)
+
+      selectorNewPV.forSingleSynchronizer.futureValueUS.value shouldBe daDevRank
+      selectorNewPV.forMultiSynchronizer.futureValueUS.value shouldBe daDevRank
     }
 
     "refuse to route to a synchronizer with missing package vetting" in {
@@ -300,7 +313,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
     "a synchronizer is prescribed" when {
       "return correct response when prescribed submitter synchronizer id is the current one" in {
         val selector = selectorForExerciseByInterface(
-          prescribedSynchronizerId = Some(da)
+          prescribedPSId = Some(da)
         )
 
         selector.forSingleSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
@@ -309,7 +322,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
       "return an error when prescribed synchronizer is incorrect" in {
         val selector = selectorForExerciseByInterface(
-          prescribedSynchronizerId = Some(acme),
+          prescribedPSId = Some(acme),
           connectedSynchronizers = Set(acme, da),
         )
 
@@ -334,7 +347,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
       "propose reassignments when needed" in {
         val selector = selectorForExerciseByInterface(
-          prescribedSynchronizerId = Some(acme),
+          prescribedPSId = Some(acme),
           connectedSynchronizers = Set(acme, da),
           admissibleSynchronizers = NonEmpty.mk(Set, acme, da),
         )
@@ -525,7 +538,7 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers: Set[PhysicalSynchronizerId] = Set(defaultSynchronizer),
         admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]] =
           defaultAdmissibleSynchronizers,
-        prescribedSynchronizerId: Option[PhysicalSynchronizerId] = defaultPrescribedSynchronizerId,
+        prescribedPSId: Option[PhysicalSynchronizerId] = defaultPrescribedSynchronizerId,
         serializationVersion: LfSerializationVersion = fixtureSerializationVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
@@ -549,7 +562,7 @@ private[routing] object SynchronizerSelectorTest {
         synchronizerOfContracts,
         connectedSynchronizers,
         admissibleSynchronizers,
-        prescribedSynchronizerId,
+        prescribedPSId,
         vettedPackages,
         exerciseByInterface.tx,
         ledgerTime,
@@ -609,7 +622,7 @@ private[routing] object SynchronizerSelectorTest {
         ],
         connectedSynchronizers: Set[PhysicalSynchronizerId],
         admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]],
-        prescribedSubmitterSynchronizerId: Option[PhysicalSynchronizerId],
+        prescribedSubmitterPSId: Option[PhysicalSynchronizerId],
         vettedPackages: Seq[VettedPackage],
         tx: LfVersionedTransaction,
         ledgerTime: CantonTimestamp,
@@ -623,16 +636,17 @@ private[routing] object SynchronizerSelectorTest {
 
       object TestSynchronizerState$ extends RoutingSynchronizerState {
         override def getTopologySnapshotFor(
-            synchronizerId: PhysicalSynchronizerId
-        ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshotLoader] = Either
-          .cond(
-            connectedSynchronizers.contains(synchronizerId),
-            SimpleTopology.defaultTestingIdentityFactory(
-              topology,
-              vettedPackages,
-            ),
-            UnableToQueryTopologySnapshot.Failed(synchronizerId),
-          )
+            psid: PhysicalSynchronizerId
+        ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshotLoader] =
+          Either
+            .cond(
+              connectedSynchronizers.contains(psid),
+              SimpleTopology.defaultTestingIdentityFactory(
+                topology,
+                vettedPackages,
+              ),
+              UnableToQueryTopologySnapshot.Failed(psid),
+            )
 
         override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
             ec: ExecutionContext,
@@ -667,7 +681,7 @@ private[routing] object SynchronizerSelectorTest {
           transaction = tx,
           synchronizerState = TestSynchronizerState$,
           contractsStakeholders = inputContractStakeholders,
-          prescribedSynchronizerIdO = prescribedSubmitterSynchronizerId,
+          prescribedSynchronizerIdO = prescribedSubmitterPSId,
           disclosedContracts = Nil,
         )
 

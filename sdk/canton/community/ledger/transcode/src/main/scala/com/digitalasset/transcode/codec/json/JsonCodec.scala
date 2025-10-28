@@ -263,13 +263,11 @@ class JsonCodec(
       Str(DateTimeFormatter.ISO_LOCAL_DATE.format(LocalDate.ofEpochDay(dv.date.longValue)))
   }
 
-  override def contractId(template: Type): Type = new Type {
+  override def contractId: Type = new Type {
     override def toDynamicValue(v: Value): DynamicValue = DynamicValue.ContractId(v.str)
 
     override def fromDynamicValue(dv: DynamicValue): Value = Str(dv.contractId)
   }
-
-  override def interface(id: Identifier): Type = unit
 
   override def variable(name: TypeVarName, value: Codec[Value]): Codec[Value] = value
 

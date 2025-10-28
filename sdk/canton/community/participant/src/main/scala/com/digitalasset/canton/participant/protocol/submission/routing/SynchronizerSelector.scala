@@ -126,26 +126,26 @@ private[routing] class SynchronizerSelector(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
     for {
-      inputContractsSynchronizerIdO <- getSynchronizerOfInputContracts
+      inputContractsPSIdO <- getSynchronizerOfInputContracts
 
-      synchronizerId <- transactionData.prescribedSynchronizerIdO match {
+      psid <- transactionData.prescribedSynchronizerIdO match {
         case Some(prescribedSynchronizerId) =>
           // If a synchronizer is prescribed, we use the prescribed one
           singleSynchronizerValidatePrescribedSynchronizer(
             prescribedSynchronizerId,
-            inputContractsSynchronizerIdO,
+            inputContractsPSIdO,
           )
             .map(_ => prescribedSynchronizerId)
 
         case None =>
-          inputContractsSynchronizerIdO match {
-            case Some(inputContractsSynchronizerId) =>
+          inputContractsPSIdO match {
+            case Some(inputContractsPSId) =>
               // If all the contracts are on a single synchronizer, we use this one
               singleSynchronizerValidatePrescribedSynchronizer(
-                inputContractsSynchronizerId,
-                inputContractsSynchronizerIdO,
+                inputContractsPSId,
+                inputContractsPSIdO,
               )
-                .map(_ => inputContractsSynchronizerId)
+                .map(_ => inputContractsPSId)
             // TODO(#10088) If validation fails, try to re-submit as multi-synchronizer
 
             case None =>
@@ -154,7 +154,7 @@ private[routing] class SynchronizerSelector(
                 .map(_.minBy1(id => SynchronizerRank(Map.empty, priorityOfSynchronizer(id), id)))
           }
       }
-    } yield SynchronizerRank(Map.empty, priorityOfSynchronizer(synchronizerId), synchronizerId)
+    } yield SynchronizerRank(Map.empty, priorityOfSynchronizer(psid), psid)
 
   private def filterSynchronizers(
       admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]]
@@ -202,7 +202,7 @@ private[routing] class SynchronizerSelector(
   }
 
   private def singleSynchronizerValidatePrescribedSynchronizer(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       inputContractsSynchronizerIdO: Option[PhysicalSynchronizerId],
   )(implicit
       traceContext: TraceContext
@@ -215,9 +215,9 @@ private[routing] class SynchronizerSelector(
       inputContractsSynchronizerIdO match {
         case Some(inputContractsSynchronizerId) =>
           EitherTUtil.condUnitET(
-            inputContractsSynchronizerId == synchronizerId,
+            inputContractsSynchronizerId == psid,
             TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-              .InputContractsNotOnSynchronizer(synchronizerId, inputContractsSynchronizerId),
+              .InputContractsNotOnSynchronizer(psid, inputContractsSynchronizerId),
           )
 
         case None => EitherT.pure(())
@@ -228,7 +228,7 @@ private[routing] class SynchronizerSelector(
       _ <- validateContainsInputContractsSynchronizerId
 
       // Generic validations
-      _ <- validatePrescribedSynchronizer(synchronizerId)
+      _ <- validatePrescribedSynchronizer(psid)
     } yield ()
   }
 
@@ -238,20 +238,20 @@ private[routing] class SynchronizerSelector(
     *
     *   - List `synchronizersOfSubmittersAndInformees` contains `synchronizerId`
     */
-  private def validatePrescribedSynchronizer(synchronizerId: PhysicalSynchronizerId)(implicit
+  private def validatePrescribedSynchronizer(prescribedPSId: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     for {
       snapshot <- EitherT.fromEither[FutureUnlessShutdown](
-        synchronizerState.getTopologySnapshotFor(synchronizerId)
+        synchronizerState.getTopologySnapshotFor(prescribedPSId)
       )
 
       // Informees and submitters should reside on the selected synchronizer
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        admissibleSynchronizers.contains(synchronizerId),
+        admissibleSynchronizers.contains(prescribedPSId),
         TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
           .NotAllInformeeAreOnSynchronizer(
-            synchronizerId,
+            prescribedPSId,
             admissibleSynchronizers,
           ),
       )
@@ -259,7 +259,7 @@ private[routing] class SynchronizerSelector(
       // Further validations
       _ <- UsableSynchronizers
         .check(
-          synchronizerId = synchronizerId,
+          synchronizerId = prescribedPSId,
           snapshot = snapshot,
           transaction = transactionData.transaction,
           ledgerTime = transactionData.ledgerTime,
@@ -267,7 +267,7 @@ private[routing] class SynchronizerSelector(
         )
         .leftMap[TransactionRoutingError] { err =>
           TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-            .Generic(synchronizerId.logical, err.toString)
+            .Generic(prescribedPSId.logical, err.toString)
         }
 
     } yield ()

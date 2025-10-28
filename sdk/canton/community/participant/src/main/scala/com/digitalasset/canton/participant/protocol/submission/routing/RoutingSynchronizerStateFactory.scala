@@ -56,11 +56,11 @@ class RoutingSynchronizerStateImpl private[routing] (
 ) extends RoutingSynchronizerState {
 
   override def getTopologySnapshotFor(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshotLoader] =
     topologySnapshots
-      .get(synchronizerId)
-      .toRight(UnableToQueryTopologySnapshot.Failed(synchronizerId))
+      .get(psid)
+      .toRight(UnableToQueryTopologySnapshot.Failed(psid))
 
   override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
       ec: ExecutionContext,

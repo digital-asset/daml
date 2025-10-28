@@ -4,20 +4,15 @@
 package com.digitalasset.canton.interactive
 
 import cats.data.{EitherT, NonEmptySet}
-import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher.PackageResolver
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, VersionedTransaction}
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
-
-object InteractiveSubmissionEnricher {
-  type PackageResolver = PackageId => TraceContext => FutureUnlessShutdown[Option[Package]]
-}
 
 class InteractiveSubmissionEnricher(engine: Engine, packageResolver: PackageResolver) {
   private lazy val enricher = new Enricher(
@@ -44,7 +39,7 @@ class InteractiveSubmissionEnricher(engine: Engine, packageResolver: PackageReso
 
   /** Enrich FCI with type info and labels. Leave out trailing none fields.
     */
-  def enrichContract(contract: FatContractInstance, targetPackageIds: Set[PackageId])(implicit
+  def enrichContract(contract: FatContractInstance, targetPackageIds: Set[LfPackageId])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, String, FatContractInstance] =

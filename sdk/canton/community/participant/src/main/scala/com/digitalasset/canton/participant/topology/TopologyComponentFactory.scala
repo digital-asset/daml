@@ -134,7 +134,7 @@ class TopologyComponentFactory(
       topologyStore,
       Some(crypto.staticSynchronizerParameters),
       validateInitialSnapshot = topologyConfig.validateInitialTopologySnapshot,
-      loggerFactory,
+      loggerFactory = loggerFactory,
     )
 
   def createCachingTopologyClient(

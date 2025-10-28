@@ -8,7 +8,6 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.config
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
-import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher.PackageResolver
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.auth.services.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService
@@ -37,16 +36,11 @@ import com.digitalasset.canton.platform.apiserver.services.command.{
   CommandSubmissionServiceImpl,
 }
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
-import com.digitalasset.canton.platform.config.{
-  CommandServiceConfig,
-  InteractiveSubmissionServiceConfig,
-  PackageServiceConfig,
-  PartyManagementServiceConfig,
-  UserManagementServiceConfig,
-}
+import com.digitalasset.canton.platform.config.*
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
 import io.grpc.BindableService

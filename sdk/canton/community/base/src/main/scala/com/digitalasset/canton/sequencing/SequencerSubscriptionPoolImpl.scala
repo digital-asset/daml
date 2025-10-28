@@ -220,6 +220,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
       member,
       preSubscriptionEventO,
       subscriptionHandlerFactory,
+      parent = this,
     )
 
     subscription.closeReason.onComplete(closeWithSubscriptionReason(connection))
@@ -230,6 +231,32 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
   private val closeReasonPromise = Promise[SequencerClient.CloseReason]()
 
   override def completion: Future[SequencerClient.CloseReason] = closeReasonPromise.future
+
+  // TODO(i28969): Clean up shutdown and notification mechanism
+  // When completing the subscription pool with a reason, we generally also update the health of the subscription pool.
+  // This is because other places in the code react to one or the other: for example, the sequencer client will watch
+  // the promise and close with the associated reason, which will propagate up to the synchronizer connection manager,
+  // whereas the liveness health of mediator nodes has the sequencer client's health as a critical dependency.
+  // If we are completing due to a lost subscription, it can trigger another fatal condition happening concurrently (e.g.
+  // threshold no longer reachable). Only the first reason will complete the promise, but the health change will be
+  // arbitrary.
+  // Furthermore, since the health of a component can freely change between any state, an arbitrary health change
+  // can mean that a Fatal health which should trigger the liveness to go to NOT_SERVING can be missed if the component
+  // closes before liveness sees it (as closing overrides the health to Failed).
+  // The following attempts to maintain coherency by limiting the changes to the first completion call, and updating the
+  // health before completing so that it has time to propagate.
+  // This whole shutdown and notification mechanism, partly inherited from the old transports, should definitely be
+  // revisited and cleaned up.
+  private val completed = new AtomicBoolean(false)
+  private def completeWithReason(
+      reason: Try[SequencerClient.CloseReason],
+      updateHealth: (SequencerSubscriptionPoolHealth, String) => Unit,
+  )(implicit traceContext: TraceContext): Unit =
+    if (!completed.getAndSet(true)) {
+      updateHealth(health, reason.toString)
+      logger.debug(s"Completing sequencer subscription pool with reason: $reason")
+      closeReasonPromise.tryComplete(reason).discard
+    }
 
   private def closeWithSubscriptionReason(connection: SequencerConnectionX)(
       subscriptionCloseReason: Try[SubscriptionCloseReason[SequencerClientSubscriptionError]]
@@ -246,8 +273,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
     def complete(
         reason: Try[SequencerClient.CloseReason]
     )(implicit traceContext: TraceContext): Unit = {
-      health.fatalOccurred(s"Closing with reason $reason")
-      closeReasonPromise.tryComplete(reason).discard
+      completeWithReason(reason, _.fatalOccurred(_))
       LifeCycle.close(this)(logger)
     }
 
@@ -348,8 +374,7 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
         )
       case _ if !pool.isThresholdStillReachable(currentConfig.trustThreshold, Set.empty) =>
         val reason = s"Trust threshold ${currentConfig.trustThreshold} is no longer reachable"
-        health.fatalOccurred(reason)
-        closeReasonPromise.tryComplete(Success(UnrecoverableError(reason))).discard
+        completeWithReason(Success(UnrecoverableError(reason)), _.fatalOccurred(_))
       case nb =>
         health.failureOccurred(
           s"only $nb subscription(s) available, trust threshold = ${currentConfig.trustThreshold}"

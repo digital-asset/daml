@@ -82,7 +82,9 @@ private[backend] trait StorageBackendTestsCompletions
       completions1to2 should have length 1
       completions0to9 should have length 3
 
-      completions0to9.head.completionResponse.completion.map(_.traceContext) shouldBe Some(None)
+      completions0to9.head.completionResponse.completion.map(_.traceContext) shouldBe Some(
+        Some(SerializableTraceContext(testTraceContext).toDamlProto)
+      )
       completions0to9(1).completionResponse.completion.map(_.traceContext) shouldBe Some(None)
       completions0to9(2).completionResponse.completion.map(_.traceContext) shouldBe Some(
         Some(SerializableTraceContext(aTraceContext).toDamlProto)
@@ -411,7 +413,7 @@ private[backend] trait StorageBackendTestsCompletions
         publicationTime = CantonTimestamp(publicationTime),
         submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
         accepted = true,
-        traceContext = TraceContext.empty,
+        traceContext = testTraceContext,
       ),
       PostPublishData(
         submissionSynchronizerId = SynchronizerId.tryFromString("x::synchronizer1"),
@@ -425,7 +427,7 @@ private[backend] trait StorageBackendTestsCompletions
         publicationTime = CantonTimestamp(publicationTime),
         submissionId = Some(Ref.SubmissionId.assertFromString(submissionId)),
         accepted = false,
-        traceContext = TraceContext.empty,
+        traceContext = testTraceContext,
       ),
     )
   }

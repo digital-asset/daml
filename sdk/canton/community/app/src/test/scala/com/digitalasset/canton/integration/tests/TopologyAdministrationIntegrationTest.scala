@@ -322,7 +322,7 @@ class TopologyAdministrationIntegrationTest
           ),
           _.shouldBeCantonError(
             TopologyManagerError.UnauthorizedTransaction,
-            _ should include("Not authorized"),
+            _ should include("Topology transaction is missing authorizations by names"),
           ),
           _.errorMessage should include("Please contact the operator"),
         )
@@ -396,7 +396,7 @@ class TopologyAdministrationIntegrationTest
           ),
           _.shouldBeCantonError(
             TopologyManagerError.UnauthorizedTransaction,
-            _ should include("Not authorized"),
+            _ should include("Topology transaction is missing authorizations by"),
           ),
           _.errorMessage should include("Please contact the operator"),
         )

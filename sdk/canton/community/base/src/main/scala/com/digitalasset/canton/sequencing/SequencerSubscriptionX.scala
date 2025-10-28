@@ -7,6 +7,7 @@ import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.HasUnlessClosing
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.{
   ApplicationHandlerException,
@@ -41,12 +42,16 @@ import scala.util.{Failure, Success, Try}
   *   timestamp at which to start the subscription; if undefined, we subscribe from the beginning
   * @param handler
   *   handler to process the events received from the subscription
+  * @param parent
+  *   component whose closing indicates the subscriptions will be closed soon; used to shortcut
+  *   errors and avoid warning logs when shutting down
   */
 class SequencerSubscriptionX[HandlerError] private[sequencing] (
     val connection: SequencerConnectionX,
     member: Member,
     startingTimestampO: Option[CantonTimestamp],
     handler: SequencedEventHandler[HandlerError],
+    parent: HasUnlessClosing,
     protected override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -73,7 +78,7 @@ class SequencerSubscriptionX[HandlerError] private[sequencing] (
             ErrorUtil
               .invalidState(s"Close reason 'TransportChange' cannot happen on a pool connection")
 
-          case Success(_: SubscriptionCloseReason.SubscriptionError) if isClosing =>
+          case Success(_: SubscriptionCloseReason.SubscriptionError) if parent.isClosing =>
             giveUp(Success(SubscriptionCloseReason.Shutdown))
 
           case error @ Success(subscriptionError: SubscriptionCloseReason.SubscriptionError) =>
@@ -90,7 +95,7 @@ class SequencerSubscriptionX[HandlerError] private[sequencing] (
               giveUp(error)
             }
 
-          case Failure(_: AbruptStageTerminationException) if isClosing =>
+          case Failure(_: AbruptStageTerminationException) if parent.isClosing =>
             giveUp(Success(SubscriptionCloseReason.Shutdown))
 
           case Failure(exn) =>
@@ -159,7 +164,7 @@ class SequencerSubscriptionX[HandlerError] private[sequencing] (
         )
         connection.fatal("Instance became passive")
 
-      case Success(Fatal(reason)) if isClosing =>
+      case Success(Fatal(reason)) if parent.isClosing =>
         logger.info(
           s"Permanently closing sequencer subscription after an error due to an ongoing shutdown: $reason"
         )
@@ -188,6 +193,7 @@ trait SequencerSubscriptionXFactory {
       member: Member,
       preSubscriptionEventO: Option[ProcessingSerializedEvent],
       subscriptionHandlerFactory: SubscriptionHandlerXFactory,
+      parent: HasUnlessClosing,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -205,6 +211,7 @@ class SequencerSubscriptionXFactoryImpl(
       member: Member,
       preSubscriptionEventO: Option[ProcessingSerializedEvent],
       subscriptionHandlerFactory: SubscriptionHandlerXFactory,
+      parent: HasUnlessClosing,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -226,12 +233,13 @@ class SequencerSubscriptionXFactoryImpl(
     )
 
     new SequencerSubscriptionX(
-      connection,
-      member,
-      startingTimestampO,
-      subscriptionHandler.handleEvent,
-      timeouts,
-      loggerWithConnection,
+      connection = connection,
+      member = member,
+      startingTimestampO = startingTimestampO,
+      handler = subscriptionHandler.handleEvent,
+      parent = parent,
+      timeouts = timeouts,
+      loggerFactory = loggerWithConnection,
     )
   }
 }

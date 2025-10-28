@@ -71,10 +71,10 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
   // to produce a race in the TP ConflictDetector in-memory state.
   private def createSourceParticipantTestInterceptor(): PartyReplicationTestInterceptor =
     PartyReplicationTestInterceptorImpl.sourceParticipantProceedsIf { state =>
-      // Allow replicating the first two batches, but stop before the third batch that contains the
-      // contract that this test exercises, so that we can ensure that the exercised contracts is
+      // Allow replicating the first batch that contains the contract that this test exercises,
+      // but stop before the second batch, so that we can ensure that the exercised contracts is
       // replicated while the exercise is inflight.
-      val numContractsBeforeExercisedContract = 2 * numContractsInCreateBatch
+      val numContractsBeforeExercisedContract = numContractsInCreateBatch
       val canProceed =
         state.sentContractsCount.unwrap <= numContractsBeforeExercisedContract || canSourceProceedWithOnPR
 
@@ -133,8 +133,8 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     )
 
     val amounts = (1 to numContractsInCreateBatch)
-    IouSyntax.createIous(participant1, alice, decentralizedParty, amounts)
     dpToAlice = IouSyntax.createIous(participant1, decentralizedParty, alice, amounts)
+    IouSyntax.createIous(participant1, alice, decentralizedParty, amounts)
 
     // Create some decentralized party stakeholder contracts shared with a party (Bob) already
     // on the target participant P2.

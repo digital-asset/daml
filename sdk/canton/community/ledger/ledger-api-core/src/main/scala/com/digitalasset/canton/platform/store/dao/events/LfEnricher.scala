@@ -42,7 +42,7 @@ trait LfEnricher {
 object LfEnricher {
 
   def apply(engine: Engine, forbidLocalContractIds: Boolean): LfEnricher =
-    new LfEnricherImpl(
+    new Impl(
       new Enricher(
         engine = engine,
         addTrailingNoneFields = false,
@@ -50,7 +50,7 @@ object LfEnricher {
       )
     )
 
-  class LfEnricherImpl(delegate: Enricher) extends LfEnricher {
+  private class Impl(delegate: Enricher) extends LfEnricher {
 
     override def enrichVersionedTransaction(
         versionedTransaction: VersionedTransaction

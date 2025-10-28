@@ -14,10 +14,10 @@ import com.digitalasset.canton.participant.protocol.EngineController.{
   GetEngineAbortStatus,
 }
 import com.digitalasset.canton.participant.store.{ContractAndKeyLookup, ExtendedContractLookup}
-import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.ContractValidator.ContractAuthenticatorFn
+import com.digitalasset.canton.util.PackageConsumer.PackageResolver
 import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{
   BaseTest,

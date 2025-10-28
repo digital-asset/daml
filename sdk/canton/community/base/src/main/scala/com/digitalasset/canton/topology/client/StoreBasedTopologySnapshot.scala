@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.client
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage, SigningKeysWithThreshold}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -21,6 +21,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -811,29 +812,26 @@ class StoreBasedTopologySnapshot(
     result
   }
 
-  /** returns party authorization info for a party */
-  override def partyAuthorization(party: PartyId)(implicit
+  override def signingKeysWithThreshold(party: PartyId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
+  ): FutureUnlessShutdown[Option[SigningKeysWithThreshold]] =
     findTransactions(
-      types = Seq(TopologyMapping.Code.PartyToKeyMapping),
+      types = Seq(TopologyMapping.Code.PartyToKeyMapping, Code.PartyToParticipant),
       filterUid = Some(NonEmpty(Seq, party.uid)),
       filterNamespace = None,
     ).map { transactions =>
-      val keys = transactions
-        .collectOfMapping[PartyToKeyMapping]
-      keys.result.toList match {
-        case head :: Nil =>
-          val mapping = head.transaction.transaction.mapping
-          Some(
-            PartyKeyTopologySnapshotClient.PartyAuthorizationInfo(
-              threshold = mapping.threshold,
-              signingKeys = mapping.signingKeys,
-            )
+      collectLatestMapping[PartyToParticipant](
+        Code.PartyToParticipant,
+        transactions.collectOfMapping[PartyToParticipant].result,
+      )
+        .flatMap(_.partySigningKeysWithThreshold)
+        .orElse {
+          collectLatestMapping[PartyToKeyMapping](
+            Code.PartyToKeyMapping,
+            transactions.collectOfMapping[PartyToKeyMapping].result,
           )
-        case Nil => None
-        case _ => ErrorUtil.invalidState(s"Too many PartyToKeyMappings for $party: $keys")
-      }
+            .map(_.signingKeysWithThreshold)
+        }
     }
 
   override def synchronizerUpgradeOngoing()(implicit
