@@ -145,13 +145,9 @@ abstract class UpgradesMatrix[Err, Res](
 
 // Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
 // highest stable 2.x version, respectively
-class UpgradesMatrixCasesV2Dev(contractIdVersion: ContractIdVersion)
-    extends UpgradesMatrixCases(LanguageVersion.v2_dev, contractIdVersion)
-class UpgradesMatrixCasesV2MaxStable(contractIdVersion: ContractIdVersion)
-    extends UpgradesMatrixCases(
-      LanguageVersion.StableVersions(LanguageMajorVersion.V2).max,
-      contractIdVersion,
-    )
+object UpgradesMatrixCasesV2Dev extends UpgradesMatrixCases(LanguageVersion.v2_dev)
+object UpgradesMatrixCasesV2MaxStable
+    extends UpgradesMatrixCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
 
 /** Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
   * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
@@ -181,8 +177,7 @@ class UpgradesMatrixCasesV2MaxStable(contractIdVersion: ContractIdVersion)
   * parties. These are defined in [[commonDefsPkg]].
   */
 class UpgradesMatrixCases(
-    val langVersion: LanguageVersion,
-    val contractIdVersion: ContractIdVersion,
+    val langVersion: LanguageVersion
 ) {
   import UpgradesMatrixCases._
 
@@ -1912,6 +1907,8 @@ class UpgradesMatrixCases(
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.allUpToVersion(langVersion)
     )
+
+  val contractIdVersion: ContractIdVersion = ContractIdVersion.V1
 
   val compiledPackages: PureCompiledPackages =
     PureCompiledPackages.assertBuild(allPackages, engineConfig.getCompilerConfig)

@@ -65,7 +65,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   import ContractKeySpec._
 
   private[this] val version = SerializationVersion.minContractKeys
-  private[this] val contractIdVersion = ContractIdVersion.V1
+  private[this] val contractIdVersion = ContractIdVersion.V2
 
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 

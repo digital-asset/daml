@@ -37,37 +37,18 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 // Split the tests across eight suites with eight Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-// We don't want to afford running all tests for both contract ID versions,
-// so we arbitrarily pick one for each of the suites.
 class UpgradesMatrixIntegration0
-    extends UpgradesMatrixIntegration(
-      new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1),
-      3,
-      0,
-    )
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 0)
 class UpgradesMatrixIntegration1
-    extends UpgradesMatrixIntegration(
-      new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V2),
-      3,
-      1,
-    )
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 1)
 class UpgradesMatrixIntegration2
-    extends UpgradesMatrixIntegration(
-      new UpgradesMatrixCasesV2MaxStable(ContractIdVersion.V1),
-      3,
-      2,
-    )
+    extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2MaxStable, 3, 2)
 
-class UpgradesMatrixIntegration3
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 0)
-class UpgradesMatrixIntegration4
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 5, 1)
-class UpgradesMatrixIntegration5
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 2)
-class UpgradesMatrixIntegration6
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V1), 5, 3)
-class UpgradesMatrixIntegration7
-    extends UpgradesMatrixIntegration(new UpgradesMatrixCasesV2Dev(ContractIdVersion.V2), 5, 4)
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 0)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 1)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 2)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 3)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(UpgradesMatrixCasesV2Dev, 5, 4)
 
 /** A test suite to run the UpgradesMatrix matrix on Canton.
   *
