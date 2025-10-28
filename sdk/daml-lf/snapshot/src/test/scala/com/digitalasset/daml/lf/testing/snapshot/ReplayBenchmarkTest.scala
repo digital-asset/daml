@@ -18,9 +18,7 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.File
 import java.nio.file.{Files, Path}
 
-// class ReplayBenchmarkTestV2 extends ReplayBenchmarkTest(LanguageMajorVersion.V2)
-
-class ReplayBenchmarkTest() extends AnyWordSpec with Matchers {
+class ReplayBenchmarkTest extends AnyWordSpec with Matchers {
 
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
